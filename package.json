@@ -1,0 +1,76 @@
+{
+	"name": "llm-electron",
+	"productName": "LLM Desktop Assistant",
+	"version": "1.0.0",
+	"description": "Floating desktop AI assistant powered by llama.cpp",
+	"homepage": "https://example.com",
+	"main": "main.js",
+	"scripts": {
+		"postinstall": "electron-builder install-app-deps",
+		"dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+		"dev:vite": "vite",
+		"dev:electron": "cross-env NODE_ENV=development electron .",
+		"build": "vite build",
+		"start": "cross-env NODE_ENV=production electron .",
+		"preview": "vite preview",
+		"dist": "npm run build && electron-builder"
+	},
+	"keywords": [
+		"electron",
+		"react",
+		"llm",
+		"llama.cpp",
+		"assistant"
+	],
+	"author": {
+		"name": "mk-saadi",
+		"email": "mksaadi820@gmail"
+	},
+	"license": "MIT",
+	"build": {
+		"appId": "com.llmelectron.assistant",
+		"productName": "LLM Desktop Assistant",
+		"directories": {
+			"output": "release"
+		},
+		"files": [
+			"dist/**/*",
+			"main.js",
+			"src/main/**/*.js",
+			"src/preload.js",
+			"preload.js",
+			"src/lib/**/*.mjs"
+		],
+		"linux": {
+			"target": [
+				"AppImage",
+				"deb"
+			],
+			"category": "Utility"
+		},
+		"deb": {
+			"maintainer": "mk-saadi mksaadi820@gmail.com"
+		}
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.3",
+		"@vitejs/plugin-react": "^4.3.4",
+		"concurrently": "^9.1.2",
+		"cross-env": "^7.0.3",
+		"electron": "^33.3.1",
+		"electron-builder": "^26.15.3",
+		"tailwindcss": "^4.3.3",
+		"vite": "^6.0.7",
+		"wait-on": "^8.0.2"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.30.1",
+		"better-sqlite3": "^11.10.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"react-icons": "^5.7.0",
+		"react-markdown": "^10.1.0",
+		"react-syntax-highlighter": "^16.1.1",
+		"remark-gfm": "^4.0.1"
+	}
+}

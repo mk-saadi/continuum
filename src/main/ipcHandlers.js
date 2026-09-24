@@ -1,0 +1,196 @@
+'use strict';
+
+const { getLoadConfig } = require('./configManager');
+const { app, ipcMain } = require('electron');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const {
+  getCoreMemories, searchPermanentMemories, addPermanentMemory,
+  getAllActiveMemories, deleteMemory,
+} = require('./memoryManager');
+const { getOrCreateSession, saveMessage, getContextUsage, getActiveMessages, getSessionSummary } = require('./sessionManager');
+const { loadSession, getAllSessions, updateSession, deleteSession, editMessage, deleteMessage, branchChat } = require('./sessionManager');
+const { scheduleIdleCompression } = require('./compressionEngine');
+const mcpManager = require('./mcpManager');
+const { prepareChatMessages, memoryTools, getToolContext } = require('./promptBuilder');
+const { processUploads } = require('./fileUploads');
+const { executeMemoryTool } = require('./memoryToolExecutor');
+
+function defaultTrustedSender(event) {
+  if (!event.senderFrame || event.senderFrame !== event.sender.mainFrame) return false;
+  const url = new URL(event.senderFrame.url);
+  url.search = '';
+  url.hash = '';
+  const expected = process.env.NODE_ENV === 'development'
+    ? 'http://localhost:5173/'
+    : pathToFileURL(path.join(app.getAppPath(), 'dist', 'index.html')).href;
+  return url.href === expected;
+}
+
+function registerIpcHandlers({
+  isTrustedSender = defaultTrustedSender,
+  llmSummarizeCallback,
+  launchEngine,
+  getEngineConfig,
+} = {}) {
+  if (typeof isTrustedSender !== 'function') {
+    throw new TypeError('isTrustedSender must be a function.');
+  }
+
+  const requests = new Map();
+  const subscribers = new Set();
+  const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools()) });
+  const broadcast = () => {
+    for (const sender of subscribers) {
+      if (sender.isDestroyed()) subscribers.delete(sender);
+      else sender.send('mcp:changed', context());
+    }
+  };
+  mcpManager.on('changed', broadcast);
+  const handlers = {
+    'mcp:get-config': () => mcpManager.getConfig(),
+    'mcp:save-config': config => mcpManager.saveConfig(config),
+    'mcp:get-status': async () => { await mcpManager.init(); return context(); },
+    'mcp:get-tools': async () => { await mcpManager.init(); return getToolContext(mcpManager.getTools()); },
+    'mcp:set-server-enabled': async ({ serverName, enabled }) => {
+      const config = await mcpManager.setServerEnabled(serverName, enabled); return { ...context(), config };
+    },
+    'mcp:set-tool-enabled': async ({ name, toolName, serverName, enabled }) => {
+      const config = await mcpManager.setToolEnabled(toolName ?? name, enabled, serverName); return { ...context(), config };
+    },
+    'mcp:set-all-tools-enabled': async ({ serverName, enabled }) => {
+      const config = await mcpManager.setAllToolsEnabled(serverName, enabled); return { ...context(), config };
+    },
+    'engine:cancel-chat': ({ requestId }, _notify, sender) => {
+      requests.get(sender)?.get(requestId)?.abort();
+    },
+    'engine:chat': async ({ requestId, modelId, messages }, notify, sender) => {
+      let currentStats = null; // Never reuse a previous turn's final stats.
+      if (typeof requestId !== 'string' || !requestId || typeof modelId !== 'string' || !Array.isArray(messages)) throw new Error('Invalid chat request.');
+      if (requests.get(sender)?.size) throw new Error('A chat is already running.');
+      const controller = new AbortController();
+      const active = new Map([[requestId, controller]]);
+      requests.set(sender, active);
+      const abort = () => controller.abort();
+      sender.once('destroyed', abort);
+      try {
+        await mcpManager.init();
+        controller.signal.throwIfAborted();
+        const config = getEngineConfig?.();
+        if (!config) throw new Error('Start the local model server first.');
+        const { runMemoryChat } = await import('../lib/memoryChat.mjs');
+        const { tools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools());
+        notify({ type: 'context', pluginTokens, toolTokens });
+        const text = await runMemoryChat({
+          baseUrl: `http://127.0.0.1:${config.port}`, apiKey: config.apiKey, modelId, messages,
+          chatTools: tools, signal: controller.signal,
+          onText: delta => notify({ type: 'text', delta }),
+          onStats: stats => { currentStats = stats; notify({ type: 'stats', stats }); },
+          onThinking: thinking => notify({ type: 'thinking', thinking }),
+          executeTool: async call => {
+            controller.signal.throwIfAborted();
+            const id = require('node:crypto').randomUUID();
+            let target;
+            try {
+              const isMemory = memoryTools.some(t => t.name === call.name);
+              target = isMemory ? { serverName: 'memory', toolName: call.name } : mcpManager.resolveTool(call.name);
+              notify({ type: 'tool', id, ...target, status: 'pending' });
+              const args = JSON.parse(call.arguments || '{}');
+              const output = isMemory ? await executeMemoryTool({ ...call, modelId }) :
+                await mcpManager.callTool(target.serverName, target.toolName, args, { signal: controller.signal });
+              controller.signal.throwIfAborted();
+              const result = typeof output === 'string' ? JSON.parse(output) : output;
+              notify({ type: 'tool', id, ...target, status: result?.isError || result?.success === false ? 'error' : 'complete', result });
+              return output;
+            } catch (error) {
+              notify({ type: 'tool', id, ...target, status: controller.signal.aborted ? 'cancelled' : 'error', error: error.message });
+              controller.signal.throwIfAborted();
+              return { isError: true, error: error.message };
+            }
+          },
+        });
+        return { text, stats: currentStats };
+      } finally {
+        sender.removeListener('destroyed', abort);
+        requests.delete(sender);
+      }
+    },
+    'engine:get-load-config': ({ modelId }) => getLoadConfig(modelId),
+    'engine:launch': ({ modelId, config }) => launchEngine(modelId, config),
+    'file:process-uploads': (filePaths) => processUploads(filePaths),
+    'session:get-all': () => getAllSessions(),
+    'session:load': ({ sessionId }) => loadSession(sessionId),
+    'session:rename': ({ sessionId, title }) => updateSession(sessionId, 'title', title),
+    'session:move-to-folder': ({ sessionId, folderName }) => updateSession(sessionId, 'folder_name', folderName),
+    'session:delete': ({ sessionId }) => deleteSession(sessionId),
+    'session:delete-message': ({ sessionId, messageId }) => deleteMessage(sessionId, messageId),
+    'session:branch-chat': ({ sourceSessionId, targetMessageId }) => branchChat(sourceSessionId, targetMessageId),
+    'session:edit-message': ({ messageId, newContent }) => editMessage(messageId, newContent),
+    'memory:get-tools': () => memoryTools,
+    'memory:execute-tool': (data) => executeMemoryTool(data),
+    'session:prepare-messages': (data) => prepareChatMessages(data),
+    'memory:get-core': ({ modelId }) => getCoreMemories(modelId),
+    'memory:search': ({ query, modelId }) => searchPermanentMemories(query, modelId),
+    'memory:add': (data) => {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new TypeError('Memory data must be an object.');
+      }
+      const { category, content, scope, alwaysInject } = data;
+      return addPermanentMemory({ category, content, scope, alwaysInject });
+    },
+    'memory:all': () => getAllActiveMemories(),
+    'memory:delete': (id) => deleteMemory(id),
+    'session:get-or-create': ({ sessionId, modelId }) => getOrCreateSession(sessionId, modelId),
+    'session:save-message': ({ sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null }) => saveMessage(sessionId, role, content, attachments, stats, toolCalls, thinking, messageId),
+    'session:get-usage': ({ sessionId, modelId }) => getContextUsage(sessionId, modelId),
+    'session:get-messages': ({ sessionId }) => getActiveMessages(sessionId),
+    'session:get-summary': ({ sessionId }) => getSessionSummary(sessionId),
+    'session:trigger-compression': ({ sessionId, modelId, contextWindowLimit }, notify) => {
+      if (typeof llmSummarizeCallback !== 'function') {
+        throw new Error('Configure a main-process summarizer before scheduling compression.');
+      }
+      scheduleIdleCompression(
+        sessionId, modelId, contextWindowLimit,
+        (oldSummary, messageBatch) => llmSummarizeCallback(oldSummary, messageBatch, modelId),
+        notify,
+      );
+      return { scheduled: true };
+    },
+  };
+
+  const registered = [];
+  const dispose = () => {
+    mcpManager.off('changed', broadcast);
+    subscribers.clear();
+    for (const active of requests.values()) for (const controller of active.values()) controller.abort();
+    for (const channel of registered.splice(0)) ipcMain.removeHandler(channel);
+  };
+  try {
+    for (const [channel, handler] of Object.entries(handlers)) {
+      ipcMain.handle(channel, async (event, payload) => {
+        if (!isTrustedSender(event)) throw new Error('Unauthorized IPC sender.');
+        if (channel.startsWith('mcp:')) subscribers.add(event.sender);
+        if (channel === 'engine:chat' || channel === 'engine:cancel-chat') {
+          return handler(payload, result => {
+            if (!event.sender.isDestroyed() && isTrustedSender(event)) event.sender.send('engine:chat-event', { requestId: payload.requestId, ...result });
+          }, event.sender);
+        }
+        if (channel === 'session:trigger-compression') {
+          return handler(payload, (result) => {
+            if (!event.sender.isDestroyed() && isTrustedSender(event)) {
+              event.sender.send('session:compression-complete', result);
+            }
+          });
+        }
+        return handler(payload);
+      });
+      registered.push(channel);
+    }
+  } catch (error) {
+    dispose();
+    throw error;
+  }
+  return dispose;
+}
+
+module.exports = { registerIpcHandlers, registerMemoryPalaceHandlers: registerIpcHandlers };

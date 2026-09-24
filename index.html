@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="h-full w-full overflow-hidden bg-[#f5f5fa] dark:bg-[#1e1e2e] font-sans leading-normal text-[#1a1a2e] dark:text-[#e0e0f0] select-none [&_:is(button,input,textarea,select):focus-visible]:outline-2 [&_:is(button,input,textarea,select):focus-visible]:outline-offset-2 [&_:is(button,input,textarea,select):focus-visible]:outline-[#7c6ff7] dark:[&_:is(button,input,textarea,select):focus-visible]:outline-[#9589ff]">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; img-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:* http://localhost:* ws://localhost:*"
+		/>
+		<title>LLM Desktop Assistant</title>
+	</head>
+	<body class="h-screen w-screen overflow-hidden text-[14px] text-[#1a1a2e] dark:text-[#e0e0f0] bg-[#f5f5fa] dark:bg-[#1e1e2e]">
+		<div id="root" class="flex h-full w-full flex-col overflow-hidden bg-[#f5f5fa] dark:bg-[#1e1e2e]"></div>
+		<script
+			type="module"
+			src="/src/main.jsx"
+		></script>
+	</body>
+</html>

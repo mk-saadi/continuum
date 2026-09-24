@@ -1,0 +1,63 @@
+// Run: env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/memorySettings.ui.cjs
+const { app, BrowserWindow } = require('electron');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
+const assert = require('node:assert/strict');
+const { pathToFileURL } = require('node:url');
+const esbuild = require('esbuild');
+app.disableHardwareAcceleration();
+app.whenReady().then(async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'memory-settings-ui-'));
+  const window = new BrowserWindow({ width: 700, height: 740, show: false, webPreferences: { sandbox: true } });
+  try {
+    await esbuild.build({ entryPoints: [path.join(__dirname, 'fixtures/memorySettings.jsx')], bundle: true, outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' } });
+    const assets = path.join(__dirname, '../dist/assets');
+    const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));
+    await fs.writeFile(path.join(directory, 'index.html'), `<html><head><link rel="stylesheet" href="${pathToFileURL(path.join(assets, css)).href}"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>`);
+    await window.loadFile(path.join(directory, 'index.html'));
+    const result = await window.webContents.executeJavaScript(`(async () => {
+      const tick = () => new Promise(resolve => setTimeout(resolve, 40));
+      const check = (value, message) => { if (!value) throw new Error(message); };
+      const tab = name => document.querySelector('#settings-tab-' + name);
+      const panel = name => document.querySelector('#settings-panel-' + name);
+      const button = (root, text) => [...root.querySelectorAll('button')].find(b => b.textContent === text);
+      for (let i = 0; i < 100 && !document.querySelector('dialog[open]'); i++) await tick();
+      await tick();
+      check(document.querySelectorAll('[role=tab]').length === 3, 'Expected three tabs');
+      check(!panel('memory').hidden && panel('integrations').hidden, 'Only memory initially visible');
+      tab('memory').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await tick();
+      check(document.activeElement === tab('integrations'), 'Keyboard tab focus');
+      check(!panel('integrations').hidden && panel('memory').hidden, 'Integration visibility');
+      check(panel('integrations').textContent.includes('ENOENT'), 'Show connection error reason');
+      document.querySelector('summary').click(); await tick();
+      const tool = document.querySelector('details input[type=checkbox]');
+      tool.click(); await tick();
+      check(!tool.checked, 'Individual tool permission');
+      check((await window.api.getMcpConfig()).mcpServers.terminal.disabledTools.includes('run_command'), 'Tool mutation reached bridge');
+      button(panel('integrations'), 'Enable All').click(); await tick();
+      check([...document.querySelectorAll('details input[type=checkbox]')].every(input => input.checked), 'Enable all');
+      button(panel('integrations'), 'Disable All').click(); await tick();
+      check([...document.querySelectorAll('details input[type=checkbox]')].every(input => !input.checked), 'Disable all');
+      const master = document.querySelector('[role=switch]'); master.click(); await tick();
+      check(master.getAttribute('aria-checked') === 'false', 'Master toggle');
+      tab('config').click(); await tick();
+      button(panel('config'), 'Raw JSON Editor').click(); await tick();
+      const textarea = panel('config').querySelector('textarea');
+      check(JSON.parse(textarea.value).mcpServers.terminal.disabled, 'Raw JSON sees permissions');
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(textarea, '{ invalid'); textarea.dispatchEvent(new Event('input', { bubbles: true })); await tick();
+      button(panel('config'), 'Save JSON').click(); await tick();
+      check(panel('config').textContent.includes('Config must be valid JSON.'), 'Invalid draft validation');
+      check(textarea.value === '{ invalid', 'Invalid draft retained');
+      button(panel('config'), 'Cancel').click(); await tick();
+      tab('integrations').click(); await tick();
+      document.querySelector('[aria-label="Delete MCP server: broken"]').click(); await tick();
+      check(!panel('integrations').textContent.includes('mcp/broken'), 'Delete integration');
+      return true;
+    })()`);
+    assert.equal(result, true);
+    console.log('Tabbed modal, keyboard navigation, status errors, individual/bulk/master permissions, raw JSON validation, and deletion passed.');
+  } finally { window.destroy(); await fs.rm(directory, { recursive: true }); }
+  app.exit(0);
+}).catch(error => { console.error(error); app.exit(1); });

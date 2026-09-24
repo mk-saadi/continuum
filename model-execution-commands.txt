@@ -1,0 +1,18 @@
+[
+	{
+		"modelName": "qwythos-claude-9b",
+		"command": "/media/mk_saadi/d_drive/qwen-27b/llama.cpp-adaptive-kv-streaming/build/bin/llama-server -m /media/mk_saadi/e_drive/llm-folder/extra_llms/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-Q6_K.gguf --mmproj /media/mk_saadi/e_drive/llm-folder/extra_llms/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf -c 150000 -ngl 32 -t 3 -b 1024 -ub 512 -np 2 -fa on -ctk f16 -ctv q8_0 --host 127.0.0.1 --port 8080",
+	},
+	{
+		"modelName": "qwen-3.8-27b",
+		"command": "cd /media/mk_saadi/d_drive/qwen-27b/llama.cpp-adaptive-kv-streaming && ./build/bin/llama-server -m /media/mk_saadi/e_drive/llm-folder/extra_llms/bsaleh03/Qwen3.8-27B-ASCII-Condensed/Qwen3.8-27B-ASCII-Condensed-UD-IQ4_XS.gguf -ngl 99 -fa on -ctk q8_0 -ctv q8_0 --kv-stream-stage-mib 512 -np 1 -ub 128 -b 512 -ot "token_embd.weight=CPU" --jinja --chat-template-kwargs '{"reasoning_effort":"low"}' --n-predict 16384 -c 102400 --host 127.0.0.1 --port 8080",
+	},
+	{
+		"modelName": "gemma-4-26b-a4b",
+		"command": "./build/bin/llama-server -m /media/mk_saadi/e_drive/llm-folder/extra_llms/HauhauCS/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced-Q4_K_P.gguf --mmproj /media/mk_saadi/e_drive/llm-folder/extra_llms/HauhauCS/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced/mmproj-Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced-f16.gguf -c 45000 -ngl 30 -t 4 -b 2048 -ub 2048 -np 1 -fa on -ctk q8_0 -ctv q8_0 --n-cpu-moe 10 --host 127.0.0.1 --port 8080",
+	},
+	{
+		"modelName": "huihui-gemma-4-12b",
+		"command": "./build/bin/llama-server -m /media/mk_saadi/e_drive/llm-folder/extra_llms/huihui-ai/Huihui-gemma-4-12B-it-qat-q4_0-unquantized-abliterated-GGUF/Huihui-gemma-4-12B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf --mmproj /media/mk_saadi/e_drive/llm-folder/extra_llms/huihui-ai/Huihui-gemma-4-12B-it-qat-q4_0-unquantized-abliterated-GGUF/mmproj-model-bf16.gguf -c 85860 -ngl 48 -t 4 -b 2048 -ub 2048 -np 4 -fa on -ctk q8_0 -ctv q8_0 --host 127.0.0.1 --port 8080",
+	},
+]

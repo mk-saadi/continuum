@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/* Include renderer sources regardless of the process working directory. */
+@source "../index.html";
+@source "./";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+[data-theme="dark"] {
+	--bg-primary: #002b36;
+	--bg-secondary: #073642;
+	--bg-tertiary: #0a4552;
+	--bg-input: #073642;
+	--text-primary: #92a1a1;
+	--text-secondary: #93a1a1;
+	--accent: #268bd2;
+	--accent-hover: #2aa198;
+	--border: #0a4552;
+	--error: #dc322f;
+	--shadow: rgba(0, 0, 0, 0.5);
+	--surface: #002b36;
+	--surface-raised: #073642;
+	--input: #073642;
+	--surface-hover: #0a4552;
+	--terminal: #002b36;
+	--scrollbar-track: #073642;
+	--scrollbar-thumb: #586e75;
+	--text-muted: #839496;
+	--terminal-text: #92a1a1;
+	--user-bubble: #0a4552;
+	--error-soft: #f27470;
+	--error-strong: #dc322f;
+	--danger-hover: #dc322f;
+	--accent-bright: #40b4a8;
+	--edit-border: #93a1a1;
+	--edit-bg: #93a1a122;
+	--attachment-border: #93a1a166;
+	--control-border: #93a1a166;
+	--window-shadow: #00000080;
+	--on-accent: #ffffff;
+	--active-chat: #93a1a144;
+	--link: #6ab5e5;
+	--inline-code-bg: #93a1a122;
+	--subtle-border: #93a1a133;
+	--tool-border: #2aa19866;
+	--table-header-bg: #0d4052;
+	--code-bg: #0b303a;
+	--code-border: #93a1a12e;
+	--code-button-hover: #2aa19833;
+	--code-text: #c5d2d0;
+	--code-muted: #93a1a1;
+	--code-comment: #819598;
+	--code-key: #e6ad77;
+	--code-keyword: #9cc5df;
+	--code-string: #a9caa9;
+	--code-literal: #d4a6c8;
+	--code-function: #b9cee5;
+}
+
+[data-theme="light"] {
+	--bg-primary: #fff8f0;
+	--bg-secondary: #ffedd9;
+	--bg-tertiary: #ffe0c2;
+	--bg-input: #ffffff;
+	--text-primary: #1a1a2e;
+	--text-secondary: #6b5b73;
+	--accent: #ff3d7f;
+	--accent-hover: #ff6b9d;
+	--border: #ffcba4;
+	--error: #e63946;
+	--shadow: rgba(255, 107, 157, 0.15);
+	--surface: #fff8f0;
+	--surface-raised: #ffedd9;
+	--input: #ffffff;
+	--surface-hover: #ffe0c2;
+	--terminal: #fff8f0;
+	--scrollbar-track: #ffedd9;
+	--scrollbar-thumb: #ffcba4;
+	--text-muted: #846f80;
+	--terminal-text: #1a1a2e;
+	--user-bubble: #ffe0c2;
+	--error-soft: #c92e42;
+	--error-strong: #e63946;
+	--danger-hover: #c92e42;
+	--accent-bright: #ff8ab5;
+	--edit-border: #888888;
+	--edit-bg: #77777722;
+	--attachment-border: #88888866;
+	--control-border: #66666666;
+	--window-shadow: #0000001a;
+	--on-accent: #ffffff;
+	--active-chat: #77777744;
+	--link: #a33467;
+	--inline-code-bg: #6b5b7318;
+	--subtle-border: #6b5b7333;
+	--tool-border: #ff3d7f55;
+	--table-header-bg: #ffe5c6;
+	--code-bg: #fff9e7;
+	--code-border: #6b5b732b;
+	--code-button-hover: #f0e7c7;
+	--code-text: #273040;
+	--code-muted: #77746f;
+	--code-comment: #817f7a;
+	--code-key: #af654e;
+	--code-keyword: #485d9d;
+	--code-string: #668e6d;
+	--code-literal: #9e63a7;
+	--code-function: #526e9b;
+}
+
+/* Tailwind Typography uses its own palette; bind it to the active theme. */
+.assistant-markdown {
+	--tw-prose-body: var(--text-primary);
+	--tw-prose-headings: var(--text-primary);
+	--tw-prose-lead: var(--text-secondary);
+	--tw-prose-links: var(--link);
+	--tw-prose-bold: var(--text-primary);
+	--tw-prose-counters: var(--text-secondary);
+	--tw-prose-bullets: var(--text-secondary);
+	--tw-prose-hr: var(--subtle-border);
+	--tw-prose-quotes: var(--text-primary);
+	--tw-prose-quote-borders: var(--subtle-border);
+	--tw-prose-captions: var(--text-secondary);
+	--tw-prose-code: var(--text-primary);
+	--tw-prose-pre-code: var(--code-text);
+	--tw-prose-pre-bg: var(--code-bg);
+	--tw-prose-th-borders: var(--attachment-border);
+	--tw-prose-td-borders: var(--attachment-border);
+}
+
+/* Keep Markdown tables within the message and clip their rounded outline. */
+.assistant-table-scroll {
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: clip;
+	border: 1px solid var(--attachment-border);
+	border-radius: 8px;
+}
+.assistant-markdown .assistant-table {
+	width: 100%;
+	max-width: 100%;
+	table-layout: fixed;
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.assistant-markdown .assistant-table th,
+.assistant-markdown .assistant-table td {
+	padding: 4px 8px !important;
+	border: 0;
+	border-right: 1px solid var(--attachment-border);
+	border-bottom: 1px solid var(--attachment-border);
+	overflow-wrap: anywhere;
+	word-break: normal;
+	white-space: normal;
+}
+.assistant-markdown .assistant-table :is(th, td) * {
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+.assistant-markdown .assistant-table :is(th, td) pre {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+.assistant-markdown .assistant-table tr > :last-child {
+	border-right: 0;
+}
+.assistant-markdown .assistant-table tbody tr:last-child > * {
+	border-bottom: 0;
+}
+
+.assistant-markdown .assistant-table thead th {
+	background: var(--table-header-bg);
+	font-weight: 600;
+}
+.assistant-markdown .assistant-table :is(th, td) :is(code, a, strong) {
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
