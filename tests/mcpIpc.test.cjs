@@ -5,6 +5,7 @@ const { EventEmitter } = require('node:events');
 const handlers = new Map();
 const originalLoad = Module._load;
 Module._load = function(name, ...args) {
+  if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
   if (name === 'electron') return { app: {}, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };

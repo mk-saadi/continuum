@@ -1,3 +1,5 @@
+import RagSettings from './RagSettings';
+import LocalApiSettings from './LocalApiSettings';
 import AvatarSettings from './AvatarSettings';
 import React, { useEffect, useRef, useState } from 'react';
 import MemoryTab from './MemoryTab';
@@ -103,6 +105,8 @@ export default function MemorySettings({ palace, onClose, avatars, models }) {
         })} /> : <p role="alert" className="palace-error">{error}</p>}
     </section>
     <section id="settings-panel-config" role="tabpanel" aria-labelledby="settings-tab-config" hidden={tab !== 'config'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs" aria-busy={busy}>
+      <LocalApiSettings />
+      <RagSettings />
       {loading ? <p role="status">Loading configuration…</p> : <ServerConfigTab config={config} busy={busy} error={error} onError={setError} onSave={value => change(() => window.api.saveMcpConfig(value))} />}
     </section>
   </dialog>;

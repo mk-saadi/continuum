@@ -11,11 +11,22 @@ Module._load = function (name, ...args) {
   return originalLoad.call(this, name, ...args);
 };
 const { initDatabase, closeDatabase } = require('../src/main/db');
-const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig } = require('../src/main/configManager');
+const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings, saveAppSettings } = require('../src/main/configManager');
 const { buildLlamaServerArgs } = require('../src/main/engineManager');
 const { scanDirectoryForModels } = require('../src/main/modelScanner');
 try {
   initDatabase();
+  assert.equal(getAppSettings().apiServerPort, 8080);
+  saveAppSettings({ apiServerPort: 9090 });
+  closeDatabase(); initDatabase();
+  assert.equal(getAppSettings().apiServerPort, 9090);
+  for (const apiServerPort of [0, -1, 65536, 2.5, '8080']) {
+    assert.throws(() => saveAppSettings({ apiServerPort }), /Local API Server Port/);
+  }
+  assert.equal(getAppSettings().apiServerPort, 9090);
+  saveAppSettings({ apiServerPort: null });
+  assert.equal(getAppSettings().apiServerPort, null);
+
   assert.deepEqual(getLoadConfig('a'), { config: DEFAULT_LOAD_CONFIG, remembered: false });
   saveLoadConfig('a', { threads: 8, seed: 42, loadMode: 'mmap+mlock' });
   closeDatabase(); initDatabase();

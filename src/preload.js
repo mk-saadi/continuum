@@ -3,6 +3,20 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  listAgents: () => ipcRenderer.invoke('agents:list'),
+  createAgent: agent => ipcRenderer.invoke('agents:create', agent),
+  updateAgent: (id, agent) => ipcRenderer.invoke('agents:update', { id, agent }),
+  duplicateAgent: id => ipcRenderer.invoke('agents:duplicate', { id }),
+  deleteAgent: id => ipcRenderer.invoke('agents:delete', { id }),
+  getSessionAgent: sessionId => ipcRenderer.invoke('agents:session', { sessionId }),
+  applyAgent: (sessionId, agentId, modelId) => ipcRenderer.invoke('agents:apply', { sessionId, agentId, modelId }),
+  getSamplingParams: sessionId => ipcRenderer.invoke('sampling:get', { sessionId }),
+  saveSamplingParams: (sessionId, modelId, params) => ipcRenderer.invoke('sampling:save', { sessionId, modelId, params }),
+  getRagSettings: () => ipcRenderer.invoke('rag:get-settings'),
+  saveRagSettings: settings => ipcRenderer.invoke('rag:save-settings', settings),
+  indexDocuments: payload => ipcRenderer.invoke('rag:index', payload),
+  getAppSettings: () => ipcRenderer.invoke('app:get-settings'),
+  saveAppSettings: settings => ipcRenderer.invoke('app:save-settings', settings),
   getMcpConfig: () => ipcRenderer.invoke('mcp:get-config'),
   saveMcpConfig: config => ipcRenderer.invoke('mcp:save-config', config),
   getModelLoadConfig: (modelId) => ipcRenderer.invoke('engine:get-load-config', { modelId }),

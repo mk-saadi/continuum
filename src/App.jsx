@@ -1,3 +1,5 @@
+import AgentModal from "./components/AgentModal";
+import ChatTuning from "./components/ChatTuning";
 import useAvatarSettings from "./hooks/useAvatarSettings";
 import AssistantAvatar from "./components/AssistantAvatar";
 import MessageActions from "./components/MessageActions.jsx";
@@ -6,7 +8,7 @@ import ModelSettingsModal from "./components/ModelSettingsModal.jsx";
 import AssistantMessage from "./components/AssistantMessage.jsx";
 import ChatHistory from "./components/ChatHistory.jsx";
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { runDesktopChat } from "./lib/desktopChat.mjs";
+import { runDesktopChat, indexDesktopDocuments } from "./lib/desktopChat.mjs";
 import { MemoryPalaceHeader, useMemoryPalace } from "./components/MemoryPalace.jsx";
 import { BsMoonStarsFill } from "react-icons/bs";
 import { FaBars, FaSun } from "react-icons/fa";
@@ -348,10 +350,20 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 	);
 }
 
-function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSidebarOpen, avatarSettings }) {
+function ChatInterface({
+	selectedModel,
+	baseUrl,
+	engineRunning,
+	palace,
+	isSidebarOpen,
+	avatarSettings,
+	models,
+	onSelectModel,
+}) {
 	const [messages, setMessages] = useState([]);
 	const [input, setInput] = useState("");
 	const [selectedFiles, setSelectedFiles] = useState([]);
+	const [indexing, setIndexing] = useState(null);
 	const fileInputRef = useRef(null);
 	const uploadCache = useRef(new Map());
 	const clearFiles = useCallback(() => {
@@ -430,6 +442,60 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 		}
 	};
 
+	const [agents, setAgents] = useState([]);
+	const [agentModalOpen, setAgentModalOpen] = useState(false);
+	const [sessionAgent, setSessionAgent] = useState(null);
+	const [agentLoading, setAgentLoading] = useState(true);
+	const [tuningVersion, setTuningVersion] = useState(0);
+	const refreshAgents = useCallback(async () => {
+		if (window.api?.listAgents) setAgents(await window.api.listAgents());
+	}, []);
+	useEffect(() => {
+		refreshAgents().catch((error) => setHistoryError(error.message));
+	}, [refreshAgents]);
+	useEffect(() => {
+		let active = true;
+		setAgentLoading(true);
+		setSessionAgent(null);
+		(async () => {
+			try {
+				const profile = await window.api?.getSessionAgent(palace.sessionId);
+				if (active) setSessionAgent(profile || null);
+			} catch (error) {
+				if (active) setHistoryError(error.message);
+			} finally {
+				if (active) setAgentLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [palace.sessionId]);
+	const selectAgent = async (agentId) => {
+		if (busyRef.current || agentLoading) return;
+		busyRef.current = true;
+		setLoading(true);
+		setHistoryError("");
+		try {
+			const preset = agents.find((agent) => agent.id === agentId);
+			if (preset?.model_id && !models.some((model) => model.id === preset.model_id)) {
+				throw new Error(
+					"This agent’s default model is not scanned. Scan it or edit the agent’s model first.",
+				);
+			}
+			const result = await window.api.applyAgent(palace.sessionId, agentId || null, selectedModel);
+			setSessionAgent(result.agent);
+			if (result.agent?.model_id) onSelectModel(result.agent.model_id);
+			setTuningVersion((version) => version + 1);
+			await refreshHistory();
+		} catch (error) {
+			setHistoryError(error.message);
+		} finally {
+			busyRef.current = false;
+			setLoading(false);
+		}
+	};
+
 	const messagesRef = useRef(null);
 	const abortRef = useRef(null);
 	useEffect(() => () => abortRef.current?.abort(), []);
@@ -445,6 +511,63 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 			messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
 		}
 	}, [messages]);
+
+	const addAttachments = async (files) => {
+		if (busyRef.current) return;
+		const next = [...selectedFiles, ...files];
+		if (
+			next.length > 10 ||
+			next.some((file) => file.size > 20 * 1024 * 1024) ||
+			next.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024
+		) {
+			setHistoryError("Choose up to 10 files, at most 20 MB each and 50 MB total.");
+			return;
+		}
+		if (files.some((file) => !/\.(png|jpe?g|gif|webp|pdf|txt|md|csv)$/i.test(file.name))) {
+			setHistoryError("Supported attachments: PNG, JPEG, GIF, WebP, PDF, TXT, Markdown, and CSV.");
+			return;
+		}
+		setHistoryError("");
+		busyRef.current = true;
+		setLoading(true);
+		const controller = new AbortController();
+		abortRef.current = controller;
+		try {
+			const optimized = [];
+			// Decode sequentially to avoid holding several large bitmaps at once.
+			for (const file of files) {
+				if (!/\.(png|jpe?g|gif|webp)$/i.test(file.name)) {
+					optimized.push(file);
+					continue;
+				}
+				const dataUrl = await optimizeImage(file);
+				const base64 = dataUrl.split(",")[1];
+				optimized.push({
+					name: file.name.replace(/\.[^.]+$/, ".jpg"),
+					type: "image/jpeg",
+					dataUrl,
+					lastModified: file.lastModified,
+					size:
+						(base64.length * 3) / 4 - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0),
+				});
+			}
+			const documents = optimized.filter((file) => /\.(pdf|txt|md|csv)$/i.test(file.name));
+			if (documents.length) {
+				const uploaded = await window.api.processUploads(documents);
+				await indexDesktopDocuments(uploaded, { signal: controller.signal, onProgress: setIndexing });
+				documents.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
+			}
+			controller.signal.throwIfAborted();
+			setSelectedFiles((current) => [...current, ...optimized]);
+		} catch (error) {
+			if (error.name !== "AbortError") setHistoryError(error.message);
+		} finally {
+			busyRef.current = false;
+			setLoading(false);
+			setIndexing(null);
+			abortRef.current = null;
+		}
+	};
 
 	const sendMessage = useCallback(
 		async (edit = null) => {
@@ -494,6 +617,8 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 				setMessages([...saved.messages, assistantMsg]);
 				await refreshHistory();
 				await runDesktopChat({
+					sessionId: palace.sessionId,
+					onIndexing: setIndexing,
 					modelId: selectedModel,
 					messages: requestMessages,
 					onTool: ({ requestId, type, ...tool }) => {
@@ -606,6 +731,7 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 				);
 				await refreshHistory().catch((err) => setHistoryError(err.message));
 				setStreaming(false);
+				setIndexing(null);
 				busyRef.current = false;
 				abortRef.current = null;
 			}
@@ -670,6 +796,72 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 				/>
 			</div>
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none">
+				<div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 py-1">
+					<label className="flex min-w-0 flex-1 items-center gap-2 text-xs">
+						Agent
+						<select
+							aria-label="Agent preset"
+							className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--input)] p-1"
+							value={sessionAgent?.id || ""}
+							disabled={streaming || loading || agentLoading || !window.api?.applyAgent}
+							onChange={(event) => selectAgent(event.target.value)}
+						>
+							<option value="">Default assistant</option>
+							{sessionAgent && !agents.some((agent) => agent.id === sessionAgent.id) && (
+								<option value={sessionAgent.id}>{sessionAgent.name} (saved profile)</option>
+							)}
+							{agents.map((agent) => (
+								<option
+									key={agent.id}
+									value={agent.id}
+								>
+									{agent.name}
+								</option>
+							))}
+						</select>
+					</label>
+					<button
+						type="button"
+						className="rounded px-2 py-1 text-xs hover:bg-[var(--surface-hover)]"
+						disabled={streaming || loading}
+						onClick={() => setAgentModalOpen(true)}
+					>
+						Manage agents
+					</button>
+					{sessionAgent && (
+						<button
+							type="button"
+							className="text-xs"
+							disabled={
+								streaming ||
+								loading ||
+								agentLoading ||
+								!agents.some((agent) => agent.id === sessionAgent.id)
+							}
+							onClick={() => selectAgent(sessionAgent.id)}
+						>
+							Reapply
+						</button>
+					)}
+				</div>
+				{sessionAgent?.model_id && (
+					<p className="px-3 text-[10px] text-[var(--text-muted)]">
+						Agent model selected. Use Configure &amp; Load Model to load it before chatting.
+					</p>
+				)}
+				{agentModalOpen && (
+					<AgentModal
+						agents={agents}
+						models={models}
+						onChanged={refreshAgents}
+						onClose={() => setAgentModalOpen(false)}
+					/>
+				)}
+				<ChatTuning
+					key={`${palace.sessionId}:${tuningVersion}`}
+					sessionId={palace.sessionId}
+					modelId={selectedModel}
+				/>
 				{historyError && (
 					<p
 						role="alert"
@@ -683,7 +875,7 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 					ref={messagesRef}
 				>
 					{messages.length === 0 ? (
-						<div className="flex flex-1 flex-col items-center justify-center gap-3 max-[450px]:gap-1 max-[450px]:text-center text-[var(--text-muted)] ">
+						<div className="flex flex-1 flex-col items-center justify-center gap-3 max-[450px]:gap-1 max-[450px]:text-center text-[var(--text-muted)]">
 							<span className="text-[40px] opacity-40 max-[450px]:text-xl">🤖</span>
 							<span className="text-[13px] max-[450px]:text-[11px]">
 								{baseUrl
@@ -692,112 +884,170 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 							</span>
 						</div>
 					) : (
-						messages.map((msg, i) => (
-							<div
-								key={msg.id ?? i}
-								className={`group flex max-w-[85%] flex-col transition-[opacity,transform] duration-200 starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none max-[550px]:max-w-[95%] ${msg.role === "user" ? "self-end items-end" : "self-start items-start"}`}
-							>
-								<span className="mb-[3px] flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-[var(--text-muted)] ">
-									{msg.role === "assistant" && (
-										<AssistantAvatar
-											settings={avatarSettings}
-											modelId={msg.modelId || selectedModel}
-										/>
-									)}
-									{msg.role === "user" ? "" : "Assistant"}
-								</span>
+						messages.map((msg, i) => {
+							const isEditing = editing === msg.id && msg.id;
+
+							return (
 								<div
-									className={`min-w-0 max-w-full rounded-[10px] px-[13px] py-[9px] text-[11px] leading-[1.55] [overflow-wrap:break-word] whitespace-pre-wrap select-text text-[var(--text-primary)] ${msg.role === "user" ? "bg-[var(--user-bubble)] rounded-br-[3px]" : "bg-[var(--surface-raised)] rounded-bl-[3px]"} ${msg.streaming ? "after:content-['▊'] after:animate-pulse after:[animation-duration:1s] after:text-[var(--accent)] motion-reduce:after:animate-none" : ""}`}
+									key={msg.id ?? i}
+									className={`group flex max-w-[85%] flex-col transition-[opacity,transform] duration-200 starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none max-[550px]:max-w-[95%] ${
+										msg.role === "user" ? "self-end items-end" : "self-start items-start"
+									}`}
 								>
-									{editing === msg.id && msg.id ? (
-										<form
-											onSubmit={(event) => {
-												event.preventDefault();
-												sendMessage(msg);
-											}}
-										>
-											<textarea
-												className="min-h-[90px] w-full box-border border border-[var(--edit-border)] bg-[var(--edit-bg)] p-2 text-inherit"
-												aria-label="Edit message"
-												autoFocus
-												value={editText}
-												disabled={streaming || loading}
-												onChange={(event) => setEditText(event.target.value)}
+									{/* Avatar / Name Header */}
+									<span className="mb-[3px] flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-[var(--text-muted)]">
+										{msg.role === "assistant" && (
+											<AssistantAvatar
+												sessionAvatarUrl={sessionAgent?.avatar_url}
+												settings={avatarSettings}
+												modelId={msg.modelId || selectedModel}
 											/>
-											<p>Saving removes later messages and generates a new reply.</p>
-											<button
-												className="cursor-pointer rounded-[5px] border border-[var(--control-border)] bg-transparent p-1.5 text-inherit disabled:cursor-not-allowed disabled:opacity-50"
-												disabled={
-													streaming ||
-													loading ||
-													!editText.trim() ||
-													!baseUrl ||
-													!selectedModel
-												}
+										)}
+										{msg.role === "user" ? "" : sessionAgent?.name || "Assistant"}
+									</span>
+
+									{/* EDITING STATE */}
+									{isEditing ? (
+										<div className="flex w-full flex-col gap-2.5">
+											<form
+												className="flex flex-col gap-2"
+												onSubmit={(event) => {
+													event.preventDefault();
+													sendMessage(msg);
+												}}
 											>
-												Save & regenerate
-											</button>
-											<button
-												className="cursor-pointer rounded-[5px] border border-[var(--control-border)] bg-transparent p-1.5 text-inherit disabled:cursor-not-allowed disabled:opacity-50"
-												type="button"
-												disabled={streaming || loading}
-												onClick={() => setEditing(null)}
-											>
-												Cancel
-											</button>
-										</form>
-									) : msg.role === "assistant" ? (
-										<AssistantMessage message={msg} />
+												<textarea
+													className="max-h-[300px] min-h-[150px] w-full! rounded-xl border border-[var(--accent)] bg-[var(--surface-raised)] p-3 text-[12px] leading-[1.6] text-[var(--text-primary)] outline-none shadow-[0_0_12px_rgba(var(--accent-rgb),0.15)] focus:border-[var(--accent)] resize-y select-text"
+													aria-label="Edit message"
+													autoFocus
+													value={editText}
+													disabled={streaming || loading}
+													onChange={(event) => setEditText(event.target.value)}
+													onKeyDown={(e) => {
+														if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+															e.preventDefault();
+															if (editText.trim() && baseUrl && selectedModel) {
+																sendMessage(msg);
+															}
+														} else if (e.key === "Escape") {
+															setEditing(null);
+														}
+													}}
+												/>
+
+												{/* Attachments Tray during edit mode */}
+												{msg.attachments?.length > 0 && (
+													<ul
+														aria-label="Message attachments"
+														className="flex flex-wrap gap-1.5 whitespace-normal"
+													>
+														{msg.attachments.map((attachment) => (
+															<li
+																key={attachment.id || attachment.file_path}
+																className="max-w-full truncate rounded-md border border-[var(--attachment-border)] bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
+															>
+																{attachment.mime_type.startsWith("image/")
+																	? "Image: "
+																	: "File: "}
+																{attachment.file_path
+																	.split(/[\\/]/)
+																	.pop()
+																	.replace(/^\d+-[0-9a-f-]{36}-/i, "")}
+															</li>
+														))}
+													</ul>
+												)}
+
+												{/* Save / Discard Actions Outside Main Box */}
+												<div className="flex items-center justify-end gap-2 mt-1">
+													<button
+														type="button"
+														className="cursor-pointer rounded-lg px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+														disabled={streaming || loading}
+														onClick={() => setEditing(null)}
+													>
+														Discard (Esc)
+													</button>
+													<button
+														type="submit"
+														className="cursor-pointer rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-[11px] font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+														disabled={
+															streaming ||
+															loading ||
+															!editText.trim() ||
+															!baseUrl ||
+															!selectedModel
+														}
+													>
+														Save (Ctrl + Enter)
+													</button>
+												</div>
+											</form>
+										</div>
 									) : (
-										msg.content || (msg.streaming || msg.attachments?.length ? "" : "...")
-									)}
-									{msg.attachments?.length > 0 && (
-										<ul
-											aria-label="Message attachments"
-											className="mt-2 flex flex-wrap gap-1 whitespace-normal"
-										>
-											{msg.attachments.map((attachment) => (
-												<li
-													key={attachment.id || attachment.file_path}
-													className="max-w-full truncate rounded border border-[var(--attachment-border)] px-2 py-1 text-[11px]"
-												>
-													{attachment.mime_type.startsWith("image/")
-														? "Image: "
-														: "File: "}
-													{attachment.file_path
-														.split(/[\\/]/)
-														.pop()
-														.replace(/^\d+-[0-9a-f-]{36}-/i, "")}
-												</li>
-											))}
-										</ul>
-									)}
-									{msg.role === "user" && msg.id && editing !== msg.id && (
-										<button
-											className="ml-2 cursor-pointer rounded-[5px] border border-[var(--control-border)] bg-transparent p-1.5 text-inherit disabled:cursor-not-allowed disabled:opacity-50"
-											aria-label="Edit message"
-											title="Edit message"
-											disabled={streaming || loading}
-											onClick={() => {
-												setEditing(msg.id);
-												setEditText(msg.content);
-											}}
-										>
-											✎
-										</button>
+										/* NORMAL DISPLAY STATE */
+										<>
+											<div
+												className={`min-w-0 max-w-full rounded-[10px] px-[13px] py-[9px] text-[11px] leading-[1.55] [overflow-wrap:break-word] whitespace-pre-wrap select-text text-[var(--text-primary)] ${
+													msg.role === "user"
+														? "bg-[var(--user-bubble)] rounded-br-[3px]"
+														: "bg-[var(--surface-raised)] rounded-bl-[3px]"
+												} ${
+													msg.streaming
+														? "after:content-['▊'] after:animate-pulse after:[animation-duration:1s] after:text-[var(--accent)] motion-reduce:after:animate-none"
+														: ""
+												}`}
+											>
+												{msg.role === "assistant" ? (
+													<AssistantMessage message={msg} />
+												) : (
+													msg.content ||
+													(msg.streaming || msg.attachments?.length ? "" : "...")
+												)}
+
+												{/* Attachments inside bubble during view mode */}
+												{msg.attachments?.length > 0 && (
+													<ul
+														aria-label="Message attachments"
+														className="mt-2 flex flex-wrap gap-1 whitespace-normal"
+													>
+														{msg.attachments.map((attachment) => (
+															<li
+																key={attachment.id || attachment.file_path}
+																className="max-w-full truncate rounded border border-[var(--attachment-border)] px-2 py-1 text-[11px]"
+															>
+																{attachment.mime_type.startsWith("image/")
+																	? "Image: "
+																	: "File: "}
+																{attachment.file_path
+																	.split(/[\\/]/)
+																	.pop()
+																	.replace(/^\d+-[0-9a-f-]{36}-/i, "")}
+															</li>
+														))}
+													</ul>
+												)}
+											</div>
+
+											{/* Actions toolbar */}
+											{["user", "assistant"].includes(msg.role) && (
+												<MessageActions
+													message={msg}
+													disabled={streaming || loading || !palace.api}
+													onDelete={(id) => handleMessageAction("delete", id)}
+													onBranch={(id) => handleMessageAction("branch", id)}
+													onEdit={(messageToEdit) => {
+														setEditing(messageToEdit.id);
+														setEditText(messageToEdit.content);
+													}}
+													onError={setHistoryError}
+												/>
+											)}
+										</>
 									)}
 								</div>
-								{["user", "assistant"].includes(msg.role) && (
-									<MessageActions
-										message={msg}
-										disabled={streaming || loading || !palace.api}
-										onDelete={(id) => handleMessageAction("delete", id)}
-										onBranch={(id) => handleMessageAction("branch", id)}
-										onError={setHistoryError}
-									/>
-								)}
-							</div>
-						))
+							);
+						})
 					)}
 				</div>
 				{selectedFiles.length > 0 && (
@@ -818,70 +1068,53 @@ function ChatInterface({ selectedModel, baseUrl, engineRunning, palace, isSideba
 						))}
 					</div>
 				)}
-				<div className="flex items-end gap-2 rounded-b-xl border-t px-3.5 py-2.5 max-[450px]:px-2.5 max-[450px]:py-[7px] bg-[var(--surface-raised)] border-[var(--border)] ">
+				{indexing && (
+					<div
+						role="status"
+						className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2 text-xs"
+					>
+						<span>
+							{indexing.stage} {indexing.fileName}{" "}
+							{indexing.total > 0 ? `(${indexing.completed}/${indexing.total} chunks)` : "…"}
+						</span>
+						<button
+							type="button"
+							className="rounded border border-[var(--border)] px-2 py-1"
+							onClick={handleStop}
+						>
+							Cancel
+						</button>
+					</div>
+				)}
+				<div
+					onDragOver={(event) => {
+						event.preventDefault();
+						event.dataTransfer.dropEffect = loading || streaming ? "none" : "copy";
+					}}
+					onDrop={(event) => {
+						event.preventDefault();
+						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
+					}}
+					className="flex items-end gap-2 rounded-b-xl border-t px-3.5 py-2.5 max-[450px]:px-2.5 max-[450px]:py-[7px] bg-[var(--surface-raised)] border-[var(--border)] "
+				>
 					<input
 						ref={fileInputRef}
 						type="file"
 						multiple
-						accept=".png,.jpg,.jpeg,.gif,.webp,.txt,.md"
+						accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.md,.csv"
 						className="hidden"
 						aria-label="Choose attachments"
 						disabled={streaming || loading}
-						onChange={async (event) => {
+						onChange={(event) => {
 							const files = Array.from(event.target.files || []);
 							event.target.value = "";
-							if (busyRef.current) return;
-							const next = [...selectedFiles, ...files];
-							if (
-								next.length > 10 ||
-								next.some((file) => file.size > 20 * 1024 * 1024) ||
-								next.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024
-							) {
-								setHistoryError("Choose up to 10 files, at most 20 MB each and 50 MB total.");
-								return;
-							}
-							if (files.some((file) => !/\.(png|jpe?g|gif|webp|txt|md)$/i.test(file.name))) {
-								setHistoryError(
-									"Supported attachments: PNG, JPEG, GIF, WebP, TXT, and Markdown.",
-								);
-								return;
-							}
-							setHistoryError("");
-							busyRef.current = true;
-							setLoading(true);
-							try {
-								const optimized = [];
-								// Decode sequentially to avoid holding several large bitmaps at once.
-								for (const file of files) {
-									if (!/\.(png|jpe?g|gif|webp)$/i.test(file.name)) {
-										optimized.push(file);
-										continue;
-									}
-									const dataUrl = await optimizeImage(file);
-									const base64 = dataUrl.split(",")[1];
-									optimized.push({
-										name: file.name.replace(/\.[^.]+$/, ".jpg"),
-										type: "image/jpeg",
-										dataUrl,
-										lastModified: file.lastModified,
-										size:
-											(base64.length * 3) / 4 -
-											(base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0),
-									});
-								}
-								setSelectedFiles((current) => [...current, ...optimized]);
-							} catch (error) {
-								setHistoryError(error.message);
-							} finally {
-								busyRef.current = false;
-								setLoading(false);
-							}
+							addAttachments(files);
 						}}
 					/>
 					<button
 						type="button"
 						aria-label="Attach files"
-						title="Attach images or text files"
+						title="Attach images, PDF, TXT, Markdown, or CSV"
 						disabled={streaming || loading || !window.api?.processUploads}
 						onClick={() => fileInputRef.current?.click()}
 						className="flex size-[38px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[var(--border)] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -1136,6 +1369,8 @@ export default function App() {
 				<TerminalDrawer />
 			</details>
 			<ChatInterface
+				models={models}
+				onSelectModel={setSelectedModel}
 				avatarSettings={avatars.settings}
 				isSidebarOpen={isSidebarOpen}
 				selectedModel={selectedModel || activeModelId}

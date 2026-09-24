@@ -41,10 +41,22 @@ const SCHEMA = `
     VALUES (new.id, new.content, new.category);
   END;
 
+  CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    system_prompt TEXT NOT NULL,
+    avatar_url TEXT,
+    model_id TEXT,
+    sampling_params TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY NOT NULL,
     title TEXT,
     model_id TEXT,
+    sampling_params TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_active_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_compressing INTEGER NOT NULL DEFAULT 0 CHECK (is_compressing IN (0, 1))
@@ -77,6 +89,25 @@ const SCHEMA = `
     session_id TEXT NOT NULL REFERENCES sessions(id),
     summary_text TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS document_chunks (
+    id INTEGER PRIMARY KEY,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding_model TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    chunk_text TEXT NOT NULL,
+    embedding_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(file_path, embedding_model, chunk_index)
+  );
+  CREATE INDEX IF NOT EXISTS idx_document_chunks_scope ON document_chunks(file_path, embedding_model);
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value_json TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS model_load_configs (
@@ -131,9 +162,24 @@ function initDatabase() {
     connection.pragma('busy_timeout = 5000');
     connection.transaction(() => {
       connection.exec(SCHEMA);
+      if (!connection.pragma('table_info(sessions)').some(column => column.name === 'agent_profile')) {
+        connection.exec('ALTER TABLE sessions ADD COLUMN agent_profile TEXT');
+      }
+      // Seed once, so edited or deleted built-ins stay edited/deleted after restart.
+      if (!connection.prepare("SELECT key FROM app_settings WHERE key = 'agents_seeded'").get()) {
+        const insertAgent = connection.prepare('INSERT INTO agents(id, name, description, system_prompt, sampling_params) VALUES (?, ?, ?, ?, ?)');
+        for (const agent of require('./agentDefaults')) {
+          insertAgent.run(require('node:crypto').randomUUID(), agent.name, agent.description, agent.system_prompt,
+            JSON.stringify({ temperature: agent.temperature, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }));
+        }
+        connection.prepare("INSERT INTO app_settings(key, value_json) VALUES ('agents_seeded', 'true')").run();
+      }
       const messageColumns = new Set(connection.pragma('table_info(messages)').map(column => column.name));
       for (const [name, type] of Object.entries({ stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL' })) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
+      }
+      if (!connection.pragma('table_info(sessions)').some(column => column.name === 'sampling_params')) {
+        connection.exec('ALTER TABLE sessions ADD COLUMN sampling_params TEXT');
       }
       if (!connection.pragma('table_info(sessions)').some((column) => column.name === 'folder_name')) {
         connection.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT NOT NULL DEFAULT 'Uncategorized'");

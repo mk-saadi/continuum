@@ -318,3 +318,44 @@ test('optimized image content parts remain multimodal in the request', async () 
     },
   });
 });
+
+test('retrieved document context is injected once without mutating input history', async () => {
+  const messages = [...base.messages, { role: 'user', content: 'What is alpha?' }];
+  let retrievals = 0;
+  await runMemoryChat({ ...base, messages,
+    retrieveDocuments: async question => {
+      retrievals++; assert.equal(question, 'What is alpha?');
+      return [{ file_name: 'guide.pdf', chunk_index: 2, chunk_text: 'alpha is first' }];
+    },
+    fetchImpl: async (_url, options) => {
+      const sent = JSON.parse(options.body).messages;
+      assert.match(sent[0].content, /Context from attached documents:/);
+      assert.match(sent[0].content, /Chunk 1: guide.pdf, segment 3/);
+      assert.match(sent[0].content, /alpha is first/);
+      assert.match(sent[0].content, /User Question: What is alpha/);
+      return stream([chunk({ content: 'First.' }, 'stop')]);
+    },
+  });
+  assert.equal(retrievals, 1);
+  assert.equal(messages[0].content, 'Rules');
+});
+
+test('sampling defaults and live session overrides reach every tool round', async () => {
+  let reads = 0, requests = 0;
+  await runMemoryChat({ ...base,
+    getSamplingParams: () => (++reads === 1 ? { temperature: 0, top_p: 0, top_k: 1, repeat_penalty: 1.5, max_tokens: 100 } : { temperature: 1.2 }),
+    executeTool: async () => ({}),
+    fetchImpl: async (_url, options) => {
+      const payload = JSON.parse(options.body);
+      if (++requests === 1) {
+        assert.equal(payload.temperature, 0); assert.equal(payload.top_p, 0);
+        assert.equal(payload.top_k, 1); assert.equal(payload.repeat_penalty, 1.5); assert.equal(payload.max_tokens, 100);
+        return stream([chunk({ tool_calls: [{ index: 0, id: 'sampling-call', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')]);
+      }
+      assert.equal(payload.temperature, 1.2); assert.equal(payload.top_p, 0.9);
+      assert.equal(payload.top_k, 40); assert.equal(payload.repeat_penalty, 1.1); assert.equal(payload.max_tokens, -1);
+      return stream([chunk({ content: 'Done' }, 'stop')]);
+    },
+  });
+  assert.equal(reads, 2);
+});

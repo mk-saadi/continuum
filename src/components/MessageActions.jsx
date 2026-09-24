@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { FiCheck, FiCopy, FiGitBranch, FiTrash2 } from "react-icons/fi";
+import { FiCheck, FiCopy, FiGitBranch, FiTrash2, FiEdit } from "react-icons/fi";
 
-export default function MessageActions({ message, disabled, onDelete, onBranch, onError }) {
+export default function MessageActions({ message, disabled, onDelete, onBranch, onEdit, onError }) {
 	const [copied, setCopied] = useState(false);
 	const saved = Number.isSafeInteger(message.id) && message.id > 0;
 	const buttonClass =
@@ -28,8 +28,21 @@ export default function MessageActions({ message, disabled, onDelete, onBranch, 
 				}}
 			>
 				{copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-				{/* {copied ? "Copied" : "Copy"} */}
 			</button>
+
+			{/* Edit Button - only show for user messages */}
+			{message.role === "user" && message.id && (
+				<button
+					type="button"
+					className={buttonClass}
+					aria-label="Edit message"
+					title="Edit message"
+					disabled={disabled}
+					onClick={() => onEdit(message)}
+				>
+					<FiEdit aria-hidden="true" />
+				</button>
+			)}
 
 			<button
 				type="button"
@@ -39,7 +52,6 @@ export default function MessageActions({ message, disabled, onDelete, onBranch, 
 				onClick={() => onDelete(message.id)}
 			>
 				<FiTrash2 aria-hidden="true" />
-				{/* Delete Message */}
 			</button>
 
 			<button
@@ -50,7 +62,6 @@ export default function MessageActions({ message, disabled, onDelete, onBranch, 
 				onClick={() => onBranch(message.id)}
 			>
 				<FiGitBranch aria-hidden="true" />
-				{/* Branch Chat */}
 			</button>
 		</div>
 	);

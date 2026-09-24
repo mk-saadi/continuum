@@ -45,3 +45,41 @@ function forgetLoadConfig(modelId) {
   db.prepare('DELETE FROM model_load_configs WHERE model_id = ?').run(modelKey(modelId));
 }
 module.exports = { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig };
+
+
+function normalizeAppSettings(input = {}) {
+  const apiServerPort = input.apiServerPort === undefined ? 8080 : input.apiServerPort;
+  if (apiServerPort !== null && (!Number.isInteger(apiServerPort) || apiServerPort < 1 || apiServerPort > 65535)) {
+    throw new Error('Local API Server Port must be an integer from 1 to 65535, or null for automatic selection.');
+  }
+  return { apiServerPort };
+}
+function getAppSettings() {
+  const { db } = require('./db');
+  const row = db.prepare("SELECT value_json FROM app_settings WHERE key = 'apiServerPort'").get();
+  return normalizeAppSettings(row ? { apiServerPort: JSON.parse(row.value_json) } : {});
+}
+function saveAppSettings(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid app settings.');
+  const settings = normalizeAppSettings(input);
+  const { db } = require('./db');
+  db.prepare("INSERT INTO app_settings(key, value_json) VALUES ('apiServerPort', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
+    .run(JSON.stringify(settings.apiServerPort));
+  return settings;
+}
+Object.assign(module.exports, { normalizeAppSettings, getAppSettings, saveAppSettings });
+
+function getRagSettings() {
+  const { db } = require('./db');
+  const row = db.prepare("SELECT value_json FROM app_settings WHERE key = 'rag'").get();
+  return row ? JSON.parse(row.value_json) : { embeddingPort: 8081, embeddingModel: '', embeddingApiKey: '' };
+}
+function saveRagSettings(input) {
+  if (!input || !Number.isInteger(input.embeddingPort) || input.embeddingPort < 1 || input.embeddingPort > 65535 ||
+      typeof input.embeddingModel !== 'string' || typeof input.embeddingApiKey !== 'string') throw new Error('Invalid local embedding settings.');
+  const settings = { embeddingPort: input.embeddingPort, embeddingModel: input.embeddingModel.trim(), embeddingApiKey: input.embeddingApiKey };
+  const { db } = require('./db');
+  db.prepare("INSERT INTO app_settings(key, value_json) VALUES ('rag', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json").run(JSON.stringify(settings));
+  return settings;
+}
+Object.assign(module.exports, { getRagSettings, saveRagSettings });

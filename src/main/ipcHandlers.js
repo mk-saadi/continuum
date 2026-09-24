@@ -1,6 +1,8 @@
 'use strict';
 
-const { getLoadConfig } = require('./configManager');
+const { getLoadConfig, getAppSettings, saveAppSettings, getRagSettings, saveRagSettings } = require('./configManager');
+const { getGlobalSamplingParams, saveGlobalSamplingParams } = require('./samplingManager');
+const agents = require('./agentManager');
 const { app, ipcMain } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -9,10 +11,11 @@ const {
   getAllActiveMemories, deleteMemory,
 } = require('./memoryManager');
 const { getOrCreateSession, saveMessage, getContextUsage, getActiveMessages, getSessionSummary } = require('./sessionManager');
-const { loadSession, getAllSessions, updateSession, deleteSession, editMessage, deleteMessage, branchChat } = require('./sessionManager');
+const { loadSession, getAllSessions, updateSession, deleteSession, editMessage, deleteMessage, branchChat, getSessionSamplingParams, saveSessionSamplingParams } = require('./sessionManager');
 const { scheduleIdleCompression } = require('./compressionEngine');
 const mcpManager = require('./mcpManager');
 const { prepareChatMessages, memoryTools, getToolContext } = require('./promptBuilder');
+const { indexDocuments, retrieveContext } = require('./ragManager');
 const { processUploads } = require('./fileUploads');
 const { executeMemoryTool } = require('./memoryToolExecutor');
 
@@ -48,6 +51,29 @@ function registerIpcHandlers({
   };
   mcpManager.on('changed', broadcast);
   const handlers = {
+    'agents:list': () => agents.listAgents(),
+    'agents:create': input => agents.createAgent(input),
+    'agents:update': ({ id, agent }) => agents.updateAgent(id, agent),
+    'agents:duplicate': ({ id }) => agents.duplicateAgent(id),
+    'agents:delete': ({ id }) => agents.deleteAgent(id),
+    'agents:session': ({ sessionId }) => agents.getSessionAgent(sessionId),
+    'agents:apply': ({ sessionId, agentId, modelId }) => agents.applyAgent(sessionId, agentId, modelId),
+    'sampling:get': ({ sessionId }) => sessionId ? getSessionSamplingParams(sessionId) : { params: getGlobalSamplingParams() },
+    'sampling:save': ({ sessionId, modelId, params }) => sessionId ? saveSessionSamplingParams(sessionId, modelId, params) : { params: saveGlobalSamplingParams(params) },
+    'rag:get-settings': () => getRagSettings(),
+    'rag:save-settings': settings => saveRagSettings(settings),
+    'rag:index': async ({ requestId, attachments }, notify, sender) => {
+      if (typeof requestId !== 'string' || !requestId || !Array.isArray(attachments)) throw new Error('Invalid indexing request.');
+      if (requests.get(sender)?.size) throw new Error('Wait for the current chat or indexing operation.');
+      const controller = new AbortController();
+      requests.set(sender, new Map([[requestId, controller]]));
+      const abort = () => controller.abort();
+      sender.once('destroyed', abort);
+      try { return await indexDocuments(attachments, { signal: controller.signal, onProgress: progress => notify({ type: 'indexing', ...progress }) }); }
+      finally { sender.removeListener('destroyed', abort); requests.delete(sender); }
+    },
+    'app:get-settings': () => getAppSettings(),
+    'app:save-settings': settings => saveAppSettings(settings),
     'mcp:get-config': () => mcpManager.getConfig(),
     'mcp:save-config': config => mcpManager.saveConfig(config),
     'mcp:get-status': async () => { await mcpManager.init(); return context(); },
@@ -64,7 +90,7 @@ function registerIpcHandlers({
     'engine:cancel-chat': ({ requestId }, _notify, sender) => {
       requests.get(sender)?.get(requestId)?.abort();
     },
-    'engine:chat': async ({ requestId, modelId, messages }, notify, sender) => {
+    'engine:chat': async ({ requestId, modelId, messages, sessionId }, notify, sender) => {
       let currentStats = null; // Never reuse a previous turn's final stats.
       if (typeof requestId !== 'string' || !requestId || typeof modelId !== 'string' || !Array.isArray(messages)) throw new Error('Invalid chat request.');
       if (requests.get(sender)?.size) throw new Error('A chat is already running.');
@@ -84,6 +110,10 @@ function registerIpcHandlers({
         const text = await runMemoryChat({
           baseUrl: `http://127.0.0.1:${config.port}`, apiKey: config.apiKey, modelId, messages,
           chatTools: tools, signal: controller.signal,
+          getSamplingParams: () => sessionId ? getSessionSamplingParams(sessionId).params : getGlobalSamplingParams(),
+          retrieveDocuments: sessionId ? question => retrieveContext(sessionId, question, {
+            signal: controller.signal, onProgress: progress => notify({ type: 'indexing', ...progress }),
+          }) : undefined,
           onText: delta => notify({ type: 'text', delta }),
           onStats: stats => { currentStats = stats; notify({ type: 'stats', stats }); },
           onThinking: thinking => notify({ type: 'thinking', thinking }),
@@ -170,7 +200,7 @@ function registerIpcHandlers({
       ipcMain.handle(channel, async (event, payload) => {
         if (!isTrustedSender(event)) throw new Error('Unauthorized IPC sender.');
         if (channel.startsWith('mcp:')) subscribers.add(event.sender);
-        if (channel === 'engine:chat' || channel === 'engine:cancel-chat') {
+        if (channel === 'engine:chat' || channel === 'engine:cancel-chat' || channel === 'rag:index') {
           return handler(payload, result => {
             if (!event.sender.isDestroyed() && isTrustedSender(event)) event.sender.send('engine:chat-event', { requestId: payload.requestId, ...result });
           }, event.sender);

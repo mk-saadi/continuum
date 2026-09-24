@@ -8,7 +8,7 @@ const { randomUUID } = require('node:crypto');
 const MIME_TYPES = Object.freeze({
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.webp': 'image/webp',
-  '.txt': 'text/plain', '.md': 'text/markdown',
+  '.txt': 'text/plain', '.md': 'text/markdown', '.csv': 'text/csv', '.pdf': 'application/pdf',
 });
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -23,7 +23,7 @@ function inspectFile(filePath) {
     throw new TypeError('An absolute file path is required.');
   }
   const mime = MIME_TYPES[path.extname(filePath).toLowerCase()];
-  if (!mime) throw new Error('Supported attachments: PNG, JPEG, GIF, WebP, TXT, and Markdown.');
+  if (!mime) throw new Error('Supported attachments: PNG, JPEG, GIF, WebP, PDF, TXT, Markdown, and CSV.');
   const stat = fs.statSync(filePath);
   if (!stat.isFile()) throw new Error('Attachments must be regular files.');
   if (stat.size > MAX_FILE_BYTES) throw new Error('Each attachment must be 20 MB or smaller.');

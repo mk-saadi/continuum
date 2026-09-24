@@ -9,7 +9,7 @@ const { initDatabase, closeDatabase } = require("./src/main/db.js");
 const { registerIpcHandlers } = require("./src/main/ipcHandlers.js");
 
 const { buildLlamaServerArgs } = require("./src/main/engineManager");
-const { normalizeLoadConfig, saveLoadConfig, forgetLoadConfig } = require("./src/main/configManager");
+const { normalizeLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings } = require("./src/main/configManager");
 const { scanDirectoryForModels } = require("./src/main/modelScanner");
 const scannedModels = new Map();
 let launching = false;
@@ -62,14 +62,18 @@ function createWindow() {
 // Store the active config globally in main.js
 let engineConfig = { port: 8080, apiKey: "", activeModelConfig: null };
 
-// Helper function to find an available port
-function getFreePort() {
+// Check the configured loopback port, or allocate one in automatic mode.
+function getFreePort(requestedPort = null) {
 	return new Promise((resolve, reject) => {
 		const srv = net.createServer();
-		srv.once("error", reject);
-		srv.listen(0, () => {
+		srv.once("error", (error) => {
+			if (error.code === "EADDRINUSE" && requestedPort !== null) {
+				reject(new Error(`Port ${requestedPort} is already in use. Please select another port or stop the conflicting service.`));
+			} else reject(error);
+		});
+		srv.listen({ port: requestedPort ?? 0, host: "127.0.0.1" }, () => {
 			const port = srv.address().port;
-			srv.close(() => resolve(port));
+			srv.close((error) => error ? reject(error) : resolve(port));
 		});
 	});
 }
@@ -151,7 +155,8 @@ async function launchProcess(command, model = null, config = null) {
 	launching = true;
 
 	try {
-		engineConfig.port = await getFreePort();
+		const { apiServerPort } = getAppSettings();
+		engineConfig.port = await getFreePort(apiServerPort);
 		engineConfig.apiKey = crypto.randomBytes(16).toString("hex");
 
 		const appliedConfig = model ? normalizeLoadConfig(config) : null;

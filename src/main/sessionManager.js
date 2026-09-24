@@ -2,6 +2,7 @@
 
 const { validateAttachments } = require('./fileUploads');
 const { db } = require('./db.js');
+const { validateSamplingParams, parseSamplingParams, getGlobalSamplingParams } = require('./samplingManager');
 const { getCoreMemories } = require('./memoryManager.js');
 
 function requireIdentifier(value, name) {
@@ -305,8 +306,8 @@ function branchChat(sourceSessionId, targetMessageId) {
       throw new Error('Message not found in this session.');
     }
     const sessionId = require('node:crypto').randomUUID();
-    db.prepare('INSERT INTO sessions(id, model_id, title, folder_name) VALUES (?, ?, ?, ?)')
-      .run(sessionId, source.model_id, `${source.title || 'Untitled chat'} (branch)`, source.folder_name);
+    db.prepare('INSERT INTO sessions(id, model_id, title, folder_name, sampling_params, agent_profile) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(sessionId, source.model_id, `${source.title || 'Untitled chat'} (branch)`, source.folder_name, source.sampling_params, source.agent_profile);
     // All original turns are retained, including archived turns. Do not copy a
     // summary that could include messages beyond the branch point.
     const messages = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id <= ? ORDER BY id').all(sourceSessionId, targetMessageId);
@@ -325,3 +326,24 @@ function branchChat(sourceSessionId, targetMessageId) {
 }
 
 Object.assign(module.exports, { deleteMessage, branchChat });
+
+
+function getSessionSamplingParams(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  const row = db.prepare('SELECT sampling_params FROM sessions WHERE id = ?').get(sessionId);
+  const overrides = parseSamplingParams(row?.sampling_params);
+  const global = getGlobalSamplingParams();
+  return { params: { ...global, ...overrides }, global, overrides, exists: !!row };
+}
+function saveSessionSamplingParams(sessionId, modelId, patch) {
+  requireIdentifier(sessionId, 'sessionId');
+  const valid = patch === null ? null : validateSamplingParams(patch);
+  return db.transaction(() => {
+    // New drafts have no session row until the first message or tuning edit.
+    if (!db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) getOrCreateSession(sessionId, modelId);
+    const overrides = valid === null ? null : { ...getSessionSamplingParams(sessionId).overrides, ...valid };
+    db.prepare('UPDATE sessions SET sampling_params = ? WHERE id = ?').run(overrides === null ? null : JSON.stringify(overrides), sessionId);
+    return getSessionSamplingParams(sessionId);
+  }).immediate();
+}
+Object.assign(module.exports, { getSessionSamplingParams, saveSessionSamplingParams });

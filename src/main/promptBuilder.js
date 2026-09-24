@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const { validateAttachments, attachmentName } = require('./fileUploads');
 const { db } = require('./db');
+const { getSessionAgent } = require('./agentManager');
 const { getCoreMemories } = require('./memoryManager');
 const {
   getOrCreateSession, saveMessage, getActiveMessages, getSessionSummary,
@@ -80,6 +81,8 @@ function prepareChatMessages({ sessionId, modelId, userText, memoryEnabled = tru
     if (!regenerate) saveMessage(sessionId, 'user', userText, attachments);
     else if (getActiveMessages(sessionId).at(-1)?.role !== 'user') throw new Error('No user message to regenerate.');
     const systemPrompt = buildSystemPrompt({ modelId, memoryEnabled });
+    const agent = getSessionAgent(sessionId);
+    if (agent) systemPrompt.content += `\n\n[ACTIVE AGENT: ${agent.name}]\n${agent.system_prompt}`;
     const summary = getSessionSummary(sessionId);
     const activeSessionMessages = getActiveMessages(sessionId)
       .map(messageForModel);
@@ -101,7 +104,7 @@ function messageForModel({ role, content, attachments = [] }) {
     if (mime_type.startsWith('image/')) {
       images.push({ type: 'image_url', image_url: { url: `data:${mime_type};base64,${fs.readFileSync(file_path, 'base64')}` } });
     } else {
-      text += `\n\n--- Attached file: ${attachmentName(file_path)} ---\n${fs.readFileSync(file_path, 'utf8')}\n--- End attached file ---`;
+      text += `\n[Attached document for retrieval: ${attachmentName(file_path)}]`;
     }
   }
   return { role, content: images.length ? [{ type: 'text', text }, ...images] : text };
