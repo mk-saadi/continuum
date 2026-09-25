@@ -51,6 +51,7 @@ function registerIpcHandlers({
   };
   mcpManager.on('changed', broadcast);
   const handlers = {
+    'agents:save-session-prompt': ({ sessionId, prompt, modelId }) => agents.saveSessionPrompt(sessionId, prompt, modelId),
     'agents:list': () => agents.listAgents(),
     'agents:create': input => agents.createAgent(input),
     'agents:update': ({ id, agent }) => agents.updateAgent(id, agent),
@@ -129,7 +130,10 @@ function registerIpcHandlers({
               const output = isMemory ? await executeMemoryTool({ ...call, modelId }) :
                 await mcpManager.callTool(target.serverName, target.toolName, args, { signal: controller.signal });
               controller.signal.throwIfAborted();
-              const result = typeof output === 'string' ? JSON.parse(output) : output;
+              let result = output;
+              if (typeof output === 'string') {
+                try { result = JSON.parse(output); } catch { /* Tools may return plain text. */ }
+              }
               notify({ type: 'tool', id, ...target, status: result?.isError || result?.success === false ? 'error' : 'complete', result });
               return output;
             } catch (error) {
@@ -171,7 +175,7 @@ function registerIpcHandlers({
     'memory:all': () => getAllActiveMemories(),
     'memory:delete': (id) => deleteMemory(id),
     'session:get-or-create': ({ sessionId, modelId }) => getOrCreateSession(sessionId, modelId),
-    'session:save-message': ({ sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null }) => saveMessage(sessionId, role, content, attachments, stats, toolCalls, thinking, messageId),
+    'session:save-message': ({ sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null }) => saveMessage(sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity),
     'session:get-usage': ({ sessionId, modelId }) => getContextUsage(sessionId, modelId),
     'session:get-messages': ({ sessionId }) => getActiveMessages(sessionId),
     'session:get-summary': ({ sessionId }) => getSessionSummary(sessionId),

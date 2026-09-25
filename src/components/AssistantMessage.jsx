@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-import { FiCheck, FiClock, FiCopy, FiFileText, FiZap } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiClock, FiCopy, FiFileText, FiTool, FiZap } from "react-icons/fi";
 
 // Prism accepts CSS variables, so syntax colors change with data-theme.
 const syntaxTheme = {
@@ -124,7 +124,7 @@ const components = {
 
 export default function AssistantMessage({ message }) {
 	return (
-		<div className="min-w-0 whitespace-normal">
+		<div className="min-w-0 w-full whitespace-normal">
 			{message.toolCalls?.length > 0 && <ToolCallBadge toolCalls={message.toolCalls} />}
 			{message.thinkingText && (
 				<ThinkingAccordion
@@ -132,7 +132,7 @@ export default function AssistantMessage({ message }) {
 					duration={message.thinkingDuration}
 				/>
 			)}
-			<div className="assistant-markdown prose prose-sm max-w-none text-inherit [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-3 [&_h2]:my-3 [&_h3]:my-2 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-3">
+			<div className="assistant-markdown prose max-w-none text-inherit [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-4 [&_h2]:my-4 [&_h3]:my-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-4">
 				<ReactMarkdown
 					remarkPlugins={[remarkGfm]}
 					components={components}
@@ -151,7 +151,7 @@ export function StatsFooter({ stats }) {
 	return (
 		<footer
 			aria-label="Generation statistics"
-			className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--subtle-border)] pt-2 text-[10px] text-[var(--text-muted)]"
+			className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]"
 		>
 			<span
 				className="inline-flex items-center gap-1"
@@ -186,21 +186,31 @@ export function ToolCallBadge({ toolCalls }) {
 	return (
 		<div
 			aria-label="Tool executions"
-			className="space-y-2"
+			className="mb-2 space-y-1"
 		>
 			{toolCalls.map((call, index) => (
 				<div
 					key={call.id || index}
 					role="status"
-					className="my-2 rounded border border-[var(--tool-border)] p-2 text-xs"
+					className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]"
 				>
-					<strong>
+					<FiTool
+						aria-hidden="true"
+						className="shrink-0"
+					/>
+					<span>
 						{call.serverName ? `${call.serverName} / ` : ""}
 						{call.toolName ||
 							(typeof call.function?.name === "string" ? call.function.name : "Tool")}
-					</strong>
-					{call.status && <> · {call.status === "pending" ? "Running…" : call.status}</>}
-					{call.error && <p className="mt-1 whitespace-pre-wrap">{call.error}</p>}
+					</span>
+					{call.status && (
+						<span className="text-[var(--text-secondary)]">
+							· {call.status === "pending" ? "Running…" : call.status}
+						</span>
+					)}
+					{call.error && (
+						<p className="w-full pl-5 whitespace-pre-wrap text-[var(--error)]">{call.error}</p>
+					)}
 				</div>
 			))}
 		</div>
@@ -209,218 +219,17 @@ export function ToolCallBadge({ toolCalls }) {
 
 export function ThinkingAccordion({ text, duration }) {
 	return (
-		<details className="my-2 rounded border border-[var(--subtle-border)] text-xs">
-			<summary className="cursor-pointer px-3 py-2 text-[var(--text-muted)]">
-				Thinking{duration != null ? ` · ${duration.toFixed(1)}s` : ""}
+		<details className="group/thinking mb-3  text-xs text-[var(--text-muted)] bg-gray-400/10 py-1 rounded-md">
+			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+				<FiChevronDown
+					aria-hidden="true"
+					className="-rotate-90 transition-transform group-open/thinking:rotate-0"
+				/>
+				Thought{duration != null ? ` for ${duration.toFixed(1)}s` : ""}
 			</summary>
-			<div className="border-t border-[var(--subtle-border)] px-3 py-2 whitespace-pre-wrap break-words">
+			<div className="mt-1 border-l-2 border-[var(--subtle-border)] py-1 pl-3 whitespace-pre-wrap break-words leading-relaxed">
 				{text}
 			</div>
 		</details>
 	);
 }
-
-// import React, { useState } from "react";
-// import ReactMarkdown from "react-markdown";
-// import remarkGfm from "remark-gfm";
-// import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-
-// const syntaxTheme = {
-// 	'pre[class*="language-"]': { background: "transparent", color: "var(--code-text)" },
-// 	'code[class*="language-"]': { background: "transparent", color: "var(--code-text)" },
-// 	comment: { color: "var(--code-comment)" },
-// 	prolog: { color: "var(--code-comment)" },
-// 	doctype: { color: "var(--code-comment)" },
-// 	cdata: { color: "var(--code-comment)" },
-// 	punctuation: { color: "var(--code-text)" },
-// 	property: { color: "var(--code-key)" },
-// 	tag: { color: "var(--code-key)" },
-// 	boolean: { color: "var(--code-literal)" },
-// 	number: { color: "var(--code-literal)" },
-// 	constant: { color: "var(--code-literal)" },
-// 	symbol: { color: "var(--code-literal)" },
-// 	selector: { color: "var(--code-key)" },
-// 	"attr-name": { color: "var(--code-key)" },
-// 	string: { color: "var(--code-string)" },
-// 	char: { color: "var(--code-string)" },
-// 	builtin: { color: "var(--code-string)" },
-// 	inserted: { color: "var(--code-string)" },
-// 	operator: { color: "var(--code-text)" },
-// 	entity: { color: "var(--code-text)" },
-// 	url: { color: "var(--code-string)" },
-// 	atrule: { color: "var(--code-key)" },
-// 	"attr-value": { color: "var(--code-string)" },
-// 	keyword: { color: "var(--code-keyword)" },
-// 	function: { color: "var(--code-function)" },
-// 	"class-name": { color: "var(--code-function)" },
-// 	regex: { color: "var(--code-literal)" },
-// 	important: { color: "var(--code-literal)" },
-// 	variable: { color: "var(--code-text)" },
-// 	deleted: { color: "var(--error)" },
-// };
-
-// function CodeBlock({ code, language }) {
-// 	const [copied, setCopied] = useState(false);
-// 	async function copy() {
-// 		try {
-// 			await navigator.clipboard.writeText(code.replace(/\n$/, ""));
-// 			setCopied(true);
-// 			setTimeout(() => setCopied(false), 2000);
-// 		} catch {
-// 			setCopied(false);
-// 		}
-// 	}
-// 	return (
-// 		<div className="my-3 min-w-0 overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] text-[var(--code-text)]">
-// 			<div className="flex items-center justify-between border-b border-[var(--code-border)] px-3 py-1.5 text-[11px] text-[var(--code-muted)]">
-// 				<span>{language || "text"}</span>
-// 				<button
-// 					type="button"
-// 					onClick={copy}
-// 					aria-label="Copy code"
-// 					className="cursor-pointer rounded px-2 py-1 text-[var(--code-text)] hover:bg-[var(--code-button-hover)]"
-// 				>
-// 					{copied ? "Copied" : "▢ Copy"}
-// 				</button>
-// 			</div>
-// 			<SyntaxHighlighter
-// 				language={language || "text"}
-// 				style={syntaxTheme}
-// 				customStyle={{
-// 					margin: 0,
-// 					padding: "12px 16px",
-// 					background: "transparent",
-// 					maxWidth: "100%",
-// 					overflowX: "auto",
-// 					fontSize: "12px",
-// 					lineHeight: 1.55,
-// 				}}
-// 			>
-// 				{code.replace(/\n$/, "")}
-// 			</SyntaxHighlighter>
-// 		</div>
-// 	);
-// }
-
-// const components = {
-// 	pre: ({ children }) => <>{children}</>,
-// 	code({ className, children, node, ...props }) {
-// 		const code = String(children);
-// 		const language = /language-([^\s]+)/.exec(className || "")?.[1];
-// 		if (language || code.endsWith("\n"))
-// 			return (
-// 				<CodeBlock
-// 					code={code}
-// 					language={language}
-// 				/>
-// 			);
-// 		return (
-// 			<code
-// 				{...props}
-// 				className={`${className || ""} rounded bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-[var(--text-primary)]`}
-// 			>
-// 				{children}
-// 			</code>
-// 		);
-// 	},
-// 	a: ({ node, ...props }) => (
-// 		<a
-// 			{...props}
-// 			target="_blank"
-// 			rel="noopener noreferrer"
-// 			className="text-[var(--link)] underline"
-// 		/>
-// 	),
-// };
-
-// export default function AssistantMessage({ message }) {
-// 	return (
-// 		<div className="min-w-0 whitespace-normal">
-// 			{message.toolCalls?.length > 0 && <ToolCallBadge toolCalls={message.toolCalls} />}
-// 			{message.thinkingText && (
-// 				<ThinkingAccordion
-// 					text={message.thinkingText}
-// 					duration={message.thinkingDuration}
-// 				/>
-// 			)}
-// 			<div className="assistant-markdown prose prose-sm max-w-none text-inherit [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-3 [&_h2]:my-3 [&_h3]:my-2 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_table]:block [&_table]:overflow-x-auto [&_th]:border [&_th]:border-[var(--attachment-border)] [&_th]:p-2 [&_td]:border [&_td]:border-[var(--attachment-border)] [&_td]:p-2 [&_hr]:my-3">
-// 				<ReactMarkdown
-// 					remarkPlugins={[remarkGfm]}
-// 					components={components}
-// 				>
-// 					{message.content ||
-// 						(message.streaming || message.toolCalls?.length || message.thinkingText ? "" : "...")}
-// 				</ReactMarkdown>
-// 			</div>
-// 			{message.role === "assistant" && message.stats && <StatsFooter stats={message.stats} />}
-// 		</div>
-// 	);
-// }
-
-// export function StatsFooter({ stats }) {
-// 	const scope = stats.scope === "final" ? "Final generation phase" : "All generation phases";
-// 	return (
-// 		<footer
-// 			aria-label="Generation statistics"
-// 			className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--subtle-border)] pt-2 text-[10px] text-[var(--text-muted)]"
-// 		>
-// 			<span
-// 				title={`${scope}: ${stats.generationTime != null ? "server generation timing" : "elapsed-time throughput"}`}
-// 			>
-// 				⚡ {stats.tokensPerSecond == null ? "—" : stats.tokensPerSecond.toFixed(1)} tok/sec
-// 			</span>
-// 			<span
-// 				title={`${scope}. Prompt: ${stats.promptTokens ?? "unavailable"}; generated: ${stats.completionTokens ?? "unavailable"}`}
-// 			>
-// 				📝{" "}
-// 				{stats.totalTokens == null
-// 					? "Tokens unavailable"
-// 					: `${stats.totalTokens.toLocaleString()} total tokens`}
-// 			</span>
-// 			<span title={`${scope}: elapsed time`}>
-// 				⏱️ {stats.time == null ? "—" : stats.time.toFixed(1)}s
-// 			</span>
-// 			{stats.scope === "final" && (
-// 				<span title="Earlier tool phases did not report complete usage">Final phase</span>
-// 			)}
-// 		</footer>
-// 	);
-// }
-
-// export function ToolCallBadge({ toolCalls }) {
-// 	return (
-// 		<div
-// 			aria-label="Tool executions"
-// 			className="space-y-2"
-// 		>
-// 			{toolCalls.map((call, index) => (
-// 				<div
-// 					key={call.id || index}
-// 					role="status"
-// 					className="my-2 rounded border border-[var(--tool-border)] p-2 text-xs"
-// 				>
-// 					<strong>
-// 						{call.serverName ? `${call.serverName} / ` : ""}
-// 						{call.toolName ||
-// 							(typeof call.function?.name === "string" ? call.function.name : "Tool")}
-// 					</strong>
-// 					{call.status && <> · {call.status === "pending" ? "Running…" : call.status}</>}
-// 					{call.error && <p className="mt-1 whitespace-pre-wrap">{call.error}</p>}
-// 				</div>
-// 			))}
-// 		</div>
-// 	);
-// }
-
-// export function ThinkingAccordion({ text, duration }) {
-// 	return (
-// 		<details className="my-2 rounded border border-[var(--subtle-border)] text-xs">
-// 			<summary className="cursor-pointer px-3 py-2 text-[var(--text-muted)]">
-// 				Thinking{duration != null ? ` · ${duration.toFixed(1)}s` : ""}
-// 			</summary>
-// 			<div className="border-t border-[var(--subtle-border)] px-3 py-2 whitespace-pre-wrap break-words">
-// 				{text}
-// 			</div>
-// 		</details>
-// 	);
-// }

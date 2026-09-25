@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  saveSessionPrompt: (sessionId, prompt, modelId) => ipcRenderer.invoke('agents:save-session-prompt', { sessionId, prompt, modelId }),
   listAgents: () => ipcRenderer.invoke('agents:list'),
   createAgent: agent => ipcRenderer.invoke('agents:create', agent),
   updateAgent: (id, agent) => ipcRenderer.invoke('agents:update', { id, agent }),
@@ -51,7 +52,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getAllActiveMemories: () => ipcRenderer.invoke('memory:all'),
   deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
   getOrCreateSession: (sessionId, modelId) => ipcRenderer.invoke('session:get-or-create', { sessionId, modelId }),
-  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId }),
+  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity }),
   getContextUsage: (sessionId, modelId) => ipcRenderer.invoke('session:get-usage', { sessionId, modelId }),
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),

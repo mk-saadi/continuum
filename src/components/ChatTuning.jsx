@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FaSlidersH } from 'react-icons/fa';
 
 const controls = [
   { key: 'temperature', label: 'Temperature', type: 'range', min: 0, max: 2, step: 0.05 },
@@ -9,7 +8,7 @@ const controls = [
   { key: 'max_tokens', label: 'Max Tokens', type: 'number', min: -1, step: 1 },
 ];
 
-function ParameterControls({ sessionId, modelId }) {
+export function ParameterControls({ sessionId, modelId }) {
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('Loading…');
@@ -64,30 +63,5 @@ function ParameterControls({ sessionId, modelId }) {
     {!modelId && sessionId && state && !state.exists && <p className="text-xs">Select a model to save tuning for this new chat.</p>}
     <p role="status" className="text-xs text-[var(--text-secondary)]">{status}</p>
     {error && <p role="alert" className="text-xs text-[var(--error)]">{error}</p>}
-  </div>;
-}
-
-export default function ChatTuning({ sessionId, modelId }) {
-  const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState('chat');
-  const trigger = useRef(null);
-  const close = () => { setOpen(false); trigger.current?.focus(); };
-  return <div className="relative flex shrink-0 justify-end border-b border-[var(--border)] px-3 py-1" onKeyDown={event => {
-    if (event.key === 'Escape' && open) { event.stopPropagation(); close(); }
-  }}>
-    <button ref={trigger} type="button" aria-expanded={open} aria-controls="chat-tuning-panel"
-      className="flex items-center gap-2 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-      onClick={() => setOpen(value => !value)}><FaSlidersH aria-hidden="true" /> Tuning</button>
-    {open && <section id="chat-tuning-panel" aria-label="Generation tuning" className="absolute right-0 top-full z-40 max-h-[65vh] w-80 max-w-full overflow-y-auto rounded-b-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-xl">
-      <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-semibold">Generation tuning</h3>
-        <button type="button" autoFocus aria-label="Close tuning" onClick={close} className="rounded px-2 py-1 hover:bg-[var(--surface-hover)]">×</button>
-      </div>
-      <label className="mb-4 block text-xs">Apply to
-        <select className="mt-1 w-full rounded border border-[var(--border)] bg-[var(--input)] p-2" value={scope} onChange={event => setScope(event.target.value)}>
-          <option value="chat">This chat</option><option value="global">Global defaults</option>
-        </select>
-      </label>
-      <ParameterControls key={`${scope}:${sessionId}`} sessionId={scope === 'chat' ? sessionId : undefined} modelId={modelId} />
-    </section>}
   </div>;
 }

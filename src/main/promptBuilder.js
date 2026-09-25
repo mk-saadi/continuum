@@ -5,21 +5,13 @@ const { validateAttachments, attachmentName } = require('./fileUploads');
 const { db } = require('./db');
 const { getSessionAgent } = require('./agentManager');
 const { getCoreMemories } = require('./memoryManager');
+const { nativeTools } = require('./nativeTools');
 const {
   getOrCreateSession, saveMessage, getActiveMessages, getSessionSummary,
 } = require('./sessionManager');
 
 const memoryTools = [
-  {
-    name: 'search_memory',
-    description: 'Search long-term Memory Palace storage for user preferences, project rules, past decisions, or personal facts not present in the immediate context.',
-    input_schema: {
-      type: 'object',
-      properties: { query: { type: 'string', description: 'Search query or keywords to look up in memory' } },
-      required: ['query'],
-      additionalProperties: false,
-    },
-  },
+  ...nativeTools.map(({ function: { name, description, parameters } }) => ({ name, description, input_schema: parameters })),
   {
     name: 'save_memory',
     description: 'Extract and save a concise, atomic fact, preference, or rule to long-term memory. DO NOT save raw user conversational strings.',
@@ -57,7 +49,7 @@ ${coreMemoriesText || (memoryEnabled ? 'No background memories saved yet.' : 'Au
 MEMORY & CONVERSATION RULES:
 1. PASSIVE KNOWLEDGE RULE: Treat Background Knowledge strictly as PASSIVE KNOWLEDGE. Do NOT bring it up, list it, or mention it unless the user explicitly asks or it is directly relevant.
 2. CASUAL GREETINGS: If the user says a simple greeting ("hey", "hello", "hi"), respond with a brief, natural greeting. NEVER announce what you remember about them upon greeting.
-3. WHEN TO SEARCH MEMORY: If the user asks about past project details, preferred tools, or rules not in context, call the \`search_memory\` tool before answering.
+3. WHEN TO SEARCH MEMORY: For ANY recall task involving permanent facts, preferences, past project details, or previous conversations, call the \`search_memory\` tool before answering.
 4. WHEN TO SAVE MEMORY: If the user tells you to remember a fact/preference ("remember that...", "my favorite X is Y", "always use Z"), call the \`save_memory\` tool immediately. Distill one short, atomic fact per call; never save the raw conversational sentence. For example, "Remember that I prefer TypeScript over JavaScript for all new files." becomes "Prefers TypeScript over JavaScript". Split independent facts into separate calls, preserving negations and meaningful project constraints.
 5. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
 `,

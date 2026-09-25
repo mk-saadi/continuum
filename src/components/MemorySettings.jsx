@@ -1,3 +1,4 @@
+import TerminalLog from './TerminalLog';
 import RagSettings from './RagSettings';
 import LocalApiSettings from './LocalApiSettings';
 import AvatarSettings from './AvatarSettings';
@@ -8,18 +9,20 @@ import ServerConfigTab from './ServerConfigTab';
 import { SettingsIcon } from './SettingsIcon';
 
 const tabs = [
+  { id: 'general', label: 'General / Appearance' },
+  { id: 'terminal', label: 'Terminal' },
   { id: 'avatars', label: 'Avatars & Branding' },
   { id: 'memory', label: '🧠 Memory Palace' },
   { id: 'integrations', label: '🔌 MCP Integrations' },
   { id: 'config', label: '⚙️ Server Config' },
 ];
 
-export default function MemorySettings({ palace, onClose, avatars, models }) {
+export default function MemorySettings({ palace, onClose, avatars, models, theme, onToggleTheme, terminalLog, engineRunning, serverPort, serverError }) {
   const dialog = useRef(null);
   const tabButtons = useRef([]);
   const changing = useRef(false);
   const version = useRef(0);
-  const [tab, setTab] = useState('memory');
+  const [tab, setTab] = useState('general');
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -86,10 +89,18 @@ export default function MemorySettings({ palace, onClose, avatars, models }) {
         tabIndex={tab === id ? 0 : -1} onKeyDown={event => onTabKey(event, index)} onClick={() => setTab(id)}
         className={`shrink-0 border-b-2 px-2 py-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet-500 ${tab === id ? 'border-violet-500 text-violet-700 dark:text-violet-300' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>{label}</button>)}
     </div>
+    <section id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" hidden={tab !== 'general'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs">
+      <h3 className="mb-3 font-semibold">Appearance</h3>
+      <button type="button" onClick={onToggleTheme} className="rounded-lg border border-[var(--border)] px-3 py-2">Switch to {theme === 'dark' ? 'light' : 'dark'} theme</button>
+    </section>
+    <section id="settings-panel-terminal" role="tabpanel" aria-labelledby="settings-tab-terminal" hidden={tab !== 'terminal'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs">
+      <TerminalLog log={terminalLog} engineRunning={engineRunning} serverPort={serverPort} serverError={serverError} />
+    </section>
     <section id="settings-panel-avatars" role="tabpanel" aria-labelledby="settings-tab-avatars" hidden={tab !== 'avatars'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs">
       <AvatarSettings avatars={avatars} models={models} />
     </section>
     <section id="settings-panel-memory" role="tabpanel" aria-labelledby="settings-tab-memory" hidden={tab !== 'memory'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs">
+      <label className="mb-4 flex items-center gap-2"><input type="checkbox" role="switch" checked={palace.enabled} onChange={palace.toggle} />Enable memory injection</label>
       <MemoryTab palace={palace} />
     </section>
     <section id="settings-panel-integrations" role="tabpanel" aria-labelledby="settings-tab-integrations" hidden={tab !== 'integrations'} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4 text-xs" aria-busy={busy}>

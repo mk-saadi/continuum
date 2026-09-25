@@ -33,7 +33,7 @@ function getOrCreateSession(sessionId, modelId) {
   }).immediate();
 }
 
-function saveMessage(sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null) {
+function saveMessage(sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null) {
   requireIdentifier(sessionId, 'sessionId');
   if (!['user', 'assistant', 'system'].includes(role)) {
     throw new TypeError('role must be user, assistant, or system.');
@@ -42,6 +42,12 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
   const messageStats = normalizeStats(stats);
   const messageTools = normalizeToolCalls(toolCalls);
   const messageThinking = normalizeThinking(thinking);
+  if (identity !== null) {
+    if (role !== 'assistant' || typeof identity !== 'object' || Array.isArray(identity)) throw new TypeError('Only assistant messages may have model identity metadata.');
+    for (const key of ['modelName', 'modelId', 'agentName']) {
+      if (identity[key] != null) requireIdentifier(identity[key], key);
+    }
+  }
   if ((messageTools || messageThinking.text !== null || messageThinking.duration !== null) && role !== 'assistant') throw new TypeError('Only assistant messages may have tool or thinking metadata.');
   if (messageStats && role !== 'assistant') throw new TypeError('Only assistant messages may have generation stats.');
   const estimatedTokens = estimateTokens(content);
@@ -63,21 +69,26 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
       }) : previousStats;
       db.prepare(`
         UPDATE messages SET content = ?, estimated_tokens = ?, stats = ?,
-          tool_calls = ?, thinking_text = ?, thinking_duration = ?
+          tool_calls = ?, thinking_text = ?, thinking_duration = ?,
+          model_name = ?, model_id = ?, agent_name = ?
         WHERE id = ? AND session_id = ? AND role = 'assistant'
       `).run(content, estimatedTokens, mergedStats ? JSON.stringify(mergedStats) : null,
         toolCalls == null ? existing.tool_calls : messageTools ? JSON.stringify(messageTools) : null,
         thinking == null ? existing.thinking_text : messageThinking.text,
         thinking == null ? existing.thinking_duration : messageThinking.duration,
+        identity?.modelName ?? existing.model_name,
+        identity?.modelId ?? existing.model_id,
+        identity === null ? existing.agent_name : identity.agentName ?? null,
         messageId, sessionId);
     } else {
       const result = db.prepare(`
-        INSERT INTO messages(session_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration)
-        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)
+        INSERT INTO messages(session_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name)
+        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
       `).run(sessionId, role, content, estimatedTokens,
         messageStats ? JSON.stringify(messageStats) : null,
         messageTools ? JSON.stringify(messageTools) : null,
-        messageThinking.text, messageThinking.duration);
+        messageThinking.text, messageThinking.duration,
+        identity?.modelName ?? identity?.modelId ?? null, identity?.modelId ?? null, identity?.agentName ?? null);
       savedId = result.lastInsertRowid;
     }
 
@@ -214,6 +225,9 @@ function withAttachments(messages) {
   const select = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id');
   return messages.map(({ tool_calls, thinking_text, thinking_duration, ...message }) => ({
     ...message,
+    modelName: message.model_name,
+    modelId: message.model_id,
+    agentName: message.agent_name,
     stats: parseStats(message.stats),
     toolCalls: parseToolCalls(tool_calls),
     thinkingText: typeof thinking_text === 'string' ? thinking_text : null,
@@ -312,13 +326,14 @@ function branchChat(sourceSessionId, targetMessageId) {
     // summary that could include messages beyond the branch point.
     const messages = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id <= ? ORDER BY id').all(sourceSessionId, targetMessageId);
     const insert = db.prepare(`INSERT INTO messages
-      (session_id, role, content, estimated_tokens, stats, tool_calls, thinking_text, thinking_duration, archived, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);
+      (session_id, role, content, estimated_tokens, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, archived, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);
     const copyAttachments = db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
       SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ? ORDER BY id`);
     for (const message of messages) {
       const result = insert.run(sessionId, message.role, message.content, message.estimated_tokens,
-        message.stats, message.tool_calls, message.thinking_text, message.thinking_duration, message.created_at);
+        message.stats, message.tool_calls, message.thinking_text, message.thinking_duration,
+        message.model_name, message.model_id, message.agent_name, message.created_at);
       copyAttachments.run(result.lastInsertRowid, message.id);
     }
     return { sessionId };

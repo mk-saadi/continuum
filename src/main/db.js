@@ -72,6 +72,9 @@ const SCHEMA = `
     tool_calls TEXT,
     thinking_text TEXT,
     thinking_duration REAL,
+    model_name TEXT,
+    model_id TEXT,
+    agent_name TEXT,
     archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -175,7 +178,7 @@ function initDatabase() {
         connection.prepare("INSERT INTO app_settings(key, value_json) VALUES ('agents_seeded', 'true')").run();
       }
       const messageColumns = new Set(connection.pragma('table_info(messages)').map(column => column.name));
-      for (const [name, type] of Object.entries({ stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL' })) {
+      for (const [name, type] of Object.entries({ stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL', model_name: 'TEXT', model_id: 'TEXT', agent_name: 'TEXT' })) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
       }
       if (!connection.pragma('table_info(sessions)').some(column => column.name === 'sampling_params')) {
@@ -237,4 +240,53 @@ const db = Object.freeze({
   },
 });
 
-module.exports = { db, initDatabase, closeDatabase };
+function searchChatHistory(searchQuery) {
+  if (typeof searchQuery !== 'string' || searchQuery.includes('\0')) {
+    throw new TypeError('query must be a string without null characters.');
+  }
+  const term = searchQuery.trim();
+  if (!/[\p{L}\p{N}\p{Co}]/u.test(term)) return [];
+
+  // Treat model-provided search terms as literal text, including FTS punctuation.
+  const query = `"${term.replace(/"/g, '""')}"*`;
+  return db.prepare(`
+    SELECT messages.session_id, messages.role, messages.content
+    FROM chat_fts
+    JOIN messages ON messages.id = chat_fts.rowid
+    WHERE chat_fts MATCH ?
+    ORDER BY chat_fts.rank, messages.id
+    LIMIT 10
+  `).all(query);
+}
+
+function searchMemory(query, modelId) {
+  if (typeof modelId !== 'string' || !modelId.trim() || modelId.includes('\0')) {
+    throw new TypeError('modelId must be a non-empty string without null characters.');
+  }
+  if (typeof query !== 'string' || query.includes('\0')) {
+    throw new TypeError('query must be a string without null characters.');
+  }
+  const term = query.trim();
+  const emptyResult = 'Facts found:\nNone.\n\nPast Chat Context found:\nNone.';
+  if (!term) return emptyResult;
+
+  return db.transaction(() => {
+    // Escape LIKE wildcards so the user's keywords remain literal substrings.
+    const pattern = `%${term.replace(/[\\%_]/g, '\\$&')}%`;
+    const facts = db.prepare(`
+      SELECT category, content FROM permanent_memories
+      WHERE (content LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')
+        AND is_active = 1 AND superseded_by IS NULL
+        AND (scope = 'global' OR scope = ?)
+      ORDER BY id
+      LIMIT 5
+    `).all(pattern, pattern, modelId);
+    const chats = searchChatHistory(term);
+    const factsText = facts.map(({ category, content }) => `- [${category}]: ${content}`).join('\n');
+    const chatsText = chats.map(({ session_id, role, content }) =>
+      `[Session: ${session_id}] ${role}:\n${content}`).join('\n\n');
+    return `Facts found:\n${factsText || 'None.'}\n\nPast Chat Context found:\n${chatsText || 'None.'}`;
+  })();
+}
+
+module.exports = { db, initDatabase, closeDatabase, searchChatHistory, searchMemory };

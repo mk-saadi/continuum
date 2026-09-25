@@ -67,3 +67,19 @@ function applyAgent(sessionId, agentId, modelId) {
   }).immediate();
 }
 module.exports = { listAgents, getAgent, createAgent, updateAgent, duplicateAgent, deleteAgent, getSessionAgent, applyAgent };
+
+function saveSessionPrompt(sessionId, prompt, modelId) {
+  identifier(sessionId);
+  if (typeof prompt !== 'string' || prompt.length > 32000 || prompt.includes('\0')) throw new Error('Invalid session system prompt.');
+  if (modelId != null && typeof modelId !== 'string') throw new Error('Invalid model ID.');
+  return db.transaction(() => {
+    const row = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+    if (row?.is_compressing) throw new Error('History is being summarized. Please retry shortly.');
+    if (!row) db.prepare('INSERT INTO sessions(id, model_id) VALUES (?, ?)').run(sessionId, modelId || null);
+    const previous = getSessionAgent(sessionId);
+    const profile = previous ? { ...previous, system_prompt: prompt } : prompt.trim() ? { id: null, name: 'Assistant', system_prompt: prompt, avatar_url: null, model_id: modelId || null } : null;
+    db.prepare('UPDATE sessions SET agent_profile = ? WHERE id = ?').run(profile ? JSON.stringify(profile) : null, sessionId);
+    return profile;
+  }).immediate();
+}
+module.exports.saveSessionPrompt = saveSessionPrompt;

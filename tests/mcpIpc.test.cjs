@@ -54,6 +54,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.equal(events.filter(e => e.type === 'thinking').at(-1).thinking.text, 'Final thought');
     assert.equal(executions.length, 1);
     assert.equal(requests[0].tools.length, 3);
+    assert.ok(!requests[0].tools.some(tool => tool.function.name === 'search_chat_history'));
     assert.equal(requests[1].messages.at(-1).role, 'tool');
     assert.equal(requests[1].messages.at(-1).tool_call_id, 'call1');
     assert.equal(JSON.parse(requests[1].messages.at(-1).content).content[0].text, 'hello');
@@ -65,6 +66,21 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     global.fetch = async () => Response.json({ choices: [{ message: { content: 'Next turn' }, finish_reason: 'stop' }] });
     const nextTurn = await handlers.get('engine:chat')(event, { requestId: 'request2', modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
     assert.equal(nextTurn.stats.totalTokens, null);
+    const historyRequests = [];
+    global.fetch = async (_url, options) => {
+      historyRequests.push(JSON.parse(options.body));
+      return Response.json({ choices: [{ finish_reason: historyRequests.length === 1 ? 'tool_calls' : 'stop',
+        message: historyRequests.length === 1
+          ? { content: null, tool_calls: [{ id: 'history1', type: 'function', function: {
+            name: 'search_memory', arguments: '{"query":""}',
+          } }] }
+          : { content: 'No earlier discussion found.' } }] });
+    };
+    await handlers.get('engine:chat')(event, { requestId: 'history', modelId: 'model', messages: [
+      { role: 'system', content: 'test' }, { role: 'user', content: 'What did we talk about?' },
+    ] });
+    assert.equal(historyRequests[1].messages.at(-1).content, 'Facts found:\nNone.\n\nPast Chat Context found:\nNone.');
+    assert.equal(events.filter(e => e.type === 'tool').at(-1).status, 'complete');
     let started;
     const pending = new Promise(resolve => { started = resolve; });
     global.fetch = async (_url, { signal }) => {
