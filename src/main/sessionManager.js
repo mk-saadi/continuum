@@ -48,7 +48,7 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
   const messageThinking = normalizeThinking(thinking);
   if (identity !== null) {
     if (role !== 'assistant' || typeof identity !== 'object' || Array.isArray(identity)) throw new TypeError('Only assistant messages may have model identity metadata.');
-    for (const key of ['modelName', 'modelId', 'agentName']) {
+    for (const key of ['modelName', 'modelId', 'agentName', 'displayName']) {
       if (identity[key] != null) requireIdentifier(identity[key], key);
     }
   }
@@ -84,13 +84,13 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
         messageId, sessionId);
     } else {
       const result = db.prepare(`
-        INSERT INTO messages(session_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name)
-        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO messages(session_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, display_name)
+        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(sessionId, role, content, estimatedTokens,
         messageStats ? JSON.stringify(messageStats) : null,
         messageTools ? JSON.stringify(messageTools) : null,
         messageThinking.text, messageThinking.duration,
-        identity?.modelName ?? identity?.modelId ?? null, identity?.modelId ?? null, identity?.agentName ?? null);
+        identity?.modelName ?? identity?.modelId ?? null, identity?.modelId ?? null, identity?.agentName ?? null, identity?.displayName ?? null);
       savedId = result.lastInsertRowid;
     }
 
@@ -177,7 +177,7 @@ function loadSession(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
   if (!session) throw new Error('Session not found.');
-  return { ...session, messages: withAttachments(db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id').all(sessionId)) };
+  return { ...session, overrides: require('./profileSettings').sessionOverrides(session), messages: withAttachments(db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id').all(sessionId)) };
 }
 
 function getAllSessions() {
@@ -258,6 +258,7 @@ function withAttachments(messages) {
     variants: parseVariants({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
     executionSteps: readExecutionSteps({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
     content: parseVariants(message)[message.active_variant_index ?? 0]?.content ?? message.content,
+    displayName: message.display_name,
     modelName: message.model_name,
     modelId: message.model_id,
     agentName: message.agent_name,
@@ -369,7 +370,7 @@ function branchChat(sourceSessionId, targetMessageId) {
         message.stats, message.tool_calls, message.thinking_text, message.thinking_duration,
         message.model_name, message.model_id, message.agent_name, message.created_at);
       db.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?').run(JSON.stringify(parseVariants(message)), message.active_variant_index ?? 0, result.lastInsertRowid);
-      db.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?').run(message.execution_steps, result.lastInsertRowid);
+      db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(message.execution_steps, message.display_name, result.lastInsertRowid);
       copyAttachments.run(result.lastInsertRowid, message.id);
     }
     return { sessionId };
@@ -379,12 +380,13 @@ function branchChat(sourceSessionId, targetMessageId) {
 Object.assign(module.exports, { deleteMessage, branchChat });
 
 
-function getSessionSamplingParams(sessionId) {
+function getSessionSamplingParams(sessionId, modelId) {
   requireIdentifier(sessionId, 'sessionId');
   const row = db.prepare('SELECT sampling_params FROM sessions WHERE id = ?').get(sessionId);
   const overrides = parseSamplingParams(row?.sampling_params);
   const global = getGlobalSamplingParams();
-  return { params: { ...global, ...overrides }, global, overrides, exists: !!row };
+  const resolved = require('./profileSettings').getSessionSettings(sessionId, modelId);
+  return { ...resolved, global, overrides }; 
 }
 function saveSessionSamplingParams(sessionId, modelId, patch) {
   requireIdentifier(sessionId, 'sessionId');
@@ -394,7 +396,7 @@ function saveSessionSamplingParams(sessionId, modelId, patch) {
     if (!db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) getOrCreateSession(sessionId, modelId);
     const overrides = valid === null ? null : { ...getSessionSamplingParams(sessionId).overrides, ...valid };
     db.prepare('UPDATE sessions SET sampling_params = ? WHERE id = ?').run(overrides === null ? null : JSON.stringify(overrides), sessionId);
-    return getSessionSamplingParams(sessionId);
+    return getSessionSamplingParams(sessionId, modelId);
   }).immediate();
 }
 Object.assign(module.exports, { getSessionSamplingParams, saveSessionSamplingParams });
@@ -425,7 +427,7 @@ function setActiveVariant(sessionId, messageId, index) {
           totalTokens: variant.stats.total_tokens, time: variant.stats.duration }) : null,
         variant.thinking ?? null, variant.thinking_duration ?? null, JSON.stringify(variant.tool_calls ?? []),
         variant.model_name ?? null, variant.model_id ?? null, variant.agent_name ?? null, messageId);
-    db.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), messageId);
+    db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), variant.displayName ?? null, messageId);
     // A summary may contain the previously selected reply. Rebuild context from original turns.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(sessionId);
@@ -437,6 +439,7 @@ function setActiveVariant(sessionId, messageId, index) {
 function appendReplyVariant(sessionId, target, variant) {
   if (!variant || typeof variant !== 'object') throw new TypeError('A reply metadata object is required.');
   estimateTokens(variant.content);
+  if (variant.displayName != null) requireIdentifier(variant.displayName, 'displayName');
   return db.transaction(() => {
     const last = getRegenerationTarget(sessionId);
     if (last.id !== target.id || last.variants !== target.variants || last.content !== target.content) {

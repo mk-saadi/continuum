@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 const STORAGE_KEY = 'avatar-settings';
-export const DEFAULT_AVATAR_SETTINGS = { showAvatars: true, globalAvatarUrl: null, modelAvatars: {} };
+export const DEFAULT_AVATAR_SETTINGS = { showAvatars: true, globalAvatarUrl: null, modelAvatars: {}, globalModelName: '', perModelNames: {} };
 
 function readSettings() {
   try {
@@ -9,6 +9,9 @@ function readSettings() {
     return {
       showAvatars: typeof value?.showAvatars === 'boolean' ? value.showAvatars : true,
       globalAvatarUrl: typeof value?.globalAvatarUrl === 'string' ? value.globalAvatarUrl : null,
+      globalModelName: typeof value?.globalModelName === 'string' ? value.globalModelName : '',
+      perModelNames: Object.fromEntries(Object.entries(value?.perModelNames || {})
+        .filter(([, name]) => typeof name === 'string')),
       modelAvatars: Object.fromEntries(Object.entries(value?.modelAvatars || {})
         .filter(([, url]) => typeof url === 'string' && url)),
     };

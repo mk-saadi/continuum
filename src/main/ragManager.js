@@ -86,14 +86,15 @@ async function indexDocuments(attachments, { embedder, signal, onProgress = () =
   for (const file of files) {
     signal?.throwIfAborted();
     const fileName = attachmentName(file.file_path);
-    onProgress({ fileName, completed: 0, total: 0, stage: 'Parsing' });
     const bytes = await fs.readFile(file.file_path);
+    signal?.throwIfAborted();
     const hash = createHash('sha256').update(bytes).digest('hex');
     const cached = db.prepare('SELECT COUNT(*) AS n FROM document_chunks WHERE file_path = ? AND content_hash = ? AND embedding_model = ?').get(file.file_path, hash, embedder.modelKey);
     if (cached.n) {
-      onProgress({ fileName, completed: cached.n, total: cached.n, stage: 'Indexed' });
       indexed.push(file.file_path); continue;
     }
+    // Cache checks are not indexing work: do not replay old upload banners.
+    onProgress({ fileName, completed: 0, total: 0, stage: 'Parsing' });
     const chunks = chunkText(await parseDocument(file.file_path, bytes));
     if (!chunks.length) throw new Error(`${fileName} contains no extractable text. Scanned PDFs require OCR before uploading.`);
     const vectors = [];

@@ -204,9 +204,9 @@ export const SelectField = forwardRef(function SelectField(
 					aria-expanded={isOpen}
 					aria-describedby={hint ? `${id}-hint` : undefined}
 					onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
-					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-3 py-1! text-sm text-black outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-3 py-1! text-sm text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
 				>
-					<span className={!selectedOption ? "text-[var(--text-primary)]" : "truncate"}>
+					<span className={!selectedOption ? "text-[var(--text-primary)]!" : "truncate"}>
 						{selectedOption ? selectedOption.label : placeholder}
 					</span>
 					<LuChevronDown

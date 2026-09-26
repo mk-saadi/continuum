@@ -38,8 +38,10 @@ test('document indexing scopes progress events and removes listeners', async () 
   };
   try {
     assert.deepEqual(await indexDesktopDocuments([{ file_path: 'managed.pdf' }], { onProgress: p => progress.push(p) }), ['managed.pdf']);
-    assert.equal(progress.length, 1);
-    assert.equal(progress[0].completed, 1);
+    assert.equal(progress.length, 3);
+    assert.equal(progress[0], null);
+    assert.equal(progress[1].completed, 1);
+    assert.equal(progress[2], null);
     assert.equal(removed, true);
   } finally { globalThis.window = oldWindow; }
 });
@@ -106,3 +108,46 @@ for (const outcome of ['error', 'abort']) {
     } finally { globalThis.window = oldWindow; }
   });
 }
+
+
+test('indexing resets discard buffered progress before generation and on completion', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const oldWindow = globalThis.window;
+  let listener, requestId, finish;
+  const progress = [];
+  globalThis.window = { chatAPI: {
+    onEvent: callback => { listener = callback; return () => {}; },
+    run: payload => { requestId = payload.requestId; return new Promise(resolve => { finish = resolve; }); },
+  } };
+  try {
+    const chat = runDesktopChat({ modelId: 'model', messages: [], onIndexing: value => progress.push(value) });
+    assert.deepEqual(progress, [null]);
+    listener({ requestId, type: 'indexing', stage: 'Indexed', fileName: 'old.txt' });
+    listener({ requestId, type: 'indexing', progress: null });
+    t.mock.timers.tick(50);
+    assert.deepEqual(progress, [null, null]);
+    listener({ requestId: 'old-request', type: 'indexing', stage: 'Indexed' });
+    listener({ requestId, type: 'text', delta: 'Answer' });
+    finish({ text: 'Answer' });
+    await chat;
+    assert.deepEqual(progress, [null, null, null]);
+  } finally { globalThis.window = oldWindow; }
+});
+
+test('failed chat clears indexing progress after flushing pending events', async () => {
+  const oldWindow = globalThis.window;
+  const progress = [];
+  let listener;
+  globalThis.window = { chatAPI: {
+    onEvent: callback => { listener = callback; return () => {}; },
+    run: async ({ requestId }) => {
+      listener({ requestId, type: 'indexing', stage: 'Parsing', fileName: 'new.txt' });
+      throw new Error('Indexing failed');
+    },
+  } };
+  try {
+    await assert.rejects(runDesktopChat({ modelId: 'model', messages: [], onIndexing: value => progress.push(value) }), /Indexing failed/);
+    assert.equal(progress[0], null);
+    assert.equal(progress.at(-1), null);
+  } finally { globalThis.window = oldWindow; }
+});

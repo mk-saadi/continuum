@@ -15,11 +15,11 @@ const memoryTools = [
   ...nativeTools.map(({ function: { name, description, parameters } }) => ({ name, description, input_schema: parameters })),
   {
     name: 'save_memory',
-    description: 'Extract and save a concise, atomic fact, preference, or rule to long-term memory. DO NOT save raw user conversational strings.',
+    description: 'Extract and save a concise, atomic fact, preference, or rule ABOUT THE USER to long-term memory. DO NOT save raw conversational strings, banter, or any facts/corrections regarding the AI model\'s identity or architecture.',
     input_schema: {
       type: 'object',
       properties: {
-        category: { type: 'string', description: "Category: 'preference', 'tech_stack', 'project_rule', 'user_fact'" },
+        category: { type: 'string', description: "Category: 'preference', 'tech_stack', 'project_rule', 'user_fact'. user_fact: Facts strictly about the user (e.g. location, role, background). NEVER use for AI model facts." },
         content: { type: 'string', description: "The distilled, normalized fact. Examples: 'Favorite color: black', 'Prefers package manager: pnpm', 'OS: macOS'. NEVER include conversational phrases like 'remember that' or 'from now on'." },
         always_inject: { type: 'boolean', default: true },
       },
@@ -68,7 +68,8 @@ function prepareChatMessages({ sessionId, modelId, userText, memoryEnabled = tru
     else if (getActiveMessages(sessionId).at(-1)?.role !== 'user') throw new Error('No user message to regenerate.');
     const systemPrompt = buildSystemPrompt({ modelId, memoryEnabled });
     const agent = getSessionAgent(sessionId);
-    if (agent) systemPrompt.content += `\n\n[ACTIVE AGENT: ${agent.name}]\n${agent.system_prompt}`;
+    const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+    if (effective.systemPrompt) systemPrompt.content += `\n\n[${agent ? `ACTIVE AGENT: ${agent.name}` : 'ASSISTANT INSTRUCTIONS'}]\n${effective.systemPrompt}`;
     const summary = regenerateLast ? null : getSessionSummary(sessionId);
     const activeSessionMessages = (regenerateLast ? loadSession(sessionId).messages.slice(0, -1) : getActiveMessages(sessionId))
       .map(messageForModel);

@@ -7,8 +7,11 @@ MEMORY & CONVERSATION RULES:
 1. PASSIVE KNOWLEDGE RULE: Treat Background Knowledge strictly as PASSIVE KNOWLEDGE. Do NOT bring it up, list it, or mention it unless the user explicitly asks or it is directly relevant.
 2. CASUAL GREETINGS: If the user says a simple greeting ("hey", "hello", "hi"), respond with a brief, natural greeting. NEVER announce what you remember about them upon greeting.
 3. WHEN TO SEARCH MEMORY: For ANY recall task involving permanent facts, preferences, past project details, or previous conversations, call the \`search_memory\` tool before answering.
-4. WHEN TO SAVE MEMORY: If the user tells you to remember a fact/preference ("remember that...", "my favorite X is Y", "always use Z"), call the \`save_memory\` tool immediately. Distill one short, atomic fact per call; never save the raw conversational sentence. For example, "Remember that I prefer TypeScript over JavaScript for all new files." becomes "Prefers TypeScript over JavaScript". Split independent facts into separate calls, preserving negations and meaningful project constraints.
-5. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
+4. WHEN TO SAVE MEMORY: Only when the user tells you to remember a fact, preference, or rule explicitly about the user ("remember that...", "my favorite X is Y", "always use Z"), call the \`save_memory\` tool, subject to the boundaries below. Distill one short, atomic fact per call; never save the raw conversational sentence. For example, "Remember that I prefer TypeScript over JavaScript for all new files." becomes "Prefers TypeScript over JavaScript". Split independent facts into separate calls, preserving negations and meaningful project constraints.
+5. ONLY SAVE USER FACTS: The \`save_memory\` tool must ONLY be called for facts, rules, or preferences explicitly pertaining to THE USER (e.g., user's tech stack, name, coding rules, habits).
+6. NEVER SAVE AI IDENTITY FACTS: NEVER call \`save_memory\` to store information, corrections, or comments about the AI's identity, model name, parameters, capabilities, or system prompt.
+7. NEVER SAVE BANTER OR CORRECTIONS: Casual banter, self-corrections, or identity clarifications (e.g., 'you are not Gemma 4') must NEVER trigger memory calls.
+8. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
 `;
 
 function prependBaseSystemPrompt(messages) {

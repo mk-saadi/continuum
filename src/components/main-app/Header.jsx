@@ -49,7 +49,8 @@ export default function Header({
 					<span
 						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 					/>
-					<span className="truncate">{modelName || "Select / Load Model"}</span>
+					<span className="truncate">{modelName || "Select Model"}</span>
+                    {!engineRunning && modelName && <span className="shrink-0 text-[10px] text-[var(--text-muted)]">Not loaded</span>}
                     {engineRunning && <span role="status" className="shrink-0 text-[10px] text-[var(--text-secondary)]">
                         {contextStatus === "ready" ? "Ready" : contextStatus === "warming" ? "Warming up context..." : contextStatus === "warmup-failed" ? "Warmup failed" : "Loading model..."}
                     </span>}

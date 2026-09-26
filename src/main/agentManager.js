@@ -2,8 +2,10 @@
 const { randomUUID } = require('node:crypto');
 const { db } = require('./db');
 const { DEFAULT_SAMPLING_PARAMS, validateSamplingParams } = require('./samplingManager');
-function identifier(id) {
+function identifier(id, { optional = false } = {}) {
+  if (optional && (id == null || id === '')) return null;
   if (typeof id !== 'string' || !id.trim() || id.includes('\0')) throw new Error('Invalid agent or session ID.');
+  return id;
 }
 function validateAgent(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid agent.');
@@ -48,12 +50,14 @@ function deleteAgent(id) {
   return { deleted: true };
 }
 function getSessionAgent(sessionId) {
-  identifier(sessionId);
+  if (identifier(sessionId, { optional: true }) === null) return null;
   const row = db.prepare('SELECT agent_profile FROM sessions WHERE id = ?').get(sessionId);
   return row?.agent_profile ? JSON.parse(row.agent_profile) : null;
 }
 function applyAgent(sessionId, agentId, modelId) {
-  identifier(sessionId);
+  sessionId = identifier(sessionId, { optional: true });
+  agentId = agentId === 'default' || !agentId ? null : identifier(agentId);
+  if (sessionId === null) return { success: true, pending: true, agentId, agent: agentId ? getAgent(agentId) : null };
   if (modelId != null && typeof modelId !== 'string') throw new Error('Invalid model ID.');
   return db.transaction(() => {
     const agent = agentId === null ? null : getAgent(agentId);
@@ -63,7 +67,7 @@ function applyAgent(sessionId, agentId, modelId) {
     if (!session) db.prepare('INSERT INTO sessions(id, model_id) VALUES (?, ?)').run(sessionId, model);
     db.prepare('UPDATE sessions SET agent_profile = ?, sampling_params = ?, model_id = ? WHERE id = ?')
       .run(agent ? JSON.stringify(agent) : null, agent ? JSON.stringify(agent.sampling_params) : null, model, sessionId);
-    return { agent, modelId: model };
+    return { success: true, pending: false, agentId, agent, modelId: model };
   }).immediate();
 }
 module.exports = { listAgents, getAgent, createAgent, updateAgent, duplicateAgent, deleteAgent, getSessionAgent, applyAgent };
@@ -77,7 +81,7 @@ function saveSessionPrompt(sessionId, prompt, modelId) {
     if (row?.is_compressing) throw new Error('History is being summarized. Please retry shortly.');
     if (!row) db.prepare('INSERT INTO sessions(id, model_id) VALUES (?, ?)').run(sessionId, modelId || null);
     const previous = getSessionAgent(sessionId);
-    const profile = previous ? { ...previous, system_prompt: prompt } : prompt.trim() ? { id: null, name: 'Assistant', system_prompt: prompt, avatar_url: null, model_id: modelId || null } : null;
+    const profile = previous ? { ...previous, system_prompt: prompt } : { id: null, name: 'Assistant', system_prompt: prompt, avatar_url: null, model_id: modelId || null };
     db.prepare('UPDATE sessions SET agent_profile = ? WHERE id = ?').run(profile ? JSON.stringify(profile) : null, sessionId);
     return profile;
   }).immediate();

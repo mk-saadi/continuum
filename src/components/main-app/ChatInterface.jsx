@@ -10,7 +10,7 @@ import { BsRobot } from "react-icons/bs";
 import useSessionDraft from "../../hooks/useSessionDraft";
 import AgentModal from "../AgentModal";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
-import { assistantLabel, formatModelName } from "../../lib/messageIdentity.mjs";
+import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { LuX } from "react-icons/lu";
 import { IoSend } from "react-icons/io5";
@@ -69,7 +69,9 @@ export function ChatInterface({
 	models,
 	onSelectModel,
 }) {
-	const activeModelName = formatModelName(
+	const currentModel = models.find(model => model.id === selectedModel);
+    const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
+    const activeModelName = formatModelName(
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
@@ -100,7 +102,9 @@ export function ChatInterface({
 	}, [refreshHistory]);
 	const newChat = () => {
 		if (busyRef.current) return;
-		palace.setSessionId(crypto.randomUUID());
+		pendingAgent.current = null;
+        pendingSend.current = null;
+        palace.setSessionId(crypto.randomUUID());
 		setMessages([]);
 		clearFiles();
 		setEditing(null);
@@ -122,11 +126,14 @@ export function ChatInterface({
 	const loadChat = async (id) => {
 		if (busyRef.current) return;
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
 			const session = await palace.api.loadSession(id);
-			palace.setSessionId(id);
+			pendingAgent.current = null;
+            pendingSend.current = null;
+            palace.setSessionId(id);
 			setMessages(session.messages);
 			clearFiles();
 			setEditing(null);
@@ -141,6 +148,7 @@ export function ChatInterface({
 	const handleMessageAction = async (kind, messageId) => {
 		if (busyRef.current || !palace.api) return;
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
@@ -152,7 +160,9 @@ export function ChatInterface({
 			} else {
 				const { sessionId } = await palace.api.branchChat(palace.sessionId, messageId);
 				const session = await palace.api.loadSession(sessionId);
-				palace.setSessionId(sessionId);
+				pendingAgent.current = null;
+            pendingSend.current = null;
+            palace.setSessionId(sessionId);
 				setMessages(session.messages);
 				clearFiles();
 				setEditing(null);
@@ -169,6 +179,8 @@ export function ChatInterface({
 	const [agents, setAgents] = useState([]);
 	const [agentModalOpen, setAgentModalOpen] = useState(false);
 	const [sessionAgent, setSessionAgent] = useState(null);
+    const pendingAgent = useRef(null);
+    const pendingSend = useRef(null);
 	const [agentLoading, setAgentLoading] = useState(true);
 	const [tuningVersion, setTuningVersion] = useState(0);
 	const refreshAgents = useCallback(async () => {
@@ -180,10 +192,18 @@ export function ChatInterface({
 	useEffect(() => {
 		let active = true;
 		setAgentLoading(true);
-		setSessionAgent(null);
+		setSessionAgent(pendingAgent.current?.profile || null);
 		(async () => {
 			try {
-				const profile = await window.api?.getSessionAgent(palace.sessionId);
+				if (!palace.sessionId) return;
+                const pending = pendingAgent.current;
+                let profile;
+                if (pending) {
+                    const result = await window.api.applyAgent({ sessionId: palace.sessionId, agentId: pending.agentId, modelId: selectedModel });
+                    profile = result.agent;
+                    if (pending.prompt !== undefined) profile = await window.api.saveSessionPrompt(palace.sessionId, pending.prompt, selectedModel);
+                    if (active && pendingAgent.current === pending) pendingAgent.current = null;
+                } else profile = await window.api?.getSessionAgent(palace.sessionId);
 				if (active) setSessionAgent(profile || null);
 			} catch (error) {
 				if (active) setHistoryError(error.message);
@@ -195,9 +215,10 @@ export function ChatInterface({
 			active = false;
 		};
 	}, [palace.sessionId]);
-	const selectAgent = async (agentId) => {
+	const selectAgent = async ({ agentId, sessionId: activeSessionId = palace.sessionId }) => {
 		if (busyRef.current || agentLoading) return;
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
@@ -207,13 +228,16 @@ export function ChatInterface({
 					"This agent’s default model is not scanned. Scan it or edit the agent’s model first.",
 				);
 			}
-			const result = await window.api.applyAgent(palace.sessionId, agentId || null, selectedModel);
-			setSessionAgent(result.agent);
+			const result = await window.api.applyAgent({ sessionId: activeSessionId || null, agentId, modelId: selectedModel });
+            pendingAgent.current = result.pending ? { agentId: result.agentId, profile: result.agent || preset || null } : null;
+			setSessionAgent(result.agent || null);
 			if (result.agent?.model_id) onSelectModel(result.agent.model_id);
 			setTuningVersion((version) => version + 1);
 			await refreshHistory();
+            return result;
 		} catch (error) {
 			setHistoryError(error.message);
+            return false;
 		} finally {
 			busyRef.current = false;
 			setLoading(false);
@@ -222,10 +246,17 @@ export function ChatInterface({
 	const savePrompt = async (prompt) => {
 		if (busyRef.current) return false;
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
-			const profile = await window.api.saveSessionPrompt(palace.sessionId, prompt, selectedModel);
+			if (!palace.sessionId) {
+                const profile = { ...(sessionAgent || { id: null, name: 'Assistant' }), system_prompt: prompt };
+                pendingAgent.current = { agentId: sessionAgent?.id || null, profile, prompt };
+                setSessionAgent(profile);
+                return true;
+            }
+            const profile = await window.api.saveSessionPrompt(palace.sessionId, prompt, selectedModel);
 			setSessionAgent(profile);
 			await refreshHistory();
 			return true;
@@ -278,6 +309,7 @@ export function ChatInterface({
 		}
 		setHistoryError("");
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		const controller = new AbortController();
 		abortRef.current = controller;
@@ -322,15 +354,26 @@ export function ChatInterface({
 			const text = retry ? "" : edit ? editText.trim() : input.trim();
 			if (
 				(!retry && !text && (edit || !selectedFiles.length)) ||
+                agentLoading ||
 				busyRef.current ||
 				!baseUrl ||
 				!selectedModel ||
 				!palace.api
 			)
 				return;
+            if (!palace.sessionId) {
+                pendingSend.current = { edit, retry };
+                setAgentLoading(true);
+                palace.setSessionId(crypto.randomUUID());
+                return;
+            }
+            if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
+
 			busyRef.current = true;
+        setIndexing(null);
 			setHistoryError("");
 			const identity = Object.freeze({
+                displayName: resolveDisplayName(avatarSettings, currentModelPath, activeModelName || selectedModel),
 				modelName: activeModelName || selectedModel,
 				modelId: selectedModel,
 				agentName: sessionAgent?.name || null,
@@ -383,6 +426,7 @@ export function ChatInterface({
 					modelId: selectedModel,
 					messages: requestMessages,
 					messageId: assistantMsg.id,
+                    displayName: identity.displayName,
 					onExecutionSteps: (steps) => {
 						executionSteps = steps;
 						setMessages((prev) =>
@@ -435,7 +479,8 @@ export function ChatInterface({
 							message.id === assistantMsg.id
 								? {
 										...message,
-										stats: assistantStats,
+										displayName: identity.displayName,
+                                        stats: assistantStats,
 										executionSteps,
 										streaming: false,
 									}
@@ -484,15 +529,25 @@ export function ChatInterface({
 			clearFiles,
 			selectedModel,
 			activeModelName,
+            currentModelPath,
+            avatarSettings,
 			sessionAgent,
+            agentLoading,
 			baseUrl,
 			palace,
 			refreshHistory,
 		],
 	);
+    useEffect(() => {
+        if (agentLoading || !palace.sessionId || pendingAgent.current || !pendingSend.current) return;
+        const { edit, retry } = pendingSend.current;
+        pendingSend.current = null;
+        void sendMessage(edit, retry);
+    }, [agentLoading, palace.sessionId, sendMessage]);
 	const regenerateReply = async (message) => {
 		if (busyRef.current || !baseUrl || !selectedModel) return;
 		busyRef.current = true;
+        setIndexing(null);
 		setStreaming(true);
 		setHistoryError("");
 		const controller = new AbortController();
@@ -506,7 +561,8 @@ export function ChatInterface({
 						thinking_duration: message.thinkingDuration,
 						stats: message.stats,
 						tool_calls: message.toolCalls,
-						model_name: message.modelName,
+						displayName: message.displayName,
+                        model_name: message.modelName,
 						model_id: message.modelId,
 						agent_name: message.agentName,
 					},
@@ -516,7 +572,8 @@ export function ChatInterface({
 			content: "",
 			executionSteps: [],
 			stats: null,
-			model_name: activeModelName || selectedModel,
+			displayName: resolveDisplayName(avatarSettings, currentModelPath, activeModelName || selectedModel),
+            model_name: activeModelName || selectedModel,
 			model_id: selectedModel,
 			agent_name: sessionAgent?.name ?? null,
 			created_at: new Date().toISOString(),
@@ -545,6 +602,7 @@ export function ChatInterface({
 				sessionId: palace.sessionId,
 				modelId: selectedModel,
 				modelName: draft.model_name,
+                displayName: draft.displayName,
 				memoryEnabled: palace.enabled,
 				signal: controller.signal,
 				onIndexing: setIndexing,
@@ -569,6 +627,7 @@ export function ChatInterface({
 	const selectReplyVariant = async (message, index) => {
 		if (busyRef.current) return;
 		busyRef.current = true;
+        setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		setMessages((previous) =>
@@ -635,6 +694,7 @@ export function ChatInterface({
 					onAction={async (kind, id, value) => {
 						if (busyRef.current) throw new Error("Wait for the current operation to finish.");
 						busyRef.current = true;
+        setIndexing(null);
 						setLoading(true);
 						try {
 							if (kind === "New Folder") await palace.api.createFolder(value);
@@ -643,7 +703,9 @@ export function ChatInterface({
 							else {
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
-									palace.setSessionId(crypto.randomUUID());
+									pendingAgent.current = null;
+        pendingSend.current = null;
+        palace.setSessionId(crypto.randomUUID());
 									setMessages([]);
 									clearFiles();
 									setEditing(null);

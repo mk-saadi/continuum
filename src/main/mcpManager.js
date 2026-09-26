@@ -1,4 +1,5 @@
 'use strict';
+const { connectRemoteMcp } = require('./remoteMcp');
 const { limitFilesystemResult } = require('./filesystemToolLimits');
 const fs = require('node:fs/promises');
 const os = require('node:os');
@@ -16,7 +17,7 @@ function validateServerConfig(name, server) {
     throw new TypeError(`Invalid configuration for ${name}: missing command or url`);
   }
 
-  // Match transport selection: a URL selects SSE and requires no command/args.
+  // URL configs use SSE first (or an explicit HTTP transport); no command is needed.
   if (hasUrl) {
     let url;
     try {
@@ -36,7 +37,7 @@ function validateServerConfig(name, server) {
   }
   for (const flag of ['enabled', 'disabled']) if (server[flag] !== undefined && typeof server[flag] !== 'boolean') throw new TypeError(`Invalid ${flag} flag for ${name}.`);
   if (server.disabledTools !== undefined && (!Array.isArray(server.disabledTools) || !server.disabledTools.every(text))) throw new TypeError(`Invalid disabled tools for ${name}.`);
-  if (server.transport !== undefined && server.transport !== (server.url !== undefined ? 'sse' : 'stdio')) throw new TypeError(`Transport for ${name} must match its URL (sse) or command (stdio).`);
+  if (server.transport !== undefined && !(hasUrl ? ['sse', 'streamable-http'] : ['stdio']).includes(server.transport)) throw new TypeError(`Transport for ${name} must match its URL (sse or streamable-http) or command (stdio).`);
 }
 
 // MCP clients use local stdio or remote HTTP/SSE transports.
@@ -110,18 +111,13 @@ class McpManager extends EventEmitter {
       validateServerConfig(name, definition);
       if (!server.enabled) { server.status = 'disabled'; return; }
       if (this.createConnection) server.client = await this.createConnection(definition);
+      else if (definition.url !== undefined) server.client = await connectRemoteMcp(definition);
       else {
         const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
         const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
-        const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
         const client = new Client({ name: 'llm-desktop-assistant', version: '1.0.0' });
         server.client = client;
-        const transport = definition.url !== undefined
-          ? new SSEClientTransport(new URL(definition.url), {
-            // SDK applies these to both the SSE GET and JSON-RPC POST requests.
-            requestInit: { headers: definition.headers || {} },
-          })
-          : new StdioClientTransport({ command: definition.command, args: definition.args || [], cwd: definition.cwd, env: { ...process.env, ...definition.env }, stderr: 'inherit' });
+        const transport = new StdioClientTransport({ command: definition.command, args: definition.args || [], cwd: definition.cwd, env: { ...process.env, ...definition.env }, stderr: 'inherit' });
         let timer;
         try {
           // Include transport startup (waiting for the SSE endpoint event) in the timeout.

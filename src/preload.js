@@ -2,7 +2,14 @@
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+contextBridge.exposeInMainWorld('electronAPI', {
+  getEngineStatus: () => ipcRenderer.invoke('engine:get-status'),
+});
+
 contextBridge.exposeInMainWorld('api', {
+  getProfileSettings: () => ipcRenderer.invoke('settings:profiles'),
+  saveProfileSettings: (modelPath, patch) => ipcRenderer.invoke('settings:save-profile', { modelPath, patch }),
+  getEffectiveSettings: (sessionId, modelPath) => ipcRenderer.invoke('settings:effective', { sessionId, modelPath }),
   saveSessionPrompt: (sessionId, prompt, modelId) => ipcRenderer.invoke('agents:save-session-prompt', { sessionId, prompt, modelId }),
   listAgents: () => ipcRenderer.invoke('agents:list'),
   createAgent: agent => ipcRenderer.invoke('agents:create', agent),
@@ -10,8 +17,9 @@ contextBridge.exposeInMainWorld('api', {
   duplicateAgent: id => ipcRenderer.invoke('agents:duplicate', { id }),
   deleteAgent: id => ipcRenderer.invoke('agents:delete', { id }),
   getSessionAgent: sessionId => ipcRenderer.invoke('agents:session', { sessionId }),
-  applyAgent: (sessionId, agentId, modelId) => ipcRenderer.invoke('agents:apply', { sessionId, agentId, modelId }),
-  getSamplingParams: sessionId => ipcRenderer.invoke('sampling:get', { sessionId }),
+  applyAgent: (sessionId, agentId, modelId) => ipcRenderer.invoke('agents:apply',
+    sessionId && typeof sessionId === 'object' ? sessionId : { sessionId, agentId, modelId }),
+  getSamplingParams: (sessionId, modelId) => ipcRenderer.invoke('sampling:get', { sessionId, modelId }),
   saveSamplingParams: (sessionId, modelId, params) => ipcRenderer.invoke('sampling:save', { sessionId, modelId, params }),
   getRagSettings: () => ipcRenderer.invoke('rag:get-settings'),
   saveRagSettings: settings => ipcRenderer.invoke('rag:save-settings', settings),
@@ -55,7 +63,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getAllActiveMemories: () => ipcRenderer.invoke('memory:all'),
   deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
   getOrCreateSession: (sessionId, modelId) => ipcRenderer.invoke('session:get-or-create', { sessionId, modelId }),
-  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity, executionSteps }),
+  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity, displayName: identity?.displayName, executionSteps }),
   getContextUsage: (sessionId, modelId) => ipcRenderer.invoke('session:get-usage', { sessionId, modelId }),
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),

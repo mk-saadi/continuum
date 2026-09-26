@@ -139,6 +139,8 @@ const components = {
 export default function ChatMessage({ message, disabled = false, onSelectVariant, showHeader = true }) {
 	const index = message.active_variant_index ?? 0;
 	const activeVariant = activeReplyVariant(message);
+    // Read the identity captured with this reply, never current branding settings.
+    const displayName = assistantLabel(message);
 	const thinking = activeVariant.thinking ?? activeVariant.thinkingText;
 	const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
 	const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
@@ -146,7 +148,7 @@ export default function ChatMessage({ message, disabled = false, onSelectVariant
 	return (
 		<div className="min-w-0 w-full whitespace-normal">
 			{showHeader && (
-				<div className="mb-2 text-xs text-[var(--text-muted)]">{assistantLabel(message)}</div>
+				<div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>
 			)}
             {steps?.length > 0 && (
                 <div key={`${message.id ?? 'message'}:${index}`} className="message-execution-timeline mb-3 space-y-2">

@@ -50,8 +50,11 @@ require('../src/preload');
       { id: 'tool2', serverName: 'filesystem', toolName: 'read_file', status: 'error', error: 'File not found' },
     ];
     const thinking = { text: 'Model reasoning text', duration: 0 };
-    const identity = { modelName: 'Gemma4-26B-A4B-Uncensored', modelId: '/models/gemma.gguf', agentName: 'Senior Code Reviewer' };
+    const identity = { displayName: 'qwey', modelName: 'Gemma4-26B-A4B-Uncensored', modelId: '/models/gemma.gguf', agentName: 'Senior Code Reviewer' };
     const saved = await api.saveMessage('legacy', 'assistant', 'First', [], first, toolCalls, thinking, null, identity);
+    assert.equal(saved.displayName, 'qwey');
+    assert.equal(saved.variants[0].displayName, 'qwey');
+    assert.equal(db.prepare('SELECT display_name FROM messages WHERE id = ?').get(saved.id).display_name, 'qwey');
     assert.equal(saved.modelName, identity.modelName);
     assert.equal(saved.modelId, identity.modelId);
     assert.equal(saved.agentName, identity.agentName);
@@ -93,6 +96,8 @@ require('../src/preload');
     assert.equal(stored.thinking_duration, 0);
     closeDatabase(); initDatabase(); // Verify persistence and idempotent migration.
     const messages = (await api.loadSession('legacy')).messages;
+    assert.equal(messages[1].displayName, 'qwey');
+    assert.equal(messages[1].variants[0].displayName, 'qwey');
     assert.equal(messages[1].modelName, identity.modelName);
     assert.equal(messages[1].modelId, identity.modelId);
     assert.equal(messages[1].agentName, identity.agentName);

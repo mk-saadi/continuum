@@ -7,7 +7,8 @@ const {
 	getRagSettings,
 	saveRagSettings,
 } = require("./configManager");
-const { getGlobalSamplingParams, saveGlobalSamplingParams } = require("./samplingManager");
+const { saveGlobalSamplingParams } = require("./samplingManager");
+const profiles = require("./profileSettings");
 const agents = require("./agentManager");
 const { app, ipcMain } = require("electron");
 const path = require("node:path");
@@ -80,6 +81,9 @@ function registerIpcHandlers({
 	};
 	mcpManager.on("changed", broadcast);
 	const handlers = {
+        "settings:profiles": () => profiles.getProfileSettings(),
+        "settings:save-profile": ({ modelPath, patch }) => profiles.saveProfileSettings(modelPath, patch),
+        "settings:effective": ({ sessionId, modelPath }) => profiles.getSessionSettings(sessionId, modelPath),
 		"agents:save-session-prompt": ({ sessionId, prompt, modelId }) =>
 			agents.saveSessionPrompt(sessionId, prompt, modelId),
 		"agents:list": () => agents.listAgents(),
@@ -88,9 +92,13 @@ function registerIpcHandlers({
 		"agents:duplicate": ({ id }) => agents.duplicateAgent(id),
 		"agents:delete": ({ id }) => agents.deleteAgent(id),
 		"agents:session": ({ sessionId }) => agents.getSessionAgent(sessionId),
-		"agents:apply": ({ sessionId, agentId, modelId }) => agents.applyAgent(sessionId, agentId, modelId),
-		"sampling:get": ({ sessionId }) =>
-			sessionId ? getSessionSamplingParams(sessionId) : { params: getGlobalSamplingParams() },
+		"agents:apply": ({ sessionId, agentId, modelId } = {}) => {
+            // Draft selection is returned to the renderer without a DB transaction.
+            if (sessionId == null || sessionId === '') return agents.applyAgent(null, agentId, modelId);
+            return agents.applyAgent(sessionId, agentId, modelId);
+        },
+		"sampling:get": ({ sessionId, modelId }) =>
+			sessionId ? getSessionSamplingParams(sessionId, modelId) : { ...profiles.getSessionSettings(null, modelId), overrides: {} },
 		"sampling:save": ({ sessionId, modelId, params }) =>
 			sessionId
 				? saveSessionSamplingParams(sessionId, modelId, params)
@@ -107,11 +115,13 @@ function registerIpcHandlers({
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
 			try {
+                notify({ type: "indexing", progress: null });
 				return await indexDocuments(attachments, {
 					signal: controller.signal,
 					onProgress: (progress) => notify({ type: "indexing", ...progress }),
 				});
 			} finally {
+                notify({ type: "indexing", progress: null });
 				sender.removeListener("destroyed", abort);
 				requests.delete(sender);
 			}
@@ -143,7 +153,7 @@ function registerIpcHandlers({
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort();
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, messageId = requestId }, notify, sender) => {
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, messageId = requestId }, notify, sender) => {
 			let executionSteps = [];
             let content = "";
             if (!(typeof messageId === "string" && messageId.length > 0) && !Number.isSafeInteger(messageId)) throw new Error("Invalid message ID.");
@@ -155,13 +165,16 @@ function registerIpcHandlers({
 				!Array.isArray(messages)
 			)
 				throw new Error("Invalid chat request.");
-			if (requests.get(sender)?.size) throw new Error("A chat is already running.");
+			if (displayName != null && (typeof displayName !== "string" || !displayName.trim() || displayName.includes("\0"))) throw new Error("Invalid display name.");
+            const capturedDisplayName = displayName ?? (typeof modelName === "string" && modelName.trim() ? modelName : modelId).split(/[\\/]/).pop().replace(/\.gguf$/i, "");
+            if (requests.get(sender)?.size) throw new Error("A chat is already running.");
 			const controller = new AbortController();
 			const active = new Map([[requestId, controller]]);
 			requests.set(sender, active);
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
 			try {
+                notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
 				const config = getEngineConfig?.();
@@ -177,13 +190,13 @@ function registerIpcHandlers({
 					chatTools: tools,
 					signal: controller.signal,
 					getSamplingParams: () =>
-						sessionId ? getSessionSamplingParams(sessionId).params : getGlobalSamplingParams(),
+						profiles.getSessionSettings(sessionId, modelId).params,
 					retrieveDocuments: sessionId
 						? (question) =>
 								retrieveContext(sessionId, question, {
 									signal: controller.signal,
 									onProgress: (progress) => notify({ type: "indexing", ...progress }),
-								})
+								}).finally(() => notify({ type: "indexing", progress: null }))
 						: undefined,
 					onText: (delta) => { content += delta; notify({ type: "text", delta }); },
                     resolveTool: name => memoryTools.some(tool => tool.name === name)
@@ -243,8 +256,9 @@ function registerIpcHandlers({
 						}
 					},
 				});
-				return { text, stats: currentStats, executionSteps, message: { id: messageId, role: "assistant", content: text, executionSteps } };
+				return { text, stats: currentStats, executionSteps, message: { id: messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
 			} finally {
+                notify({ type: "indexing", progress: null });
 				sender.removeListener("destroyed", abort);
 				requests.delete(sender);
 			}
@@ -255,7 +269,7 @@ function registerIpcHandlers({
             const agent = agents.getSessionAgent(data.sessionId);
             const result = await handlers["engine:chat"]({ ...data, messages, messageId: target.id }, notify, sender);
             const variant = {
-                content: result.text, executionSteps: result.executionSteps,
+                content: result.text, executionSteps: result.executionSteps, displayName: result.message.displayName,
                 model_name: typeof data.modelName === 'string' && data.modelName.trim() ? data.modelName : data.modelId,
                 model_id: data.modelId, agent_name: agent?.name ?? null,
                 stats: result.stats ? { ...result.stats, tokens_per_sec: result.stats.tokensPerSecond,
@@ -304,8 +318,11 @@ function registerIpcHandlers({
 			thinking = null,
 			messageId = null,
 			identity = null,
+            displayName = identity?.displayName,
             executionSteps = null,
 		}) => {
+			// Accept the captured name on the message payload as well as legacy identity.
+            const savedIdentity = displayName == null ? identity : { ...identity, displayName };
 			// Persist this generation's captured display names, never live UI selections.
 			return saveMessage(
 				sessionId,
@@ -316,7 +333,7 @@ function registerIpcHandlers({
 				toolCalls,
 				thinking,
 				messageId,
-				identity,
+				 savedIdentity,
                 executionSteps,
 			);
 		},

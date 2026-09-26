@@ -9,7 +9,13 @@ const controls = [
 	{ key: "max_tokens", label: "Max Tokens", type: "number", min: -1, step: 1 },
 ];
 
-const ChatTuning = ({ sessionId, modelId }) => {
+const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
+	const [revision, setRevision] = useState(0);
+    useEffect(() => {
+      const changed = () => setRevision(value => value + 1);
+      window.addEventListener("generation-settings-changed", changed);
+      return () => window.removeEventListener("generation-settings-changed", changed);
+    }, []);
 	const [state, setState] = useState(null);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("Loading…");
@@ -18,17 +24,19 @@ const ChatTuning = ({ sessionId, modelId }) => {
 
 	useEffect(() => {
 		alive.current = true;
+        let active = true;
+        version.current++;
 		(async () => {
 			try {
 				if (!window.api?.getSamplingParams)
 					throw new Error("Open the desktop app to tune generation.");
-				const result = await window.api.getSamplingParams(sessionId);
-				if (alive.current) {
+				const result = await window.api.getSamplingParams(sessionId, modelId);
+				if (active) {
 					setState(result);
 					setStatus("");
 				}
 			} catch (err) {
-				if (alive.current) {
+				if (active) {
 					setError(err.message);
 					setStatus("");
 				}
@@ -36,8 +44,9 @@ const ChatTuning = ({ sessionId, modelId }) => {
 		})();
 		return () => {
 			alive.current = false;
+            active = false;
 		};
-	}, [sessionId]);
+	}, [sessionId, modelId, revision]);
 
 	async function save(params) {
 		const request = ++version.current;
@@ -48,6 +57,7 @@ const ChatTuning = ({ sessionId, modelId }) => {
 			if (alive.current && request === version.current) {
 				setState(result);
 				setStatus("Saved");
+                    onChanged?.();
 			}
 		} catch (err) {
 			if (alive.current && request === version.current) {
@@ -73,7 +83,7 @@ const ChatTuning = ({ sessionId, modelId }) => {
 						max: control.max,
 						step: control.step,
 						value: state.params[control.key],
-						disabled: !!sessionId && !modelId && !state.exists,
+						disabled: disabled || (!!sessionId && !modelId && !state.exists),
 						onChange: (event) => {
 							const raw = event.target.value;
 							setState((previous) => ({
@@ -124,15 +134,15 @@ const ChatTuning = ({ sessionId, modelId }) => {
 					<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
 						{Object.keys(state.overrides).length
 							? "This chat has custom overrides."
-							: "This chat follows global defaults."}
+							: "This chat follows model defaults (with global fallback)."}
 					</p>
 					<button
 						type="button"
 						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-						disabled={!Object.keys(state.overrides).length || status === "Saving…"}
+						disabled={disabled || !Object.keys(state.overrides).length || status === "Saving…"}
 						onClick={() => save(null)}
 					>
-						Use global defaults
+						Reset sampling to model defaults
 					</button>
 				</div>
 			)}

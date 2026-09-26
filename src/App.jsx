@@ -25,8 +25,11 @@ export default function App() {
 	}, [isSidebarOpen]);
 	const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 	const [models, setModels] = useState([]);
-	const [selectedModel, setSelectedModel] = useState("");
-	const [activeModelId, setActiveModelId] = useState(null); // informational only — what the server reports as loaded
+	const [selectedModel, setSelectedModel] = useState(() => {
+        try { return localStorage.getItem("lastSelectedModelPath") || ""; } catch { return ""; }
+    });
+	const [activeModelPath, setActiveModelPath] = useState(null);
+    const [activeModelName, setActiveModelName] = useState(null);
 	const [scanning, setScanning] = useState(false);
 	const scanInProgress = useRef(false);
 	const [contextStatus, setContextStatus] = useState("stopped");
@@ -35,7 +38,7 @@ export default function App() {
 	const [enginePid, setEnginePid] = useState(null);
 	const [serverPort, setServerPort] = useState(null); // dynamic port reported by main/preload, null until known
 	const [serverError, setServerError] = useState(null); // last bridge-level error (spawn/bind failure, etc.)
-	const palace = useMemoryPalace(selectedModel || activeModelId, engineRunning ? activeModelConfig : null);
+	const palace = useMemoryPalace((engineRunning ? activeModelPath : selectedModel), engineRunning ? activeModelConfig : null);
 	// Chat uses the active engine port reported by main.js.
 	const baseUrl = serverPort ? `http\://127.0.0.1:${serverPort}` : null;
 	// Apply theme to document
@@ -49,27 +52,6 @@ export default function App() {
 		localStorage.setItem("theme", theme);
 	}, [theme]);
 
-	// Poll the server for whatever model it currently reports as active.
-	// This is purely informational (e.g. for a future "currently loaded"
-	// badge) and must NEVER touch `models` or `selectedModel` — those are
-	// driven solely by the disk scan. Overwriting them here was the cause
-	// of the dropdown selection flickering/resetting every \~10s.
-	const fetchActiveModel = useCallback(async () => {
-		const { modelsAPI } = window;
-		if (!modelsAPI || !baseUrl) return;
-		try {
-			const data = await modelsAPI.getActiveModels();
-			const list = data.data || [];
-			setActiveModelId(list.length > 0 ? list[0].id : null);
-		} catch {
-			setActiveModelId(null);
-		}
-	}, [baseUrl]);
-	useEffect(() => {
-		fetchActiveModel();
-		const interval = setInterval(fetchActiveModel, 10000);
-		return () => clearInterval(interval);
-	}, [fetchActiveModel]);
 	// Scan on mount; clicking an empty dropdown also allows a retry.
 	const handleScanClick = useCallback(async () => {
 		const { modelsAPI } = window;
@@ -81,9 +63,7 @@ export default function App() {
 			if (result.success) {
 				const scannedModels = result.models || [];
 				setModels(scannedModels);
-				setSelectedModel((prev) =>
-					scannedModels.some((model) => model.id === prev) ? prev : scannedModels[0]?.id || "",
-				);
+
 			}
 		} catch (err) {
 			console.error("Model scan failed:", err);
@@ -95,19 +75,13 @@ export default function App() {
 	useEffect(() => {
 		handleScanClick();
 	}, [handleScanClick]);
-	// Keep the controlled selection valid if the model list changes.
-	useEffect(() => {
-		setSelectedModel((current) =>
-			models.some((model) => model.id === current) ? current : models[0]?.id || "",
-		);
-	}, [models]);
 	// Listen for engine status changes from main process. `status` now
 	// carries the dynamically bound `port` alongside `running`/`pid` — this
 	// is the only place `serverPort` is written, so it always reflects
 	// whatever the backend actually bound, not what the launch command
 	// happened to ask for.
 	useEffect(() => {
-		const { terminalAPI, engineAPI } = window;
+		const { terminalAPI, engineAPI, electronAPI } = window;
 		if (!terminalAPI) return;
 		// Refresh the authoritative port and applied load settings on engine startup.
 		let statusVersion = 0;
@@ -123,11 +97,17 @@ export default function App() {
 				console.error("Failed to read engine config:", err);
 			}
 		};
-		const applyStatus = ({ running, pid, activeModelConfig: config, contextStatus: status }) => {
+		const applyStatus = ({ running, pid, activeModelConfig: config, contextStatus: status, modelPath, modelName }) => {
 			if (disposed) return;
 			const version = ++statusVersion;
 			setActiveModelConfig(running ? (config ?? null) : null);
 			setEngineRunning(running);
+            setActiveModelPath(running ? (modelPath ?? null) : null);
+            setActiveModelName(running ? (modelName ?? null) : null);
+            if (running && modelPath) {
+                setSelectedModel(modelPath);
+                try { localStorage.setItem("lastSelectedModelPath", modelPath); } catch { /* Selection still works without storage. */ }
+            }
             setContextStatus(running ? (status || "loading") : "stopped");
 			setEnginePid(pid ?? null);
 			if (running) {
@@ -140,9 +120,11 @@ export default function App() {
 		const cleanupStatus = terminalAPI.onStatus(applyStatus);
 		// Initial status check
 		const initialVersion = statusVersion;
-		terminalAPI.status().then((status) => {
-			if (statusVersion === initialVersion) applyStatus(status);
-		});
+		Promise.all([terminalAPI.status(), electronAPI?.getEngineStatus()]).then(([status, modelStatus]) => {
+            if (statusVersion === initialVersion) applyStatus({ ...status, ...modelStatus });
+        }).catch(error => {
+            if (!disposed && statusVersion === initialVersion) setServerError(error.message);
+        });
 		// Dedicated error channel for bridge-level failures (bind conflicts,
 		// spawn failures, unexpected exits) that aren't just a stdout/stderr
 		// log line. Not present in the current preload.js — guarded so this
@@ -167,7 +149,7 @@ export default function App() {
 				onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
 				isRightSidebarOpen={isRightSidebarOpen}
 				onToggleRightSidebar={() => setIsRightSidebarOpen((open) => !open)}
-				modelName={models.find((model) => model.id === selectedModel)?.name || selectedModel}
+				modelName={engineRunning ? (activeModelName || activeModelPath || "Loading model...") : (models.find((model) => model.id === selectedModel)?.name || selectedModel)}
 				engineRunning={engineRunning}
 				onOpenModels={() => setModelSelectorOpen(true)}
 				palace={palace}
@@ -197,7 +179,13 @@ export default function App() {
 					onScan={handleScanClick}
 					engineRunning={engineRunning}
 					serverError={serverError}
-					onLoaded={(result) => setServerError(result.warning || null)}
+					onLoaded={(result) => {
+                        setServerError(result.warning || null);
+                        if (result.modelPath) {
+                            setSelectedModel(result.modelPath);
+                            try { localStorage.setItem("lastSelectedModelPath", result.modelPath); } catch { /* Storage is optional. */ }
+                        }
+                    }}
 					onClose={() => setModelSelectorOpen(false)}
 				/>
 			)}
@@ -216,7 +204,7 @@ export default function App() {
 				onSelectModel={setSelectedModel}
 				avatarSettings={avatars.settings}
 				isSidebarOpen={isSidebarOpen}
-				selectedModel={selectedModel || activeModelId}
+				selectedModel={engineRunning ? activeModelPath : selectedModel}
 				baseUrl={baseUrl}
 				engineRunning={engineRunning}
 				palace={palace}

@@ -13,6 +13,7 @@ const { normalizeLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings } 
 const { scanDirectoryForModels } = require("./src/main/modelScanner");
 const scannedModels = new Map();
 let launching = false;
+let currentlyLoadedModelPath = null;
 let startupHandler = null;
 
 const isDev = process.env.NODE_ENV === "development";
@@ -62,6 +63,16 @@ function createWindow() {
 
 // Store the active config globally in main.js
 let engineConfig = { port: 8080, apiKey: "", activeModelConfig: null, contextStatus: "stopped", warmupError: null };
+
+function getEngineStatus() {
+    const modelPath = childProcess ? currentlyLoadedModelPath : null;
+    return {
+        isLoaded: !!childProcess && ['warming', 'ready', 'warmup-failed'].includes(engineConfig.contextStatus),
+        modelPath,
+        modelName: modelPath ? path.basename(modelPath) : null,
+    };
+}
+ipcMain.handle("engine:get-status", () => getEngineStatus());
 
 // Check the configured loopback port, or allocate one in automatic mode.
 function getFreePort(requestedPort = null) {
@@ -183,6 +194,7 @@ async function launchProcess(command, model = null, config = null) {
 			);
 		}
 		const processForLaunch = childProcess;
+        currentlyLoadedModelPath = model?.modelPath ?? null;
         engineConfig.contextStatus = "loading";
         engineConfig.warmupError = null;
         const startup = createStartupHandler({
@@ -197,7 +209,7 @@ async function launchProcess(command, model = null, config = null) {
                 engineConfig.contextStatus = contextStatus;
                 engineConfig.warmupError = error;
                 if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("terminal:status", {
-                    running: true, pid: childPid, ...engineConfig,
+                    running: true, pid: childPid, ...engineConfig, ...getEngineStatus(),
                 });
             },
         });
@@ -234,6 +246,7 @@ async function launchProcess(command, model = null, config = null) {
 		childProcess.on("close", (code, signal) => {
             startup.cancel();
 			if (childProcess !== processForLaunch) return;
+            currentlyLoadedModelPath = null;
 			engineConfig.contextStatus = "stopped";
 		engineConfig.activeModelConfig = null;
 			const msg = `\n[process exited] code=${code} signal=${signal}\n`;
@@ -241,6 +254,7 @@ async function launchProcess(command, model = null, config = null) {
 				mainWindow.webContents.send("terminal:output", { stream: "stdout", data: msg });
 				mainWindow.webContents.send("terminal:status", {
 					running: false,
+                    isLoaded: false, modelPath: null, modelName: null,
 					pid: null,
 					port: null,
 					activeModelConfig: null,
@@ -259,6 +273,7 @@ async function launchProcess(command, model = null, config = null) {
 		if (mainWindow && !mainWindow.isDestroyed()) {
 			mainWindow.webContents.send("terminal:status", {
 				running: true,
+                ...getEngineStatus(),
                 contextStatus: engineConfig.contextStatus,
 				pid: childPid,
 				port: engineConfig.port,
@@ -268,11 +283,13 @@ async function launchProcess(command, model = null, config = null) {
 
 		return {
 			success: true,
+            ...getEngineStatus(),
 			pid: childPid,
 			port: engineConfig.port,
 			activeModelConfig: engineConfig.activeModelConfig,
 		};
 	} catch (err) {
+        currentlyLoadedModelPath = null;
 		engineConfig.contextStatus = "stopped";
 		engineConfig.activeModelConfig = null;
 		childProcess = null;
@@ -337,6 +354,7 @@ ipcMain.handle("terminal:kill", async () => {
 ipcMain.handle("terminal:status", async () => {
 	return {
 		running: childProcess !== null,
+        ...getEngineStatus(),
         contextStatus: engineConfig.contextStatus,
         warmupError: engineConfig.warmupError,
 		pid: childPid,

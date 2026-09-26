@@ -82,6 +82,69 @@ app.whenReady().then(async () => {
     })()`);
     assert.match(streamingText, /Streaming model|Generating/);
     assert.doesNotMatch(streamingText, /Regenerated response|Different reasoning|90 total tokens/);
+    const branding = await window.webContents.executeJavaScript(`(async () => {
+      window.renderBrandingSettings();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      const input = document.querySelector('#global-llm-name');
+      const label = document.querySelector('label[for="global-llm-name"]').textContent;
+      const visible = input.getBoundingClientRect().height > 0;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'qwey');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 80));
+      const stored = JSON.parse(localStorage.getItem('avatar-settings')).globalModelName;
+      window.renderMessages([{ id: 'branding-reply', role: 'assistant', displayName: stored, modelName: 'raw.gguf', variants: [{ content: 'Saved reply', model_name: 'raw.gguf' }] }]);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      const header = document.querySelector('article').textContent;
+      window.renderBrandingSettings();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      return { visible, label, stored, header, reloaded: document.querySelector('#global-llm-name').value };
+    })()`);
+    assert.equal(branding.visible, true);
+    assert.equal(branding.label, 'Global LLM Name');
+    assert.equal(branding.stored, 'qwey');
+    assert.equal(branding.reloaded, 'qwey');
+    assert.match(branding.header, /qwey/);
+    assert.doesNotMatch(branding.header, /raw.gguf/);
+    const agentSelection = await window.webContents.executeJavaScript(`(async () => {
+      window.renderAgentSidebar();
+      const wait = () => new Promise(resolve => setTimeout(resolve, 60));
+      await wait();
+      const select = document.querySelector('#controls-persona select');
+      select.value = 'agent-one'; select.dispatchEvent(new Event('change', { bubbles: true }));
+      await wait();
+      const payload = window.agentPayload;
+      const immediate = document.querySelector('textarea').value;
+      window.finishAgentSelection(); await wait();
+      const afterApply = document.querySelector('textarea').value;
+      select.value = ''; select.dispatchEvent(new Event('change', { bubbles: true }));
+      await wait();
+      const resetPayload = window.agentPayload;
+      const resetPrompt = document.querySelector('textarea').value;
+      window.finishAgentSelection(); await wait();
+      return { payload, immediate, afterApply, resetPayload, resetPrompt };
+    })()`);
+    assert.deepEqual(agentSelection.payload, { agentId: 'agent-one', sessionId: null });
+    assert.equal(agentSelection.immediate, 'Reply with two bullets.');
+    assert.equal(agentSelection.afterApply, agentSelection.immediate);
+    assert.deepEqual(agentSelection.resetPayload, { agentId: null, sessionId: null });
+    assert.equal(agentSelection.resetPrompt, '');
+    const hierarchy = await window.webContents.executeJavaScript(`(async () => {
+      const wait = () => new Promise(resolve => setTimeout(resolve, 100));
+      window.settingsOverridden = true;
+      window.api = {
+        getEffectiveSettings: async (_id, model) => ({ source: window.settingsOverridden ? 'chat' : 'model', effective: { systemPrompt: window.settingsOverridden ? 'Chat prompt' : model + ' prompt' } }),
+        getSamplingParams: async (_id, model) => ({ params: { temperature: model === 'a' ? 0.3 : 0.8, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }, overrides: {}, exists: true }),
+      };
+      window.renderSettingsSidebar('a'); await wait();
+      const initial = document.querySelector('textarea').value;
+      const overridden = document.body.textContent.includes('Chat Overridden');
+      [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Reset to Model Defaults').click(); await wait();
+      const reset = document.querySelector('textarea').value;
+      const inherited = document.body.textContent.includes('Using Model Defaults');
+      window.renderSettingsSidebar('b'); await wait();
+      return { initial, overridden, reset, inherited, switched: document.querySelector('textarea').value, temperature: document.querySelector('input[type="range"]').value };
+    })()`);
+    assert.deepEqual(hierarchy, { initial: 'Chat prompt', overridden: true, reset: 'a prompt', inherited: true, switched: 'b prompt', temperature: '0.8' });
     console.log('Tool cards, thinking accordion/zero duration, and stats render after a new turn and SQLite close/reopen.');
   } finally { window.destroy(); closeDatabase(); await fs.rm(directory, { recursive: true }); }
   app.exit(0);

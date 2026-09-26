@@ -40,10 +40,55 @@ export default function RightSidebar({
 }) {
 	const tabs = useRef([]);
 	const [tab, setTab] = useState("persona");
-	const [scope, setScope] = useState("chat");
 	const [prompt, setPrompt] = useState("");
 	const [notice, setNotice] = useState("");
 	const [saving, setSaving] = useState(false);
+    const [effectiveState, setEffectiveState] = useState(null);
+    const [settingsRevision, setSettingsRevision] = useState(0);
+    const [selecting, setSelecting] = useState(false);
+    useEffect(() => {
+        let active = true;
+        setNotice('');
+        if (window.api?.getEffectiveSettings) {
+            window.api.getEffectiveSettings(sessionId, modelId).then(result => {
+                if (active) {
+                    const pendingPrompt = !sessionId && typeof sessionAgent?.system_prompt === 'string';
+                    setEffectiveState(pendingPrompt ? { ...result, source: 'chat' } : result);
+                    setPrompt(pendingPrompt ? sessionAgent.system_prompt : result.effective.systemPrompt ?? '');
+                }
+            }).catch(error => { if (active) setNotice(error.message); });
+        } else setPrompt(sessionAgent?.system_prompt || '');
+        return () => { active = false; };
+    }, [sessionId, modelId, sessionAgent, tuningVersion, settingsRevision, open]);
+    useEffect(() => {
+        const refresh = () => setSettingsRevision(value => value + 1);
+        window.addEventListener('generation-settings-changed', refresh);
+        return () => window.removeEventListener('generation-settings-changed', refresh);
+    }, []);
+    const resetOverrides = async () => {
+        setSelecting(true);
+        try {
+            const result = await onSelectAgent({ agentId: null, sessionId: sessionId || null });
+            if (result !== false) setSettingsRevision(value => value + 1);
+        } catch (error) { setNotice(error.message); }
+        finally { setSelecting(false); }
+    };
+
+    const handleAgentChange = async (eventOrId) => {
+        const value = typeof eventOrId === 'string' ? eventOrId : eventOrId?.target?.value;
+        const agentId = !value || value === 'default' ? null : value;
+        const preset = agents.find(agent => agent.id === agentId);
+        setPrompt(preset?.system_prompt || '');
+        setNotice('');
+        setSelecting(true);
+        try {
+            const result = await onSelectAgent({ agentId, sessionId: sessionId || null });
+            if (result === false) setPrompt(sessionAgent?.system_prompt || '');
+        } catch (error) {
+            setPrompt(sessionAgent?.system_prompt || '');
+            setNotice(error.message);
+        } finally { setSelecting(false); }
+    };
 
 	const sections = [
 		{ id: "persona", label: "Agent & Persona", Icon: LuUsers },
@@ -57,8 +102,11 @@ export default function RightSidebar({
 		e.preventDefault();
 		setSaving(true);
 		try {
-			await onSavePrompt?.(prompt);
-			setNotice("Saved");
+			const saved = await onSavePrompt?.(prompt);
+			setNotice(saved === false ? "Could not save instructions" : "Saved");
+            if (saved !== false) setSettingsRevision(value => value + 1);
+        } catch (error) {
+            setNotice(error.message);
 		} finally {
 			setSaving(false);
 		}
@@ -84,7 +132,7 @@ export default function RightSidebar({
 						<div>
 							<h2 className="text-sm font-semibold">Chat controls</h2>
 							<p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-								Make this chat yours
+								{effectiveState?.source === "chat" ? "Chat Overridden" : "Using Model Defaults"}
 							</p>
 						</div>
 					</div>
@@ -100,6 +148,11 @@ export default function RightSidebar({
 						/>
 					</button>
 				</header>
+
+                <button type="button" disabled={disabled || selecting || saving}
+                    onClick={resetOverrides} className="mx-4 my-2 rounded border border-[var(--border)] px-2 py-1 text-xs disabled:opacity-40">
+                    Reset to Model Defaults
+                </button>
 
 				<div
 					role="tablist"
@@ -159,8 +212,8 @@ export default function RightSidebar({
 						<SelectField
 							label="Assistant for this conversation"
 							value={sessionAgent?.id || ""}
-							disabled={disabled}
-							onChange={(value) => onSelectAgent(value)}
+							disabled={disabled || selecting}
+							onChange={handleAgentChange}
 						>
 							<option value="">Default assistant</option>
 							{sessionAgent?.id && !agents.some((agent) => agent.id === sessionAgent.id) && (
@@ -180,7 +233,7 @@ export default function RightSidebar({
 							<button
 								type="button"
 								className={secondaryButton}
-								disabled={disabled}
+								disabled={disabled || selecting}
 								onClick={onManageAgents}
 							>
 								<LuUsers
@@ -196,7 +249,7 @@ export default function RightSidebar({
 									disabled={
 										disabled || !agents.some((agent) => agent.id === sessionAgent.id)
 									}
-									onClick={() => onSelectAgent(sessionAgent.id)}
+									onClick={() => handleAgentChange(sessionAgent.id)}
 								>
 									<LuRotateCcw
 										size={14}
@@ -235,7 +288,7 @@ export default function RightSidebar({
 							}
 							rows={11}
 							maxLength={32000}
-							disabled={disabled || saving}
+							disabled={disabled || saving || selecting}
 							value={prompt}
 							onChange={(event) => {
 								setPrompt(event.target.value);
@@ -263,7 +316,7 @@ export default function RightSidebar({
 							<button
 								type="submit"
 								className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
-								disabled={disabled || saving}
+								disabled={disabled || saving || selecting}
 							>
 								<LuSave
 									size={14}
@@ -292,25 +345,15 @@ export default function RightSidebar({
 							<h3 className="text-xs font-semibold">Sampling scope</h3>
 						</div>
 
-						<SelectField
-							label="Apply tuning to"
-							value={scope}
-							onChange={(value) => setScope(value)}
-							hint={
-								scope === "chat"
-									? "These settings affect only this conversation."
-									: "These defaults apply to new conversations."
-							}
-						>
-							<option value="chat">This chat</option>
-							<option value="global">Global defaults</option>
-						</SelectField>
+                        <p className="text-xs text-[var(--text-muted)]">Changes override defaults for this chat only. Configure global and model defaults in Avatars &amp; Branding.</p>
 					</div>
 
 					<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
 						<ChatTuning
-							key={`${scope}:${sessionId}:${tuningVersion}`}
-							sessionId={scope === "chat" ? sessionId : undefined}
+							key={`${sessionId}:${modelId}:${tuningVersion}:${settingsRevision}`}
+                            disabled={!sessionId || disabled || selecting}
+                            onChanged={() => setSettingsRevision(value => value + 1)}
+							sessionId={sessionId}
 							modelId={modelId}
 						/>
 					</div>

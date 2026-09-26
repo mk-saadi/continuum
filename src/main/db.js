@@ -195,7 +195,7 @@ function initDatabase() {
           INSERT INTO chat_fts(rowid, content) VALUES (new.id, new.content);
         END;`);
       // Legacy origins are unknown; never backfill them from the current model/agent.
-      for (const name of ['model_name', 'model_id', 'agent_name']) {
+      for (const name of ['model_name', 'model_id', 'agent_name', 'display_name']) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} TEXT`);
       }
       const { parseVariants } = require('./messageVariants');

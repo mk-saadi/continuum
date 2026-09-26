@@ -1,4 +1,5 @@
 import React, { useId, useState } from "react";
+import ModelProfileSettings from "./ModelProfileSettings";
 import { optimizeImage } from "../utils/imageUtils.mjs";
 
 export default function AvatarSettings({ avatars, models }) {
@@ -12,7 +13,7 @@ export default function AvatarSettings({ avatars, models }) {
 			update(patch);
 			setError("");
 		} catch {
-			setError("Could not save avatar preferences. Local storage may be full or unavailable.");
+			setError("Could not save branding preferences. Local storage may be full or unavailable.");
 		}
 	}
 
@@ -62,8 +63,9 @@ export default function AvatarSettings({ avatars, models }) {
 				Enable Avatars
 			</label>
 
-			<div className="space-y-2">
-				<label className="block">
+            <section className="space-y-3 rounded-lg border border-[var(--border)] p-3" aria-labelledby="global-llm-branding">
+                <h4 id="global-llm-branding" className="font-medium">Global LLM Branding</h4>
+                <label className="block">
 					Global LLM Avatar
 					<input
 						type="file"
@@ -73,6 +75,12 @@ export default function AvatarSettings({ avatars, models }) {
 						className="mt-2 block w-full file:mr-2 file:rounded file:border file:border-[var(--border)] file:bg-transparent file:p-2 file:text-inherit"
 					/>
 				</label>
+                <label className="block" htmlFor="global-llm-name">Global LLM Name</label>
+                <input id="global-llm-name" type="text" value={settings.globalModelName ?? ''}
+                    onChange={event => change({ globalModelName: event.target.value })}
+                    placeholder="e.g., Assistant" maxLength={200}
+                    className="block w-full rounded border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm" />
+                <p className="text-xs text-[var(--text-muted)]">Used when a model has no custom name. Existing replies keep their saved names.</p>
 				{settings.globalAvatarUrl && (
 					<div className="flex items-center gap-2">
 						<img
@@ -90,12 +98,13 @@ export default function AvatarSettings({ avatars, models }) {
 						</button>
 					</div>
 				)}
-			</div>
+                <ModelProfileSettings />
+			</section>
 
 			<div className="space-y-2">
-				<p className="font-medium">Per-model avatars</p>
+				<p className="font-medium">Per-model names and avatars</p>
 				<p className="text-xs text-[var(--text-muted)]">
-					Set a custom avatar for any individual model. Falls back to the global avatar when unset.
+					Set a name and avatar for each model. Blank names use the global name, then the model filename.
 				</p>
 				{!models.length ? (
 					<p className="text-sm text-[var(--text-muted)]">No scanned models available.</p>
@@ -105,6 +114,10 @@ export default function AvatarSettings({ avatars, models }) {
 							<ModelAvatarRow
 								key={model.id}
 								model={model}
+                                displayName={settings.perModelNames?.[model.modelPath || model.path || model.id] || ''}
+                                onNameChange={name => change(previous => ({ perModelNames: {
+                                    ...previous.perModelNames, [model.modelPath || model.path || model.id]: name,
+                                } }))}
 								avatarUrl={
 									Object.hasOwn(settings.modelAvatars, model.id)
 										? settings.modelAvatars[model.id]
@@ -134,10 +147,10 @@ export default function AvatarSettings({ avatars, models }) {
 	);
 }
 
-function ModelAvatarRow({ model, avatarUrl, busy, disabled, onUpload, onRemove, buttonClass }) {
+function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, disabled, onUpload, onRemove, buttonClass }) {
 	const inputId = useId();
 	return (
-		<li className="flex items-center gap-3 rounded-lg p-2 hover:bg-[var(--surface-hover)]">
+		<li className="flex flex-wrap items-center gap-3 rounded-lg p-2 hover:bg-[var(--surface-hover)]">
 			{avatarUrl ? (
 				<img
 					src={avatarUrl}
@@ -149,12 +162,18 @@ function ModelAvatarRow({ model, avatarUrl, busy, disabled, onUpload, onRemove, 
 					None
 				</div>
 			)}
-			<span
-				className="min-w-0 flex-1 truncate text-sm"
+			<div className="min-w-0 flex-1">
+            <span
+				className="block truncate text-sm"
 				title={model.name || model.id}
 			>
 				{model.name || model.id}
-			</span>
+            </span>
+            <input type="text" aria-label={`Display name for ${model.name || model.id}`}
+                value={displayName} onChange={event => onNameChange(event.target.value)}
+                placeholder="Use global name or model filename" maxLength={200}
+                className="mt-1 w-full rounded border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-sm" />
+            </div>
 			<input
 				id={inputId}
 				type="file"
@@ -179,6 +198,7 @@ function ModelAvatarRow({ model, avatarUrl, busy, disabled, onUpload, onRemove, 
 					Remove
 				</button>
 			)}
+            <ModelProfileSettings modelPath={model.modelPath || model.path || model.id} />
 		</li>
 	);
 }

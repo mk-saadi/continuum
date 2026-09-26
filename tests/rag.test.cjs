@@ -69,7 +69,9 @@ function pdf(text) {
     assert.ok(progress.some(p => p.stage === 'Indexing' && p.total > 1));
     assert.ok(progress.some(p => p.fileName === 'guide.pdf' && p.stage === 'Indexed'));
     const count = calls;
-    await rag.indexDocuments(files, { embedder });
+    const cachedProgress = [];
+    await rag.indexDocuments(files, { embedder, onProgress: value => cachedProgress.push(value) });
+    assert.deepEqual(cachedProgress, []);
     assert.equal(calls, count);
     const matches = rag.findRelevantChunks([1, 0], 3, { filePaths: [files[0].file_path], modelKey: embedder.modelKey });
     assert.ok(matches.length > 0 && matches.every(row => row.file_name === 'guide.txt' && row.score === 1));
@@ -79,7 +81,9 @@ function pdf(text) {
     const saved = sessions.saveMessage('a', 'user', 'alpha?', [files[0]]);
     sessions.getOrCreateSession('b', 'chat');
     sessions.saveMessage('b', 'user', 'beta?', [files[1]]);
-    assert.ok((await rag.retrieveContext('a', 'alpha?', { embedder })).every(row => row.file_name === 'guide.txt'));
+    const retrievalProgress = [];
+    assert.ok((await rag.retrieveContext('a', 'alpha?', { embedder, onProgress: value => retrievalProgress.push(value) })).every(row => row.file_name === 'guide.txt'));
+    assert.deepEqual(retrievalProgress, []);
     const branch = sessions.branchChat('a', saved.id);
     assert.ok((await rag.retrieveContext(branch.sessionId, 'alpha?', { embedder })).length);
     sessions.deleteMessage('a', saved.id);

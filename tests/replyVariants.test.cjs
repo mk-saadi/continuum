@@ -16,6 +16,21 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
 (async () => {
   try {
     initDatabase();
+    sessions.getOrCreateSession('named', 'model');
+    const named = sessions.saveMessage('named', 'assistant', 'Hello', [], null, null, null, null, { modelName: 'Raw model', displayName: 'Captured name' });
+    assert.equal(named.displayName, 'Captured name');
+    assert.equal(named.modelName, 'Raw model');
+    assert.equal(named.variants[0].displayName, 'Captured name');
+    sessions.saveMessage('named', 'assistant', 'Hello', [], { totalTokens: 5 }, null, null, named.id, { displayName: 'Changed settings' });
+    assert.equal(sessions.loadSession('named').messages[0].displayName, 'Captured name');
+    sessions.appendReplyVariant('named', sessions.getRegenerationTarget('named'), { content: 'Regenerated', displayName: 'New name' });
+    assert.equal(sessions.loadSession('named').messages[0].displayName, 'New name');
+    assert.equal(sessions.setActiveVariant('named', named.id, 0).displayName, 'Captured name');
+    const namedBranch = sessions.branchChat('named', named.id);
+    assert.equal(sessions.loadSession(namedBranch.sessionId).messages[0].displayName, 'Captured name');
+    closeDatabase(); initDatabase();
+    assert.equal(sessions.loadSession('named').messages[0].displayName, 'Captured name');
+    assert.equal(sessions.loadSession('named').messages[0].variants[1].displayName, 'New name');
     sessions.getOrCreateSession('timeline', 'model');
     const steps = [
       { id: 't1', type: 'thought', content: 'First', durationMs: 7480 },
@@ -100,10 +115,12 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
         assert.deepEqual(JSON.parse(options.body).messages.filter(m => m.role !== 'system'), [{ role: 'user', content: 'Question' }]);
         return Response.json({ usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }, timings: { predicted_n: 20, predicted_ms: 1000 }, choices: [{ finish_reason: 'stop', message: { content: '<think>IPC reasoning</think>IPC reply' } }] });
       };
-      const result = await handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'regen' });
+      const result = await handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'regen', displayName: 'Branded reply' });
       assert.equal(result.message.id, first.id);
       const variant = result.message.variants.at(-1);
       assert.equal(variant.content, 'IPC reply');
+      assert.equal(variant.displayName, 'Branded reply');
+      assert.equal(result.message.displayName, 'Branded reply');
       assert.equal(variant.executionSteps[0].content, 'IPC reasoning');
       assert.equal(variant.executionSteps[0].type, 'thought');
       assert.ok(variant.executionSteps[0].durationMs >= 0);

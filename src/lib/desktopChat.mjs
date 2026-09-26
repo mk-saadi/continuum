@@ -1,5 +1,6 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ modelId, modelName, messages, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
+export async function runDesktopChat({ modelId, modelName, displayName, messages, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
+  onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
   signal?.throwIfAborted();
@@ -33,7 +34,15 @@ export async function runDesktopChat({ modelId, modelName, messages, signal, onT
     else if (event.type === 'text') textBuffer += event.delta;
     else if (event.type === 'thinking') thinking = event.thinking;
     else if (event.type === 'stats') stats = event.stats;
-    else if (event.type === 'indexing') indexing = event;
+    else if (event.type === 'indexing') {
+      if (event.progress === null) {
+        // A reset supersedes any progress still waiting in the batching timer.
+        indexing = undefined;
+        onIndexing?.(null);
+        return;
+      }
+      indexing = event;
+    }
     else if (event.type === 'tool') toolEvents.set(event.id, event);
     else return;
     if (timer === null) timer = setTimeout(flush, 50);
@@ -44,7 +53,7 @@ export async function runDesktopChat({ modelId, modelName, messages, signal, onT
   };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, messageId: messageId ?? requestId, modelId, modelName, messages, memoryEnabled, ...(sessionId ? { sessionId } : {}) });
+    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, memoryEnabled, ...(sessionId ? { sessionId } : {}) });
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;
     if (result.executionSteps) executionSteps = result.executionSteps;
@@ -56,14 +65,16 @@ export async function runDesktopChat({ modelId, modelName, messages, signal, onT
     unsubscribe();
     signal?.removeEventListener('abort', abort);
     flush();
+    onIndexing?.(null);
   }
 }
 
 export async function indexDesktopDocuments(attachments, { signal, onProgress = () => {} } = {}) {
+  onProgress(null);
   signal?.throwIfAborted();
   const requestId = crypto.randomUUID();
   const unsubscribe = window.chatAPI.onEvent(event => {
-    if (event.requestId === requestId && event.type === 'indexing') onProgress(event);
+    if (event.requestId === requestId && !signal?.aborted && event.type === 'indexing') onProgress(event.progress === null ? null : event);
   });
   const abort = () => { window.chatAPI.cancel(requestId).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
@@ -72,5 +83,5 @@ export async function indexDesktopDocuments(attachments, { signal, onProgress = 
     signal?.throwIfAborted();
     return result;
   } catch (error) { signal?.throwIfAborted(); throw error; }
-  finally { unsubscribe(); signal?.removeEventListener('abort', abort); }
+  finally { unsubscribe(); signal?.removeEventListener('abort', abort); onProgress(null); }
 }

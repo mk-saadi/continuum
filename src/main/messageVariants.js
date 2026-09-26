@@ -10,6 +10,7 @@ function variantFromRow(row) {
   const stats = parseJson(row.stats);
   return {
     content: row.content,
+    displayName: row.display_name ?? null,
     executionSteps: readExecutionSteps(row),
     ...(row.execution_steps == null ? { thinking: row.thinking_text ?? null, thinking_duration: row.thinking_duration ?? null, tool_calls: parseJson(row.tool_calls, []) } : {}),
     model_name: row.model_name ?? null,
