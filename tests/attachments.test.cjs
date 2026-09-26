@@ -18,7 +18,7 @@ Module._load = function (name, ...args) {
 const { db, initDatabase, closeDatabase } = require('../src/main/db');
 const sessions = require('../src/main/sessionManager');
 const { processUploads } = require('../src/main/fileUploads');
-const { prepareChatMessages } = require('../src/main/promptBuilder');
+const { prepareChatMessages, messageForModel } = require('../src/main/promptBuilder');
 const { registerIpcHandlers } = require('../src/main/ipcHandlers');
 (async () => {
  try {
@@ -51,8 +51,10 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   const prompt = prepareChatMessages({sessionId: 'vision', modelId: 'model', userText: '', attachments});
   const parts = prompt.at(-1).content;
   assert.equal(parts[0].type, 'text');
-  assert.match(parts[0].text, /Attached document for retrieval: notes.txt/); assert.match(parts[0].text, /plan.md/);
-  assert.doesNotMatch(parts[0].text, /Attachment text|# Project plan/);
+  assert.match(parts[0].text, /Attached File: notes.txt/); assert.match(parts[0].text, /plan.md/);
+  assert.match(parts[0].text, /Attachment text/);
+  assert.match(parts[0].text, /# Project plan/);
+  assert.ok(parts[0].text.includes(attachments[0].file_path));
   assert.equal(parts.filter(p => p.type === 'image_url').length, 2);
   assert.equal(parts[1].image_url.url, `data:image/png;base64,${bytes.toString('base64')}`);
   const original = sessions.loadSession('vision').messages[0];
@@ -68,7 +70,7 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
 
   const plain = prepareChatMessages({sessionId: 'text', modelId: 'model', userText: 'Read this', attachments: [attachments[1]]});
   assert.equal(typeof plain.at(-1).content, 'string');
-  assert.match(plain.at(-1).content, /Read this[\s\S]*Attached document for retrieval: notes.txt/);
+  assert.match(plain.at(-1).content, /Attached File: notes.txt[\s\S]*Attachment text[\s\S]*User Prompt: Read this/);
   assert.throws(() => sessions.saveMessage('text', 'user', 'bad', [{file_path: text, mime_type: 'text/plain'}]), /Invalid managed/);
   assert.throws(() => sessions.saveMessage('text', 'user', 'bad', [{...attachments[0], mime_type: 'text/plain'}]), /Invalid managed/);
   assert.equal(sessions.loadSession('text').messages.length, 1);
@@ -78,6 +80,32 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.equal(sessions.loadSession('text').messages.length, 1);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM message_attachments').get().n, 5);
   db.prepare('DROP TRIGGER fail_attachment').run();
+
+  // Byte threshold, source formats, raw Unicode, fences, and non-text path fallback.
+  for (const [name, raw, inline] of [
+    ['data.json', '{"hello":"世界"}', true],
+    ['script.js', 'console.log("hello");', true],
+    ['script.py', 'print("hello")', true],
+    ['table.csv', 'name,value\nhello,1', true],
+    ['fences.md', '```js\nhello\n```', true],
+    ['below.txt', 'a'.repeat(50 * 1024 - 1), true],
+    ['limit.txt', 'a'.repeat(50 * 1024), false],
+    ['unicode.txt', 'é'.repeat(26 * 1024), false],
+    ['document.pdf', '%PDF-binary-placeholder', false],
+  ]) {
+    const source = path.join(directory, name);
+    fs.writeFileSync(source, raw);
+    const uploaded = await processUploads([source]);
+    const result = messageForModel({role: 'user', content: 'Read it', attachments: uploaded}).content;
+    assert.ok(result.includes(`[Attached File: ${name}]`));
+    assert.ok(result.endsWith('User Prompt: Read it'));
+    if (inline) assert.ok(result.includes(raw));
+    else {
+      assert.ok(result.includes(`Absolute path: ${uploaded[0].file_path}`));
+      assert.ok(!result.includes(raw));
+    }
+    if (name === 'fences.md') assert.ok(result.includes('\n````\n' + raw + '\n````\n'));
+  }
 
   // A missing historical image rolls back the whole new turn, preserving the draft for retry.
   fs.unlinkSync(attachments[0].file_path);

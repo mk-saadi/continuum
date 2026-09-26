@@ -62,6 +62,10 @@ const SCHEMA = `
     is_compressing INTEGER NOT NULL DEFAULT 0 CHECK (is_compressing IN (0, 1))
   );
 
+  CREATE TABLE IF NOT EXISTS chat_folders (
+    name TEXT PRIMARY KEY NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id),
@@ -178,8 +182,29 @@ function initDatabase() {
         connection.prepare("INSERT INTO app_settings(key, value_json) VALUES ('agents_seeded', 'true')").run();
       }
       const messageColumns = new Set(connection.pragma('table_info(messages)').map(column => column.name));
-      for (const [name, type] of Object.entries({ stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL', model_name: 'TEXT', model_id: 'TEXT', agent_name: 'TEXT' })) {
+      for (const [name, type] of Object.entries({ execution_steps: 'TEXT', stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL' })) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
+      }
+      if (!messageColumns.has('variants')) connection.exec('ALTER TABLE messages ADD COLUMN variants TEXT');
+      if (!messageColumns.has('active_variant_index')) connection.exec('ALTER TABLE messages ADD COLUMN active_variant_index INTEGER DEFAULT 0');
+      // Metadata-only updates must not touch FTS (legacy rows may predate its index).
+      connection.exec(`DROP TRIGGER IF EXISTS messages_au;
+        CREATE TRIGGER messages_au AFTER UPDATE OF content ON messages
+        WHEN old.content IS NOT new.content BEGIN
+          INSERT INTO chat_fts(chat_fts, rowid, content) VALUES ('delete', old.id, old.content);
+          INSERT INTO chat_fts(rowid, content) VALUES (new.id, new.content);
+        END;`);
+      // Legacy origins are unknown; never backfill them from the current model/agent.
+      for (const name of ['model_name', 'model_id', 'agent_name']) {
+        if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} TEXT`);
+      }
+      const { parseVariants } = require('./messageVariants');
+      const migrateVariants = connection.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?');
+      for (const row of connection.prepare('SELECT * FROM messages').all()) {
+        const variants = parseVariants(row);
+        const index = Number.isSafeInteger(row.active_variant_index) && row.active_variant_index >= 0 && row.active_variant_index < variants.length ? row.active_variant_index : 0;
+        const json = JSON.stringify(variants);
+        if (json !== row.variants || index !== row.active_variant_index) migrateVariants.run(json, index, row.id);
       }
       if (!connection.pragma('table_info(sessions)').some(column => column.name === 'sampling_params')) {
         connection.exec('ALTER TABLE sessions ADD COLUMN sampling_params TEXT');
@@ -187,6 +212,8 @@ function initDatabase() {
       if (!connection.pragma('table_info(sessions)').some((column) => column.name === 'folder_name')) {
         connection.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT NOT NULL DEFAULT 'Uncategorized'");
       }
+      connection.exec(`INSERT OR IGNORE INTO chat_folders(name)
+        SELECT DISTINCT folder_name FROM sessions WHERE folder_name <> 'Uncategorized'`);
       // Triggers also support existing databases whose foreign keys lack ON DELETE CASCADE.
       connection.exec(`
         CREATE TRIGGER IF NOT EXISTS sessions_cascade BEFORE DELETE ON sessions BEGIN

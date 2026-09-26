@@ -9,6 +9,13 @@ const MIME_TYPES = Object.freeze({
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.webp': 'image/webp',
   '.txt': 'text/plain', '.md': 'text/markdown', '.csv': 'text/csv', '.pdf': 'application/pdf',
+  '.json': 'application/json', '.js': 'text/javascript', '.mjs': 'text/javascript', '.cjs': 'text/javascript',
+  '.jsx': 'text/plain', '.ts': 'text/plain', '.tsx': 'text/plain', '.py': 'text/plain',
+  '.html': 'text/html', '.css': 'text/css', '.xml': 'text/xml',
+  '.yaml': 'text/plain', '.yml': 'text/plain', '.toml': 'text/plain', '.ini': 'text/plain',
+  '.sh': 'text/plain', '.sql': 'text/plain', '.log': 'text/plain', '.tsv': 'text/tab-separated-values',
+  '.c': 'text/plain', '.h': 'text/plain', '.cpp': 'text/plain', '.java': 'text/plain',
+  '.go': 'text/plain', '.rs': 'text/plain', '.rb': 'text/plain', '.php': 'text/plain',
 });
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -23,7 +30,7 @@ function inspectFile(filePath) {
     throw new TypeError('An absolute file path is required.');
   }
   const mime = MIME_TYPES[path.extname(filePath).toLowerCase()];
-  if (!mime) throw new Error('Supported attachments: PNG, JPEG, GIF, WebP, PDF, TXT, Markdown, and CSV.');
+  if (!mime) throw new Error('Supported attachments: PNG, JPEG, GIF, WebP, PDF, and text files (TXT, Markdown, CSV, JSON, source code, and configuration files).');
   const stat = fs.statSync(filePath);
   if (!stat.isFile()) throw new Error('Attachments must be regular files.');
   if (stat.size > MAX_FILE_BYTES) throw new Error('Each attachment must be 20 MB or smaller.');

@@ -83,9 +83,9 @@ export function useMemoryPalace(modelId, activeModelConfig) {
     return payload;
   }
 
-  async function finishMessage(text, stats = null, toolCalls = null, thinking = null, identity = null) {
-    const saved = text || stats || toolCalls?.length || thinking?.text
-      ? await api.saveMessage(sessionId, 'assistant', text, [], stats, toolCalls, thinking, null, identity) : null;
+  async function finishMessage(text, stats = null, toolCalls = null, thinking = null, identity = null, executionSteps = null) {
+    const saved = text || stats || toolCalls?.length || thinking?.text || executionSteps?.length
+      ? await api.saveMessage(sessionId, 'assistant', text, [], stats, toolCalls, thinking, null, identity, executionSteps) : null;
     setDraftTokens(0);
     await refresh();
     schedule();

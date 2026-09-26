@@ -57,6 +57,9 @@ require('../src/preload');
     assert.equal(saved.agentName, identity.agentName);
     assert.equal(db.prepare('SELECT model_name FROM messages WHERE id = ?').get(saved.id).model_name, identity.modelName);
     await api.saveMessage('legacy', 'assistant', 'First', [], null, null, null, saved.id);
+    await api.saveMessage('legacy', 'assistant', 'First', [], null, null, null, saved.id,
+      { modelName: 'Switched Model', modelId: '/models/new.gguf', agentName: 'Switched Agent' });
+    assert.equal(sessions.loadSession('legacy').messages.at(-1).agent_name, identity.agentName);
     assert.equal(sessions.loadSession('legacy').messages.at(-1).modelName, identity.modelName);
     const branch = sessions.branchChat('legacy', saved.id);
     assert.equal(sessions.loadSession(branch.sessionId).messages.at(-1).agentName, identity.agentName);
@@ -75,6 +78,14 @@ require('../src/preload');
     assert.equal(estimatedTokens, saved.estimated_tokens);
     await api.saveMessage('legacy', 'user', 'Follow up');
     await api.saveMessage('legacy', 'assistant', 'Second', [], second);
+    sessions.getOrCreateSession('no-persona', 'model');
+    const noPersona = await api.saveMessage('no-persona', 'assistant', 'Plain reply', [], null, null, null, null,
+      { modelName: 'Original Model', modelId: 'original', agentName: null });
+    const updatedOrigin = await api.saveMessage('no-persona', 'assistant', 'Plain reply', [], null, null, null, noPersona.id,
+      { modelName: 'New Model', modelId: 'new', agentName: 'New Agent' });
+    assert.equal(updatedOrigin.model_name, 'Original Model');
+    assert.equal(updatedOrigin.model_id, 'original');
+    assert.equal(updatedOrigin.agent_name, null);
     assert.equal(typeof db.prepare('SELECT stats FROM messages WHERE id = ?').get(saved.id).stats, 'string');
     const stored = db.prepare('SELECT tool_calls, thinking_text, thinking_duration FROM messages WHERE id = ?').get(saved.id);
     assert.deepEqual(JSON.parse(stored.tool_calls), toolCalls);

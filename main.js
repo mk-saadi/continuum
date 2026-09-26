@@ -8,11 +8,12 @@ const { pathToFileURL } = require("url");
 const { initDatabase, closeDatabase } = require("./src/main/db.js");
 const { registerIpcHandlers } = require("./src/main/ipcHandlers.js");
 
-const { buildLlamaServerArgs } = require("./src/main/engineManager");
+const { buildLlamaServerArgs, createStartupHandler } = require("./src/main/engineManager");
 const { normalizeLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings } = require("./src/main/configManager");
 const { scanDirectoryForModels } = require("./src/main/modelScanner");
 const scannedModels = new Map();
 let launching = false;
+let startupHandler = null;
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -60,7 +61,7 @@ function createWindow() {
 }
 
 // Store the active config globally in main.js
-let engineConfig = { port: 8080, apiKey: "", activeModelConfig: null };
+let engineConfig = { port: 8080, apiKey: "", activeModelConfig: null, contextStatus: "stopped", warmupError: null };
 
 // Check the configured loopback port, or allocate one in automatic mode.
 function getFreePort(requestedPort = null) {
@@ -182,11 +183,31 @@ async function launchProcess(command, model = null, config = null) {
 			);
 		}
 		const processForLaunch = childProcess;
+        engineConfig.contextStatus = "loading";
+        engineConfig.warmupError = null;
+        const startup = createStartupHandler({
+            port: engineConfig.port, apiKey: engineConfig.apiKey,
+            getTools: async () => {
+                const mcp = require("./src/main/mcpManager");
+                await mcp.init();
+                return require("./src/main/promptBuilder").getToolContext(mcp.getTools()).tools;
+            },
+            onStatus: (contextStatus, error = null) => {
+                if (childProcess !== processForLaunch) return;
+                engineConfig.contextStatus = contextStatus;
+                engineConfig.warmupError = error;
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("terminal:status", {
+                    running: true, pid: childPid, ...engineConfig,
+                });
+            },
+        });
+        startupHandler = startup;
 
 		childPid = childProcess.pid;
 
 		childProcess.stdout.on("data", (data) => {
 			const text = data.toString();
+            startup.onOutput(text, "stdout");
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", { stream: "stdout", data: text });
 			}
@@ -194,12 +215,14 @@ async function launchProcess(command, model = null, config = null) {
 
 		childProcess.stderr.on("data", (data) => {
 			const text = data.toString();
+            startup.onOutput(text, "stderr");
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", { stream: "stderr", data: text });
 			}
 		});
 
 		childProcess.on("error", (err) => {
+            startup.cancel();
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", {
 					stream: "stderr",
@@ -209,8 +232,10 @@ async function launchProcess(command, model = null, config = null) {
 		});
 
 		childProcess.on("close", (code, signal) => {
+            startup.cancel();
 			if (childProcess !== processForLaunch) return;
-			engineConfig.activeModelConfig = null;
+			engineConfig.contextStatus = "stopped";
+		engineConfig.activeModelConfig = null;
 			const msg = `\n[process exited] code=${code} signal=${signal}\n`;
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", { stream: "stdout", data: msg });
@@ -234,6 +259,7 @@ async function launchProcess(command, model = null, config = null) {
 		if (mainWindow && !mainWindow.isDestroyed()) {
 			mainWindow.webContents.send("terminal:status", {
 				running: true,
+                contextStatus: engineConfig.contextStatus,
 				pid: childPid,
 				port: engineConfig.port,
 				activeModelConfig: engineConfig.activeModelConfig,
@@ -247,6 +273,7 @@ async function launchProcess(command, model = null, config = null) {
 			activeModelConfig: engineConfig.activeModelConfig,
 		};
 	} catch (err) {
+		engineConfig.contextStatus = "stopped";
 		engineConfig.activeModelConfig = null;
 		childProcess = null;
 		childPid = null;
@@ -287,6 +314,7 @@ ipcMain.handle("terminal:kill", async () => {
 	if (!childProcess) {
 		return { success: false, error: "No running process" };
 	}
+	startupHandler?.cancel();
 	const pid = childPid;
 	try {
 		await killProcessTree(pid, "SIGTERM");
@@ -309,6 +337,8 @@ ipcMain.handle("terminal:kill", async () => {
 ipcMain.handle("terminal:status", async () => {
 	return {
 		running: childProcess !== null,
+        contextStatus: engineConfig.contextStatus,
+        warmupError: engineConfig.warmupError,
 		pid: childPid,
 		port: childProcess !== null ? engineConfig.port : null,
 		activeModelConfig: childProcess !== null ? engineConfig.activeModelConfig : null,
@@ -327,7 +357,7 @@ ipcMain.handle("models:scanLocal", async (_event, scanPath) => {
 		if (!fs.existsSync(scanPath)) {
 			return { success: false, error: `Path does not exist: ${scanPath}`, models: [] };
 		}
-		const models = scanDirectoryForModels(scanPath);
+		const models = await scanDirectoryForModels(scanPath);
 		for (const model of models) scannedModels.set(model.id, model);
 		return { success: true, models };
 	} catch (err) {

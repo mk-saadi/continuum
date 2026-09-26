@@ -1,18 +1,25 @@
 // Separate model-provided reasoning fields and <think> blocks from visible text.
 // Durations are seconds spent receiving reasoning; tool execution is excluded.
-export function createThinkingStream({ onText, onThinking, now = () => performance.now() }) {
+export function createThinkingStream({ onText, onThinking, onThought = () => {}, now = () => performance.now() }) {
   let buffer = '', inside = false, thinkingText = '', duration = 0, started = null;
+  let segment = null;
   const publish = elapsed => onThinking({ text: thinkingText, duration: duration + elapsed });
   function reasoning(delta) {
     if (!delta) return;
     const time = now();
-    started ??= time;
+    if (started === null) { started = time; segment = { content: '', startedAt: time, durationMs: 0 }; }
+    segment.content += delta;
+    segment.durationMs = Math.max(0, time - started);
+    onThought({ ...segment });
     thinkingText += delta;
     publish(Math.max(0, time - started) / 1000);
   }
   function endReasoning() {
     if (started === null) return;
-    duration += Math.max(0, now() - started) / 1000;
+    const endedAt = now();
+    segment.durationMs = Math.max(0, endedAt - started);
+    onThought({ ...segment, endedAt });
+    duration += segment.durationMs / 1000;
     started = null;
     publish(0);
   }

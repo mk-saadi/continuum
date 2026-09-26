@@ -43,3 +43,66 @@ test('document indexing scopes progress events and removes listeners', async () 
     assert.equal(removed, true);
   } finally { globalThis.window = oldWindow; }
 });
+
+test('stream updates batch every 50ms and flush the final short burst', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const oldWindow = globalThis.window;
+  let listener, requestId, finish, removed = false;
+  const text = [], thinking = [], stats = [];
+  globalThis.window = { chatAPI: {
+    onEvent: callback => { listener = callback; return () => { removed = true; }; },
+    run: payload => { requestId = payload.requestId; return new Promise(resolve => { finish = resolve; }); },
+  } };
+  try {
+    const chat = runDesktopChat({ modelId: 'test', messages: [], onText: value => text.push(value),
+      onThinking: value => thinking.push(value), onStats: value => stats.push(value) });
+    for (let i = 0; i < 100; i++) {
+      listener({ requestId, type: 'text', delta: 'x' });
+      listener({ requestId, type: 'thinking', thinking: { text: `Reasoning ${i}` } });
+    }
+    assert.equal(text.length, 0);
+    t.mock.timers.tick(49);
+    assert.equal(text.length, 0);
+    t.mock.timers.tick(1);
+    assert.deepEqual(text, ['x'.repeat(100)]);
+    assert.deepEqual(thinking, [{ text: 'Reasoning 99' }]);
+    listener({ requestId, type: 'text', delta: 'final' });
+    listener({ requestId, type: 'stats', stats: { totalTokens: 1 } });
+    finish({ text: 'x'.repeat(100) + 'final', stats: { totalTokens: 101 } });
+    await chat;
+    assert.deepEqual(text, ['x'.repeat(100), 'final']);
+    assert.deepEqual(stats, [{ totalTokens: 101 }]);
+    assert.equal(removed, true);
+    t.mock.timers.tick(100);
+    assert.equal(text.length, 2);
+  } finally { globalThis.window = oldWindow; }
+});
+
+for (const outcome of ['error', 'abort']) {
+  test(`pending text and thinking flush on ${outcome} without a delayed timer`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const oldWindow = globalThis.window;
+    const controller = new AbortController();
+    let listener, requestId, fail, removed = false;
+    const text = [], thinking = [];
+    globalThis.window = { chatAPI: {
+      onEvent: callback => { listener = callback; return () => { removed = true; }; },
+      run: payload => { requestId = payload.requestId; return new Promise((resolve, reject) => { fail = reject; }); },
+      cancel: async () => { fail(new Error('Cancelled')); },
+    } };
+    try {
+      const chat = runDesktopChat({ modelId: 'test', messages: [], signal: controller.signal,
+        onText: value => text.push(value), onThinking: value => thinking.push(value) });
+      listener({ requestId, type: 'text', delta: 'Partial' });
+      listener({ requestId, type: 'thinking', thinking: { text: 'Partial thought' } });
+      if (outcome === 'abort') controller.abort();
+      else fail(new Error('Disconnected'));
+      await assert.rejects(chat, outcome === 'abort' ? { name: 'AbortError' } : /Disconnected/);
+      assert.deepEqual(text, ['Partial']);
+      assert.deepEqual(thinking, [{ text: 'Partial thought' }]);
+      assert.equal(removed, true);
+      t.mock.timers.tick(100);
+      assert.equal(text.length, 1);
+    } finally { globalThis.window = oldWindow; }
+  });
+}

@@ -1,4 +1,5 @@
 'use strict';
+const { limitFilesystemResult } = require('./filesystemToolLimits');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
@@ -181,7 +182,8 @@ class McpManager extends EventEmitter {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
     if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be a JSON object.');
-    return JSON.stringify(await server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 }));
+    const result = await server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
+    return JSON.stringify(limitFilesystemResult(toolName, result));
   }
   setServerEnabled(serverName, enabled) {
     if (typeof enabled !== 'boolean') return Promise.reject(new TypeError('enabled must be a boolean.'));

@@ -4,7 +4,10 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { db } = require('./db');
 const { validateAttachments, attachmentName } = require('./fileUploads');
-const { getRagSettings } = require('./configManager');
+const { app } = require('electron');
+const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
+const EMBEDDING_MODEL_KEY = `transformers:${EMBEDDING_MODEL}:quantized:mean:normalized`;
+let extractor = null;
 const DOCUMENT_MIMES = ['application/pdf', 'text/plain', 'text/markdown', 'text/csv'];
 
 function chunkText(text, size = 500, overlap = 50) {
@@ -30,10 +33,10 @@ async function parseDocument(filePath, bytes) {
 
 function normalized(vector) {
   if (!Array.isArray(vector) || !vector.length || vector.length > 65536 || !vector.every(v => typeof v === 'number' && Number.isFinite(v))) {
-    throw new Error('Embedding server returned an invalid vector. Use a pooled embedding model.');
+    throw new Error('Embedding model returned an invalid vector.');
   }
   const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
-  if (!Number.isFinite(norm) || norm === 0) throw new Error('Embedding server returned a zero or invalid vector.');
+  if (!Number.isFinite(norm) || norm === 0) throw new Error('Embedding model returned a zero or invalid vector.');
   return vector.map(v => v / norm);
 }
 function cosineSimilarity(a, b) {
@@ -42,32 +45,36 @@ function cosineSimilarity(a, b) {
   return x.reduce((sum, v, i) => sum + v * y[i], 0);
 }
 
-async function createEmbedder({ signal, fetchImpl = fetch, settings = getRagSettings() } = {}) {
-  const baseUrl = `http://127.0.0.1:${settings.embeddingPort}`;
-  async function request(route, body) {
-    signal?.throwIfAborted();
-    let response;
-    try {
-      response = await fetchImpl(`${baseUrl}${route}`, {
-        method: body ? 'POST' : 'GET', redirect: 'error',
-        headers: { 'Content-Type': 'application/json', ...(settings.embeddingApiKey ? { Authorization: `Bearer ${settings.embeddingApiKey}` } : {}) },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000),
-      });
-    } catch (error) {
-      signal?.throwIfAborted();
-      throw new Error(`Local embeddings unavailable at ${baseUrl}. Start an embedding llama-server and check Server Config. ${error.message}`);
-    }
-    if (!response.ok) throw new Error(`Embeddings HTTP ${response.status}: ${(await response.text()).slice(0, 1000)}`);
-    return response.json();
+async function getEmbedder() {
+  if (!extractor) {
+    // Cache the promise too: concurrent indexing/query requests share one model.
+    extractor = (async () => {
+      const { pipeline, env } = await import('@xenova/transformers');
+      env.cacheDir = path.join(app.getPath('userData'), 'embedding-models');
+      await fs.mkdir(env.cacheDir, { recursive: true });
+      return pipeline('feature-extraction', EMBEDDING_MODEL, { quantized: true });
+    })().catch(error => {
+      extractor = null; // Allow retry after a failed first download or model load.
+      throw error;
+    });
   }
-  const models = await request('/v1/models');
-  const model = settings.embeddingModel || models.data?.[0]?.id;
-  if (!model || !models.data?.some(entry => entry.id === model)) throw new Error('Embedding model not found on the local server. Check Server Config.');
-  const modelKey = `${baseUrl}:${model}`;
-  return { modelKey, async embed(text) {
-    const result = await request('/v1/embeddings', { model, input: text, encoding_format: 'float' });
-    return normalized(result.data?.[0]?.embedding);
+  return extractor;
+}
+
+async function generateEmbedding(text) {
+  const embedder = await getEmbedder();
+  const output = await embedder(text, { pooling: 'mean', normalize: true });
+  return Array.from(output.data);
+}
+
+async function createEmbedder({ signal } = {}) {
+  signal?.throwIfAborted();
+  return { modelKey: EMBEDDING_MODEL_KEY, async embed(text) {
+    signal?.throwIfAborted();
+    const vector = await generateEmbedding(text);
+    // Native inference cannot be interrupted, but cancelled results are discarded.
+    signal?.throwIfAborted();
+    return normalized(vector);
   } };
 }
 
@@ -146,4 +153,4 @@ async function retrieveContext(sessionId, question, options = {}) {
   const query = await embedder.embed(question || 'Summarize the attached documents.');
   return findRelevantChunks(query, 3, { filePaths: paths, modelKey: embedder.modelKey });
 }
-module.exports = { DOCUMENT_MIMES, chunkText, parseDocument, normalized, cosineSimilarity, createEmbedder, indexDocuments, findRelevantChunks, retrieveContext };
+module.exports = { DOCUMENT_MIMES, chunkText, parseDocument, normalized, cosineSimilarity, getEmbedder, generateEmbedding, createEmbedder, indexDocuments, findRelevantChunks, retrieveContext };

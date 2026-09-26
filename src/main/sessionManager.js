@@ -1,7 +1,9 @@
 'use strict';
 
+const { normalizeExecutionSteps, readExecutionSteps } = require('./executionSteps');
 const { validateAttachments } = require('./fileUploads');
 const { db } = require('./db.js');
+const { variantFromRow, parseVariants } = require('./messageVariants');
 const { validateSamplingParams, parseSamplingParams, getGlobalSamplingParams } = require('./samplingManager');
 const { getCoreMemories } = require('./memoryManager.js');
 
@@ -33,12 +35,14 @@ function getOrCreateSession(sessionId, modelId) {
   }).immediate();
 }
 
-function saveMessage(sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null) {
+function saveMessage(sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) {
   requireIdentifier(sessionId, 'sessionId');
   if (!['user', 'assistant', 'system'].includes(role)) {
     throw new TypeError('role must be user, assistant, or system.');
   }
   if (messageId !== null && (!Number.isSafeInteger(messageId) || messageId <= 0 || role !== 'assistant')) throw new TypeError('Only an existing assistant message may be updated.');
+  const steps = normalizeExecutionSteps(executionSteps);
+  if (steps !== null && role !== 'assistant') throw new TypeError('Only assistant messages may have execution steps.');
   const messageStats = normalizeStats(stats);
   const messageTools = normalizeToolCalls(toolCalls);
   const messageThinking = normalizeThinking(thinking);
@@ -67,18 +71,16 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
         ...previousStats,
         ...Object.fromEntries(Object.entries(messageStats).filter(([, value]) => value !== null)),
       }) : previousStats;
+      // Origin is immutable after insertion, even when a late save supplies
+      // metadata from a different model/persona. A null agent means no persona.
       db.prepare(`
         UPDATE messages SET content = ?, estimated_tokens = ?, stats = ?,
-          tool_calls = ?, thinking_text = ?, thinking_duration = ?,
-          model_name = ?, model_id = ?, agent_name = ?
+          tool_calls = ?, thinking_text = ?, thinking_duration = ?
         WHERE id = ? AND session_id = ? AND role = 'assistant'
       `).run(content, estimatedTokens, mergedStats ? JSON.stringify(mergedStats) : null,
         toolCalls == null ? existing.tool_calls : messageTools ? JSON.stringify(messageTools) : null,
         thinking == null ? existing.thinking_text : messageThinking.text,
         thinking == null ? existing.thinking_duration : messageThinking.duration,
-        identity?.modelName ?? existing.model_name,
-        identity?.modelId ?? existing.model_id,
-        identity === null ? existing.agent_name : identity.agentName ?? null,
         messageId, sessionId);
     } else {
       const result = db.prepare(`
@@ -91,6 +93,13 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
         identity?.modelName ?? identity?.modelId ?? null, identity?.modelId ?? null, identity?.agentName ?? null);
       savedId = result.lastInsertRowid;
     }
+
+    if (steps !== null) db.prepare('UPDATE messages SET execution_steps = ?, tool_calls = NULL, thinking_text = NULL, thinking_duration = NULL WHERE id = ?').run(JSON.stringify(steps), savedId);
+    const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(savedId);
+    const variants = parseVariants(updated);
+    const activeIndex = updated.active_variant_index ?? 0;
+    variants[activeIndex] = variantFromRow({ ...updated, created_at: variants[activeIndex]?.created_at ?? updated.created_at });
+    db.prepare('UPDATE messages SET variants = ? WHERE id = ?').run(JSON.stringify(variants), savedId);
 
     const insertAttachment = db.prepare(`
       INSERT INTO message_attachments(message_id, file_path, mime_type) VALUES (?, ?, ?)
@@ -172,21 +181,42 @@ function loadSession(sessionId) {
 }
 
 function getAllSessions() {
-  const groups = new Map();
-  for (const session of db.prepare('SELECT * FROM sessions ORDER BY last_active_at DESC, id DESC').all()) {
+  const groups = new Map(db.prepare('SELECT name FROM chat_folders ORDER BY name COLLATE NOCASE').all()
+    .map(({ name }) => [name, []]));
+  for (const session of db.prepare(`SELECT s.*, COALESCE(t.total_tokens, 0) AS total_tokens
+    FROM sessions s LEFT JOIN (
+      SELECT session_id, SUM(estimated_tokens) AS total_tokens FROM messages GROUP BY session_id
+    ) t ON t.session_id = s.id ORDER BY s.last_active_at DESC, s.id DESC`).all()) {
     if (!groups.has(session.folder_name)) groups.set(session.folder_name, []);
     groups.get(session.folder_name).push(session);
   }
-  return [...groups].map(([folder_name, sessions]) => ({ folder_name, sessions }));
+  const unassigned = groups.get('Uncategorized') || [];
+  groups.delete('Uncategorized');
+  return [...groups].map(([folder_name, sessions]) => ({ folder_name, sessions }))
+    .concat({ folder_name: 'Uncategorized', sessions: unassigned });
+}
+
+function createFolder(name) {
+  requireIdentifier(name, 'Folder name');
+  name = name.trim();
+  if (name === 'Uncategorized') throw new Error('This name is reserved for unassigned chats.');
+  const result = db.prepare('INSERT OR IGNORE INTO chat_folders(name) VALUES (?)').run(name);
+  if (!result.changes) throw new Error('A folder with this name already exists.');
+  return { folder_name: name };
 }
 
 function updateSession(sessionId, field, value) {
   requireIdentifier(sessionId, 'sessionId');
   requireIdentifier(value, field);
   if (!['title', 'folder_name'].includes(field)) throw new Error('Invalid session field.');
-  const result = db.prepare(`UPDATE sessions SET ${field} = ? WHERE id = ?`).run(value.trim(), sessionId);
-  if (!result.changes) throw new Error('Session not found.');
-  return loadSession(sessionId);
+  return db.transaction(() => {
+    const result = db.prepare(`UPDATE sessions SET ${field} = ? WHERE id = ?`).run(value.trim(), sessionId);
+    if (!result.changes) throw new Error('Session not found.');
+    if (field === 'folder_name' && value.trim() !== 'Uncategorized') {
+      db.prepare('INSERT OR IGNORE INTO chat_folders(name) VALUES (?)').run(value.trim());
+    }
+    return loadSession(sessionId);
+  }).immediate();
 }
 
 function requireMutableSession(sessionId) {
@@ -209,8 +239,8 @@ function editMessage(messageId, newContent) {
     const message = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
     if (!message || message.role !== 'user') throw new Error('User message not found.');
     requireMutableSession(message.session_id);
-    db.prepare('UPDATE messages SET content = ?, estimated_tokens = ? WHERE id = ?')
-      .run(newContent, estimateTokens(newContent), messageId);
+    db.prepare('UPDATE messages SET content = ?, variants = ?, active_variant_index = 0, estimated_tokens = ? WHERE id = ?')
+      .run(newContent, JSON.stringify([variantFromRow({ ...message, content: newContent })]), estimateTokens(newContent), messageId);
     db.prepare('DELETE FROM messages WHERE session_id = ? AND id > ?').run(message.session_id, messageId);
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(message.session_id);
     db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(message.session_id);
@@ -219,19 +249,22 @@ function editMessage(messageId, newContent) {
   }).immediate();
 }
 
-Object.assign(module.exports, { loadSession, getAllSessions, updateSession, deleteSession, editMessage });
+Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, deleteSession, editMessage });
 
 function withAttachments(messages) {
   const select = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id');
-  return messages.map(({ tool_calls, thinking_text, thinking_duration, ...message }) => ({
+  return messages.map(({ tool_calls, thinking_text, thinking_duration, execution_steps, ...message }) => ({
     ...message,
+    variants: parseVariants({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
+    executionSteps: readExecutionSteps({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
+    content: parseVariants(message)[message.active_variant_index ?? 0]?.content ?? message.content,
     modelName: message.model_name,
     modelId: message.model_id,
     agentName: message.agent_name,
     stats: parseStats(message.stats),
-    toolCalls: parseToolCalls(tool_calls),
+    ...(execution_steps == null ? { toolCalls: parseToolCalls(tool_calls),
     thinkingText: typeof thinking_text === 'string' ? thinking_text : null,
-    thinkingDuration: typeof thinking_duration === 'number' && Number.isFinite(thinking_duration) && thinking_duration >= 0 ? thinking_duration : null,
+    thinkingDuration: typeof thinking_duration === 'number' && Number.isFinite(thinking_duration) && thinking_duration >= 0 ? thinking_duration : null } : {}),
     attachments: select.all(message.id),
   }));
 }
@@ -252,6 +285,7 @@ function normalizeStats(stats) {
     if (typeof stats.generationTime !== 'number' || !Number.isFinite(stats.generationTime) || stats.generationTime < 0) throw new TypeError('Invalid generation time.');
     result.generationTime = stats.generationTime;
   }
+  if (Array.isArray(stats.raw)) result.raw = JSON.parse(JSON.stringify(stats.raw));
   if (stats.scope != null) {
     if (!['all', 'final'].includes(stats.scope)) throw new TypeError('Invalid generation stats scope.');
     result.scope = stats.scope;
@@ -334,6 +368,8 @@ function branchChat(sourceSessionId, targetMessageId) {
       const result = insert.run(sessionId, message.role, message.content, message.estimated_tokens,
         message.stats, message.tool_calls, message.thinking_text, message.thinking_duration,
         message.model_name, message.model_id, message.agent_name, message.created_at);
+      db.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?').run(JSON.stringify(parseVariants(message)), message.active_variant_index ?? 0, result.lastInsertRowid);
+      db.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?').run(message.execution_steps, result.lastInsertRowid);
       copyAttachments.run(result.lastInsertRowid, message.id);
     }
     return { sessionId };
@@ -362,3 +398,55 @@ function saveSessionSamplingParams(sessionId, modelId, patch) {
   }).immediate();
 }
 Object.assign(module.exports, { getSessionSamplingParams, saveSessionSamplingParams });
+
+function getRegenerationTarget(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  requireMutableSession(sessionId);
+  const last = db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 1').get(sessionId);
+  if (!last || last.role !== 'assistant') throw new Error('The last message must be an assistant reply.');
+  return last;
+}
+
+function setActiveVariant(sessionId, messageId, index) {
+  requireIdentifier(sessionId, 'sessionId');
+  if (!Number.isSafeInteger(messageId) || !Number.isSafeInteger(index)) throw new TypeError('Invalid variant selection.');
+  return db.transaction(() => {
+    requireMutableSession(sessionId);
+    const row = db.prepare("SELECT * FROM messages WHERE session_id = ? AND id = ? AND role = 'assistant'").get(sessionId, messageId);
+    if (!row) throw new Error('Assistant message not found.');
+    const variants = parseVariants(row);
+    if (index < 0 || index >= variants.length) throw new RangeError('Variant index out of range.');
+    const variant = variants[index];
+    const steps = Object.hasOwn(variant, 'thinking') || Object.hasOwn(variant, 'tool_calls') ? null : normalizeExecutionSteps(variant.executionSteps);
+    db.prepare(`UPDATE messages SET content = ?, estimated_tokens = ?, active_variant_index = ?,
+      stats = ?, thinking_text = ?, thinking_duration = ?, tool_calls = ?, model_name = ?, model_id = ?, agent_name = ? WHERE id = ?`)
+      .run(variant.content, estimateTokens(variant.content), index,
+        variant.stats ? JSON.stringify({ ...variant.stats, tokensPerSecond: variant.stats.tokens_per_sec,
+          totalTokens: variant.stats.total_tokens, time: variant.stats.duration }) : null,
+        variant.thinking ?? null, variant.thinking_duration ?? null, JSON.stringify(variant.tool_calls ?? []),
+        variant.model_name ?? null, variant.model_id ?? null, variant.agent_name ?? null, messageId);
+    db.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), messageId);
+    // A summary may contain the previously selected reply. Rebuild context from original turns.
+    db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
+    db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(sessionId);
+    db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
+    return withAttachments([db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)])[0];
+  }).immediate();
+}
+
+function appendReplyVariant(sessionId, target, variant) {
+  if (!variant || typeof variant !== 'object') throw new TypeError('A reply metadata object is required.');
+  estimateTokens(variant.content);
+  return db.transaction(() => {
+    const last = getRegenerationTarget(sessionId);
+    if (last.id !== target.id || last.variants !== target.variants || last.content !== target.content) {
+      throw new Error('The conversation changed during regeneration. Please try again.');
+    }
+    const variants = [...parseVariants(last), { ...variant, created_at: variant.created_at ?? new Date().toISOString() }];
+    db.prepare('UPDATE messages SET variants = ? WHERE id = ?')
+      .run(JSON.stringify(variants), last.id);
+    return setActiveVariant(sessionId, last.id, variants.length - 1);
+  }).immediate();
+}
+
+Object.assign(module.exports, { getRegenerationTarget, setActiveVariant, appendReplyVariant });

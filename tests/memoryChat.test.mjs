@@ -106,7 +106,7 @@ test('usage-only final chunk supplies message stats and requests usage', async (
       return stream([chunk({ content: 'Hello' }, 'stop'), { choices: [], usage: { prompt_tokens: 10, completion_tokens: 20 } }]);
     },
   });
-  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, scope: 'all' });
+  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
 });
 
 test('missing usage and zero elapsed time never produce fabricated counts or Infinity', async () => {
@@ -329,6 +329,8 @@ test('retrieved document context is injected once without mutating input history
     },
     fetchImpl: async (_url, options) => {
       const sent = JSON.parse(options.body).messages;
+      assert.ok(sent[0].content.startsWith('Rules\n\n'));
+      assert.equal(sent.filter(message => message.role === 'system').length, 1);
       assert.match(sent[0].content, /Context from attached documents:/);
       assert.match(sent[0].content, /Chunk 1: guide.pdf, segment 3/);
       assert.match(sent[0].content, /alpha is first/);
@@ -358,4 +360,82 @@ test('sampling defaults and live session overrides reach every tool round', asyn
     },
   });
   assert.equal(reads, 2);
+});
+
+test('execution timeline interleaves thought/tool cycles with parsed arguments and independent snapshots', async () => {
+  const snapshots = [];
+  let round = 0, clock = 0;
+  const result = await runMemoryChat({ ...base, now: () => clock += 10,
+    onExecutionSteps: steps => snapshots.push(steps),
+    resolveTool: name => ({ toolName: name, serverName: 'mcp/test' }),
+    executeTool: async () => { clock += 7000; return { processed: 0 }; },
+    fetchImpl: async () => {
+      round++;
+      if (round <= 2) return stream([
+        chunk({ content: '<thi' }), chunk({ content: `nk>Reason ${round}` }), chunk({ content: '</think>' }),
+        chunk({ tool_calls: [{ index: 0, id: `call-${round}`, function: { name: 'search_memory', arguments: '{"query":"test"}' } }] }, 'tool_calls'),
+      ]);
+      return stream([chunk({ reasoning_content: 'Done thinking' }), chunk({ content: 'Final answer' }, 'stop')]);
+    },
+  });
+  assert.equal(result, 'Final answer');
+  const steps = snapshots.at(-1);
+  assert.deepEqual(steps.map(step => step.type), ['thought', 'tool_call', 'thought', 'tool_call', 'thought']);
+  assert.deepEqual(steps.filter(step => step.type === 'thought').map(step => step.content), ['Reason 1', 'Reason 2', 'Done thinking']);
+  assert.ok(steps.filter(step => step.type === 'thought').every(step => step.durationMs < 7000 && step.endedAt >= step.startedAt));
+  assert.equal(steps[1].serverName, 'mcp/test');
+  assert.deepEqual(steps[1].args, { query: 'test' });
+  assert.deepEqual(steps[1].result, { processed: 0 });
+  assert.equal(steps[1].status, 'complete');
+  assert.equal(snapshots.find(value => value[1]?.status === 'running')[1].result, undefined);
+  assert.equal(snapshots[0].length, 1);
+});
+
+test('multiple thought blocks in one round remain separate', async () => {
+  let steps;
+  await runMemoryChat({ ...base, onExecutionSteps: value => steps = value,
+    fetchImpl: async () => stream([chunk({ content: '<think>First</think>Text<think>Second</think>End' }, 'stop')]),
+  });
+  assert.deepEqual(steps.map(step => step.content), ['First', 'Second']);
+});
+
+test('tool failures, malformed arguments, and cancellation finalize the matching step', async () => {
+  for (const mode of ['throws', 'malformed', 'cancelled']) {
+    const controller = new AbortController();
+    let steps, round = 0, executions = 0;
+    const run = runMemoryChat({ ...base, signal: controller.signal, onExecutionSteps: value => steps = value,
+      executeTool: async () => { executions++; if (mode === 'cancelled') controller.abort(); else throw new Error('Tool failed'); },
+      fetchImpl: async () => ++round === 1
+        ? stream([chunk({ tool_calls: [{ index: 0, id: 'failed', function: { name: 'search_memory', arguments: mode === 'malformed' ? '{' : '{}' } }] }, 'tool_calls')])
+        : stream([chunk({ content: 'Recovered' }, 'stop')]),
+    });
+    if (mode === 'cancelled') await assert.rejects(run, { name: 'AbortError' }); else await run;
+    assert.equal(steps[0].id, 'failed');
+    assert.equal(steps[0].status, 'error');
+    assert.equal(steps[0].result.isError, true);
+    assert.equal(executions, mode === 'malformed' ? 0 : 1);
+  }
+});
+
+test('every tool round sends one leading system message without mutating session history', async () => {
+  const messages = [
+    { role: 'system', content: 'Base instructions' }, { role: 'user', content: 'Question' },
+    { role: 'system', content: 'Memory' }, { role: 'system', content: 'Summary' },
+  ];
+  let round = 0;
+  await runMemoryChat({ ...base, messages, executeTool: async () => 'OK',
+    fetchImpl: async (_url, options) => {
+      const sent = JSON.parse(options.body).messages;
+      assert.deepEqual(sent[0], { role: 'system', content: 'Base instructions\n\nMemory\n\nSummary' });
+      assert.equal(sent.filter(message => message.role === 'system').length, 1);
+      assert.deepEqual(sent[1], messages[1]);
+      if (++round === 1) return stream([chunk({ tool_calls: [{ index: 0, id: 'call', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')]);
+      assert.equal(sent[2].role, 'assistant');
+      assert.equal(sent[3].role, 'tool');
+      return stream([chunk({ content: 'Done' }, 'stop')]);
+    },
+  });
+  assert.equal(round, 2);
+  assert.equal(messages.length, 4);
+  assert.equal(messages[0].content, 'Base instructions');
 });

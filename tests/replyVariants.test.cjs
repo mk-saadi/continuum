@@ -1,0 +1,130 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const Module = require('node:module');
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-variants-'));
+const handlers = new Map();
+const originalLoad = Module._load;
+Module._load = function(name, ...args) {
+  if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
+  return originalLoad.call(this, name, ...args);
+};
+const { initDatabase, closeDatabase, db } = require('../src/main/db');
+const sessions = require('../src/main/sessionManager');
+const { prepareChatMessages } = require('../src/main/promptBuilder');
+(async () => {
+  try {
+    initDatabase();
+    sessions.getOrCreateSession('timeline', 'model');
+    const steps = [
+      { id: 't1', type: 'thought', content: 'First', durationMs: 7480 },
+      { id: 'c1', type: 'tool_call', toolName: 'analyze_images', serverName: 'mcp/images', args: { source_dir: '/tmp' }, result: { processed: 0 }, status: 'complete' },
+      { id: 't2', type: 'thought', content: 'Try again', durationMs: 2210 },
+    ];
+    const timeline = sessions.saveMessage('timeline', 'assistant', 'Reply', [], null, null, null, null, null, steps);
+    assert.deepEqual(timeline.executionSteps, steps);
+    assert.equal(Object.hasOwn(timeline, 'toolCalls'), false);
+    assert.equal(Object.hasOwn(timeline, 'thinkingText'), false);
+    assert.deepEqual(timeline.variants[0].executionSteps, steps);
+    sessions.saveMessage('timeline', 'assistant', 'Reply', [], { totalTokens: 4 }, null, null, timeline.id);
+    assert.deepEqual(sessions.loadSession('timeline').messages[0].executionSteps, steps);
+    const timelineBranch = sessions.branchChat('timeline', timeline.id);
+    assert.deepEqual(sessions.loadSession(timelineBranch.sessionId).messages[0].executionSteps, steps);
+    sessions.appendReplyVariant('timeline', sessions.getRegenerationTarget('timeline'), { content: 'New', executionSteps: [] });
+    assert.deepEqual(sessions.loadSession('timeline').messages[0].executionSteps, []);
+    assert.deepEqual(sessions.setActiveVariant('timeline', timeline.id, 0).executionSteps, steps);
+    assert.throws(() => sessions.saveMessage('timeline', 'user', 'Invalid', [], null, null, null, null, null, steps), /Only assistant/);
+    assert.throws(() => sessions.saveMessage('timeline', 'assistant', 'Invalid', [], null, null, null, null, null, [{ type: 'thought', content: 'x', durationMs: -1 }]), /Invalid thought/);
+    closeDatabase(); initDatabase();
+    assert.deepEqual(sessions.loadSession('timeline').messages[0].executionSteps, steps);
+    sessions.getOrCreateSession('chat', 'model');
+    sessions.saveMessage('chat', 'user', 'Question');
+    const first = sessions.saveMessage('chat', 'assistant', 'Original', [], { tokensPerSecond: 12, totalTokens: 24, time: 2 }, [], { text: 'Original reasoning', duration: 1 }, null, { modelName: 'Original model', modelId: 'original', agentName: 'Original agent' });
+    assert.deepEqual(first.variants.map(v => v.content), ['Original']);
+    const second = sessions.appendReplyVariant('chat', sessions.getRegenerationTarget('chat'), { content: 'Replacement', thinking: 'New reasoning', model_name: 'New model', model_id: 'new', agent_name: null, stats: { tokens_per_sec: 30, total_tokens: 90, duration: 3 } });
+    assert.equal(second.id, first.id);
+    assert.deepEqual(second.variants.map(v => v.content), ['Original', 'Replacement']);
+    assert.equal(second.active_variant_index, 1);
+    assert.equal(second.thinkingText, 'New reasoning');
+    assert.equal(second.modelName, 'New model');
+    const original = sessions.setActiveVariant('chat', first.id, 0);
+    assert.equal(original.thinkingText, 'Original reasoning');
+    assert.equal(original.modelName, 'Original model');
+    assert.equal(original.agentName, 'Original agent');
+    assert.equal(original.stats.tokensPerSecond, 12);
+    assert.equal(original.variants[0].stats.total_tokens, 24);
+    assert.equal(original.variants[0].stats.duration, 2);
+    const branch = sessions.branchChat('chat', first.id);
+    assert.deepEqual(sessions.loadSession(branch.sessionId).messages.at(-1).variants, original.variants);
+    const third = sessions.appendReplyVariant('chat', sessions.getRegenerationTarget('chat'), { content: 'Third' });
+    assert.equal(third.active_variant_index, 2);
+    assert.equal(sessions.loadSession('chat').messages.length, 2);
+    assert.throws(() => sessions.setActiveVariant('chat', first.id, 3), /range/);
+    assert.throws(() => sessions.setActiveVariant('other', first.id, 0));
+    const history = prepareChatMessages({ sessionId: 'chat', modelId: 'model', userText: '', regenerate: true, regenerateLast: true });
+    assert.deepEqual(history.filter(m => m.role !== 'system'), [{ role: 'user', content: 'Question' }]);
+    db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run('chat', 'Old version');
+    sessions.setActiveVariant('chat', first.id, 1);
+    assert.equal(sessions.getSessionSummary('chat'), null);
+    const next = prepareChatMessages({ sessionId: 'chat', modelId: 'model', userText: 'Follow up' });
+    assert.equal(next.find(m => m.role === 'assistant').content, 'Replacement');
+    assert.throws(() => sessions.getRegenerationTarget('chat'), /last message/);
+    const { sanitizeChatMessages } = await import('../src/lib/memoryChat.mjs');
+    assert.deepEqual(sanitizeChatMessages([{ role: 'assistant', content: 'Wrong', variants: '["First","Selected"]', active_variant_index: 1 }]), [{ role: 'assistant', content: 'Selected' }]);
+    sessions.getOrCreateSession('legacy', 'old');
+    const legacy = sessions.saveMessage('legacy', 'assistant', 'Selected', [], { totalTokens: 5 }, [], { text: 'Saved reasoning' });
+    db.prepare('UPDATE messages SET variants = ?, active_variant_index = 1 WHERE id = ?').run('["Older","Selected"]', legacy.id);
+    closeDatabase();
+    initDatabase();
+    const migrated = sessions.loadSession('legacy').messages[0];
+    assert.equal(migrated.active_variant_index, 1);
+    assert.equal(migrated.variants[1].thinking, 'Saved reasoning');
+    assert.equal(migrated.variants[1].stats.total_tokens, 5);
+    assert.equal(migrated.variants[0].thinking, null);
+    assert.deepEqual(sanitizeChatMessages([{ role: 'assistant', content: 'Wrong', variants: migrated.variants, active_variant_index: 1 }]), [{ role: 'assistant', content: 'Selected' }]);
+    assert.deepEqual(sessions.loadSession('chat').messages[1].variants.map(v => v.content), ['Original', 'Replacement', 'Third']);
+    assert.equal(sessions.loadSession('chat').messages[1].content, 'Replacement');
+    const manager = require('../src/main/mcpManager');
+    const originalInit = manager.init;
+    manager.init = async () => {};
+    const originalFetch = global.fetch;
+    const { EventEmitter } = require('node:events');
+    const sender = new EventEmitter();
+    sender.isDestroyed = () => false;
+    sender.send = () => {};
+    const dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }) });
+    try {
+      sessions.deleteMessage('chat', sessions.loadSession('chat').messages.at(-1).id);
+      global.fetch = async (_url, options) => {
+        assert.deepEqual(JSON.parse(options.body).messages.filter(m => m.role !== 'system'), [{ role: 'user', content: 'Question' }]);
+        return Response.json({ usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }, timings: { predicted_n: 20, predicted_ms: 1000 }, choices: [{ finish_reason: 'stop', message: { content: '<think>IPC reasoning</think>IPC reply' } }] });
+      };
+      const result = await handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'regen' });
+      assert.equal(result.message.id, first.id);
+      const variant = result.message.variants.at(-1);
+      assert.equal(variant.content, 'IPC reply');
+      assert.equal(variant.executionSteps[0].content, 'IPC reasoning');
+      assert.equal(variant.executionSteps[0].type, 'thought');
+      assert.ok(variant.executionSteps[0].durationMs >= 0);
+      assert.equal(Object.hasOwn(variant, 'thinking'), false);
+      assert.equal(variant.model_name, 'model');
+      assert.equal(variant.stats.tokens_per_sec, 20);
+      assert.equal(variant.stats.total_tokens, 30);
+      assert.equal(variant.stats.raw[0].timings.predicted_ms, 1000);
+      assert.ok(variant.created_at);
+      closeDatabase(); initDatabase();
+      assert.deepEqual(sessions.loadSession('chat').messages.at(-1).variants.at(-1), variant);
+      global.fetch = async () => { throw new Error('Connection failed'); };
+      await assert.rejects(handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'fail' }), /Connection failed/);
+      assert.deepEqual(sessions.loadSession('chat').messages.at(-1).variants, result.message.variants);
+    } finally {
+      dispose(); manager.init = originalInit; global.fetch = originalFetch;
+    }
+    console.log('Reply variants: persistence, selection, context, bounds, and regeneration passed.');
+  } finally {
+    closeDatabase();
+    Module._load = originalLoad;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

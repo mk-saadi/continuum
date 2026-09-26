@@ -1,5 +1,6 @@
 import React from "react";
 import { FaBars, FaCog, FaSlidersH } from "react-icons/fa";
+import { FiChevronDown } from "react-icons/fi";
 
 export default function Header({
 	isSidebarOpen,
@@ -8,6 +9,7 @@ export default function Header({
 	onToggleRightSidebar,
 	modelName,
 	engineRunning,
+    contextStatus,
 	onOpenModels,
 	palace,
 	onOpenSettings,
@@ -21,9 +23,10 @@ export default function Header({
 				: `${total === null ? "—" : total.toLocaleString()} / ${palace.limit.toLocaleString()} tokens`;
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
-		"flex size-9 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
+		"flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300";
+
 	return (
-		<header className="flex h-10 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3">
+		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3">
 			<button
 				type="button"
 				className={button}
@@ -34,20 +37,34 @@ export default function Header({
 			>
 				<FaBars />
 			</button>
-			<div className="flex min-w-0 flex-1 justify-center">
+
+			{/* Absolutely centered relative to the whole header, not the remaining flex space */}
+			<div className="pointer-events-none absolute inset-0 flex items-center justify-center px-32 max-[600px]:px-20">
 				<button
 					type="button"
 					onClick={onOpenModels}
-					className="flex min-w-0 max-w-md items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--input)] px-4 py-1 text-xs"
+					className="pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--input)] px-4 py-1 text-xs cursor-pointer hover:bg-[var(--surface-hover)] duration-300"
 					aria-label="Select or load model"
 				>
 					<span
-						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-emerald-400" : "bg-[var(--text-muted)]"}`}
+						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 					/>
 					<span className="truncate">{modelName || "Select / Load Model"}</span>
-					<span aria-hidden="true">⌄</span>
+                    {engineRunning && <span role="status" className="shrink-0 text-[10px] text-[var(--text-secondary)]">
+                        {contextStatus === "ready" ? "Ready" : contextStatus === "warming" ? "Warming up context..." : contextStatus === "warmup-failed" ? "Warmup failed" : "Loading model..."}
+                    </span>}
+					<span
+						aria-hidden="true"
+						className="group-active:translate-y-0.5 duration-300"
+					>
+						<FiChevronDown />
+					</span>
 				</button>
 			</div>
+
+			{/* Spacer to keep the right-side group pushed right, now that the center div is absolute */}
+			<div className="flex-1" />
+
 			<div
 				title={label}
 				className="w-44 shrink-0 text-[10px] text-[var(--text-secondary)] max-[700px]:w-28"
@@ -71,20 +88,20 @@ export default function Header({
 			<button
 				type="button"
 				className={button}
+				aria-label="Open settings"
+				onClick={onOpenSettings}
+			>
+				<FaCog />
+			</button>
+			<button
+				type="button"
+				className={button}
 				aria-label="Toggle chat controls"
 				aria-expanded={isRightSidebarOpen}
 				aria-controls="right-sidebar"
 				onClick={onToggleRightSidebar}
 			>
 				<FaSlidersH />
-			</button>
-			<button
-				type="button"
-				className={button}
-				aria-label="Open settings"
-				onClick={onOpenSettings}
-			>
-				<FaCog />
 			</button>
 		</header>
 	);

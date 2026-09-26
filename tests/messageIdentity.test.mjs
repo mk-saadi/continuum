@@ -13,7 +13,14 @@ test('prioritizes turn identity and preserves it when models or personas change'
   assert.equal(assistantLabel({ modelName: 'Original', agentName: null }, 'New', agent), 'Original');
   assert.equal(assistantLabel({ modelId: '/models/Original.gguf' }, 'New'), 'Original');
   assert.equal(assistantLabel({ model_name: 'Stored' }, 'New'), 'Stored');
-  assert.equal(assistantLabel({}, 'Active', agent), 'New Persona');
+  assert.equal(assistantLabel({}, 'Active', agent), 'Active');
   assert.equal(assistantLabel({}, 'Active'), 'Active');
   assert.equal(assistantLabel({}), 'Assistant');
+});
+
+test('persisted SQLite fields override stale aliases and current selections', () => {
+  assert.equal(assistantLabel({ model_name: 'Original', modelName: 'New' }, 'Current'), 'Original');
+  assert.equal(assistantLabel({ model_name: 'Original', agent_name: 'Original Agent', agentName: 'New Agent' }, 'Current'), 'Original Agent');
+  assert.equal(assistantLabel({ model_name: 'Original', agent_name: null, agentName: 'New Agent' }, 'Current'), 'Original');
+  assert.equal(assistantLabel({ model_name: null, agent_name: null, modelName: 'Stale', agentName: 'Stale' }, 'Current'), 'Current');
 });

@@ -1,7 +1,16 @@
 import React, { useState } from "react";
-import { FiCheck, FiCopy, FiGitBranch, FiTrash2, FiEdit } from "react-icons/fi";
+import { FiCheck, FiCopy, FiGitBranch, FiTrash2, FiEdit, FiRefreshCw } from "react-icons/fi";
 
-export default function MessageActions({ message, disabled, onDelete, onBranch, onEdit, onError }) {
+export default function MessageActions({
+	message,
+	disabled,
+	onDelete,
+	onBranch,
+	onEdit,
+	onError,
+	onRegenerate,
+	isLast,
+}) {
 	const [copied, setCopied] = useState(false);
 	const saved = Number.isSafeInteger(message.id) && message.id > 0;
 	const buttonClass =
@@ -13,6 +22,29 @@ export default function MessageActions({ message, disabled, onDelete, onBranch, 
 			aria-label="Message actions"
 			className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
 		>
+			<button
+				type="button"
+				className={buttonClass}
+				aria-label="Branch chat"
+				disabled={disabled || !saved}
+				onClick={() => onBranch(message.id)}
+			>
+				<FiGitBranch aria-hidden="true" />
+			</button>
+
+			{message.role === "assistant" && isLast && onRegenerate && (
+				<button
+					type="button"
+					className={buttonClass}
+					aria-label="Regenerate reply"
+					title="Regenerate reply"
+					disabled={disabled || message.streaming}
+					onClick={onRegenerate}
+				>
+					<FiRefreshCw aria-hidden="true" />
+				</button>
+			)}
+
 			<button
 				type="button"
 				className={buttonClass}
@@ -52,16 +84,6 @@ export default function MessageActions({ message, disabled, onDelete, onBranch, 
 				onClick={() => onDelete(message.id)}
 			>
 				<FiTrash2 aria-hidden="true" />
-			</button>
-
-			<button
-				type="button"
-				className={buttonClass}
-				aria-label="Branch chat"
-				disabled={disabled || !saved}
-				onClick={() => onBranch(message.id)}
-			>
-				<FiGitBranch aria-hidden="true" />
 			</button>
 		</div>
 	);

@@ -34,7 +34,10 @@ contextBridge.exposeInMainWorld('api', {
 });
 
 contextBridge.exposeInMainWorld('memoryPalace', {
+  regenerateLast: payload => ipcRenderer.invoke('session:regenerate-last', payload),
+  setActiveVariant: (sessionId, messageId, index) => ipcRenderer.invoke('session:set-active-variant', { sessionId, messageId, index }),
   getAllSessions: () => ipcRenderer.invoke('session:get-all'),
+  createFolder: (folderName) => ipcRenderer.invoke('session:create-folder', { folderName }),
   loadSession: (sessionId) => ipcRenderer.invoke('session:load', { sessionId }),
   renameSession: (sessionId, title) => ipcRenderer.invoke('session:rename', { sessionId, title }),
   moveSession: (sessionId, folderName) => ipcRenderer.invoke('session:move-to-folder', { sessionId, folderName }),
@@ -52,7 +55,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getAllActiveMemories: () => ipcRenderer.invoke('memory:all'),
   deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
   getOrCreateSession: (sessionId, modelId) => ipcRenderer.invoke('session:get-or-create', { sessionId, modelId }),
-  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity }),
+  saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity, executionSteps }),
   getContextUsage: (sessionId, modelId) => ipcRenderer.invoke('session:get-usage', { sessionId, modelId }),
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),
@@ -79,6 +82,11 @@ contextBridge.exposeInMainWorld('mcpAPI', {
   },
 });
 contextBridge.exposeInMainWorld('chatAPI', {
+  onStepUpdate: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('stream:step-update', listener);
+    return () => ipcRenderer.removeListener('stream:step-update', listener);
+  },
   run: payload => ipcRenderer.invoke('engine:chat', payload),
   cancel: requestId => ipcRenderer.invoke('engine:cancel-chat', { requestId }),
   onEvent: callback => {

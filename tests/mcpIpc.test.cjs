@@ -48,6 +48,16 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.equal(context.pluginTokens, Math.ceil(JSON.stringify(manager.getTools()).length / 4));
     const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
     assert.equal(result.text, 'Final answer');
+    assert.equal(result.message.id, 'request1');
+    assert.equal(result.message.content, 'Final answer');
+    assert.deepEqual(result.executionSteps.map(step => step.type), ['tool_call', 'thought']);
+    assert.deepEqual(result.executionSteps[0].args, { text: 'hello' });
+    assert.equal(result.executionSteps[0].serverName, 'fixture');
+    const updates = events.filter(event => event.channel === 'stream:step-update');
+    assert.ok(updates.some(event => event.executionSteps[0]?.status === 'running'));
+    assert.equal(updates.at(-1).messageId, 'request1');
+    assert.deepEqual(updates.at(-1).executionSteps, result.executionSteps);
+    assert.equal(updates.at(-1).content, 'Final answer');
     assert.equal(result.stats.totalTokens, 15);
     assert.equal(result.stats.scope, 'final');
     assert.deepEqual(result.stats, events.filter(e => e.type === 'stats').at(-1).stats);

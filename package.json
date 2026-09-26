@@ -65,13 +65,16 @@
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.30.1",
+		"@xenova/transformers": "^2.17.2",
 		"better-sqlite3": "^11.10.0",
+		"hyllama": "^0.2.2",
 		"pdf-parse": "^2.4.5",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"react-icons": "^5.7.0",
 		"react-markdown": "^10.1.0",
 		"react-syntax-highlighter": "^16.1.1",
+		"react-toast-master": "^3.0.1",
 		"remark-gfm": "^4.0.1"
 	}
 }

@@ -14,6 +14,7 @@ const { initDatabase, closeDatabase } = require('../src/main/db');
 const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings, saveAppSettings } = require('../src/main/configManager');
 const { buildLlamaServerArgs } = require('../src/main/engineManager');
 const { scanDirectoryForModels } = require('../src/main/modelScanner');
+(async () => {
 try {
   initDatabase();
   assert.equal(getAppSettings().apiServerPort, 8080);
@@ -51,15 +52,17 @@ try {
   }
   fs.writeFileSync(path.join(directory, 'vision.gguf'), '');
   fs.writeFileSync(path.join(directory, 'mmproj-vision.gguf'), '');
-  let scanned = scanDirectoryForModels(directory);
+  let scanned = await scanDirectoryForModels(directory);
   assert.equal(scanned.length, 1);
   assert.equal(scanned[0].isVision, true);
   fs.writeFileSync(path.join(directory, 'other.gguf'), '');
-  scanned = scanDirectoryForModels(directory);
-  assert.equal(scanned.find(m => m.name.endsWith('/other.gguf')).isVision, false);
+  scanned = await scanDirectoryForModels(directory);
+  assert.equal(scanned.find(m => m.name.endsWith('/other.gguf')).isVision, true);
   assert.equal(scanned.find(m => m.name.endsWith('/vision.gguf')).isVision, true);
   console.log('Settings persistence, defaults, validation, CLI arguments, and projector scanning passed.');
 } finally {
   closeDatabase(); Module._load = originalLoad;
   fs.rmSync(directory, { recursive: true, force: true });
 }
+
+})().catch(error => { console.error(error); process.exitCode = 1; });

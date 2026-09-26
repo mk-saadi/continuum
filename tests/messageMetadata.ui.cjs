@@ -35,10 +35,11 @@ app.whenReady().then(async () => {
           open: thinking.open,
         };
       })()`);
-      assert.match(result.tool, /terminal \/ run_command/);
+      assert.match(result.tool, /run_command/);
+      assert.match(result.tool, /terminal/);
       assert.match(result.tool, /complete/);
       assert.match(result.thinking, /Recorded thinking/);
-      assert.match(result.thinking, /0.0s/);
+      assert.match(result.thinking, /0\.00s/);
       assert.match(result.stats, /20 total tokens/);
       assert.match(result.stats, /10.0 tok\/sec/);
     }
@@ -47,6 +48,40 @@ app.whenReady().then(async () => {
     await renderAndCheck(sessions.loadSession('chat').messages);
     closeDatabase(); initDatabase();
     await renderAndCheck(sessions.getActiveMessages('chat'));
+    const versions = { ...saved, variants: [saved.variants[0], {
+      content: 'Regenerated response', thinking: 'Different reasoning', model_name: 'New model', agent_name: 'New agent',
+      stats: { tokens_per_sec: 30, total_tokens: 90, duration: 3 }, tool_calls: [],
+    }], active_variant_index: 1 };
+    const switched = await window.webContents.executeJavaScript(`(async () => {
+      window.renderMessages([${JSON.stringify(versions)}]);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      const current = document.querySelector('article').textContent;
+      document.querySelector('[aria-label="Previous reply version"]').click();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      const previous = document.querySelector('article').textContent;
+      document.querySelector('[aria-label="Next reply version"]').click();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      return { current, previous, next: document.querySelector('article').textContent };
+    })()`);
+    assert.match(switched.current, /New agent/);
+    assert.match(switched.current, /Different reasoning/);
+    assert.match(switched.current, /30.0 tok\/sec/);
+    assert.match(switched.current, /90 total tokens/);
+    assert.match(switched.current, /3.0s/);
+    assert.doesNotMatch(switched.current, /Recorded thinking|First answer/);
+    assert.match(switched.previous, /Recorded thinking/);
+    assert.match(switched.previous, /20 total tokens/);
+    assert.doesNotMatch(switched.previous, /Different reasoning|New agent/);
+    assert.equal(switched.next, switched.current);
+    const emptyDraft = { ...versions, streaming: true, active_variant_index: 2,
+      variants: [...versions.variants, { content: '', thinking: null, model_name: 'Streaming model', stats: null }] };
+    const streamingText = await window.webContents.executeJavaScript(`(async () => {
+      window.renderMessages([${JSON.stringify(emptyDraft)}]);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      return document.querySelector('article').textContent;
+    })()`);
+    assert.match(streamingText, /Streaming model|Generating/);
+    assert.doesNotMatch(streamingText, /Regenerated response|Different reasoning|90 total tokens/);
     console.log('Tool cards, thinking accordion/zero duration, and stats render after a new turn and SQLite close/reopen.');
   } finally { window.destroy(); closeDatabase(); await fs.rm(directory, { recursive: true }); }
   app.exit(0);
