@@ -44,6 +44,26 @@ const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, argumen
     assert.equal((await run('read_project_file', { relative_path: 'src/test.txt' })).content, 'alpha\n$&\nlast\n');
     fs.writeFileSync(path.join(workspace, 'overlap.txt'), 'aaa');
     assert.equal((await run('str_replace_editor', { relative_path: 'overlap.txt', old_str: 'aa', new_str: 'b' })).success, false);
+    const editCases = [
+      { content: 'before\r\n  alpha  \r\n\tbeta\t\r\nafter\n', old_str: '\talpha\n beta ', new_str: '  changed\n$&', expected: 'before\r\n  changed\n$&\r\nafter\n' },
+      { content: 'before\n  alpha\n \t\n beta\nafter', old_str: 'alpha\r\n\r\nbeta', new_str: 'replacement', expected: 'before\nreplacement\nafter' },
+      { content: '  alpha\rinside \nlast', old_str: 'alphainside', new_str: 'first', expected: 'first\nlast' },
+      { content: 'before\n  last  ', old_str: 'last', new_str: '', expected: 'before\n' },
+      { content: '  first\nlast\n', old_str: 'first\nlast\n', new_str: 'whole', expected: 'whole' },
+      { content: 'alpha\n  alpha  \n', old_str: 'alpha', error: /not unique/ },
+      { content: 'x\n x \nx', old_str: 'x\nx', error: /not unique/ },
+      { content: 'alpha beta\n', old_str: 'alpha  beta', error: /not found/ },
+      { content: 'alpha\n\nbeta', old_str: 'alpha\nbeta', error: /not found/ },
+      { content: 'alpha', old_str: 'alpha\nbeta', error: /not found/ },
+    ];
+    for (const { content, old_str, new_str = 'oops', expected, error } of editCases) {
+      const relative_path = 'whitespace.txt';
+      fs.writeFileSync(path.join(workspace, relative_path), content);
+      const result = await run('str_replace_editor', { relative_path, old_str, new_str });
+      assert.equal(result.success, !error, JSON.stringify({ content, old_str, result }));
+      if (error) assert.match(result.error, error);
+      assert.equal(fs.readFileSync(path.join(workspace, relative_path), 'utf8'), error ? content : expected);
+    }
     fs.writeFileSync(path.join(root, 'outside.txt'), 'unchanged');
     fs.symlinkSync(root, path.join(workspace, 'escape'));
     for (const relative_path of ['../outside.txt', 'escape/outside.txt', 'escape/new/file.txt', path.join(root, 'outside.txt')]) {

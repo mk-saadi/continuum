@@ -9,7 +9,7 @@ const fs = require("fs");
 const { spawn, exec } = require("child_process");
 const net = require("net");
 const { pathToFileURL } = require("url");
-const { initDatabase, closeDatabase } = require("./src/main/db.js");
+const { initDatabase, syncSystemDate, closeDatabase } = require("./src/main/db.js");
 const { registerIpcHandlers } = require("./src/main/ipcHandlers.js");
 
 const { buildLlamaServerArgs, buildLlamaServerEnv, createStartupHandler, createIdleService } = require("./src/main/engineManager");
@@ -425,7 +425,8 @@ const mcpManager = require("./src/main/mcpManager");
 app.whenReady().then(() => {
 	registerLocalMediaProtocol(protocol);
 	mcpManager.init().catch((error) => console.error("MCP initialization failed:", error));
-	initDatabase();
+	const db = initDatabase();
+	syncSystemDate(db);
 	registerIpcHandlers({
 		launchEngine: launchModel,
         beginEngineRequest: () => idleService?.beginRequest(),

@@ -1,0 +1,43 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const Module = require('node:module');
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'token-usage-'));
+const originalLoad = Module._load;
+Module._load = function(name, ...args) {
+  if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory } };
+  return originalLoad.call(this, name, ...args);
+};
+const { db, initDatabase, closeDatabase } = require('../src/main/db');
+const { logTokenUsage, getTokenHistory, setRetention } = require('../src/main/tokenUsage');
+Module._load = originalLoad;
+const now = new Date('2026-03-31T12:00:00Z');
+const log = (turnId, timestamp, projectId, promptTokens = 10, completionTokens = 5) => logTokenUsage({ turnId, chatId: 'chat', projectId, timestamp, promptTokens, completionTokens }, now);
+try {
+  initDatabase(directory);
+  log('old', '2025-01-01T00:00:00Z', 'p1');
+  log('jan', '2026-01-15T00:00:00Z', 'p1');
+  log('feb', '2026-02-28T13:00:00Z', 'p1');
+  log('sun', '2026-03-01T00:00:00Z', 'p1');
+  log('mon', '2026-03-02T00:00:00Z', 'p2');
+  log('sun', '2026-03-01T00:00:00Z', 'p1', 20, 8);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM token_usage').get().n, 4, 'upsert avoids double counts; old usage pruned');
+  const all = getTokenHistory({ months: 3 }, now);
+  assert.equal(all.data.reduce((sum, row) => sum + row.promptTokens, 0), 50);
+  assert.equal(all.data.find(row => row.period === '2026-03-01').completionTokens, 13);
+  assert.equal(getTokenHistory({ months: 3, projectId: 'p2' }, now).data.reduce((sum, row) => sum + row.turns, 0), 1);
+  const weekly = getTokenHistory({ groupBy: 'week', months: 1 }, now);
+  assert.equal(weekly.data.find(row => row.period === '2026-02-23').promptTokens, 30, 'Sunday belongs to preceding Monday');
+  assert.equal(weekly.data.find(row => row.period === '2026-03-02').promptTokens, 10);
+  assert.equal(weekly.from, '2026-02-28T12:00:00.000Z', 'month-end clamp');
+  assert.ok(weekly.data.some(row => row.turns === 0), 'empty buckets filled');
+  assert.throws(() => getTokenHistory({ groupBy: 'invalid' }, now), /grouping/);
+  assert.throws(() => setRetention(2, now), /Retention/);
+  setRetention(1, now);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM token_usage').get().n, 3);
+  closeDatabase(); initDatabase(directory);
+  assert.equal(getTokenHistory({ months: 12 }, now).retentionMonths, 1, 'retention survives restart');
+  assert.equal(getTokenHistory({ projectId: 'missing' }, now).data.reduce((sum, row) => sum + row.turns, 0), 0);
+  console.log('Token logging, deduplication, project filters, UTC buckets, retention and reopen checks passed.');
+} finally { closeDatabase(); fs.rmSync(directory, { recursive: true, force: true }); }

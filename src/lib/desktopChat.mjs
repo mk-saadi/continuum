@@ -11,6 +11,7 @@ export async function runDesktopChat({ modelId, modelName, displayName, messages
   let textBuffer = '';
   let thinking, stats, indexing, executionSteps;
   const toolEvents = new Map();
+  let liveSteps = [];
   const flush = () => {
     if (timer !== null) clearTimeout(timer);
     timer = null;
@@ -30,7 +31,20 @@ export async function runDesktopChat({ modelId, modelName, displayName, messages
   };
   const unsubscribe = api.onEvent(event => {
     if (event.requestId !== requestId || (signal?.aborted && event.type !== 'step-update')) return;
-    if (event.type === 'step-update') executionSteps = event.executionSteps;
+    if (event.type === 'step-update') executionSteps = liveSteps = event.executionSteps;
+    else if (event.type === 'tool_start') {
+      liveSteps = [...liveSteps.filter(step => step.id !== event.id), {
+        id: event.id, type: 'tool_call', toolName: event.functionName, status: 'preparing', streamingArguments: '',
+      }];
+      executionSteps = liveSteps;
+    } else if (event.type === 'tool_chunk') {
+      liveSteps = liveSteps.map(step => step.id === event.id && step.status === 'preparing' ? {
+        ...step, streamingParameter: event.parameter,
+        streamingArguments: step.streamingArguments + (step.streamingParameter !== event.parameter
+          ? `${step.streamingArguments ? '\n\n' : ''}${event.parameter}:\n` : '') + event.content,
+      } : step);
+      executionSteps = liveSteps;
+    }
     else if (event.type === 'text') textBuffer += event.delta;
     else if (event.type === 'thinking') thinking = event.thinking;
     else if (event.type === 'stats') stats = event.stats;

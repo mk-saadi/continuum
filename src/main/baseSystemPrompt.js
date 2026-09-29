@@ -18,8 +18,21 @@ MEMORY & CONVERSATION RULES:
 const BASE_SYSTEM_PROMPT_WITHOUT_MEMORY = 'You are an AI desktop assistant. Memory Palace is disabled for this chat. Use only this conversation and its supplied context. Do not claim access to other chat threads or saved user facts. Memory search and saving are unavailable.';
 
 function prependBaseSystemPrompt(messages, memoryEnabled = true) {
-  return [{ role: 'system', content: memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY },
-    ...messages.filter(message => !(message.role === 'system' && [BASE_SYSTEM_PROMPT_WITH_TOOLS, BASE_SYSTEM_PROMPT_WITHOUT_MEMORY].includes(message.content)))];
+  const now = new Date();
+  const dateFormatted = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const isoDate = now.toISOString().split('T')[0];
+  const temporalAnchor = `[TEMPORAL CONTEXT]\nToday's Date: ${dateFormatted} (${isoDate})\nUser Timezone Offset: ${now.getTimezoneOffset()} mins\n`;
+
+  // Replace earlier anchors as well as legacy prefixes, refreshing long-lived chats.
+  const temporalHeader = /^\[TEMPORAL CONTEXT\]\nToday's Date: [^\n]*\nUser Timezone Offset: -?\d+ mins\n/;
+  return [{ role: 'system', content: temporalAnchor + (memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY) },
+    ...messages.filter(message => !(message.role === 'system' && typeof message.content === 'string'
+      && [BASE_SYSTEM_PROMPT_WITH_TOOLS, BASE_SYSTEM_PROMPT_WITHOUT_MEMORY].includes(message.content.replace(temporalHeader, ''))))];
 }
 
 module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, prependBaseSystemPrompt };

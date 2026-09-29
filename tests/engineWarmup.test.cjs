@@ -68,7 +68,8 @@ test('failed warmup reports failure; cancelled warmup cannot report ready', asyn
 test('prefix alignment preserves dynamic context without duplicating the base', () => {
   const messages = [{ role: 'system', content: 'Session memory' }, { role: 'user', content: 'Hello' }];
   const aligned = prependBaseSystemPrompt(messages);
-  assert.equal(aligned[0].content, BASE_SYSTEM_PROMPT_WITH_TOOLS);
+  assert.ok(aligned[0].content.startsWith('[TEMPORAL CONTEXT]\n'));
+  assert.ok(aligned[0].content.endsWith(BASE_SYSTEM_PROMPT_WITH_TOOLS));
   assert.deepEqual(aligned.slice(1), messages);
   assert.deepEqual(prependBaseSystemPrompt(aligned), aligned);
 });

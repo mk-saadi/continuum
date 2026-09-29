@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import TokenHistory from "../settings/TokenHistory";
 import TerminalLog from "../TerminalLog";
 import RagSettings from "../RagSettings";
 import LocalApiSettings from "../LocalApiSettings";
@@ -11,6 +12,7 @@ import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from
 import { GiStarSwirl } from "react-icons/gi";
 
 const tabs = [
+    { id: "tokens", label: "Token History", icon: LuTerminal, description: "Token consumption by project and period." },
 	{ id: "general", label: "General", icon: LuPalette, description: "Appearance and engine preferences." },
 	{ id: "terminal", label: "Terminal", icon: LuTerminal, description: "Engine activity and diagnostics." },
 	{
@@ -275,6 +277,9 @@ export default function MemorySettings({
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{activeTab.description}</p>
 						</div>
 
+                        <section id="settings-panel-tokens" role="tabpanel" aria-labelledby="settings-tab-tokens" hidden={tab !== 'tokens'} tabIndex={0} className={panelClass}>
+                            {tab === 'tokens' && <TokenHistory />}
+                        </section>
 						<section
 							id="settings-panel-general"
 							role="tabpanel"

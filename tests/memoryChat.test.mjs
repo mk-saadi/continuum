@@ -85,18 +85,19 @@ test('aborted requests do not execute tools or start network requests', async ()
   }), { name: 'AbortError' });
 });
 
-test('tool rounds are bounded and the final request disables tools', async () => {
-  let requests = 0, executions = 0;
-  await assert.rejects(runMemoryChat({ ...base, maxToolRounds: 1,
+test('tool round limit executes the boundary batch and yields without an error', async () => {
+  let requests = 0, executions = 0, pauses = 0;
+  await runMemoryChat({ ...base, maxToolRounds: 1,
+    onPaused: async () => { pauses++; assert.equal(executions, 1); return false; },
     executeTool: () => { executions++; return { success: true }; },
-    fetchImpl: async (_url, options) => {
+    fetchImpl: async () => {
       requests++;
-      if (requests === 2) assert.equal(JSON.parse(options.body).tool_choice, 'none');
       return stream([chunk({ tool_calls: [{ index: 0, id: String(requests), function: { name: 'search_memory', arguments: '{"query":"test"}' } }] }), chunk({}, 'tool_calls')]);
     },
-  }), /exceeded/);
+  });
   assert.equal(executions, 1);
-  assert.equal(requests, 2);
+  assert.equal(requests, 1);
+  assert.equal(pauses, 1);
 });
 
 test('usage-only final chunk supplies message stats and requests usage', async () => {
@@ -495,4 +496,32 @@ test('screenshot tools in user compatibility mode send image content after all t
   assert.ok(!messages.at(-2).content.includes('base64'));
   assert.equal(messages.at(-1).role, 'user');
   assert.deepEqual(messages.at(-1).content[1], image);
+});
+
+test('stream accumulator defaults missing indexes, initializes sparse calls, and filters malformed entries', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  const result = await readCompletion(stream([
+    chunk({ tool_calls: [null, { function: { name: 'save_', arguments: '{"content":' } },
+      { index: 5, function: { name: 'search_memory', arguments: '{}' } }] }),
+    chunk({ tool_calls: [{ index: null, id: 'late_id', function: { name: 'memory', arguments: '"ok"}' } },
+      { index: 2 }, { index: 3, function: { name: ' ', arguments: '{}' } },
+      { index: 4, function: { name: {}, arguments: '{' } },
+      { index: 6, function: { arguments: '[]' } }] }),
+    chunk({}, 'tool_calls'),
+  ]), () => {}, undefined, () => 1, () => {});
+  assert.equal(result.toolCalls.length, 2);
+  assert.deepEqual(result.toolCalls[0], { id: 'late_id', type: 'function',
+    function: { name: 'save_memory', arguments: '{"content":"ok"}' } });
+  assert.match(result.toolCalls[1].id, /^call_\d+_5$/);
+  assert.equal(result.toolCalls[1].function.name, 'search_memory');
+});
+
+test('stream accumulator still rejects explicitly invalid indexes', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  for (const index of [-1, 0.5, '0', 16]) {
+    await assert.rejects(readCompletion(stream([
+      chunk({ tool_calls: [{ index, function: { name: 'save_memory', arguments: '{}' } }] }),
+      chunk({}, 'tool_calls'),
+    ]), () => {}, undefined, () => 1, () => {}), /Invalid tool-call index/);
+  }
 });

@@ -12,12 +12,12 @@ const define = (name, description, properties, required = []) => ({
   type: 'function', function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
 });
 const agentTools = [
-  define('delegate_task', 'Delegate focused research or file analysis to an isolated sub-agent on the same model. Waits for a concise summary; target files must be project-relative UTF-8 text files.',
+  define('delegate_task', 'Delegates a targeted research task to a background sub-agent. Important: Keep delegated tasks scoped to a single file, function, or specific feature. For broad codebase reviews, execute multiple scoped delegate_task calls sequentially or read files directly.',
     { task_description: string('Specific research or analysis task'), target_files: { type: 'array', items: string('Project-relative text file path'), maxItems: 32 } }, ['task_description', 'target_files']),
   define('execute_command', 'Run a shell command with a 45-second timeout. Output preserves the beginning and error tail.',
     { command: string('Shell command'), cwd: string('Working directory; defaults to the project root') }, ['command']),
-  define('str_replace_editor', 'Replace exactly one literal occurrence in a project file. Include surrounding lines to make the match unique.',
-    { relative_path: string('Project-relative file path'), old_str: string('Exact text to replace'), new_str: string('Replacement text') }, ['relative_path', 'old_str', 'new_str']),
+  define('str_replace_editor', 'Replace exactly one contiguous block of complete lines in a project file, ignoring leading/trailing whitespace and carriage returns when matching. Include surrounding lines to make the match unique.',
+    { relative_path: string('Project-relative file path'), old_str: string('Complete lines to replace; blank lines and internal spacing must match'), new_str: string('Replacement text, written verbatim') }, ['relative_path', 'old_str', 'new_str']),
   define('search_project_content', 'Search project text files using a regex (invalid regex falls back to literal text). Returns at most 20 matching lines.',
     { query: string('Regex or keyword'), relative_path: string('Optional project-relative path or absolute app/temp path') }, ['query']),
   define('take_screenshot', 'Capture a display as a PNG image for vision. In a project, also saves it under .llm_workspace/screenshots and returns file_path. Defaults to the primary screen, with an app-window fallback.',
@@ -189,6 +189,41 @@ async function searchContent(root, args, signal) {
   await visit(start);
   return { matches };
 }
+async function executeStrReplaceEditor(target, { old_str, new_str }) {
+  requireText(old_str, 'old_str', true);
+  requireText(new_str, 'new_str', true);
+  if (!old_str) throw new Error('old_str must not be empty. Provide surrounding lines to identify a unique block.');
+
+  const content = await fs.readFile(target, 'utf8');
+  const lines = content.split('\n');
+  const normalize = line => line.replace(/\r/g, '').trim();
+  const normalizedLines = lines.map(normalize);
+  const oldLines = old_str.split('\n').map(normalize);
+  let match = -1;
+  for (let start = 0; start <= lines.length - oldLines.length; start++) {
+    if (!oldLines.every((line, offset) => line === normalizedLines[start + offset])) continue;
+    if (match !== -1) {
+      throw new Error('old_str is not unique after whitespace normalization. Provide more surrounding lines for uniqueness.');
+    }
+    match = start;
+  }
+  if (match === -1) {
+    throw new Error('old_str was not found after whitespace normalization. Provide complete surrounding lines; blank lines and internal spacing must match.');
+  }
+
+  // Use original offsets so surrounding text and mixed line endings stay intact.
+  let start = 0;
+  for (let index = 0; index < match; index++) start += lines[index].length + 1;
+  const last = match + oldLines.length - 1;
+  let end = start;
+  for (let index = match; index < last; index++) end += lines[index].length + 1;
+  end += lines[last].length;
+  // The final line separator belongs to the surrounding content.
+  if (last < lines.length - 1 && lines[last].endsWith('\r')) end--;
+  await fs.writeFile(target, content.slice(0, start) + new_str + content.slice(end), 'utf8');
+  return { success: true };
+}
+
 async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine }) {
   try {
     const definition = agentTools.find(tool => tool.function.name === name)?.function;
@@ -224,15 +259,7 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
       await fs.writeFile(target, args.content, 'utf8');
       return { success: true };
     }
-    requireText(args.old_str, 'old_str', true);
-    requireText(args.new_str, 'new_str', true);
-    const content = await fs.readFile(target, 'utf8');
-    const index = content.indexOf(args.old_str);
-    if (!args.old_str || index < 0 || content.indexOf(args.old_str, index + 1) >= 0) {
-      throw new Error(`old_str ${index < 0 ? 'was not found' : 'is not unique'} in the target file. Provide more surrounding lines for uniqueness and match the file exactly.`);
-    }
-    await fs.writeFile(target, content.slice(0, index) + args.new_str + content.slice(index + args.old_str.length), 'utf8');
-    return { success: true };
+    return await executeStrReplaceEditor(target, args);
   } catch (error) {
     return { success: false, error: error.message };
   }

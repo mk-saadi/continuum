@@ -90,6 +90,8 @@ function registerIpcHandlers({
 	};
 	mcpManager.on("changed", broadcast);
 	const handlers = {
+        "tokens:history": input => require('./tokenUsage').getTokenHistory(input),
+        "tokens:retention": ({ months }) => require('./tokenUsage').setRetention(months),
         "project:create": input => projects.createProject(input),
         "project:update": ({ id, ...patch }) => projects.updateProject(id, patch),
         "project:delete": ({ id }) => projects.deleteProject(id),
@@ -198,6 +200,10 @@ function registerIpcHandlers({
 			const config = await mcpManager.setAllToolsEnabled(serverName, enabled);
 			return { ...context(), config };
 		},
+        "loop:respond": ({ requestId, action }, _notify, sender) => {
+            if (!['continue', 'stop'].includes(action)) throw new Error('Invalid loop action.');
+            requests.get(sender)?.get(requestId)?.resumeLoop?.(action === 'continue');
+        },
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort();
 		},
@@ -231,6 +237,10 @@ function registerIpcHandlers({
 				const config = getEngineConfig?.();
 				if (!config) throw new Error("Start the local model server first.");
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
+                const { phaseStats } = await import('../lib/completionStats.mjs');
+                const usageTurnId = require('node:crypto').randomUUID();
+                const usageTimestamp = new Date().toISOString();
+                const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
                     const { tools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
                     messages = messages.filter(message => !message.memoryContext);
@@ -238,6 +248,19 @@ function registerIpcHandlers({
                     messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId }));
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
+                        onPaused: state => new Promise(resolve => {
+                            const finish = resume => {
+                                controller.signal.removeEventListener('abort', stop);
+                                delete controller.resumeLoop;
+                                if (!sender.isDestroyed()) sender.send('loop:paused', { requestId, sessionId, ...state, executionState: resume ? 'running' : 'stopped' });
+                                resolve(resume);
+                            };
+                            const stop = () => finish(false);
+                            controller.resumeLoop = finish;
+                            controller.signal.addEventListener('abort', stop, { once: true });
+                            if (controller.signal.aborted) { stop(); return; }
+                            sender.send('loop:paused', { requestId, sessionId, ...state });
+                        }),
                         fetchImpl: localEngineFetch,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
                         loadedContextSize: config.activeModelConfig?.contextLength ?? 32768,
@@ -246,6 +269,12 @@ function registerIpcHandlers({
 					reasoningEffort,
 					messages: prependBaseSystemPrompt(messages, memoryEnabled),
 					chatTools: tools,
+                    getChatTools: async () => {
+                        await mcpManager.reload();
+                        const context = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
+                        notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
+                        return context.tools;
+                    },
 					signal: controller.signal,
 					getSamplingParams: () =>
 						profiles.getSessionSettings(sessionId, modelId).params,
@@ -260,12 +289,20 @@ function registerIpcHandlers({
                     resolveTool: name => memoryTools.some(tool => tool.name === name)
                         ? { serverName: "memory", toolName: name } : agentTools.some(tool => tool.function.name === name)
                         ? { serverName: "native", toolName: name } : mcpManager.resolveTool(name),
+                    onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
                         executionSteps = steps;
                         notify({ type: "step-update", messageId, executionSteps, content });
                     },
 					onStats: (stats) => {
 						currentStats = stats;
+                        const reported = stats.raw?.length ? stats.raw.map(phase => phaseStats({ ...phase, startTime: 0, endTime: 0 })) : [stats];
+                        if (reported.some(phase => phase.promptTokens != null || phase.completionTokens != null)) {
+                            require('./tokenUsage').logTokenUsage({ turnId: usageTurnId, chatId: sessionId ?? null, projectId: usageProjectId,
+                                timestamp: usageTimestamp,
+                                promptTokens: reported.reduce((sum, phase) => sum + (phase.promptTokens ?? 0), 0),
+                                completionTokens: reported.reduce((sum, phase) => sum + (phase.completionTokens ?? 0), 0) });
+                        }
 						notify({ type: "stats", stats });
 					},
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
@@ -457,6 +494,7 @@ function registerIpcHandlers({
                     channel === "agent:execute-tool" ||
 					channel === "session:regenerate-last" ||
 					channel === "engine:cancel-chat" ||
+                    channel === "loop:respond" ||
 					channel === "rag:index"
 				) {
 					return handler(

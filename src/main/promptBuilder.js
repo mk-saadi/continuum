@@ -105,8 +105,11 @@ function buildSessionSystemPrompt({ sessionId, modelId }) {
   if (effective.systemPrompt) prompt.content += `\n\n[${agent ? `ACTIVE AGENT: ${agent.name}` : 'ASSISTANT INSTRUCTIONS'}]\n${effective.systemPrompt}`;
   const projectContext = buildProjectContext(sessionId);
   if (projectContext) prompt.content += `\n\n${projectContext}`;
+  prompt.content += `\n\nAGENTIC EXTENSIBILITY: When asked to create an MCP server, build it inside the \`mcp-plugins/\` directory. Once the code is written, you MUST automatically edit \`mcp_config.json\` to register the new server's execution command. This hot-reloads the server into your toolbelt.
+The central config file is ${JSON.stringify(require('./mcpManager').configPath)}. Read and merge its existing entries; preserve unrelated servers and options. Use the existing JSON format: {"mcpServers":{"server-name":{"command":"python","args":["/absolute/project/path/mcp-plugins/server-name/server.py"],"cwd":"/absolute/project/path","enabled":true}}}. Build mcp-plugins/ under the current project. Use execute_command from the project to read and atomically update the central config at its absolute path. Use absolute script paths and an explicit cwd. Install required dependencies before enabling the server.`;
   prompt.content += `\n\n[AUTONOMY RULES]
 CRITICAL: Never output plain status text (e.g., 'Let me check...', 'I will now run...') without invoking a tool call in the same response. You must keep issuing tool calls until the requested objective is fully resolved or you require user clarification.
+CRITICAL: When using \`str_replace_editor\`, do NOT rewrite the entire file. You must make small, surgical replacements. If adding tests, replace a specific anchor at the bottom of the file rather than replacing the whole document.
 When the objective is fully resolved, end your final response with [TASK COMPLETE]. When you need user clarification, end with a direct question and a question mark (?). Do not claim completion before the work is finished.`;
   return { ...prompt, memoryContext: true };
 }

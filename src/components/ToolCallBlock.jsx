@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { FiChevronRight, FiTool } from 'react-icons/fi';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import FileBrowserWidget from './FileBrowserWidget';
@@ -41,12 +41,17 @@ function CodeSection({ title, value }) {
 const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
   const detailsId = useId();
   const [userExpanded, setUserExpanded] = useState(null);
-  const running = step.status === 'running' || step.status === 'pending';
+  const preparing = step.status === 'preparing';
+  const streamRef = useRef(null);
+  useEffect(() => {
+    if (preparing && streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight;
+  }, [preparing, step.streamingArguments]);
+  const running = preparing || step.status === 'running' || step.status === 'pending';
   const listing = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName)
     ? parseDirectoryListing(step.result, step.args) : null;
   // Follow execution status until the user explicitly chooses a view.
   const expanded = userExpanded ?? (running || Boolean(listing));
-  const args = formatValue(step.args, 'No arguments');
+  const args = formatValue(step.args ?? step.streamingArguments, 'No arguments');
   const result = formatValue(Object.hasOwn(step, 'result') ? step.result : step.error, running ? 'Waiting for result…' : 'No result');
   const preview = value => value.text.replace(/\s+/g, ' ').slice(0, 180) + (value.text.replace(/\s+/g, ' ').length > 180 ? '…' : '');
   return (
@@ -58,7 +63,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         <FiTool aria-hidden="true" className="shrink-0 text-cyan-400" />
         <strong className="min-w-0 truncate text-cyan-500 dark:text-cyan-300" title={step.toolName}>{step.toolName || 'Tool'}</strong>
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
-          {running ? 'Running…' : step.status}
+          {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>
         {step.serverName && <span title={step.serverName} className="ml-auto max-w-[45%] truncate rounded border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span>}
       </button>
@@ -67,7 +72,11 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {preview(result)}</span>
       </div>}
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
-        {expanded && <><CodeSection title="Arguments" value={args} />{listing
+        {expanded && preparing && <section aria-label="Streaming arguments">
+          <p className="mb-2 text-[var(--text-muted)]">Preparing {step.toolName}… · {(step.streamingArguments || '').length.toLocaleString()} characters</p>
+          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 font-mono text-slate-200">{step.streamingArguments || 'Waiting for arguments…'}</pre>
+        </section>}
+        {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
           ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
           : <CodeSection title="Result" value={result} />}</>}
         {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}

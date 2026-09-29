@@ -90,6 +90,11 @@ export function ChatInterface({
 		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
+    const [pausedLoop, setPausedLoop] = useState(null);
+    useEffect(() => window.chatAPI?.onLoopPaused?.(state => {
+        setPausedLoop(state.executionState === 'paused_turn_limit' ? state : null);
+    }), []);
+    useEffect(() => { if (!streaming) setPausedLoop(null); }, [streaming]);
 	const [groups, setGroups] = useState([]);
 	const [historyError, setHistoryError] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -712,6 +717,13 @@ export function ChatInterface({
 	};
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+                {pausedLoop && <div role="status" className="absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-amber-400/40 bg-slate-900 p-4 text-white shadow-lg">
+                    <p>Agent reached max autonomous turns.</p>
+                    <div className="mt-2 flex gap-3">
+                        <button type="button" className="rounded bg-blue-600 px-3 py-1" onClick={() => window.chatAPI.respondToLoop(pausedLoop.requestId, 'continue').catch(error => setHistoryError(error.message))}>Continue</button>
+                        <button type="button" className="rounded border px-3 py-1" onClick={() => window.chatAPI.respondToLoop(pausedLoop.requestId, 'stop').catch(error => setHistoryError(error.message))}>Stop</button>
+                    </div>
+                </div>}
 			<div
 				id="chat-sidebar"
 				aria-hidden={!isSidebarOpen}

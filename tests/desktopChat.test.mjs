@@ -165,3 +165,31 @@ test('reasoning choice reaches normal and regenerated requests', async () => {
     assert.equal(Object.hasOwn(requests[2], 'reasoningEffort'), false);
   } finally { globalThis.window = oldWindow; }
 });
+
+test('live tool events populate one preparing card and transition through authoritative steps', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const oldWindow = globalThis.window;
+  let listener, requestId, finish;
+  const snapshots = [];
+  globalThis.window = { chatAPI: {
+    onEvent: callback => { listener = callback; return () => {}; },
+    run: payload => { requestId = payload.requestId; return new Promise(resolve => { finish = resolve; }); },
+  } };
+  try {
+    const chat = runDesktopChat({ modelId: 'test', messages: [], onExecutionSteps: steps => snapshots.push(steps) });
+    listener({ requestId: 'other', type: 'tool_start', id: 'wrong', functionName: 'wrong' });
+    listener({ requestId, type: 'tool_start', id: 'xml1', functionName: 'str_replace_editor' });
+    listener({ requestId, type: 'tool_chunk', id: 'xml1', parameter: 'new_str', content: 'const ' });
+    listener({ requestId, type: 'tool_chunk', id: 'xml1', parameter: 'new_str', content: 'x = 1;' });
+    t.mock.timers.tick(50);
+    assert.equal(snapshots[0].length, 1);
+    assert.equal(snapshots[0][0].status, 'preparing');
+    assert.equal(snapshots[0][0].streamingArguments, 'new_str:\nconst x = 1;');
+    const final = [{ id: 'xml1', type: 'tool_call', toolName: 'str_replace_editor', status: 'complete', args: { new_str: 'const x = 1;' } }];
+    listener({ requestId, type: 'step-update', executionSteps: final });
+    finish({ text: '', executionSteps: final });
+    await chat;
+    assert.deepEqual(snapshots.at(-1), final);
+    assert.equal(snapshots[0][0].status, 'preparing', 'previous snapshots remain immutable');
+  } finally { globalThis.window = oldWindow; }
+});

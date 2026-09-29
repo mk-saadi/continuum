@@ -2,6 +2,8 @@
 const { connectRemoteMcp } = require('./remoteMcp');
 const { limitFilesystemResult } = require('./filesystemToolLimits');
 const fs = require('node:fs/promises');
+const { watch } = require('node:fs');
+const { isDeepStrictEqual } = require('node:util');
 const os = require('node:os');
 const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
@@ -76,7 +78,38 @@ class McpManager extends EventEmitter {
     this.getGlobalConfig = getGlobalConfig;
   }
   init() {
-    return this.initializing ??= this.load();
+    return this.initializing ??= (async () => {
+      await fs.mkdir(path.dirname(this.configPath), { recursive: true });
+      try {
+        await fs.writeFile(this.configPath, JSON.stringify({ mcpServers: {} }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+      } catch (error) { if (error.code !== 'EEXIST') throw error; }
+      if (!this.closing) this.startWatcher();
+      await this.load();
+    })();
+  }
+  startWatcher() {
+    if (this.watcher) return;
+    // Watch the parent directory so atomic rename-based saves remain observable.
+    this.watcher = watch(path.dirname(this.configPath), { persistent: false }, (_event, filename) => {
+      if (this.closing || (filename && filename.toString() !== path.basename(this.configPath))) return;
+      clearTimeout(this.reloadTimer);
+      this.reloadTimer = setTimeout(() => {
+        this.reload().catch(error => {
+          if (this.closing) return;
+          this.configError = error.message;
+          this.emit('changed');
+        });
+      }, 150);
+      this.reloadTimer.unref?.();
+    });
+    this.watcher.on('error', error => {
+      this.configError = error.message;
+      this.emit('changed');
+    });
+  }
+  async reload() {
+    await this.init();
+    return this.queueChange(() => this.load());
   }
   async getConfig() {
     try {
@@ -112,27 +145,58 @@ class McpManager extends EventEmitter {
     const saved = JSON.parse(JSON.stringify(config));
     return this.queueChange(async () => {
       await this.writeConfig(saved);
-      await this.initializing;
-      await this.disconnect();
-      this.initializing = undefined;
       await this.init();
+      await this.load();
       return saved;
     });
   }
   async load() {
+    const hadError = !!this.configError;
     this.configError = undefined;
     let config;
-    try { config = await this.getConfig(); }
+    try {
+      config = await this.getConfig();
+      // At startup, connectServer exposes individual definition errors in the UI.
+      // During reload, reject incomplete edits before touching active clients.
+      if (this.servers.size) {
+        for (const [name, definition] of Object.entries(config.mcpServers)) validateServerConfig(name, definition);
+      }
+    }
     catch (error) {
       this.configError = error.message;
       this.emit('changed');
       return;
     }
-    await Promise.all(Object.entries(config.mcpServers).map(([name, definition]) => this.connectServer(name, definition)));
-    this.emit('changed');
+    let changed = false;
+    for (const [name, server] of this.servers) {
+      if (Object.hasOwn(config.mcpServers, name)) continue;
+      server.enabled = false;
+      this.servers.delete(name);
+      await server.client?.close().catch(() => {});
+      changed = true;
+    }
+    await Promise.all(Object.entries(config.mcpServers).map(async ([name, definition]) => {
+      const previous = this.servers.get(name);
+      if (previous && isDeepStrictEqual(previous.definition, definition)) return;
+      changed = true;
+      // Permission-only edits do not require restarting the process.
+      const launchDefinition = ({ disabledTools, ...launch }) => launch;
+      if (previous?.definition && isDeepStrictEqual(launchDefinition(previous.definition), launchDefinition(definition))) {
+        previous.disabledTools = new Set(definition.disabledTools || []);
+        previous.definition = structuredClone(definition);
+        return;
+      }
+      if (previous) {
+        previous.enabled = false;
+        await previous.client?.close().catch(() => {});
+      }
+      await this.connectServer(name, definition, previous?.tools || []);
+    }));
+    if (changed || hadError) this.emit('changed');
   }
   async connectServer(name, definition, cachedTools = []) {
     const server = { name, enabled: definition?.disabled !== true && definition?.enabled !== false, status: 'connecting', tools: cachedTools, disabledTools: new Set(Array.isArray(definition?.disabledTools) ? definition.disabledTools : []) };
+    server.definition = structuredClone(definition);
     this.servers.set(name, server);
     try {
       validateServerConfig(name, definition);
@@ -221,6 +285,7 @@ class McpManager extends EventEmitter {
       await this.writeConfig(config);
       const server = this.servers.get(serverName);
       if (server) {
+        server.definition = structuredClone(definition);
         server.enabled = false;
         server.status = 'disabled';
         server.error = undefined;
@@ -260,6 +325,7 @@ class McpManager extends EventEmitter {
       await this.writeConfig(config);
       // Permissions alter declarations and dispatch immediately; connections stay open.
       server.disabledTools = disabled;
+      server.definition = structuredClone(definition);
       this.emit('changed');
       return config;
     });
@@ -276,6 +342,9 @@ class McpManager extends EventEmitter {
   }
   async close() {
     this.closing = true;
+    clearTimeout(this.reloadTimer);
+    this.watcher?.close();
+    this.watcher = undefined;
     await this.saving;
     await this.initializing;
     await this.disconnect();

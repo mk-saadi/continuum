@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  getTokenHistory: options => ipcRenderer.invoke('tokens:history', options),
+  setTokenRetention: months => ipcRenderer.invoke('tokens:retention', { months }),
   exportChat: (chatId, format) => ipcRenderer.invoke('chat:export', { chatId, format }),
   openPath: filePath => ipcRenderer.invoke('shell:open-path', filePath),
   getConfig: () => ipcRenderer.invoke('config:get'),
@@ -111,6 +113,12 @@ contextBridge.exposeInMainWorld('mcpAPI', {
   },
 });
 contextBridge.exposeInMainWorld('chatAPI', {
+  respondToLoop: (requestId, action) => ipcRenderer.invoke('loop:respond', { requestId, action }),
+  onLoopPaused: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('loop:paused', listener);
+    return () => ipcRenderer.removeListener('loop:paused', listener);
+  },
   onStepUpdate: callback => {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('stream:step-update', listener);

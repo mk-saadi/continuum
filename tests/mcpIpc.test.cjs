@@ -10,7 +10,7 @@ Module._load = function(name, ...args) {
   if (name === './promptBuilder') return { ...originalLoad.call(this, name, ...args), buildSessionSystemPrompt: () => ({ role: 'system', content: memoryEnabled ? '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' : '', memoryContext: true }) };
   if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled }, params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 } }) };
   if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
-  if (name === 'electron') return { app: {}, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
+  if (name === 'electron') return { app: { isReady: () => true }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };
 const manager = require('../src/main/mcpManager');
@@ -21,13 +21,15 @@ Module._load = originalLoad;
 test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', async () => {
   const fs = require('node:fs/promises');
   const directory = await fs.mkdtemp(require('node:path').join(require('node:os').tmpdir(), 'mcp-ipc-'));
+  const database = require('../src/main/db');
+  database.initDatabase(directory);
   const originalPath = manager.configPath;
   manager.configPath = require('node:path').join(directory, 'config.json');
   await fs.writeFile(manager.configPath, JSON.stringify({ mcpServers: { fixture: { command: 'fixture' } } }));
   const originalInit = manager.init;
   manager.init = async () => {};
   const executions = [];
-  manager.servers.set('fixture', { name: 'fixture', enabled: true, status: 'connected', disabledTools: new Set(), tools: [
+  manager.servers.set('fixture', { name: 'fixture', definition: { command: 'fixture' }, enabled: true, status: 'connected', disabledTools: new Set(), tools: [
     { name: 'echo', inputSchema: { type: 'object', properties: { text: { type: 'string' } } } },
   ], client: { callTool: async input => { executions.push(input); return { content: [{ type: 'text', text: input.arguments.text }] }; } } });
   const sender = new EventEmitter();
@@ -54,6 +56,10 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', reasoningEffort: 'low', messages: [{ role: 'system', content: 'test' }] });
     assert.ok(requests.every(request => request.chat_template_kwargs.reasoning_effort === 'low'));
     assert.equal(result.text, 'Final answer [TASK COMPLETE]');
+    const usage = database.db.prepare('SELECT * FROM token_usage').all();
+    assert.equal(usage.length, 1);
+    assert.equal(usage[0].prompt_tokens, 12);
+    assert.equal(usage[0].completion_tokens, 3);
     assert.equal(result.message.id, 'request1');
     assert.equal(result.message.content, 'Final answer [TASK COMPLETE]');
     assert.deepEqual(result.executionSteps.map(step => step.type), ['tool_call', 'thought']);
@@ -108,6 +114,52 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     await handlers.get('engine:chat')(event, { requestId: 'isolated', modelId: 'model', memoryEnabled: true,
       messages: [{ role: 'system', memoryContext: true, content: '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' }, { role: 'user', content: 'Hi' }] });
     memoryEnabled = true;
+    // Real IPC pause/resume preserves the pending invocation and completed tool results.
+    await handlers.get('mcp:set-tool-enabled')(event, { name, enabled: true });
+    let xmlRounds = 0;
+    global.fetch = async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: ++xmlRounds === 1
+      ? `<tool_call><function=${name}><parameter=text>Streaming arguments</parameter></function></tool_call>`
+      : '[TASK COMPLETE]' } }] });
+    const xmlResult = await handlers.get('engine:chat')(event, { requestId: 'xml-stream', modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
+    const liveEvents = events.filter(value => value.requestId === 'xml-stream');
+    const start = liveEvents.find(value => value.type === 'tool_start');
+    assert.equal(start.functionName, name);
+    assert.equal(liveEvents.find(value => value.type === 'tool_chunk').content, 'Streaming arguments');
+    assert.equal(xmlResult.executionSteps[0].id, start.id);
+    assert.equal(xmlResult.executionSteps[0].status, 'complete');
+    assert.ok(!xmlResult.text.includes('<tool_call>'));
+    for (const action of ['continue', 'stop', 'cancel']) {
+      let rounds = 0, pauses = 0;
+      const send = sender.send;
+      sender.send = (channel, value) => {
+        send(channel, value);
+        if (channel === 'loop:paused' && value.executionState === 'paused_turn_limit') {
+          pauses++;
+          assert.equal(rounds, 30);
+          assert.equal(value.reason, 'turn_limit');
+          queueMicrotask(() => {
+            const handler = action === 'cancel' ? 'engine:cancel-chat' : 'loop:respond';
+            handlers.get(handler)(event, { requestId: value.requestId, action });
+          });
+        }
+      };
+      global.fetch = async (_url, options) => {
+        rounds++;
+        const messages = JSON.parse(options.body).messages;
+        if (rounds > 1) assert.ok(messages.some(message => message.role === 'tool' && message.tool_call_id === 'pause-tool'));
+        return Response.json({ choices: [{ finish_reason: rounds === 1 ? 'tool_calls' : 'stop', message: rounds === 1
+          ? { tool_calls: [{ id: 'pause-tool', type: 'function', function: { name, arguments: '{"text":"pause test"}' } }] }
+          : { content: rounds > 30 ? '[TASK COMPLETE]' : 'Working.' } }] });
+      };
+      const pendingChat = handlers.get('engine:chat')(event, { requestId: `pause-${action}`, modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
+      if (action === 'cancel') await assert.rejects(pendingChat, { name: 'AbortError' });
+      else await pendingChat;
+      assert.equal(pauses, 1);
+      assert.equal(rounds, action === 'continue' ? 31 : 30);
+      assert.equal(sender.listenerCount('destroyed'), 0);
+      sender.send = send;
+    }
+
     let started;
     const pending = new Promise(resolve => { started = resolve; });
     global.fetch = async (_url, { signal }) => {
@@ -121,6 +173,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.equal(sender.listenerCount('destroyed'), 0);
 
   } finally {
+    database.closeDatabase();
     dispose(); global.fetch = originalFetch; manager.init = originalInit; manager.servers.clear(); manager.configPath = originalPath;
     await fs.rm(directory, { recursive: true });
   }

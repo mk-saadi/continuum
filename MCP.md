@@ -8,7 +8,13 @@ Open **Memory settings** for three tabs:
 - **Server Config**: add a Local Process (command and comma-separated arguments)
   or Remote URL (SSE endpoint and JSON headers), or use the Raw JSON Editor.
 
-Configuration saves reconnect servers automatically. Permission changes persist
+Configuration saves and external edits hot-reload automatically. The manager
+watches the config directory so atomic file replacements are detected, debounces
+write events, and reconnects only added or changed servers. Invalid JSON or invalid
+definitions leave active connections intact and report a settings error. Removed
+or disabled servers disconnect. The existing `mcp:changed` IPC event refreshes the
+React settings panel, and active agent turns refresh their tools before each model
+request. Permission changes persist
 without a restart. Tool changes update active declarations and token counts
 without reconnecting. A master switch closes or connects only its server;
 turning it off preserves its per-tool permissions. Existing environment variables,
@@ -35,6 +41,24 @@ For advanced options, the config remains available at
       "env": { "EXAMPLE_SETTING": "value" },
       "disabled": true,
       "disabledTools": ["tool_name"]
+    }
+  }
+}
+```
+
+Agent-created servers belong in the project's `mcp-plugins/` directory. Register
+them in the central config above (not a separate project-local config), merging
+with existing entries. Use the existing `mcpServers` format with a string command
+and separate arguments:
+
+```json
+{
+  "mcpServers": {
+    "gmail-server": {
+      "command": "python",
+      "args": ["/absolute/project/mcp-plugins/gmail/server.py"],
+      "cwd": "/absolute/project",
+      "enabled": true
     }
   }
 }

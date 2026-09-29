@@ -8,6 +8,13 @@ const path = require('node:path');
 let database = null;
 
 const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS project_rules (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    content TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS permanent_memories (
     id INTEGER PRIMARY KEY,
     category TEXT NOT NULL,
@@ -83,6 +90,17 @@ const SCHEMA = `
     last_active_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_compressing INTEGER NOT NULL DEFAULT 0 CHECK (is_compressing IN (0, 1))
   );
+
+  CREATE TABLE IF NOT EXISTS token_usage (
+    turn_id TEXT PRIMARY KEY,
+    chat_id TEXT,
+    project_id TEXT,
+    timestamp TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL CHECK(prompt_tokens >= 0),
+    completion_tokens INTEGER NOT NULL CHECK(completion_tokens >= 0)
+  );
+  CREATE INDEX IF NOT EXISTS idx_token_usage_time ON token_usage(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_token_usage_project_time ON token_usage(project_id, timestamp);
 
   CREATE TABLE IF NOT EXISTS chat_folders (
     name TEXT PRIMARY KEY NOT NULL
@@ -269,6 +287,15 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
   }
 }
 
+function syncSystemDate(db) {
+  const todayStr = `System Date: ${new Date().toISOString().split('T')[0]}`;
+  db.prepare(`
+    INSERT INTO project_rules (id, category, content, updated_at)
+    VALUES ('system_date_anchor', 'temporal', ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET content = excluded.content, updated_at = datetime('now')
+  `).run(todayStr);
+}
+
 /** Close even if checkpointing fails; repeated calls are safe. */
 function closeDatabase() {
   if (!database?.open) {
@@ -355,4 +382,4 @@ function searchMemory(query, modelId) {
   })();
 }
 
-module.exports = { db, initDatabase, closeDatabase, searchChatHistory, searchMemory };
+module.exports = { db, initDatabase, syncSystemDate, closeDatabase, searchChatHistory, searchMemory };
