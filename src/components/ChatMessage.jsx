@@ -126,44 +126,81 @@ const components = {
 			</code>
 		);
 	},
-	a: ({ node, ...props }) => (
-		<a
-			{...props}
-			target="_blank"
-			rel="noopener noreferrer"
-			className="text-[var(--link)] underline"
-		/>
-	),
+	a: ({ node, href, ...props }) => {
+		// Local filesystem path -> open with the system's default app
+		if (href && /^\/[^\s]+/.test(href)) {
+			return (
+				<a
+					{...props}
+					href={href}
+					className="text-[var(--link)] underline cursor-pointer"
+					onClick={(e) => {
+						e.preventDefault();
+						window.api?.openPath?.(href);
+					}}
+				/>
+			);
+		}
+		// Everything else (http/https, etc.) -> normal external link
+		return (
+			<a
+				{...props}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="text-[var(--link)] underline"
+			/>
+		);
+	},
 };
 
-export default function ChatMessage({ message, disabled = false, onSelectVariant, showHeader = true }) {
+const ChatMessage = React.memo(function ChatMessage({
+	message,
+	disabled = false,
+	onSelectVariant,
+	onSelectReplyVariant,
+	showHeader = true,
+}) {
 	const index = message.active_variant_index ?? 0;
 	const activeVariant = activeReplyVariant(message);
-    // Read the identity captured with this reply, never current branding settings.
-    const displayName = assistantLabel(message);
+	// Read the identity captured with this reply, never current branding settings.
+	const displayName = assistantLabel(message);
 	const thinking = activeVariant.thinking ?? activeVariant.thinkingText;
 	const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
 	const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
-    const steps = activeVariant.executionSteps;
+	const steps = activeVariant.executionSteps;
 	return (
 		<div className="min-w-0 w-full whitespace-normal">
-			{showHeader && (
-				<div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>
+			{showHeader && <MessageContextStatus message={message} />}
+			{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
+			{steps?.length > 0 && (
+				<div
+					key={`${message.id ?? "message"}:${index}`}
+					className="message-execution-timeline mb-3 space-y-2"
+				>
+					{steps.map((step, idx) => {
+						if (step.type === "thought") {
+							return (
+								<ThoughtBlock
+									key={step.id ?? idx}
+									content={step.content}
+									durationMs={step.durationMs}
+								/>
+							);
+						}
+						if (step.type === "tool_call") {
+                            if (step.toolName === 'delegate_task') return <SubAgentBadge key={step.id ?? idx} step={step} />;
+							return (
+								<ToolCallBlock
+									key={step.id ?? idx}
+									step={step}
+								/>
+							);
+						}
+						return null;
+					})}
+				</div>
 			)}
-            {steps?.length > 0 && (
-                <div key={`${message.id ?? 'message'}:${index}`} className="message-execution-timeline mb-3 space-y-2">
-                    {steps.map((step, idx) => {
-                        if (step.type === 'thought') {
-                            return <ThoughtBlock key={step.id ?? idx} content={step.content} durationMs={step.durationMs} />;
-                        }
-                        if (step.type === 'tool_call') {
-                            return <ToolCallBlock key={step.id ?? idx} step={step} />;
-                        }
-                        return null;
-                    })}
-                </div>
-            )}
-            {!steps && toolCalls?.length > 0 && <ToolCallBadge toolCalls={toolCalls} />}
+			{!steps && toolCalls?.length > 0 && <ToolCallBadge toolCalls={toolCalls} />}
 			{!steps && thinking && (
 				<ThinkingAccordion
 					text={thinking}
@@ -197,7 +234,11 @@ export default function ChatMessage({ message, disabled = false, onSelectVariant
 							type="button"
 							aria-label="Previous reply version"
 							disabled={disabled || message.streaming || index === 0}
-							onClick={() => onSelectVariant?.(index - 1)}
+							onClick={() =>
+								onSelectReplyVariant
+									? onSelectReplyVariant(message, index - 1)
+									: onSelectVariant?.(index - 1)
+							}
 							className="disabled:opacity-40"
 						>
 							<FiChevronLeft />
@@ -209,7 +250,11 @@ export default function ChatMessage({ message, disabled = false, onSelectVariant
 							type="button"
 							aria-label="Next reply version"
 							disabled={disabled || message.streaming || index === message.variants.length - 1}
-							onClick={() => onSelectVariant?.(index + 1)}
+							onClick={() =>
+								onSelectReplyVariant
+									? onSelectReplyVariant(message, index + 1)
+									: onSelectVariant?.(index + 1)
+							}
 							className="disabled:opacity-40"
 						>
 							<FiChevronRight />
@@ -222,6 +267,42 @@ export default function ChatMessage({ message, disabled = false, onSelectVariant
 			)}
 		</div>
 	);
+});
+
+export default ChatMessage;
+
+export function MessageContextStatus({ message }) {
+	const summarized =
+		message.is_summarized === true || message.is_summarized === 1 || message.archived === 1;
+	const timestamp = message.created_at;
+	const date = timestamp
+		? new Date(/Z$|[+-]\d\d:\d\d$/.test(timestamp) ? timestamp : timestamp.replace(" ", "T") + "Z")
+		: null;
+	if (!summarized && !date) return null;
+	const explanation =
+		"This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing.";
+	return (
+		<div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+			{date && !Number.isNaN(date.getTime()) && (
+				<time
+					dateTime={date.toISOString()}
+					title={date.toLocaleString()}
+				>
+					{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+				</time>
+			)}
+			{summarized && (
+				<span
+					title={explanation}
+					aria-label={`Summarized. ${explanation}`}
+					tabIndex={0}
+					className="rounded border border-[var(--subtle-border)] px-1.5 py-0.5"
+				>
+					[⚡ Summarized]
+				</span>
+			)}
+		</div>
+	);
 }
 
 export function StatsFooter({ stats }) {
@@ -229,41 +310,100 @@ export function StatsFooter({ stats }) {
 		...stats,
 		tokensPerSecond: stats.tokens_per_sec ?? stats.tokensPerSecond,
 		totalTokens: stats.total_tokens ?? stats.totalTokens,
+		promptTokens: stats.prompt_tokens ?? stats.promptTokens,
+		completionTokens: stats.completion_tokens ?? stats.completionTokens,
 		time: stats.duration ?? stats.time,
 	};
-	const scope = stats.scope === "final" ? "Final generation phase" : "All generation phases";
+
+	const isMultiPass = stats.scope !== "final";
+	const promptFormatted = stats.promptTokens != null ? stats.promptTokens.toLocaleString() : "—";
+	const genFormatted = stats.completionTokens != null ? stats.completionTokens.toLocaleString() : "—";
+	const totalFormatted = stats.totalTokens != null ? stats.totalTokens.toLocaleString() : "—";
+
+	// Human-friendly hover tooltips
+	const tokenTooltip = isMultiPass
+		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}`
+		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}`;
+
+	const speedTooltip = isMultiPass
+		? "Average generation speed across all tool execution rounds"
+		: "Generation speed for this response";
+
 	return (
 		<footer
 			aria-label="Generation statistics"
 			className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]"
 		>
+			{/* Generation Speed */}
 			<span
 				className="inline-flex items-center gap-1"
-				title={`${scope}: ${stats.generationTime != null ? "server generation timing" : "elapsed-time throughput"}`}
+				title={speedTooltip}
 			>
 				<FiZap aria-hidden="true" />{" "}
 				{stats.tokensPerSecond == null ? "—" : stats.tokensPerSecond.toFixed(1)} tok/sec
 			</span>
+
+			{/* Token Breakdown */}
 			<span
-				className="inline-flex items-center gap-1"
-				title={`${scope}. Prompt: ${stats.promptTokens ?? "unavailable"}; generated: ${stats.completionTokens ?? "unavailable"}`}
+				className="inline-flex items-center gap-1 cursor-help"
+				title={tokenTooltip}
 			>
 				<FiFileText aria-hidden="true" />{" "}
 				{stats.totalTokens == null
 					? "Tokens unavailable"
-					: `${stats.totalTokens.toLocaleString()} total tokens`}
+					: isMultiPass
+						? `${totalFormatted} tokens processed`
+						: `${genFormatted} gen (${promptFormatted} ctx)`}
 			</span>
+
+			{/* Duration */}
 			<span
 				className="inline-flex items-center gap-1"
-				title={`${scope}: elapsed time`}
+				title={isMultiPass ? "Total time spent across all tool loops" : "Response generation time"}
 			>
 				<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
 			</span>
-			{stats.scope === "final" && (
-				<span title="Earlier tool phases did not report complete usage">Final phase</span>
+
+			{/* Tool Loop Indicator Badge */}
+			{isMultiPass ? (
+				<span
+					className="rounded bg-[var(--bg-subtle,#2a2d3e)] px-1.5 py-0.5 text-[10px] opacity-75 cursor-help"
+					title="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
+				>
+					Multi-turn tool loop
+				</span>
+			) : (
+				<span
+					className="rounded bg-[var(--bg-subtle,#2a2d3e)] px-1.5 py-0.5 text-[10px] opacity-75"
+					title="Direct response without internal tool calls"
+				>
+					Single turn
+				</span>
 			)}
 		</footer>
 	);
+}
+
+export function SubAgentBadge({ step }) {
+    let args = step.args ?? step.function?.arguments ?? {};
+    if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = {}; } }
+    const files = Array.isArray(args?.target_files) ? args.target_files.filter(file => typeof file === 'string') : [];
+    const running = ['pending', 'running'].includes(step.status);
+    const failed = ['error', 'cancelled'].includes(step.status) || step.result?.success === false || step.result?.isError;
+    const label = running ? `Researching ${files.length} files...` : failed ? 'Research failed' : `Researched ${files.length} files`;
+    const result = typeof step.result === 'string' ? step.result : step.error || step.result?.error;
+    return <details className="mb-2 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs" aria-label="Sub-agent delegation">
+        <summary className="cursor-pointer rounded-lg px-3 py-2 text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+            <span aria-live="polite">[🤖 Sub-Agent Delegated: {label}]</span>
+        </summary>
+        <div className="space-y-3 border-t border-[var(--subtle-border)] p-3">
+            {typeof args?.task_description === 'string' && <p className="whitespace-pre-wrap break-words">{args.task_description}</p>}
+            {files.length > 0 && <ul aria-label="Research files" className="list-disc pl-5">{files.map((file, index) => <li className="break-all" key={index}>{file}</li>)}</ul>}
+            <p className={`whitespace-pre-wrap break-words ${failed ? 'text-[var(--error)]' : 'text-[var(--text-secondary)]'}`}>
+                {running ? 'The main agent is waiting for the research summary.' : result || 'No summary was saved.'}
+            </p>
+        </div>
+    </details>;
 }
 
 export function ToolCallBadge({ toolCalls }) {
@@ -272,7 +412,8 @@ export function ToolCallBadge({ toolCalls }) {
 			aria-label="Tool executions"
 			className="mb-2 space-y-1"
 		>
-			{toolCalls.map((call, index) => (
+			{toolCalls.map((call, index) => (call.toolName || call.function?.name) === 'delegate_task'
+                ? <SubAgentBadge key={call.id || index} step={call} /> : (
 				<div
 					key={call.id || index}
 					role="status"

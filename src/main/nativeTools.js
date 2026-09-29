@@ -7,14 +7,14 @@ const nativeTools = [
     type: 'function',
     function: {
       name: 'search_memory',
-      description: "Searches the user's permanent facts/preferences AND their past organic chat history. Use this for ANY recall task.",
+      description: "Searches past chat history. Input 2-4 broad KEYWORDS, not full sentences. Returns relevant snippets, not full messages. Also searches the user's permanent facts/preferences.",
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
             minLength: 1,
-            description: 'Literal keywords or a short phrase describing the fact, preference, or past discussion to find; do not include SQL or FTS operators.',
+            description: 'Use 2-4 broad keywords, not full sentences. Chat search matches all keyword prefixes in any order; do not include SQL or FTS operators.',
           },
         },
         required: ['query'],

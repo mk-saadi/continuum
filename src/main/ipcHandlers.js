@@ -1,5 +1,7 @@
 "use strict";
 
+const { localEngineFetch } = require("./localEngineFetch");
+
 const {
 	getLoadConfig,
 	getAppSettings,
@@ -10,7 +12,10 @@ const {
 const { saveGlobalSamplingParams } = require("./samplingManager");
 const profiles = require("./profileSettings");
 const agents = require("./agentManager");
-const { app, ipcMain } = require("electron");
+const projects = require("./projectManager");
+const { agentTools, executeAgentTool } = require("./tools/agentTools");
+const { app, ipcMain, dialog, shell, nativeImage } = require("electron");
+const { validateLocalPath } = require('./localMedia');
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -42,7 +47,7 @@ const {
 } = require("./sessionManager");
 const { scheduleIdleCompression } = require("./compressionEngine");
 const mcpManager = require("./mcpManager");
-const { prepareChatMessages, memoryTools, getToolContext } = require("./promptBuilder");
+const { prepareChatMessages, memoryTools, getToolContext, buildSessionSystemPrompt } = require("./promptBuilder");
 const { indexDocuments, retrieveContext } = require("./ragManager");
 const { processUploads } = require("./fileUploads");
 const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
@@ -64,6 +69,9 @@ function registerIpcHandlers({
 	isTrustedSender = defaultTrustedSender,
 	llmSummarizeCallback,
 	launchEngine,
+	beginEngineRequest,
+	onIdleTimeoutChanged,
+	getReasoningEfforts = () => [],
 	getEngineConfig,
 } = {}) {
 	if (typeof isTrustedSender !== "function") {
@@ -71,6 +79,7 @@ function registerIpcHandlers({
 	}
 
 	const requests = new Map();
+    let standaloneDelegation = false;
 	const subscribers = new Set();
 	const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools()) });
 	const broadcast = () => {
@@ -81,8 +90,47 @@ function registerIpcHandlers({
 	};
 	mcpManager.on("changed", broadcast);
 	const handlers = {
+        "project:create": input => projects.createProject(input),
+        "project:update": ({ id, ...patch }) => projects.updateProject(id, patch),
+        "project:delete": ({ id }) => projects.deleteProject(id),
+        "project:list": () => projects.listProjects(),
+        "project:get_by_id": ({ id }) => projects.getProject(id),
+        "project:import_files": ({ project_id, file_paths }) => projects.importProjectFiles(project_id, file_paths),
+        "project:add_file": ({ project_id, ...file }) => projects.addProjectFile(project_id, file),
+        "project:remove_file": ({ id }) => projects.removeProjectFile(id),
+        "project:set_pinned": ({ id, is_pinned }) => projects.setProjectPinned(id, is_pinned),
+        "chat:export": payload => require('./exportService').exportChat(payload, { dialog }),
+        "shell:open-path": async filePath => {
+            validateLocalPath(filePath);
+            const error = await shell.openPath(filePath);
+            if (error) throw new Error(error);
+        },
+        "config:get": () => require('./configStore').getConfig(),
+        "config:set-idle-timeout": minutes => {
+            const config = require('./configStore').saveConfig({ engineIdleTimeoutMinutes: minutes });
+            onIdleTimeoutChanged?.();
+            return config;
+        },
+        "config:pick-directory": async () => {
+            const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+            return result.canceled ? null : result.filePaths[0] ?? null;
+        },
+        "config:set-model-directory": ({ directory }) => require('./configStore').setModelDirectory(directory),
+        "config:migrate-app-data": ({ directory }) => require('./dataMigration').migrateAppData(directory),
+        "avatars:get": () => {
+            const row = require('./db').db.prepare("SELECT value_json FROM app_settings WHERE key = 'avatar-settings'").get();
+            return row ? JSON.parse(row.value_json) : null;
+        },
+        "avatars:save": settings => {
+            if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Invalid avatar settings.');
+            const json = JSON.stringify(settings);
+            if (json.length > 20 * 1024 * 1024) throw new Error('Avatar settings are too large.');
+            require('./db').db.prepare("INSERT INTO app_settings(key, value_json) VALUES ('avatar-settings', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json").run(json);
+            return settings;
+        },
         "settings:profiles": () => profiles.getProfileSettings(),
         "settings:save-profile": ({ modelPath, patch }) => profiles.saveProfileSettings(modelPath, patch),
+        "settings:save-memory": ({ sessionId, modelId, patch }) => profiles.saveSessionMemorySettings(sessionId, modelId, patch),
         "settings:effective": ({ sessionId, modelPath }) => profiles.getSessionSettings(sessionId, modelPath),
 		"agents:save-session-prompt": ({ sessionId, prompt, modelId }) =>
 			agents.saveSessionPrompt(sessionId, prompt, modelId),
@@ -153,7 +201,9 @@ function registerIpcHandlers({
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort();
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, messageId = requestId }, notify, sender) => {
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, reasoningEffort, messageId = requestId }, notify, sender) => {
+			if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || !getReasoningEfforts(modelId).includes(reasoningEffort)))
+				throw new Error('Unsupported reasoning effort for the active model.');
 			let executionSteps = [];
             let content = "";
             if (!(typeof messageId === "string" && messageId.length > 0) && !Number.isSafeInteger(messageId)) throw new Error("Invalid message ID.");
@@ -167,12 +217,13 @@ function registerIpcHandlers({
 				throw new Error("Invalid chat request.");
 			if (displayName != null && (typeof displayName !== "string" || !displayName.trim() || displayName.includes("\0"))) throw new Error("Invalid display name.");
             const capturedDisplayName = displayName ?? (typeof modelName === "string" && modelName.trim() ? modelName : modelId).split(/[\\/]/).pop().replace(/\.gguf$/i, "");
-            if (requests.get(sender)?.size) throw new Error("A chat is already running.");
+            if (standaloneDelegation || requests.get(sender)?.size) throw new Error("A chat is already running.");
 			const controller = new AbortController();
 			const active = new Map([[requestId, controller]]);
 			requests.set(sender, active);
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
+            const finishEngineRequest = beginEngineRequest?.();
 			try {
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
@@ -180,13 +231,20 @@ function registerIpcHandlers({
 				const config = getEngineConfig?.();
 				if (!config) throw new Error("Start the local model server first.");
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
-				const { tools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools());
+				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
+                    const { tools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
+                    messages = messages.filter(message => !message.memoryContext);
+                    const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
+                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId }));
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
+                        fetchImpl: localEngineFetch,
+                        decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
+                        loadedContextSize: config.activeModelConfig?.contextLength ?? 32768,
 					baseUrl: `http://127.0.0.1:${config.port}`,
-					apiKey: config.apiKey,
 					modelId,
-					messages: prependBaseSystemPrompt(messages),
+					reasoningEffort,
+					messages: prependBaseSystemPrompt(messages, memoryEnabled),
 					chatTools: tools,
 					signal: controller.signal,
 					getSamplingParams: () =>
@@ -200,7 +258,8 @@ function registerIpcHandlers({
 						: undefined,
 					onText: (delta) => { content += delta; notify({ type: "text", delta }); },
                     resolveTool: name => memoryTools.some(tool => tool.name === name)
-                        ? { serverName: "memory", toolName: name } : mcpManager.resolveTool(name),
+                        ? { serverName: "memory", toolName: name } : agentTools.some(tool => tool.function.name === name)
+                        ? { serverName: "native", toolName: name } : mcpManager.resolveTool(name),
                     onExecutionSteps: steps => {
                         executionSteps = steps;
                         notify({ type: "step-update", messageId, executionSteps, content });
@@ -216,14 +275,18 @@ function registerIpcHandlers({
 						let target;
 						try {
 							const isMemory = memoryTools.some((t) => t.name === call.name);
+                            const isAgent = agentTools.some(t => t.function.name === call.name);
 							target = isMemory
 								? { serverName: "memory", toolName: call.name }
-								: mcpManager.resolveTool(call.name);
+								: isAgent ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name);
 							notify({ type: "tool", id, ...target, status: "pending" });
 							const args = JSON.parse(call.arguments || "{}");
-							const output = isMemory
+							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
+                            const output = isMemory
 								? await executeMemoryTool({ ...call, modelId })
-								: await mcpManager.callTool(target.serverName, target.toolName, args, {
+								: isAgent ? await executeAgentTool({ ...call, sessionId, signal: controller.signal,
+                                    engine: { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
+                                : await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal,
 									});
 							controller.signal.throwIfAborted();
@@ -235,6 +298,7 @@ function registerIpcHandlers({
 									/* Tools may return plain text. */
 								}
 							}
+                            result = (await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name).displayResult;
 							notify({
 								type: "tool",
 								id,
@@ -258,6 +322,7 @@ function registerIpcHandlers({
 				});
 				return { text, stats: currentStats, executionSteps, message: { id: messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
 			} finally {
+                finishEngineRequest?.();
                 notify({ type: "indexing", progress: null });
 				sender.removeListener("destroyed", abort);
 				requests.delete(sender);
@@ -293,7 +358,25 @@ function registerIpcHandlers({
 		"session:branch-chat": ({ sourceSessionId, targetMessageId }) =>
 			branchChat(sourceSessionId, targetMessageId),
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
-		"memory:get-tools": () => memoryTools,
+		"agent:get-tools": () => agentTools,
+        "agent:execute-tool": async ({ name, arguments: args, sessionId }, _notify, sender) => {
+            if (name !== 'delegate_task') return executeAgentTool({ name, arguments: args, sessionId });
+            if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
+            standaloneDelegation = true;
+            const controller = new AbortController();
+            const abort = () => controller.abort();
+            let finish;
+            try {
+                sender.once('destroyed', abort);
+                finish = beginEngineRequest?.();
+                const config = getEngineConfig?.();
+                return await executeAgentTool({ name, arguments: args, sessionId, signal: controller.signal,
+                    engine: { port: config?.port, modelId: config?.modelPath, contextLength: config?.activeModelConfig?.contextLength } });
+            } finally {
+                finish?.(); sender.removeListener('destroyed', abort); standaloneDelegation = false;
+            }
+        },
+        "memory:get-tools": () => memoryTools,
 		"memory:execute-tool": (data) => executeMemoryTool(data),
 		"session:prepare-messages": (data) => prepareChatMessages(data),
 		"memory:get-core": ({ modelId }) => getCoreMemories(modelId),
@@ -307,7 +390,7 @@ function registerIpcHandlers({
 		},
 		"memory:all": () => getAllActiveMemories(),
 		"memory:delete": (id) => deleteMemory(id),
-		"session:get-or-create": ({ sessionId, modelId }) => getOrCreateSession(sessionId, modelId),
+		"session:get-or-create": ({ sessionId, modelId, projectId }) => getOrCreateSession(sessionId, modelId, projectId),
 		"session:save-message": ({
 			sessionId,
 			role,
@@ -366,9 +449,12 @@ function registerIpcHandlers({
 		for (const [channel, handler] of Object.entries(handlers)) {
 			ipcMain.handle(channel, async (event, payload) => {
 				if (!isTrustedSender(event)) throw new Error("Unauthorized IPC sender.");
-				if (channel.startsWith("mcp:")) subscribers.add(event.sender);
+				if (channel === 'config:migrate-app-data') return handler(payload);
+                return require('./dataAccess').withDataAccess(async () => {
+                if (channel.startsWith("mcp:")) subscribers.add(event.sender);
 				if (
 					channel === "engine:chat" ||
+                    channel === "agent:execute-tool" ||
 					channel === "session:regenerate-last" ||
 					channel === "engine:cancel-chat" ||
 					channel === "rag:index"
@@ -395,6 +481,7 @@ function registerIpcHandlers({
 					});
 				}
 				return handler(payload);
+                });
 			});
 			registered.push(channel);
 		}

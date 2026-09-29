@@ -20,17 +20,18 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
-function getOrCreateSession(sessionId, modelId) {
+function getOrCreateSession(sessionId, modelId, projectId = null) {
   requireIdentifier(sessionId, 'sessionId');
   requireIdentifier(modelId, 'modelId');
+  if (projectId !== null) requireIdentifier(projectId, 'projectId');
 
   return db.transaction(() => {
     const select = db.prepare('SELECT * FROM sessions WHERE id = ?');
     const existing = select.get(sessionId);
     if (existing) return existing;
 
-    db.prepare('INSERT INTO sessions(id, model_id) VALUES (?, ?)')
-      .run(sessionId, modelId);
+    db.prepare('INSERT INTO sessions(id, model_id, project_id) VALUES (?, ?, ?)')
+      .run(sessionId, modelId, projectId);
     return select.get(sessionId);
   }).immediate();
 }
@@ -124,7 +125,7 @@ function getActiveMessages(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
   return withAttachments(db.prepare(`
     SELECT * FROM messages
-    WHERE session_id = ? AND archived = 0
+    WHERE session_id = ? AND archived = 0 AND is_summarized = 0
     ORDER BY id ASC
   `).all(sessionId));
 }
@@ -153,7 +154,7 @@ function getContextUsage(sessionId, currentModelId) {
       SELECT COALESCE(SUM(estimated_tokens), 0) AS messageTokens,
              COUNT(*) AS messageCount
       FROM messages
-      WHERE session_id = ? AND archived = 0
+      WHERE session_id = ? AND archived = 0 AND is_summarized = 0
     `).get(sessionId);
 
     return {
@@ -179,6 +180,35 @@ function loadSession(sessionId) {
   if (!session) throw new Error('Session not found.');
   return { ...session, overrides: require('./profileSettings').sessionOverrides(session), messages: withAttachments(db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id').all(sessionId)) };
 }
+
+function getFullChatHistory(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  // Export a single snapshot, including archived turns and every stored variant.
+  // Do not use the UI/context normalizers: those can discard unknown metadata.
+  return db.transaction(() => {
+    const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+    if (!session) throw new Error('Session not found.');
+    const rows = db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC').all(sessionId);
+    const attachments = db.prepare(`SELECT a.* FROM message_attachments a
+      JOIN messages m ON m.id = a.message_id WHERE m.session_id = ? ORDER BY a.id`).all(sessionId);
+    const byMessage = new Map();
+    for (const attachment of attachments) {
+      if (!byMessage.has(attachment.message_id)) byMessage.set(attachment.message_id, []);
+      byMessage.get(attachment.message_id).push(attachment);
+    }
+    const messages = rows.map(row => {
+      const message = { ...row, attachments: byMessage.get(row.id) || [] };
+      for (const key of ['variants', 'stats', 'tool_calls', 'execution_steps']) {
+        if (typeof message[key] === 'string') {
+          try { message[key] = JSON.parse(message[key]); } catch { /* Preserve malformed legacy data verbatim. */ }
+        }
+      }
+      return message;
+    });
+    return { session, messages };
+  })();
+}
+module.exports.getFullChatHistory = getFullChatHistory;
 
 function getAllSessions() {
   const groups = new Map(db.prepare('SELECT name FROM chat_folders ORDER BY name COLLATE NOCASE').all()
@@ -243,7 +273,7 @@ function editMessage(messageId, newContent) {
       .run(newContent, JSON.stringify([variantFromRow({ ...message, content: newContent })]), estimateTokens(newContent), messageId);
     db.prepare('DELETE FROM messages WHERE session_id = ? AND id > ?').run(message.session_id, messageId);
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(message.session_id);
-    db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(message.session_id);
+    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(message.session_id);
     db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(message.session_id);
     return loadSession(message.session_id).messages;
   }).immediate();
@@ -340,7 +370,7 @@ function deleteMessage(sessionId, messageId) {
     if (!result.changes) throw new Error('Message not found in this session.');
     // Summaries may still contain the deleted turn; rebuild context from retained rows.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-    db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(sessionId);
+    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
     return loadSession(sessionId).messages;
   }).immediate();
@@ -355,8 +385,9 @@ function branchChat(sourceSessionId, targetMessageId) {
       throw new Error('Message not found in this session.');
     }
     const sessionId = require('node:crypto').randomUUID();
-    db.prepare('INSERT INTO sessions(id, model_id, title, folder_name, sampling_params, agent_profile) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(sessionId, source.model_id, `${source.title || 'Untitled chat'} (branch)`, source.folder_name, source.sampling_params, source.agent_profile);
+    db.prepare('INSERT INTO sessions(id, model_id, title, folder_name, sampling_params, agent_profile, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(sessionId, source.model_id, `${source.title || 'Untitled chat'} (branch)`, source.folder_name, source.sampling_params, source.agent_profile, source.project_id);
+    db.prepare('UPDATE sessions SET memory_settings = ? WHERE id = ?').run(source.memory_settings, sessionId);
     // All original turns are retained, including archived turns. Do not copy a
     // summary that could include messages beyond the branch point.
     const messages = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id <= ? ORDER BY id').all(sourceSessionId, targetMessageId);
@@ -430,7 +461,7 @@ function setActiveVariant(sessionId, messageId, index) {
     db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), variant.displayName ?? null, messageId);
     // A summary may contain the previously selected reply. Rebuild context from original turns.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-    db.prepare('UPDATE messages SET archived = 0 WHERE session_id = ?').run(sessionId);
+    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
     return withAttachments([db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)])[0];
   }).immediate();

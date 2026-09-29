@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'avatar-settings';
 export const DEFAULT_AVATAR_SETTINGS = { showAvatars: true, globalAvatarUrl: null, modelAvatars: {}, globalModelName: '', perModelNames: {} };
@@ -21,12 +21,30 @@ function readSettings() {
 export default function useAvatarSettings() {
   const [settings, setSettings] = useState(readSettings);
   const current = useRef(settings);
-  // Persist before updating the UI so storage failures can be shown by Settings.
+  const pending = useRef(Promise.resolve());
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!window.api?.getAvatarSettings) return;
+    pending.current = window.api.getAvatarSettings().then(async saved => {
+      const value = saved ?? current.current;
+      if (!saved) await window.api.saveAvatarSettings(value);
+      current.current = value;
+      setSettings(value);
+      // The DB now owns the data; legacy browser storage is no longer needed.
+      localStorage.removeItem(STORAGE_KEY);
+    }).catch(error => { setError(error.message); });
+  }, []);
   const update = patch => {
-    const next = { ...current.current, ...(typeof patch === 'function' ? patch(current.current) : patch) };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    current.current = next;
-    setSettings(next);
+    const operation = pending.current.then(async () => {
+      const next = { ...current.current, ...(typeof patch === 'function' ? patch(current.current) : patch) };
+      if (window.api?.saveAvatarSettings) await window.api.saveAvatarSettings(next);
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      current.current = next;
+      setSettings(next);
+      setError('');
+    });
+    pending.current = operation.catch(() => {});
+    return operation;
   };
-  return { settings, update };
+  return { settings, update, error };
 }

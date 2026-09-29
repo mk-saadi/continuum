@@ -1,3 +1,6 @@
+import ProjectsView from './components/ProjectsView';
+import ProjectWorkspace from './components/ProjectWorkspace';
+import ProjectModal from './components/ProjectModal';
 import Header from "./components/main-app/Header.jsx";
 import MemorySettings from "./components/main-app/MemorySettings.jsx";
 import ModelSelectorModal from "./components/main-app/ModelSelectorModal.jsx";
@@ -9,7 +12,23 @@ import { ChatInterface } from "./components/main-app/ChatInterface.jsx";
 import { Titlebar } from "./components/main-app/Titlebar.jsx";
 
 export default function App() {
-	const avatars = useAvatarSettings();
+	const [view, setView] = useState('chat');
+    const [activeProjectId, setActiveProjectId] = useState(null);
+    const [projects, setProjects] = useState([]);
+    const [projectsLoading, setProjectsLoading] = useState(true);
+    const [projectsError, setProjectsError] = useState('');
+    const [projectModalOpen, setProjectModalOpen] = useState(false);
+    const refreshProjects = useCallback(async () => {
+        setProjectsLoading(true); setProjectsError('');
+        try { setProjects(await window.api.listProjects()); }
+        catch (error) { setProjectsError(error.message); }
+        finally { setProjectsLoading(false); }
+    }, []);
+    useEffect(() => { refreshProjects(); }, [refreshProjects]);
+    const updateProject = updated => setProjects(previous => previous.map(project => project.id === updated.id ? updated : project)
+        .sort((a, b) => b.is_pinned - a.is_pinned || b.updated_at.localeCompare(a.updated_at)));
+    const openProject = id => { setActiveProjectId(id); setView('project'); };
+    const avatars = useAvatarSettings();
 	const terminalLog = useTerminalLog();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
@@ -59,7 +78,8 @@ export default function App() {
 		scanInProgress.current = true;
 		setScanning(true);
 		try {
-			const result = await modelsAPI.scanLocalModels("/media/mk_saadi/e_drive/llm-folder/extra_llms");
+			const config = await window.api.getConfig();
+			const result = await modelsAPI.scanLocalModels(config.modelDirectory);
 			if (result.success) {
 				const scannedModels = result.models || [];
 				setModels(scannedModels);
@@ -75,7 +95,11 @@ export default function App() {
 	useEffect(() => {
 		handleScanClick();
 	}, [handleScanClick]);
-	// Listen for engine status changes from main process. `status` now
+	useEffect(() => {
+        window.addEventListener("model-directory-changed", handleScanClick);
+        return () => window.removeEventListener("model-directory-changed", handleScanClick);
+    }, [handleScanClick]);
+    // Listen for engine status changes from main process. `status` now
 	// carries the dynamically bound `port` alongside `running`/`pid` — this
 	// is the only place `serverPort` is written, so it always reflects
 	// whatever the backend actually bound, not what the launch command
@@ -197,7 +221,28 @@ export default function App() {
 					{palace.toast}
 				</div>
 			)}
-			<ChatInterface
+            {projectModalOpen && <ProjectModal onClose={() => setProjectModalOpen(false)} onCreate={async fields => {
+                const project = await window.api.createProject(fields);
+                setProjects(previous => [...previous, project]);
+                setProjectModalOpen(false); openProject(project.id);
+            }} />}
+            <ChatInterface
+                view={view}
+                projects={projects}
+                activeProjectId={activeProjectId}
+                onProjects={() => setView('projects')}
+                onProject={openProject}
+                onCreateProject={() => setProjectModalOpen(true)}
+                onChat={() => setView('chat')}
+                renderWorkspace={({ groups, loadChat, startProjectChat, busy, canStartChat }) => view === 'projects'
+                    ? <ProjectsView projects={projects} loading={projectsLoading} error={projectsError} onRetry={refreshProjects}
+                        onCreate={() => setProjectModalOpen(true)} onOpen={openProject}
+                        onPin={async project => updateProject(await window.api.setProjectPinned(project.id, !project.is_pinned))} />
+                    : view === 'project' ? <ProjectWorkspace key={activeProjectId} projectId={activeProjectId}
+                        sessions={groups.flatMap(group => group.sessions)} onBack={() => setView('projects')}
+                        onUpdated={updateProject} onLoadChat={loadChat} onStartChat={startProjectChat}
+                        chatDisabled={busy} canStartChat={canStartChat} /> : null}
+
 				isRightSidebarOpen={isRightSidebarOpen}
 				onCloseRightSidebar={() => setIsRightSidebarOpen(false)}
 				models={models}
@@ -207,6 +252,8 @@ export default function App() {
 				selectedModel={engineRunning ? activeModelPath : selectedModel}
 				baseUrl={baseUrl}
 				engineRunning={engineRunning}
+                activeModel={engineRunning && ["warming", "ready", "warmup-failed"].includes(contextStatus)
+                    ? { modelPath: activeModelPath, contextSize: activeModelConfig?.contextLength ?? 32768 } : null}
 				palace={palace}
 			/>
 		</div>

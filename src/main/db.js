@@ -52,10 +52,32 @@ const SCHEMA = `
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    description TEXT,
+    custom_instructions TEXT,
+    root_path TEXT UNIQUE,
+    is_pinned INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS project_files (
+    id TEXT PRIMARY KEY,
+    project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+    file_path TEXT,
+    file_name TEXT,
+    content TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_project_files_project ON project_files(project_id);
+
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY NOT NULL,
     title TEXT,
     model_id TEXT,
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
     sampling_params TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_active_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -80,6 +102,7 @@ const SCHEMA = `
     model_id TEXT,
     agent_name TEXT,
     archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+    is_summarized BOOLEAN NOT NULL DEFAULT 0 CHECK (is_summarized IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -153,13 +176,12 @@ const SCHEMA = `
 `;
 
 /** Initialize after app.whenReady(); returns the shared database connection. */
-function initDatabase() {
+function initDatabase(directory = require("./configStore").getConfig().appDataDirectory) {
   if (database?.open) return database;
   if (!app.isReady()) {
     throw new Error('initDatabase() must be called after app.whenReady().');
   }
 
-  const directory = app.getPath('userData');
   mkdirSync(directory, { recursive: true });
   const connection = new Database(path.join(directory, 'memory_palace.db'));
 
@@ -169,8 +191,15 @@ function initDatabase() {
     connection.pragma('busy_timeout = 5000');
     connection.transaction(() => {
       connection.exec(SCHEMA);
+      if (!connection.pragma('table_info(sessions)').some(column => column.name === 'project_id')) {
+        connection.exec('ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL');
+      }
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id)');
       if (!connection.pragma('table_info(sessions)').some(column => column.name === 'agent_profile')) {
         connection.exec('ALTER TABLE sessions ADD COLUMN agent_profile TEXT');
+      }
+      if (!connection.pragma('table_info(sessions)').some(column => column.name === 'memory_settings')) {
+        connection.exec('ALTER TABLE sessions ADD COLUMN memory_settings TEXT');
       }
       // Seed once, so edited or deleted built-ins stay edited/deleted after restart.
       if (!connection.prepare("SELECT key FROM app_settings WHERE key = 'agents_seeded'").get()) {
@@ -182,6 +211,12 @@ function initDatabase() {
         connection.prepare("INSERT INTO app_settings(key, value_json) VALUES ('agents_seeded', 'true')").run();
       }
       const messageColumns = new Set(connection.pragma('table_info(messages)').map(column => column.name));
+      if (!messageColumns.has('is_summarized')) {
+        connection.exec('ALTER TABLE messages ADD COLUMN is_summarized BOOLEAN NOT NULL DEFAULT 0 CHECK (is_summarized IN (0, 1))');
+        connection.exec('UPDATE messages SET is_summarized = 1 WHERE archived = 1');
+      }
+      // A process interruption must not leave a durable background-work lock.
+      connection.exec('UPDATE sessions SET is_compressing = 0 WHERE is_compressing = 1');
       for (const [name, type] of Object.entries({ execution_steps: 'TEXT', stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL' })) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
       }
@@ -271,18 +306,22 @@ function searchChatHistory(searchQuery) {
   if (typeof searchQuery !== 'string' || searchQuery.includes('\0')) {
     throw new TypeError('query must be a string without null characters.');
   }
-  const term = searchQuery.trim();
-  if (!/[\p{L}\p{N}\p{Co}]/u.test(term)) return [];
+  const keywords = [...new Set(searchQuery.split(/\s+/)
+    .map(word => word.replace(/[^\p{L}\p{N}\p{M}\p{Co}]/gu, ''))
+    .filter(word => /[\p{L}\p{N}\p{Co}]/u.test(word)))];
+  if (!keywords.length) return [];
 
-  // Treat model-provided search terms as literal text, including FTS punctuation.
-  const query = `"${term.replace(/"/g, '""')}"*`;
+  // Quote each sanitized token so words like OR remain literal, not operators.
+  // Prefix matches may occur anywhere in the message, in any order.
+  const query = keywords.map(word => `"${word}"*`).join(' AND ');
   return db.prepare(`
-    SELECT messages.session_id, messages.role, messages.content
+    SELECT messages.id, messages.session_id, messages.role,
+      snippet(chat_fts, 0, '[MATCH]', '[/MATCH]', '...', 64) AS excerpt
     FROM chat_fts
     JOIN messages ON messages.id = chat_fts.rowid
     WHERE chat_fts MATCH ?
     ORDER BY chat_fts.rank, messages.id
-    LIMIT 10
+    LIMIT 5
   `).all(query);
 }
 
@@ -310,8 +349,8 @@ function searchMemory(query, modelId) {
     `).all(pattern, pattern, modelId);
     const chats = searchChatHistory(term);
     const factsText = facts.map(({ category, content }) => `- [${category}]: ${content}`).join('\n');
-    const chatsText = chats.map(({ session_id, role, content }) =>
-      `[Session: ${session_id}] ${role}:\n${content}`).join('\n\n');
+    const chatsText = chats.map(({ session_id, role, excerpt }) =>
+      `[Session: ${session_id}] ${role}:\n${excerpt}`).join('\n\n');
     return `Facts found:\n${factsText || 'None.'}\n\nPast Chat Context found:\n${chatsText || 'None.'}`;
   })();
 }

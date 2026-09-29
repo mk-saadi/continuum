@@ -4,7 +4,20 @@ const { createStartupHandler } = require('../src/main/engineManager');
 const { BASE_SYSTEM_PROMPT_WITH_TOOLS, prependBaseSystemPrompt } = require('../src/main/baseSystemPrompt');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-test('split startup logs trigger one authenticated warmup; readiness waits for completion', async () => {
+test('engine environment clears inherited authentication and opens CORS', () => {
+  const { buildLlamaServerEnv } = require('../src/main/engineManager');
+  const source = { PATH: '/bin', LLAMA_API_KEY: 'secret', LLAMA_ARG_API_KEY_FILE: '/tmp/keys',
+    LLAMA_ARG_API_KEY: 'legacy', LLAMA_API_KEY_FILE: '/tmp/legacy', LLAMA_ARG_CORS_ORIGINS: 'localhost' };
+  const env = buildLlamaServerEnv(source);
+  assert.equal(env.PATH, '/bin');
+  for (const key of Object.keys(source).filter(key => key.includes('API_KEY'))) assert.equal(env[key], undefined);
+  assert.equal(env.LLAMA_ARG_CORS_ORIGINS, '*');
+  assert.equal(env.LLAMA_ARG_CORS_HEADERS, '*');
+  assert.match(env.LLAMA_ARG_CORS_METHODS, /OPTIONS/);
+  assert.equal(source.LLAMA_API_KEY, 'secret');
+});
+
+test('split startup logs trigger one unauthenticated warmup; readiness waits for completion', async () => {
   const statuses = [], requests = [];
   let finish;
   const tools = [{ type: 'function', function: { name: 'example' } }];
@@ -23,7 +36,7 @@ test('split startup logs trigger one authenticated warmup; readiness waits for c
   assert.deepEqual(statuses, ['warming']);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'http://127.0.0.1:9090/v1/chat/completions');
-  assert.equal(requests[0].headers.Authorization, 'Bearer secret');
+  assert.deepEqual(requests[0].headers, { 'Content-Type': 'application/json' });
   const payload = JSON.parse(requests[0].body);
   assert.deepEqual(payload.messages, [{ role: 'system', content: BASE_SYSTEM_PROMPT_WITH_TOOLS }, { role: 'user', content: 'Warmup sequence initialized.' }]);
   assert.deepEqual(payload.tools, tools);

@@ -6,11 +6,12 @@ import AvatarSettings from "../AvatarSettings";
 import MemoryTab from "../MemoryTab";
 import IntegrationsTab from "../IntegrationsTab";
 import ServerConfigTab from "../ServerConfigTab";
+import EngineIdleSettings from '../EngineIdleSettings';
 import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from "react-icons/lu";
 import { GiStarSwirl } from "react-icons/gi";
 
 const tabs = [
-	{ id: "general", label: "Appearance", icon: LuPalette, description: "Make the space feel like yours." },
+	{ id: "general", label: "General", icon: LuPalette, description: "Appearance and engine preferences." },
 	{ id: "terminal", label: "Terminal", icon: LuTerminal, description: "Engine activity and diagnostics." },
 	{
 		id: "avatars",
@@ -282,6 +283,7 @@ export default function MemorySettings({
 							tabIndex={0}
 							className={panelClass}
 						>
+							<EngineIdleSettings />
 							<div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
 								<h4 className="font-semibold">Color theme</h4>
 								<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
@@ -395,7 +397,7 @@ export default function MemorySettings({
 									onChange={palace.toggle}
 									className="accent-[var(--accent)]"
 								/>
-								Enable memory injection
+								Enable memory for this chat (facts & past chats)
 							</label>
 							<MemoryTab palace={palace} />
 						</section>

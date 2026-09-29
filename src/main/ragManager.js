@@ -50,7 +50,7 @@ async function getEmbedder() {
     // Cache the promise too: concurrent indexing/query requests share one model.
     extractor = (async () => {
       const { pipeline, env } = await import('@xenova/transformers');
-      env.cacheDir = path.join(app.getPath('userData'), 'embedding-models');
+      env.cacheDir = path.join(require("./configStore").getConfig().appDataDirectory, 'embedding-models');
       await fs.mkdir(env.cacheDir, { recursive: true });
       return pipeline('feature-extraction', EMBEDDING_MODEL, { quantized: true });
     })().catch(error => {

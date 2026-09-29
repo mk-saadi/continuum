@@ -34,6 +34,28 @@ app.whenReady().then(async () => {
       check(row('b').getBoundingClientRect().top === before, 'Opening menu must not move rows');
       menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await tick();
       check(!document.querySelector('[role=menu]') && document.activeElement === actions, 'Escape restores focus');
+      window.exportCalls = [];
+      window.exportResult = { success: true, filePath: '/tmp/chat.json' };
+      window.api = { exportChat: async (id, format) => { window.exportCalls.push({ id, format }); return window.exportResult; } };
+      for (const format of ['json', 'markdown', 'text']) {
+        actions.click(); await tick();
+        button(document.querySelector('[role=menu]'), 'Export Chat...').click(); await tick();
+        const picker = document.querySelector('dialog');
+        check(picker.open && picker.querySelectorAll('input[name=export-format]').length === 3, 'Export picker shows all formats');
+        picker.querySelector('input[value="' + format + '"]').click(); await tick();
+        button(picker, 'Export').click(); await tick();
+        check(window.exportCalls.at(-1).id === 'a' && window.exportCalls.at(-1).format === format, 'Exports selected chat in chosen format');
+        check(!document.querySelector('dialog') && document.querySelector('[role=status]').textContent.includes('exported'), 'Success closes picker and shows toast');
+      }
+      window.exportResult = { success: false, canceled: true };
+      actions.click(); await tick(); button(document.querySelector('[role=menu]'), 'Export Chat...').click(); await tick();
+      button(document.querySelector('dialog'), 'Export').click(); await tick();
+      check(!document.querySelector('dialog') && !document.querySelector('[role=alert]'), 'Cancellation is not an error');
+      window.exportResult = { success: false, error: 'Disk full' };
+      actions.click(); await tick(); button(document.querySelector('[role=menu]'), 'Export Chat...').click(); await tick();
+      button(document.querySelector('dialog'), 'Export').click(); await tick();
+      check(document.querySelector('dialog [role=alert]').textContent === 'Disk full', 'Export failure remains visible for retry');
+      button(document.querySelector('dialog'), 'Cancel').click(); await tick();
       actions.click(); await tick();
       button(document.querySelector('[role=menu]'), 'Move to Folder').click(); await tick();
       const dialog = document.querySelector('dialog');

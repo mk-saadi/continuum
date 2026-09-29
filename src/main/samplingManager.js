@@ -1,6 +1,6 @@
 'use strict';
 const { db } = require('./db');
-const DEFAULT_SAMPLING_PARAMS = Object.freeze({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 });
+const DEFAULT_SAMPLING_PARAMS = Object.freeze({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1, thinking_budget: -1 });
 function validateSamplingParams(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid sampling parameters.');
   const output = {};
@@ -10,6 +10,7 @@ function validateSamplingParams(input) {
       : key === 'top_p' ? value >= 0 && value <= 1
       : key === 'top_k' ? Number.isInteger(value) && value >= 1 && value <= 100
       : key === 'repeat_penalty' ? value >= 1 && value <= 1.5
+      : key === 'thinking_budget' ? Number.isSafeInteger(value) && (value === -1 || (value >= 256 && value % 256 === 0))
       : Number.isSafeInteger(value) && (value === -1 || value > 0);
     if (!valid) throw new Error(`Invalid sampling parameter: ${key}.`);
     output[key] = value;

@@ -151,3 +151,17 @@ test('failed chat clears indexing progress after flushing pending events', async
     assert.equal(progress.at(-1), null);
   } finally { globalThis.window = oldWindow; }
 });
+
+test('reasoning choice reaches normal and regenerated requests', async () => {
+  const oldWindow = globalThis.window;
+  const requests = [];
+  const run = async payload => { requests.push(payload); return {}; };
+  globalThis.window = { chatAPI: { onEvent: () => () => {}, run }, memoryPalace: { regenerateLast: run } };
+  try {
+    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'low' });
+    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'high', regenerate: true });
+    await runDesktopChat({ modelId: 'other', messages: [] });
+    assert.deepEqual(requests.map(request => request.reasoningEffort), ['low', 'high', undefined]);
+    assert.equal(Object.hasOwn(requests[2], 'reasoningEffort'), false);
+  } finally { globalThis.window = oldWindow; }
+});

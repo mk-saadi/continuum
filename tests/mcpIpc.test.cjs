@@ -4,8 +4,11 @@ const Module = require('node:module');
 const { EventEmitter } = require('node:events');
 const handlers = new Map();
 const originalLoad = Module._load;
+let memoryEnabled = true;
 Module._load = function(name, ...args) {
-  if (name === './profileSettings') return { getSessionSettings: () => ({ params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 } }) };
+  if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
+  if (name === './promptBuilder') return { ...originalLoad.call(this, name, ...args), buildSessionSystemPrompt: () => ({ role: 'system', content: memoryEnabled ? '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' : '', memoryContext: true }) };
+  if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled }, params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 } }) };
   if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
   if (name === 'electron') return { app: {}, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
@@ -32,7 +35,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
   sender.isDestroyed = () => false;
   sender.send = (channel, event) => events.push({ channel, ...event });
   const event = { sender };
-  const dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }) });
+  const dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }), getReasoningEfforts: () => ['low', 'high'] });
   const originalFetch = global.fetch;
   const requests = [];
   const name = manager.getTools()[0].function.name;
@@ -42,15 +45,17 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     requests.push(body);
     return Response.json({ usage: requests.length === 1 ? null : { prompt_tokens: 12, completion_tokens: 3 }, choices: [{ finish_reason: requests.length === 1 ? 'tool_calls' : 'stop', message: requests.length === 1
       ? { content: null, tool_calls: [{ id: 'call1', type: 'function', function: { name, arguments: '{"text":"hello"}' } }] }
-      : { content: 'Final answer', reasoning_content: 'Final thought' } }] });
+      : { content: 'Final answer [TASK COMPLETE]', reasoning_content: 'Final thought' } }] });
   };
   try {
     const context = await handlers.get('mcp:get-tools')(event);
     assert.equal(context.pluginTokens, Math.ceil(JSON.stringify(manager.getTools()).length / 4));
-    const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
-    assert.equal(result.text, 'Final answer');
+    await assert.rejects(handlers.get('engine:chat')(event, { reasoningEffort: 'unsupported' }), /Unsupported reasoning effort/);
+    const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', reasoningEffort: 'low', messages: [{ role: 'system', content: 'test' }] });
+    assert.ok(requests.every(request => request.chat_template_kwargs.reasoning_effort === 'low'));
+    assert.equal(result.text, 'Final answer [TASK COMPLETE]');
     assert.equal(result.message.id, 'request1');
-    assert.equal(result.message.content, 'Final answer');
+    assert.equal(result.message.content, 'Final answer [TASK COMPLETE]');
     assert.deepEqual(result.executionSteps.map(step => step.type), ['tool_call', 'thought']);
     assert.deepEqual(result.executionSteps[0].args, { text: 'hello' });
     assert.equal(result.executionSteps[0].serverName, 'fixture');
@@ -58,7 +63,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.ok(updates.some(event => event.executionSteps[0]?.status === 'running'));
     assert.equal(updates.at(-1).messageId, 'request1');
     assert.deepEqual(updates.at(-1).executionSteps, result.executionSteps);
-    assert.equal(updates.at(-1).content, 'Final answer');
+    assert.equal(updates.at(-1).content, 'Final answer [TASK COMPLETE]');
     assert.equal(result.stats.totalTokens, 15);
     assert.equal(result.stats.scope, 'final');
     assert.deepEqual(result.stats, events.filter(e => e.type === 'stats').at(-1).stats);
@@ -85,13 +90,24 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
           ? { content: null, tool_calls: [{ id: 'history1', type: 'function', function: {
             name: 'search_memory', arguments: '{"query":""}',
           } }] }
-          : { content: 'No earlier discussion found.' } }] });
+          : { content: 'No earlier discussion found. [TASK COMPLETE]' } }] });
     };
     await handlers.get('engine:chat')(event, { requestId: 'history', modelId: 'model', messages: [
       { role: 'system', content: 'test' }, { role: 'user', content: 'What did we talk about?' },
     ] });
     assert.equal(historyRequests[1].messages.at(-1).content, 'Facts found:\nNone.\n\nPast Chat Context found:\nNone.');
     assert.equal(events.filter(e => e.type === 'tool').at(-1).status, 'complete');
+    memoryEnabled = false;
+    global.fetch = async (_url, options) => {
+      const body = JSON.parse(options.body);
+      assert.ok(!body.tools.some(tool => ['search_memory', 'save_memory'].includes(tool.function.name)));
+      assert.ok(!body.messages.some(message => /Saved fact|BACKGROUND KNOWLEDGE/.test(message.content)));
+      assert.match(body.messages[0].content, /Memory Palace is disabled/);
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Fresh reply' } }] });
+    };
+    await handlers.get('engine:chat')(event, { requestId: 'isolated', modelId: 'model', memoryEnabled: true,
+      messages: [{ role: 'system', memoryContext: true, content: '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' }, { role: 'user', content: 'Hi' }] });
+    memoryEnabled = true;
     let started;
     const pending = new Promise(resolve => { started = resolve; });
     global.fetch = async (_url, { signal }) => {
@@ -123,6 +139,7 @@ test('preload config methods invoke trusted config handlers', async () => {
   const load = Module._load;
   try {
     Module._load = function(name, ...args) {
+  if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
       if (name === 'electron') return {
         contextBridge: { exposeInMainWorld: (name, api) => { exposed[name] = api; } },
         ipcRenderer: { invoke: (channel, payload) => handlers.get(channel)(event, payload) },

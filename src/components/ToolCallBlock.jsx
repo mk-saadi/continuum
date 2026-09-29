@@ -1,6 +1,8 @@
 import React, { useId, useState } from 'react';
 import { FiChevronRight, FiTool } from 'react-icons/fi';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
+import FileBrowserWidget from './FileBrowserWidget';
+import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.mjs';
 
 const codeTheme = {
   'pre[class*="language-"]': { background: 'transparent', color: '#cbd5e1' },
@@ -36,12 +38,14 @@ function CodeSection({ title, value }) {
   );
 }
 
-export default function ToolCallBlock({ step }) {
+const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
   const detailsId = useId();
   const [userExpanded, setUserExpanded] = useState(null);
   const running = step.status === 'running' || step.status === 'pending';
+  const listing = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName)
+    ? parseDirectoryListing(step.result, step.args) : null;
   // Follow execution status until the user explicitly chooses a view.
-  const expanded = userExpanded ?? running;
+  const expanded = userExpanded ?? (running || Boolean(listing));
   const args = formatValue(step.args, 'No arguments');
   const result = formatValue(Object.hasOwn(step, 'result') ? step.result : step.error, running ? 'Waiting for result…' : 'No result');
   const preview = value => value.text.replace(/\s+/g, ' ').slice(0, 180) + (value.text.replace(/\s+/g, ' ').length > 180 ? '…' : '');
@@ -63,9 +67,13 @@ export default function ToolCallBlock({ step }) {
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {preview(result)}</span>
       </div>}
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
-        {expanded && <><CodeSection title="Arguments" value={args} /><CodeSection title="Result" value={result} /></>}
+        {expanded && <><CodeSection title="Arguments" value={args} />{listing
+          ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
+          : <CodeSection title="Result" value={result} />}</>}
         {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}
       </div>
     </div>
   );
-}
+});
+
+export default ToolCallBlock;

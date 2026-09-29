@@ -9,7 +9,7 @@ const mainRequire = createRequire(path.resolve('main.js'));
 let port = null, spawnedArgs, spawnCount = 0, child;
 const context = {
   require(name) {
-    if (name === 'electron') return { app: { whenReady: () => ({ then() {} }), on() {} }, BrowserWindow: {}, ipcMain: { on() {}, handle() {} } };
+    if (name === 'electron') return { app: { whenReady: () => ({ then() {} }), on() {} }, BrowserWindow: {}, protocol: { registerSchemesAsPrivileged() {} }, ipcMain: { on() {}, handle() {} } };
     if (name === './src/main/db.js' || name === './src/main/ipcHandlers.js') return {};
     if (name === './src/main/configManager') return { ...mainRequire(name), getAppSettings: () => ({ apiServerPort: port }) };
     if (name === 'child_process') return { spawn(_command, args) {

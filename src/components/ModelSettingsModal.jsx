@@ -44,7 +44,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 			.getModelLoadConfig(model.id)
 			.then(({ config: savedConfig, remembered }) => {
 				if (active) {
-					setConfig(savedConfig);
+					setConfig({
+                        cacheTypeK: "f16", cacheTypeV: "f16", mlock: false, chatTemplate: "auto",
+                        ...savedConfig,
+                        reasoningFormat: remembered ? (savedConfig.reasoningFormat ?? "auto") : (model.reasoningFormat ?? "auto"),
+                    });
 					setRemember(remembered);
 				}
 			})
@@ -218,6 +222,26 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 									description="Choose how model weights are loaded and processed."
 								/>
 								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+                                    {[['cacheTypeK', 'K-Cache Precision'], ['cacheTypeV', 'V-Cache Precision']].map(([key, label]) => (
+                                        <SelectField key={key} label={label} value={config[key]} onChange={event => update(key, event.target.value)}>
+                                            <option value="f16">f16</option>
+                                            <option value="q8_0">q8_0</option>
+                                            <option value="q4_0">q4_0</option>
+                                        </SelectField>
+                                    ))}
+                                    <SelectField label="Chat Template" value={config.chatTemplate} onChange={(event) => update("chatTemplate", event.target.value)}>
+                                        <option value="auto">Default (GGUF Embedded)</option>
+                                        <option value="llama3">Llama 3</option>
+                                        <option value="chatml">ChatML</option>
+                                        <option value="deepseek">DeepSeek / R1</option>
+                                        <option value="gemma">Gemma</option>
+                                    </SelectField>
+                                    <SelectField label="Reasoning Format" value={config.reasoningFormat} onChange={(event) => update("reasoningFormat", event.target.value)}>
+                                        <option value="auto">Auto</option>
+                                        <option value="deepseek">DeepSeek</option>
+                                        <option value="none">None</option>
+                                    </SelectField>
+
 									<SelectField
 										label="Flash attention"
 										value={config.flashAttention}
@@ -228,18 +252,8 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 										<option value="on">On</option>
 										<option value="off">Off</option>
 									</SelectField>
-									<SelectField
-										label="Memory load mode"
-										value={config.loadMode}
-										onChange={(event) => update("loadMode", event.target.value)}
-									>
-										<option value="auto">Auto</option>
-										<option value="none">None — disable mmap</option>
-										<option value="mmap">Mmap — memory mapping</option>
-										<option value="mlock">Mlock — lock in RAM</option>
-										<option value="mmap+mlock">Mmap + Mlock</option>
-										<option value="dio">Direct I/O</option>
-									</SelectField>
+                                    <CheckboxField label="Lock in System RAM (mlock)" checked={config.mlock}
+                                        onChange={event => update('mlock', event.target.checked)} />
 									<NumberField
 										label="Seed"
 										hint="Optional. Leave empty to use the server default."

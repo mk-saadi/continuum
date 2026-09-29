@@ -53,5 +53,43 @@ try {
   assert.throws(() => profiles.saveProfileSettings('/model-a', { systemPrompt: 123 }), /Invalid system/);
   const effective = getEffectiveSettings({ overrides: { temperature: 0, systemPrompt: '', maxTokens: -1 } }, 'a', { temperature: 1, systemPrompt: 'global', maxTokens: 99, perModelConfigs: { a: { temperature: 0.5 } } });
   assert.equal(effective.temperature, 0); assert.equal(effective.systemPrompt, ''); assert.equal(effective.maxTokens, -1);
+  assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, true);
+  profiles.saveProfileSettings(null, { memoryEnabled: false, compactionEnabled: false });
+  assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, false);
+  profiles.saveProfileSettings('/memory-model', { memoryEnabled: true });
+  assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, true);
+  profiles.saveSessionMemorySettings('memory-chat', '/memory-model', { memoryEnabled: false, compactionEnabled: true });
+  let memoryState = profiles.getSessionSettings('memory-chat', '/memory-model');
+  assert.equal(memoryState.effective.memoryEnabled, false);
+  assert.equal(memoryState.effective.compactionEnabled, true);
+  const memoryManager = require('../src/main/memoryManager');
+  memoryManager.addPermanentMemory({ category: 'fact', content: 'Secret remembered preference', alwaysInject: true });
+  const isolated = require('../src/main/promptBuilder').prepareChatMessages({ sessionId: 'memory-chat', modelId: '/memory-model', userText: 'Hello', memoryEnabled: true });
+  assert.ok(!isolated.some(message => /BACKGROUND KNOWLEDGE|Secret remembered preference/.test(message.content)));
+  assert.match(isolated[0].content, /Memory Palace is disabled/);
+  const tools = require('../src/main/promptBuilder').getToolContext([], false).tools;
+  assert.deepEqual(tools, []);
+  closeDatabase(); initDatabase();
+  assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, false);
+  profiles.saveSessionMemorySettings('memory-chat', '/memory-model', { memoryEnabled: null });
+  assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, true);
+  assert.throws(() => profiles.saveProfileSettings(null, { memoryEnabled: 'false' }), /Invalid/);
+  assert.throws(() => profiles.saveSessionMemorySettings('memory-chat', '/memory-model', { compactionEnabled: 0 }), /Invalid/);
+  assert.equal(getEffectiveSettings(null, 'missing', {}).thinkingBudget, -1);
+  profiles.saveProfileSettings(null, { thinkingBudget: 1024 });
+  profiles.saveProfileSettings('/thinking-model', { thinkingBudget: 4096 });
+  assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').effective.thinkingBudget, 4096);
+  sessions.saveSessionSamplingParams('thinking-chat', '/thinking-model', { thinking_budget: 2048 });
+  assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').params.thinking_budget, 2048);
+  closeDatabase(); initDatabase();
+  assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').effective.thinkingBudget, 2048);
+  sessions.saveSessionSamplingParams('thinking-chat', '/thinking-model', { thinking_budget: -1 });
+  assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').effective.thinkingBudget, -1);
+  sessions.saveSessionSamplingParams('thinking-chat', '/thinking-model', null);
+  assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').effective.thinkingBudget, 4096);
+  assert.equal(profiles.getSessionSettings(null, '/other-model').effective.thinkingBudget, 1024);
+  for (const thinkingBudget of [0, 255, 257, -2, Infinity, '1024']) {
+    assert.throws(() => profiles.saveProfileSettings('/thinking-model', { thinkingBudget }), /Invalid sampling/);
+  }
   console.log('Three-tier resolution, zero/empty overrides, model switching, prompt assembly, reset, persistence, branching and validation passed.');
 } finally { closeDatabase(); Module._load = original; fs.rmSync(dir, { recursive: true, force: true }); }

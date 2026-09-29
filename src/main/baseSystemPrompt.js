@@ -12,11 +12,14 @@ MEMORY & CONVERSATION RULES:
 6. NEVER SAVE AI IDENTITY FACTS: NEVER call \`save_memory\` to store information, corrections, or comments about the AI's identity, model name, parameters, capabilities, or system prompt.
 7. NEVER SAVE BANTER OR CORRECTIONS: Casual banter, self-corrections, or identity clarifications (e.g., 'you are not Gemma 4') must NEVER trigger memory calls.
 8. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
+9. CROSS-SESSION RECALL: You are in an active, individual chat session. You do NOT have raw context from other past chat threads loaded automatically. If the user asks about something discussed in a previous chat session, project, or past conversation, explicitly invoke the \`search_memory\` tool to search your past chat index (\`chat_fts\`).
 `;
 
-function prependBaseSystemPrompt(messages) {
-  return [{ role: 'system', content: BASE_SYSTEM_PROMPT_WITH_TOOLS },
-    ...messages.filter(message => !(message.role === 'system' && message.content === BASE_SYSTEM_PROMPT_WITH_TOOLS))];
+const BASE_SYSTEM_PROMPT_WITHOUT_MEMORY = 'You are an AI desktop assistant. Memory Palace is disabled for this chat. Use only this conversation and its supplied context. Do not claim access to other chat threads or saved user facts. Memory search and saving are unavailable.';
+
+function prependBaseSystemPrompt(messages, memoryEnabled = true) {
+  return [{ role: 'system', content: memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY },
+    ...messages.filter(message => !(message.role === 'system' && [BASE_SYSTEM_PROMPT_WITH_TOOLS, BASE_SYSTEM_PROMPT_WITHOUT_MEMORY].includes(message.content)))];
 }
 
 module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, prependBaseSystemPrompt };

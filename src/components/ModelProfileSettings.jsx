@@ -36,6 +36,9 @@ export default function ModelProfileSettings({ modelPath }) {
       <TextAreaField label={modelPath ? 'Model Default System Prompt' : 'Global Default System Prompt'}
         value={patch.systemPrompt ?? effective.systemPrompt} maxLength={32000} rows={4} disabled={saving}
         onChange={event => setPatch(value => ({ ...value, systemPrompt: event.target.value }))} />
+      {[['memoryEnabled', 'Enable Memory (Facts & Past Chats)'], ['compactionEnabled', 'Auto-Compress Long Chats']].map(([key, label]) =>
+        <label key={key} className="flex items-center gap-2 text-xs"><input type="checkbox" role="switch" disabled={saving}
+          checked={patch[key] ?? effective[key] ?? true} onChange={event => setPatch(value => ({ ...value, [key]: event.target.checked }))} />{label}</label>)}
       {controls.map(([key, label, min, max, step]) => {
         const Control = key === 'maxTokens' ? NumberField : SliderField;
         return <Control key={key} label={label} min={min} max={max} step={step} disabled={saving}

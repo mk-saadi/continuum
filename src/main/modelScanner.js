@@ -11,6 +11,8 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	const unit = stats.size > 0 ? Math.min(Math.floor(Math.log(stats.size) / Math.log(1024)), units.length - 1) : 0;
 	const result = {
+		reasoningFormat: 'auto',
+		reasoningEfforts: [],
 		sizeFormatted: `${(stats.size / 1024 ** unit).toFixed(2)} ${units[unit]}`,
 		quantization: fileName.match(/(?:IQ\d+_[A-Z0-9_]+|Q\d+_[A-Z0-9_]+|BF16|F16|F32)(?=[.-]|$)/i)?.[0].toUpperCase() || null,
 		paramSize: fileName.match(/(?:^|[^a-z0-9])(\d+(?:\.\d+)?B)(?=[^a-z0-9]|$)/i)?.[1].toUpperCase() || null,
@@ -39,6 +41,14 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		const chatTemplate = Object.entries(metadata)
 			.filter(([key, value]) => /^tokenizer\.chat_template(?:\.|$)/.test(key) && typeof value === 'string')
 			.map(([, value]) => value).join('\n');
+		result.generalName = typeof metadata['general.name'] === 'string' ? metadata['general.name'] : null;
+		result.chatTemplate = chatTemplate;
+		const efforts = chatTemplate.match(/reasoning_effort\s*==\s*['"](.*?)['"]/g)
+			?.map(match => match.match(/['"](.*?)['"]/)[1]) || [];
+		result.reasoningEfforts = [...new Set(efforts)].filter(Boolean);
+		result.hasReasoning ||= result.reasoningEfforts.length > 0;
+		result.reasoningFormat = chatTemplate.includes('<think>') ? 'deepseek' : 'auto';
+		result.hasReasoning ||= /deepseek|qwq|think|reasoning/i.test(result.generalName || '');
 		const arch = typeof metadata['general.architecture'] === 'string' ? metadata['general.architecture'] : '';
 		result.hasTools ||= /<tools>|tool_calls/.test(chatTemplate);
 		result.hasReasoning ||= /<think>/.test(chatTemplate) || /deepseek/i.test(arch);

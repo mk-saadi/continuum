@@ -2,13 +2,16 @@
 
 const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
 const fs = require('node:fs');
+const path = require('node:path');
+const { getProject } = require('./projectManager');
 const { validateAttachments, attachmentName } = require('./fileUploads');
 const { db } = require('./db');
 const { getSessionAgent } = require('./agentManager');
 const { getCoreMemories } = require('./memoryManager');
 const { nativeTools } = require('./nativeTools');
+const { agentTools, hasProjectWorkspace } = require('./tools/agentTools');
 const {
-  getOrCreateSession, saveMessage, getActiveMessages, getSessionSummary, loadSession, getRegenerationTarget,
+  getOrCreateSession, saveMessage, getActiveMessages, getSessionSummary, getRegenerationTarget,
 } = require('./sessionManager');
 
 const memoryTools = [
@@ -49,6 +52,65 @@ ${coreMemoriesText || (memoryEnabled ? 'No background memories saved yet.' : 'Au
   };
 }
 
+// Read only two entry levels; Dirents deliberately avoid following directory symlinks.
+function workspaceTree(rootPath) {
+  const excluded = new Set(['node_modules', '.git', 'dist', 'build']);
+  function walk(directory, depth, prefix = '') {
+    let entries;
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true })
+        .filter(entry => !excluded.has(entry.name))
+        .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
+    } catch { return []; }
+    return entries.flatMap((entry, index) => {
+      const last = index === entries.length - 1;
+      const line = `${prefix}${last ? '└── ' : '├── '}${entry.name}${entry.isDirectory() ? '/' : ''}`;
+      return [line, ...(entry.isDirectory() && depth > 1
+        ? walk(path.join(directory, entry.name), depth - 1, `${prefix}${last ? '    ' : '│   '}`) : [])];
+    });
+  }
+  return [rootPath, ...walk(rootPath, 2)].join('\n');
+}
+
+function buildProjectContext(sessionId) {
+  const session = db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId);
+  if (!session?.project_id) return '';
+  const project = getProject(session.project_id);
+  const sections = [];
+  if (project.description) sections.push(`[PROJECT GOAL]\n${project.description}`);
+  if (project.custom_instructions) sections.push(`[PROJECT INSTRUCTIONS]\n${project.custom_instructions}`);
+  if (project.files.length) {
+    sections.push(`[PROJECT CONTEXT FILES]\n${project.files.map(file =>
+      `[File: ${file.file_name}]\nPath: ${file.file_path}\n${file.content ?? ''}\n[End of File]`).join('\n\n')}`);
+  }
+  let isDirectory = false;
+  try { isDirectory = !!project.root_path && fs.statSync(project.root_path).isDirectory(); } catch { /* Workspace may be offline. */ }
+  if (isDirectory) {
+    for (const name of ['AGENTS.md', 'PROJECT.md']) {
+      try {
+        const guidelines = fs.readFileSync(path.join(project.root_path, name), 'utf8');
+        sections.push(`[REPOSITORY GUIDELINES]\n${guidelines}`);
+        break;
+      } catch { /* Try the fallback if the preferred file is absent or unreadable. */ }
+    }
+    sections.push(`[WORKSPACE STRUCTURE]\n${workspaceTree(project.root_path)}`);
+  }
+  return sections.join('\n\n');
+}
+
+function buildSessionSystemPrompt({ sessionId, modelId }) {
+  const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+  const prompt = effective.memoryEnabled ? buildSystemPrompt({ modelId }) : { role: 'system', content: '' };
+  const agent = getSessionAgent(sessionId);
+  if (effective.systemPrompt) prompt.content += `\n\n[${agent ? `ACTIVE AGENT: ${agent.name}` : 'ASSISTANT INSTRUCTIONS'}]\n${effective.systemPrompt}`;
+  const projectContext = buildProjectContext(sessionId);
+  if (projectContext) prompt.content += `\n\n${projectContext}`;
+  prompt.content += `\n\n[AUTONOMY RULES]
+CRITICAL: Never output plain status text (e.g., 'Let me check...', 'I will now run...') without invoking a tool call in the same response. You must keep issuing tool calls until the requested objective is fully resolved or you require user clarification.
+When the objective is fully resolved, end your final response with [TASK COMPLETE]. When you need user clarification, end with a direct question and a question mark (?). Do not claim completion before the work is finished.`;
+  return { ...prompt, memoryContext: true };
+}
+
 function prepareChatMessages({ sessionId, modelId, userText, memoryEnabled = true, regenerate = false, attachments = [], regenerateLast = false }) {
   if (typeof regenerate !== 'boolean') throw new TypeError('Invalid regenerate flag.');
   if (!Array.isArray(attachments)) throw new TypeError('attachments must be an array.');
@@ -66,19 +128,18 @@ function prepareChatMessages({ sessionId, modelId, userText, memoryEnabled = tru
     if (regenerateLast) getRegenerationTarget(sessionId);
     else if (!regenerate) saveMessage(sessionId, 'user', userText, attachments);
     else if (getActiveMessages(sessionId).at(-1)?.role !== 'user') throw new Error('No user message to regenerate.');
-    const systemPrompt = buildSystemPrompt({ modelId, memoryEnabled });
-    const agent = getSessionAgent(sessionId);
     const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
-    if (effective.systemPrompt) systemPrompt.content += `\n\n[${agent ? `ACTIVE AGENT: ${agent.name}` : 'ASSISTANT INSTRUCTIONS'}]\n${effective.systemPrompt}`;
-    const summary = regenerateLast ? null : getSessionSummary(sessionId);
-    const activeSessionMessages = (regenerateLast ? loadSession(sessionId).messages.slice(0, -1) : getActiveMessages(sessionId))
+    const systemPrompt = buildSessionSystemPrompt({ sessionId, modelId });
+    const summary = getSessionSummary(sessionId);
+    const activeSessionMessages = (regenerateLast ? getActiveMessages(sessionId).slice(0, -1) : getActiveMessages(sessionId))
+      .filter(message => !message.is_summarized && !message.archived)
       .map(messageForModel);
 
     return prependBaseSystemPrompt([
+      ...(summary ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
       systemPrompt,
-      ...(summary ? [{ role: 'system', content: `Earlier conversation summary:\n${summary}` }] : []),
       ...activeSessionMessages,
-    ]);
+    ], effective.memoryEnabled);
   }).immediate();
 }
 
@@ -106,13 +167,13 @@ function messageForModel({ role, content, attachments = [] }) {
   return { role, content: images.length ? [{ type: 'text', text }, ...images] : text };
 }
 
-function getToolContext(mcpTools = []) {
-  const tools = [...memoryTools.map(({ name, description, input_schema }) => ({
+function getToolContext(mcpTools = [], memoryEnabled = true, sessionId = null) {
+  const tools = [...(memoryEnabled ? memoryTools : []).map(({ name, description, input_schema }) => ({
     type: 'function', function: { name, description, parameters: input_schema },
-  })), ...mcpTools];
+  })), ...(hasProjectWorkspace(sessionId) ? agentTools : []), ...mcpTools].filter(tool => memoryEnabled || !['search_memory', 'save_memory'].includes(tool.function.name));
   // Model tokenizers and chat templates differ; explicitly report an estimate.
   const estimate = value => value.length ? Math.ceil(JSON.stringify(value).length / 4) : 0;
   return { tools, pluginTokens: estimate(mcpTools), toolTokens: estimate(tools), tokenCountMethod: 'characters/4' };
 }
 
-module.exports = { getToolContext, memoryTools, buildSystemPrompt, prepareChatMessages, messageForModel };
+module.exports = { buildProjectContext, buildSessionSystemPrompt, getToolContext, memoryTools, buildSystemPrompt, prepareChatMessages, messageForModel };

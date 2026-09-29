@@ -1,5 +1,5 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ modelId, modelName, displayName, messages, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
+export async function runDesktopChat({ modelId, modelName, displayName, messages, reasoningEffort, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -53,7 +53,7 @@ export async function runDesktopChat({ modelId, modelName, displayName, messages
   };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, memoryEnabled, ...(sessionId ? { sessionId } : {}) });
+    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(sessionId ? { sessionId } : {}) });
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;
     if (result.executionSteps) executionSteps = result.executionSteps;

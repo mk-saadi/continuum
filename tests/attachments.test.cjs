@@ -34,7 +34,7 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.equal(attachments.length, 4);
   assert.equal(new Set(attachments.map(a => a.file_path)).size, 4);
   assert.equal(attachments[0].mime_type, 'image/png');
-  for (const attachment of attachments) assert.equal(path.dirname(attachment.file_path), path.join(userData, 'attachments'));
+  for (const attachment of attachments) assert.equal(path.dirname(attachment.file_path), path.join(userData, 'App_Data', 'attachments'));
   assert.deepEqual(fs.readFileSync(attachments[0].file_path), bytes);
   assert.deepEqual(fs.readFileSync(image), bytes);
 
@@ -61,11 +61,11 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.equal(original.attachments.length, 4);
   sessions.saveMessage('vision', 'assistant', 'A picture');
   const next = prepareChatMessages({sessionId: 'vision', modelId: 'model', userText: 'Follow up'});
-  assert.deepEqual(next[1].content, parts);
+  assert.deepEqual(next.find(message => message.role === 'user').content, parts);
   const edited = sessions.editMessage(original.id, 'Describe again');
   assert.equal(edited.length, 1); assert.equal(edited[0].attachments.length, 4);
   const regenerated = prepareChatMessages({sessionId: 'vision', modelId: 'model', userText: 'Describe again', regenerate: true});
-  assert.equal(regenerated[1].content[1].image_url.url, parts[1].image_url.url);
+  assert.equal(regenerated.find(message => message.role === 'user').content[1].image_url.url, parts[1].image_url.url);
   assert.equal(sessions.loadSession('vision').messages.length, 1);
 
   const plain = prepareChatMessages({sessionId: 'text', modelId: 'model', userText: 'Read this', attachments: [attachments[1]]});
@@ -113,14 +113,14 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.equal(sessions.loadSession('vision').messages.length, 1);
   await assert.rejects(processUploads([path.join(directory, 'no.exe')]), /Supported attachments/);
   await assert.rejects(processUploads(Array(11).fill(text)), /at most 10/);
-  const before = fs.readdirSync(path.join(userData, 'attachments')).sort();
+  const before = fs.readdirSync(path.join(userData, 'App_Data', 'attachments')).sort();
   const copy = fs.promises.copyFile;
   let copies = 0;
   try {
    fs.promises.copyFile = async (...args) => { if (++copies === 2) throw new Error('Copy failure'); return copy(...args); };
    await assert.rejects(processUploads([text, markdown]), /Copy failure/);
   } finally { fs.promises.copyFile = copy; }
-  assert.deepEqual(fs.readdirSync(path.join(userData, 'attachments')).sort(), before);
+  assert.deepEqual(fs.readdirSync(path.join(userData, 'App_Data', 'attachments')).sort(), before);
   sessions.deleteSession('vision');
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM message_attachments').get().n, 1);
   dispose();

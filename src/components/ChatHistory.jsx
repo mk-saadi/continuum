@@ -5,6 +5,7 @@ import {
 	FiChevronDown,
 	FiChevronRight,
 	FiEdit2,
+	FiDownload,
 	FiFolder,
 	FiFolderPlus,
 	FiMessageSquare,
@@ -24,7 +25,7 @@ const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximu
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
 	const dialog = useRef(null);
 	const [value, setValue] = useState(
-		action.kind === "Rename"
+		action.kind === "Export Chat..." ? "json" : action.kind === "Rename"
 			? action.session.title || ""
 			: action.kind === "Move to Folder"
 				? action.session.folder_name || UNASSIGNED
@@ -70,7 +71,19 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						<FiX />
 					</button>
 				</div>
-				{action.kind === "Delete" ? (
+				{action.kind === "Export Chat..." ? (
+                    <fieldset disabled={busy || disabled} className="space-y-2">
+                        <legend className="mb-2 text-sm">Export “{action.session.title || 'Untitled chat'}”</legend>
+                        <p className="mb-3 text-xs text-[var(--text-muted)]">Includes all saved messages, metadata, and regenerated replies.</p>
+                        {[['json', 'JSON'], ['markdown', 'Markdown'], ['text', 'Plain Text']].map(([format, label]) => (
+                            <label key={format} className={`${buttonStyle} cursor-pointer`}>
+                                <input type="radio" name="export-format" value={format} checked={value === format}
+                                    onChange={() => setValue(format)} className="accent-[var(--accent)]" />
+                                {label}
+                            </label>
+                        ))}
+                    </fieldset>
+                ) : action.kind === "Delete" ? (
 					<p className="text-sm text-[var(--text-secondary)]">
 						Delete “{action.session.title || "Untitled chat"}” and all its messages?
 					</p>
@@ -142,7 +155,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					>
 						{busy
 							? "Saving…"
-							: action.kind === "Move to Folder"
+							: action.kind === "Export Chat..." ? "Export" : action.kind === "Move to Folder"
 								? "Move chat"
 								: action.kind === "New Folder"
 									? "Create folder"
@@ -164,6 +177,12 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 	const [action, setAction] = useState(null);
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [toast, setToast] = useState(null);
+	useEffect(() => {
+		if (!toast) return;
+		const timer = setTimeout(() => setToast(null), 4500);
+		return () => clearTimeout(timer);
+	}, [toast]);
 	const [dropTarget, setDropTarget] = useState(null);
 	const menuRef = useRef(null);
 	const menuTrigger = useRef(null);
@@ -232,7 +251,7 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 		setMenu({
 			session,
 			left: Math.max(8, Math.min(rect.right - 184, window.innerWidth - 192)) + window.scrollX,
-			top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 132)) + window.scrollY,
+			top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 176)) + window.scrollY,
 		});
 	}
 	function choose(kind) {
@@ -244,8 +263,16 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 		if (locked) return;
 		setBusy(true);
 		setError("");
+		if (kind === 'Export Chat...') setToast(null);
 		try {
-			await onAction(kind, id, value);
+			if (kind === 'Export Chat...') {
+                if (!window.api?.exportChat) throw new Error('Chat export is available in the desktop app.');
+                const result = await window.api.exportChat(id, value);
+                if (!result?.canceled) {
+                    if (!result?.success) throw new Error(result?.error || 'Could not export chat.');
+                    setToast({ text: 'Chat exported successfully.', error: false });
+                }
+            } else await onAction(kind, id, value);
 			if (kind === "Move to Folder" || kind === "New Folder")
 				setCollapsed((current) => {
 					const next = new Set(current);
@@ -255,6 +282,7 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 			setAction(null);
 		} catch (err) {
 			setError(err.message);
+			if (kind === 'Export Chat...') setToast({ text: err.message, error: true });
 		} finally {
 			setBusy(false);
 		}
@@ -476,6 +504,7 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 						{[
 							[FiEdit2, "Rename"],
 							[FiFolder, "Move to Folder"],
+							[FiDownload, "Export Chat..."],
 							[FiTrash2, "Delete"],
 						].map(([Icon, kind]) => (
 							<button
@@ -492,6 +521,10 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 					</div>,
 					document.body,
 				)}
+			{toast && createPortal(<div role={toast.error ? 'alert' : 'status'}
+                className="fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-xl">
+                {toast.text}
+            </div>, document.body)}
 			{action && (
 				<ActionDialog
 					action={action}

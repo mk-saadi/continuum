@@ -1,3 +1,4 @@
+import { PNG_BASE64, JPEG_BASE64 } from './fixtures/visionImages.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runMemoryChat } from '../src/lib/memoryChat.mjs';
@@ -19,7 +20,7 @@ function stream(chunks) {
 test('fragmented save/search calls return matching tool results before the final reply', async () => {
   const requests = [], executed = [];
   let output = '';
-  const text = await runMemoryChat({ ...base,
+  const text = await runMemoryChat({ ...base, reasoningEffort: 'low',
     onText: (delta) => { output += delta; },
     executeTool: async (call) => {
       executed.push(call);
@@ -33,10 +34,11 @@ test('fragmented save/search calls return matching tool results before the final
           { index: 1, id: 'search1', function: { name: 'search_memory', arguments: '{"query":"pnpm"}' } }] }),
         chunk({}, 'tool_calls'),
       ]);
-      return stream([chunk({ content: 'Got it — pnpm.' }), chunk({}, 'stop')]);
+      return stream([chunk({ content: 'Got it — pnpm. [TASK COMPLETE]' }), chunk({}, 'stop')]);
     },
   });
-  assert.equal(text, 'Got it — pnpm.');
+  assert.equal(text, 'Got it — pnpm. [TASK COMPLETE]');
+  assert.ok(requests.every(request => request.chat_template_kwargs.reasoning_effort === 'low'));
   assert.equal(output, text);
   assert.equal(executed.length, 2);
   assert.equal(JSON.parse(executed[0].arguments).always_inject, true);
@@ -133,7 +135,7 @@ test('stats include all memory tool rounds', async () => {
     fetchImpl: async () => stream([
       ++requests === 1
         ? chunk({ tool_calls: [{ index: 0, id: 'search', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')
-        : chunk({ content: 'Answer' }, 'stop'),
+        : chunk({ content: 'Answer [TASK COMPLETE]' }, 'stop'),
       { choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } },
     ]),
   });
@@ -151,10 +153,10 @@ test('structured reasoning accumulates across tool rounds separately from answer
         chunk({ tool_calls: [{ index: 0, id: 'search', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls'),
       ]);
       assert.equal(JSON.parse(options.body).messages[1].content, null);
-      return stream([chunk({ reasoning: 'Use the result.' }), chunk({ content: 'Answer' }, 'stop')]);
+      return stream([chunk({ reasoning: 'Use the result.' }), chunk({ content: 'Answer [TASK COMPLETE]' }, 'stop')]);
     },
   });
-  assert.equal(text, 'Answer');
+  assert.equal(text, 'Answer [TASK COMPLETE]');
   assert.equal(thinking.text, 'Check memory.\n\nUse the result.');
   assert.ok(thinking.duration > 0);
 });
@@ -162,9 +164,9 @@ test('structured reasoning accumulates across tool rounds separately from answer
 test('fragmented think tags and JSON completions preserve thinking without leaking it into the answer', async () => {
   let thinking;
   let result = await runMemoryChat({ ...base, onThinking: value => { thinking = value; },
-    fetchImpl: async () => stream([chunk({ content: '<thi' }), chunk({ content: 'nk>Reason' }), chunk({ content: 'ing</th' }), chunk({ content: 'ink>Answer' }, 'stop')]),
+    fetchImpl: async () => stream([chunk({ content: '<thi' }), chunk({ content: 'nk>Reason' }), chunk({ content: 'ing</th' }), chunk({ content: 'ink>Answer [TASK COMPLETE]' }, 'stop')]),
   });
-  assert.equal(result, 'Answer');
+  assert.equal(result, 'Answer [TASK COMPLETE]');
   assert.equal(thinking.text, 'Reasoning');
   result = await runMemoryChat({ ...base, onThinking: value => { thinking = value; }, fetchImpl: async () => Response.json({ choices: [{ message: { reasoning_content: 'JSON reasoning', content: 'JSON answer' }, finish_reason: 'stop' }] }) });
   assert.equal(result, 'JSON answer');
@@ -185,7 +187,7 @@ test('interrupted reasoning publishes partial text and duration for persistence'
 test('timings on a stop chunk provide counts and generation speed without usage', async () => {
   let stats;
   await runMemoryChat({ ...base, onStats: value => { stats = value; }, fetchImpl: async () => stream([
-    { ...chunk({ content: 'Answer' }, 'stop'), timings: { prompt_n: 8, cache_n: 2, predicted_n: 20, predicted_ms: 500, predicted_per_second: 40 } },
+    { ...chunk({ content: 'Answer [TASK COMPLETE]' }, 'stop'), timings: { prompt_n: 8, cache_n: 2, predicted_n: 20, predicted_ms: 500, predicted_per_second: 40 } },
   ]) });
   assert.equal(stats.promptTokens, 10);
   assert.equal(stats.completionTokens, 20);
@@ -197,7 +199,7 @@ test('timings on a stop chunk provide counts and generation speed without usage'
 test('partial usage trailers merge without erasing counters or double-counting snapshots', async () => {
   let stats;
   await runMemoryChat({ ...base, onStats: value => { stats = value; }, fetchImpl: async () => stream([
-    { ...chunk({ content: 'Answer' }, 'stop'), usage: { prompt_tokens: 12 } },
+    { ...chunk({ content: 'Answer [TASK COMPLETE]' }, 'stop'), usage: { prompt_tokens: 12 } },
     { choices: [], usage: { prompt_tokens: null, completion_tokens: 5 } },
     { choices: [], usage: { completion_tokens: 5, total_tokens: 17 }, timings: { predicted_ms: 100 } },
     { choices: [], usage: {}, timings: { predicted_ms: null } },
@@ -212,7 +214,7 @@ test('final answer stats survive a tool phase with no reported usage', async () 
   let requests = 0, stats;
   await runMemoryChat({ ...base, onStats: value => { stats = value; }, executeTool: async () => ({}), fetchImpl: async () => {
     if (++requests === 1) return stream([chunk({ tool_calls: [{ index: 0, id: 'tool', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')]);
-    return stream([chunk({ content: 'Final' }, 'stop'), { choices: [], usage: { prompt_tokens: 15, completion_tokens: 5 }, timings: { predicted_ms: 250 } }]);
+    return stream([chunk({ content: 'Final [TASK COMPLETE]' }, 'stop'), { choices: [], usage: { prompt_tokens: 15, completion_tokens: 5 }, timings: { predicted_ms: 250 } }]);
   } });
   assert.equal(stats.scope, 'final');
   assert.equal(stats.totalTokens, 20);
@@ -226,7 +228,7 @@ test('complete phase metrics sum counts and weight speed by generation duration'
       chunk({ tool_calls: [{ index: 0, id: 'tool', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls'),
       { choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 }, timings: { predicted_ms: 500 } },
     ]);
-    return stream([chunk({ content: 'Final' }, 'stop'), { choices: [], usage: { prompt_tokens: 20, completion_tokens: 15 }, timings: { predicted_ms: 500 } }]);
+    return stream([chunk({ content: 'Final [TASK COMPLETE]' }, 'stop'), { choices: [], usage: { prompt_tokens: 20, completion_tokens: 15 }, timings: { predicted_ms: 500 } }]);
   } });
   assert.equal(stats.totalTokens, 50);
   assert.equal(stats.completionTokens, 20);
@@ -271,7 +273,7 @@ test('request sanitization normalizes native history and pairs missing IDs witho
     assert.deepEqual(sent[4], { role: 'tool', tool_call_id: 'call_1', content: '""' });
     assert.equal(sent[5].content, '{"text":"Saved"}');
     assert.equal(sent[6].content, null);
-    return stream([chunk({ content: 'Done' }, 'stop')]);
+    return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
   } });
   assert.deepEqual(messages, original);
 });
@@ -283,7 +285,7 @@ test('undefined tool output is serialized on the next tool round', async () => {
       chunk({ tool_calls: [{ index: 0, id: 'search', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls'),
     ]);
     assert.deepEqual(JSON.parse(options.body).messages.at(-1), { role: 'tool', tool_call_id: 'search', content: '""' });
-    return stream([chunk({ content: 'Done' }, 'stop')]);
+    return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
   } });
 });
 
@@ -310,7 +312,7 @@ test('HTTP failures log the complete response body and exact formatted request p
 });
 
 test('optimized image content parts remain multimodal in the request', async () => {
-  const content = [{ type: 'text', text: 'Describe' }, { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,/9j/' } }];
+  const content = [{ type: 'text', text: 'Describe' }, { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${JPEG_BASE64}` } }];
   await runMemoryChat({ ...base, messages: [...base.messages, { role: 'user', content }],
     fetchImpl: async (_url, options) => {
       assert.deepEqual(JSON.parse(options.body).messages.at(-1).content, content);
@@ -356,7 +358,7 @@ test('sampling defaults and live session overrides reach every tool round', asyn
       }
       assert.equal(payload.temperature, 1.2); assert.equal(payload.top_p, 0.9);
       assert.equal(payload.top_k, 40); assert.equal(payload.repeat_penalty, 1.1); assert.equal(payload.max_tokens, -1);
-      return stream([chunk({ content: 'Done' }, 'stop')]);
+      return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
     },
   });
   assert.equal(reads, 2);
@@ -375,10 +377,10 @@ test('execution timeline interleaves thought/tool cycles with parsed arguments a
         chunk({ content: '<thi' }), chunk({ content: `nk>Reason ${round}` }), chunk({ content: '</think>' }),
         chunk({ tool_calls: [{ index: 0, id: `call-${round}`, function: { name: 'search_memory', arguments: '{"query":"test"}' } }] }, 'tool_calls'),
       ]);
-      return stream([chunk({ reasoning_content: 'Done thinking' }), chunk({ content: 'Final answer' }, 'stop')]);
+      return stream([chunk({ reasoning_content: 'Done thinking' }), chunk({ content: 'Final answer [TASK COMPLETE]' }, 'stop')]);
     },
   });
-  assert.equal(result, 'Final answer');
+  assert.equal(result, 'Final answer [TASK COMPLETE]');
   const steps = snapshots.at(-1);
   assert.deepEqual(steps.map(step => step.type), ['thought', 'tool_call', 'thought', 'tool_call', 'thought']);
   assert.deepEqual(steps.filter(step => step.type === 'thought').map(step => step.content), ['Reason 1', 'Reason 2', 'Done thinking']);
@@ -432,10 +434,65 @@ test('every tool round sends one leading system message without mutating session
       if (++round === 1) return stream([chunk({ tool_calls: [{ index: 0, id: 'call', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')]);
       assert.equal(sent[2].role, 'assistant');
       assert.equal(sent[3].role, 'tool');
-      return stream([chunk({ content: 'Done' }, 'stop')]);
+      return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
     },
   });
   assert.equal(round, 2);
   assert.equal(messages.length, 4);
   assert.equal(messages[0].content, 'Base instructions');
+});
+
+test('reasoning effort varies per request and is omitted when unsupported', async () => {
+  const bodies = [];
+  for (const reasoningEffort of ['low', 'high', undefined]) {
+    await runMemoryChat({ ...base, reasoningEffort, fetchImpl: async (_url, request) => {
+      bodies.push(JSON.parse(request.body));
+      return stream([chunk({ content: 'Answer [TASK COMPLETE]' }), chunk({}, 'stop')]);
+    } });
+  }
+  assert.deepEqual(bodies.map(body => body.chat_template_kwargs), [
+    { reasoning_effort: 'low' }, { reasoning_effort: 'high' }, undefined,
+  ]);
+});
+
+
+test('thinking budget aliases use resolved limits and omit max_thinking_tokens for unlimited', async () => {
+  for (const [budget, context, expected] of [[-1, 8192, -1], [4096, 8192, 4096], [32768, 8192, 6144], [4096, 4353, 2304]]) {
+    let payload;
+    await runMemoryChat({ ...base, loadedContextSize: context,
+      samplingParams: { thinking_budget: 256 }, getSamplingParams: async () => ({ thinking_budget: budget }),
+      fetchImpl: async (_url, request) => {
+        payload = JSON.parse(request.body);
+        return stream([chunk({ content: 'OK' }), chunk({}, 'stop')]);
+      },
+    });
+    assert.equal(payload.thinking_budget, expected);
+    assert.equal(payload.reasoning_budget, expected);
+    if (expected > 0) assert.equal(payload.max_thinking_tokens, expected);
+    else assert.equal(Object.hasOwn(payload, 'max_thinking_tokens'), false);
+  }
+  await assert.rejects(runMemoryChat({ ...base, loadedContextSize: 2048,
+    samplingParams: { thinking_budget: 256 }, fetchImpl: () => assert.fail('Must reject before fetch'),
+  }), /context is too small/);
+});
+
+test('screenshot tools in user compatibility mode send image content after all tool replies', async () => {
+  const requests = [];
+  const image = { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG_BASE64}` } };
+  await runMemoryChat({ ...base, toolImageMode: 'user',
+    chatTools: [{ type: 'function', function: { name: 'take_screenshot', parameters: { type: 'object' } } }],
+    executeTool: async () => image,
+    fetchImpl: async (_url, request) => {
+      requests.push(JSON.parse(request.body));
+      return requests.length === 1 ? stream([
+        chunk({ tool_calls: [{ index: 0, id: 'screen1', function: { name: 'take_screenshot', arguments: '{}' } }] }),
+        chunk({}, 'tool_calls'),
+      ]) : stream([chunk({ content: 'I see the screen. [TASK COMPLETE]' }), chunk({}, 'stop')]);
+    },
+  });
+  const messages = requests[1].messages;
+  assert.equal(messages.at(-2).role, 'tool');
+  assert.ok(!messages.at(-2).content.includes('base64'));
+  assert.equal(messages.at(-1).role, 'user');
+  assert.deepEqual(messages.at(-1).content[1], image);
 });

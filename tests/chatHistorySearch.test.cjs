@@ -18,13 +18,29 @@ try {
   db.prepare('INSERT INTO sessions(id) VALUES (?)').run('old');
   db.prepare('INSERT INTO sessions(id) VALUES (?)').run('new');
   const insert = db.prepare('INSERT INTO messages(session_id, role, content, archived) VALUES (?, ?, ?, ?)');
-  insert.run('old', 'user', 'Discussed lunar gardening', 1);
-  insert.run('new', 'assistant', 'Lunar gardening needs water', 0);
+  const oldId = insert.run('old', 'user', 'Discussed lunar gardening', 1).lastInsertRowid;
+  const newId = insert.run('new', 'assistant', 'Lunar gardening needs water', 0).lastInsertRowid;
   assert.deepEqual(searchChatHistory('lunar gardening'), [
-    { session_id: 'old', role: 'user', content: 'Discussed lunar gardening' },
-    { session_id: 'new', role: 'assistant', content: 'Lunar gardening needs water' },
+    { id: oldId, session_id: 'old', role: 'user', excerpt: 'Discussed [MATCH]lunar[/MATCH] [MATCH]gardening[/MATCH]' },
+    { id: newId, session_id: 'new', role: 'assistant', excerpt: '[MATCH]Lunar[/MATCH] [MATCH]gardening[/MATCH] needs water' },
   ]);
   assert.equal(searchChatHistory('"lunar gardening"').length, 2);
+  assert.equal(searchChatHistory('gard lunar').length, 2);
+  assert.equal(searchChatHistory('"gard*" (lunar)!').length, 2);
+  assert.deepEqual(searchChatHistory('*** () : + -'), []);
+  const massive = 'irrelevant '.repeat(2000) + 'Python tracing found memory allocation leaks yesterday. ' + 'unrelated '.repeat(2000);
+  const massiveId = insert.run('old', 'user', massive, 0).lastInsertRowid;
+  const snippets = searchChatHistory('leaks Python memory');
+  assert.equal(snippets.length, 1);
+  assert.equal(snippets[0].id, massiveId);
+  assert.equal(Object.hasOwn(snippets[0], 'content'), false);
+  assert.ok(snippets[0].excerpt.length < 1200);
+  assert.match(snippets[0].excerpt, /\[MATCH\]Python\[\/MATCH\]/);
+  assert.match(snippets[0].excerpt, /\[MATCH\]memory\[\/MATCH\]/);
+  assert.match(snippets[0].excerpt, /\[MATCH\]leaks\[\/MATCH\]/);
+  assert.deepEqual(searchChatHistory('Python absentkeyword'), []);
+  assert.ok(searchMemory('leaks Python memory', 'model').length < 1400);
+
   for (const query of ['', '  ', '"', 'missing', 'lunar OR missing', "' OR 1=1 --"]) {
     assert.deepEqual(searchChatHistory(query), []);
   }
@@ -32,7 +48,7 @@ try {
     assert.throws(() => searchChatHistory(query), TypeError);
   }
   for (let i = 0; i < 12; i++) insert.run('old', 'user', `orchard note ${i}`, 0);
-  assert.equal(searchChatHistory('orchard').length, 10);
+  assert.equal(searchChatHistory('orchard').length, 5);
   assert.ok(!getToolContext().tools.some(tool => tool.function.name === 'search_chat_history'));
   const tools = getToolContext().tools.filter(tool => tool.function.name === 'search_memory');
   assert.equal(tools.length, 1);
@@ -59,8 +75,8 @@ try {
   assert.throws(() => searchMemory('lunar', ''), TypeError);
   const result = executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: '{"query":"lunar"}' });
   assert.equal(result, combined);
-  assert.match(result, /\[Session: old\] user:\nDiscussed lunar gardening/);
-  assert.match(result, /\[Session: new\] assistant:\nLunar gardening needs water/);
+  assert.match(result, /\[Session: old\] user:\nDiscussed \[MATCH\]lunar\[\/MATCH\] gardening/);
+  assert.match(result, /\[Session: new\] assistant:\n\[MATCH\]Lunar\[\/MATCH\] gardening needs water/);
   assert.equal(executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'missing' } }),
     'Facts found:\nNone.\n\nPast Chat Context found:\nNone.');
   db.prepare('DELETE FROM messages WHERE session_id = ?').run('old');

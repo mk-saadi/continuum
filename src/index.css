@@ -7,30 +7,32 @@
 /* Named dark palettes also activate Tailwind dark: utilities. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="lilac-dark"], [data-theme="lilac-dark"] *, [data-theme="matcha-dark"], [data-theme="matcha-dark"] *, [data-theme="ember-dark"], [data-theme="ember-dark"] *));
 
-/* Your original dark palette, unchanged. */
+/* Original Dark Palette: Solarized Cyan/Teal (Refined with distinct elevations) */
 :root,
 [data-theme="dark"] {
-	--bg-primary: #002b36;
-	--bg-secondary: #073642;
-	--bg-tertiary: #0a4552;
-	--bg-input: #073642;
+	--bg-primary: #00212b;
+	--bg-secondary: #002b36;
+	--bg-tertiary: #05333f;
+	--bg-input: #0a3d4a;
 	--text-primary: #92a1a1;
-	--text-secondary: #93a1a1;
+	--text-secondary: #839496;
+	--text-muted: #657b83;
 	--accent: #268bd2;
 	--accent-hover: #2aa198;
-	--border: #0a4552;
+	--border: #14505f;
+	--subtle-border: #0e3d4a;
+	--control-border: #1e6375;
 	--error: #dc322f;
 	--shadow: rgba(0, 0, 0, 0.5);
-	--surface: #002b36;
-	--surface-raised: #073642;
-	--input: #073642;
-	--surface-hover: #0a4552;
-	--terminal: #002b36;
-	--scrollbar-track: #073642;
+	--surface: #073642;
+	--surface-raised: #0d404d;
+	--input: #0a3d4a;
+	--surface-hover: #124c5b;
+	--terminal: #001d26;
+	--scrollbar-track: #002b36;
 	--scrollbar-thumb: #586e75;
-	--text-muted: #839496;
 	--terminal-text: #92a1a1;
-	--user-bubble: #0a4552;
+	--user-bubble: #0e4554;
 	--error-soft: #f27470;
 	--error-strong: #dc322f;
 	--danger-hover: #dc322f;
@@ -38,17 +40,15 @@
 	--edit-border: #93a1a1;
 	--edit-bg: #93a1a122;
 	--attachment-border: #93a1a166;
-	--control-border: #93a1a166;
 	--window-shadow: #00000031;
 	--on-accent: #ffffff;
-	--active-chat: #93a1a144;
+	--active-chat: #155060;
 	--link: #6ab5e5;
-	--inline-code-bg: #93a1a122;
-	--subtle-border: #93a1a133;
+	--inline-code-bg: #093946;
 	--tool-border: #2aa19866;
-	--table-header-bg: #0d4052;
-	--code-bg: #0b303a;
-	--code-border: #93a1a12e;
+	--table-header-bg: #0b3a47;
+	--code-bg: #001921;
+	--code-border: #14505f;
 	--code-button-hover: #2aa19833;
 	--code-text: #c5d2d0;
 	--code-muted: #93a1a1;
@@ -60,29 +60,31 @@
 	--code-function: #b9cee5;
 }
 
-/* First Mochi screenshot: warm ivory, soft blush, rose pink. */
+/* Mochi: Warm Ivory & Soft Rose */
 [data-theme="light"] {
-	--bg-primary: #fbf8f4;
-	--bg-secondary: #fffaf6;
-	--bg-tertiary: #f6f1ec;
-	--bg-input: #fffdfa;
+	--bg-primary: #f7f2eb;
+	--bg-secondary: #efe6dc;
+	--bg-tertiary: #e4d7ca;
+	--bg-input: #fbf7f3;
 	--text-primary: #302e39;
 	--text-secondary: #655f6b;
+	--text-muted: #827d88;
 	--accent: #ed769b;
 	--accent-hover: #dc638a;
-	--border: #eee5df;
+	--border: #e2d1c5;
+	--subtle-border: #eedecf;
+	--control-border: #d4bfb2;
 	--error: #cf4b62;
 	--shadow: rgba(119, 98, 106, 0.09);
-	--surface: #fffdfa;
-	--surface-raised: #ffffff;
-	--input: #fffdfa;
-	--surface-hover: #f6f1ec;
-	--terminal: #f7f3ee;
-	--scrollbar-track: #f6f1ec;
+	--surface: #ffffff;
+	--surface-raised: #fffdfa;
+	--input: #fbf7f3;
+	--surface-hover: #f3e6dc;
+	--terminal: #f4eee7;
+	--scrollbar-track: #efe6dc;
 	--scrollbar-thumb: #d5c8c9;
-	--text-muted: #827d88;
 	--terminal-text: #302e39;
-	--user-bubble: #fce8e9;
+	--user-bubble: #fce4eb;
 	--error-soft: #d96879;
 	--error-strong: #bd384e;
 	--danger-hover: #ae334b;
@@ -90,17 +92,15 @@
 	--edit-border: #d4bec6;
 	--edit-bg: #ed769b17;
 	--attachment-border: #e8c3cd;
-	--control-border: #dfd3d2;
 	--window-shadow: #77626a22;
 	--on-accent: #ffffff;
-	--active-chat: #fff0f3;
+	--active-chat: #fad8e2;
 	--link: #a74872;
-	--inline-code-bg: #f4edf0;
-	--subtle-border: #eee5df;
+	--inline-code-bg: #f4e8e2;
 	--tool-border: #bba3dc88;
-	--table-header-bg: #f7eef2;
-	--code-bg: #fbf7f5;
-	--code-border: #e8dfe0;
+	--table-header-bg: #f5e8e1;
+	--code-bg: #faf4ee;
+	--code-border: #e2d1c5;
 	--code-button-hover: #f5e8ef;
 	--code-text: #35313d;
 	--code-muted: #827d88;
@@ -112,29 +112,31 @@
 	--code-function: #5d759c;
 }
 
-/* Lilac Lounge: light. */
+/* Lilac Lounge: Light */
 [data-theme="lilac"] {
-	--bg-primary: #faf7fe;
-	--bg-secondary: #fffaff;
-	--bg-tertiary: #f3edf9;
-	--bg-input: #ffffff;
+	--bg-primary: #f6f0fc;
+	--bg-secondary: #ece0f7;
+	--bg-tertiary: #dfccf0;
+	--bg-input: #fbf8fe;
 	--text-primary: #302b42;
 	--text-secondary: #655d73;
+	--text-muted: #827b90;
 	--accent: #956bd2;
 	--accent-hover: #8055bd;
-	--border: #eae2f0;
+	--border: #d8c2ea;
+	--subtle-border: #e8d7f7;
+	--control-border: #c9aee2;
 	--error: #ca506d;
 	--shadow: rgba(109, 69, 131, 0.11);
 	--surface: #ffffff;
-	--surface-raised: #ffffff;
-	--input: #ffffff;
-	--surface-hover: #f3edf9;
-	--terminal: #f7f2fc;
-	--scrollbar-track: #f3edf9;
+	--surface-raised: #fcfaff;
+	--input: #fbf8fe;
+	--surface-hover: #e9daf7;
+	--terminal: #f3e9fa;
+	--scrollbar-track: #ece0f7;
 	--scrollbar-thumb: #cbb9df;
-	--text-muted: #827b90;
 	--terminal-text: #302b42;
-	--user-bubble: #eee0fb;
+	--user-bubble: #e8d1fa;
 	--error-soft: #d97188;
 	--error-strong: #b8415c;
 	--danger-hover: #ab3752;
@@ -142,17 +144,15 @@
 	--edit-border: #cbb9df;
 	--edit-bg: #956bd21c;
 	--attachment-border: #cab5df;
-	--control-border: #d8cbe2;
 	--window-shadow: #6d458326;
 	--on-accent: #ffffff;
-	--active-chat: #f1e7fa;
+	--active-chat: #e2c5f8;
 	--link: #7449aa;
-	--inline-code-bg: #f0eaf6;
-	--subtle-border: #eae2f0;
+	--inline-code-bg: #f0e2f9;
 	--tool-border: #956bd277;
-	--table-header-bg: #f0e9f7;
-	--code-bg: #f9f6fc;
-	--code-border: #e5dced;
+	--table-header-bg: #f0e1fa;
+	--code-bg: #f9f2fc;
+	--code-border: #d8c2ea;
 	--code-button-hover: #ede2f5;
 	--code-text: #302b42;
 	--code-muted: #827b90;
@@ -164,29 +164,31 @@
 	--code-function: #5c70a5;
 }
 
-/* Lilac Lounge: dark. */
+/* Lilac Lounge: Dark */
 [data-theme="lilac-dark"] {
-	--bg-primary: #1d1925;
-	--bg-secondary: #272131;
-	--bg-tertiary: #3b3148;
-	--bg-input: #2b2636;
+	--bg-primary: #15101d;
+	--bg-secondary: #1f192b;
+	--bg-tertiary: #2a2238;
+	--bg-input: #292135;
 	--text-primary: #f7f1fa;
 	--text-secondary: #d0c2db;
+	--text-muted: #b6a9c4;
 	--accent: #c5a1f3;
 	--accent-hover: #d2b5fa;
-	--border: #493c55;
+	--border: #493b5d;
+	--subtle-border: #382c49;
+	--control-border: #5b4a73;
 	--error: #ed7c91;
 	--shadow: rgba(9, 5, 18, 0.48);
-	--surface: #2b2636;
-	--surface-raised: #342c40;
-	--input: #2b2636;
-	--surface-hover: #3b3148;
-	--terminal: #211c2b;
-	--scrollbar-track: #272131;
+	--surface: #251e30;
+	--surface-raised: #2e263d;
+	--input: #292135;
+	--surface-hover: #382d49;
+	--terminal: #1a1424;
+	--scrollbar-track: #1f192b;
 	--scrollbar-thumb: #78648a;
-	--text-muted: #b6a9c4;
 	--terminal-text: #f7f1fa;
-	--user-bubble: #463552;
+	--user-bubble: #413054;
 	--error-soft: #f19cad;
 	--error-strong: #eb7087;
 	--danger-hover: #f195a6;
@@ -194,17 +196,15 @@
 	--edit-border: #8e77a2;
 	--edit-bg: #c5a1f326;
 	--attachment-border: #9278a8;
-	--control-border: #796684;
 	--window-shadow: #09051288;
 	--on-accent: #201727;
-	--active-chat: #453652;
+	--active-chat: #4d3863;
 	--link: #d6b9ff;
-	--inline-code-bg: #3b3148;
-	--subtle-border: #493c55;
+	--inline-code-bg: #2d243b;
 	--tool-border: #c5a1f388;
-	--table-header-bg: #3b3148;
-	--code-bg: #211d2b;
-	--code-border: #584a64;
+	--table-header-bg: #2e253e;
+	--code-bg: #181222;
+	--code-border: #493b5d;
 	--code-button-hover: #4b3a5f;
 	--code-text: #f0e8f4;
 	--code-muted: #b6a9c4;
@@ -216,29 +216,32 @@
 	--code-function: #b7c8ef;
 }
 
-/* Matcha Notebook: light. */
+/* Matcha Notebook: Light */
 [data-theme="matcha"] {
-	--bg-primary: #f1f8f1;
-	--bg-secondary: #f9fdf9;
-	--bg-tertiary: #e4f3e9;
-	--bg-input: #fffefa;
+	--bg-primary: #edf6ee;
+	--bg-secondary: #dedebd;
+	--bg-secondary: #dfefe1;
+	--bg-tertiary: #cee4d2;
+	--bg-input: #f7fcf8;
 	--text-primary: #213e38;
 	--text-secondary: #486a5f;
+	--text-muted: #69827a;
 	--accent: #268c70;
 	--accent-hover: #1e755e;
-	--border: #d2e5d8;
+	--border: #bcdcbf;
+	--subtle-border: #d2ebd8;
+	--control-border: #a3ccaa;
 	--error: #c35060;
 	--shadow: rgba(41, 104, 84, 0.09);
-	--surface: #fffefa;
-	--surface-raised: #ffffff;
-	--input: #fffefa;
-	--surface-hover: #e4f3e9;
-	--terminal: #eef7ee;
-	--scrollbar-track: #e4f3e9;
+	--surface: #ffffff;
+	--surface-raised: #f8fdf9;
+	--input: #f7fcf8;
+	--surface-hover: #dbeedc;
+	--terminal: #e7f3e8;
+	--scrollbar-track: #dfefe1;
 	--scrollbar-thumb: #a7cbb5;
-	--text-muted: #69827a;
 	--terminal-text: #213e38;
-	--user-bubble: #dff2e4;
+	--user-bubble: #d2ebd7;
 	--error-soft: #d6747f;
 	--error-strong: #af4052;
 	--danger-hover: #a6394b;
@@ -246,17 +249,15 @@
 	--edit-border: #a5c6b1;
 	--edit-bg: #268c701a;
 	--attachment-border: #a8d3b9;
-	--control-border: #bcd8c5;
 	--window-shadow: #29685422;
 	--on-accent: #ffffff;
-	--active-chat: #e4f3e9;
+	--active-chat: #c6e9cd;
 	--link: #1d765e;
-	--inline-code-bg: #e6f2e9;
-	--subtle-border: #d2e5d8;
+	--inline-code-bg: #dfefe2;
 	--tool-border: #268c7077;
-	--table-header-bg: #e4f3e9;
-	--code-bg: #f4faf3;
-	--code-border: #d2e5d8;
+	--table-header-bg: #e1f1e3;
+	--code-bg: #f2f9f3;
+	--code-border: #bcdcbf;
 	--code-button-hover: #daf0e3;
 	--code-text: #213e38;
 	--code-muted: #69827a;
@@ -268,29 +269,31 @@
 	--code-function: #416d9a;
 }
 
-/* Matcha Notebook: dark. */
+/* Matcha Notebook: Dark */
 [data-theme="matcha-dark"] {
-	--bg-primary: #14231f;
-	--bg-secondary: #1c3029;
-	--bg-tertiary: #2a493b;
-	--bg-input: #20382f;
+	--bg-primary: #0d1916;
+	--bg-secondary: #142520;
+	--bg-tertiary: #1d352d;
+	--bg-input: #1f372f;
 	--text-primary: #edfff4;
 	--text-secondary: #c4ddcc;
+	--text-muted: #b0cbbd;
 	--accent: #8bdcb4;
 	--accent-hover: #a6ecc8;
-	--border: #365744;
+	--border: #365947;
+	--subtle-border: #284437;
+	--control-border: #446e59;
 	--error: #ef8190;
 	--shadow: rgba(5, 19, 11, 0.48);
-	--surface: #20382f;
-	--surface-raised: #294537;
-	--input: #20382f;
-	--surface-hover: #2a493b;
-	--terminal: #182b23;
-	--scrollbar-track: #1c3029;
+	--surface: #1b302a;
+	--surface-raised: #223c34;
+	--input: #1f372f;
+	--surface-hover: #2b493f;
+	--terminal: #11211c;
+	--scrollbar-track: #142520;
 	--scrollbar-thumb: #618871;
-	--text-muted: #b0cbbd;
 	--terminal-text: #edfff4;
-	--user-bubble: #32523e;
+	--user-bubble: #2d503e;
 	--error-soft: #f2a1aa;
 	--error-strong: #e87586;
 	--danger-hover: #f099a5;
@@ -298,17 +301,15 @@
 	--edit-border: #6b9c7e;
 	--edit-bg: #8bdcb425;
 	--attachment-border: #77a78b;
-	--control-border: #648f74;
 	--window-shadow: #05130b88;
 	--on-accent: #153027;
-	--active-chat: #345543;
+	--active-chat: #345e4a;
 	--link: #a9edcb;
-	--inline-code-bg: #2a493b;
-	--subtle-border: #365744;
+	--inline-code-bg: #223a31;
 	--tool-border: #8bdcb488;
-	--table-header-bg: #294537;
-	--code-bg: #192d25;
-	--code-border: #42604c;
+	--table-header-bg: #223d34;
+	--code-bg: #101f1a;
+	--code-border: #365947;
 	--code-button-hover: #385b47;
 	--code-text: #ecfff3;
 	--code-muted: #b0cbbd;
@@ -320,29 +321,31 @@
 	--code-function: #abd2e8;
 }
 
-/* Ember Studio: light. */
+/* Ember Studio: Light */
 [data-theme="ember"] {
-	--bg-primary: #f7f3ed;
-	--bg-secondary: #fffdf9;
-	--bg-tertiary: #f2eae1;
-	--bg-input: #ffffff;
+	--bg-primary: #f5efe6;
+	--bg-secondary: #eae0d3;
+	--bg-tertiary: #ddcebe;
+	--bg-input: #faf6f0;
 	--text-primary: #272d39;
 	--text-secondary: #555e6c;
+	--text-muted: #777e89;
 	--accent: #cb754a;
 	--accent-hover: #b76038;
-	--border: #e7ded4;
+	--border: #d4c0ae;
+	--subtle-border: #e6d7c8;
+	--control-border: #c3ab96;
 	--error: #bf4c57;
 	--shadow: rgba(61, 44, 24, 0.1);
 	--surface: #ffffff;
-	--surface-raised: #ffffff;
-	--input: #ffffff;
-	--surface-hover: #f2eae1;
-	--terminal: #f6efe7;
-	--scrollbar-track: #f2eae1;
+	--surface-raised: #fdfbf8;
+	--input: #faf6f0;
+	--surface-hover: #e8d9cb;
+	--terminal: #f0e6da;
+	--scrollbar-track: #eae0d3;
 	--scrollbar-thumb: #c9b7a8;
-	--text-muted: #777e89;
 	--terminal-text: #272d39;
-	--user-bubble: #f8e6d9;
+	--user-bubble: #f6dbcb;
 	--error-soft: #d57078;
 	--error-strong: #ac3e4a;
 	--danger-hover: #a03442;
@@ -350,17 +353,15 @@
 	--edit-border: #d4b6a0;
 	--edit-bg: #cb754a1b;
 	--attachment-border: #dfbca3;
-	--control-border: #d9c7b9;
 	--window-shadow: #3d2c1826;
 	--on-accent: #ffffff;
-	--active-chat: #f6e8db;
+	--active-chat: #f3cfba;
 	--link: #ac5c36;
-	--inline-code-bg: #f3ebe4;
-	--subtle-border: #e7ded4;
+	--inline-code-bg: #edded1;
 	--tool-border: #cb754a77;
-	--table-header-bg: #f2e7da;
-	--code-bg: #fbf6ef;
-	--code-border: #e7ded4;
+	--table-header-bg: #efe0d2;
+	--code-bg: #f9f3ec;
+	--code-border: #d4c0ae;
 	--code-button-hover: #f1e4d8;
 	--code-text: #272d39;
 	--code-muted: #777e89;
@@ -372,29 +373,31 @@
 	--code-function: #4d7490;
 }
 
-/* Ember Studio: dark (the concept's original appearance). */
+/* Ember Studio: Dark */
 [data-theme="ember-dark"] {
-	--bg-primary: #131725;
-	--bg-secondary: #1c2030;
-	--bg-tertiary: #2c3447;
-	--bg-input: #212637;
+	--bg-primary: #0e111a;
+	--bg-secondary: #161a27;
+	--bg-tertiary: #20273a;
+	--bg-input: #21283c;
 	--text-primary: #f0edf3;
 	--text-secondary: #c7c5ce;
+	--text-muted: #a4aec1;
 	--accent: #efa26f;
 	--accent-hover: #ffc095;
-	--border: #394053;
+	--border: #3d4761;
+	--subtle-border: #2b3246;
+	--control-border: #4d5b7c;
 	--error: #f1848e;
 	--shadow: rgba(8, 12, 23, 0.48);
-	--surface: #212637;
-	--surface-raised: #292f42;
-	--input: #212637;
-	--surface-hover: #2c3447;
-	--terminal: #181d2c;
-	--scrollbar-track: #1c2030;
+	--surface: #1b2131;
+	--surface-raised: #232a3f;
+	--input: #21283c;
+	--surface-hover: #2f3852;
+	--terminal: #111521;
+	--scrollbar-track: #161a27;
 	--scrollbar-thumb: #697288;
-	--text-muted: #a4aec1;
 	--terminal-text: #f0edf3;
-	--user-bubble: #3c3545;
+	--user-bubble: #3d3448;
 	--error-soft: #f5a2a9;
 	--error-strong: #e97884;
 	--danger-hover: #f09aa4;
@@ -402,17 +405,15 @@
 	--edit-border: #857483;
 	--edit-bg: #efa26f22;
 	--attachment-border: #997e77;
-	--control-border: #697185;
 	--window-shadow: #080c1788;
 	--on-accent: #191c28;
-	--active-chat: #3d3646;
+	--active-chat: #4b3d58;
 	--link: #ffc29d;
-	--inline-code-bg: #2c3447;
-	--subtle-border: #394053;
+	--inline-code-bg: #272f44;
 	--tool-border: #efa26f88;
-	--table-header-bg: #2c3447;
-	--code-bg: #1a1f2e;
-	--code-border: #444c5f;
+	--table-header-bg: #252d42;
+	--code-bg: #111522;
+	--code-border: #3d4761;
 	--code-button-hover: #3c4256;
 	--code-text: #f0edf3;
 	--code-muted: #a4aec1;
@@ -493,4 +494,41 @@
 .assistant-markdown .assistant-table :is(th, td) :is(code, a, strong) {
 	overflow-wrap: anywhere;
 	white-space: normal;
+}
+
+/* Custom Global Scrollbar for Electron */
+::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--scrollbar-track, var(--bg-tertiary));
+	border-radius: 9999px !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: var(--scrollbar-thumb, var(--border));
+	background-clip: padding-box;
+	border: 2px solid transparent;
+	border-radius: 9999px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: var(--accent-hover, var(--accent));
+	background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb, var(--border)) var(--scrollbar-track, var(--bg-tertiary));
+}
+
+::-webkit-scrollbar-thumb:active {
+	background-color: var(--accent) !important;
+	background-clip: padding-box !important;
 }

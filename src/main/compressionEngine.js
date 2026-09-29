@@ -10,7 +10,7 @@ const {
 
 const idleTimers = new Map();
 const pendingUnlocks = new Set();
-const PROTECTED_MESSAGES = 8;
+const PROTECTED_MESSAGES = 10;
 const IDLE_DELAY_MS = 10_000;
 
 function validateOptions(sessionId, modelId, contextWindowLimit, callback) {
@@ -38,6 +38,9 @@ function releaseCompressionLock(sessionId) {
 }
 
 async function checkAndCompressContext(options) {
+  return require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
+}
+async function checkAndCompressWithAccess(options) {
   const { sessionId, modelId, contextWindowLimit, llmSummarizeCallback } = options;
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   try {
@@ -67,8 +70,9 @@ async function compressContext({
   // Acquire the lock and capture context atomically; never hold a transaction
   // open while waiting for the LLM.
   const snapshot = db.transaction(() => {
+    if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return null;
     const usage = getContextUsage(sessionId, modelId);
-    if (usage.totalTokens < 0.80 * contextWindowLimit) return null;
+    if (usage.totalTokens <= 0.75 * contextWindowLimit) return null;
 
     const lock = db.prepare(`
       UPDATE sessions SET is_compressing = 1
@@ -119,20 +123,21 @@ async function compressContext({
         - selectedTokens + estimateTokens(newSummary);
     } while (remainingTokens > target && selectedCount < candidates.length);
 
-    // Core memories and the eight protected messages can make 65% unattainable.
+    // Core memories and the ten protected messages can make 65% unattainable.
     // Do not replace context with a summary that saves no tokens.
     if (remainingTokens >= snapshot.totalTokens) {
       return { compressed: false, archivedCount: 0 };
     }
 
     const archivedCount = db.transaction(() => {
+      if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return 0;
       if (getSessionSummary(sessionId) !== snapshot.oldSummary) {
         throw new Error('Session summary changed during compression; retry later.');
       }
 
       const archive = db.prepare(`
-        UPDATE messages SET archived = 1
-        WHERE id = ? AND session_id = ? AND archived = 0
+        UPDATE messages SET archived = 1, is_summarized = 1
+        WHERE id = ? AND session_id = ? AND archived = 0 AND is_summarized = 0
           AND role = ? AND content = ? AND estimated_tokens = ?
       `);
       for (const message of candidates.slice(0, selectedCount)) {
@@ -162,7 +167,8 @@ async function compressContext({
       return selectedCount;
     }).immediate();
 
-    return { compressed: true, archivedCount };
+    if (!archivedCount) return { compressed: false, archivedCount: 0 };
+    return { compressed: true, archivedCount, summarizedMessageIds: candidates.slice(0, selectedCount).map(message => message.id) };
   } finally {
     try {
       releaseCompressionLock(sessionId);
@@ -181,6 +187,10 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
 
   const timer = setTimeout(() => {
     idleTimers.delete(sessionId);
+    if (require('./dataAccess').isMigrating()) {
+      scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete);
+      return;
+    }
     let retry = false;
     void checkAndCompressContext({
       sessionId, modelId, contextWindowLimit, llmSummarizeCallback,

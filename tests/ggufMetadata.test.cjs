@@ -29,17 +29,23 @@ function gguf(metadata) {
   try {
     fs.writeFileSync(file, gguf({
       'general.architecture': 'qwen2vl',
-      'tokenizer.chat_template': '<tools>{{ tools }}</tools><think>',
+      'general.name': 'Example model',
+      'tokenizer.chat_template': `<tools>{{ tools }}</tools><think>{% if reasoning_effort == 'low' %}{% elif reasoning_effort == "medium" %}{% elif reasoning_effort=='high' %}{% elif reasoning_effort == 'low' %}`,
     }));
     let result = await parse();
     assert.equal(result.hasVision, true);
     assert.equal(result.hasTools, true);
     assert.equal(result.hasReasoning, true);
+    assert.equal(result.reasoningFormat, 'deepseek');
+    assert.deepEqual(result.reasoningEfforts, ['low', 'medium', 'high']);
+    assert.equal(result.generalName, 'Example model');
     fs.writeFileSync(file, gguf({'general.architecture': 'llama', 'tokenizer.chat_template': '{{ messages }}'}));
     result = await parse();
     assert.equal(result.hasVision, false);
     assert.equal(result.hasTools, false);
     assert.equal(result.hasReasoning, false);
+    assert.equal(result.reasoningFormat, 'auto');
+    assert.deepEqual(result.reasoningEfforts, []);
     fs.writeFileSync(file, gguf({'general.architecture': 'deepseek2', 'tokenizer.chat_template.tool_use': 'tool_calls'}));
     assert.equal((await parse()).hasReasoning, true);
     assert.equal((await parse()).hasTools, true);

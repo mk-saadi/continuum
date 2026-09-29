@@ -2,19 +2,36 @@
 
 const DEFAULT_LOAD_CONFIG = Object.freeze({
   contextLength: 8192, gpuOffload: 'auto', threads: 4, evalBatch: 2048,
-  physicalBatch: 512, parallel: 1, loadMode: 'auto', flashAttention: 'auto',
+  physicalBatch: 512, parallel: 1, mlock: false, flashAttention: 'auto',
+  cacheTypeK: 'f16', cacheTypeV: 'f16', chatTemplate: 'auto', reasoningFormat: 'auto',
 });
 const LOAD_MODES = ['auto', 'none', 'mmap', 'mlock', 'mmap+mlock', 'dio'];
 function normalizeLoadConfig(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Invalid load settings.');
   const config = { ...DEFAULT_LOAD_CONFIG };
   for (const key of Object.keys(config)) if (input[key] !== undefined) config[key] = input[key];
+  // Migrate remembered settings without retaining retired load options.
+  if (input.kvCacheQuantization !== undefined) {
+    if (!['f16', 'q8_0', 'q4_0'].includes(input.kvCacheQuantization)) throw new Error('Invalid KV cache precision.');
+    config.cacheTypeK = input.cacheTypeK ?? input.kvCacheQuantization;
+    config.cacheTypeV = input.cacheTypeV ?? input.kvCacheQuantization;
+  }
+  if (input.loadMode !== undefined) {
+    if (!LOAD_MODES.includes(input.loadMode)) throw new Error('Invalid load mode.');
+    if (input.mlock === undefined) config.mlock = ['mlock', 'mmap+mlock'].includes(input.loadMode);
+  }
   for (const key of ['contextLength', 'threads', 'evalBatch', 'physicalBatch', 'parallel']) {
     if (!Number.isSafeInteger(config[key]) || config[key] < 1 || config[key] > 2147483647) throw new Error(`${key} must be a positive integer.`);
   }
   if (config.gpuOffload !== 'auto' && (!Number.isSafeInteger(config.gpuOffload) || config.gpuOffload < 0 || config.gpuOffload > 2147483647)) throw new Error('GPU offload must be auto or a non-negative integer.');
-  if (!LOAD_MODES.includes(config.loadMode)) throw new Error('Invalid load mode.');
+  if (typeof config.mlock !== 'boolean') throw new Error('Invalid mlock setting.');
   if (!['on', 'off', 'auto'].includes(config.flashAttention)) throw new Error('Invalid flash attention setting.');
+  for (const [key, values] of Object.entries({
+    cacheTypeK: ['f16', 'q8_0', 'q4_0'],
+    cacheTypeV: ['f16', 'q8_0', 'q4_0'],
+    chatTemplate: ['auto', 'llama3', 'chatml', 'deepseek', 'gemma'],
+    reasoningFormat: ['auto', 'deepseek', 'none'],
+  })) if (!values.includes(config[key])) throw new Error(`Invalid ${key} setting.`);
   if (config.physicalBatch > config.evalBatch) throw new Error('Physical batch cannot exceed evaluation batch.');
   if (config.parallel > config.contextLength) throw new Error('Parallel predictions cannot exceed context length.');
   if (input.seed !== undefined && input.seed !== null && input.seed !== '') {

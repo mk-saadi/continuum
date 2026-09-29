@@ -17,6 +17,12 @@ const { scanDirectoryForModels } = require('../src/main/modelScanner');
 (async () => {
 try {
   initDatabase();
+  const store = require('../src/main/configStore');
+  assert.equal(store.getConfig().engineIdleTimeoutMinutes, -1);
+  store.saveConfig({ engineIdleTimeoutMinutes: 15 });
+  assert.equal(store.getConfig().engineIdleTimeoutMinutes, 15);
+  assert.throws(() => store.saveConfig({ engineIdleTimeoutMinutes: 3 }), /idle timeout/);
+  assert.equal(store.getConfig().engineIdleTimeoutMinutes, 15);
   assert.equal(getAppSettings().apiServerPort, 8080);
   saveAppSettings({ apiServerPort: 9090 });
   closeDatabase(); initDatabase();
@@ -29,10 +35,16 @@ try {
   assert.equal(getAppSettings().apiServerPort, null);
 
   assert.deepEqual(getLoadConfig('a'), { config: DEFAULT_LOAD_CONFIG, remembered: false });
-  saveLoadConfig('a', { threads: 8, seed: 42, loadMode: 'mmap+mlock' });
+  saveLoadConfig('a', { threads: 8, seed: 42, loadMode: 'mmap+mlock', kvCacheQuantization: 'q8_0', chatTemplate: 'chatml', reasoningFormat: 'none', keepAliveMinutes: 15 });
   closeDatabase(); initDatabase();
   assert.equal(getLoadConfig('a').config.threads, 8);
   assert.equal(getLoadConfig('a').config.seed, 42);
+  assert.equal(getLoadConfig('a').config.cacheTypeK, 'q8_0');
+  assert.equal(getLoadConfig('a').config.chatTemplate, 'chatml');
+  assert.equal(getLoadConfig('a').config.reasoningFormat, 'none');
+  assert.equal(getLoadConfig('a').config.cacheTypeV, 'q8_0');
+  assert.equal(getLoadConfig('a').config.mlock, true);
+  assert.equal(getLoadConfig('a').config.keepAliveMinutes, undefined);
   assert.equal(getLoadConfig('b').remembered, false);
   forgetLoadConfig('a');
   assert.deepEqual(getLoadConfig('a').config, DEFAULT_LOAD_CONFIG);
@@ -43,12 +55,13 @@ try {
   assert.throws(() => normalizeLoadConfig({ seed: 1.5 }), /Seed/);
   const model = { modelPath: '/models/a b;$(echo nope).gguf', isVision: true, mmprojPath: '/models/mmproj a.gguf' };
   const args = buildLlamaServerArgs(model, { seed: 42 }, 12345);
-  assert.deepEqual(args, ['-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048', '-ub', '512', '-np', '1', '-lm', 'auto', '-fa', 'auto', '-s', '42', '--port', '12345', '--mmproj', model.mmprojPath]);
+  assert.deepEqual(args, ['-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048', '-ub', '512', '-np', '1', '-fa', 'auto', '--cache-type-k', 'f16', '--cache-type-v', 'f16', '--reasoning-format', 'auto', '-s', '42', '--port', '12345', '--mmproj', model.mmprojPath]);
   for (const loadMode of ['auto', 'none', 'mmap', 'mlock', 'mmap+mlock', 'dio']) {
     const result = buildLlamaServerArgs({ modelPath: 'test.gguf' }, { loadMode, gpuOffload: 0 }, 8080);
-    assert.equal(result[result.indexOf('-lm') + 1], loadMode);
+    assert.equal(result.includes('-lm'), false);
+    assert.equal(result.includes('--mlock'), ['mlock', 'mmap+mlock'].includes(loadMode));
     assert.equal(result.includes('--mmproj'), false);
-    assert.equal(result.includes('--no-mmap') || result.includes('--mlock'), false);
+    assert.equal(result.includes('--no-mmap'), false);
   }
   fs.writeFileSync(path.join(directory, 'vision.gguf'), '');
   fs.writeFileSync(path.join(directory, 'mmproj-vision.gguf'), '');

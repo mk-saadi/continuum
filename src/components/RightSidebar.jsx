@@ -13,10 +13,79 @@ import {
 } from "react-icons/lu";
 import { SelectField, TextAreaField } from "./FormControls";
 import ChatTuning from "./ChatTuning";
+import { maxThinkingBudget } from '../lib/thinkingBudget.mjs';
+
+export function ThinkingBudgetControl({ activeModel, sessionId, modelId, disabled }) {
+    const [budget, setBudget] = useState(-1);
+    const [ready, setReady] = useState(false);
+    const [error, setError] = useState('');
+    const version = useRef(0);
+    useEffect(() => {
+        let alive = true;
+        const refresh = async () => {
+            const request = ++version.current;
+            try {
+                const result = await window.api.getEffectiveSettings(sessionId, modelId);
+                if (alive && request === version.current) {
+                    setBudget(result.effective.thinkingBudget ?? -1);
+                    setReady(true);
+                }
+            } catch (error) { if (alive && request === version.current) setError(error.message); }
+        };
+        refresh();
+        window.addEventListener('generation-settings-changed', refresh);
+        return () => { alive = false; version.current++; window.removeEventListener('generation-settings-changed', refresh); };
+    }, [sessionId, modelId]);
+    const maximum = maxThinkingBudget(activeModel?.contextSize);
+    const customAvailable = maximum >= 256;
+    const custom = budget !== -1;
+    const value = Math.min(Math.max(256, custom ? budget : 4096), Math.max(256, maximum));
+    const locked = !activeModel || disabled || !ready;
+    async function save(value) {
+        const previous = budget;
+        const request = ++version.current;
+        setBudget(value);
+        setError('');
+        try {
+            if (sessionId) await window.api.saveSamplingParams(sessionId, modelId, { thinking_budget: value });
+            else await window.api.saveProfileSettings(modelId, { thinkingBudget: value });
+            if (request === version.current) window.dispatchEvent(new Event('generation-settings-changed'));
+        } catch (error) {
+            if (request === version.current) { setBudget(previous); setError(error.message); }
+        }
+    }
+    const hint = !activeModel ? 'Load a model to configure thinking budget.'
+        : !customAvailable ? 'The loaded context is too small for a custom limit with 2,048 tokens reserved.'
+        : 'Reserves at least 2,048 context tokens for response output.';
+    return <section aria-label="Thinking Budget" title={!activeModel ? hint : undefined}
+        className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+        <h3 className="text-xs font-semibold">Thinking Budget</h3>
+        <label className="block text-xs">Thinking Mode
+            <select aria-label="Thinking Mode" className={fieldClass} disabled={locked}
+                value={custom ? 'custom' : 'default'} onChange={event => save(event.target.value === 'default' ? -1 : value)}>
+                <option value="default">Unlimited / Default</option>
+                <option value="custom" disabled={!customAvailable}>Custom Token Limit</option>
+            </select>
+        </label>
+        {(custom || !activeModel) && <label className="block text-xs">
+            <span className="flex justify-between gap-2"><span>Token limit</span>
+                <output>{value.toLocaleString('en-US')} tokens</output></span>
+            <input aria-label="Thinking token limit" aria-describedby="thinking-budget-hint" type="range"
+                min={256} max={Math.max(256, maximum)} step={256} value={value}
+                disabled={locked || !custom || !customAvailable}
+                onChange={event => save(Number(event.target.value))}
+                className="mt-2 w-full accent-[var(--accent)] disabled:opacity-40" />
+        </label>}
+        <p id="thinking-budget-hint" className="text-[11px] text-[var(--text-muted)]">{hint}</p>
+        <p className="text-[11px] text-[var(--text-muted)]">{sessionId ? 'Saved for this chat.' : 'Saved as the model default.'}</p>
+        {error && <p role="alert" className="text-xs text-[var(--error)]">{error}</p>}
+    </section>;
+}
 
 const sections = [
 	{ id: "persona", label: "Agent & Persona", Icon: LuBot },
 	{ id: "sampling", label: "Sampling", Icon: LuSlidersHorizontal },
+        { id: "memory", label: "Memory & Context", Icon: LuSlidersHorizontal },
 ];
 
 const fieldClass =
@@ -30,11 +99,11 @@ export default function RightSidebar({
 	onClose,
 	sessionId,
 	modelId,
+	activeModel = null,
 	agents,
 	sessionAgent,
 	disabled,
 	onSelectAgent,
-	onManageAgents,
 	onSavePrompt,
 	tuningVersion,
 }) {
@@ -43,56 +112,85 @@ export default function RightSidebar({
 	const [prompt, setPrompt] = useState("");
 	const [notice, setNotice] = useState("");
 	const [saving, setSaving] = useState(false);
-    const [effectiveState, setEffectiveState] = useState(null);
-    const [settingsRevision, setSettingsRevision] = useState(0);
-    const [selecting, setSelecting] = useState(false);
-    useEffect(() => {
-        let active = true;
-        setNotice('');
-        if (window.api?.getEffectiveSettings) {
-            window.api.getEffectiveSettings(sessionId, modelId).then(result => {
-                if (active) {
-                    const pendingPrompt = !sessionId && typeof sessionAgent?.system_prompt === 'string';
-                    setEffectiveState(pendingPrompt ? { ...result, source: 'chat' } : result);
-                    setPrompt(pendingPrompt ? sessionAgent.system_prompt : result.effective.systemPrompt ?? '');
-                }
-            }).catch(error => { if (active) setNotice(error.message); });
-        } else setPrompt(sessionAgent?.system_prompt || '');
-        return () => { active = false; };
-    }, [sessionId, modelId, sessionAgent, tuningVersion, settingsRevision, open]);
-    useEffect(() => {
-        const refresh = () => setSettingsRevision(value => value + 1);
-        window.addEventListener('generation-settings-changed', refresh);
-        return () => window.removeEventListener('generation-settings-changed', refresh);
-    }, []);
-    const resetOverrides = async () => {
-        setSelecting(true);
+	const [effectiveState, setEffectiveState] = useState(null);
+	const [settingsRevision, setSettingsRevision] = useState(0);
+	const [selecting, setSelecting] = useState(false);
+	useEffect(() => {
+		let active = true;
+		setNotice("");
+		if (window.api?.getEffectiveSettings) {
+			window.api
+				.getEffectiveSettings(sessionId, modelId)
+				.then((result) => {
+					if (active) {
+						const pendingPrompt = !sessionId && typeof sessionAgent?.system_prompt === "string";
+						setEffectiveState(pendingPrompt ? { ...result, source: "chat" } : result);
+						setPrompt(
+							pendingPrompt
+								? sessionAgent.system_prompt
+								: (result.effective.systemPrompt ?? ""),
+						);
+					}
+				})
+				.catch((error) => {
+					if (active) setNotice(error.message);
+				});
+		} else setPrompt(sessionAgent?.system_prompt || "");
+		return () => {
+			active = false;
+		};
+	}, [sessionId, modelId, sessionAgent, tuningVersion, settingsRevision, open]);
+	useEffect(() => {
+		const refresh = () => setSettingsRevision((value) => value + 1);
+		window.addEventListener("generation-settings-changed", refresh);
+		return () => window.removeEventListener("generation-settings-changed", refresh);
+	}, []);
+    const saveMemorySetting = async patch => {
+        setSaving(true);
         try {
-            const result = await onSelectAgent({ agentId: null, sessionId: sessionId || null });
-            if (result !== false) setSettingsRevision(value => value + 1);
+            await window.api.saveSessionMemorySettings(sessionId, modelId, patch);
+            window.dispatchEvent(new Event('generation-settings-changed'));
         } catch (error) { setNotice(error.message); }
-        finally { setSelecting(false); }
+        finally { setSaving(false); }
     };
+	const resetOverrides = async () => {
+		setSelecting(true);
+		try {
+			const result = await onSelectAgent({ agentId: null, sessionId: sessionId || null });
+			if (result !== false) {
+                if (sessionId) await window.api.saveSessionMemorySettings(sessionId, modelId, { memoryEnabled: null, compactionEnabled: null });
+                window.dispatchEvent(new Event('generation-settings-changed'));
+                setSettingsRevision((value) => value + 1);
+            }
+		} catch (error) {
+			setNotice(error.message);
+		} finally {
+			setSelecting(false);
+		}
+	};
 
-    const handleAgentChange = async (eventOrId) => {
-        const value = typeof eventOrId === 'string' ? eventOrId : eventOrId?.target?.value;
-        const agentId = !value || value === 'default' ? null : value;
-        const preset = agents.find(agent => agent.id === agentId);
-        setPrompt(preset?.system_prompt || '');
-        setNotice('');
-        setSelecting(true);
-        try {
-            const result = await onSelectAgent({ agentId, sessionId: sessionId || null });
-            if (result === false) setPrompt(sessionAgent?.system_prompt || '');
-        } catch (error) {
-            setPrompt(sessionAgent?.system_prompt || '');
-            setNotice(error.message);
-        } finally { setSelecting(false); }
-    };
+	const handleAgentChange = async (eventOrId) => {
+		const value = typeof eventOrId === "string" ? eventOrId : eventOrId?.target?.value;
+		const agentId = !value || value === "default" ? null : value;
+		const preset = agents.find((agent) => agent.id === agentId);
+		setPrompt(preset?.system_prompt || "");
+		setNotice("");
+		setSelecting(true);
+		try {
+			const result = await onSelectAgent({ agentId, sessionId: sessionId || null });
+			if (result === false) setPrompt(sessionAgent?.system_prompt || "");
+		} catch (error) {
+			setPrompt(sessionAgent?.system_prompt || "");
+			setNotice(error.message);
+		} finally {
+			setSelecting(false);
+		}
+	};
 
 	const sections = [
 		{ id: "persona", label: "Agent & Persona", Icon: LuUsers },
 		{ id: "sampling", label: "Sampling", Icon: LuSlidersHorizontal },
+        { id: "memory", label: "Memory & Context", Icon: LuSlidersHorizontal },
 	];
 
 	const secondaryButton =
@@ -104,9 +202,9 @@ export default function RightSidebar({
 		try {
 			const saved = await onSavePrompt?.(prompt);
 			setNotice(saved === false ? "Could not save instructions" : "Saved");
-            if (saved !== false) setSettingsRevision(value => value + 1);
-        } catch (error) {
-            setNotice(error.message);
+			if (saved !== false) setSettingsRevision((value) => value + 1);
+		} catch (error) {
+			setNotice(error.message);
 		} finally {
 			setSaving(false);
 		}
@@ -132,7 +230,9 @@ export default function RightSidebar({
 						<div>
 							<h2 className="text-sm font-semibold">Chat controls</h2>
 							<p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-								{effectiveState?.source === "chat" ? "Chat Overridden" : "Using Model Defaults"}
+								{effectiveState?.source === "chat"
+									? "Chat Overridden"
+									: "Using Model Defaults"}
 							</p>
 						</div>
 					</div>
@@ -149,10 +249,14 @@ export default function RightSidebar({
 					</button>
 				</header>
 
-                <button type="button" disabled={disabled || selecting || saving}
-                    onClick={resetOverrides} className="mx-4 my-2 rounded border border-[var(--border)] px-2 py-1 text-xs disabled:opacity-40">
-                    Reset to Model Defaults
-                </button>
+				<button
+					type="button"
+					disabled={disabled || selecting || saving}
+					onClick={resetOverrides}
+					className="mx-4 my-2 rounded border border-[var(--border)] px-2 py-1 text-xs disabled:opacity-40 cursor-pointer"
+				>
+					Reset to Model Defaults
+				</button>
 
 				<div
 					role="tablist"
@@ -230,18 +334,6 @@ export default function RightSidebar({
 						</SelectField>
 
 						<div className="mt-3 flex flex-wrap gap-2">
-							<button
-								type="button"
-								className={secondaryButton}
-								disabled={disabled || selecting}
-								onClick={onManageAgents}
-							>
-								<LuUsers
-									size={14}
-									aria-hidden="true"
-								/>{" "}
-								Manage agents
-							</button>
 							{sessionAgent?.id && (
 								<button
 									type="button"
@@ -345,19 +437,42 @@ export default function RightSidebar({
 							<h3 className="text-xs font-semibold">Sampling scope</h3>
 						</div>
 
-                        <p className="text-xs text-[var(--text-muted)]">Changes override defaults for this chat only. Configure global and model defaults in Avatars &amp; Branding.</p>
+						<p className="text-xs text-[var(--text-muted)]">
+							Changes override defaults for this chat only. Configure global and model defaults
+							in Avatars &amp; Branding.
+						</p>
 					</div>
 
 					<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
 						<ChatTuning
 							key={`${sessionId}:${modelId}:${tuningVersion}:${settingsRevision}`}
-                            disabled={!sessionId || disabled || selecting}
-                            onChanged={() => setSettingsRevision(value => value + 1)}
+							disabled={!sessionId || disabled || selecting}
+							onChanged={() => setSettingsRevision((value) => value + 1)}
 							sessionId={sessionId}
 							modelId={modelId}
 						/>
 					</div>
+                    <ThinkingBudgetControl key={`${sessionId}:${modelId}`} activeModel={activeModel}
+                        sessionId={sessionId} modelId={modelId} disabled={disabled || selecting} />
 				</section>
+                <section role="tabpanel" id="controls-memory" aria-labelledby="controls-tab-memory" hidden={tab !== 'memory'} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5">
+                    <h3 className="text-xs font-semibold">Memory &amp; Context</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Changes apply to this chat. Turning memory off disables saved facts and past-chat search. Existing messages in this chat remain visible to the AI.</p>
+                    {[
+                        ['memoryEnabled', 'Enable Memory (Facts & Past Chats)'],
+                        ['compactionEnabled', 'Auto-Compress Long Chats'],
+                    ].map(([key, label]) => <div key={key} className="space-y-2 text-xs">
+                        <label className="flex items-center gap-2">
+                            <input type="checkbox" role="switch" checked={effectiveState?.effective[key] ?? true}
+                                disabled={disabled || saving || !sessionId || !effectiveState}
+                                onChange={event => saveMemorySetting({ [key]: event.target.checked })} />{label}
+                        </label>
+                        <button type="button" disabled={disabled || saving || effectiveState?.overrides[key] === undefined}
+                            onClick={() => saveMemorySetting({ [key]: null })} className="text-[var(--text-muted)] underline disabled:opacity-40">Use model/global default</button>
+                    </div>)}
+                    <p className="text-xs text-[var(--text-muted)]">Turning compression off stops future summarization; existing summaries remain in use.</p>
+                    {notice && <p role="status" className="text-xs">{notice}</p>}
+                </section>
 			</div>
 		</aside>
 	);

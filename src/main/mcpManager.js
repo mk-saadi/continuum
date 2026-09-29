@@ -9,6 +9,31 @@ const { EventEmitter } = require('node:events');
 
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' && !value.includes('\0');
+function withFilesystemDirectories(name, definition, getGlobalConfig) {
+  // Remote servers cannot use this machine's local directory arguments.
+  if (definition.url !== undefined) return definition;
+  const filesystemPackage = /^@modelcontextprotocol\/server-filesystem(?:@[^\s]+)?$/;
+  if (name !== 'filesystem' && ![definition.command, ...(definition.args || [])].some(arg => filesystemPackage.test(arg))) {
+    return definition;
+  }
+  const { appDataDirectory, modelDirectory } = getGlobalConfig();
+  // Work on a launch-only copy: injected directories must not become stale
+  // entries in the user's persisted MCP configuration.
+  const args = [...(definition.args || [])];
+  const pathKey = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+  const existing = new Set(args.filter(arg => path.isAbsolute(arg)).map(pathKey));
+  for (const directory of [appDataDirectory, modelDirectory]) {
+    if (directory == null || directory === '') continue;
+    if (!text(directory) || !path.isAbsolute(directory)) throw new Error('Filesystem MCP directories must be absolute paths.');
+    const absolute = path.resolve(directory);
+    const key = pathKey(absolute);
+    if (!existing.has(key)) {
+      args.push(absolute);
+      existing.add(key);
+    }
+  }
+  return { ...definition, args };
+}
 function validateServerConfig(name, server) {
   if (!text(name) || !name.trim() || !object(server)) throw new TypeError('Invalid MCP server definition.');
   const hasUrl = server.url !== undefined;
@@ -42,11 +67,13 @@ function validateServerConfig(name, server) {
 
 // MCP clients use local stdio or remote HTTP/SSE transports.
 class McpManager extends EventEmitter {
-  constructor({ configPath = path.join(os.homedir(), '.config', 'LLM Desktop Assistant', 'mcp_config.json'), createConnection } = {}) {
+  constructor({ configPath = path.join(os.homedir(), '.config', 'LLM Desktop Assistant', 'mcp_config.json'), createConnection,
+    getGlobalConfig = () => require('./configStore').getConfig() } = {}) {
     super();
     this.configPath = configPath;
     this.servers = new Map();
     this.createConnection = createConnection;
+    this.getGlobalConfig = getGlobalConfig;
   }
   init() {
     return this.initializing ??= this.load();
@@ -110,6 +137,7 @@ class McpManager extends EventEmitter {
     try {
       validateServerConfig(name, definition);
       if (!server.enabled) { server.status = 'disabled'; return; }
+      definition = withFilesystemDirectories(name, definition, this.getGlobalConfig);
       if (this.createConnection) server.client = await this.createConnection(definition);
       else if (definition.url !== undefined) server.client = await connectRemoteMcp(definition);
       else {

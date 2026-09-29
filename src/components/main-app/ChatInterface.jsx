@@ -1,19 +1,15 @@
 import RightSidebar from "../RightSidebar";
 import AssistantAvatar from "../AssistantAvatar";
 import MessageActions from "../MessageActions.jsx";
-import ChatMessage from "../ChatMessage.jsx";
-import ChatHistory from "../ChatHistory.jsx";
+import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
+import Sidebar from "../Sidebar.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
-import { GrAttachment } from "react-icons/gr";
-import { FaStop } from "react-icons/fa";
 import { BsRobot } from "react-icons/bs";
-import useSessionDraft from "../../hooks/useSessionDraft";
-import AgentModal from "../AgentModal";
+import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { LuX } from "react-icons/lu";
-import { IoSend } from "react-icons/io5";
 
 function SelectedFilePreview({ file, onRemove, disabled }) {
 	const [previewUrl, setPreviewUrl] = useState(null);
@@ -58,9 +54,12 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 }
 
 export function ChatInterface({
+    view = 'chat', projects = [], activeProjectId, onProjects, onProject, onCreateProject,
+    onChat = () => {}, renderWorkspace,
 	selectedModel,
 	baseUrl,
 	engineRunning,
+    activeModel = null,
 	palace,
 	isSidebarOpen,
 	avatarSettings,
@@ -69,14 +68,19 @@ export function ChatInterface({
 	models,
 	onSelectModel,
 }) {
-	const currentModel = models.find(model => model.id === selectedModel);
+	const currentModel = models.find((model) => model.id === selectedModel);
+	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
+    const [effortByModel, setEffortByModel] = useState({});
+    const savedEffort = effortByModel[selectedModel];
+    const reasoningEffort = supportedEfforts.includes(savedEffort) ? savedEffort
+        : supportedEfforts.includes('medium') ? 'medium' : supportedEfforts[0];
     const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
-    const activeModelName = formatModelName(
+	const activeModelName = formatModelName(
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
-	const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
-	const { input, updateDraft } = useSessionDraft(palace.sessionId);
+	const isUserScrolledUp = useRef(false);
+	const composerRef = useRef(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
 	const [indexing, setIndexing] = useState(null);
 	const fileInputRef = useRef(null);
@@ -92,7 +96,6 @@ export function ChatInterface({
 	const [editing, setEditing] = useState(null);
 	const [editText, setEditText] = useState("");
 	const busyRef = useRef(false);
-	const textareaRef = useRef(null);
 
 	const refreshHistory = useCallback(async () => {
 		if (palace.api) setGroups(await palace.api.getAllSessions());
@@ -100,41 +103,37 @@ export function ChatInterface({
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));
 	}, [refreshHistory]);
+    useEffect(() => palace.api?.onCompressionComplete(result => {
+        if (result.sessionId !== palace.sessionId) return;
+        const ids = new Set(result.summarizedMessageIds || []);
+        setMessages(previous => previous.map(message => ids.has(message.id)
+            ? { ...message, is_summarized: 1, archived: 1 } : message));
+    }), [palace.api, palace.sessionId]);
 	const newChat = () => {
 		if (busyRef.current) return;
+        onChat();
 		pendingAgent.current = null;
-        pendingSend.current = null;
-        palace.setSessionId(crypto.randomUUID());
+		pendingSend.current = null;
+		palace.setSessionId(crypto.randomUUID());
 		setMessages([]);
 		clearFiles();
 		setEditing(null);
 		palace.setDraftTokens(0);
 	};
 
-	useEffect(() => {
-		const el = textareaRef.current;
-		if (!el) return;
-
-		// Reset height to auto to calculate the true scrollHeight for the current text
-		el.style.height = "auto";
-
-		// Set height to scrollHeight. If it exceeds the Tailwind max-h class,
-		// CSS takes over and it becomes scrollable.
-		el.style.height = el.scrollHeight + "px";
-	}, [input]);
-
 	const loadChat = async (id) => {
 		if (busyRef.current) return;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
 			const session = await palace.api.loadSession(id);
 			pendingAgent.current = null;
-            pendingSend.current = null;
-            palace.setSessionId(id);
+			pendingSend.current = null;
+			palace.setSessionId(id);
 			setMessages(session.messages);
+            onChat();
 			clearFiles();
 			setEditing(null);
 			palace.setDraftTokens(0);
@@ -145,10 +144,27 @@ export function ChatInterface({
 			setLoading(false);
 		}
 	};
+    const startProjectChat = async (projectId, text) => {
+        if (busyRef.current || agentLoading) throw new Error('Wait for the current chat operation to finish.');
+        if (!baseUrl || !selectedModel) throw new Error('Start a model before creating a project chat.');
+        busyRef.current = true; setLoading(true);
+        try {
+            const id = crypto.randomUUID();
+            await palace.api.getOrCreateSession(id, selectedModel, projectId);
+            // Persist the submitted prompt as a draft until generation accepts it.
+            try { localStorage.setItem(`chat_draft_${id}`, text); } catch { /* Draft storage is optional. */ }
+            pendingAgent.current = null;
+            pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
+            setAgentLoading(true);
+            palace.setSessionId(id); setMessages([]); clearFiles(); setEditing(null); palace.setDraftTokens(0);
+            onChat();
+            await refreshHistory();
+        } finally { busyRef.current = false; setLoading(false); }
+    };
 	const handleMessageAction = async (kind, messageId) => {
 		if (busyRef.current || !palace.api) return;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
@@ -161,8 +177,8 @@ export function ChatInterface({
 				const { sessionId } = await palace.api.branchChat(palace.sessionId, messageId);
 				const session = await palace.api.loadSession(sessionId);
 				pendingAgent.current = null;
-            pendingSend.current = null;
-            palace.setSessionId(sessionId);
+				pendingSend.current = null;
+				palace.setSessionId(sessionId);
 				setMessages(session.messages);
 				clearFiles();
 				setEditing(null);
@@ -177,10 +193,9 @@ export function ChatInterface({
 		}
 	};
 	const [agents, setAgents] = useState([]);
-	const [agentModalOpen, setAgentModalOpen] = useState(false);
 	const [sessionAgent, setSessionAgent] = useState(null);
-    const pendingAgent = useRef(null);
-    const pendingSend = useRef(null);
+	const pendingAgent = useRef(null);
+	const pendingSend = useRef(null);
 	const [agentLoading, setAgentLoading] = useState(true);
 	const [tuningVersion, setTuningVersion] = useState(0);
 	const refreshAgents = useCallback(async () => {
@@ -196,14 +211,23 @@ export function ChatInterface({
 		(async () => {
 			try {
 				if (!palace.sessionId) return;
-                const pending = pendingAgent.current;
-                let profile;
-                if (pending) {
-                    const result = await window.api.applyAgent({ sessionId: palace.sessionId, agentId: pending.agentId, modelId: selectedModel });
-                    profile = result.agent;
-                    if (pending.prompt !== undefined) profile = await window.api.saveSessionPrompt(palace.sessionId, pending.prompt, selectedModel);
-                    if (active && pendingAgent.current === pending) pendingAgent.current = null;
-                } else profile = await window.api?.getSessionAgent(palace.sessionId);
+				const pending = pendingAgent.current;
+				let profile;
+				if (pending) {
+					const result = await window.api.applyAgent({
+						sessionId: palace.sessionId,
+						agentId: pending.agentId,
+						modelId: selectedModel,
+					});
+					profile = result.agent;
+					if (pending.prompt !== undefined)
+						profile = await window.api.saveSessionPrompt(
+							palace.sessionId,
+							pending.prompt,
+							selectedModel,
+						);
+					if (active && pendingAgent.current === pending) pendingAgent.current = null;
+				} else profile = await window.api?.getSessionAgent(palace.sessionId);
 				if (active) setSessionAgent(profile || null);
 			} catch (error) {
 				if (active) setHistoryError(error.message);
@@ -218,7 +242,7 @@ export function ChatInterface({
 	const selectAgent = async ({ agentId, sessionId: activeSessionId = palace.sessionId }) => {
 		if (busyRef.current || agentLoading) return;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
@@ -228,16 +252,22 @@ export function ChatInterface({
 					"This agent’s default model is not scanned. Scan it or edit the agent’s model first.",
 				);
 			}
-			const result = await window.api.applyAgent({ sessionId: activeSessionId || null, agentId, modelId: selectedModel });
-            pendingAgent.current = result.pending ? { agentId: result.agentId, profile: result.agent || preset || null } : null;
+			const result = await window.api.applyAgent({
+				sessionId: activeSessionId || null,
+				agentId,
+				modelId: selectedModel,
+			});
+			pendingAgent.current = result.pending
+				? { agentId: result.agentId, profile: result.agent || preset || null }
+				: null;
 			setSessionAgent(result.agent || null);
 			if (result.agent?.model_id) onSelectModel(result.agent.model_id);
 			setTuningVersion((version) => version + 1);
 			await refreshHistory();
-            return result;
+			return result;
 		} catch (error) {
 			setHistoryError(error.message);
-            return false;
+			return false;
 		} finally {
 			busyRef.current = false;
 			setLoading(false);
@@ -246,17 +276,20 @@ export function ChatInterface({
 	const savePrompt = async (prompt) => {
 		if (busyRef.current) return false;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		try {
 			if (!palace.sessionId) {
-                const profile = { ...(sessionAgent || { id: null, name: 'Assistant' }), system_prompt: prompt };
-                pendingAgent.current = { agentId: sessionAgent?.id || null, profile, prompt };
-                setSessionAgent(profile);
-                return true;
-            }
-            const profile = await window.api.saveSessionPrompt(palace.sessionId, prompt, selectedModel);
+				const profile = {
+					...(sessionAgent || { id: null, name: "Assistant" }),
+					system_prompt: prompt,
+				};
+				pendingAgent.current = { agentId: sessionAgent?.id || null, profile, prompt };
+				setSessionAgent(profile);
+				return true;
+			}
+			const profile = await window.api.saveSessionPrompt(palace.sessionId, prompt, selectedModel);
 			setSessionAgent(profile);
 			await refreshHistory();
 			return true;
@@ -272,26 +305,26 @@ export function ChatInterface({
 	const abortRef = useRef(null);
 	useEffect(() => () => abortRef.current?.abort(), []);
 	useEffect(() => {
-		if (!input && !streaming) return;
+		if (!streaming) return;
 		const timer = setTimeout(palace.schedule, 250);
 		return () => clearTimeout(timer);
-	}, [input, messages, streaming, palace.schedule]);
+	}, [messages, streaming, palace.schedule]);
 	const handleScroll = (event) => {
 		// Ignore scroll events bubbling from code blocks inside a message.
 		if (event.target !== event.currentTarget) return;
 		const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-		setIsUserScrolledUp(scrollHeight - (scrollTop + clientHeight) > 50);
+		isUserScrolledUp.current = scrollHeight - (scrollTop + clientHeight) > 50;
 	};
 	useLayoutEffect(() => {
-		setIsUserScrolledUp(false);
+		isUserScrolledUp.current = false;
 	}, [palace.sessionId]);
 	// Follow before paint so growing Markdown does not briefly move the viewport.
 	// Direct scrolling affects only the chat pane and never queues animations.
 	useLayoutEffect(() => {
-		if (!isUserScrolledUp && messagesRef.current) {
+		if (!isUserScrolledUp.current && messagesRef.current) {
 			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
 		}
-	}, [messages, isUserScrolledUp]);
+	}, [messages]);
 	const addAttachments = async (files) => {
 		if (busyRef.current) return;
 		const next = [...selectedFiles, ...files];
@@ -309,7 +342,7 @@ export function ChatInterface({
 		}
 		setHistoryError("");
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		const controller = new AbortController();
 		abortRef.current = controller;
@@ -350,30 +383,34 @@ export function ChatInterface({
 		}
 	};
 	const sendMessage = useCallback(
-		async (edit = null, retry = false) => {
-			const text = retry ? "" : edit ? editText.trim() : input.trim();
+		async (edit = null, retry = false, submittedText = "", draftSessionId = palace.sessionId) => {
+			const text = retry ? "" : edit ? editText.trim() : submittedText.trim();
 			if (
 				(!retry && !text && (edit || !selectedFiles.length)) ||
-                agentLoading ||
+				agentLoading ||
 				busyRef.current ||
 				!baseUrl ||
 				!selectedModel ||
 				!palace.api
 			)
 				return;
-            if (!palace.sessionId) {
-                pendingSend.current = { edit, retry };
-                setAgentLoading(true);
-                palace.setSessionId(crypto.randomUUID());
-                return;
-            }
-            if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
+			if (!palace.sessionId) {
+				pendingSend.current = { edit, retry, submittedText, draftSessionId };
+				setAgentLoading(true);
+				palace.setSessionId(crypto.randomUUID());
+				return;
+			}
+			if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
 
 			busyRef.current = true;
-        setIndexing(null);
+			setIndexing(null);
 			setHistoryError("");
 			const identity = Object.freeze({
-                displayName: resolveDisplayName(avatarSettings, currentModelPath, activeModelName || selectedModel),
+				displayName: resolveDisplayName(
+					avatarSettings,
+					currentModelPath,
+					activeModelName || selectedModel,
+				),
 				modelName: activeModelName || selectedModel,
 				modelId: selectedModel,
 				agentName: sessionAgent?.name || null,
@@ -414,19 +451,20 @@ export function ChatInterface({
 				const requestMessages = await palace.prepareMessages(text, !!edit || retry, attachments);
 				prepared = true;
 				if (!edit && !retry) {
-					updateDraft("");
+					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
 					clearFiles();
 				}
 				const saved = await palace.api.loadSession(palace.sessionId);
 				setMessages([...saved.messages, assistantMsg]);
 				await refreshHistory();
 				await runDesktopChat({
+                    reasoningEffort,
 					sessionId: palace.sessionId,
 					onIndexing: setIndexing,
 					modelId: selectedModel,
 					messages: requestMessages,
 					messageId: assistantMsg.id,
-                    displayName: identity.displayName,
+					displayName: identity.displayName,
 					onExecutionSteps: (steps) => {
 						executionSteps = steps;
 						setMessages((prev) =>
@@ -480,7 +518,7 @@ export function ChatInterface({
 								? {
 										...message,
 										displayName: identity.displayName,
-                                        stats: assistantStats,
+										stats: assistantStats,
 										executionSteps,
 										streaming: false,
 									}
@@ -522,32 +560,31 @@ export function ChatInterface({
 			}
 		},
 		[
-			input,
-			updateDraft,
 			editText,
 			selectedFiles,
 			clearFiles,
 			selectedModel,
+            reasoningEffort,
 			activeModelName,
-            currentModelPath,
-            avatarSettings,
+			currentModelPath,
+			avatarSettings,
 			sessionAgent,
-            agentLoading,
+			agentLoading,
 			baseUrl,
 			palace,
 			refreshHistory,
 		],
 	);
-    useEffect(() => {
-        if (agentLoading || !palace.sessionId || pendingAgent.current || !pendingSend.current) return;
-        const { edit, retry } = pendingSend.current;
-        pendingSend.current = null;
-        void sendMessage(edit, retry);
-    }, [agentLoading, palace.sessionId, sendMessage]);
+	useEffect(() => {
+		if (agentLoading || loading || !palace.sessionId || pendingAgent.current || !pendingSend.current) return;
+		const { edit, retry, submittedText, draftSessionId } = pendingSend.current;
+		pendingSend.current = null;
+		void sendMessage(edit, retry, submittedText, draftSessionId);
+	}, [agentLoading, loading, palace.sessionId, sendMessage]);
 	const regenerateReply = async (message) => {
 		if (busyRef.current || !baseUrl || !selectedModel) return;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setStreaming(true);
 		setHistoryError("");
 		const controller = new AbortController();
@@ -562,7 +599,7 @@ export function ChatInterface({
 						stats: message.stats,
 						tool_calls: message.toolCalls,
 						displayName: message.displayName,
-                        model_name: message.modelName,
+						model_name: message.modelName,
 						model_id: message.modelId,
 						agent_name: message.agentName,
 					},
@@ -572,8 +609,12 @@ export function ChatInterface({
 			content: "",
 			executionSteps: [],
 			stats: null,
-			displayName: resolveDisplayName(avatarSettings, currentModelPath, activeModelName || selectedModel),
-            model_name: activeModelName || selectedModel,
+			displayName: resolveDisplayName(
+				avatarSettings,
+				currentModelPath,
+				activeModelName || selectedModel,
+			),
+			model_name: activeModelName || selectedModel,
 			model_id: selectedModel,
 			agent_name: sessionAgent?.name ?? null,
 			created_at: new Date().toISOString(),
@@ -598,11 +639,12 @@ export function ChatInterface({
 		updateDraft({});
 		try {
 			const result = await runDesktopChat({
+                    reasoningEffort,
 				regenerate: true,
 				sessionId: palace.sessionId,
 				modelId: selectedModel,
 				modelName: draft.model_name,
-                displayName: draft.displayName,
+				displayName: draft.displayName,
 				memoryEnabled: palace.enabled,
 				signal: controller.signal,
 				onIndexing: setIndexing,
@@ -624,10 +666,10 @@ export function ChatInterface({
 			abortRef.current = null;
 		}
 	};
-	const selectReplyVariant = async (message, index) => {
+	const selectReplyVariant = useCallback(async (message, index) => {
 		if (busyRef.current) return;
 		busyRef.current = true;
-        setIndexing(null);
+		setIndexing(null);
 		setLoading(true);
 		setHistoryError("");
 		setMessages((previous) =>
@@ -648,34 +690,26 @@ export function ChatInterface({
 			busyRef.current = false;
 			setLoading(false);
 		}
-	};
+	}, [palace.api, palace.sessionId, palace.refresh]);
 	const hasUnrepliedMessage = messages.at(-1)?.role === "user" && !streaming;
 	const generateReply = useCallback(() => {
 		if (hasUnrepliedMessage && !loading) sendMessage(null, true);
 	}, [hasUnrepliedMessage, loading, sendMessage]);
 	useEffect(() => {
 		const handleGenerateShortcut = (event) => {
-			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
+			if (view === 'chat' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
 				event.preventDefault();
 				if (!event.repeat) generateReply();
 			}
 		};
 		window.addEventListener("keydown", handleGenerateShortcut);
 		return () => window.removeEventListener("keydown", handleGenerateShortcut);
-	}, [generateReply]);
-	const handleKeyDown = (e) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			sendMessage();
-		}
-	};
+	}, [generateReply, view]);
 	const handleStop = () => {
 		if (abortRef.current) {
 			abortRef.current.abort();
 		}
 	};
-	const canSend =
-		(!!input.trim() || selectedFiles.length > 0) && !!baseUrl && !!selectedModel && !!palace.api;
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
 			<div
@@ -684,7 +718,9 @@ export function ChatInterface({
 				inert={isSidebarOpen ? undefined : ""}
 				className={`shrink-0 overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none [&>aside]:h-full ${isSidebarOpen ? "w-[272px] translate-x-0 opacity-100 max-[650px]:w-[220px]" : "w-0 -translate-x-full opacity-0"}`}
 			>
-				<ChatHistory
+				<Sidebar
+                    projects={projects} view={view} activeProjectId={activeProjectId}
+                    onProjects={onProjects} onProject={onProject} onCreateProject={onCreateProject} onChat={onChat}
 					isOpen={isSidebarOpen}
 					groups={groups}
 					activeId={palace.sessionId}
@@ -694,7 +730,7 @@ export function ChatInterface({
 					onAction={async (kind, id, value) => {
 						if (busyRef.current) throw new Error("Wait for the current operation to finish.");
 						busyRef.current = true;
-        setIndexing(null);
+						setIndexing(null);
 						setLoading(true);
 						try {
 							if (kind === "New Folder") await palace.api.createFolder(value);
@@ -704,8 +740,8 @@ export function ChatInterface({
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
 									pendingAgent.current = null;
-        pendingSend.current = null;
-        palace.setSessionId(crypto.randomUUID());
+									pendingSend.current = null;
+									palace.setSessionId(crypto.randomUUID());
 									setMessages([]);
 									clearFiles();
 									setEditing(null);
@@ -720,15 +756,8 @@ export function ChatInterface({
 					}}
 				/>
 			</div>
-			<div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none">
-				{agentModalOpen && (
-					<AgentModal
-						agents={agents}
-						models={models}
-						onChanged={refreshAgents}
-						onClose={() => setAgentModalOpen(false)}
-					/>
-				)}
+			{renderWorkspace?.({ groups, loadChat, startProjectChat, busy: streaming || loading || agentLoading, canStartChat: !!baseUrl && !!selectedModel })}
+            <div style={view === 'chat' ? undefined : { display: 'none' }} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none">
 				{historyError && (
 					<p
 						role="alert"
@@ -881,9 +910,7 @@ export function ChatInterface({
 															message={msg}
 															showHeader={false}
 															disabled={streaming || loading}
-															onSelectVariant={(index) =>
-																selectReplyVariant(msg, index)
-															}
+															onSelectReplyVariant={selectReplyVariant}
 														/>
 													) : (
 														msg.content ||
@@ -916,6 +943,7 @@ export function ChatInterface({
 														</ul>
 													)}
 												</div>
+												<MessageContextStatus message={msg} />
 												{/** Actions toolbar **/}
 												{["user", "assistant"].includes(msg.role) && (
 													<MessageActions
@@ -1015,55 +1043,20 @@ export function ChatInterface({
 						}}
 					/>
 
-					<textarea
-						ref={textareaRef}
-						className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-auto rounded-md py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] and [&::-webkit-scrollbar]:hidden"
-						value={input}
-						onChange={(e) => {
-							updateDraft(e.target.value);
-							palace.setDraftTokens(Math.ceil(e.target.value.length / 4));
-						}}
-						// disabled={streaming || loading}
-						onKeyDown={handleKeyDown}
-						placeholder="Type a message..."
-						rows={1}
-					/>
-
-					<div className="flex items-center justify-between gap-2">
-						<button
-							type="button"
-							aria-label="Attach files"
-							title="Attach images, PDF, TXT, Markdown, or CSV"
-							disabled={streaming || loading || !window.api?.processUploads}
-							onClick={() => fileInputRef.current?.click()}
-							className="flex shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							<GrAttachment />
-						</button>
-
-						{streaming ? (
-							<button
-								className="flex size-[28px] shrink-0 items-center justify-center rounded-md border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
-								onClick={handleStop}
-								title="Stop"
-							>
-								<FaStop />
-							</button>
-						) : (
-							<button
-								className="flex size-[28px] shrink-0 items-center justify-center rounded-md border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
-								onClick={() => sendMessage()}
-								disabled={!canSend || loading}
-								title={baseUrl ? "Send" : "No active engine port yet"}
-							>
-								<IoSend />
-							</button>
-						)}
-					</div>
+                    <ChatInput ref={composerRef} sessionId={palace.sessionId}
+                        onSubmit={text => sendMessage(null, false, text)} onStop={handleStop}
+                        onAttach={() => fileInputRef.current?.click()}
+                        canSubmit={!!baseUrl && !!selectedModel && !!palace.api && !agentLoading}
+                        hasAttachments={selectedFiles.length > 0} streaming={streaming} loading={loading}
+                        attachDisabled={!window.api?.processUploads}
+                        sendTitle={baseUrl ? 'Send' : 'No active engine port yet'}
+                        supportedEfforts={supportedEfforts} reasoningEffort={reasoningEffort} showEffort={engineRunning}
+                        onEffortChange={effort => setEffortByModel(previous => ({ ...previous, [selectedModel]: effort }))} />
 				</div>
 			</div>
 			<RightSidebar
-				open={isRightSidebarOpen}
+                activeModel={activeModel}
+				open={view === 'chat' && isRightSidebarOpen}
 				onClose={onCloseRightSidebar}
 				sessionId={palace.sessionId}
 				modelId={selectedModel}
@@ -1071,7 +1064,6 @@ export function ChatInterface({
 				sessionAgent={sessionAgent}
 				disabled={streaming || loading || agentLoading || !window.api?.applyAgent}
 				onSelectAgent={selectAgent}
-				onManageAgents={() => setAgentModalOpen(true)}
 				onSavePrompt={savePrompt}
 				tuningVersion={tuningVersion}
 			/>

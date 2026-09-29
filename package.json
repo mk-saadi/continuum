@@ -75,6 +75,9 @@
 		"react-markdown": "^10.1.0",
 		"react-syntax-highlighter": "^16.1.1",
 		"react-toast-master": "^3.0.1",
-		"remark-gfm": "^4.0.1"
+		"remark-gfm": "^4.0.1",
+		"remark-parse": "^11.0.0",
+		"undici": "^6.28.1",
+		"unified": "^11.0.5"
 	}
 }

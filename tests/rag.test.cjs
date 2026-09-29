@@ -105,7 +105,7 @@ function pdf(text) {
     assert.deepEqual(global.embeddingTest.options, { quantized: true });
     assert.equal(global.embeddingTest.model, 'Xenova/all-MiniLM-L6-v2');
     assert.equal(global.embeddingTest.task, 'feature-extraction');
-    assert.equal(global.embeddingTest.cacheDir, path.join(root, 'embedding-models'));
+    assert.equal(global.embeddingTest.cacheDir, path.join(root, 'App_Data', 'embedding-models'));
     assert.ok(client.modelKey.startsWith('transformers:Xenova/all-MiniLM-L6-v2:'));
     assert.deepEqual(global.embeddingTest.calls[0].options, { pooling: 'mean', normalize: true });
     const abortDuring = new AbortController();

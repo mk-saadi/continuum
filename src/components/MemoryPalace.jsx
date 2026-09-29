@@ -5,7 +5,7 @@ const tokens = (text) => Math.ceil(text.length / 4);
 export function useMemoryPalace(modelId, activeModelConfig) {
   const api = window.memoryPalace;
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
-  const [enabled, setEnabled] = useState(() => localStorage.getItem('memory-injection') !== 'off');
+  const [enabled, setEnabled] = useState(true);
   const contextLength = activeModelConfig?.contextLength;
   const limit = Number.isSafeInteger(contextLength) && contextLength > 0 ? contextLength : null;
   const [usage, setUsage] = useState(null);
@@ -36,11 +36,12 @@ export function useMemoryPalace(modelId, activeModelConfig) {
     const version = generation.current;
     const requestId = ++request.current;
     try {
-      const [next, core] = await Promise.all([
-        api.getContextUsage(sessionId, modelId), api.getCoreMemories(modelId),
+      const [next, core, settings] = await Promise.all([
+        api.getContextUsage(sessionId, modelId), api.getCoreMemories(modelId), window.api.getEffectiveSettings(sessionId, modelId),
       ]);
       if (version !== generation.current || requestId !== request.current) return;
       setUsage(next);
+      setEnabled(settings.effective.memoryEnabled);
       setCoreTokens(core.reduce((sum, memory) => sum + tokens(memory.content), 0));
       setError('');
     } catch (err) {
@@ -96,9 +97,12 @@ export function useMemoryPalace(modelId, activeModelConfig) {
     api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage, toolTokens, pluginTokens, mcpStatus,
     setDraftTokens,
     totalTokens: usage ? Math.max(0, usage.totalTokens - (enabled ? 0 : coreTokens)) + draftTokens + Math.max(0, toolTokens - pluginTokens) : null,
-    toggle: () => setEnabled((value) => {
-      localStorage.setItem('memory-injection', value ? 'off' : 'on');
-      return !value;
-    }),
+    toggle: async () => {
+      try {
+        await window.api.saveSessionMemorySettings(sessionId, modelId, { memoryEnabled: !enabled });
+        await refresh();
+        window.dispatchEvent(new Event('generation-settings-changed'));
+      } catch (err) { setError(err.message); }
+    },
   };
 }

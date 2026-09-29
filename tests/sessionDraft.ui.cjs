@@ -22,7 +22,7 @@ app.whenReady().then(async () => {
       window.updateDraft('Draft B'); await wait();
       window.renderDraft('a'); await wait();
       const restoredA = document.querySelector('textarea').value;
-      window.updateDraft(''); await wait();
+      window.updateDraft(''); await new Promise(resolve => setTimeout(resolve, 1100));
       return { emptyB, restoredA, a: localStorage.getItem('chat_draft_a'), b: localStorage.getItem('chat_draft_b') };
     })()`);
     assert.deepEqual(result, { emptyB: '', restoredA: 'Draft A', a: null, b: 'Draft B' });
