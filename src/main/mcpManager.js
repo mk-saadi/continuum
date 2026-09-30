@@ -70,12 +70,15 @@ function validateServerConfig(name, server) {
 // MCP clients use local stdio or remote HTTP/SSE transports.
 class McpManager extends EventEmitter {
   constructor({ configPath = path.join(os.homedir(), '.config', 'Continuum', 'mcp_config.json'), createConnection,
+    getNativeServers = () => ({}), prepareServer,
     getGlobalConfig = () => require('./configStore').getConfig() } = {}) {
     super();
     this.configPath = configPath;
     this.servers = new Map();
     this.createConnection = createConnection;
     this.getGlobalConfig = getGlobalConfig;
+    this.getNativeServers = getNativeServers;
+    this.prepareServer = prepareServer;
   }
   init() {
     return this.initializing ??= (async () => {
@@ -84,7 +87,7 @@ class McpManager extends EventEmitter {
         await fs.writeFile(this.configPath, JSON.stringify({ mcpServers: {} }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
       } catch (error) { if (error.code !== 'EEXIST') throw error; }
       if (!this.closing) this.startWatcher();
-      await this.load();
+      await this.load({ seedNative: true });
     })();
   }
   startWatcher() {
@@ -150,12 +153,21 @@ class McpManager extends EventEmitter {
       return saved;
     });
   }
-  async load() {
+  async load({ seedNative = false } = {}) {
     const hadError = !!this.configError;
     this.configError = undefined;
     let config;
     try {
       config = await this.getConfig();
+      if (seedNative) {
+        let added = false;
+        for (const [name, definition] of Object.entries(this.getNativeServers(this.configPath))) {
+          if (Object.hasOwn(config.mcpServers, name)) continue;
+          config.mcpServers[name] = definition;
+          added = true;
+        }
+        if (added) await this.writeConfig(config);
+      }
       // At startup, connectServer exposes individual definition errors in the UI.
       // During reload, reject incomplete edits before touching active clients.
       if (this.servers.size) {
@@ -201,6 +213,8 @@ class McpManager extends EventEmitter {
     try {
       validateServerConfig(name, definition);
       if (!server.enabled) { server.status = 'disabled'; return; }
+      definition = resolveNativePlaywright(name, definition);
+      await this.prepareServer?.(name, definition);
       definition = withFilesystemDirectories(name, definition, this.getGlobalConfig);
       if (this.createConnection) server.client = await this.createConnection(definition);
       else if (definition.url !== undefined) server.client = await connectRemoteMcp(definition);
@@ -350,5 +364,9 @@ class McpManager extends EventEmitter {
     await this.disconnect();
   }
 }
-module.exports = new McpManager();
+const { nativePlaywrightConfig, resolveNativePlaywright, prepareNativePlaywright } = require('./nativePlaywright');
+module.exports = new McpManager({
+  getNativeServers: configPath => ({ 'playwright-native': nativePlaywrightConfig(path.dirname(configPath)) }),
+  prepareServer: prepareNativePlaywright,
+});
 module.exports.McpManager = McpManager;

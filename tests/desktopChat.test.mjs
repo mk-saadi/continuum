@@ -193,3 +193,16 @@ test('live tool events populate one preparing card and transition through author
     assert.equal(snapshots[0][0].status, 'preparing', 'previous snapshots remain immutable');
   } finally { globalThis.window = oldWindow; }
 });
+
+for (const regenerate of [false, true]) test(`cloud target reaches ${regenerate ? 'regeneration' : 'chat'} IPC`, async () => {
+  const oldWindow = globalThis.window;
+  const activeChatProvider = { type: 'cloud', provider: 'anthropic', model: 'claude-test' };
+  let captured;
+  const run = async payload => { captured = payload; return { text: 'OK' }; };
+  globalThis.window = { chatAPI: { onEvent: () => () => {}, run }, memoryPalace: { regenerateLast: run } };
+  try {
+    await runDesktopChat({ activeChatProvider, modelId: 'cloud:anthropic:claude-test', messages: [], regenerate });
+    assert.deepEqual(captured.activeChatProvider, activeChatProvider);
+    assert.equal(captured.modelId, 'cloud:anthropic:claude-test');
+  } finally { globalThis.window = oldWindow; }
+});

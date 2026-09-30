@@ -110,3 +110,38 @@ Contributions are welcome! Whether it's a bug fix, a new feature, or improved do
 Distributed under the MIT License. See `LICENSE` for more information.
 
 **Built with ❤️ for local AI enthusiasts.**
+
+### Cloud chat providers
+
+Open **Settings → Cloud Providers** to save an OpenAI, Anthropic, or DeepSeek API
+key and the model ID available to your account. Keys are stored without encryption
+in the local settings database; the settings UI receives only configured status,
+never an existing key. Blank key inputs preserve saved credentials; **Remove key**
+deletes them. No additional SDK dependency is required.
+
+The model selector separates **Local Engine Status**, **Cloud Models**, and
+**Local Models**. Choosing cloud chat leaves the loaded GGUF in VRAM. Selecting
+that GGUF again reuses it; loading a different GGUF stops the previous process
+before starting the new one. Existing engine idle-unload preferences still apply.
+
+`App.jsx` tracks `loadedLocalModel` and `activeChatProvider` independently. The
+latter travels through `desktopChat.mjs` to `engine:chat`; Electron's main process
+reads the key and sends requests to fixed provider endpoints. Cloud model history
+and profiles use `cloud:<provider>:<model>` IDs. Cancellation, usage accounting,
+regeneration, and the existing memory/MCP tool loop use the selected provider.
+OpenAI/DeepSeek stream responses; Anthropic currently returns each response after
+it completes. Local-only sub-agent delegation is omitted for cloud chat, and cloud
+chat does not use the local engine's context limit or idle-compression scheduling.
+
+Cloud chats send conversation context and enabled tool results to the selected
+provider. First configure credentials, then select a model under **Cloud Models**.
+Model availability depends on the provider/account; edit the model ID in settings
+if a preset is unavailable.
+
+Regression checks (use Electron's Node runtime for its SQLite ABI):
+
+```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/cloudProviders.test.cjs tests/cloudIpc.test.cjs tests/desktopChat.test.mjs tests/mcpIpc.test.cjs
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/cloudSelection.ui.cjs
+npm run build
+```

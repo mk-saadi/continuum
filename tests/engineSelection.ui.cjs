@@ -12,12 +12,12 @@ app.whenReady().then(async () => {
     await esbuild.build({ entryPoints: [path.join(__dirname, 'fixtures/engineSelection.jsx')], bundle: true,
       outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' },
       plugins: [{ name: 'isolate-app-state', setup(build) {
-        build.onResolve({ filter: /(?:MemorySettings|ModelSelectorModal|TerminalLog|useAvatarSettings|MemoryPalace|ChatInterface|Titlebar)/ }, args => ({ path: args.path, namespace: 'stub' }));
+        build.onResolve({ filter: /(?:MemorySettings|TerminalLog|useAvatarSettings|MemoryPalace|ChatInterface|Titlebar)/ }, args => ({ path: args.path, namespace: 'stub' }));
         build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: `
           export default function Stub() { return { settings: {} }; }
           export const useTerminalLog = () => ({});
           export const useMemoryPalace = () => ({ limit: null, totalTokens: null });
-          export const ChatInterface = ({selectedModel}) => { window.chatModel = selectedModel; return null; };
+          export const ChatInterface = ({selectedModel, activeChatProvider}) => { window.chatModel = selectedModel; window.chatProvider = activeChatProvider; return null; };
           export const Titlebar = () => null;
         ` }));
       } }],
@@ -40,7 +40,13 @@ app.whenReady().then(async () => {
       mountApp({status: stopped, delayed: true, scanned}); await wait();
       emitStatus(loaded); await wait(); resolveInitialStatus(stopped); await wait(); const raced = label();
       emitStatus(stopped); await wait(); const unloaded = label();
-      return {empty, remembered, active, refreshed, raced, unloaded};
+      document.querySelector('[aria-label="Select or load model"]').click(); await wait();
+      [...document.querySelectorAll('dialog button')].find(button => button.textContent.includes('OpenAI')).click(); await wait();
+      emitStatus(loaded); await wait();
+      const cloudAfterEngineStatus = { label: label(), provider: chatProvider.type, model: chatModel };
+      emitStatus(stopped); await wait();
+      const cloudAfterUnload = { label: label(), provider: chatProvider.type, model: chatModel };
+      return {empty, remembered, active, refreshed, raced, unloaded, cloudAfterEngineStatus, cloudAfterUnload};
     })()`);
     assert.match(results.empty, /Select Model/);
     assert.doesNotMatch(results.empty, /First/);
@@ -52,6 +58,12 @@ app.whenReady().then(async () => {
     assert.match(results.raced, /Active.*Ready/);
     assert.match(results.unloaded, /Not loaded/);
     assert.doesNotMatch(results.unloaded, /Ready/);
+    for (const state of [results.cloudAfterEngineStatus, results.cloudAfterUnload]) {
+      assert.equal(state.provider, 'cloud');
+      assert.equal(state.model, 'cloud:openai:test-cloud');
+      assert.match(state.label, /openai.*Cloud/);
+      assert.doesNotMatch(state.label, /Not loaded/);
+    }
     console.log('Engine selection: empty startup, saved preference, active model outside scan, remount, stale response, and unload passed.');
   } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
   app.exit(0);

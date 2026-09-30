@@ -1,5 +1,17 @@
 # MCP tools
 
+Playwright is registered automatically as `playwright-native` on app startup.
+It runs the installed `@playwright/mcp` CLI with `process.execPath`, `ELECTRON_RUN_AS_NODE=1`, and `--headless`;
+no `npx` package fetch is used. The first connection downloads the matching
+Chromium revision when it is missing, then reuses Playwright's browser cache.
+This first launch needs internet access. Both the MCP server and browser installer
+use Electron’s bundled Node runtime; end-users do not need Node or npm installed.
+Browser setup failures appear as integration errors. Linux still needs the
+system libraries required by Chromium. Existing Playwright settings, including
+a disabled integration, are preserved. Playwright dependencies are unpacked
+from ASAR in packaged builds. The agent starts development servers with its
+command tool and uses Playwright's accessibility snapshots to exercise their UI.
+
 Open **Memory settings** for three tabs:
 
 - **Memory Palace**: context window, saved memories, and the add-memory form.
@@ -146,3 +158,43 @@ updates that row within the same session. Stats merge per field: new non-null
 values (including zero) replace prior values; null/omitted metrics preserve them.
 Tool/thinking metadata is retained when omitted. Rows from other sessions and
 user messages cannot be updated through this path.
+
+## Electron 30 packaging
+
+`package.json` pins Electron to `30.5.1` (bundled Node `20.16.0`), and keeps
+`electron-builder` at `^26.15.3`. Playwright remains a production dependency;
+keep the existing `asarUnpack` patterns for `@playwright` and `playwright*`.
+The native launcher passes the bundled CLI as an argument to `process.execPath`
+and sets `ELECTRON_RUN_AS_NODE=1` in the child environment. Keep Electron's
+`RunAsNode` fuse enabled. Existing native entries using host `node` or an old
+AppImage mount are resolved to the current runtime/CLI at launch without
+rewriting user options or disabled state.
+
+To install and rebuild on the build machine:
+
+```sh
+npm ci
+npm run dist -- --linux AppImage
+```
+
+`npm ci` runs the existing `electron-builder install-app-deps` postinstall hook,
+which rebuilds native dependencies such as `better-sqlite3` for Electron's ABI.
+Distribute the newly built AppImage from `release/`; changing package.json does
+not update an already distributed AppImage. On a machine without host Node/npm,
+launch the new AppImage and confirm `playwright-native` connects and a browser
+navigation succeeds. First use still downloads Chromium and requires its Linux
+system libraries. This removes the host Node requirement, not those browser
+requirements.
+
+Static compatibility review of `main.js`, both preload files, and `src/main`:
+IPC is exposed through wrapper functions rather than exposing `ipcRenderer`;
+no removed crash events, `inputFormType`, `process.getIOCounters()`, or
+`--disable-color-correct-rendering` are used. There are no BrowserViews requiring
+the Electron 30 resizing migration. `webUtils.getPathForFile` is available in
+Electron 29+. No main/preload API migration was needed.
+
+References: [Electron 29 changes](https://www.electronjs.org/blog/electron-29-0),
+[Electron 30 changes](https://www.electronjs.org/blog/electron-30-0), and
+[30.5.1 runtime versions](https://releases.electronjs.org/release/v30.5.1).
+Electron 30 is end-of-support; this pin fulfills the requested compatibility
+target, but a supported Electron release should be the eventual distribution target.

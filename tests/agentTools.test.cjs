@@ -33,8 +33,8 @@ const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, argumen
     initDatabase(root);
     const project = require('../src/main/projectManager').createProject({ name: 'Tools', root_path: workspace });
     require('../src/main/sessionManager').getOrCreateSession('chat', 'model', project.id);
-    assert.equal(agentTools.length, 8);
-    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, 8);
+    assert.equal(agentTools.length, 9);
+    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, 9);
     assert.equal((await run('write_project_file', { relative_path: 'src/test.txt', content: 'alpha\nbeta\nalpha\n' })).success, true);
     for (const old_str of ['missing', 'alpha', '']) {
       const result = await run('str_replace_editor', { relative_path: 'src/test.txt', old_str, new_str: 'oops' });
@@ -127,7 +127,7 @@ const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, argumen
     assert.equal((await run('take_screenshot', { display_id: 'missing' })).success, false);
     dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: event => event.trusted });
     await assert.rejects(handlers.get('agent:execute-tool')({ trusted: false }, {}), /Unauthorized/);
-    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, 8);
+    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, 9);
     assert.equal((await handlers.get('agent:execute-tool')({ trusted: true }, { name: 'read_project_file', arguments: { relative_path: 'src/test.txt' }, sessionId: 'chat' })).content, 'alpha\n$&\nlast\n');
     console.log('Agent tools: file scope, symlinks, editing, search, command output, screenshot payload and IPC passed.');
   } finally { dispose?.(); closeDatabase(); Module._load = originalLoad; os.tmpdir = originalTmpdir; fs.rmSync(root, { recursive: true, force: true }); }

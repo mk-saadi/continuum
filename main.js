@@ -320,14 +320,30 @@ async function launchProcess(command, model = null, config = null) {
 }
 ipcMain.handle("terminal:spawn", (_event, command) => launchProcess(command));
 
+let switchingLocalModel = false;
 async function launchModel(modelId, input) {
+    if (switchingLocalModel || launching) throw new Error("A local model is already loading.");
+    switchingLocalModel = true;
+    try {
 	const model = scannedModels.get(modelId);
 	if (!model) throw new Error("Scan and select a local model first.");
 	const config = normalizeLoadConfig({ reasoningFormat: model.reasoningFormat ?? 'auto', ...input });
 	if (typeof input.rememberSettings !== "boolean") throw new Error("Invalid remember settings option.");
 	if (!fs.existsSync(model.modelPath) || (model.mmprojPath && !fs.existsSync(model.mmprojPath)))
 		throw new Error("Model or projector file no longer exists. Rescan your models.");
-	const result = await launchProcess(null, model, config);
+	if (childProcess) {
+        const previous = childProcess;
+        await new Promise((resolve, reject) => {
+            const cleanup = () => { clearTimeout(timer); previous.removeListener('close', closed); };
+            const closed = () => { cleanup(); resolve(); };
+            const timer = setTimeout(() => { cleanup(); reject(new Error('Previous local engine did not stop. Try unloading it again.')); }, 10000);
+            previous.once('close', closed);
+            stopEngine().then(result => {
+                if (!result.success) { cleanup(); reject(new Error(result.error)); }
+            }, error => { cleanup(); reject(error); });
+        });
+    }
+    const result = await launchProcess(null, model, config);
 	if (result.success) {
 		try {
 			if (input.rememberSettings) saveLoadConfig(modelId, config);
@@ -340,6 +356,7 @@ async function launchModel(modelId, input) {
 		}
 	}
 	return result;
+    } finally { switchingLocalModel = false; }
 }
 
 ipcMain.handle("terminal:getConfig", () => {

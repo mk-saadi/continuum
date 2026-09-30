@@ -1,5 +1,7 @@
 "use strict";
 
+const { fetchCloudModels, getCloudProviders, saveCloudProvider, deleteCloudProvider, validateChatProvider, createCloudFetch } = require("./cloudProviders");
+
 const { localEngineFetch } = require("./localEngineFetch");
 
 const {
@@ -107,6 +109,10 @@ function registerIpcHandlers({
             const error = await shell.openPath(filePath);
             if (error) throw new Error(error);
         },
+        "cloud:get": () => getCloudProviders(),
+        "cloud:models": input => fetchCloudModels(input),
+        "cloud:save": input => saveCloudProvider(input),
+        "cloud:delete": id => deleteCloudProvider(id),
         "config:get": () => require('./configStore').getConfig(),
         "config:set-idle-timeout": minutes => {
             const config = require('./configStore').saveConfig({ engineIdleTimeoutMinutes: minutes });
@@ -207,7 +213,10 @@ function registerIpcHandlers({
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort();
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, reasoningEffort, messageId = requestId }, notify, sender) => {
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, reasoningEffort, messageId = requestId }, notify, sender) => {
+            const target = validateChatProvider(activeChatProvider);
+            const cloud = target.type === "cloud";
+            const fetchImpl = cloud ? createCloudFetch(target) : localEngineFetch;
 			if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || !getReasoningEfforts(modelId).includes(reasoningEffort)))
 				throw new Error('Unsupported reasoning effort for the active model.');
 			let executionSteps = [];
@@ -229,20 +238,23 @@ function registerIpcHandlers({
 			requests.set(sender, active);
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
-            const finishEngineRequest = beginEngineRequest?.();
+            const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
 			try {
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
 				const config = getEngineConfig?.();
-				if (!config) throw new Error("Start the local model server first.");
+				if (!cloud && !config) throw new Error("Start the local model server first.");
+                if (!cloud && config.modelPath && config.modelPath !== modelId) throw new Error("The selected local model is no longer loaded.");
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
                 const { phaseStats } = await import('../lib/completionStats.mjs');
                 const usageTurnId = require('node:crypto').randomUUID();
                 const usageTimestamp = new Date().toISOString();
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
-                    const { tools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
+                    const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
+                    const filterTools = tools => cloud ? tools.filter(tool => tool.function.name !== "delegate_task") : tools;
+                    const tools = filterTools(availableTools);
                     messages = messages.filter(message => !message.memoryContext);
                     const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
                     messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId }));
@@ -261,10 +273,10 @@ function registerIpcHandlers({
                             if (controller.signal.aborted) { stop(); return; }
                             sender.send('loop:paused', { requestId, sessionId, ...state });
                         }),
-                        fetchImpl: localEngineFetch,
+                        fetchImpl,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
-                        loadedContextSize: config.activeModelConfig?.contextLength ?? 32768,
-					baseUrl: `http://127.0.0.1:${config.port}`,
+                        loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
+					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
 					reasoningEffort,
 					messages: prependBaseSystemPrompt(messages, memoryEnabled),
@@ -273,7 +285,7 @@ function registerIpcHandlers({
                         await mcpManager.reload();
                         const context = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
                         notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
-                        return context.tools;
+                        return filterTools(context.tools);
                     },
 					signal: controller.signal,
 					getSamplingParams: () =>
@@ -322,7 +334,7 @@ function registerIpcHandlers({
                             const output = isMemory
 								? await executeMemoryTool({ ...call, modelId })
 								: isAgent ? await executeAgentTool({ ...call, sessionId, signal: controller.signal,
-                                    engine: { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
+                                    engine: cloud ? undefined : { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
                                 : await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal,
 									});

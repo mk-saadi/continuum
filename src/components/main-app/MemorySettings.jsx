@@ -1,3 +1,4 @@
+import CloudProviderSettings from "../CloudProviderSettings";
 import React, { useEffect, useRef, useState } from "react";
 import TokenHistory from "../settings/TokenHistory";
 import TerminalLog from "../TerminalLog";
@@ -12,6 +13,7 @@ import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from
 import { GiStarSwirl } from "react-icons/gi";
 
 const tabs = [
+    { id: "cloud", label: "Cloud Providers", icon: LuPlug, description: "API keys and cloud model choices." },
     { id: "tokens", label: "Token History", icon: LuTerminal, description: "Token consumption by project and period." },
 	{ id: "general", label: "General", icon: LuPalette, description: "Appearance and engine preferences." },
 	{ id: "terminal", label: "Terminal", icon: LuTerminal, description: "Engine activity and diagnostics." },
@@ -455,6 +457,9 @@ export default function MemorySettings({
 							)}
 						</section>
 
+						<section id="settings-panel-cloud" role="tabpanel" aria-labelledby="settings-tab-cloud" hidden={tab !== "cloud"} tabIndex={0} className={panelClass}>
+                            <CloudProviderSettings />
+                        </section>
 						<section
 							id="settings-panel-config"
 							role="tabpanel"

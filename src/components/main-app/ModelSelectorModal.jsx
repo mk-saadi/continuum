@@ -5,6 +5,10 @@ import { BsRobot } from "react-icons/bs";
 
 export default function ModelSelectorModal({
 	models,
+    loadedLocalModel,
+    cloudProviders = [],
+    activeChatProvider,
+    onSelectProvider,
 	selectedModel,
 	onSelectModel,
 	scanning,
@@ -15,6 +19,7 @@ export default function ModelSelectorModal({
 	serverError,
 }) {
 	const dialog = useRef(null);
+    const configuredProviders = cloudProviders.filter(row => row.configured && row.modelId?.trim());
 	const [query, setQuery] = useState("");
 	const [configuring, setConfiguring] = useState(null);
 	const [busy, setBusy] = useState(false);
@@ -55,7 +60,7 @@ export default function ModelSelectorModal({
 					id="model-selector-title"
 					className="font-semibold"
 				>
-					Select / Load Model
+					Select Chat Model
 				</h2>
 				<button
 					type="button"
@@ -67,6 +72,28 @@ export default function ModelSelectorModal({
 					<LuX aria-hidden="true" />
 				</button>
 			</header>
+					<div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] p-3 text-xs">
+						<span><strong className="block">Local Engine Status</strong>{loadedLocalModel?.name || (engineRunning ? "Loading local model…" : "No local model loaded")}</span>
+						<button
+							type="button"
+							disabled={busy || !engineRunning}
+							className="flex ml-3 shrink-0 items-center justify-center rounded-md px-3 py-2 active:translate-y-0.5 border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
+							onClick={async () => {
+								setBusy(true);
+								setError("");
+								try {
+									const result = await window.terminalAPI.kill();
+									if (!result.success) throw new Error(result.error);
+								} catch (err) {
+									setError(err.message);
+								} finally {
+									setBusy(false);
+								}
+							}}
+						>
+							Unload
+						</button>
+					</div>
 			<div className="space-y-3 p-4">
 				<div className="flex gap-2">
 					<input
@@ -88,30 +115,7 @@ export default function ModelSelectorModal({
 						{scanning ? "Scanning…" : "Rescan"}
 					</button>
 				</div>
-				{engineRunning && (
-					<div className="flex items-center justify-between rounded-lg bg-[var(--surface-hover)] p-3 text-xs">
-						<span>Unload the running engine before loading another model.</span>
-						<button
-							type="button"
-							disabled={busy}
-							className="flex ml-3 shrink-0 items-center justify-center rounded-md px-3 py-2 active:translate-y-0.5 border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
-							onClick={async () => {
-								setBusy(true);
-								setError("");
-								try {
-									const result = await window.terminalAPI.kill();
-									if (!result.success) throw new Error(result.error);
-								} catch (err) {
-									setError(err.message);
-								} finally {
-									setBusy(false);
-								}
-							}}
-						>
-							Unload
-						</button>
-					</div>
-				)}
+
 				{(error || serverError) && (
 					<p
 						role="alert"
@@ -120,7 +124,18 @@ export default function ModelSelectorModal({
 						{error || serverError}
 					</p>
 				)}
-				<div className="space-y-2">
+				<section aria-label="Cloud Models" className="space-y-2">
+                    <h3 className="text-sm font-semibold">Cloud Models</h3>
+                    {!configuredProviders.length && <p className="text-xs text-[var(--text-secondary)]">No cloud providers configured. Add one in Settings.</p>}
+                    {configuredProviders.map(row => <button key={row.id} type="button" disabled={busy}
+                        onClick={() => { onSelectProvider({ type: 'cloud', provider: row.id, model: row.modelId }); onClose(); }}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3 text-left text-sm hover:bg-[var(--surface-hover)] disabled:opacity-50">
+                        <span>{row.name}<span className="block text-xs text-[var(--text-secondary)]">{row.modelId}</span></span>
+                        <span className="text-xs">{activeChatProvider?.provider === row.id && activeChatProvider?.model === row.modelId ? 'Active' : 'Use for chat'}</span>
+                    </button>)}
+                </section>
+                <h3 className="text-sm font-semibold">Local Models</h3>
+                <div className="space-y-2">
 					{models
 						.filter(
 							(model) =>
@@ -137,10 +152,13 @@ export default function ModelSelectorModal({
 							<button
 								key={model.id}
 								type="button"
-								disabled={engineRunning || busy}
+								disabled={busy}
 								onClick={() => {
-									onSelectModel(model.id);
-									setConfiguring(model);
+									if (loadedLocalModel?.modelPath === (model.modelPath || model.path || model.id)) {
+                                        onSelectModel(model.id);
+                                        onSelectProvider({ type: 'local' });
+                                        onClose();
+                                    } else setConfiguring(model);
 								}}
 								className="flex w-full items-center justify-between gap-4 rounded-lg cursor-pointer border border-[var(--border)] px-3 py-2 duration-300 text-left hover:bg-[var(--surface-hover)] disabled:opacity-50"
 							>

@@ -8,6 +8,7 @@ export default function Header({
 	isRightSidebarOpen,
 	onToggleRightSidebar,
 	modelName,
+    isCloud = false,
 	engineRunning,
     contextStatus,
 	onOpenModels,
@@ -17,7 +18,7 @@ export default function Header({
 	const total = palace.totalTokens === null ? null : palace.totalTokens + (palace.pluginTokens || 0);
 	const label =
 		palace.limit === null
-			? "Context: Not Loaded"
+			? (isCloud ? "Cloud context" : "Context: Not Loaded")
 			: palace.error
 				? "Context unavailable"
 				: `${total === null ? "—" : total.toLocaleString()} / ${palace.limit.toLocaleString()} tokens`;
@@ -50,8 +51,9 @@ export default function Header({
 						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 					/>
 					<span className="truncate">{modelName || "Select Model"}</span>
-                    {!engineRunning && modelName && <span className="shrink-0 text-[10px] text-[var(--text-muted)]">Not loaded</span>}
-                    {engineRunning && <span role="status" className="shrink-0 text-[10px] text-[var(--text-secondary)]">
+                    {!isCloud && !engineRunning && modelName && <span className="shrink-0 text-[10px] text-[var(--text-muted)]">Not loaded</span>}
+                    {isCloud && <span className="shrink-0 text-[10px] text-[var(--text-secondary)]">Cloud</span>}
+                    {!isCloud && engineRunning && <span role="status" className="shrink-0 text-[10px] text-[var(--text-secondary)]">
                         {contextStatus === "ready" ? "Ready" : contextStatus === "warming" ? "Warming up context..." : contextStatus === "warmup-failed" ? "Warmup failed" : "Loading model..."}
                     </span>}
 					<span

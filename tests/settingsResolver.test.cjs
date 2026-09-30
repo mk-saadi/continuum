@@ -68,7 +68,7 @@ try {
   assert.ok(!isolated.some(message => /BACKGROUND KNOWLEDGE|Secret remembered preference/.test(message.content)));
   assert.match(isolated[0].content, /Memory Palace is disabled/);
   const tools = require('../src/main/promptBuilder').getToolContext([], false).tools;
-  assert.deepEqual(tools, []);
+  assert.deepEqual(tools.map(tool => tool.function.name), ['get_recent_chat_history']);
   closeDatabase(); initDatabase();
   assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, false);
   profiles.saveSessionMemorySettings('memory-chat', '/memory-model', { memoryEnabled: null });

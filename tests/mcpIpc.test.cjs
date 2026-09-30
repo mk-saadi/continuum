@@ -75,7 +75,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.deepEqual(result.stats, events.filter(e => e.type === 'stats').at(-1).stats);
     assert.equal(events.filter(e => e.type === 'thinking').at(-1).thinking.text, 'Final thought');
     assert.equal(executions.length, 1);
-    assert.equal(requests[0].tools.length, 3);
+    assert.equal(requests[0].tools.length, 4);
     assert.ok(!requests[0].tools.some(tool => tool.function.name === 'search_chat_history'));
     assert.equal(requests[1].messages.at(-1).role, 'tool');
     assert.equal(requests[1].messages.at(-1).tool_call_id, 'call1');

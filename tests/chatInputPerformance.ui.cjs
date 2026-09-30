@@ -13,13 +13,15 @@ app.whenReady().then(async () => {
       import { createRoot } from 'react-dom/client';
       import ChatInput from './src/components/ChatInput';
       import ChatMessage from './src/components/ChatMessage';
-      window.parentRenders = 0; window.messageReads = 0; window.submissions = [];
+      window.parentRenders = 0; window.messageReads = 0; window.submissions = []; window.queued = [];
       const message = { id: 'reply', role: 'assistant', get content() { window.messageReads++; return '**Existing reply**'; } };
       const root = createRoot(document.getElementById('root'));
       function Fixture() {
         window.parentRenders++;
         const [sessionId, setSessionId] = useState('a');
         const [visible, setVisible] = useState(true);
+        const [streaming, setStreaming] = useState(false);
+        window.setStreaming = setStreaming;
         const [counter, setCounter] = useState(0);
         const inputRef = useRef(null);
         window.switchChat = setSessionId;
@@ -28,6 +30,7 @@ app.whenReady().then(async () => {
         window.clearSubmitted = (text, id = sessionId) => inputRef.current.clearSubmitted(text, id);
         return <><span>{counter}</span><ChatMessage message={message} />
           {visible && <ChatInput ref={inputRef} sessionId={sessionId} canSubmit sendTitle="Send"
+            streaming={streaming} onQueue={text => window.queued.push(text)}
             onSubmit={text => window.submissions.push(text)} />}</>;
       }
       root.render(<Fixture />);
@@ -72,6 +75,26 @@ app.whenReady().then(async () => {
       window.clearSubmitted('Next draft'); await wait(1100);
       check(input.value === '' && localStorage.getItem('chat_draft_a') === null, 'Sent draft stays cleared after pending timer');
       check(localStorage.getItem('chat_draft_b') === 'Draft B', 'Other draft unaffected');
+      window.setStreaming(true); await wait();
+      type('First queued'); await wait();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await wait(); check(window.submissions.length === 1, 'Enter cannot submit during generation');
+      for (const modifier of ['ctrlKey', 'metaKey']) {
+        type(modifier + ' queued'); await wait();
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, [modifier]: true, bubbles: true }));
+        await wait(); check(input.value === '', 'Queue shortcut clears the draft during generation');
+      }
+      check(window.queued.join(',') === 'ctrlKey queued,metaKey queued', 'Both queue shortcuts preserve order');
+      type('   '); await wait();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, shiftKey: true, bubbles: true }));
+      await wait(); check(window.queued.length === 2, 'Empty prompts cannot be queued');
+      window.setStreaming(false); await wait();
+      type('Idle queue'); await wait();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, shiftKey: true, bubbles: true }));
+      await wait(); check(window.queued[2] === 'Idle queue' && input.value === '', 'Can queue while idle');
+      type('Immediate'); await wait();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await wait(); check(window.submissions[1] === 'Immediate', 'Enter submits while idle');
       type('Leaving'); await wait(); window.hideInput(); await wait();
       const count = writes.length;
       await wait(1100);

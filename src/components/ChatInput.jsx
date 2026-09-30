@@ -4,7 +4,7 @@ import { FaStop } from 'react-icons/fa';
 import { IoSend } from 'react-icons/io5';
 import useSessionDraft from '../hooks/useSessionDraft';
 
-const ChatInput = memo(forwardRef(function ChatInput({ sessionId, onSubmit, onStop, onAttach,
+const ChatInput = memo(forwardRef(function ChatInput({ sessionId, onSubmit, onQueue, onStop, onAttach,
   canSubmit, hasAttachments, streaming, loading, attachDisabled, sendTitle,
   supportedEfforts = [], reasoningEffort, onEffortChange, showEffort }, ref) {
   // This hook owns the local text and the cancellable 1-second storage debounce.
@@ -23,7 +23,14 @@ const ChatInput = memo(forwardRef(function ChatInput({ sessionId, onSubmit, onSt
       className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-auto rounded-md py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       value={draftText} onChange={event => updateDraft(event.target.value)}
       onKeyDown={event => {
-        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+        if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.keyCode === 229) return;
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && onQueue) {
+          event.preventDefault();
+          if (!event.repeat && draftText.trim()) {
+            onQueue(draftText);
+            clearSubmitted(draftText, sessionId);
+          }
+        } else if (!event.shiftKey) {
           event.preventDefault();
           if (!event.repeat) submit();
         }

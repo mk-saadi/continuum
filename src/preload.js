@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  getCloudProviders: () => ipcRenderer.invoke('cloud:get'),
+  fetchCloudModels: settings => ipcRenderer.invoke('cloud:models', settings),
+  saveCloudProvider: settings => ipcRenderer.invoke('cloud:save', settings),
+  deleteCloudProvider: id => ipcRenderer.invoke('cloud:delete', id),
   getTokenHistory: options => ipcRenderer.invoke('tokens:history', options),
   setTokenRetention: months => ipcRenderer.invoke('tokens:retention', { months }),
   exportChat: (chatId, format) => ipcRenderer.invoke('chat:export', { chatId, format }),

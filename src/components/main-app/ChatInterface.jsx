@@ -58,6 +58,7 @@ export function ChatInterface({
     onChat = () => {}, renderWorkspace,
 	selectedModel,
 	baseUrl,
+    activeChatProvider = { type: "local" },
 	engineRunning,
     activeModel = null,
 	palace,
@@ -68,7 +69,8 @@ export function ChatInterface({
 	models,
 	onSelectModel,
 }) {
-	const currentModel = models.find((model) => model.id === selectedModel);
+	const chatAvailable = activeChatProvider.type === "cloud" || !!baseUrl;
+    const currentModel = models.find((model) => model.id === selectedModel);
 	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
     const [effortByModel, setEffortByModel] = useState({});
     const savedEffort = effortByModel[selectedModel];
@@ -79,6 +81,10 @@ export function ChatInterface({
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
+    const [promptQueue, setPromptQueue] = useState([]);
+    const queuePrompt = useCallback(text => {
+        setPromptQueue(previous => [...previous, { id: Date.now(), text }]);
+    }, []);
 	const isUserScrolledUp = useRef(false);
 	const composerRef = useRef(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
@@ -119,6 +125,7 @@ export function ChatInterface({
         onChat();
 		pendingAgent.current = null;
 		pendingSend.current = null;
+		setPromptQueue([]);
 		palace.setSessionId(crypto.randomUUID());
 		setMessages([]);
 		clearFiles();
@@ -136,6 +143,7 @@ export function ChatInterface({
 			const session = await palace.api.loadSession(id);
 			pendingAgent.current = null;
 			pendingSend.current = null;
+			setPromptQueue([]);
 			palace.setSessionId(id);
 			setMessages(session.messages);
             onChat();
@@ -151,7 +159,7 @@ export function ChatInterface({
 	};
     const startProjectChat = async (projectId, text) => {
         if (busyRef.current || agentLoading) throw new Error('Wait for the current chat operation to finish.');
-        if (!baseUrl || !selectedModel) throw new Error('Start a model before creating a project chat.');
+        if (!chatAvailable || !selectedModel) throw new Error('Start a model before creating a project chat.');
         busyRef.current = true; setLoading(true);
         try {
             const id = crypto.randomUUID();
@@ -159,6 +167,7 @@ export function ChatInterface({
             // Persist the submitted prompt as a draft until generation accepts it.
             try { localStorage.setItem(`chat_draft_${id}`, text); } catch { /* Draft storage is optional. */ }
             pendingAgent.current = null;
+            setPromptQueue([]);
             pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
             setAgentLoading(true);
             palace.setSessionId(id); setMessages([]); clearFiles(); setEditing(null); palace.setDraftTokens(0);
@@ -183,6 +192,7 @@ export function ChatInterface({
 				const session = await palace.api.loadSession(sessionId);
 				pendingAgent.current = null;
 				pendingSend.current = null;
+				setPromptQueue([]);
 				palace.setSessionId(sessionId);
 				setMessages(session.messages);
 				clearFiles();
@@ -388,19 +398,19 @@ export function ChatInterface({
 		}
 	};
 	const sendMessage = useCallback(
-		async (edit = null, retry = false, submittedText = "", draftSessionId = palace.sessionId) => {
+		async (edit = null, retry = false, submittedText = "", draftSessionId = palace.sessionId, queued = false) => {
 			const text = retry ? "" : edit ? editText.trim() : submittedText.trim();
 			if (
 				(!retry && !text && (edit || !selectedFiles.length)) ||
 				agentLoading ||
 				busyRef.current ||
-				!baseUrl ||
+				!chatAvailable ||
 				!selectedModel ||
 				!palace.api
 			)
 				return;
 			if (!palace.sessionId) {
-				pendingSend.current = { edit, retry, submittedText, draftSessionId };
+				pendingSend.current = { edit, retry, submittedText, draftSessionId, queued };
 				setAgentLoading(true);
 				palace.setSessionId(crypto.randomUUID());
 				return;
@@ -442,7 +452,7 @@ export function ChatInterface({
 					setEditing(null);
 				}
 				let attachments = [];
-				if (!edit && !retry && selectedFiles.length) {
+				if (!queued && !edit && !retry && selectedFiles.length) {
 					if (!window.api?.processUploads)
 						throw new Error("File uploads are available in the desktop app.");
 					const pending = selectedFiles.filter((file) => !uploadCache.current.has(file));
@@ -455,7 +465,7 @@ export function ChatInterface({
 				controller.signal.throwIfAborted();
 				const requestMessages = await palace.prepareMessages(text, !!edit || retry, attachments);
 				prepared = true;
-				if (!edit && !retry) {
+				if (!queued && !edit && !retry) {
 					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
 					clearFiles();
 				}
@@ -463,6 +473,7 @@ export function ChatInterface({
 				setMessages([...saved.messages, assistantMsg]);
 				await refreshHistory();
 				await runDesktopChat({
+                    activeChatProvider,
                     reasoningEffort,
 					sessionId: palace.sessionId,
 					onIndexing: setIndexing,
@@ -570,24 +581,35 @@ export function ChatInterface({
 			clearFiles,
 			selectedModel,
             reasoningEffort,
+            activeChatProvider,
 			activeModelName,
 			currentModelPath,
 			avatarSettings,
 			sessionAgent,
 			agentLoading,
-			baseUrl,
+			chatAvailable,
 			palace,
 			refreshHistory,
 		],
 	);
 	useEffect(() => {
 		if (agentLoading || loading || !palace.sessionId || pendingAgent.current || !pendingSend.current) return;
-		const { edit, retry, submittedText, draftSessionId } = pendingSend.current;
+		const { edit, retry, submittedText, draftSessionId, queued } = pendingSend.current;
 		pendingSend.current = null;
-		void sendMessage(edit, retry, submittedText, draftSessionId);
+		void sendMessage(edit, retry, submittedText, draftSessionId, queued);
 	}, [agentLoading, loading, palace.sessionId, sendMessage]);
+    const isGenerating = streaming || loading || agentLoading;
+    useEffect(() => {
+        if (isGenerating || busyRef.current || pendingSend.current || pendingAgent.current ||
+            !chatAvailable || !selectedModel || !palace.api || promptQueue.length === 0) return;
+        const nextPrompt = promptQueue[0];
+        // sendMessage acquires the busy ref synchronously, including during effect replay.
+        void sendMessage(null, false, nextPrompt.text, palace.sessionId, true);
+        setPromptQueue(previous => previous.slice(1));
+    }, [isGenerating, promptQueue, chatAvailable, selectedModel, palace.api, palace.sessionId, sendMessage]);
+
 	const regenerateReply = async (message) => {
-		if (busyRef.current || !baseUrl || !selectedModel) return;
+		if (busyRef.current || !chatAvailable || !selectedModel) return;
 		busyRef.current = true;
 		setIndexing(null);
 		setStreaming(true);
@@ -644,6 +666,7 @@ export function ChatInterface({
 		updateDraft({});
 		try {
 			const result = await runDesktopChat({
+                    activeChatProvider,
                     reasoningEffort,
 				regenerate: true,
 				sessionId: palace.sessionId,
@@ -753,6 +776,7 @@ export function ChatInterface({
 								if (id === palace.sessionId) {
 									pendingAgent.current = null;
 									pendingSend.current = null;
+									setPromptQueue([]);
 									palace.setSessionId(crypto.randomUUID());
 									setMessages([]);
 									clearFiles();
@@ -768,7 +792,7 @@ export function ChatInterface({
 					}}
 				/>
 			</div>
-			{renderWorkspace?.({ groups, loadChat, startProjectChat, busy: streaming || loading || agentLoading, canStartChat: !!baseUrl && !!selectedModel })}
+			{renderWorkspace?.({ groups, loadChat, startProjectChat, busy: streaming || loading || agentLoading, canStartChat: !!chatAvailable && !!selectedModel })}
             <div style={view === 'chat' ? undefined : { display: 'none' }} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none">
 				{historyError && (
 					<p
@@ -790,7 +814,7 @@ export function ChatInterface({
 									<BsRobot />
 								</span>
 								<span className="text-[13px] max-[450px]:text-[11px]">
-									{baseUrl
+									{chatAvailable
 										? "Load the engine and start chatting"
 										: "Waiting for engine to report an active port..."}
 								</span>
@@ -843,7 +867,7 @@ export function ChatInterface({
 																e.preventDefault();
 																if (
 																	editText.trim() &&
-																	baseUrl &&
+																	chatAvailable &&
 																	selectedModel
 																) {
 																	sendMessage(msg);
@@ -894,7 +918,7 @@ export function ChatInterface({
 																streaming ||
 																loading ||
 																!editText.trim() ||
-																!baseUrl ||
+																!chatAvailable ||
 																!selectedModel
 															}
 														>
@@ -1028,12 +1052,25 @@ export function ChatInterface({
 					}}
 					className="mx-auto relative mb-3 flex w-[calc(100%-2rem)] max-w-[980px] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px]"
 				>
-					{hasUnrepliedMessage && (
+					{promptQueue.length > 0 && (
+                        <div aria-label="Queued prompts" className="absolute bottom-full left-0 right-0 z-10 mb-2 flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+                            {promptQueue.map((item, index) => (
+                                <button key={`${item.id}-${index}`} type="button"
+                                    title={item.text}
+                                    aria-label={`Remove queued prompt: ${item.text}`}
+                                    onClick={() => setPromptQueue(previous => previous.filter(entry => entry !== item))}
+                                    className="max-w-full truncate rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]">
+                                    ⏳ Queued ({promptQueue.length}): &quot;{item.text.slice(0, 30)}{item.text.length > 30 ? '...' : ''}&quot; (click to remove)
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {hasUnrepliedMessage && promptQueue.length === 0 && (
 						<div className="absolute -top-10 left-0 right-0 flex justify-center pointer-events-none">
 							<button
 								type="button"
 								onClick={generateReply}
-								disabled={loading || !baseUrl || !selectedModel || !palace.api}
+								disabled={loading || !chatAvailable || !selectedModel || !palace.api}
 								className="pointer-events-auto rounded-full text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-1.5 text-xs backdrop-blur-sm shadow-[0_4px_20px_var(--window-shadow)]"
 							>
 								Generate a reply (Ctrl + R)
@@ -1056,13 +1093,14 @@ export function ChatInterface({
 					/>
 
                     <ChatInput ref={composerRef} sessionId={palace.sessionId}
+                        onQueue={queuePrompt}
                         onSubmit={text => sendMessage(null, false, text)} onStop={handleStop}
                         onAttach={() => fileInputRef.current?.click()}
-                        canSubmit={!!baseUrl && !!selectedModel && !!palace.api && !agentLoading}
+                        canSubmit={!!chatAvailable && !!selectedModel && !!palace.api && !agentLoading}
                         hasAttachments={selectedFiles.length > 0} streaming={streaming} loading={loading}
                         attachDisabled={!window.api?.processUploads}
-                        sendTitle={baseUrl ? 'Send' : 'No active engine port yet'}
-                        supportedEfforts={supportedEfforts} reasoningEffort={reasoningEffort} showEffort={engineRunning}
+                        sendTitle={chatAvailable ? 'Send' : 'Select a cloud model or load a local model'}
+                        supportedEfforts={supportedEfforts} reasoningEffort={reasoningEffort} showEffort={activeChatProvider.type === "local" && engineRunning}
                         onEffortChange={effort => setEffortByModel(previous => ({ ...previous, [selectedModel]: effort }))} />
 				</div>
 			</div>

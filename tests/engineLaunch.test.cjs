@@ -11,7 +11,7 @@ const context = {
     if (name === 'electron') return { app: { commandLine: { appendSwitch() {} }, whenReady: () => ({ then() {} }), on() {} }, BrowserWindow: {}, protocol: { registerSchemesAsPrivileged() {} }, ipcMain: { on() {}, handle: (name, fn) => handlers.set(name, fn) } };
     if (name === './src/main/db.js') return {};
     if (name === './src/main/ipcHandlers.js') return {};
-    if (name === './src/main/configManager') return { ...mainRequire(name), getAppSettings: () => ({ apiServerPort: 8080 }) };
+    if (name === './src/main/configManager') return { ...mainRequire(name), getAppSettings: () => ({ apiServerPort: 8080 }), saveLoadConfig() {}, forgetLoadConfig() {} };
     if (name === './src/main/engineManager') return { ...mainRequire(name), createStartupHandler: ({ onStatus }) => ({ onOutput: () => onStatus('warming'), cancel() {} }) };
     if (name === 'child_process') return { spawn(command, args, options) {
       spawnCommand = command; spawnArgs = args; spawnOptions = options ?? args;
@@ -25,7 +25,7 @@ const context = {
   }, process, console, setTimeout, clearTimeout, __dirname: require('node:path').resolve('.'),
 };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync('main.js', 'utf8') + '\nglobalThis.launchForTest = launchProcess;', context);
+vm.runInContext(fs.readFileSync('main.js', 'utf8') + '\nglobalThis.launchForTest = launchProcess; globalThis.switchForTest = launchModel;', context);
 const events = [];
 context.testWindow = { isDestroyed: () => false, webContents: { send: (...args) => events.push(args) } };
 vm.runInContext('mainWindow = testWindow;', context);
@@ -76,6 +76,17 @@ vm.runInContext('mainWindow = testWindow;', context);
   assert.doesNotMatch(spawnCommand, /--api-key|secret|key file/);
   assert.match(spawnCommand, /-m "\/tmp\/model with spaces.gguf"/);
   assert.match(spawnCommand, /--port 12345$/);
+  child.emit('close', 0, null);
+  await context.launchForTest(null, { modelPath: '/previous.gguf' }, {});
+  const previous = child;
+  vm.runInContext("scannedModels.set('replacement', { modelPath: __dirname + '/main.js' }); killProcessTree = async () => {};", context);
+  const replacing = context.switchForTest('replacement', { rememberSettings: false });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(child, previous, 'Do not start the replacement until the old process exits');
+  await assert.rejects(context.switchForTest('replacement', { rememberSettings: false }), /already loading/);
+  previous.emit('close', 0, null);
+  assert.equal((await replacing).success, true);
+  assert.notEqual(child, previous);
   child.emit('close', 0, null);
   console.log('Launch failures, direct spawning, unauthenticated local access, model status, duplicate launch protection, and stale process exits passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

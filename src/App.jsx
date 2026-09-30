@@ -47,7 +47,24 @@ export default function App() {
 	const [selectedModel, setSelectedModel] = useState(() => {
         try { return localStorage.getItem("lastSelectedModelPath") || ""; } catch { return ""; }
     });
-	const [activeModelPath, setActiveModelPath] = useState(null);
+	const [loadedLocalModel, setLoadedLocalModel] = useState(null);
+    const activeModelPath = loadedLocalModel?.modelPath ?? null;
+    const [activeChatProvider, setActiveChatProvider] = useState({ type: "local" });
+    const [cloudProviders, setCloudProviders] = useState([]);
+    useEffect(() => {
+        let active = true;
+        const refresh = () => window.api.getCloudProviders().then(rows => { if (active) {
+            setCloudProviders(rows);
+            setActiveChatProvider(previous => {
+                if (previous.type !== 'cloud') return previous;
+                const provider = rows.find(row => row.id === previous.provider && row.configured && row.modelId?.trim());
+                return provider ? { type: 'cloud', provider: provider.id, model: provider.modelId } : { type: 'local' };
+            });
+        } }).catch(console.error);
+        refresh();
+        window.addEventListener("cloud-providers-changed", refresh);
+        return () => { active = false; window.removeEventListener("cloud-providers-changed", refresh); };
+    }, []);
     const [activeModelName, setActiveModelName] = useState(null);
 	const [scanning, setScanning] = useState(false);
 	const scanInProgress = useRef(false);
@@ -57,7 +74,10 @@ export default function App() {
 	const [enginePid, setEnginePid] = useState(null);
 	const [serverPort, setServerPort] = useState(null); // dynamic port reported by main/preload, null until known
 	const [serverError, setServerError] = useState(null); // last bridge-level error (spawn/bind failure, etc.)
-	const palace = useMemoryPalace((engineRunning ? activeModelPath : selectedModel), engineRunning ? activeModelConfig : null);
+	const isCloud = activeChatProvider.type === "cloud";
+    const chatModelId = isCloud ? `cloud:${activeChatProvider.provider}:${activeChatProvider.model}` : (activeModelPath || selectedModel);
+    const chatModels = [...models, ...cloudProviders.filter(row => row.configured && row.modelId?.trim()).map(row => ({ id: `cloud:${row.id}:${row.modelId}`, name: `${row.name} / ${row.modelId}` }))];
+    const palace = useMemoryPalace(chatModelId, !isCloud && engineRunning ? activeModelConfig : null);
 	// Chat uses the active engine port reported by main.js.
 	const baseUrl = serverPort ? `http\://127.0.0.1:${serverPort}` : null;
 	// Apply theme to document
@@ -126,7 +146,7 @@ export default function App() {
 			const version = ++statusVersion;
 			setActiveModelConfig(running ? (config ?? null) : null);
 			setEngineRunning(running);
-            setActiveModelPath(running ? (modelPath ?? null) : null);
+            setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath } : null);
             setActiveModelName(running ? (modelName ?? null) : null);
             if (running && modelPath) {
                 setSelectedModel(modelPath);
@@ -173,7 +193,8 @@ export default function App() {
 				onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
 				isRightSidebarOpen={isRightSidebarOpen}
 				onToggleRightSidebar={() => setIsRightSidebarOpen((open) => !open)}
-				modelName={engineRunning ? (activeModelName || activeModelPath || "Loading model...") : (models.find((model) => model.id === selectedModel)?.name || selectedModel)}
+				isCloud={isCloud}
+                modelName={isCloud ? `${activeChatProvider.provider} / ${activeChatProvider.model}` : engineRunning ? (activeModelName || activeModelPath || "Loading model...") : (models.find((model) => model.id === selectedModel)?.name || selectedModel)}
 				engineRunning={engineRunning}
 				onOpenModels={() => setModelSelectorOpen(true)}
 				palace={palace}
@@ -198,6 +219,10 @@ export default function App() {
 				<ModelSelectorModal
 					models={models}
 					selectedModel={selectedModel}
+                    loadedLocalModel={loadedLocalModel}
+                    cloudProviders={cloudProviders}
+                    activeChatProvider={activeChatProvider}
+                    onSelectProvider={setActiveChatProvider}
 					onSelectModel={setSelectedModel}
 					scanning={scanning}
 					onScan={handleScanClick}
@@ -205,6 +230,7 @@ export default function App() {
 					serverError={serverError}
 					onLoaded={(result) => {
                         setServerError(result.warning || null);
+                        setActiveChatProvider({ type: "local" });
                         if (result.modelPath) {
                             setSelectedModel(result.modelPath);
                             try { localStorage.setItem("lastSelectedModelPath", result.modelPath); } catch { /* Storage is optional. */ }
@@ -245,14 +271,15 @@ export default function App() {
 
 				isRightSidebarOpen={isRightSidebarOpen}
 				onCloseRightSidebar={() => setIsRightSidebarOpen(false)}
-				models={models}
+				models={chatModels}
 				onSelectModel={setSelectedModel}
 				avatarSettings={avatars.settings}
 				isSidebarOpen={isSidebarOpen}
-				selectedModel={engineRunning ? activeModelPath : selectedModel}
+				selectedModel={chatModelId}
+                activeChatProvider={activeChatProvider}
 				baseUrl={baseUrl}
 				engineRunning={engineRunning}
-                activeModel={engineRunning && ["warming", "ready", "warmup-failed"].includes(contextStatus)
+                activeModel={!isCloud && engineRunning && ["warming", "ready", "warmup-failed"].includes(contextStatus)
                     ? { modelPath: activeModelPath, contextSize: activeModelConfig?.contextLength ?? 32768 } : null}
 				palace={palace}
 			/>
