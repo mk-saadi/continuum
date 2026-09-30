@@ -8,9 +8,7 @@
 # On a v* tag push, installers are published as a GitHub Release.
 # Otherwise artifacts are attached to the run for download.
 #
-# Optional code signing (leave the secrets unset to build unsigned):
-#   MAC_CSC_LINK / CSC_KEY_PASSWORD      - macOS Developer ID certificate (.p12 base64) + password
-#   WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD  - Windows certificate (.pfx base64) + password
+# Builds are unsigned by default; no certificate secrets are required.
 
 name: Build Desktop App
 
@@ -68,11 +66,8 @@ jobs:
       - name: Build installer (${{ matrix.platform }} / ${{ matrix.arch }})
         run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }} --${{ matrix.platform }} --${{ matrix.arch }}
         env:
+          # Used by electron-builder to publish installers as a GitHub Release on tag pushes
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
