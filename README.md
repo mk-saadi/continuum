@@ -1,35 +1,42 @@
-# 🚀 LLM-Electron: The Ultimate Local AI Desktop Assistant
+# Continuum 🌊
 
-A high-performance, privacy-first desktop AI assistant built with **Electron**, **React**, and **Vite**. Experience the power of local large language models (LLMs) with a sophisticated agentic workflow, long-term memory, and seamless tool integration.
+A high-performance, privacy-first desktop AI assistant built with **Electron**, **React**, and **Vite**. Run local large language models (LLMs) side-by-side with cloud providers — all inside a sophisticated agentic workspace with long-term memory, self-extending tooling, and built-in safety rails.
 
 ---
 
 ## ✨ Key Features
 
+### 🔀 Dual Inference: Local + Cloud
+*   **Local Engine:** Powered by `llama.cpp` (via `hyllama`) — your data never leaves your machine.
+*   **Cloud Providers:** Connect any **OpenAI- or Anthropic-compatible** endpoint (plus DeepSeek). Save API keys in Settings → Cloud Providers; the UI only ever sees configuration status, never raw keys.
+*   **Simultaneous Loading:** Local GGUF models and cloud providers coexist. Switching to a cloud model leaves your loaded GGUF resident in VRAM — switching back reuses it instantly with zero reload cost.
+
 ### 🤖 Agent Harness & Project Management
-*   **Custom Agents:** Create specialized AI personas with unique system prompts, avatars, and sampling parameters. Each agent is a distinct entity optimized for specific tasks.
-*   **Project Contexts:** Organize your work into **Projects**. Attach files (text/PDF) to a project to provide deep, persistent context that the assistant can reference across different chats within that project.
-*   **Agentic Workflow:** Seamlessly switch between agents and manage multiple specialized personas for complex tasks.
+*   **Custom Agents (Avatars):** Create specialized AI personas, each with its own system prompt, branding, avatar, and sampling parameters.
+*   **Project Contexts:** Organize work into Projects. Attach files (text/PDF) to a project for deep, persistent context shared across every chat in that project.
+*   **Sub-Agent Delegation:** Offload scoped research tasks to background sub-agents while the main conversation stays responsive.
 
 ### 🧠 Intelligent Memory Palace
-*   **Permanent Memory:** Store critical facts, preferences, and rules that persist across all conversations. Use "Always Inject" to ensure the assistant never forgets your most important instructions.
-*   **Dynamic Context Summarization (Compaction):** Never hit a context limit again. The system automatically monitors token usage and performs **intelligent context compaction**, summarizing older messages into a concise summary to free up space while preserving essential history.
-*   **Memory Scoping:** Define memories that are global or scoped to specific models/agents for granular control.
+*   **Permanent Memory:** Facts, preferences, and rules that persist across all sessions — with optional "always inject" for mission-critical instructions. Memories can be global or scoped to specific models/agents.
+*   **Dynamic Context Summarization (Compaction):** Token usage is continuously monitored; older messages are intelligently summarized into a compact digest before the context window fills, preserving essential history without manual intervention.
 
-### 🛠️ Extensible Tooling (MCP)
-*   **Model Context Protocol (MCP):** Full support for MCP via `stdio` and `SSE`. Extend your assistant's capabilities by connecting it to external tools, databases, and services using the industry-standard protocol.
-*   **Native Tools:** Built-in support for filesystem interaction, media handling, and more.
+### 🛠️ Extensible Tooling (MCP) — Including Self-Registration
+*   **Model Context Protocol:** Full MCP support via `stdio` and `SSE`. Connect external tools, databases, and services using the industry-standard protocol.
+*   **Agentic Extensibility:** The assistant can *build its own tools*. When asked to create an MCP server, it writes the code under `mcp-plugins/`, registers it in `mcp_config.json`, and the server hot-reloads into its toolbelt — no manual setup required.
+*   **Native Tools:** Built-in filesystem access, media handling, memory operations, and a native Playwright browser-automation suite (no external MCP dependency needed).
+
+### 🛡️ Safety Rails
+*   Dangerous database mutations (`DELETE FROM`, `TRUNCATE`, `DROP TABLE`, `deleteMany()`, broad-scope filters like `$ne` / `!=` / `1=1`) are detected before execution and **require explicit human confirmation**.
+*   Bulk writes outside an id-scoped pattern trigger a read-only preview first — preventing accidental destruction of important data during autonomous agent operations.
 
 ### 🔒 Privacy & Performance (Local-First)
-*   **Local Inference:** Powered by `llama.cpp` (via `hyllama`), keeping your data on your machine. No cloud, no leaks, just pure privacy.
-*   **SQLite Backbone:** All chat history, metadata, and memory are stored in a highly optimized local `SQLite` database for lightning-fast retrieval and rock-solid reliability.
+*   All chat history, metadata, memories, and settings live in a local **SQLite** database — lightning-fast retrieval, zero cloud dependency for core functionality.
+*   One-time automatic migration handles legacy data directories transparently on startup.
 
 ### 🎨 Premium User Experience
-*   **Custom Branding:** Each agent features unique **branding and avatars**, making your AI workspace feel personal and organized.
-*   **Advanced Settings Modal:** Granular control over:
-    *   **Model Profiles:** Configure system prompts, memory settings, and sampling parameters per model.
-    *   **Memory Management:** Toggle global or session-specific memory and compaction settings.
-    *   **Server Config:** Fine-tune local engine connections and offline document chat embeddings.
+*   **Custom Branding:** Each agent carries unique branding and avatars across the interface.
+*   **Chat Controls (Right Sidebar):** Per-chat overrides for Agent & Persona, Sampling parameters, Thinking Budget, and Memory & Context — with one-click reset to model defaults.
+*   **Advanced Settings Modal:** Granular control over model profiles, cloud provider credentials, memory/compaction toggles, engine connections, and offline document chat embeddings.
 
 ---
 
@@ -39,69 +46,78 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 | :--- | :--- |
 | **Runtime** | [Electron](https://www.electronjs.org/) |
 | **Frontend** | [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/) |
-| **Inference Engine** | `llama.cpp` (via `hyllama`) |
+| **Inference Engine** | `llama.cpp` (via `hyllama`) + OpenAI/Anthropic-compatible cloud APIs |
 | **Database** | [SQLite](https://www.sqlite.org/) |
 | **Protocol** | [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) |
+| **Browser Automation** | Playwright (native integration) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   [Node.js](https://nodejs.org/) (LTS recommended)
-*   [pnpm](https://pnpm.io/) (Preferred package manager)
+*   [Node.js](https://nodejs.org/) ≥ 18 (LTS recommended)
 
 ### Installation & Development
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/mk-saadi/llm-electron.git
-    cd llm-electron
+    git clone https://github.com/mk-saadi/continuum.git
+    cd continuum
     ```
 
 2.  **Install dependencies:**
     ```bash
-    pnpm install
+    npm install
     ```
 
 3.  **Run in development mode:**
     ```bash
-    pnpm dev
+    npm run dev
     ```
 
 ### Building for Production
 
-To create a production-ready executable:
-
 ```bash
 # Build the project
-pnpm build
+npm run build
 
 # Package for your current OS (Linux/macOS/Windows)
-pnpm package
+npm run package
+```
+
+---
+
+## 🧪 Development Notes
+
+Tests use Node's built-in test runner. For suites that touch Electron-specific modules (SQLite ABI), run them under Electron's Node runtime:
+
+```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/<suite>.cjs
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/<ui-suite>.cjs
+npm run build
 ```
 
 ---
 
 ## 📂 Project Structure
 
-*   `src/main/`: Core logic, including `agentManager`, `projectManager`, `memoryManager`, and `compressionEngine`.
+*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`.
 *   `src/components/`: React components for the user interface.
 *   `src/hooks/`: Custom React hooks for state management and side effects.
-*   `docs/`: Detailed documentation on chat history, file attachments, and offline chat.
-*   `tests/`: Comprehensive test suite (Unit, Integration, and UI tests).
+*   `docs/`: Detailed documentation on chat history, file attachments, and offline document chat.
+*   `tests/`: Comprehensive test suite (unit, integration, and UI tests).
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Whether it's a bug fix, a new feature, or improved documentation, please feel free to open a Pull Request.
+Contributions are welcome! Whether it's a bug fix, a new feature, or improved documentation:
 
 1.  Fork the project.
 2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
+3.  Commit your changes using conventional-commit style messages.
+4.  Push to the branch and open a Pull Request.
 
 ---
 
@@ -110,38 +126,3 @@ Contributions are welcome! Whether it's a bug fix, a new feature, or improved do
 Distributed under the MIT License. See `LICENSE` for more information.
 
 **Built with ❤️ for local AI enthusiasts.**
-
-### Cloud chat providers
-
-Open **Settings → Cloud Providers** to save an OpenAI, Anthropic, or DeepSeek API
-key and the model ID available to your account. Keys are stored without encryption
-in the local settings database; the settings UI receives only configured status,
-never an existing key. Blank key inputs preserve saved credentials; **Remove key**
-deletes them. No additional SDK dependency is required.
-
-The model selector separates **Local Engine Status**, **Cloud Models**, and
-**Local Models**. Choosing cloud chat leaves the loaded GGUF in VRAM. Selecting
-that GGUF again reuses it; loading a different GGUF stops the previous process
-before starting the new one. Existing engine idle-unload preferences still apply.
-
-`App.jsx` tracks `loadedLocalModel` and `activeChatProvider` independently. The
-latter travels through `desktopChat.mjs` to `engine:chat`; Electron's main process
-reads the key and sends requests to fixed provider endpoints. Cloud model history
-and profiles use `cloud:<provider>:<model>` IDs. Cancellation, usage accounting,
-regeneration, and the existing memory/MCP tool loop use the selected provider.
-OpenAI/DeepSeek stream responses; Anthropic currently returns each response after
-it completes. Local-only sub-agent delegation is omitted for cloud chat, and cloud
-chat does not use the local engine's context limit or idle-compression scheduling.
-
-Cloud chats send conversation context and enabled tool results to the selected
-provider. First configure credentials, then select a model under **Cloud Models**.
-Model availability depends on the provider/account; edit the model ID in settings
-if a preset is unavailable.
-
-Regression checks (use Electron's Node runtime for its SQLite ABI):
-
-```sh
-ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/cloudProviders.test.cjs tests/cloudIpc.test.cjs tests/desktopChat.test.mjs tests/mcpIpc.test.cjs
-env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/cloudSelection.ui.cjs
-npm run build
-```
