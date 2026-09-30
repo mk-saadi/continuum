@@ -56,7 +56,7 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   [Node.js](https://nodejs.org/) ≥ 18 (LTS recommended)
+*   [Node.js](https://nodejs.org/) ≥ 20 (LTS recommended; `pdf-parse` and `playwright-core` require Node 20+)
 
 ### Installation & Development
 
@@ -82,8 +82,8 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 # Build the project
 npm run build
 
-# Package for your current OS (Linux/macOS/Windows)
-npm run package
+# Build and package for your current OS (Vite build + electron-builder)
+npm run dist
 ```
 
 ---
