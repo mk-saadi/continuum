@@ -69,7 +69,7 @@ function validateServerConfig(name, server) {
 
 // MCP clients use local stdio or remote HTTP/SSE transports.
 class McpManager extends EventEmitter {
-  constructor({ configPath = path.join(os.homedir(), '.config', 'LLM Desktop Assistant', 'mcp_config.json'), createConnection,
+  constructor({ configPath = path.join(os.homedir(), '.config', 'Continuum', 'mcp_config.json'), createConnection,
     getGlobalConfig = () => require('./configStore').getConfig() } = {}) {
     super();
     this.configPath = configPath;

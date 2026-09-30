@@ -423,6 +423,7 @@ ipcMain.handle("get-active-models", async () => {
 // ---------------------------------------------------------------------------
 const mcpManager = require("./src/main/mcpManager");
 app.whenReady().then(() => {
+	require("./src/main/legacyDataMigration").migrateLegacyUserData();
 	registerLocalMediaProtocol(protocol);
 	mcpManager.init().catch((error) => console.error("MCP initialization failed:", error));
 	const db = initDatabase();

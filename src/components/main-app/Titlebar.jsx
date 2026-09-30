@@ -8,7 +8,7 @@ export function Titlebar() {
 		<div className="flex h-[28px] min-h-[28px] items-center justify-between rounded-t-xl border-b pl-3.5 pr-2 bg-[var(--surface)]/95 [-webkit-app-region:drag] max-[450px]:h-[30px] max-[450px]:min-h-[30px] border-[var(--border)] ">
 			<div className="flex items-center gap-2 text-xs leading-normal font-semibold tracking-[0.3px] text-[var(--text-secondary)] ">
 				<span className="inline-block size-2 rounded-full bg-[var(--accent)] " />
-				LLM Desktop Assistant
+				Continuum
 			</div>
 			<div className="flex items-center gap-3.5 [-webkit-app-region:no-drag]">
 				<button

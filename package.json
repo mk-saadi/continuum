@@ -1,12 +1,18 @@
 {
-	"name": "llm-electron",
-	"productName": "LLM Desktop Assistant",
+	"name": "continuum",
+	"productName": "Continuum",
 	"version": "1.0.0",
-	"description": "Floating desktop AI assistant powered by llama.cpp",
-	"homepage": "https://example.com",
+	"description": "Continuum is a floating, local-first desktop AI assistant powered by llama.cpp with MCP tool integration, persistent memory, and multi-agent support.",
+	"homepage": "https://github.com/mk-saadi/placeholder",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mk-saadi/placeholder.git"
+	},
+	"private": true,
 	"main": "main.js",
 	"scripts": {
 		"postinstall": "electron-builder install-app-deps",
+		"test": "node --test tests/",
 		"dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
 		"dev:vite": "vite",
 		"dev:electron": "cross-env NODE_ENV=development electron .",
@@ -20,16 +26,22 @@
 		"react",
 		"llm",
 		"llama.cpp",
-		"assistant"
+		"assistant",
+		"mcp",
+		"local-ai",
+		"desktop-app"
 	],
 	"author": {
 		"name": "mk-saadi",
-		"email": "mksaadi820@gmail"
+		"email": "mksaadi820@gmail.com"
 	},
 	"license": "MIT",
+	"engines": {
+		"node": ">=18.0.0"
+	},
 	"build": {
-		"appId": "com.llmelectron.assistant",
-		"productName": "LLM Desktop Assistant",
+		"appId": "com.continuum.assistant",
+		"productName": "Continuum",
 		"directories": {
 			"output": "release"
 		},
@@ -40,6 +52,10 @@
 			"src/preload.js",
 			"preload.js",
 			"src/lib/**/*.mjs"
+		],
+		"asarUnpack": [
+			"node_modules/@playwright/**/*",
+			"node_modules/playwright*/**/*"
 		],
 		"linux": {
 			"target": [
@@ -57,7 +73,7 @@
 		"@vitejs/plugin-react": "^4.3.4",
 		"concurrently": "^9.1.2",
 		"cross-env": "^7.0.3",
-		"electron": "^33.3.1",
+		"electron": "30.5.1",
 		"electron-builder": "^26.15.3",
 		"tailwindcss": "^4.3.3",
 		"vite": "^6.0.7",
@@ -65,10 +81,12 @@
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.30.1",
+		"@playwright/mcp": "^0.0.83",
 		"@xenova/transformers": "^2.17.2",
 		"better-sqlite3": "^11.10.0",
 		"hyllama": "^0.2.2",
 		"pdf-parse": "^2.4.5",
+		"playwright": "^1.64.0-alpha-1790635538000",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"react-icons": "^5.7.0",
