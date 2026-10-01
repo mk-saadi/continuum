@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ThoughtBlock from "./ThoughtBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
+import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 import { mediaSource, isLocalVideoSource, mediaUrlTransform, rehypeMediaSources, mediaSchema } from '../lib/markdownMedia.mjs';
 
 // MIME hints for local video containers so Chromium selects the right demuxer.
@@ -65,6 +67,49 @@ const syntaxTheme = {
 	variable: { color: "var(--code-text)" },
 	deleted: { color: "var(--error)" },
 };
+
+const mermaidTheme = () => typeof document !== 'undefined' &&
+	document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark';
+
+mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'loose' });
+
+let nextMermaidId = 0;
+
+function MermaidRenderer({ text }) {
+	const containerRef = useRef(null);
+	const [svg, setSvg] = useState('');
+	const [error, setError] = useState('');
+	const [theme, setTheme] = useState(mermaidTheme);
+
+	useEffect(() => {
+		const observer = new MutationObserver(() => setTheme(mermaidTheme()));
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+		return () => observer.disconnect();
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		const id = `chat-mermaid-${++nextMermaidId}`;
+		setSvg('');
+		setError('');
+		mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'loose' });
+		void mermaid.render(id, text).then(({ svg: renderedSvg }) => {
+			if (!cancelled && containerRef.current) {
+				setSvg(DOMPurify.sanitize(renderedSvg, { USE_PROFILES: { svg: true, svgFilters: true, html: true } }));
+			}
+		}).catch(cause => {
+			if (!cancelled) setError(cause.message || 'Unable to render diagram.');
+		});
+		return () => { cancelled = true; };
+	}, [text, theme]);
+
+	return <div className="my-3 min-w-0 overflow-x-auto rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3">
+		{error ? <><p role="alert" className="mb-2 text-xs text-[var(--error)]">{error}</p><pre className="overflow-x-auto text-xs">{text}</pre></> :
+			<div ref={containerRef} role="img" aria-label="Mermaid diagram"
+				className="flex min-w-fit justify-center [&_svg]:max-w-full"
+				dangerouslySetInnerHTML={{ __html: svg }} />}
+	</div>;
+}
 
 function CodeBlock({ code, language }) {
 	const [copied, setCopied] = useState(false);
@@ -148,6 +193,7 @@ const components = {
 	code({ className, children, node, ...props }) {
 		const code = String(children);
 		const language = /language-([^\s]+)/.exec(className || "")?.[1];
+		if (language === 'mermaid') return <MermaidRenderer text={code.replace(/\n$/, '')} />;
 		if (language || code.endsWith("\n"))
 			return (
 				<CodeBlock

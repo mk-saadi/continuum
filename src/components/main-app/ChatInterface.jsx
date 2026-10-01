@@ -10,6 +10,9 @@ import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { LuX } from "react-icons/lu";
+import { IoIosHourglass } from "react-icons/io";
+import ToolApprovalToast from './ToolApprovalToast.jsx';
+import ToolLimitToast from "./ToolLimitToast.jsx";
 
 function SelectedFilePreview({ file, onRemove, disabled }) {
 	const [previewUrl, setPreviewUrl] = useState(null);
@@ -54,13 +57,19 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 }
 
 export function ChatInterface({
-    view = 'chat', projects = [], activeProjectId, onProjects, onProject, onCreateProject,
-    onChat = () => {}, renderWorkspace,
+	view = "chat",
+	projects = [],
+	activeProjectId,
+	onProjects,
+	onProject,
+	onCreateProject,
+	onChat = () => {},
+	renderWorkspace,
 	selectedModel,
 	baseUrl,
-    activeChatProvider = { type: "local" },
+	activeChatProvider = { type: "local" },
 	engineRunning,
-    activeModel = null,
+	activeModel = null,
 	palace,
 	isSidebarOpen,
 	avatarSettings,
@@ -68,23 +77,38 @@ export function ChatInterface({
 	onCloseRightSidebar,
 	models,
 	onSelectModel,
+	onTabUpdate,
+	tabPermissionMode,
 }) {
+    const [permissionBySession, setPermissionBySession] = useState({});
+    const project = projects.find(project => project.id === activeProjectId);
+    const permissionMode = permissionBySession[palace.sessionId] ?? tabPermissionMode ?? project?.permissionMode ?? project?.permission_mode ?? (activeProjectId ? 'workspace_write' : 'ask_approval');
+    const [toolApprovals, setToolApprovals] = useState([]);
+    useEffect(() => window.chatAPI?.onToolApproval?.(state => {
+        if (state.sessionId !== palace.sessionId) return;
+        setToolApprovals(current => state.resolved
+            ? current.filter(item => item.approvalId !== state.approvalId)
+            : [...current.filter(item => item.approvalId !== state.approvalId), state]);
+    }), [palace.sessionId]);
 	const chatAvailable = activeChatProvider.type === "cloud" || !!baseUrl;
-    const currentModel = models.find((model) => model.id === selectedModel);
+	const currentModel = models.find((model) => model.id === selectedModel);
 	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
-    const [effortByModel, setEffortByModel] = useState({});
-    const savedEffort = effortByModel[selectedModel];
-    const reasoningEffort = supportedEfforts.includes(savedEffort) ? savedEffort
-        : supportedEfforts.includes('medium') ? 'medium' : supportedEfforts[0];
-    const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
+	const [effortByModel, setEffortByModel] = useState({});
+	const savedEffort = effortByModel[selectedModel];
+	const reasoningEffort = supportedEfforts.includes(savedEffort)
+		? savedEffort
+		: supportedEfforts.includes("medium")
+			? "medium"
+			: supportedEfforts[0];
+	const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
 	const activeModelName = formatModelName(
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
-    const [promptQueue, setPromptQueue] = useState([]);
-    const queuePrompt = useCallback(text => {
-        setPromptQueue(previous => [...previous, { id: Date.now(), text }]);
-    }, []);
+	const [promptQueue, setPromptQueue] = useState([]);
+	const queuePrompt = useCallback((text) => {
+		setPromptQueue((previous) => [...previous, { id: Date.now(), text }]);
+	}, []);
 	const isUserScrolledUp = useRef(false);
 	const composerRef = useRef(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
@@ -96,11 +120,26 @@ export function ChatInterface({
 		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
-    const [pausedLoop, setPausedLoop] = useState(null);
-    useEffect(() => window.chatAPI?.onLoopPaused?.(state => {
-        setPausedLoop(state.executionState === 'paused_turn_limit' ? state : null);
-    }), []);
-    useEffect(() => { if (!streaming) setPausedLoop(null); }, [streaming]);
+	const [pausedLoop, setPausedLoop] = useState(null);
+	const [toolLimit, setToolLimit] = useState(null);
+	useEffect(() => window.chatAPI?.onToolLimitReached?.((state) => {
+		if (state.sessionId !== palace.sessionId) return;
+		setToolLimit((current) => state.resolved ? (current?.requestId === state.requestId ? null : current) : state);
+	}), [palace.sessionId]);
+	useEffect(
+		() =>
+			window.chatAPI?.onLoopPaused?.((state) => {
+				if (state.sessionId !== palace.sessionId) return;
+				setPausedLoop(state.executionState === "paused_turn_limit" ? state : null);
+			}),
+		[palace.sessionId],
+	);
+	useEffect(() => {
+		onTabUpdate?.({ status: toolApprovals.length || toolLimit || pausedLoop ? 'awaiting_approval' : streaming ? 'generating' : 'idle' });
+	}, [toolApprovals, toolLimit, pausedLoop, streaming, onTabUpdate]);
+	useEffect(() => {
+		if (!streaming) { setPausedLoop(null); setToolLimit(null); }
+	}, [streaming]);
 	const [groups, setGroups] = useState([]);
 	const [historyError, setHistoryError] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -114,15 +153,23 @@ export function ChatInterface({
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));
 	}, [refreshHistory]);
-    useEffect(() => palace.api?.onCompressionComplete(result => {
-        if (result.sessionId !== palace.sessionId) return;
-        const ids = new Set(result.summarizedMessageIds || []);
-        setMessages(previous => previous.map(message => ids.has(message.id)
-            ? { ...message, is_summarized: 1, archived: 1 } : message));
-    }), [palace.api, palace.sessionId]);
+	useEffect(
+		() =>
+			palace.api?.onCompressionComplete((result) => {
+				if (result.sessionId !== palace.sessionId) return;
+				const ids = new Set(result.summarizedMessageIds || []);
+				setMessages((previous) =>
+					previous.map((message) =>
+						ids.has(message.id) ? { ...message, is_summarized: 1, archived: 1 } : message,
+					),
+				);
+			}),
+		[palace.api, palace.sessionId],
+	);
 	const newChat = () => {
 		if (busyRef.current) return;
-        onChat();
+		onChat();
+		onTabUpdate?.({ title: 'New chat', status: 'idle' });
 		pendingAgent.current = null;
 		pendingSend.current = null;
 		setPromptQueue([]);
@@ -145,8 +192,10 @@ export function ChatInterface({
 			pendingSend.current = null;
 			setPromptQueue([]);
 			palace.setSessionId(id);
+			onTabUpdate?.({ title: session.title || 'Untitled chat', modelId: session.model_id || selectedModel,
+				projectId: session.project_id ?? null, permissionMode: session.project_id ? 'workspace_write' : 'ask_approval' });
 			setMessages(session.messages);
-            onChat();
+			onChat();
 			clearFiles();
 			setEditing(null);
 			palace.setDraftTokens(0);
@@ -157,24 +206,39 @@ export function ChatInterface({
 			setLoading(false);
 		}
 	};
-    const startProjectChat = async (projectId, text) => {
-        if (busyRef.current || agentLoading) throw new Error('Wait for the current chat operation to finish.');
-        if (!chatAvailable || !selectedModel) throw new Error('Start a model before creating a project chat.');
-        busyRef.current = true; setLoading(true);
-        try {
-            const id = crypto.randomUUID();
-            await palace.api.getOrCreateSession(id, selectedModel, projectId);
-            // Persist the submitted prompt as a draft until generation accepts it.
-            try { localStorage.setItem(`chat_draft_${id}`, text); } catch { /* Draft storage is optional. */ }
-            pendingAgent.current = null;
-            setPromptQueue([]);
-            pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
-            setAgentLoading(true);
-            palace.setSessionId(id); setMessages([]); clearFiles(); setEditing(null); palace.setDraftTokens(0);
-            onChat();
-            await refreshHistory();
-        } finally { busyRef.current = false; setLoading(false); }
-    };
+	const startProjectChat = async (projectId, text) => {
+		if (busyRef.current || agentLoading)
+			throw new Error("Wait for the current chat operation to finish.");
+		if (!chatAvailable || !selectedModel)
+			throw new Error("Start a model before creating a project chat.");
+		busyRef.current = true;
+		setLoading(true);
+		try {
+			const id = crypto.randomUUID();
+			await palace.api.getOrCreateSession(id, selectedModel, projectId);
+			// Persist the submitted prompt as a draft until generation accepts it.
+			try {
+				localStorage.setItem(`chat_draft_${id}`, text);
+			} catch {
+				/* Draft storage is optional. */
+			}
+			pendingAgent.current = null;
+			setPromptQueue([]);
+			pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
+			setAgentLoading(true);
+			palace.setSessionId(id);
+			onTabUpdate?.({ projectId, title: 'New chat', permissionMode: 'workspace_write' });
+			setMessages([]);
+			clearFiles();
+			setEditing(null);
+			palace.setDraftTokens(0);
+			onChat();
+			await refreshHistory();
+		} finally {
+			busyRef.current = false;
+			setLoading(false);
+		}
+	};
 	const handleMessageAction = async (kind, messageId) => {
 		if (busyRef.current || !palace.api) return;
 		busyRef.current = true;
@@ -398,7 +462,13 @@ export function ChatInterface({
 		}
 	};
 	const sendMessage = useCallback(
-		async (edit = null, retry = false, submittedText = "", draftSessionId = palace.sessionId, queued = false) => {
+		async (
+			edit = null,
+			retry = false,
+			submittedText = "",
+			draftSessionId = palace.sessionId,
+			queued = false,
+		) => {
 			const text = retry ? "" : edit ? editText.trim() : submittedText.trim();
 			if (
 				(!retry && !text && (edit || !selectedFiles.length)) ||
@@ -440,6 +510,7 @@ export function ChatInterface({
 			setStreaming(true);
 			const controller = new AbortController();
 			abortRef.current = controller;
+			let persistedMessageId = null;
 			let assistantText = "";
 			let assistantStats = null;
 			let executionSteps = [];
@@ -463,7 +534,8 @@ export function ChatInterface({
 					attachments = selectedFiles.map((file) => uploadCache.current.get(file));
 				}
 				controller.signal.throwIfAborted();
-				const requestMessages = await palace.prepareMessages(text, !!edit || retry, attachments);
+			const requestMessages = await palace.prepareMessages(text, !!edit || retry, attachments);
+			if (!edit && !retry && text?.trim()) onTabUpdate?.({ title: text.trim().slice(0, 48) });
 				prepared = true;
 				if (!queued && !edit && !retry) {
 					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
@@ -472,14 +544,19 @@ export function ChatInterface({
 				const saved = await palace.api.loadSession(palace.sessionId);
 				setMessages([...saved.messages, assistantMsg]);
 				await refreshHistory();
+				const thinkingBudget = (await window.api.getEffectiveSettings(palace.sessionId, selectedModel)).effective.thinkingBudget ?? -1;
 				await runDesktopChat({
-                    activeChatProvider,
-                    reasoningEffort,
+					activeChatProvider,
+                    permissionMode,
+					reasoningEffort,
+					thinkingBudget,
 					sessionId: palace.sessionId,
 					onIndexing: setIndexing,
 					modelId: selectedModel,
 					messages: requestMessages,
 					messageId: assistantMsg.id,
+                    modelName: identity.modelName,
+                    onMessageCreated: id => { persistedMessageId = id; },
 					displayName: identity.displayName,
 					onExecutionSteps: (steps) => {
 						executionSteps = steps;
@@ -514,7 +591,7 @@ export function ChatInterface({
 				failed = true;
 				if (err.name !== "AbortError") setHistoryError(err.message);
 			} finally {
-				if (prepared && (!failed || assistantText || executionSteps.length)) {
+				if (prepared && (persistedMessageId || !failed || assistantText || executionSteps.length)) {
 					executionSteps = executionSteps.map((step) =>
 						step.type === "tool_call" && ["pending", "running"].includes(step.status)
 							? {
@@ -549,6 +626,7 @@ export function ChatInterface({
 							null,
 							identity,
 							executionSteps,
+                            persistedMessageId,
 						);
 						if (saved)
 							setMessages((prev) =>
@@ -580,8 +658,9 @@ export function ChatInterface({
 			selectedFiles,
 			clearFiles,
 			selectedModel,
-            reasoningEffort,
-            activeChatProvider,
+            permissionMode,
+			reasoningEffort,
+			activeChatProvider,
 			activeModelName,
 			currentModelPath,
 			avatarSettings,
@@ -593,20 +672,30 @@ export function ChatInterface({
 		],
 	);
 	useEffect(() => {
-		if (agentLoading || loading || !palace.sessionId || pendingAgent.current || !pendingSend.current) return;
+		if (agentLoading || loading || !palace.sessionId || pendingAgent.current || !pendingSend.current)
+			return;
 		const { edit, retry, submittedText, draftSessionId, queued } = pendingSend.current;
 		pendingSend.current = null;
 		void sendMessage(edit, retry, submittedText, draftSessionId, queued);
 	}, [agentLoading, loading, palace.sessionId, sendMessage]);
-    const isGenerating = streaming || loading || agentLoading;
-    useEffect(() => {
-        if (isGenerating || busyRef.current || pendingSend.current || pendingAgent.current ||
-            !chatAvailable || !selectedModel || !palace.api || promptQueue.length === 0) return;
-        const nextPrompt = promptQueue[0];
-        // sendMessage acquires the busy ref synchronously, including during effect replay.
-        void sendMessage(null, false, nextPrompt.text, palace.sessionId, true);
-        setPromptQueue(previous => previous.slice(1));
-    }, [isGenerating, promptQueue, chatAvailable, selectedModel, palace.api, palace.sessionId, sendMessage]);
+	const isGenerating = streaming || loading || agentLoading;
+	useEffect(() => {
+		if (
+			isGenerating ||
+			busyRef.current ||
+			pendingSend.current ||
+			pendingAgent.current ||
+			!chatAvailable ||
+			!selectedModel ||
+			!palace.api ||
+			promptQueue.length === 0
+		)
+			return;
+		const nextPrompt = promptQueue[0];
+		// sendMessage acquires the busy ref synchronously, including during effect replay.
+		void sendMessage(null, false, nextPrompt.text, palace.sessionId, true);
+		setPromptQueue((previous) => previous.slice(1));
+	}, [isGenerating, promptQueue, chatAvailable, selectedModel, palace.api, palace.sessionId, sendMessage]);
 
 	const regenerateReply = async (message) => {
 		if (busyRef.current || !chatAvailable || !selectedModel) return;
@@ -666,8 +755,9 @@ export function ChatInterface({
 		updateDraft({});
 		try {
 			const result = await runDesktopChat({
-                    activeChatProvider,
-                    reasoningEffort,
+				activeChatProvider,
+                permissionMode,
+				reasoningEffort,
 				regenerate: true,
 				sessionId: palace.sessionId,
 				modelId: selectedModel,
@@ -694,38 +784,41 @@ export function ChatInterface({
 			abortRef.current = null;
 		}
 	};
-	const selectReplyVariant = useCallback(async (message, index) => {
-		if (busyRef.current) return;
-		busyRef.current = true;
-		setIndexing(null);
-		setLoading(true);
-		setHistoryError("");
-		setMessages((previous) =>
-			previous.map((row) =>
-				row.id === message.id
-					? { ...row, active_variant_index: index, content: row.variants[index].content }
-					: row,
-			),
-		);
-		try {
-			const saved = await palace.api.setActiveVariant(palace.sessionId, message.id, index);
-			setMessages((previous) => previous.map((row) => (row.id === message.id ? saved : row)));
-			await palace.refresh();
-		} catch (error) {
-			setMessages((previous) => previous.map((row) => (row.id === message.id ? message : row)));
-			setHistoryError(error.message);
-		} finally {
-			busyRef.current = false;
-			setLoading(false);
-		}
-	}, [palace.api, palace.sessionId, palace.refresh]);
+	const selectReplyVariant = useCallback(
+		async (message, index) => {
+			if (busyRef.current) return;
+			busyRef.current = true;
+			setIndexing(null);
+			setLoading(true);
+			setHistoryError("");
+			setMessages((previous) =>
+				previous.map((row) =>
+					row.id === message.id
+						? { ...row, active_variant_index: index, content: row.variants[index].content }
+						: row,
+				),
+			);
+			try {
+				const saved = await palace.api.setActiveVariant(palace.sessionId, message.id, index);
+				setMessages((previous) => previous.map((row) => (row.id === message.id ? saved : row)));
+				await palace.refresh();
+			} catch (error) {
+				setMessages((previous) => previous.map((row) => (row.id === message.id ? message : row)));
+				setHistoryError(error.message);
+			} finally {
+				busyRef.current = false;
+				setLoading(false);
+			}
+		},
+		[palace.api, palace.sessionId, palace.refresh],
+	);
 	const hasUnrepliedMessage = messages.at(-1)?.role === "user" && !streaming;
 	const generateReply = useCallback(() => {
 		if (hasUnrepliedMessage && !loading) sendMessage(null, true);
 	}, [hasUnrepliedMessage, loading, sendMessage]);
 	useEffect(() => {
 		const handleGenerateShortcut = (event) => {
-			if (view === 'chat' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
+			if (view === "chat" && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
 				event.preventDefault();
 				if (!event.repeat) generateReply();
 			}
@@ -740,13 +833,41 @@ export function ChatInterface({
 	};
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
-                {pausedLoop && <div role="status" className="absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-amber-400/40 bg-slate-900 p-4 text-white shadow-lg">
-                    <p>Agent reached max autonomous turns.</p>
-                    <div className="mt-2 flex gap-3">
-                        <button type="button" className="rounded bg-blue-600 px-3 py-1" onClick={() => window.chatAPI.respondToLoop(pausedLoop.requestId, 'continue').catch(error => setHistoryError(error.message))}>Continue</button>
-                        <button type="button" className="rounded border px-3 py-1" onClick={() => window.chatAPI.respondToLoop(pausedLoop.requestId, 'stop').catch(error => setHistoryError(error.message))}>Stop</button>
-                    </div>
-                </div>}
+            {toolApprovals[0] && <ToolApprovalToast key={toolApprovals[0].approvalId} approval={toolApprovals[0]} />}
+			{toolLimit && <ToolLimitToast key={toolLimit.requestId + ':' + toolLimit.currentCount}
+				limit={toolLimit} onError={setHistoryError} />}
+			{pausedLoop && (
+				<div
+					role="status"
+					className="absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-amber-400/40 bg-slate-900 p-4 text-white shadow-lg"
+				>
+					<p>Agent reached max autonomous turns.</p>
+					<div className="mt-2 flex gap-3">
+						<button
+							type="button"
+							className="rounded bg-blue-600 px-3 py-1"
+							onClick={() =>
+								window.chatAPI
+									.respondToLoop(pausedLoop.requestId, "continue")
+									.catch((error) => setHistoryError(error.message))
+							}
+						>
+							Continue
+						</button>
+						<button
+							type="button"
+							className="rounded border px-3 py-1"
+							onClick={() =>
+								window.chatAPI
+									.respondToLoop(pausedLoop.requestId, "stop")
+									.catch((error) => setHistoryError(error.message))
+							}
+						>
+							Stop
+						</button>
+					</div>
+				</div>
+			)}
 			<div
 				id="chat-sidebar"
 				aria-hidden={!isSidebarOpen}
@@ -754,8 +875,13 @@ export function ChatInterface({
 				className={`shrink-0 overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none [&>aside]:h-full ${isSidebarOpen ? "w-[272px] translate-x-0 opacity-100 max-[650px]:w-[220px]" : "w-0 -translate-x-full opacity-0"}`}
 			>
 				<Sidebar
-                    projects={projects} view={view} activeProjectId={activeProjectId}
-                    onProjects={onProjects} onProject={onProject} onCreateProject={onCreateProject} onChat={onChat}
+					projects={projects}
+					view={view}
+					activeProjectId={activeProjectId}
+					onProjects={onProjects}
+					onProject={onProject}
+					onCreateProject={onCreateProject}
+					onChat={onChat}
 					isOpen={isSidebarOpen}
 					groups={groups}
 					activeId={palace.sessionId}
@@ -774,6 +900,7 @@ export function ChatInterface({
 							else {
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
+									onTabUpdate?.({ title: 'New chat', status: 'idle' });
 									pendingAgent.current = null;
 									pendingSend.current = null;
 									setPromptQueue([]);
@@ -792,8 +919,17 @@ export function ChatInterface({
 					}}
 				/>
 			</div>
-			{renderWorkspace?.({ groups, loadChat, startProjectChat, busy: streaming || loading || agentLoading, canStartChat: !!chatAvailable && !!selectedModel })}
-            <div style={view === 'chat' ? undefined : { display: 'none' }} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none">
+			{renderWorkspace?.({
+				groups,
+				loadChat,
+				startProjectChat,
+				busy: streaming || loading || agentLoading,
+				canStartChat: !!chatAvailable && !!selectedModel,
+			})}
+			<div
+				style={view === "chat" ? undefined : { display: "none" }}
+				className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
+			>
 				{historyError && (
 					<p
 						role="alert"
@@ -1053,19 +1189,31 @@ export function ChatInterface({
 					className="mx-auto relative mb-3 flex w-[calc(100%-2rem)] max-w-[980px] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px]"
 				>
 					{promptQueue.length > 0 && (
-                        <div aria-label="Queued prompts" className="absolute bottom-full left-0 right-0 z-10 mb-2 flex max-h-28 flex-wrap gap-1 overflow-y-auto">
-                            {promptQueue.map((item, index) => (
-                                <button key={`${item.id}-${index}`} type="button"
-                                    title={item.text}
-                                    aria-label={`Remove queued prompt: ${item.text}`}
-                                    onClick={() => setPromptQueue(previous => previous.filter(entry => entry !== item))}
-                                    className="max-w-full truncate rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]">
-                                    ⏳ Queued ({promptQueue.length}): &quot;{item.text.slice(0, 30)}{item.text.length > 30 ? '...' : ''}&quot; (click to remove)
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                    {hasUnrepliedMessage && promptQueue.length === 0 && (
+						<div
+							aria-label="Queued prompts"
+							className="absolute bottom-full left-0 right-0 z-10 mb-2 flex max-h-28 flex-wrap gap-1 overflow-y-auto"
+						>
+							{promptQueue.map((item, index) => (
+								<button
+									key={`${item.id}-${index}`}
+									type="button"
+									title={item.text}
+									aria-label={`Remove queued prompt: ${item.text}`}
+									onClick={() =>
+										setPromptQueue((previous) =>
+											previous.filter((entry) => entry !== item),
+										)
+									}
+									className="max-w-full truncate rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]"
+								>
+									<IoIosHourglass /> Queued ({promptQueue.length}): &quot;
+									{item.text.slice(0, 30)}
+									{item.text.length > 30 ? "..." : ""}&quot; (click to remove)
+								</button>
+							))}
+						</div>
+					)}
+					{hasUnrepliedMessage && promptQueue.length === 0 && (
 						<div className="absolute -top-10 left-0 right-0 flex justify-center pointer-events-none">
 							<button
 								type="button"
@@ -1092,21 +1240,37 @@ export function ChatInterface({
 						}}
 					/>
 
-                    <ChatInput ref={composerRef} sessionId={palace.sessionId}
-                        onQueue={queuePrompt}
-                        onSubmit={text => sendMessage(null, false, text)} onStop={handleStop}
-                        onAttach={() => fileInputRef.current?.click()}
-                        canSubmit={!!chatAvailable && !!selectedModel && !!palace.api && !agentLoading}
-                        hasAttachments={selectedFiles.length > 0} streaming={streaming} loading={loading}
-                        attachDisabled={!window.api?.processUploads}
-                        sendTitle={chatAvailable ? 'Send' : 'Select a cloud model or load a local model'}
-                        supportedEfforts={supportedEfforts} reasoningEffort={reasoningEffort} showEffort={activeChatProvider.type === "local" && engineRunning}
-                        onEffortChange={effort => setEffortByModel(previous => ({ ...previous, [selectedModel]: effort }))} />
+					<ChatInput
+                        modelId={selectedModel}
+                        permissionMode={permissionMode}
+                        onPermissionModeChange={mode => {
+                            setPermissionBySession(current => ({ ...current, [palace.sessionId]: mode }));
+                            onTabUpdate?.({ permissionMode: mode });
+                        }}
+						ref={composerRef}
+						sessionId={palace.sessionId}
+						onQueue={queuePrompt}
+						onSubmit={(text) => sendMessage(null, false, text)}
+						onStop={handleStop}
+						onAttach={() => fileInputRef.current?.click()}
+						canSubmit={!!chatAvailable && !!selectedModel && !!palace.api && !agentLoading}
+						hasAttachments={selectedFiles.length > 0}
+						streaming={streaming}
+						loading={loading}
+						attachDisabled={!window.api?.processUploads}
+						sendTitle={chatAvailable ? "Send" : "Select a cloud model or load a local model"}
+						supportedEfforts={supportedEfforts}
+						reasoningEffort={reasoningEffort}
+						showEffort={activeChatProvider.type === "local" && engineRunning}
+						onEffortChange={(effort) =>
+							setEffortByModel((previous) => ({ ...previous, [selectedModel]: effort }))
+						}
+					/>
 				</div>
 			</div>
 			<RightSidebar
-                activeModel={activeModel}
-				open={view === 'chat' && isRightSidebarOpen}
+				activeModel={activeModel}
+				open={view === "chat" && isRightSidebarOpen}
 				onClose={onCloseRightSidebar}
 				sessionId={palace.sessionId}
 				modelId={selectedModel}

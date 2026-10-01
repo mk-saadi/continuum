@@ -75,7 +75,9 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.deepEqual(result.stats, events.filter(e => e.type === 'stats').at(-1).stats);
     assert.equal(events.filter(e => e.type === 'thinking').at(-1).thinking.text, 'Final thought');
     assert.equal(executions.length, 1);
-    assert.equal(requests[0].tools.length, 4);
+    assert.equal(requests[0].tools.length, 6);
+    assert.ok(requests[0].tools.some(tool => tool.function.name === 'manage_mcp_servers'));
+    assert.ok(requests[0].tools.some(tool => tool.function.name === 'approve_mcp_mutation'));
     assert.ok(!requests[0].tools.some(tool => tool.function.name === 'search_chat_history'));
     assert.equal(requests[1].messages.at(-1).role, 'tool');
     assert.equal(requests[1].messages.at(-1).tool_call_id, 'call1');
@@ -159,6 +161,90 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
       assert.equal(sender.listenerCount('destroyed'), 0);
       sender.send = send;
     }
+
+    for (const action of ['allow', 'deny']) {
+      const send = sender.send;
+      let pauses = 0;
+      const before = executions.length;
+      sender.send = (channel, value) => {
+        send(channel, value);
+        if (channel === 'engine:tool-limit-reached' && !value.resolved) {
+          pauses++;
+          assert.equal(value.currentCount, 5);
+          assert.equal(value.nextTool, name);
+          assert.equal(executions.length - before, 5);
+          queueMicrotask(() => handlers.get('engine:tool-limit-response')(event,
+            { requestId: value.requestId, action }));
+        }
+      };
+      let rounds = 0;
+      global.fetch = async (_url, options) => {
+        const body = JSON.parse(options.body);
+        if (++rounds === 1) return Response.json({ choices: [{ finish_reason: 'tool_calls', message: {
+          content: null, tool_calls: Array.from({ length: 6 }, (_, index) => ({
+            id: `${action}-${index}`, type: 'function', function: { name, arguments: '{"text":"budget"}' },
+          })),
+        } }] });
+        assert.equal(body.tool_choice, action === 'deny' ? 'none' : 'auto');
+        return Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Done [TASK COMPLETE]' } }] });
+      };
+      await handlers.get('engine:chat')(event, { requestId: `budget-${action}`, modelId: 'model',
+        messages: [{ role: 'system', content: 'test' }] });
+      assert.equal(pauses, 1);
+      assert.equal(executions.length - before, action === 'allow' ? 6 : 5);
+      sender.send = send;
+    }
+
+    database.db.prepare("INSERT INTO projects(id, name) VALUES ('budget-project', 'Budget test')").run();
+    database.db.prepare("INSERT INTO sessions(id, model_id, project_id) VALUES ('project-chat', 'model', 'budget-project')").run();
+    const beforeProject = executions.length;
+    let projectRounds = 0;
+    global.fetch = async () => Response.json({ choices: [{ finish_reason: ++projectRounds === 1 ? 'tool_calls' : 'stop',
+      message: projectRounds === 1 ? { content: null, tool_calls: Array.from({ length: 6 }, (_, index) => ({
+        id: `project-${index}`, type: 'function', function: { name, arguments: '{"text":"project"}' },
+      })) } : { content: 'Done [TASK COMPLETE]' } }] });
+    await handlers.get('engine:chat')(event, { requestId: 'project-budget', sessionId: 'project-chat', modelId: 'model',
+      messages: [{ role: 'system', content: 'test' }] });
+    assert.equal(executions.length - beforeProject, 6);
+    assert.equal(events.filter(value => value.channel === 'engine:tool-limit-reached' && value.requestId === 'project-budget').length, 0);
+
+    const originalConnection = manager.createConnection;
+    manager.createConnection = async () => ({
+      setNotificationHandler() {},
+      listTools: async () => ({ tools: [{ name: 'dynamic_echo', inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }] }),
+      callTool: async ({ arguments: args }) => ({ content: [{ type: 'text', text: args.text }] }),
+      close: async () => {},
+    });
+    try {
+      await manager.saveConfig({ mcpServers: { fixture: { command: 'fixture' }, onDemand: { command: 'dynamic' } } });
+      assert.equal(manager.getStatus().servers.find(server => server.name === 'onDemand').status, 'disabled');
+      require('../src/main/sessionManager').getOrCreateSession('lazy-chat', 'model');
+      const dynamicName = manager.toolName('onDemand', 'dynamic_echo');
+      let lazyRounds = 0;
+      global.fetch = async (_url, options) => {
+        const body = JSON.parse(options.body);
+        lazyRounds++;
+        if (lazyRounds === 1) {
+          assert.ok(body.tools.some(tool => tool.function.name === 'manage_mcp_servers'));
+          assert.ok(!body.tools.some(tool => tool.function.name === dynamicName));
+        }
+        if (lazyRounds === 2) {
+          assert.ok(body.tools.some(tool => tool.function.name === dynamicName));
+          assert.equal(manager.getTools('other-chat').some(tool => tool.function.name === dynamicName), false);
+        }
+        const message = lazyRounds === 1
+          ? { tool_calls: [{ id: 'enable-dynamic', type: 'function', function: { name: 'manage_mcp_servers', arguments: '{"action":"enable","server_names":["onDemand"]}' } }] }
+          : lazyRounds === 2
+            ? { tool_calls: [{ id: 'use-dynamic', type: 'function', function: { name: dynamicName, arguments: '{"text":"ready"}' } }] }
+            : { content: 'Dynamic tool ready. [TASK COMPLETE]' };
+        return Response.json({ choices: [{ finish_reason: lazyRounds < 3 ? 'tool_calls' : 'stop', message }] });
+      };
+      const lazy = await handlers.get('engine:chat')(event, { requestId: 'lazy-mcp', sessionId: 'lazy-chat', modelId: 'model',
+        messages: [{ role: 'system', content: 'test' }, { role: 'user', content: 'Use dynamic tools' }] });
+      assert.equal(lazyRounds, 3);
+      assert.equal(lazy.executionSteps[0].toolName, 'manage_mcp_servers');
+      assert.equal(lazy.executionSteps[1].toolName, 'dynamic_echo');
+    } finally { manager.createConnection = originalConnection; }
 
     let started;
     const pending = new Promise(resolve => { started = resolve; });

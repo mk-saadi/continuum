@@ -100,6 +100,71 @@ test('tool round limit executes the boundary batch and yields without an error',
   assert.equal(pauses, 1);
 });
 
+test('casual tool budget pauses before the sixth call and grants five at a time', async () => {
+  const executed = [], pauses = [];
+  let requests = 0;
+  const text = await runMemoryChat({ ...base, casualMode: true,
+    onToolLimit: async detail => {
+      pauses.push({ ...detail, executed: executed.length });
+      return true;
+    },
+    executeTool: async call => { executed.push(call.name); return { success: true }; },
+    fetchImpl: async () => {
+      if (++requests === 1) return Response.json({ choices: [{ finish_reason: 'tool_calls', message: {
+        content: null, tool_calls: Array.from({ length: 11 }, (_, index) => ({
+          id: `call${index}`, type: 'function', function: { name: 'search_memory', arguments: '{}' },
+        })),
+      } }] });
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Done [TASK COMPLETE]' } }] });
+    },
+  });
+  assert.equal(text, 'Done [TASK COMPLETE]');
+  assert.equal(executed.length, 11);
+  assert.deepEqual(pauses, [
+    { currentCount: 5, nextTool: 'search_memory', executed: 5 },
+    { currentCount: 10, nextTool: 'search_memory', executed: 10 },
+  ]);
+});
+
+test('denying a casual tool call skips the pending batch and requests a tool-free final answer', async () => {
+  const executed = [], requests = [], steps = [];
+  const text = await runMemoryChat({ ...base, casualMode: true,
+    onToolLimit: async () => false,
+    onExecutionSteps: value => { steps.splice(0, steps.length, ...value); },
+    executeTool: async call => { executed.push(call.name); return { success: true }; },
+    fetchImpl: async (_url, options) => {
+      const payload = JSON.parse(options.body);
+      requests.push(payload);
+      if (requests.length === 1) return Response.json({ choices: [{ finish_reason: 'tool_calls', message: {
+        content: null, tool_calls: Array.from({ length: 7 }, (_, index) => ({
+          id: `call${index}`, type: 'function', function: { name: 'search_memory', arguments: '{}' },
+        })),
+      } }] });
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Summary [TASK COMPLETE]' } }] });
+    },
+  });
+  assert.equal(text, 'Summary [TASK COMPLETE]');
+  assert.equal(executed.length, 5);
+  assert.equal(steps[5].status, 'error');
+  assert.equal(steps[6].status, 'error');
+  assert.equal(requests[1].tool_choice, 'none');
+  assert.deepEqual(requests[1].tools, []);
+  assert.match(requests[1].messages.at(-1).content, /denied by user/);
+  assert.equal(requests[1].messages.filter(message => message.role === 'tool').length, 7);
+});
+
+test('project chats bypass the casual tool budget', async () => {
+  let executed = 0;
+  await runMemoryChat({ ...base, casualMode: false,
+    onToolLimit: () => assert.fail('Project chats must not pause'),
+    executeTool: async () => { executed++; return {}; },
+    fetchImpl: async () => Response.json({ choices: [{ finish_reason: executed < 7 ? 'tool_calls' : 'stop', message:
+      executed < 7 ? { content: null, tool_calls: [{ id: `call${executed}`, type: 'function', function: { name: 'search_memory', arguments: '{}' } }] }
+        : { content: 'Done [TASK COMPLETE]' } }] }),
+  });
+  assert.equal(executed, 7);
+});
+
 test('usage-only final chunk supplies message stats and requests usage', async () => {
   let stats;
   const times = [1000, 3000];
@@ -458,7 +523,7 @@ test('reasoning effort varies per request and is omitted when unsupported', asyn
 
 
 test('thinking budget aliases use resolved limits and omit max_thinking_tokens for unlimited', async () => {
-  for (const [budget, context, expected] of [[-1, 8192, -1], [4096, 8192, 4096], [32768, 8192, 6144], [4096, 4353, 2304]]) {
+  for (const [budget, context, expected] of [[-1, 8192, -1], [0, 8192, 0], [2500, 8192, 2500], [4096, 8192, 4096], [32768, 8192, 6144], [4096, 4353, 2304]]) {
     let payload;
     await runMemoryChat({ ...base, loadedContextSize: context,
       samplingParams: { thinking_budget: 256 }, getSamplingParams: async () => ({ thinking_budget: budget }),
@@ -523,5 +588,40 @@ test('stream accumulator still rejects explicitly invalid indexes', async () => 
       chunk({ tool_calls: [{ index, function: { name: 'save_memory', arguments: '{}' } }] }),
       chunk({}, 'tool_calls'),
     ]), () => {}, undefined, () => 1, () => {}), /Invalid tool-call index/);
+  }
+});
+
+for (const finishReason of ['tool_calls', 'stop']) {
+  test(`tool deltas preserve cached metadata and recover trailing delimiters (${finishReason})`, async () => {
+    const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+    const args = JSON.stringify({ content: 'Unicode বাংলা, braces } ], quote " and slash \\', nested: { values: [1, 2] } });
+    const result = await readCompletion(stream([
+      chunk({ tool_calls: [{ index: 0, id: 'cached', function: { name: 'save_memory', arguments: args.slice(0, 20) } }] }),
+      chunk({ tool_calls: [{ index: 0, id: 'cached', function: { name: 'save_memory', arguments: args.slice(20) } }] }),
+      chunk({ tool_calls: [{ index: 0, id: null, function: { name: null, arguments: null } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: '}\n```' } }] }),
+      chunk({}, finishReason),
+    ]), () => {}, undefined, () => 1, () => {});
+    assert.deepEqual(result.toolCalls, [{ id: 'cached', type: 'function', function: { name: 'save_memory', arguments: args } }]);
+  });
+}
+
+test('stop tool responses reject incomplete JSON and never salvage partial nested objects', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  for (const args of ['{"nested":{}', '{"value":"unfinished}', '{}{"other":1}', '{broken}}', '']) {
+    await assert.rejects(readCompletion(stream([
+      chunk({ tool_calls: [{ index: 0, function: { name: 'save_memory', arguments: args } }] }),
+      chunk({}, 'stop'),
+    ]), () => {}, undefined, () => 1, () => {}), /Incomplete tool-call/);
+  }
+});
+
+test('complete arguments with a truncated finish reason still never execute', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  for (const reason of ['length', 'content_filter', null]) {
+    await assert.rejects(readCompletion(stream([
+      chunk({ tool_calls: [{ index: 0, function: { name: 'save_memory', arguments: '{}' } }] }),
+      chunk({}, reason),
+    ]), () => {}, undefined, () => 1, () => {}), /Incomplete tool-call/);
   }
 });

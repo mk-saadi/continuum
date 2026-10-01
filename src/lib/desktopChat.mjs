@@ -1,5 +1,5 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
+export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onMessageCreated, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -30,7 +30,8 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
     for (const tool of tools) onTool?.(tool);
   };
   const unsubscribe = api.onEvent(event => {
-    if (event.requestId !== requestId || (signal?.aborted && event.type !== 'step-update')) return;
+    if (event.requestId !== requestId || (signal?.aborted && !['step-update', 'message-created'].includes(event.type))) return;
+    if (event.type === 'message-created') { onMessageCreated?.(event.messageId); return; }
     if (event.type === 'step-update') executionSteps = liveSteps = event.executionSteps;
     else if (event.type === 'tool_start') {
       liveSteps = [...liveSteps.filter(step => step.id !== event.id), {
@@ -67,7 +68,8 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(sessionId ? { sessionId } : {}) });
+    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, permissionMode, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(thinkingBudget !== undefined ? { thinkingBudget } : {}), ...(sessionId ? { sessionId } : {}) });
+    if (!regenerate && Number.isSafeInteger(result.message?.id)) onMessageCreated?.(result.message.id);
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;
     if (result.executionSteps) executionSteps = result.executionSteps;

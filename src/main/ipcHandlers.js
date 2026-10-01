@@ -1,3 +1,4 @@
+const { resolveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
 "use strict";
 
 const { fetchCloudModels, getCloudProviders, saveCloudProvider, deleteCloudProvider, validateChatProvider, createCloudFetch } = require("./cloudProviders");
@@ -54,6 +55,8 @@ const { indexDocuments, retrieveContext } = require("./ragManager");
 const { processUploads } = require("./fileUploads");
 const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
 const { executeMemoryTool } = require("./memoryToolExecutor");
+const { activeStreams, truncateToolOutput } = require('./engineManager');
+const { sanitizeWebToolResult } = require('./tools/webSearch');
 
 function defaultTrustedSender(event) {
 	if (!event.senderFrame || event.senderFrame !== event.sender.mainFrame) return false;
@@ -83,7 +86,7 @@ function registerIpcHandlers({
 	const requests = new Map();
     let standaloneDelegation = false;
 	const subscribers = new Set();
-	const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools()) });
+	const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools(null)) });
 	const broadcast = () => {
 		for (const sender of subscribers) {
 			if (sender.isDestroyed()) subscribers.delete(sender);
@@ -192,7 +195,7 @@ function registerIpcHandlers({
 		},
 		"mcp:get-tools": async () => {
 			await mcpManager.init();
-			return getToolContext(mcpManager.getTools());
+			return getToolContext(mcpManager.getTools(null));
 		},
 		"mcp:set-server-enabled": async ({ serverName, enabled }) => {
 			const config = await mcpManager.setServerEnabled(serverName, enabled);
@@ -210,15 +213,33 @@ function registerIpcHandlers({
             if (!['continue', 'stop'].includes(action)) throw new Error('Invalid loop action.');
             requests.get(sender)?.get(requestId)?.resumeLoop?.(action === 'continue');
         },
+        "engine:tool-approval-response": ({ requestId, approvalId, action }, _notify, sender) => {
+            if (!['allow', 'deny'].includes(action)) throw new Error('Invalid tool approval action.');
+            const finish = requests.get(sender)?.get(requestId)?.toolApprovals?.get(approvalId);
+            if (!finish) throw new Error('Tool approval is no longer pending.');
+            finish(action === 'allow');
+        },
+        "engine:tool-limit-response": ({ requestId, action }, _notify, sender) => {
+            if (!['allow', 'deny'].includes(action)) throw new Error('Invalid tool limit action.');
+            requests.get(sender)?.get(requestId)?.resolveToolLimit?.(action === 'allow');
+        },
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort();
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, reasoningEffort, messageId = requestId }, notify, sender) => {
+		"engine:cancel-session": ({ sessionId }, _notify, sender) => {
+			const controller = activeStreams.get(sessionId);
+			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort();
+		},
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, reasoningEffort, thinkingBudget, permissionMode, messageId = requestId }, notify, sender) => {
+            const project = sessionProject(sessionId);
+            permissionMode = resolveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
             const cloud = target.type === "cloud";
             const fetchImpl = cloud ? createCloudFetch(target) : localEngineFetch;
 			if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || !getReasoningEfforts(modelId).includes(reasoningEffort)))
 				throw new Error('Unsupported reasoning effort for the active model.');
+            const { generationSamplingParams } = require('./engineManager');
+            generationSamplingParams({}, thinkingBudget);
 			let executionSteps = [];
             let content = "";
             if (!(typeof messageId === "string" && messageId.length > 0) && !Number.isSafeInteger(messageId)) throw new Error("Invalid message ID.");
@@ -232,14 +253,26 @@ function registerIpcHandlers({
 				throw new Error("Invalid chat request.");
 			if (displayName != null && (typeof displayName !== "string" || !displayName.trim() || displayName.includes("\0"))) throw new Error("Invalid display name.");
             const capturedDisplayName = displayName ?? (typeof modelName === "string" && modelName.trim() ? modelName : modelId).split(/[\\/]/).pop().replace(/\.gguf$/i, "");
-            if (standaloneDelegation || requests.get(sender)?.size) throw new Error("A chat is already running.");
+			const streamKey = sessionId || `request:${requestId}`;
+			if (standaloneDelegation || activeStreams.has(streamKey) || requests.get(sender)?.has(requestId))
+				throw new Error('This session is already running.');
 			const controller = new AbortController();
-			const active = new Map([[requestId, controller]]);
+			const active = requests.get(sender) ?? new Map();
+			active.set(requestId, controller);
 			requests.set(sender, active);
+			activeStreams.set(streamKey, controller);
+			if (sessionId) sender.send('engine:stream-status', { sessionId, status: 'generating' });
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
+            let persistence;
+            const persist = (status = "in_progress") => persistence?.update({ content, executionSteps, stats: currentStats, status });
             const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
 			try {
+                if (sessionId) {
+                    persistence = require('./engineManager').createMessagePersistence({ sessionId, modelId, modelName,
+                        displayName: capturedDisplayName, agentName: agents.getSessionAgent(sessionId)?.name });
+                    notify({ type: "message-created", messageId: persistence.messageId });
+                }
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
@@ -247,19 +280,47 @@ function registerIpcHandlers({
 				if (!cloud && !config) throw new Error("Start the local model server first.");
                 if (!cloud && config.modelPath && config.modelPath !== modelId) throw new Error("The selected local model is no longer loaded.");
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
+                const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard } = require('./engineManager');
                 const { phaseStats } = await import('../lib/completionStats.mjs');
                 const usageTurnId = require('node:crypto').randomUUID();
                 const usageTimestamp = new Date().toISOString();
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
-                    const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
-                    const filterTools = tools => cloud ? tools.filter(tool => tool.function.name !== "delegate_task") : tools;
+					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
+                    const filterTools = tools => cloud ? tools.filter(tool => !['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(tool.function.name)) : tools;
                     const tools = filterTools(availableTools);
                     messages = messages.filter(message => !message.memoryContext);
                     const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
-                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId }));
+                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable: !cloud }));
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
+                        projectId: usageProjectId,
+                        projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
+                        rewindFailedTurnRange,
+                        failedToolReason,
+                        onContextRewind: ({ startTurnIndex, endTurnIndex, summary }) => {
+                            require('./db').recordContextRewind({ sessionId,
+                                messageId: persistence.messageId, startTurnIndex, endTurnIndex, summary });
+                        },
+                        casualMode: usageProjectId == null,
+                        onToolLimit: ({ currentCount, nextTool }) => permissionMode === 'full_access' ? Promise.resolve(true) : new Promise(resolve => {
+                            let settled = false;
+                            const finish = allowed => {
+                                if (settled) return;
+                                settled = true;
+                                clearTimeout(timeout);
+                                controller.signal.removeEventListener('abort', stop);
+                                delete controller.resolveToolLimit;
+                                if (!sender.isDestroyed()) sender.send('engine:tool-limit-reached', { requestId, sessionId, resolved: true });
+                                resolve(allowed);
+                            };
+                            const stop = () => finish(false);
+                            const timeout = setTimeout(stop, 120_000);
+                            controller.resolveToolLimit = finish;
+                            controller.signal.addEventListener('abort', stop, { once: true });
+                            if (controller.signal.aborted || sender.isDestroyed()) { stop(); return; }
+                            sender.send('engine:tool-limit-reached', { requestId, sessionId, currentCount, nextTool });
+                        }),
                         onPaused: state => new Promise(resolve => {
                             const finish = resume => {
                                 controller.signal.removeEventListener('abort', stop);
@@ -280,16 +341,17 @@ function registerIpcHandlers({
 					modelId,
 					reasoningEffort,
 					messages: prependBaseSystemPrompt(messages, memoryEnabled),
+					guardToolContent: truncateToolOutput,
 					chatTools: tools,
                     getChatTools: async () => {
                         await mcpManager.reload();
-                        const context = getToolContext(mcpManager.getTools(), memoryEnabled, sessionId);
+                        const context = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
                         notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
                         return filterTools(context.tools);
                     },
 					signal: controller.signal,
 					getSamplingParams: () =>
-						profiles.getSessionSettings(sessionId, modelId).params,
+						generationSamplingParams(profiles.getSessionSettings(sessionId, modelId).params, thinkingBudget),
 					retrieveDocuments: sessionId
 						? (question) =>
 								retrieveContext(sessionId, question, {
@@ -297,17 +359,19 @@ function registerIpcHandlers({
 									onProgress: (progress) => notify({ type: "indexing", ...progress }),
 								}).finally(() => notify({ type: "indexing", progress: null }))
 						: undefined,
-					onText: (delta) => { content += delta; notify({ type: "text", delta }); },
+					onText: (delta) => { content += delta; persist(); notify({ type: "text", delta }); },
                     resolveTool: name => memoryTools.some(tool => tool.name === name)
                         ? { serverName: "memory", toolName: name } : agentTools.some(tool => tool.function.name === name)
-                        ? { serverName: "native", toolName: name } : mcpManager.resolveTool(name),
+                        ? { serverName: "native", toolName: name } : mcpManager.resolveTool(name, sessionId),
                     onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
                         executionSteps = steps;
+                        persist();
                         notify({ type: "step-update", messageId, executionSteps, content });
                     },
 					onStats: (stats) => {
 						currentStats = stats;
+                        persist();
                         const reported = stats.raw?.length ? stats.raw.map(phase => phaseStats({ ...phase, startTime: 0, endTime: 0 })) : [stats];
                         if (reported.some(phase => phase.promptTokens != null || phase.completionTokens != null)) {
                             require('./tokenUsage').logTokenUsage({ turnId: usageTurnId, chatId: sessionId ?? null, projectId: usageProjectId,
@@ -327,17 +391,25 @@ function registerIpcHandlers({
                             const isAgent = agentTools.some(t => t.function.name === call.name);
 							target = isMemory
 								? { serverName: "memory", toolName: call.name }
-								: isAgent ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name);
+								: isAgent ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name, sessionId);
 							notify({ type: "tool", id, ...target, status: "pending" });
 							const args = JSON.parse(call.arguments || "{}");
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
-                            const output = isMemory
+                            await guardTool({ name: target.toolName, args, permissionMode, project,
+                                native: isAgent || isMemory, signal: controller.signal,
+                                requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+							const rawOutput = isMemory
 								? await executeMemoryTool({ ...call, modelId })
-								: isAgent ? await executeAgentTool({ ...call, sessionId, signal: controller.signal,
+								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, signal: controller.signal,
                                     engine: cloud ? undefined : { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
                                 : await mcpManager.callTool(target.serverName, target.toolName, args, {
-										signal: controller.signal,
+										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
 									});
+							const output = sanitizeWebToolResult(rawOutput, call.name);
+							if (isAgent && call.name === 'manage_mcp_servers') {
+								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
+								notify({ type: 'context', pluginTokens: refreshed.pluginTokens, toolTokens: refreshed.toolTokens });
+							}
 							controller.signal.throwIfAborted();
 							let result = output;
 							if (typeof output === "string") {
@@ -347,12 +419,13 @@ function registerIpcHandlers({
 									/* Tools may return plain text. */
 								}
 							}
-                            result = (await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name).displayResult;
+							const failed = result?.isError || result?.success === false;
+							result = truncateToolOutput((await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name).displayResult);
 							notify({
 								type: "tool",
 								id,
 								...target,
-								status: result?.isError || result?.success === false ? "error" : "complete",
+								status: failed ? "error" : "complete",
 								result,
 							});
 							return output;
@@ -369,12 +442,19 @@ function registerIpcHandlers({
 						}
 					},
 				});
-				return { text, stats: currentStats, executionSteps, message: { id: messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
+				persist(controller.signal.aborted ? "interrupted" : "completed");
+				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
+			} catch (error) {
+                persist("interrupted");
+                throw error;
 			} finally {
                 finishEngineRequest?.();
                 notify({ type: "indexing", progress: null });
 				sender.removeListener("destroyed", abort);
-				requests.delete(sender);
+				active.delete(requestId);
+				if (!active.size) requests.delete(sender);
+				if (activeStreams.get(streamKey) === controller) activeStreams.delete(streamKey);
+				if (sessionId && !sender.isDestroyed()) sender.send('engine:stream-status', { sessionId, status: 'idle' });
 			}
 		},
 		"session:regenerate-last": async (data, notify, sender) => {
@@ -390,7 +470,11 @@ function registerIpcHandlers({
                     total_tokens: result.stats.totalTokens, duration: result.stats.time } : null,
                 created_at: new Date().toISOString(),
             };
-            return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
+            const { db } = require('./db');
+            return db.transaction(() => {
+                db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
+                return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
+            })();
 		},
 		"session:set-active-variant": ({ sessionId, messageId, index }) => setActiveVariant(sessionId, messageId, index),
 		"engine:get-load-config": ({ modelId }) => getLoadConfig(modelId),
@@ -408,8 +492,8 @@ function registerIpcHandlers({
 			branchChat(sourceSessionId, targetMessageId),
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
 		"agent:get-tools": () => agentTools,
-        "agent:execute-tool": async ({ name, arguments: args, sessionId }, _notify, sender) => {
-            if (name !== 'delegate_task') return executeAgentTool({ name, arguments: args, sessionId });
+        "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
+            if (!['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(name)) return executeAgentTool({ name, arguments: args, sessionId, permissionMode });
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
             standaloneDelegation = true;
             const controller = new AbortController();
@@ -419,14 +503,17 @@ function registerIpcHandlers({
                 sender.once('destroyed', abort);
                 finish = beginEngineRequest?.();
                 const config = getEngineConfig?.();
-                return await executeAgentTool({ name, arguments: args, sessionId, signal: controller.signal,
+                return await executeAgentTool({ name, arguments: args, sessionId, permissionMode, signal: controller.signal,
                     engine: { port: config?.port, modelId: config?.modelPath, contextLength: config?.activeModelConfig?.contextLength } });
             } finally {
                 finish?.(); sender.removeListener('destroyed', abort); standaloneDelegation = false;
             }
         },
         "memory:get-tools": () => memoryTools,
-		"memory:execute-tool": (data) => executeMemoryTool(data),
+		"memory:execute-tool": async (data) => {
+            await guardTool({ name: data.name, args: typeof data.arguments === "string" ? JSON.parse(data.arguments) : data.arguments, permissionMode: data.permissionMode, project: sessionProject(data.sessionId) });
+            return executeMemoryTool(data);
+        },
 		"session:prepare-messages": (data) => prepareChatMessages(data),
 		"memory:get-core": ({ modelId }) => getCoreMemories(modelId),
 		"memory:search": ({ query, modelId }) => searchPermanentMemories(query, modelId),
@@ -506,16 +593,21 @@ function registerIpcHandlers({
                     channel === "agent:execute-tool" ||
 					channel === "session:regenerate-last" ||
 					channel === "engine:cancel-chat" ||
+					channel === "engine:cancel-session" ||
                     channel === "loop:respond" ||
+                    channel === "engine:tool-limit-response" ||
+                    channel === "engine:tool-approval-response" ||
 					channel === "rag:index"
 				) {
 					return handler(
 						payload,
-						(result) => {
+							(result) => {
 							if (!event.sender.isDestroyed() && isTrustedSender(event)) {
-                                if (result.type === "step-update") event.sender.send("stream:step-update", { requestId: payload.requestId, ...result });
+								if (result.type === "step-update") event.sender.send("stream:step-update", { requestId: payload.requestId, sessionId: payload.sessionId, ...result });
+								if (result.type === 'text') event.sender.send('engine:stream-chunk', { sessionId: payload.sessionId, content: result.delta });
 								event.sender.send("engine:chat-event", {
 									requestId: payload.requestId,
+									sessionId: payload.sessionId,
 									...result,
 								});
                             }

@@ -19,6 +19,7 @@ function inputObject(input) {
 function projectFields(input) {
   inputObject(input);
   return {
+    permission_mode: require('./toolPermissions').resolveMode(input.permissionMode ?? input.permission_mode, {}),
     name: text(input.name, 'name').trim(),
     description: text(input.description, 'description', { nullable: true, empty: true }),
     custom_instructions: text(input.custom_instructions, 'custom_instructions', { nullable: true, empty: true }),
@@ -45,8 +46,8 @@ function listProjects() {
 function createProject(input) {
   const fields = projectFields(input);
   const id = randomUUID();
-  db.prepare('INSERT INTO projects(id, name, description, custom_instructions, root_path) VALUES (?, ?, ?, ?, ?)')
-    .run(id, fields.name, fields.description, fields.custom_instructions, fields.root_path);
+  db.prepare('INSERT INTO projects(id, name, description, custom_instructions, root_path, permission_mode) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(id, fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode);
   return getProject(id);
 }
 
@@ -54,9 +55,9 @@ function updateProject(id, input) {
   inputObject(input);
   return db.transaction(() => {
     const fields = projectFields({ ...getProject(id), ...input });
-    db.prepare(`UPDATE projects SET name = ?, description = ?, custom_instructions = ?, root_path = ?,
+    db.prepare(`UPDATE projects SET name = ?, description = ?, custom_instructions = ?, root_path = ?, permission_mode = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(fields.name, fields.description, fields.custom_instructions, fields.root_path, id);
+      .run(fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode, id);
     return getProject(id);
   }).immediate();
 }

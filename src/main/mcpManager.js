@@ -1,6 +1,7 @@
 'use strict';
 const { connectRemoteMcp } = require('./remoteMcp');
 const { limitFilesystemResult } = require('./filesystemToolLimits');
+const { requiresConfirmation, approvedMutations } = require('./safetyGuards');
 const fs = require('node:fs/promises');
 const { watch } = require('node:fs');
 const { isDeepStrictEqual } = require('node:util');
@@ -62,7 +63,7 @@ function validateServerConfig(name, server) {
     if (server.cwd !== undefined && !text(server.cwd)) throw new TypeError(`Invalid working directory for ${name}.`);
     if (server.env !== undefined && (!object(server.env) || !Object.entries(server.env).every(([key, value]) => text(key) && text(value)))) throw new TypeError(`Invalid environment for ${name}.`);
   }
-  for (const flag of ['enabled', 'disabled']) if (server[flag] !== undefined && typeof server[flag] !== 'boolean') throw new TypeError(`Invalid ${flag} flag for ${name}.`);
+  for (const flag of ['enabled', 'disabled', 'uiEnabled']) if (server[flag] !== undefined && typeof server[flag] !== 'boolean') throw new TypeError(`Invalid ${flag} flag for ${name}.`);
   if (server.disabledTools !== undefined && (!Array.isArray(server.disabledTools) || !server.disabledTools.every(text))) throw new TypeError(`Invalid disabled tools for ${name}.`);
   if (server.transport !== undefined && !(hasUrl ? ['sse', 'streamable-http'] : ['stdio']).includes(server.transport)) throw new TypeError(`Transport for ${name} must match its URL (sse or streamable-http) or command (stdio).`);
 }
@@ -70,7 +71,7 @@ function validateServerConfig(name, server) {
 // MCP clients use local stdio or remote HTTP/SSE transports.
 class McpManager extends EventEmitter {
   constructor({ configPath = path.join(os.homedir(), '.config', 'Continuum', 'mcp_config.json'), createConnection,
-    getNativeServers = () => ({}), prepareServer,
+    getNativeServers = () => ({}), prepareServer, lazyByDefault = false,
     getGlobalConfig = () => require('./configStore').getConfig() } = {}) {
     super();
     this.configPath = configPath;
@@ -79,6 +80,24 @@ class McpManager extends EventEmitter {
     this.getGlobalConfig = getGlobalConfig;
     this.getNativeServers = getNativeServers;
     this.prepareServer = prepareServer;
+    this.lazyByDefault = lazyByDefault;
+    this.sessionServers = new Map();
+    this.sessionDisabled = new Map();
+  }
+  isUiEnabled(definition) {
+    return this.lazyByDefault
+      ? definition?.disabled !== true && (definition?.uiEnabled === true || (definition?.uiEnabled !== false && definition?.disabled === false))
+      : definition?.disabled !== true && definition?.enabled !== false;
+  }
+  isSessionEnabled(serverName, sessionId) {
+    return typeof sessionId === 'string' && this.sessionServers.get(sessionId)?.has(serverName) === true;
+  }
+  isVisibleInSession(server, sessionId) {
+    if (typeof sessionId === 'string' && this.sessionDisabled.get(sessionId)?.has(server.name)) return false;
+    return server.uiEnabled !== false || this.isSessionEnabled(server.name, sessionId);
+  }
+  shouldConnect(serverName, definition) {
+    return this.isUiEnabled(definition) || [...this.sessionServers.values()].some(names => names.has(serverName));
   }
   init() {
     return this.initializing ??= (async () => {
@@ -207,7 +226,7 @@ class McpManager extends EventEmitter {
     if (changed || hadError) this.emit('changed');
   }
   async connectServer(name, definition, cachedTools = []) {
-    const server = { name, enabled: definition?.disabled !== true && definition?.enabled !== false, status: 'connecting', tools: cachedTools, disabledTools: new Set(Array.isArray(definition?.disabledTools) ? definition.disabledTools : []) };
+    const server = { name, enabled: this.shouldConnect(name, definition), uiEnabled: this.isUiEnabled(definition), status: 'connecting', tools: cachedTools, disabledTools: new Set(Array.isArray(definition?.disabledTools) ? definition.disabledTools : []) };
     server.definition = structuredClone(definition);
     this.servers.set(name, server);
     try {
@@ -266,24 +285,35 @@ class McpManager extends EventEmitter {
   toolName(serverName, toolName) {
     return `mcp_${toolName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)}_${createHash('sha256').update(JSON.stringify([serverName, toolName])).digest('hex').slice(0, 32)}`;
   }
-  getTools() {
-    return [...this.servers.values()].filter(s => s.enabled && s.status === 'connected').flatMap(s =>
+  getTools(sessionId) {
+    return [...this.servers.values()].filter(s => s.enabled && s.status === 'connected' &&
+      (!this.lazyByDefault || arguments.length === 0 || this.isVisibleInSession(s, sessionId))).flatMap(s =>
       s.tools.filter(t => !s.disabledTools.has(t.name)).map(t => ({ type: 'function', function: {
         name: this.toolName(s.name, t.name), description: t.description || `${s.name}: ${t.name}`, parameters: t.inputSchema || { type: 'object', properties: {} },
       } })));
   }
-  resolveTool(name) {
+  resolveTool(name, sessionId) {
     for (const server of this.servers.values()) {
       if (!server.enabled || server.status !== 'connected') continue;
+      if (this.lazyByDefault && arguments.length > 1 && !this.isVisibleInSession(server, sessionId)) continue;
       const tool = server.tools.find(t => !server.disabledTools.has(t.name) && this.toolName(server.name, t.name) === name);
       if (tool) return { serverName: server.name, toolName: tool.name };
     }
     throw new Error('MCP tool is unavailable or disabled.');
   }
-  async callTool(serverName, toolName, args, { signal } = {}) {
+  async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false } = {}) {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
+    if (this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId)) throw new Error('MCP server is not enabled for this chat.');
     if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be a JSON object.');
+    const payload = JSON.stringify(args);
+    if (!(permissionGranted && ['ask_approval', 'full_access'].includes(permissionMode)) && requiresConfirmation(payload)) {
+      const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
+      // Delete synchronously before dispatch so concurrent calls cannot reuse approval.
+      if (!approvedMutations.delete(hash)) {
+        throw new Error(`SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`);
+      }
+    }
     const result = await server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
     return JSON.stringify(limitFilesystemResult(toolName, result));
   }
@@ -295,7 +325,9 @@ class McpManager extends EventEmitter {
       if (!Object.hasOwn(config.mcpServers, serverName)) throw new Error('Unknown MCP server.');
       const definition = config.mcpServers[serverName];
       definition.disabled = !enabled;
+      definition.uiEnabled = enabled;
       delete definition.enabled; // Normalize the legacy alias so it cannot override the switch.
+      if (!enabled) for (const names of this.sessionServers.values()) names.delete(serverName);
       await this.writeConfig(config);
       const server = this.servers.get(serverName);
       if (server) {
@@ -309,6 +341,47 @@ class McpManager extends EventEmitter {
       if (enabled || !server) await this.connectServer(serverName, definition, server?.tools || []);
       this.emit('changed');
       return config;
+    });
+  }
+  async manageServers(action, serverNames, sessionId) {
+    if (!['enable', 'disable', 'restart'].includes(action)) throw new TypeError('Invalid MCP server action.');
+    if (!Array.isArray(serverNames) || !serverNames.length || serverNames.length > 20 ||
+        !serverNames.every(name => text(name) && name.trim())) throw new TypeError('server_names must contain 1–20 server names.');
+    if (!text(sessionId) || !sessionId.trim()) throw new TypeError('A chat session is required.');
+    await this.init();
+    return this.queueChange(async () => {
+      const config = await this.getConfig();
+      const names = [...new Set(serverNames)];
+      for (const name of names) if (!Object.hasOwn(config.mcpServers, name)) throw new Error(`Unknown MCP server: ${name}`);
+      const active = this.sessionServers.get(sessionId) || new Set();
+      const disabled = this.sessionDisabled.get(sessionId) || new Set();
+      this.sessionServers.set(sessionId, active);
+      this.sessionDisabled.set(sessionId, disabled);
+      const results = [];
+      for (const name of names) {
+        const definition = config.mcpServers[name];
+        const previous = this.servers.get(name);
+        if (action === 'disable') { active.delete(name); disabled.add(name); }
+        else { active.add(name); disabled.delete(name); }
+        const shouldConnect = this.shouldConnect(name, definition);
+        if (action === 'restart' || (action === 'enable' && previous?.status !== 'connected') ||
+            (action === 'disable' && !shouldConnect && previous?.enabled)) {
+          if (previous) {
+            previous.enabled = false;
+            await previous.client?.close().catch(() => {});
+          }
+          await this.connectServer(name, definition, previous?.tools || []);
+        }
+        const server = this.servers.get(name);
+        const success = action === 'disable' || server?.status === 'connected';
+        results.push({ name, action, success, message: success
+          ? `Server '${name}' ${action === 'enable' ? 'enabled' : action === 'restart' ? 'restarted' : 'disabled'} successfully.${action === 'disable' ? ' Its tools are no longer available in this chat.' : ' Its tools are now available in your schema.'}`
+          : `Server '${name}' could not be ${action === 'restart' ? 'restarted' : 'enabled'}: ${server?.error || 'connection failed'}` });
+      }
+      if (!active.size) this.sessionServers.delete(sessionId);
+      if (!disabled.size) this.sessionDisabled.delete(sessionId);
+      this.emit('changed');
+      return { success: results.every(result => result.success), message: results.map(result => result.message).join(' '), servers: results };
     });
   }
   setToolEnabled(name, enabled, serverName) {
@@ -368,5 +441,6 @@ const { nativePlaywrightConfig, resolveNativePlaywright, prepareNativePlaywright
 module.exports = new McpManager({
   getNativeServers: configPath => ({ 'playwright-native': nativePlaywrightConfig(path.dirname(configPath)) }),
   prepareServer: prepareNativePlaywright,
+  lazyByDefault: true,
 });
 module.exports.McpManager = McpManager;

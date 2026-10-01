@@ -8,7 +8,7 @@ function normalizeExecutionSteps(steps) {
     if (step.type === 'thought') {
       if (typeof step.content !== 'string' || !Number.isFinite(step.durationMs) || step.durationMs < 0) throw new TypeError('Invalid thought step.');
     } else if (step.type === 'tool_call') {
-      if (typeof step.toolName !== 'string' || !['pending', 'running', 'complete', 'error'].includes(step.status) ||
+      if (typeof step.toolName !== 'string' || !['preparing', 'pending', 'running', 'complete', 'error'].includes(step.status) ||
           (step.serverName != null && typeof step.serverName !== 'string') ||
           (step.args != null && (typeof step.args !== 'object' || Array.isArray(step.args)))) throw new TypeError('Invalid tool step.');
     } else throw new TypeError('Unknown execution step type.');

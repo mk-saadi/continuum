@@ -64,7 +64,8 @@ export default function IntegrationsTab({
 
 			{servers.map(([name, definition]) => {
 				const server = status?.servers?.find((item) => item.name === name);
-				const enabled = definition?.disabled !== true && definition?.enabled !== false;
+				const enabled = definition?.disabled !== true &&
+					(definition?.uiEnabled === true || (definition?.uiEnabled !== false && definition?.disabled === false));
 				const tools = server?.tools || [];
 				const disabledTools = new Set(definition?.disabledTools || []);
 				const allEnabled = tools.length > 0 && tools.every((tool) => !disabledTools.has(tool.label));

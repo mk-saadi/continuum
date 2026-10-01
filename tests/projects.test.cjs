@@ -15,7 +15,7 @@ Module._load = function(name, ...args) {
 const { initDatabase, closeDatabase, db } = require('../src/main/db');
 const projects = require('../src/main/projectManager');
 const sessions = require('../src/main/sessionManager');
-const { buildProjectContext, prepareChatMessages } = require('../src/main/promptBuilder');
+const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = require('../src/main/promptBuilder');
 (async () => {
   let dispose;
   try {
@@ -51,6 +51,35 @@ const { buildProjectContext, prepareChatMessages } = require('../src/main/prompt
     const messages = prepareChatMessages({ sessionId: 'chat', modelId: 'model', userText: 'Hello' });
     assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[PROJECT GOAL]')));
     assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[AUTONOMY RULES]') && message.content.includes('CRITICAL: Never output plain status text') && message.content.includes('[TASK COMPLETE]')));
+    for (const sessionId of ['chat', 'casual']) {
+      const content = buildSessionSystemPrompt({ sessionId, modelId: 'model' }).content;
+      assert.match(content, /### Visualizations & Charting/);
+      assert.match(content, /NEVER run terminal commands \(`execute_command`\)/);
+      assert.match(content, /xychart-beta/);
+      assert.match(content, /pie title Weather Distribution/);
+      assert.match(content, /graph TD/);
+      assert.equal((content.match(/### Visualizations & Charting/g) || []).length, 1);
+      assert.match(content, /### Sub-Agent Delegation Protocol/);
+      assert.match(content, /MANDATORY Delegation Triggers/);
+      assert.match(content, /spawn_subagent/);
+      assert.match(content, /target_files/);
+      assert.equal((content.match(/### Sub-Agent Delegation Protocol/g) || []).length, 1);
+    }
+    assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model' }).content.includes('[PROJECT GOAL]'));
+    assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model', delegationAvailable: false }).content.includes('### Sub-Agent Delegation Protocol'));
+    const subAgentRunner = require('../src/main/subAgentRunner');
+    const originalExtract = subAgentRunner.extractWebPageData;
+    try {
+      subAgentRunner.extractWebPageData = async ({ url, query }) => {
+        assert.equal(url, 'https://example.com/benchmarks');
+        assert.match(query, /MMLU/);
+        return 'MMLU: 68.0';
+      };
+      assert.equal(await require('../src/main/tools/agentTools').executeAgentTool({
+        name: 'spawn_subagent', sessionId: 'chat', engine: { port: 4321, modelId: 'model' },
+        arguments: { task: 'Inspect https://example.com/benchmarks for MMLU.' },
+      }), 'MMLU: 68.0');
+    } finally { subAgentRunner.extractWebPageData = originalExtract; }
     const branch = sessions.branchChat('chat', sessions.loadSession('chat').messages[0].id);
     assert.equal(sessions.loadSession(branch.sessionId).project_id, project.id);
     fs.unlinkSync(path.join(workspace, 'AGENTS.md'));

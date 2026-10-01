@@ -231,6 +231,33 @@ export function createXmlToolCallInterceptor(onToolStream = () => {}) {
   return { push, finish, calls };
 }
 
+// Only strip trailing delimiters after a complete JSON object. Never invent
+// missing content or strip characters inside strings (including escaped quotes).
+function normalizeStreamArguments(value) {
+  try { JSON.parse(value); return value; } catch { /* Try a complete object prefix. */ }
+  const text = value.trim();
+  if (!text.startsWith('{')) throw new SyntaxError('Invalid tool arguments.');
+  let depth = 0, quoted = false, escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') quoted = false;
+    } else if (char === '"') quoted = true;
+    else if (char === '{' || char === '[') depth++;
+    else if (char === '}' || char === ']') {
+      if (--depth === 0) {
+        const candidate = text.slice(0, i + 1);
+        if (!/^[\s}\]`]*$/.test(text.slice(i + 1))) break;
+        JSON.parse(candidate);
+        return candidate;
+      }
+    }
+  }
+  throw new SyntaxError('Invalid tool arguments.');
+}
+
 export async function readCompletion(response, onText, signal, now, onThinking, abortLoop = () => {}, onToolStream = () => {}) {
   const reasoningDetector = createRepetitionDetector();
   const contentDetector = createRepetitionDetector();
@@ -302,8 +329,8 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
         calls.set(index, { id: '', type: 'function', function: { name: '', arguments: '' } });
       }
       const call = calls.get(index);
-      if (typeof fragment.id === 'string') call.id += fragment.id;
-      if (typeof fragment.function?.name === 'string') call.function.name += fragment.function.name;
+      if (typeof fragment.id === 'string' && fragment.id !== call.id) call.id += fragment.id;
+      if (typeof fragment.function?.name === 'string' && fragment.function.name !== call.function.name) call.function.name += fragment.function.name;
       if (!call.argumentError && typeof fragment.function?.arguments === 'string') {
         call.function.arguments += fragment.function.arguments;
         limitToolArguments(call);
@@ -334,8 +361,20 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
   // Flush ordinary text only; unfinished XML stays out of the UI and history.
   const xmlTail = xmlInterceptor.finish();
   if (xmlTail) content += intercept(xmlTail, contentDetector, onText);
-  if (calls.size && finishReason !== 'tool_calls') {
+  if (calls.size && finishReason !== 'tool_calls' && finishReason !== 'stop') {
     throw new Error('Incomplete tool-call response; no tools were executed.');
+  }
+  for (const call of calls.values()) {
+    // Some compatible endpoints finish tool calls with "stop". Accept that
+    // only when every call is complete; length/filtered/unfinished streams fail.
+    try {
+      if (call.argumentError || !call.function.name.trim()) throw new Error('Invalid tool call.');
+      call.function.arguments = normalizeStreamArguments(call.function.arguments);
+    } catch {
+      if (finishReason === 'stop') throw new Error('Incomplete tool-call response; no tools were executed.');
+      // Explicit tool_calls completions retain the existing per-tool error and
+      // retry path for malformed or oversized arguments.
+    }
   }
   const toolCalls = [...calls.entries()].sort(([a], [b]) => a - b)
     .filter(([, call]) => call.type === 'function' && call.function.name.trim())
@@ -349,8 +388,10 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
 
 export async function runMemoryChat({
   baseUrl, modelId, messages, loadedContextSize, reasoningEffort, memoryTools = [], chatTools, getChatTools, executeTool, retrieveDocuments, samplingParams = {}, getSamplingParams,
-  onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }),
+  onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }), guardToolContent = content => content,
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
+  casualMode = false, onToolLimit = async () => false,
+  projectId = null, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
@@ -384,7 +425,21 @@ export async function runMemoryChat({
   const phases = []; // Fresh for every chat invocation.
 
   let toolsExecuted = false, toolRounds = 0;
+  let casualToolCount = 0, maxAllowedTools = 5, finalResponseOnly = false;
   let turnCount = 0, round = 0, executionState = 'running';
+  let failedToolStreak = 0, failedRangeStart = null;
+  const applyContextRewind = () => {
+    if (!projectId || failedRangeStart === null || !rewindFailedTurnRange) return;
+    const endTurnIndex = history.length;
+    const trimmed = rewindFailedTurnRange(history, failedRangeStart);
+    if (trimmed !== history) {
+      const summary = trimmed[failedRangeStart]?.content;
+      history.splice(0, history.length, ...trimmed);
+      onContextRewind({ startTurnIndex: failedRangeStart, endTurnIndex, summary });
+    }
+    failedToolStreak = 0;
+    failedRangeStart = null;
+  };
   const pauseAtLimit = async () => {
     executionState = 'paused_turn_limit';
     onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
@@ -400,7 +455,7 @@ export async function runMemoryChat({
     round++;
     signal?.throwIfAborted();
     const phaseStart = round === 1 ? startTime : now();
-    if (getChatTools) {
+    if (getChatTools && !finalResponseOnly) {
       tools = await getChatTools();
       allowedNames = new Set(tools.map(tool => tool.function.name));
       signal?.throwIfAborted();
@@ -410,11 +465,12 @@ export async function runMemoryChat({
       ...samplingParams, ...(getSamplingParams ? await getSamplingParams() : {}),
     };
     const thinkingBudget = resolveThinkingBudget(params.thinking_budget ?? -1, loadedContextSize);
+    if (finalResponseOnly) tools = [];
     const requestPayload = {
       thinking_budget: thinkingBudget, reasoning_budget: thinkingBudget,
       ...(thinkingBudget > 0 ? { max_thinking_tokens: thinkingBudget } : {}),
       model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage)) : sanitizeChatMessages(history, decodeImage), tools,
-      tool_choice: 'auto',
+      tool_choice: finalResponseOnly ? 'none' : 'auto',
       cache_prompt: true,
       ...(reasoningEffort !== undefined ? { chat_template_kwargs: { reasoning_effort: reasoningEffort } } : {}),
       stream: true, stream_options: { include_usage: true },
@@ -482,6 +538,7 @@ export async function runMemoryChat({
         step.streamingArguments += event.content;
       }
       onToolStream(event);
+      publishSteps();
     }); }
     finally {
       thinking.finish();
@@ -500,12 +557,21 @@ export async function runMemoryChat({
       publishSteps();
     }
     result.content = visibleContent;
+    if (projectId && failedToolStreak > 0 &&
+        /\b(?:switch(?:ing)? (?:to|strateg(?:y|ies))|try (?:a |an )?(?:different|alternative|another) (?:approach|strategy|method))\b/i.test(result.content)) {
+      applyContextRewind();
+    }
     // Also covers non-streaming JSON and XML calls, which bypass SSE accumulation.
     result.toolCalls = result.toolCalls.map(limitToolArguments);
     phases.push({ ...phaseStats({ ...result, startTime: phaseStart, endTime: result.endTime ?? now() }),
       raw: { usage: result.usage, timings: result.timings } });
+    // A provider that ignores tool_choice:none must not create an endless loop.
+    if (finalResponseOnly && result.toolCalls.length) {
+      onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
+      return text;
+    }
     if (!result.toolCalls.length) {
-      const unfinished = toolsExecuted && !result.loopDetected &&
+      const unfinished = !finalResponseOnly && toolsExecuted && !result.loopDetected &&
         !/(?:\?|\[TASK COMPLETE\])$/.test(result.content.trimEnd());
       if (unfinished) {
         history.push({ role: 'assistant', content: result.content || null });
@@ -526,6 +592,10 @@ export async function runMemoryChat({
       if (!call.id || usedIds.has(call.id)) throw new Error('Missing or repeated tool-call ID.');
       usedIds.add(call.id);
     }
+    const batchStart = history.length;
+    let batchFailures = 0, batchSucceeded = false;
+    const loopNotices = [];
+    let batchLoopDetected = false;
     history.push({ role: 'assistant', content: result.content || null, tool_calls: result.toolCalls });
     for (const call of result.toolCalls) {
       signal?.throwIfAborted();
@@ -534,12 +604,14 @@ export async function runMemoryChat({
         step = { id: call.id, type: 'tool_call', toolName: call.function.name };
         executionSteps.push(step);
       }
-      Object.assign(step, { serverName: null, args: null, status: 'running' });
+      Object.assign(step, { serverName: null, args: null, status: 'pending' });
       delete step.streamingArguments;
       delete step.streamingParameter;
       let output;
       let formatted;
       try {
+        if (batchLoopDetected) throw new Error('Tool call skipped after repetition loop warning. Re-evaluate the approach.');
+        if (finalResponseOnly) throw new Error('Tool execution budget denied by user.');
         if (call.argumentError) {
           toolsExecuted = true; // Let the model recover with a smaller call.
           throw new Error(call.argumentError);
@@ -547,16 +619,36 @@ export async function runMemoryChat({
         step.args = JSON.parse(call.function.arguments || '{}');
         if (!step.args || typeof step.args !== 'object' || Array.isArray(step.args)) throw new Error('Tool arguments must be an object.');
         if (!allowedNames.has(call.function.name)) throw new Error('Unknown tool.');
+        const loopNotice = projectId && projectToolLoopGuard?.inspect(call.function.name, step.args);
+        if (loopNotice) {
+          batchLoopDetected = true;
+          loopNotices.push(loopNotice);
+          throw new Error(loopNotice);
+        }
         Object.assign(step, resolveTool(call.function.name));
         publishSteps();
+        if (casualMode && casualToolCount >= maxAllowedTools) {
+          const allowed = await onToolLimit({ currentCount: casualToolCount, nextTool: call.function.name });
+          signal?.throwIfAborted();
+          if (allowed !== true) {
+            finalResponseOnly = true;
+            throw new Error('Tool execution budget denied by user.');
+          }
+          maxAllowedTools += 5;
+        }
+        if (casualMode) casualToolCount++;
         toolsExecuted = true;
+        step.status = 'running';
+        publishSteps();
         output = await executeTool({ name: call.function.name, arguments: call.function.arguments, modelId });
         signal?.throwIfAborted();
         let result = output;
         if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
         formatted = formatToolResult(output, call.function.name);
         step.result = formatted.displayResult;
-        step.status = result?.isError || result?.success === false ? 'error' : 'complete';
+        const failure = failedToolReason?.(output, call.function.name);
+        step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
+        if (failure) step.error = failure;
         if (['str_replace_editor', 'write_project_file'].includes(call.function.name) &&
             result?.success === true && !result?.isError) {
           turnCount = 0;
@@ -572,7 +664,31 @@ export async function runMemoryChat({
       }
       signal?.throwIfAborted();
       formatted ??= formatToolResult(output, call.function.name);
-      history.push({ role: 'tool', tool_call_id: call.id, content: formatted.content });
+      history.push({ role: 'tool', tool_call_id: call.id, content: guardToolContent(formatted.content) });
+      if (projectId && failedToolReason) {
+        if (failedToolReason(output, call.function.name)) batchFailures++;
+        else batchSucceeded = true;
+      }
+    }
+    if (loopNotices.length) {
+      // Keep the matching synthetic tool result and give the model an explicit
+      // system instruction on its next generation. Do not rewind this warning.
+      for (const notice of loopNotices) history.push({ role: 'system', content: notice });
+      failedToolStreak = 0;
+      failedRangeStart = null;
+    } else if (projectId) {
+      if (!batchSucceeded && batchFailures > 0) {
+        if (failedToolStreak === 0) failedRangeStart = batchStart;
+        failedToolStreak += batchFailures;
+        if (failedToolStreak >= 2) applyContextRewind();
+      } else {
+        failedToolStreak = 0;
+        failedRangeStart = null;
+      }
+    }
+    if (finalResponseOnly) {
+      history.push({ role: 'system', content: 'Tool execution budget reached and denied by user. Provide your final response immediately using only the information collected so far.' });
+      continue;
     }
     if (reachedLimit && !await pauseAtLimit()) return text;
   }

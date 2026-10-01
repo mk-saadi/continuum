@@ -13,74 +13,6 @@ import {
 } from "react-icons/lu";
 import { SelectField, TextAreaField } from "./FormControls";
 import ChatTuning from "./ChatTuning";
-import { maxThinkingBudget } from '../lib/thinkingBudget.mjs';
-
-export function ThinkingBudgetControl({ activeModel, sessionId, modelId, disabled }) {
-    const [budget, setBudget] = useState(-1);
-    const [ready, setReady] = useState(false);
-    const [error, setError] = useState('');
-    const version = useRef(0);
-    useEffect(() => {
-        let alive = true;
-        const refresh = async () => {
-            const request = ++version.current;
-            try {
-                const result = await window.api.getEffectiveSettings(sessionId, modelId);
-                if (alive && request === version.current) {
-                    setBudget(result.effective.thinkingBudget ?? -1);
-                    setReady(true);
-                }
-            } catch (error) { if (alive && request === version.current) setError(error.message); }
-        };
-        refresh();
-        window.addEventListener('generation-settings-changed', refresh);
-        return () => { alive = false; version.current++; window.removeEventListener('generation-settings-changed', refresh); };
-    }, [sessionId, modelId]);
-    const maximum = maxThinkingBudget(activeModel?.contextSize);
-    const customAvailable = maximum >= 256;
-    const custom = budget !== -1;
-    const value = Math.min(Math.max(256, custom ? budget : 4096), Math.max(256, maximum));
-    const locked = !activeModel || disabled || !ready;
-    async function save(value) {
-        const previous = budget;
-        const request = ++version.current;
-        setBudget(value);
-        setError('');
-        try {
-            if (sessionId) await window.api.saveSamplingParams(sessionId, modelId, { thinking_budget: value });
-            else await window.api.saveProfileSettings(modelId, { thinkingBudget: value });
-            if (request === version.current) window.dispatchEvent(new Event('generation-settings-changed'));
-        } catch (error) {
-            if (request === version.current) { setBudget(previous); setError(error.message); }
-        }
-    }
-    const hint = !activeModel ? 'Load a model to configure thinking budget.'
-        : !customAvailable ? 'The loaded context is too small for a custom limit with 2,048 tokens reserved.'
-        : 'Reserves at least 2,048 context tokens for response output.';
-    return <section aria-label="Thinking Budget" title={!activeModel ? hint : undefined}
-        className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-        <h3 className="text-xs font-semibold">Thinking Budget</h3>
-        <label className="block text-xs">Thinking Mode
-            <select aria-label="Thinking Mode" className={fieldClass} disabled={locked}
-                value={custom ? 'custom' : 'default'} onChange={event => save(event.target.value === 'default' ? -1 : value)}>
-                <option value="default">Unlimited / Default</option>
-                <option value="custom" disabled={!customAvailable}>Custom Token Limit</option>
-            </select>
-        </label>
-        {(custom || !activeModel) && <label className="block text-xs">
-            <span className="flex justify-between gap-2"><span>Token limit</span>
-                <output>{value.toLocaleString('en-US')} tokens</output></span>
-            <input aria-label="Thinking token limit" aria-describedby="thinking-budget-hint" type="range"
-                min={256} max={Math.max(256, maximum)} step={256} value={value}
-                disabled={locked || !custom || !customAvailable}
-                onChange={event => save(Number(event.target.value))}
-                className="mt-2 w-full accent-[var(--accent)] disabled:opacity-40" />
-        </label>}
-        <p id="thinking-budget-hint" className="text-[11px] text-[var(--text-muted)]">{hint}</p>
-        <p className="text-[11px] text-[var(--text-muted)]">{sessionId ? 'Saved for this chat.' : 'Saved as the model default.'}</p>
-        {error && <p role="alert" className="text-xs text-[var(--error)]">{error}</p>}
-    </section>;
-}
 
 const sections = [
 	{ id: "persona", label: "Agent & Persona", Icon: LuBot },
@@ -452,8 +384,6 @@ export default function RightSidebar({
 							modelId={modelId}
 						/>
 					</div>
-                    <ThinkingBudgetControl key={`${sessionId}:${modelId}`} activeModel={activeModel}
-                        sessionId={sessionId} modelId={modelId} disabled={disabled || selecting} />
 				</section>
                 <section role="tabpanel" id="controls-memory" aria-labelledby="controls-tab-memory" hidden={tab !== 'memory'} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5">
                     <h3 className="text-xs font-semibold">Memory &amp; Context</h3>

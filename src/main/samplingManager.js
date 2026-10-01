@@ -10,7 +10,7 @@ function validateSamplingParams(input) {
       : key === 'top_p' ? value >= 0 && value <= 1
       : key === 'top_k' ? Number.isInteger(value) && value >= 1 && value <= 100
       : key === 'repeat_penalty' ? value >= 1 && value <= 1.5
-      : key === 'thinking_budget' ? Number.isSafeInteger(value) && (value === -1 || (value >= 256 && value % 256 === 0))
+      : key === 'thinking_budget' ? Number.isSafeInteger(value) && (value === -1 || (value >= 0 && value <= 65536))
       : Number.isSafeInteger(value) && (value === -1 || value > 0);
     if (!valid) throw new Error(`Invalid sampling parameter: ${key}.`);
     output[key] = value;

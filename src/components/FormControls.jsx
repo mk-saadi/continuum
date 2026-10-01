@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { LuCheck, LuChevronDown } from "react-icons/lu";
 
 const fieldFrame =
-	"flex min-h-11 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50";
+	"flex min-h-8 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -88,6 +88,12 @@ export const SelectField = forwardRef(function SelectField(
 		onChange,
 		placeholder = "Select...",
 		disabled,
+		openTop = false,
+		icon,
+		items = [], // Array of { value, label, description, icon }
+		dropdownFooter, // ReactNode OR Function({ close }) => ReactNode
+		triggerLabel, // Override text shown on the main button
+		hideChevron = false,
 		...selectProps
 	},
 	ref,
@@ -100,47 +106,38 @@ export const SelectField = forwardRef(function SelectField(
 	const triggerRef = useRef(null);
 	const menuRef = useRef(null);
 
-	// Automatically extract options from standard <option> children
-	const options = React.Children.toArray(children)
-		.filter((child) => React.isValidElement(child) && child.type === "option")
-		.map((child) => ({
-			value: child.props.value,
-			label: child.props.children,
-		}));
+	// Use items array if provided, fallback to standard <option> children
+	const options =
+		items.length > 0
+			? items
+			: React.Children.toArray(children)
+					.filter((child) => React.isValidElement(child) && child.type === "option")
+					.map((child) => ({
+						value: child.props.value,
+						label: child.props.children,
+					}));
 
-	// Ensure comparison works regardless of string/number types
 	const selectedOption = options.find((opt) => String(opt.value) === String(value));
 
 	const handleOpen = () => {
 		if (disabled) return;
 		if (triggerRef.current) {
 			const rect = triggerRef.current.getBoundingClientRect();
-
-			// Find the nearest open <dialog> ancestor, if any — needed because
-			// dialog.showModal() promotes the dialog to the browser's top layer,
-			// and a portal to document.body would render behind it regardless of z-index.
 			const ownerDialog = triggerRef.current.closest("dialog");
 
+			let topPos;
 			if (ownerDialog) {
 				const dialogRect = ownerDialog.getBoundingClientRect();
-				// Coordinates need to be relative to the dialog now, not the viewport/body
-				setMenuCoords({
-					top: rect.bottom - dialogRect.top + 6,
-					left: rect.left - dialogRect.left,
-					width: rect.width,
-				});
+				topPos = openTop ? rect.top - dialogRect.top - 6 : rect.bottom - dialogRect.top + 6;
+				setMenuCoords({ top: topPos, left: rect.left - dialogRect.left, width: rect.width });
 			} else {
-				setMenuCoords({
-					top: rect.bottom + window.scrollY + 6,
-					left: rect.left + window.scrollX,
-					width: rect.width,
-				});
+				topPos = openTop ? rect.top + window.scrollY - 6 : rect.bottom + window.scrollY + 6;
+				setMenuCoords({ top: topPos, left: rect.left + window.scrollX, width: rect.width });
 			}
 			setIsOpen(true);
 		}
 	};
 
-	// Close on outside click
 	useEffect(() => {
 		if (!isOpen) return;
 		const handleClickOutside = (e) => {
@@ -157,7 +154,6 @@ export const SelectField = forwardRef(function SelectField(
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen]);
 
-	// Auto-focus the first menu item when opened
 	useEffect(() => {
 		if (isOpen && menuRef.current) {
 			const firstItem = menuRef.current.querySelector('button[role="option"]');
@@ -174,7 +170,6 @@ export const SelectField = forwardRef(function SelectField(
 			className={className}
 		>
 			<div className={`${fieldFrame} relative`}>
-				{/* Hidden native select for standard form refs/submission */}
 				<select
 					{...selectProps}
 					ref={ref}
@@ -192,7 +187,16 @@ export const SelectField = forwardRef(function SelectField(
 					>
 						{placeholder}
 					</option>
-					{children}
+					{items.length > 0
+						? items.map((opt) => (
+								<option
+									key={opt.value}
+									value={opt.value}
+								>
+									{opt.label}
+								</option>
+							))
+						: children}
 				</select>
 
 				<button
@@ -204,18 +208,33 @@ export const SelectField = forwardRef(function SelectField(
 					aria-expanded={isOpen}
 					aria-describedby={hint ? `${id}-hint` : undefined}
 					onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
-					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-3 py-1! text-sm text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-3 py-1 text-sm text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
 				>
-					<span className={!selectedOption ? "text-[var(--text-primary)]!" : "truncate"}>
-						{selectedOption ? selectedOption.label : placeholder}
-					</span>
-					<LuChevronDown
-						size={16}
-						aria-hidden="true"
-						className={`shrink-0 text-[var(--text-primary)] transition-transform duration-200 ${
-							isOpen ? "rotate-180" : ""
-						}`}
-					/>
+					<div className="flex items-center gap-2 truncate pr-2">
+						{icon && (
+							<span className="flex shrink-0 items-center text-[var(--text-muted)]">
+								{icon}
+							</span>
+						)}
+						<span
+							className={
+								!selectedOption && !triggerLabel ? "text-[var(--text-primary)]!" : "truncate"
+							}
+						>
+							{triggerLabel !== undefined
+								? triggerLabel
+								: selectedOption
+									? selectedOption.label
+									: placeholder}
+						</span>
+					</div>
+					{!hideChevron && (
+						<LuChevronDown
+							size={16}
+							aria-hidden="true"
+							className={`shrink-0 text-[var(--text-primary)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+						/>
+					)}
 				</button>
 
 				{isOpen &&
@@ -224,8 +243,13 @@ export const SelectField = forwardRef(function SelectField(
 							ref={menuRef}
 							role="listbox"
 							aria-label={label || "Select options"}
-							style={{ left: menuCoords.left, top: menuCoords.top, width: menuCoords.width }}
-							className="absolute z-[9999] max-h-64 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
+							style={{
+								left: menuCoords.left,
+								top: menuCoords.top,
+								width: menuCoords.width,
+								...(openTop ? { transform: "translateY(-100%)" } : {}),
+							}}
+							className="absolute z-[9999] min-w-[220px] max-h-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
 									event.preventDefault();
@@ -269,15 +293,46 @@ export const SelectField = forwardRef(function SelectField(
 										triggerRef.current?.focus();
 									}}
 								>
-									<span className="truncate pr-4">{opt.label}</span>
-									{String(opt.value) === String(value) && (
-										<LuCheck
-											size={14}
-											className="shrink-0 text-[var(--accent)]"
-										/>
+									<div className="flex items-center gap-2 truncate pr-4">
+										{opt.icon && (
+											<span
+												className={`shrink-0 ${String(opt.value) === String(value) ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
+											>
+												{opt.icon}
+											</span>
+										)}
+										<span className="truncate">{opt.label}</span>
+									</div>
+									{opt.description ? (
+										<span
+											className={`shrink-0 text-xs ${String(opt.value) === String(value) ? "text-[var(--accent)] font-medium" : "text-[var(--text-muted)]"}`}
+										>
+											{opt.description}
+										</span>
+									) : (
+										String(opt.value) === String(value) && (
+											<LuCheck
+												size={14}
+												className="shrink-0 text-[var(--accent)]"
+											/>
+										)
 									)}
 								</button>
 							))}
+
+							{/* Custom Footer Form Injection */}
+							{dropdownFooter && (
+								<div className="mt-1 border-t border-[var(--border)] pt-1">
+									{typeof dropdownFooter === "function"
+										? dropdownFooter({
+												close: () => {
+													setIsOpen(false);
+													triggerRef.current?.focus();
+												},
+											})
+										: dropdownFooter}
+								</div>
+							)}
 						</div>,
 						triggerRef.current?.closest("dialog") ?? document.body,
 					)}

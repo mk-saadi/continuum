@@ -22,6 +22,19 @@ test('authoritative invoke stats reach the save callback even without a final st
   } finally { globalThis.window = oldWindow; }
 });
 
+test('chat IPC payload includes an exact thinking budget', async () => {
+  const oldWindow = globalThis.window;
+  globalThis.window = { chatAPI: {
+    onEvent: () => () => {},
+    run: async payload => {
+      assert.equal(payload.thinkingBudget, 2500);
+      return { text: 'Done' };
+    },
+  } };
+  try { await runDesktopChat({ modelId: 'test', messages: [], thinkingBudget: 2500 }); }
+  finally { globalThis.window = oldWindow; }
+});
+
 test('document indexing scopes progress events and removes listeners', async () => {
   const { indexDesktopDocuments } = await import('../src/lib/desktopChat.mjs');
   const oldWindow = globalThis.window;
@@ -204,5 +217,19 @@ for (const regenerate of [false, true]) test(`cloud target reaches ${regenerate 
     await runDesktopChat({ activeChatProvider, modelId: 'cloud:anthropic:claude-test', messages: [], regenerate });
     assert.deepEqual(captured.activeChatProvider, activeChatProvider);
     assert.equal(captured.modelId, 'cloud:anthropic:claude-test');
+  } finally { globalThis.window = oldWindow; }
+});
+
+
+test('permission choice reaches normal and regenerated requests', async () => {
+  const oldWindow = globalThis.window;
+  const requests = [];
+  const run = async payload => { requests.push(payload); return {}; };
+  globalThis.window = { chatAPI: { onEvent: () => () => {}, run }, memoryPalace: { regenerateLast: run } };
+  try {
+    for (const permissionMode of ['read_only', 'workspace_write', 'ask_approval', 'full_access']) {
+      for (const regenerate of [false, true]) await runDesktopChat({ modelId: 'test', messages: [], permissionMode, regenerate });
+    }
+    assert.deepEqual(requests.map(request => request.permissionMode), ['read_only', 'read_only', 'workspace_write', 'workspace_write', 'ask_approval', 'ask_approval', 'full_access', 'full_access']);
   } finally { globalThis.window = oldWindow; }
 });

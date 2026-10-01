@@ -28,6 +28,15 @@ for (const provider of ['kimi', 'groq', 'local-server']) test(`${provider} route
   assert.equal(await response.text(), 'data: [DONE]\n\n');
 });
 
+test('OpenAI-compatible cloud requests carry an explicit reasoning budget', async () => {
+  saveCloudProvider({ id: 'budget', name: 'Budget API', baseUrl: 'https://budget.example/v1', modelId: 'reasoner', apiKey: 'test-key' });
+  const adapter = createCloudFetch({ type: 'cloud', provider: 'budget', model: 'reasoner' }, { fetchImpl: async (_url, options) => {
+    assert.equal(JSON.parse(options.body).reasoning_budget, 2500);
+    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  } });
+  await adapter('', { body: JSON.stringify({ messages: [{ role: 'user', content: 'Hi' }], reasoning_budget: 2500 }) });
+});
+
 test('Anthropic translates system, tools, multiple tool results and images', () => {
   const payload = anthropicPayload({ messages: [
     { role: 'system', content: 'instructions' },
@@ -43,6 +52,9 @@ test('Anthropic translates system, tools, multiple tool results and images', () 
   assert.equal(payload.messages[2].content.length, 2);
   assert.equal(payload.messages[2].content[0].content[0].source.media_type, 'image/png');
   assert.deepEqual(payload.tools[0].input_schema, { type: 'object' });
+  const withThinking = anthropicPayload({ messages: [{ role: 'user', content: 'Hi' }], thinking_budget: 2500 }, 'claude-test');
+  assert.deepEqual(withThinking.thinking, { type: 'enabled', budget_tokens: 2500 });
+  assert.ok(withThinking.max_tokens > 2500);
 });
 
 test('Anthropic normalizes replies and usage for the existing tool loop', async () => {

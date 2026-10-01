@@ -1,8 +1,10 @@
 const { localEngineFetch } = require("./src/main/localEngineFetch");
-const { app, BrowserWindow, ipcMain, protocol } = require("electron");
-const { registerLocalMediaProtocol } = require('./src/main/localMedia');
+const { app, BrowserWindow, ipcMain, protocol, net: electronNet } = require("electron");
+const { registerLocalMediaProtocol, serveMediaRequest } = require('./src/main/localMedia');
 protocol.registerSchemesAsPrivileged([
     { scheme: 'local', privileges: { standard: true, secure: true, stream: true } },
+    // File-style URLs use an empty host: media:///absolute/path.
+    { scheme: 'media', privileges: { secure: true, stream: true } },
 ]);
 const path = require("path");
 const fs = require("fs");
@@ -215,7 +217,7 @@ async function launchProcess(command, model = null, config = null) {
             getTools: async () => {
                 const mcp = require("./src/main/mcpManager");
                 await mcp.init();
-                return require("./src/main/promptBuilder").getToolContext(mcp.getTools()).tools;
+                return require("./src/main/promptBuilder").getToolContext(mcp.getTools(null)).tools;
             },
             onStatus: (contextStatus, error = null) => {
                 if (childProcess !== processForLaunch) return;
@@ -440,6 +442,7 @@ ipcMain.handle("get-active-models", async () => {
 // ---------------------------------------------------------------------------
 const mcpManager = require("./src/main/mcpManager");
 app.whenReady().then(() => {
+	protocol.handle('media', request => serveMediaRequest(request, electronNet.fetch));
 	require("./src/main/legacyDataMigration").migrateLegacyUserData();
 	registerLocalMediaProtocol(protocol);
 	mcpManager.init().catch((error) => console.error("MCP initialization failed:", error));

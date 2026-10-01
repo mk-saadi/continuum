@@ -68,7 +68,7 @@ try {
   assert.ok(!isolated.some(message => /BACKGROUND KNOWLEDGE|Secret remembered preference/.test(message.content)));
   assert.match(isolated[0].content, /Memory Palace is disabled/);
   const tools = require('../src/main/promptBuilder').getToolContext([], false).tools;
-  assert.deepEqual(tools.map(tool => tool.function.name), ['get_recent_chat_history']);
+  assert.deepEqual(tools.map(tool => tool.function.name), ['manage_mcp_servers', 'approve_mcp_mutation', 'get_recent_chat_history']);
   closeDatabase(); initDatabase();
   assert.equal(profiles.getSessionSettings('memory-chat', '/memory-model').effective.memoryEnabled, false);
   profiles.saveSessionMemorySettings('memory-chat', '/memory-model', { memoryEnabled: null });
@@ -88,8 +88,12 @@ try {
   sessions.saveSessionSamplingParams('thinking-chat', '/thinking-model', null);
   assert.equal(profiles.getSessionSettings('thinking-chat', '/thinking-model').effective.thinkingBudget, 4096);
   assert.equal(profiles.getSessionSettings(null, '/other-model').effective.thinkingBudget, 1024);
-  for (const thinkingBudget of [0, 255, 257, -2, Infinity, '1024']) {
+  for (const thinkingBudget of [-2, 65537, Infinity, '1024']) {
     assert.throws(() => profiles.saveProfileSettings('/thinking-model', { thinkingBudget }), /Invalid sampling/);
+  }
+  for (const thinkingBudget of [0, 255, 257, 2500, 65536]) {
+    profiles.saveProfileSettings('/thinking-model', { thinkingBudget });
+    assert.equal(profiles.getSessionSettings(null, '/thinking-model').effective.thinkingBudget, thinkingBudget);
   }
   console.log('Three-tier resolution, zero/empty overrides, model switching, prompt assembly, reset, persistence, branching and validation passed.');
 } finally { closeDatabase(); Module._load = original; fs.rmSync(dir, { recursive: true, force: true }); }

@@ -117,7 +117,29 @@ contextBridge.exposeInMainWorld('mcpAPI', {
   },
 });
 contextBridge.exposeInMainWorld('chatAPI', {
+  onStreamStatus: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('engine:stream-status', listener);
+    return () => ipcRenderer.removeListener('engine:stream-status', listener);
+  },
+  onStreamChunk: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('engine:stream-chunk', listener);
+    return () => ipcRenderer.removeListener('engine:stream-chunk', listener);
+  },
+  respondToToolApproval: (requestId, approvalId, action) => ipcRenderer.invoke('engine:tool-approval-response', { requestId, approvalId, action }),
+  onToolApproval: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('engine:request-tool-approval', listener);
+    return () => ipcRenderer.removeListener('engine:request-tool-approval', listener);
+  },
   respondToLoop: (requestId, action) => ipcRenderer.invoke('loop:respond', { requestId, action }),
+  respondToToolLimit: (requestId, action) => ipcRenderer.invoke('engine:tool-limit-response', { requestId, action }),
+  onToolLimitReached: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('engine:tool-limit-reached', listener);
+    return () => ipcRenderer.removeListener('engine:tool-limit-reached', listener);
+  },
   onLoopPaused: callback => {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('loop:paused', listener);
@@ -130,6 +152,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
   },
   run: payload => ipcRenderer.invoke('engine:chat', payload),
   cancel: requestId => ipcRenderer.invoke('engine:cancel-chat', { requestId }),
+  cancelSession: sessionId => ipcRenderer.invoke('engine:cancel-session', { sessionId }),
   onEvent: callback => {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('engine:chat-event', listener);

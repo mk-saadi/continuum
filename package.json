@@ -39,6 +39,9 @@
 	"engines": {
 		"node": ">=20.0.0"
 	},
+	"overrides": {
+		"@noble/hashes": "1.8.0"
+	},
 	"build": {
 		"appId": "com.continuum.assistant",
 		"productName": "Continuum",
@@ -84,7 +87,9 @@
 		"@playwright/mcp": "^0.0.83",
 		"@xenova/transformers": "^2.17.2",
 		"better-sqlite3": "^11.10.0",
+		"dompurify": "^3.4.16",
 		"hyllama": "^0.2.2",
+		"mermaid": "^11.17.2",
 		"pdf-parse": "^2.4.5",
 		"playwright": "^1.64.0-alpha-1790635538000",
 		"react": "^18.3.1",
@@ -93,6 +98,8 @@
 		"react-markdown": "^10.1.0",
 		"react-syntax-highlighter": "^16.1.1",
 		"react-toast-master": "^3.0.1",
+		"rehype-raw": "^7.0.0",
+		"rehype-sanitize": "^6.0.0",
 		"remark-gfm": "^4.0.1",
 		"remark-parse": "^11.0.0",
 		"undici": "^6.28.1",

@@ -111,6 +111,7 @@ const SCHEMA = `
     session_id TEXT NOT NULL REFERENCES sessions(id),
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'completed',
     estimated_tokens INTEGER NOT NULL DEFAULT 0,
     stats TEXT,
     tool_calls TEXT,
@@ -123,6 +124,19 @@ const SCHEMA = `
     is_summarized BOOLEAN NOT NULL DEFAULT 0 CHECK (is_summarized IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Rewinds affect only the prompt assembled for inference. These rows record
+  -- when that happened; messages.execution_steps retains every original step.
+  CREATE TABLE IF NOT EXISTS context_rewinds (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    start_turn_index INTEGER NOT NULL,
+    end_turn_index INTEGER NOT NULL,
+    summary TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_context_rewinds_session ON context_rewinds(session_id, id);
 
   CREATE TABLE IF NOT EXISTS message_attachments (
     id INTEGER PRIMARY KEY,
@@ -205,10 +219,14 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
 
   try {
     connection.pragma('journal_mode = WAL');
+    connection.pragma('synchronous = FULL');
     connection.pragma('foreign_keys = ON');
     connection.pragma('busy_timeout = 5000');
     connection.transaction(() => {
       connection.exec(SCHEMA);
+      if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
+        connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");
+      }
       if (!connection.pragma('table_info(sessions)').some(column => column.name === 'project_id')) {
         connection.exec('ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL');
       }
@@ -251,11 +269,24 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       for (const name of ['model_name', 'model_id', 'agent_name', 'display_name']) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} TEXT`);
       }
-      const { parseVariants } = require('./messageVariants');
+      if (!messageColumns.has('status')) connection.exec("ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'");
+      const interruptedIds = connection.prepare("SELECT id FROM messages WHERE status = 'in_progress'").all().map(row => row.id);
+      connection.exec(`UPDATE messages SET status = 'interrupted',
+        content = content || '\n\n*[Response interrupted by application restart]*'
+        WHERE status = 'in_progress'`);
+      const { parseVariants, variantFromRow } = require('./messageVariants');
       const migrateVariants = connection.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?');
       for (const row of connection.prepare('SELECT * FROM messages').all()) {
         const variants = parseVariants(row);
         const index = Number.isSafeInteger(row.active_variant_index) && row.active_variant_index >= 0 && row.active_variant_index < variants.length ? row.active_variant_index : 0;
+        if (interruptedIds.includes(row.id)) {
+          const steps = require('./executionSteps').readExecutionSteps(row).map(step =>
+            step.type === 'tool_call' && ['preparing', 'pending', 'running'].includes(step.status)
+              ? { ...step, status: 'error', error: 'Execution interrupted by application restart.' } : step);
+          row.execution_steps = JSON.stringify(steps);
+          connection.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?').run(row.execution_steps, row.id);
+          variants[index] = variantFromRow(row);
+        }
         const json = JSON.stringify(variants);
         if (json !== row.variants || index !== row.active_variant_index) migrateVariants.run(json, index, row.id);
       }
@@ -382,4 +413,16 @@ function searchMemory(query, modelId) {
   })();
 }
 
-module.exports = { db, initDatabase, syncSystemDate, closeDatabase, searchChatHistory, searchMemory };
+function recordContextRewind({ sessionId, messageId, startTurnIndex, endTurnIndex, summary }) {
+  if (typeof sessionId !== 'string' || !sessionId || !Number.isSafeInteger(messageId) ||
+      !Number.isInteger(startTurnIndex) || startTurnIndex < 0 ||
+      !Number.isInteger(endTurnIndex) || endTurnIndex <= startTurnIndex ||
+      typeof summary !== 'string' || !summary.startsWith('[CONTEXT REWOUND]:')) {
+    throw new TypeError('Invalid context rewind record.');
+  }
+  return db.prepare(`INSERT INTO context_rewinds
+    (session_id, message_id, start_turn_index, end_turn_index, summary)
+    VALUES (?, ?, ?, ?, ?)`).run(sessionId, messageId, startTurnIndex, endTurnIndex, summary).lastInsertRowid;
+}
+
+module.exports = { db, initDatabase, syncSystemDate, closeDatabase, searchChatHistory, searchMemory, recordContextRewind };

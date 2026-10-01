@@ -3,9 +3,10 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
-const { exec } = require("node:child_process");
+const { exec, execFile } = require("node:child_process");
 const { db } = require("../db");
-const { requiresConfirmation } = require("../safetyGuards");
+const { approvedMutations } = require("../safetyGuards");
+const { spawnSubagentTool, executeSpawnSubagent } = require('./subagent');
 
 const IGNORED = new Set(["node_modules", ".git", "dist", "build"]);
 const string = (description) => ({ type: "string", description });
@@ -18,6 +19,21 @@ const define = (name, description, properties, required = []) => ({
 	},
 });
 const agentTools = [
+	define(
+		"manage_mcp_servers",
+		"Enable, disable, or restart installed MCP servers for this chat. Enabling or restarting makes their tool schemas available on the next model turn.",
+		{
+			action: { type: "string", enum: ["enable", "disable", "restart"] },
+			server_names: { type: "array", items: string("Installed MCP server name"), minItems: 1, maxItems: 20 },
+		},
+		["action", "server_names"],
+	),
+	define(
+		"approve_mcp_mutation",
+		"Approve one MCP mutation attempt using the hash from a SAFETY GUARD INTERCEPT. Call only after explaining the exact mutation and receiving explicit user permission, then re-run the same MCP tool with the same arguments.",
+		{ hash: { type: "string", pattern: "^[a-f0-9]{16}$", description: "The 16-character SHA-256 payload hash from the intercept message" } },
+		["hash"],
+	),
 	define(
 		"get_recent_chat_history",
 		"Retrieve recent dialogue across all chat sessions and projects, newest first. Search uses any keyword; if nothing matches, returns recent messages instead.",
@@ -44,10 +60,30 @@ const agentTools = [
 		},
 		["task_description", "target_files"],
 	),
+	spawnSubagentTool,
+	define(
+		"get_single_web_page_content",
+		"Fetch a public web page and return readable article text, capped at 12,000 characters.",
+		{ url: string("Public HTTP or HTTPS page URL") },
+		["url"],
+	),
+	define(
+		"extract_web_page_data",
+		"Fetch one public web page and ask an isolated, tool-free sub-agent to answer a specific question in under 500 tokens.",
+		{ url: string("Public HTTP or HTTPS page URL"), query: string("Specific question to answer from the page") },
+		["url", "query"],
+	),
 	define(
 		"execute_command",
 		"Run a shell command with a 45-second timeout. Output preserves the beginning and error tail.",
-		{ command: string("Shell command"), cwd: string("Working directory; defaults to the project root") },
+		{
+			command: string("Shell command"),
+			cwd: string("Working directory; defaults to the project root"),
+			user_confirmed: {
+				type: "boolean",
+				description: "Legacy field; does not grant permission. Approval is collected through the application UI.",
+			},
+		},
 		["command"],
 	),
 	define(
@@ -295,10 +331,18 @@ function truncateOutput(stdout, stderr = "") {
 		]),
 	);
 }
-function executeCommand(args, cwd, signal) {
+function executeCommand(args, cwd, signal, workspaceRoot) {
 	requireText(args.command, "command");
 	return new Promise((resolve) => {
-		exec(
+        const run = workspaceRoot
+            ? (command, options, done) => {
+                if (process.platform !== 'linux') return done(new Error('Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.'), '', '');
+                execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-all', '--cap-drop', 'ALL',
+                    '--ro-bind', '/', '/', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
+                    '--chdir', cwd, '/bin/sh', '-c', command], options, done);
+            }
+            : exec;
+        run(
 			args.command,
 			{ cwd, timeout: 45000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8", signal },
 			(error, stdout, stderr) => {
@@ -341,7 +385,7 @@ async function screenshot({ display_id }, sessionId) {
 		image_url: { url: `data:image/png;base64,${png.toString("base64")}` },
 	};
 }
-async function searchContent(root, args, signal) {
+async function searchContent(root, args, signal, unrestricted = false) {
 	requireText(args.query, "query");
 	let regex;
 	try {
@@ -350,7 +394,7 @@ async function searchContent(root, args, signal) {
 		/* Treat invalid regex as a keyword. */
 	}
 	const matches = [];
-	const start = await readablePath(root, args.relative_path ?? ".");
+	const start = unrestricted ? path.resolve(root, args.relative_path ?? ".") : await readablePath(root, args.relative_path ?? ".");
 	async function visit(target) {
 		signal?.throwIfAborted();
 		if (
@@ -363,7 +407,7 @@ async function searchContent(root, args, signal) {
 			return;
 		const stat = await fs.lstat(target);
 		if (stat.isSymbolicLink()) return;
-		if (!(await isPathAllowed(target, root)))
+		if (!unrestricted && !(await isPathAllowed(target, root)))
 			throw new Error("Search path is outside allowed directories.");
 		if (stat.isDirectory()) {
 			for (const entry of await fs.readdir(target)) {
@@ -430,7 +474,7 @@ async function executeStrReplaceEditor(target, { old_str, new_str }) {
 	return { success: true };
 }
 
-async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine }) {
+async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false }) {
 	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
@@ -441,11 +485,28 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 			throw new Error("Unexpected tool argument.");
 		for (const key of definition.parameters.required)
 			if (!Object.hasOwn(args, key)) throw new Error(`Missing ${key}.`);
+        const { guardTool, resolveMode, sessionProject } = require('../toolPermissions');
+        const project = sessionProject(sessionId);
+        permissionMode = resolveMode(permissionMode, project);
+        if (!permissionGranted) await guardTool({ name, args, permissionMode, project, signal });
+        const unrestricted = permissionMode === 'full_access' || permissionMode === 'ask_approval';
 		signal?.throwIfAborted();
+		if (name === "manage_mcp_servers")
+			return await require("../mcpManager").manageServers(args.action, args.server_names, sessionId);
+		if (name === "approve_mcp_mutation") {
+			if (typeof args.hash !== "string" || !/^[a-f0-9]{16}$/.test(args.hash))
+				throw new Error("Invalid mutation hash; use the hash from the safety intercept.");
+			approvedMutations.add(args.hash);
+			return { success: true, hash: args.hash };
+		}
 		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
-		const root = await fs.realpath(sessionRoot(sessionId));
+		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
+		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal });
+		const root = await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
 		if (!(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
+		if (name === "spawn_subagent")
+			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal });
 		if (name === "delegate_task")
 			return await require("../subAgentRunner").runSubAgent({
 				...args,
@@ -454,17 +515,12 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 				signal,
 			});
 		if (name === "execute_command") {
-			if (requiresConfirmation(args.command)) {
-				return {
-					success: false,
-					error: "This command looks like an unscoped or broad database mutation. Run a read-only count/preview of what it would affect first, then either re-run scoped to specific _ids, or ask the user to confirm before proceeding.",
-				};
-			}
-			return await executeCommand(args, await scopedPath(root, args.cwd ?? ".", true), signal);
+
+			return await executeCommand(args, (unrestricted ? path.resolve(root, args.cwd ?? ".") : await scopedPath(root, args.cwd ?? ".", true)), signal, permissionMode === 'workspace_write' ? root : undefined);
 		}
-		if (name === "search_project_content") return await searchContent(root, args, signal);
-		const target = await (
-			["read_project_file", "list_directory"].includes(name) ? readablePath : scopedPath
+		if (name === "search_project_content") return await searchContent(root, args, signal, unrestricted);
+		const target = unrestricted ? path.resolve(root, args.relative_path ?? ".") : await (
+			["read_project_file", "list_directory"].includes(name) ? readablePath : (root, value) => scopedPath(root, value, true)
 		)(root, args.relative_path ?? ".");
 		if (name === "list_directory") {
 			const entries = await fs.readdir(target, { withFileTypes: true });
@@ -511,6 +567,7 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 }
 
 module.exports = {
+	approvedMutations,
 	agentTools,
 	executeAgentTool,
 	getRecentChatHistory,

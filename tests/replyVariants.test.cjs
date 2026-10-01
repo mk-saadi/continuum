@@ -7,6 +7,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-variants-'));
 const handlers = new Map();
 const originalLoad = Module._load;
 Module._load = function(name, ...args) {
+  if (name === './localEngineFetch') return { localEngineFetch: (...args) => global.fetch(...args) };
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };
@@ -102,6 +103,8 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
     assert.equal(sessions.loadSession('chat').messages[1].content, 'Replacement');
     const manager = require('../src/main/mcpManager');
     const originalInit = manager.init;
+    const originalReload = manager.reload;
+    manager.reload = async () => {};
     manager.init = async () => {};
     const originalFetch = global.fetch;
     const { EventEmitter } = require('node:events');
@@ -134,9 +137,12 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
       assert.deepEqual(sessions.loadSession('chat').messages.at(-1).variants.at(-1), variant);
       global.fetch = async () => { throw new Error('Connection failed'); };
       await assert.rejects(handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'fail' }), /Connection failed/);
-      assert.deepEqual(sessions.loadSession('chat').messages.at(-1).variants, result.message.variants);
+      const recovered = sessions.loadSession('chat').messages;
+      assert.deepEqual(recovered.at(-2).variants, result.message.variants);
+      assert.equal(recovered.at(-1).status, 'interrupted');
+      assert.equal(recovered.at(-1).content, '');
     } finally {
-      dispose(); manager.init = originalInit; global.fetch = originalFetch;
+      dispose(); manager.init = originalInit; manager.reload = originalReload; global.fetch = originalFetch;
     }
     console.log('Reply variants: persistence, selection, context, bounds, and regeneration passed.');
   } finally {

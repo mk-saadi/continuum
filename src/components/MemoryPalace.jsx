@@ -2,9 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 const tokens = (text) => Math.ceil(text.length / 4);
 
-export function useMemoryPalace(modelId, activeModelConfig) {
+export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, onSessionChange) {
   const api = window.memoryPalace;
-  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setCurrentSessionId] = useState(() => initialSessionId || crypto.randomUUID());
+  const setSessionId = useCallback(id => {
+    setCurrentSessionId(id);
+    onSessionChange?.(id);
+  }, [onSessionChange]);
   const [enabled, setEnabled] = useState(true);
   const contextLength = activeModelConfig?.contextLength;
   const limit = Number.isSafeInteger(contextLength) && contextLength > 0 ? contextLength : null;
@@ -84,9 +88,9 @@ export function useMemoryPalace(modelId, activeModelConfig) {
     return payload;
   }
 
-  async function finishMessage(text, stats = null, toolCalls = null, thinking = null, identity = null, executionSteps = null) {
-    const saved = text || stats || toolCalls?.length || thinking?.text || executionSteps?.length
-      ? await api.saveMessage(sessionId, 'assistant', text, [], stats, toolCalls, thinking, null, identity, executionSteps) : null;
+  async function finishMessage(text, stats = null, toolCalls = null, thinking = null, identity = null, executionSteps = null, messageId = null) {
+    const saved = messageId || text || stats || toolCalls?.length || thinking?.text || executionSteps?.length
+      ? await api.saveMessage(sessionId, 'assistant', text, [], stats, toolCalls, thinking, messageId, identity, executionSteps) : null;
     setDraftTokens(0);
     await refresh();
     schedule();

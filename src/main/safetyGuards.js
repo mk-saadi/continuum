@@ -44,4 +44,7 @@ function requiresConfirmation(dbCommand) {
 	return !hasNarrowScope || hasBroadScope;
 }
 
-module.exports = { requiresConfirmation };
+// Shared main-process state; approvals are consumed before MCP dispatch.
+const approvedMutations = new Set();
+
+module.exports = { requiresConfirmation, approvedMutations };

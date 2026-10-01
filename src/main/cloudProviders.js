@@ -106,7 +106,9 @@ function anthropicPayload(payload, model) {
     else messages.push({ role, content });
   }
   return { model, system, messages, stream: false,
-    max_tokens: payload.max_tokens > 0 ? payload.max_tokens : 4096,
+    max_tokens: Math.max(payload.max_tokens > 0 ? payload.max_tokens : 4096,
+      payload.thinking_budget >= 1024 ? payload.thinking_budget + 1 : 0),
+    ...(payload.thinking_budget >= 1024 ? { thinking: { type: 'enabled', budget_tokens: payload.thinking_budget } } : {}),
     ...(payload.tools?.length ? { tools: payload.tools.map(({ function: tool }) => ({ name: tool.name, description: tool.description, input_schema: tool.parameters })) } : {}),
   };
 }
@@ -124,6 +126,7 @@ function createCloudFetch(target, { fetchImpl = fetch } = {}) {
       model: target.model, messages: original.messages, stream: true, stream_options: { include_usage: true },
       ...(original.tools?.length ? { tools: original.tools, tool_choice: 'auto' } : {}),
       ...(original.max_tokens > 0 ? { max_tokens: original.max_tokens } : {}),
+      ...(original.reasoning_budget >= 0 ? { reasoning_budget: original.reasoning_budget } : {}),
     };
     const response = await fetchImpl(`${normalizeBaseUrl(provider.baseUrl)}/${anthropic ? 'messages' : 'chat/completions'}`, {
       method: 'POST', signal: options.signal, redirect: 'error',
@@ -136,6 +139,8 @@ function createCloudFetch(target, { fetchImpl = fetch } = {}) {
       await response.body?.cancel();
       throw new Error(`${provider.name} request failed (HTTP ${response.status}). ${response.status === 401 || response.status === 403 ? 'Check your API key and model access.' : response.status === 429 ? 'Check your quota or retry later.' : 'Check the model ID and provider availability.'}`);
     }
+    // OpenAI-compatible SSE (including Gemini/DeepSeek) is accumulated and
+    // validated by readCompletion in ../lib/memoryChat.mjs.
     if (!anthropic) return response;
     const data = await response.json();
     if (data.stop_reason === 'max_tokens' && data.content?.some(block => block.type === 'tool_use')) {

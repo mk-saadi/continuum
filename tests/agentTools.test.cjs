@@ -26,15 +26,42 @@ Module._load = function(name, ...args) {
 };
 const { initDatabase, closeDatabase } = require('../src/main/db');
 const { executeAgentTool, agentTools, isPathAllowed } = require('../src/main/tools/agentTools');
-const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, arguments: JSON.stringify(args), sessionId });
+const run = (name, args, sessionId = 'chat', permissionMode = ['execute_command', 'take_screenshot', 'approve_mcp_mutation', 'manage_mcp_servers'].includes(name) ? 'full_access' : 'workspace_write') => executeAgentTool({ name, arguments: JSON.stringify(args), sessionId, permissionMode });
 (async () => {
   let dispose;
   try {
     initDatabase(root);
     const project = require('../src/main/projectManager').createProject({ name: 'Tools', root_path: workspace });
     require('../src/main/sessionManager').getOrCreateSession('chat', 'model', project.id);
-    assert.equal(agentTools.length, 9);
-    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, 9);
+    assert.equal(agentTools.length, 11);
+    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, 11);
+    assert.ok(require('../src/main/promptBuilder').getToolContext([], false, null).tools.some(tool => tool.function.name === 'manage_mcp_servers'));
+    const mcpManager = require('../src/main/mcpManager');
+    const originalManage = mcpManager.manageServers;
+    const originalConfigPath = mcpManager.configPath;
+    try {
+      mcpManager.manageServers = async (action, names, sessionId) => ({ success: true, action, names, sessionId });
+      assert.deepEqual(await run('manage_mcp_servers', { action: 'enable', server_names: ['terminal'] }),
+        { success: true, action: 'enable', names: ['terminal'], sessionId: 'chat' });
+      const configPath = path.join(root, 'mcp_config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ mcpServers: { terminal: { command: 'terminal', inputSchema: { heavy: 'unused' } }, browser: { command: 'browser' } } }));
+      mcpManager.configPath = configPath;
+      const prompt = require('../src/main/promptBuilder').buildSessionSystemPrompt({ sessionId: 'chat', modelId: 'model' }).content;
+      assert.match(prompt, /Available dynamic tools \(MCP servers\): "terminal", "browser"/);
+      assert.doesNotMatch(prompt, /heavy/);
+    } finally {
+      mcpManager.manageServers = originalManage;
+      mcpManager.configPath = originalConfigPath;
+    }
+    const { approvedMutations } = require('../src/main/safetyGuards');
+    assert.equal(require('../src/main/tools/agentTools').approvedMutations, approvedMutations);
+    const hash = '0123456789abcdef';
+    assert.deepEqual(await run('approve_mcp_mutation', { hash }, null), { success: true, hash });
+    assert.ok(approvedMutations.delete(hash), 'Approval is available without a project');
+    for (const hash of ['', 'not-a-hash', 42, null]) {
+      assert.equal((await run('approve_mcp_mutation', { hash }, null)).success, false);
+    }
+    assert.equal(approvedMutations.size, 0);
     assert.equal((await run('write_project_file', { relative_path: 'src/test.txt', content: 'alpha\nbeta\nalpha\n' })).success, true);
     for (const old_str of ['missing', 'alpha', '']) {
       const result = await run('str_replace_editor', { relative_path: 'src/test.txt', old_str, new_str: 'oops' });
@@ -86,7 +113,22 @@ const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, argumen
     assert.equal(command.exitCode, 7); assert.match(command.stdout, /workspace/); assert.equal(command.stderr, 'failure');
     const verbose = await run('execute_command', { command: "i=0; while [ $i -lt 100 ]; do printf 'line-%s padding-padding-padding\n' $i; i=$((i+1)); done" });
     assert.match(verbose.stdout, /Outputs 36 lines truncated/); assert.match(verbose.stdout, /line-99/); assert.ok(!verbose.stdout.includes('line-20 '));
-    assert.equal((await run('execute_command', { command: 'pwd', cwd: '..' })).success, false);
+    assert.equal((await run('execute_command', { command: 'pwd', cwd: '..' }, 'chat', 'workspace_write')).success, false);
+    const commandSchema = agentTools.find(tool => tool.function.name === 'execute_command').function.parameters;
+    assert.equal(commandSchema.properties.user_confirmed.type, 'boolean');
+    assert.ok(!commandSchema.required.includes('user_confirmed'));
+    // Harmless shell payload with a mutation-shaped string exercises the real guard and dispatch.
+    const guardedCommand = "printf 'DELETE FROM test_records' > confirmed-command.txt";
+    const marker = path.join(workspace, 'confirmed-command.txt');
+    for (const confirmation of [{}, { user_confirmed: false }, { user_confirmed: 'true' }, { user_confirmed: 1 }]) {
+      assert.match((await run('execute_command', { command: guardedCommand, ...confirmation }, 'chat', 'ask_approval')).error, /approval denied/);
+      assert.equal(fs.existsSync(marker), false, 'Intercepted commands must not execute');
+    }
+    const confirmed = await run('execute_command', { command: guardedCommand, user_confirmed: true });
+    assert.equal(confirmed.exitCode, 0);
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'DELETE FROM test_records');
+    assert.equal((await run('execute_command', { command: guardedCommand, user_confirmed: true, cwd: '..' }, 'chat', 'workspace_write')).success, false);
+    assert.match((await run('execute_command', { command: guardedCommand, user_confirmed: true }, 'chat', 'ask_approval')).error, /approval denied/, 'Model cannot grant its own approval');
     const image = await run('take_screenshot', {});
     assert.equal(image.image_url.url, 'data:image/png;base64,cG5nLXRlc3Q=');
     assert.match(image.file_path, /[\\/]\.llm_workspace[\\/]screenshots[\\/]screenshot_\d+\.png$/);
@@ -127,7 +169,7 @@ const run = (name, args, sessionId = 'chat') => executeAgentTool({ name, argumen
     assert.equal((await run('take_screenshot', { display_id: 'missing' })).success, false);
     dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: event => event.trusted });
     await assert.rejects(handlers.get('agent:execute-tool')({ trusted: false }, {}), /Unauthorized/);
-    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, 9);
+    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, 11);
     assert.equal((await handlers.get('agent:execute-tool')({ trusted: true }, { name: 'read_project_file', arguments: { relative_path: 'src/test.txt' }, sessionId: 'chat' })).content, 'alpha\n$&\nlast\n');
     console.log('Agent tools: file scope, symlinks, editing, search, command output, screenshot payload and IPC passed.');
   } finally { dispose?.(); closeDatabase(); Module._load = originalLoad; os.tmpdir = originalTmpdir; fs.rmSync(root, { recursive: true, force: true }); }
