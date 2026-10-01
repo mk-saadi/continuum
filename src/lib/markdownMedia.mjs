@@ -21,14 +21,23 @@ export function mediaSource(value) {
     }
     return 'media://' + source.split('/').map(segment => encodeURIComponent(segment)).join('/');
   }
+  // Online video is intentionally unsupported: playback is local-files-only.
   if (/^(https:\/\/|media:\/\/\/|local:\/\/media\/)/i.test(source)) return source;
-  if (/^data:(?:image\/(?:png|jpeg|gif|webp|avif|bmp)|video\/(?:mp4|webm|quicktime|x-matroska));base64,/i.test(source)) return source;
+  // Inline base64 is limited to images; video must be a file on disk.
+  if (/^data:image\/(?:png|jpeg|gif|webp|avif|bmp);base64,/i.test(source)) return source;
   return '';
 }
 
+const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|mkv|avi|ts)$/i;
+
 export function isVideoSource(source) {
-  try { return /\.(mp4|webm|mov|mkv)$/i.test(decodeURIComponent(new URL(source).pathname)); }
+  try { return VIDEO_EXTENSIONS.test(decodeURIComponent(new URL(source).pathname)); }
   catch { return false; }
+}
+
+// Video playback is restricted to local files served through the app's own protocols.
+export function isLocalVideoSource(source) {
+  return typeof source === 'string' && /^(media:\/\/\/|local:\/\/media\/)/i.test(source) && isVideoSource(source);
 }
 
 export function mediaUrlTransform(url, key, node) {
@@ -49,14 +58,14 @@ export function rehypeMediaSources() {
   };
 }
 
+// Iframes are deliberately excluded from the schema: no cross-origin embedding.
 export const mediaSchema = {
   ...defaultSchema,
-  tagNames: [...defaultSchema.tagNames, 'video', 'source', 'iframe'],
+  tagNames: [...defaultSchema.tagNames, 'video', 'source'],
   attributes: {
     ...defaultSchema.attributes,
     video: ['src', 'controls', 'title'],
     source: ['src', 'type'],
-    iframe: ['src', 'width', 'height', 'style', 'allowfullscreen', 'frameborder', 'title'],
   },
   protocols: { ...defaultSchema.protocols, src: ['https', 'media', 'local', 'data'] },
 };
