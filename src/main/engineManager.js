@@ -163,14 +163,34 @@ function createIdleService({ onIdle, getIdleMinutes = () => require('./configSto
 }
 module.exports.createIdleService = createIdleService;
 
+function isContextLimitError(error) {
+  const detail = `${error?.message ?? ''} ${error?.responseBody ?? ''}`;
+  return error?.status === 400 || /(?:context window|context size|n_ctx|token limit|too many tokens|prompt too long|exceed(?:ed|s)?.*(?:context|tokens))/i.test(detail);
+}
+
+function notifyChatOutcome({ text = '', executionSteps = [], error = null, interrupted = false, aborted = false }) {
+  if (aborted) return null;
+  const failedTool = executionSteps.some(step => step.type === 'tool_call' && step.status === 'error');
+  const usedTools = executionSteps.some(step => step.type === 'tool_call');
+  const stuck = /\[System: Reasoning loop detected and terminated\./.test(text);
+  const type = error ? (isContextLimitError(error) ? 'contextOverflow' : 'error')
+    : interrupted || failedTool || stuck ? 'error' : usedTools ? 'completion' : null;
+  if (type) require('./services/notificationService').sendDesktopNotification({ type });
+  return type;
+}
+module.exports.notifyChatOutcome = notifyChatOutcome;
+module.exports.isContextLimitError = isContextLimitError;
+
 // Synchronous commits ensure each published snapshot survives process termination.
 function createMessagePersistence({ sessionId, modelId, modelName, displayName, agentName }) {
   const { db } = require('./db');
   const { variantFromRow } = require('./messageVariants');
+  const parentId = db.prepare('SELECT active_leaf_id FROM sessions WHERE id = ?').get(sessionId)?.active_leaf_id ?? null;
   const messageId = Number(db.prepare(`INSERT INTO messages
-    (session_id, role, content, status, model_id, model_name, display_name, agent_name)
-    VALUES (?, 'assistant', '', 'in_progress', ?, ?, ?, ?)`).run(
-      sessionId, modelId, modelName ?? modelId, displayName, agentName ?? null).lastInsertRowid);
+    (session_id, parent_id, role, content, status, model_id, model_name, display_name, agent_name)
+    VALUES (?, ?, 'assistant', '', 'in_progress', ?, ?, ?, ?)`).run(
+      sessionId, parentId, modelId, modelName ?? modelId, displayName, agentName ?? null).lastInsertRowid);
+  db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(messageId, sessionId);
   return {
     messageId,
     update({ content, executionSteps, stats, status = 'in_progress' }) {
@@ -190,6 +210,32 @@ function createMessagePersistence({ sessionId, modelId, modelName, displayName, 
 }
 module.exports.createMessagePersistence = createMessagePersistence;
 
+function buildBranchContext(userMessageId, modelId) {
+  const { db } = require('./db');
+  if (!Number.isSafeInteger(userMessageId) || userMessageId <= 0) throw new TypeError('Invalid branch message.');
+  const path = [];
+  const seen = new Set();
+  let row = db.prepare('SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?').get(userMessageId);
+  if (!row || row.role !== 'user') throw new Error('Branch user message not found.');
+  const sessionId = row.session_id;
+  while (row) {
+    if (row.session_id !== sessionId || seen.has(row.id)) throw new Error('Invalid message branch.');
+    seen.add(row.id);
+    const attachments = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id').all(row.id);
+    path.unshift({ role: row.role, content: row.content, attachments });
+    row = row.parent_id == null ? null
+      : db.prepare('SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?').get(row.parent_id);
+  }
+  if (!modelId) return { sessionId, messages: path };
+  const { buildSessionSystemPrompt, messageForModel } = require('./promptBuilder');
+  const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
+  const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+  return { sessionId, messages: prependBaseSystemPrompt([
+    buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? '' }), ...path.map(messageForModel),
+  ], effective.memoryEnabled) };
+}
+module.exports.buildBranchContext = buildBranchContext;
+
 // A renderer may host several chat tabs. Controllers belong to sessions, not
 // to whichever tab happens to be visible when an IPC event is delivered.
 const activeStreams = new Map();
@@ -201,6 +247,7 @@ function failedToolReason(output, toolName = '') {
   if (typeof output === 'string') {
     try { return failedToolReason(JSON.parse(output), toolName); }
     catch {
+      if (/(?:^|\n)\s*error\s*:|SUBAGENT_FETCH_ERROR/i.test(output)) return 'A tool call failed.';
       if (/\b(?:ENOENT|no such file or directory|file not found|path does not exist)\b/i.test(output)) return 'A file path was not found.';
       if (/\b(?:execution blocked|permission denied|approval denied|rejected call)\b/i.test(output)) return 'A tool call was rejected.';
       return null;
@@ -217,11 +264,47 @@ function failedToolReason(output, toolName = '') {
     if (/\b(?:execution blocked|permission denied|approval denied|rejected)\b/i.test(detail)) return 'A tool call was rejected.';
     return /(?:command|shell|execute)/i.test(toolName) ? 'A shell command failed.' : 'A tool call failed.';
   }
+  if (typeof output.error === 'string' && output.error.trim()) return 'A tool call failed.';
   if (Array.isArray(output.content)) return failedToolReason(output.content, toolName);
   if (typeof output.text === 'string') return failedToolReason(output.text, toolName);
   return null;
 }
 module.exports.failedToolReason = failedToolReason;
+
+// One breaker belongs to one chat run, including all tool batches and resumed turns.
+function createToolFailureCircuitBreaker({ maxConsecutiveToolFailures = 5, maxTotalToolFailures = 10 } = {}) {
+  let consecutiveToolFailures = 0;
+  let totalToolFailures = 0;
+  // Classified reasons of the current failure streak, so the abort notice is
+  // diagnosable without reopening persisted execution_steps.
+  const recentFailureReasons = new Map();
+  function describeFailures() {
+    if (!recentFailureReasons.size) return '';
+    const entries = [...recentFailureReasons.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return ` (${entries.map(([reason, count]) => `${reason}${count > 1 ? ` x${count}` : ''}`).join('; ')})`;
+  }
+  return {
+    record(output, toolName, failed = false) {
+      if (failed || failedToolReason(output, toolName)) {
+        consecutiveToolFailures++;
+        totalToolFailures++;
+        const reason = failed ? 'A tool call failed.' : failedToolReason(output, toolName);
+        recentFailureReasons.set(reason, (recentFailureReasons.get(reason) ?? 0) + 1);
+      } else {
+        consecutiveToolFailures = 0;
+        recentFailureReasons.clear();
+      }
+    },
+    get abortReason() {
+      if (consecutiveToolFailures >= maxConsecutiveToolFailures)
+        return `Execution aborted: ${maxConsecutiveToolFailures} consecutive tool calls failed.${describeFailures()}`;
+      if (totalToolFailures >= maxTotalToolFailures)
+        return `Execution aborted: Exceeded maximum total tool failure cap (${maxTotalToolFailures}).${describeFailures()}`;
+      return null;
+    },
+  };
+}
+module.exports.createToolFailureCircuitBreaker = createToolFailureCircuitBreaker;
 
 // This only changes an in-memory prompt snapshot. Persisted messages and
 // execution_steps remain the complete audit trail of what actually happened.
