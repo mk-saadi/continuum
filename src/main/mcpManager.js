@@ -72,12 +72,14 @@ function validateServerConfig(name, server) {
 class McpManager extends EventEmitter {
   constructor({ configPath = path.join(os.homedir(), '.config', 'Continuum', 'mcp_config.json'), createConnection,
     getNativeServers = () => ({}), prepareServer, lazyByDefault = false,
-    getGlobalConfig = () => require('./configStore').getConfig() } = {}) {
+    getGlobalConfig = () => require('./configStore').getConfig(),
+    getMcpMode = () => 'auto' } = {}) {
     super();
     this.configPath = configPath;
     this.servers = new Map();
     this.createConnection = createConnection;
     this.getGlobalConfig = getGlobalConfig;
+    this.getMcpMode = getMcpMode;
     this.getNativeServers = getNativeServers;
     this.prepareServer = prepareServer;
     this.lazyByDefault = lazyByDefault;
@@ -286,16 +288,18 @@ class McpManager extends EventEmitter {
     return `mcp_${toolName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)}_${createHash('sha256').update(JSON.stringify([serverName, toolName])).digest('hex').slice(0, 32)}`;
   }
   getTools(sessionId) {
+    const manual = this.getMcpMode() === 'manual';
     return [...this.servers.values()].filter(s => s.enabled && s.status === 'connected' &&
-      (!this.lazyByDefault || arguments.length === 0 || this.isVisibleInSession(s, sessionId))).flatMap(s =>
+      (manual ? s.uiEnabled === true : !this.lazyByDefault || arguments.length === 0 || this.isVisibleInSession(s, sessionId))).flatMap(s =>
       s.tools.filter(t => !s.disabledTools.has(t.name)).map(t => ({ type: 'function', function: {
         name: this.toolName(s.name, t.name), description: t.description || `${s.name}: ${t.name}`, parameters: t.inputSchema || { type: 'object', properties: {} },
       } })));
   }
   resolveTool(name, sessionId) {
+    const manual = this.getMcpMode() === 'manual';
     for (const server of this.servers.values()) {
       if (!server.enabled || server.status !== 'connected') continue;
-      if (this.lazyByDefault && arguments.length > 1 && !this.isVisibleInSession(server, sessionId)) continue;
+      if (manual ? server.uiEnabled !== true : this.lazyByDefault && arguments.length > 1 && !this.isVisibleInSession(server, sessionId)) continue;
       const tool = server.tools.find(t => !server.disabledTools.has(t.name) && this.toolName(server.name, t.name) === name);
       if (tool) return { serverName: server.name, toolName: tool.name };
     }
@@ -304,7 +308,7 @@ class McpManager extends EventEmitter {
   async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false } = {}) {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
-    if (this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId)) throw new Error('MCP server is not enabled for this chat.');
+    if (this.getMcpMode() === 'manual' ? server.uiEnabled !== true : this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId)) throw new Error('MCP server is not enabled for this chat.');
     if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be a JSON object.');
     const payload = JSON.stringify(args);
     if (!(permissionGranted && ['ask_approval', 'full_access'].includes(permissionMode)) && requiresConfirmation(payload)) {
@@ -344,6 +348,7 @@ class McpManager extends EventEmitter {
     });
   }
   async manageServers(action, serverNames, sessionId) {
+    if (this.getMcpMode() === 'manual') throw new Error('MCP server management is disabled in Manual Mode.');
     if (!['enable', 'disable', 'restart'].includes(action)) throw new TypeError('Invalid MCP server action.');
     if (!Array.isArray(serverNames) || !serverNames.length || serverNames.length > 20 ||
         !serverNames.every(name => text(name) && name.trim())) throw new TypeError('server_names must contain 1–20 server names.');
@@ -442,5 +447,6 @@ module.exports = new McpManager({
   getNativeServers: configPath => ({ 'playwright-native': nativePlaywrightConfig(path.dirname(configPath)) }),
   prepareServer: prepareNativePlaywright,
   lazyByDefault: true,
+  getMcpMode: () => require('./configManager').getAppSettings().mcpMode,
 });
 module.exports.McpManager = McpManager;

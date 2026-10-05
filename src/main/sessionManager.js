@@ -5,7 +5,7 @@ const { validateAttachments } = require('./fileUploads');
 const { db } = require('./db.js');
 const { variantFromRow, parseVariants } = require('./messageVariants');
 const { validateSamplingParams, parseSamplingParams, getGlobalSamplingParams } = require('./samplingManager');
-const { getCoreMemories } = require('./memoryManager.js');
+const { getRecentPermanentMemories } = require('./memoryManager.js');
 
 function requireIdentifier(value, name) {
   if (typeof value !== 'string' || !value.trim() || value.includes('\0')) {
@@ -85,14 +85,16 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
         messageId, sessionId);
     } else {
       const result = db.prepare(`
-        INSERT INTO messages(session_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, display_name)
-        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(sessionId, role, content, estimatedTokens,
+        INSERT INTO messages(session_id, parent_id, role, content, estimated_tokens, archived, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, display_name)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(sessionId, db.prepare('SELECT active_leaf_id FROM sessions WHERE id = ?').get(sessionId)?.active_leaf_id ?? null,
+        role, content, estimatedTokens,
         messageStats ? JSON.stringify(messageStats) : null,
         messageTools ? JSON.stringify(messageTools) : null,
         messageThinking.text, messageThinking.duration,
         identity?.modelName ?? identity?.modelId ?? null, identity?.modelId ?? null, identity?.agentName ?? null, identity?.displayName ?? null);
       savedId = result.lastInsertRowid;
+      db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(savedId, sessionId);
     }
 
     if (steps !== null) db.prepare('UPDATE messages SET execution_steps = ?, tool_calls = NULL, thinking_text = NULL, thinking_duration = NULL WHERE id = ?').run(JSON.stringify(steps), savedId);
@@ -123,11 +125,23 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
 
 function getActiveMessages(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
-  return withAttachments(db.prepare(`
-    SELECT * FROM messages
-    WHERE session_id = ? AND archived = 0 AND is_summarized = 0
-    ORDER BY id ASC
-  `).all(sessionId));
+  return withAttachments(activePath(sessionId).filter(row => !row.archived && !row.is_summarized));
+}
+
+function activePath(sessionId) {
+  const leaf = db.prepare('SELECT active_leaf_id FROM sessions WHERE id = ?').get(sessionId)?.active_leaf_id;
+  const path = [];
+  const seen = new Set();
+  let id = leaf;
+  while (id != null) {
+    if (seen.has(id)) throw new Error('Message branch contains a cycle.');
+    seen.add(id);
+    const row = db.prepare('SELECT * FROM messages WHERE id = ? AND session_id = ?').get(id, sessionId);
+    if (!row) throw new Error('Message branch is incomplete.');
+    path.unshift(row);
+    id = row.parent_id;
+  }
+  return path;
 }
 
 function getSessionSummary(sessionId) {
@@ -147,15 +161,16 @@ function getContextUsage(sessionId, currentModelId) {
 
   // Read all context components from the same database snapshot.
   return db.transaction(() => {
-    const coreTokens = getCoreMemories(currentModelId)
+    const profiles = require('./profileSettings');
+    const memoryEnabled = profiles.getProfileSettings().memoryEnabled &&
+      profiles.getSessionSettings(sessionId, currentModelId).effective.memoryEnabled;
+    const projectId = db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id;
+    const coreTokens = (memoryEnabled ? getRecentPermanentMemories(currentModelId, { projectId, limit: 5 }) : [])
       .reduce((total, memory) => total + estimateTokens(memory.content), 0);
     const summary = getSessionSummary(sessionId);
-    const { messageTokens, messageCount } = db.prepare(`
-      SELECT COALESCE(SUM(estimated_tokens), 0) AS messageTokens,
-             COUNT(*) AS messageCount
-      FROM messages
-      WHERE session_id = ? AND archived = 0 AND is_summarized = 0
-    `).get(sessionId);
+    const active = activePath(sessionId).filter(row => !row.archived && !row.is_summarized);
+    const messageTokens = active.reduce((total, row) => total + row.estimated_tokens, 0);
+    const messageCount = active.length;
 
     return {
       totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens,
@@ -178,7 +193,10 @@ function loadSession(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
   if (!session) throw new Error('Session not found.');
-  return { ...session, overrides: require('./profileSettings').sessionOverrides(session), messages: withAttachments(db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id').all(sessionId)) };
+  const path = activePath(sessionId).map(row => ({ ...row,
+    siblings: db.prepare(`SELECT id FROM messages WHERE session_id = ? AND role = ? AND parent_id IS ? ORDER BY id`)
+      .all(sessionId, row.role, row.parent_id).map(item => item.id) }));
+  return { ...session, overrides: require('./profileSettings').sessionOverrides(session), messages: withAttachments(path) };
 }
 
 function getFullChatHistory(sessionId) {
@@ -263,23 +281,31 @@ function deleteSession(sessionId) {
 }
 
 function editMessage(messageId, newContent) {
+  const { sessionId } = require('./db').branchUserMessage({ messageId, newContent });
+  db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
+  db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
+  return loadSession(sessionId).messages;
+}
+
+function selectMessageBranch(sessionId, messageId) {
+  requireIdentifier(sessionId, 'sessionId');
   if (!Number.isSafeInteger(messageId) || messageId <= 0) throw new TypeError('Invalid messageId.');
-  requireIdentifier(newContent, 'newContent');
   return db.transaction(() => {
-    const message = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
-    if (!message || message.role !== 'user') throw new Error('User message not found.');
-    requireMutableSession(message.session_id);
-    db.prepare('UPDATE messages SET content = ?, variants = ?, active_variant_index = 0, estimated_tokens = ? WHERE id = ?')
-      .run(newContent, JSON.stringify([variantFromRow({ ...message, content: newContent })]), estimateTokens(newContent), messageId);
-    db.prepare('DELETE FROM messages WHERE session_id = ? AND id > ?').run(message.session_id, messageId);
-    db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(message.session_id);
-    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(message.session_id);
-    db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(message.session_id);
-    return loadSession(message.session_id).messages;
+    requireMutableSession(sessionId);
+    let row = db.prepare('SELECT * FROM messages WHERE id = ? AND session_id = ?').get(messageId, sessionId);
+    if (!row) throw new Error('Message branch not found.');
+    while (true) {
+      const child = db.prepare('SELECT * FROM messages WHERE session_id = ? AND parent_id = ? ORDER BY id ASC LIMIT 1')
+        .get(sessionId, row.id);
+      if (!child) break;
+      row = child;
+    }
+    db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(row.id, sessionId);
+    return loadSession(sessionId).messages;
   }).immediate();
 }
 
-Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, deleteSession, editMessage });
+Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, deleteSession, editMessage, selectMessageBranch });
 
 function withAttachments(messages) {
   const select = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id');
@@ -366,8 +392,17 @@ function deleteMessage(sessionId, messageId) {
   if (!Number.isSafeInteger(messageId) || messageId <= 0) throw new TypeError('Invalid messageId.');
   return db.transaction(() => {
     requireMutableSession(sessionId);
-    const result = db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(messageId, sessionId);
-    if (!result.changes) throw new Error('Message not found in this session.');
+    const target = db.prepare('SELECT parent_id FROM messages WHERE id = ? AND session_id = ?').get(messageId, sessionId);
+    if (!target) throw new Error('Message not found in this session.');
+    const descendants = db.prepare(`WITH RECURSIVE tree(id) AS (
+      SELECT id FROM messages WHERE id = ? AND session_id = ?
+      UNION ALL SELECT child.id FROM messages child JOIN tree ON child.parent_id = tree.id
+      WHERE child.session_id = ?
+    ) SELECT id FROM tree`).all(messageId, sessionId, sessionId).map(row => row.id);
+    if (activePath(sessionId).some(row => row.id === messageId))
+      db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(target.parent_id, sessionId);
+    const remove = db.prepare('DELETE FROM messages WHERE id = ?');
+    for (const id of descendants.reverse()) remove.run(id);
     // Summaries may still contain the deleted turn; rebuild context from retained rows.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
@@ -390,20 +425,29 @@ function branchChat(sourceSessionId, targetMessageId) {
     db.prepare('UPDATE sessions SET memory_settings = ? WHERE id = ?').run(source.memory_settings, sessionId);
     // All original turns are retained, including archived turns. Do not copy a
     // summary that could include messages beyond the branch point.
-    const messages = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id <= ? ORDER BY id').all(sourceSessionId, targetMessageId);
+    const messages = [];
+    let sourceRow = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id = ?').get(sourceSessionId, targetMessageId);
+    while (sourceRow) {
+      messages.unshift(sourceRow);
+      sourceRow = sourceRow.parent_id == null ? null
+        : db.prepare('SELECT * FROM messages WHERE session_id = ? AND id = ?').get(sourceSessionId, sourceRow.parent_id);
+    }
     const insert = db.prepare(`INSERT INTO messages
-      (session_id, role, content, estimated_tokens, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, archived, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);
+      (session_id, parent_id, role, content, variant_index, estimated_tokens, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, archived, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);
     const copyAttachments = db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
       SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ? ORDER BY id`);
+    let parentId = null;
     for (const message of messages) {
-      const result = insert.run(sessionId, message.role, message.content, message.estimated_tokens,
+      const result = insert.run(sessionId, parentId, message.role, message.content, message.variant_index, message.estimated_tokens,
         message.stats, message.tool_calls, message.thinking_text, message.thinking_duration,
         message.model_name, message.model_id, message.agent_name, message.created_at);
+      parentId = Number(result.lastInsertRowid);
       db.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?').run(JSON.stringify(parseVariants(message)), message.active_variant_index ?? 0, result.lastInsertRowid);
       db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(message.execution_steps, message.display_name, result.lastInsertRowid);
       copyAttachments.run(result.lastInsertRowid, message.id);
     }
+    db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(parentId, sessionId);
     return { sessionId };
   }).immediate();
 }
@@ -435,7 +479,7 @@ Object.assign(module.exports, { getSessionSamplingParams, saveSessionSamplingPar
 function getRegenerationTarget(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
   requireMutableSession(sessionId);
-  const last = db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 1').get(sessionId);
+  const last = activePath(sessionId).at(-1);
   if (!last || last.role !== 'assistant') throw new Error('The last message must be an assistant reply.');
   return last;
 }

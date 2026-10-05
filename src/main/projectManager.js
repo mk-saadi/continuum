@@ -18,7 +18,10 @@ function inputObject(input) {
 
 function projectFields(input) {
   inputObject(input);
+  const enabledSkills = input.enabledSkills ?? (typeof input.enabled_skills === 'string' ? JSON.parse(input.enabled_skills) : input.enabled_skills) ?? [];
+  if (!Array.isArray(enabledSkills) || enabledSkills.some(id => !require('./skillsManager').validId(id))) throw new TypeError('Invalid enabledSkills.');
   return {
+    enabled_skills: JSON.stringify([...new Set(enabledSkills)]),
     permission_mode: require('./toolPermissions').resolveMode(input.permissionMode ?? input.permission_mode, {}),
     name: text(input.name, 'name').trim(),
     description: text(input.description, 'description', { nullable: true, empty: true }),
@@ -36,18 +39,19 @@ function getProject(id) {
   text(id, 'ID');
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) throw new Error('Project not found.');
-  return { ...project, files: getProjectFiles(id) };
+  return { ...project, enabledSkills: JSON.parse(project.enabled_skills || '[]'), files: getProjectFiles(id) };
 }
 
 function listProjects() {
-  return db.prepare('SELECT * FROM projects ORDER BY is_pinned DESC, updated_at DESC, name, id').all();
+  return db.prepare('SELECT * FROM projects ORDER BY is_pinned DESC, updated_at DESC, name, id').all()
+    .map(project => ({ ...project, enabledSkills: JSON.parse(project.enabled_skills || '[]') }));
 }
 
 function createProject(input) {
   const fields = projectFields(input);
   const id = randomUUID();
-  db.prepare('INSERT INTO projects(id, name, description, custom_instructions, root_path, permission_mode) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode);
+  db.prepare('INSERT INTO projects(id, name, description, custom_instructions, root_path, permission_mode, enabled_skills) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(id, fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode, fields.enabled_skills);
   return getProject(id);
 }
 
@@ -55,9 +59,9 @@ function updateProject(id, input) {
   inputObject(input);
   return db.transaction(() => {
     const fields = projectFields({ ...getProject(id), ...input });
-    db.prepare(`UPDATE projects SET name = ?, description = ?, custom_instructions = ?, root_path = ?, permission_mode = ?,
+    db.prepare(`UPDATE projects SET name = ?, description = ?, custom_instructions = ?, root_path = ?, permission_mode = ?, enabled_skills = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode, id);
+      .run(fields.name, fields.description, fields.custom_instructions, fields.root_path, fields.permission_mode, fields.enabled_skills, id);
     return getProject(id);
   }).immediate();
 }

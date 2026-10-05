@@ -40,7 +40,11 @@ async function publicDispatcher(url) {
   }
   const { address, family } = addresses[0];
   // Pin the validated address so DNS cannot change between validation and connect.
-  return new Agent({ connect: { lookup: (_hostname, _options, callback) => callback(null, address, family) } });
+  const lookup = (_hostname, _options, callback) => callback(null, address, family);
+  const dispatcher = new Agent({ connect: { lookup } });
+  // The Node HTTP fetch replacement uses the same validated address.
+  dispatcher.nodeLookup = lookup;
+  return dispatcher;
 }
 
 function decodeEntities(text) {
@@ -95,10 +99,28 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
   let target = publicWebUrl(url);
   for (let redirects = 0; redirects <= 5; redirects++) {
     signal?.throwIfAborted();
-    const dispatcher = fetchImpl === fetch ? await publicDispatcher(target) : null;
+    let dispatcher;
     try {
-      const response = await fetchImpl(target, { signal, redirect: 'manual',
-        ...(dispatcher ? { dispatcher } : {}), headers: { Accept: 'text/html, text/plain;q=0.8' } });
+      let response;
+      try {
+        dispatcher = fetchImpl === fetch ? await publicDispatcher(target) : null;
+        response = await fetchImpl(target, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+          },
+          // Validate and pin each redirect destination before connecting to it.
+          redirect: 'manual',
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
+          ...(dispatcher ? { dispatcher } : {}),
+        });
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        const cause = err.cause?.code ? ` (${err.cause.code})` : '';
+        throw new Error(`SUBAGENT_FETCH_ERROR: ${err.name} - ${err.message}${cause} (Target: ${target.href})`, { cause: err });
+      }
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         await response.body?.cancel();
         if (redirects === 5) throw new Error('Too many web page redirects.');

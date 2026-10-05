@@ -4,6 +4,8 @@ const { app } = require('electron');
 const Database = require('better-sqlite3');
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
+const { searchMessages } = require('./messageSearch');
+const { searchMemoryDatabase } = require('./memorySearchCore');
 
 let database = null;
 
@@ -65,6 +67,7 @@ const SCHEMA = `
     description TEXT,
     custom_instructions TEXT,
     root_path TEXT UNIQUE,
+    enabled_skills TEXT NOT NULL DEFAULT '[]',
     is_pinned INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -109,6 +112,8 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id),
+    parent_id INTEGER REFERENCES messages(id),
+    variant_index INTEGER NOT NULL DEFAULT 0,
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     content TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'completed',
@@ -184,25 +189,6 @@ const SCHEMA = `
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE VIRTUAL TABLE IF NOT EXISTS chat_fts USING fts5(
-    content, content='messages', content_rowid='id'
-  );
-
-  CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
-    INSERT INTO chat_fts(rowid, content) VALUES (new.id, new.content);
-  END;
-
-  CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-    INSERT INTO chat_fts(chat_fts, rowid, content)
-    VALUES ('delete', old.id, old.content);
-  END;
-
-  CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
-    INSERT INTO chat_fts(chat_fts, rowid, content)
-    VALUES ('delete', old.id, old.content);
-    INSERT INTO chat_fts(rowid, content) VALUES (new.id, new.content);
-  END;
-
   CREATE INDEX IF NOT EXISTS idx_messages_session
     ON messages(session_id, created_at);
 `;
@@ -224,8 +210,17 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
     connection.pragma('busy_timeout = 5000');
     connection.transaction(() => {
       connection.exec(SCHEMA);
+      // Remove only the retired chat search index. Message and permanent-memory
+      // tables, the permanent-memory FTS index, and all other triggers remain.
+      connection.exec(`DROP TRIGGER IF EXISTS messages_ai;
+        DROP TRIGGER IF EXISTS messages_ad;
+        DROP TRIGGER IF EXISTS messages_au;
+        DROP TABLE IF EXISTS chat_fts;`);
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
         connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");
+      }
+      if (!connection.pragma('table_info(projects)').some(column => column.name === 'enabled_skills')) {
+        connection.exec("ALTER TABLE projects ADD COLUMN enabled_skills TEXT NOT NULL DEFAULT '[]'");
       }
       if (!connection.pragma('table_info(sessions)').some(column => column.name === 'project_id')) {
         connection.exec('ALTER TABLE sessions ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL');
@@ -247,6 +242,22 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
         connection.prepare("INSERT INTO app_settings(key, value_json) VALUES ('agents_seeded', 'true')").run();
       }
       const messageColumns = new Set(connection.pragma('table_info(messages)').map(column => column.name));
+      if (!messageColumns.has('parent_id')) {
+        connection.exec('ALTER TABLE messages ADD COLUMN parent_id INTEGER REFERENCES messages(id)');
+        const previous = new Map();
+        const link = connection.prepare('UPDATE messages SET parent_id = ? WHERE id = ?');
+        for (const row of connection.prepare('SELECT id, session_id FROM messages ORDER BY id').all()) {
+          link.run(previous.get(row.session_id) ?? null, row.id);
+          previous.set(row.session_id, row.id);
+        }
+      }
+      if (!messageColumns.has('variant_index')) connection.exec('ALTER TABLE messages ADD COLUMN variant_index INTEGER NOT NULL DEFAULT 0');
+      if (!connection.pragma('table_info(sessions)').some(column => column.name === 'active_leaf_id'))
+        connection.exec('ALTER TABLE sessions ADD COLUMN active_leaf_id INTEGER');
+      connection.exec(`UPDATE sessions SET active_leaf_id =
+        (SELECT MAX(id) FROM messages WHERE session_id = sessions.id)
+        WHERE active_leaf_id IS NULL`);
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_messages_parent ON messages(session_id, parent_id, id)');
       if (!messageColumns.has('is_summarized')) {
         connection.exec('ALTER TABLE messages ADD COLUMN is_summarized BOOLEAN NOT NULL DEFAULT 0 CHECK (is_summarized IN (0, 1))');
         connection.exec('UPDATE messages SET is_summarized = 1 WHERE archived = 1');
@@ -258,13 +269,6 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       }
       if (!messageColumns.has('variants')) connection.exec('ALTER TABLE messages ADD COLUMN variants TEXT');
       if (!messageColumns.has('active_variant_index')) connection.exec('ALTER TABLE messages ADD COLUMN active_variant_index INTEGER DEFAULT 0');
-      // Metadata-only updates must not touch FTS (legacy rows may predate its index).
-      connection.exec(`DROP TRIGGER IF EXISTS messages_au;
-        CREATE TRIGGER messages_au AFTER UPDATE OF content ON messages
-        WHEN old.content IS NOT new.content BEGIN
-          INSERT INTO chat_fts(chat_fts, rowid, content) VALUES ('delete', old.id, old.content);
-          INSERT INTO chat_fts(rowid, content) VALUES (new.id, new.content);
-        END;`);
       // Legacy origins are unknown; never backfill them from the current model/agent.
       for (const name of ['model_name', 'model_id', 'agent_name', 'display_name']) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} TEXT`);
@@ -361,56 +365,16 @@ const db = Object.freeze({
 });
 
 function searchChatHistory(searchQuery) {
-  if (typeof searchQuery !== 'string' || searchQuery.includes('\0')) {
-    throw new TypeError('query must be a string without null characters.');
-  }
-  const keywords = [...new Set(searchQuery.split(/\s+/)
-    .map(word => word.replace(/[^\p{L}\p{N}\p{M}\p{Co}]/gu, ''))
-    .filter(word => /[\p{L}\p{N}\p{Co}]/u.test(word)))];
-  if (!keywords.length) return [];
-
-  // Quote each sanitized token so words like OR remain literal, not operators.
-  // Prefix matches may occur anywhere in the message, in any order.
-  const query = keywords.map(word => `"${word}"*`).join(' AND ');
-  return db.prepare(`
-    SELECT messages.id, messages.session_id, messages.role,
-      snippet(chat_fts, 0, '[MATCH]', '[/MATCH]', '...', 64) AS excerpt
-    FROM chat_fts
-    JOIN messages ON messages.id = chat_fts.rowid
-    WHERE chat_fts MATCH ?
-    ORDER BY chat_fts.rank, messages.id
-    LIMIT 5
-  `).all(query);
+  return searchMessages(db, searchQuery).matches.map(({ id, session_id, role, excerpt }) =>
+    ({ id, session_id, role, excerpt }));
 }
 
-function searchMemory(query, modelId) {
-  if (typeof modelId !== 'string' || !modelId.trim() || modelId.includes('\0')) {
-    throw new TypeError('modelId must be a non-empty string without null characters.');
-  }
-  if (typeof query !== 'string' || query.includes('\0')) {
-    throw new TypeError('query must be a string without null characters.');
-  }
-  const term = query.trim();
-  const emptyResult = 'Facts found:\nNone.\n\nPast Chat Context found:\nNone.';
-  if (!term) return emptyResult;
+function searchMemory(query, modelId, target = 'all', projectId = null) {
+  return searchMemoryDatabase(db, { query, modelId, target, projectId }).text;
+}
 
-  return db.transaction(() => {
-    // Escape LIKE wildcards so the user's keywords remain literal substrings.
-    const pattern = `%${term.replace(/[\\%_]/g, '\\$&')}%`;
-    const facts = db.prepare(`
-      SELECT category, content FROM permanent_memories
-      WHERE (content LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')
-        AND is_active = 1 AND superseded_by IS NULL
-        AND (scope = 'global' OR scope = ?)
-      ORDER BY id
-      LIMIT 5
-    `).all(pattern, pattern, modelId);
-    const chats = searchChatHistory(term);
-    const factsText = facts.map(({ category, content }) => `- [${category}]: ${content}`).join('\n');
-    const chatsText = chats.map(({ session_id, role, excerpt }) =>
-      `[Session: ${session_id}] ${role}:\n${excerpt}`).join('\n\n');
-    return `Facts found:\n${factsText || 'None.'}\n\nPast Chat Context found:\n${chatsText || 'None.'}`;
-  })();
+function getDatabasePath() {
+  return getConnection().name;
 }
 
 function recordContextRewind({ sessionId, messageId, startTurnIndex, endTurnIndex, summary }) {
@@ -425,4 +389,28 @@ function recordContextRewind({ sessionId, messageId, startTurnIndex, endTurnInde
     VALUES (?, ?, ?, ?, ?)`).run(sessionId, messageId, startTurnIndex, endTurnIndex, summary).lastInsertRowid;
 }
 
-module.exports = { db, initDatabase, syncSystemDate, closeDatabase, searchChatHistory, searchMemory, recordContextRewind };
+function branchUserMessage({ messageId, newContent }) {
+  if (!Number.isSafeInteger(messageId) || messageId <= 0 || typeof newContent !== 'string' ||
+      !newContent.trim() || newContent.includes('\0')) throw new TypeError('Invalid message edit.');
+  return db.transaction(() => {
+    const target = db.prepare("SELECT * FROM messages WHERE id = ? AND role = 'user'").get(messageId);
+    if (!target) throw new Error('User message not found.');
+    const session = db.prepare('SELECT id, is_compressing FROM sessions WHERE id = ?').get(target.session_id);
+    if (!session) throw new Error('Session not found.');
+    if (session.is_compressing) throw new Error('History is being summarized. Please retry shortly.');
+    const variantIndex = db.prepare(`SELECT COUNT(*) AS count FROM messages WHERE session_id = ?
+      AND role = 'user' AND parent_id IS ?`).get(target.session_id, target.parent_id).count;
+    const result = db.prepare(`INSERT INTO messages
+      (session_id, parent_id, role, content, variant_index, estimated_tokens)
+      VALUES (?, ?, 'user', ?, ?, ?)`).run(target.session_id, target.parent_id, newContent, variantIndex, Math.ceil(newContent.length / 4));
+    const userMessageId = Number(result.lastInsertRowid);
+    db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
+      SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ?`)
+      .run(userMessageId, messageId);
+    db.prepare('UPDATE sessions SET active_leaf_id = ?, last_active_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(userMessageId, target.session_id);
+    return { userMessageId, sessionId: target.session_id };
+  }).immediate();
+}
+
+module.exports = { db, initDatabase, syncSystemDate, closeDatabase, getDatabasePath, searchChatHistory, searchMemory, recordContextRewind, branchUserMessage };

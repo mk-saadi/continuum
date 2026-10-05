@@ -1,9 +1,10 @@
 "use strict";
 
-const { db, searchMemory } = require("./db");
-const { addPermanentMemory } = require("./memoryManager");
+const { db } = require("./db");
+const { addPermanentMemory, normalizeMemoryContent } = require("./memoryManager");
+const { saveMemoryTool } = require('./tools/saveMemory');
 
-function executeMemoryTool({ name, arguments: rawArguments, modelId }) {
+function executeMemoryTool({ name, arguments: rawArguments, modelId, sessionId, signal }) {
 	try {
 		if (!["search_memory", "save_memory"].includes(name)) {
 			throw new Error("Unknown memory tool.");
@@ -12,23 +13,37 @@ function executeMemoryTool({ name, arguments: rawArguments, modelId }) {
 		if (!args || typeof args !== "object" || Array.isArray(args)) {
 			throw new TypeError("Tool arguments must be a JSON object.");
 		}
-		const allowed = name === "save_memory" ? ["category", "content", "always_inject"] : ["query"];
+		const allowed = name === "save_memory" ? ["category", "content", "always_inject"] :
+			["query", "target", "cursor", "order", "limit", "session_id", "project_id", "role", "since", "until"];
 		if (Object.keys(args).some((key) => !allowed.includes(key))) {
 			throw new TypeError("Unexpected tool argument.");
 		}
+		const projectId = sessionId
+			? db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null
+			: null;
 		if (name === "search_memory") {
-			return searchMemory(args.query, modelId);
+			return require('./memorySearchRuntime').searchMemoryInWorker({ ...args, modelId, projectId }, signal)
+				.catch(error => ({ success: false, error: error.message }));
+		}
+		if (!saveMemoryTool.input_schema.properties.category.enum.includes(args.category)) {
+			throw new TypeError('Invalid memory category.');
+		}
+		const content = normalizeMemoryContent(args.content);
+		if (content.length > 150) throw new TypeError('Memory content must be at most 150 characters.');
+		if (/```|\n|^(?:done|working on|currently fixing|task complete)\b/i.test(args.content)) {
+			throw new TypeError('Transient task progress and code snippets cannot be saved as permanent memory.');
 		}
 		if (args.always_inject !== undefined && typeof args.always_inject !== "boolean") {
 			throw new TypeError("always_inject must be a boolean.");
 		}
 
-		const alwaysInject = args.always_inject ?? true;
+		const alwaysInject = args.always_inject ?? false;
 		return db
 			.transaction(() => {
 				const id = addPermanentMemory({
 					category: args.category,
-					content: args.content,
+					content,
+					scope: projectId && args.category !== 'preference' ? projectId : 'global',
 					alwaysInject,
 				});
 				// Promote an existing identical fact if the model marks it as critical.

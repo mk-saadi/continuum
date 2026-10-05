@@ -1,7 +1,51 @@
 'use strict';
 const { localEngineFetch } = require('./localEngineFetch');
 const { normalizeLoadConfig } = require('./configManager');
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
+
+const askUserTool = {
+  type: 'function',
+  function: {
+    name: 'ask_user',
+    description: 'Pause the current task and ask the user a question or decision. Available only when Mid-Run Questions is enabled.',
+    parameters: { type: 'object', properties: {
+      question: { type: 'string', description: 'A clear, self-contained question for the user.' },
+      options: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6, description: 'Optional quick reply choices.' },
+    }, required: ['question'], additionalProperties: false },
+  },
+};
+
+function askUserDuringRun({ controller, sender, requestId, sessionId, stepId, question, options, enabled }) {
+  if (!enabled) return Promise.resolve('Mid-run questions are currently disabled by user preference. Proceed with the task using your best judgment.');
+  if (typeof question !== 'string' || !question.trim() || question.length > 2000 || question.includes('\0') ||
+      options !== undefined && (!Array.isArray(options) || options.length < 1 || options.length > 6 ||
+        options.some(option => typeof option !== 'string' || !option.trim() || option.length > 200)))
+    throw new Error('Invalid ask_user question or options.');
+  controller.signal.throwIfAborted();
+  const questionId = randomUUID();
+  return new Promise((resolve, reject) => {
+    const finish = answer => {
+      if (!controller.pendingQuestions?.delete(questionId)) return;
+      controller.signal.removeEventListener('abort', abort);
+      if (!sender.isDestroyed()) sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, resolved: true });
+      resolve(answer);
+    };
+    const abort = () => {
+      if (!controller.pendingQuestions?.delete(questionId)) return;
+      controller.signal.removeEventListener('abort', abort);
+      if (!sender.isDestroyed()) sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, resolved: true });
+      reject(new Error('Question cancelled.'));
+    };
+    controller.pendingQuestions ??= new Map();
+    controller.pendingQuestions.set(questionId, finish);
+    controller.signal.addEventListener('abort', abort, { once: true });
+    if (controller.signal.aborted || sender.isDestroyed()) return abort();
+    sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, question, options: options || [] });
+    const notifications = require('./services/notificationService');
+    if (notifications.isMainWindowBackgrounded())
+      notifications.sendDesktopNotification({ title: 'Agent Needs Input', body: question, type: 'action_required' });
+  });
+}
 
 const TOOL_OUTPUT_LIMIT = 20000;
 const TOOL_OUTPUT_NOTICE = '\n\n[SYSTEM NOTICE: Tool output exceeded context threshold (20,000 chars) and was safely truncated by Continuum Engine to prevent context overflow.]';
@@ -60,7 +104,8 @@ function buildLlamaServerArgs(model, input, port) {
   }
   return args;
 }
-module.exports = { buildLlamaServerArgs, generationSamplingParams, truncateToolOutput, TOOL_OUTPUT_NOTICE };
+module.exports = { buildLlamaServerArgs, generationSamplingParams, truncateToolOutput, TOOL_OUTPUT_NOTICE,
+  askUserTool, askUserDuringRun };
 
 function buildLlamaServerEnv(source = process.env) {
   const env = { ...source };
@@ -168,14 +213,16 @@ function isContextLimitError(error) {
   return error?.status === 400 || /(?:context window|context size|n_ctx|token limit|too many tokens|prompt too long|exceed(?:ed|s)?.*(?:context|tokens))/i.test(detail);
 }
 
-function notifyChatOutcome({ text = '', executionSteps = [], error = null, interrupted = false, aborted = false }) {
+function notifyChatOutcome({ text = '', error = null, interrupted = false, aborted = false }) {
   if (aborted) return null;
-  const failedTool = executionSteps.some(step => step.type === 'tool_call' && step.status === 'error');
-  const usedTools = executionSteps.some(step => step.type === 'tool_call');
+  const taskComplete = text.includes('[TASK COMPLETE]');
   const stuck = /\[System: Reasoning loop detected and terminated\./.test(text);
   const type = error ? (isContextLimitError(error) ? 'contextOverflow' : 'error')
-    : interrupted || failedTool || stuck ? 'error' : usedTools ? 'completion' : null;
-  if (type) require('./services/notificationService').sendDesktopNotification({ type });
+    : interrupted || stuck || !text.trim() ? 'error' : 'completion';
+  require('./services/notificationService').sendDesktopNotification({ type,
+    ...(!taskComplete && type === 'completion'
+      ? { title: 'Response Finished', body: 'AI agent finished responding.' } : {}),
+  });
   return type;
 }
 module.exports.notifyChatOutcome = notifyChatOutcome;

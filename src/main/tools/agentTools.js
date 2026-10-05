@@ -2,7 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const os = require("node:os");
+const { resolveSubAgentPath, fileNotFound } = require('../pathUtils');
 const { exec, execFile } = require("node:child_process");
 const { db } = require("../db");
 const { approvedMutations } = require("../safetyGuards");
@@ -19,6 +19,15 @@ const define = (name, description, properties, required = []) => ({
 	},
 });
 const agentTools = [
+	define('use_skill', 'Load the full instructions of a skill enabled for this project when its purpose matches the current task.', {
+		name: string('Skill ID from the available project skills index'),
+		file: string('Optional relative path to a supporting text file inside the skill folder'),
+	}, ['name']),
+	define('propose_skill', 'Suggest a reusable workflow as a Skill. This only presents a proposal to the user; it never saves the Skill automatically.', {
+		name: string('Lowercase skill ID using letters, numbers, hyphens, or underscores'),
+		description: string('One-line summary of when this skill is useful'),
+		instructions: string('Complete reusable instructions in Markdown'),
+	}, ['name', 'description', 'instructions']),
 	define(
 		"manage_mcp_servers",
 		"Enable, disable, or restart installed MCP servers for this chat. Enabling or restarting makes their tool schemas available on the next model turn.",
@@ -36,13 +45,15 @@ const agentTools = [
 	),
 	define(
 		"get_recent_chat_history",
-		"Retrieve recent dialogue across all chat sessions and projects, newest first. Search uses any keyword; if nothing matches, returns recent messages instead.",
+		"Retrieve up to 10 recent dialogue messages across chats, newest first. Choose a limit from 1 to 10 (default 5). Use search_memory for broader historical searches.",
 		{
 			query: string("Optional short, broad 1-2 word keywords"),
 			limit: {
 				type: "number",
-				default: 10,
-				description: "Positive integer number of recent messages to return",
+				default: 5,
+				minimum: 1,
+				maximum: 10,
+				description: "Number of recent messages to return (1-10)",
 			},
 			exclude_current_session: {
 				type: "boolean",
@@ -53,12 +64,18 @@ const agentTools = [
 	),
 	define(
 		"delegate_task",
-		"Delegates a targeted research task to a background sub-agent. Important: Keep delegated tasks scoped to a single file, function, or specific feature. For broad codebase reviews, execute multiple scoped delegate_task calls sequentially or read files directly.",
+		"Legacy file delegation with a strict 4,000-character aggregate file limit. Prefer execute_command for local file searches and inspection.",
 		{
 			task_description: string("Specific research or analysis task"),
-			target_files: { type: "array", items: string("Project-relative text file path"), maxItems: 32 },
+			target_files: { type: "array", items: string("Absolute or project-relative text file path"), maxItems: 32 },
 		},
 		["task_description", "target_files"],
+	),
+	define(
+		"generate_image",
+		"Generates or draws an image based on a detailed visual prompt. Enhance and expand short user prompts with vivid lighting, composition, and style details before calling this tool.",
+		{ prompt: string("Expanded, highly descriptive visual prompt for the image generator.") },
+		["prompt"],
 	),
 	spawnSubagentTool,
 	define(
@@ -75,7 +92,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run a shell command with a 45-second timeout. Output preserves the beginning and error tail.",
+		"Run a shell command with a 45-second timeout. In Workspace Write mode, git and other commands can write only inside the project root. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
 			cwd: string("Working directory; defaults to the project root"),
@@ -101,21 +118,21 @@ const agentTools = [
 		"Search project text files using a regex (invalid regex falls back to literal text). Returns at most 20 matching lines.",
 		{
 			query: string("Regex or keyword"),
-			relative_path: string("Optional project-relative path or absolute app/temp path"),
+			relative_path: string("Optional absolute or project-relative path"),
 		},
 		["query"],
 	),
 	define(
 		"take_screenshot",
-		"Capture a display as a PNG image for vision. In a project, also saves it under .llm_workspace/screenshots and returns file_path. Defaults to the primary screen, with an app-window fallback.",
+		"Capture a display as a PNG image for vision, including in Read Only mode. In a project, also saves it under .llm_workspace/screenshots and returns file_path. Defaults to the primary screen, with an app-window fallback.",
 		{ display_id: string("Optional display ID") },
 	),
 	define(
 		"read_project_file",
-		"Read project files or app/temp attachments. Images return vision content; PDFs return extracted text. Large text is truncated.",
+		"Read files by absolute or project-relative path. Images return vision content; PDFs return extracted text. Large text is truncated.",
 		{
 			relative_path: string(
-				"Project-relative path or absolute path within the project, app userData, or OS temp directory",
+				"Absolute or project-relative file path",
 			),
 		},
 		["relative_path"],
@@ -126,8 +143,8 @@ const agentTools = [
 		{ relative_path: string("Project-relative file path"), content: string("Complete file content") },
 		["relative_path", "content"],
 	),
-	define("list_directory", "List entries in a project directory (up to 200 entries).", {
-		relative_path: string("Project-relative directory or absolute app/temp directory; defaults to root"),
+define("list_directory", "List entries in a directory (up to 200 entries).", {
+		relative_path: string("Absolute or project-relative directory; defaults to root"),
 	}),
 ];
 
@@ -159,9 +176,9 @@ const HISTORY_STOP_WORDS = new Set([
 	"you",
 	"we",
 ]);
-function getRecentChatHistory({ query, limit = 10, exclude_current_session = true }, sessionId) {
+function getRecentChatHistory({ query, limit = 5, exclude_current_session = true }, sessionId) {
 	if (query !== undefined) requireText(query, "query", true);
-	if (!Number.isSafeInteger(limit) || limit < 1) throw new Error("limit must be a positive integer.");
+	if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10) throw new Error("limit must be an integer from 1 to 10.");
 	if (typeof exclude_current_session !== "boolean")
 		throw new Error("exclude_current_session must be a boolean.");
 	if (sessionId != null) requireText(sessionId, "sessionId");
@@ -176,23 +193,20 @@ function getRecentChatHistory({ query, limit = 10, exclude_current_session = tru
       m.role, m.content, m.created_at
     FROM messages m JOIN sessions s ON s.id = m.session_id
     WHERE (:exclude_current_session = 0 OR :session_id IS NULL OR m.session_id != :session_id)
-      AND m.role IN ('user', 'assistant') AND TRIM(m.content) != ''`;
+      AND m.role IN ('user', 'assistant') AND TRIM(m.content) != ''
+    ORDER BY m.id DESC LIMIT :candidateLimit`;
 	const params = {
 		exclude_current_session: Number(exclude_current_session),
 		session_id: sessionId ?? null,
-		limit,
+		candidateLimit: keywords.length ? 200 : limit,
 	};
-	const order = " ORDER BY m.created_at DESC, m.id DESC LIMIT :limit";
+	const recent = db.prepare(baseSql).all(params)
+		.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
 	if (keywords.length) {
-		const searchParams = { ...params };
-		const conditions = keywords.map((word, index) => {
-			searchParams[`keyword${index}`] = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
-			return `LOWER(m.content) LIKE :keyword${index} ESCAPE '\\'`;
-		});
-		const matches = db.prepare(`${baseSql} AND (${conditions.join(" OR ")})${order}`).all(searchParams);
-		if (matches.length) return matches;
+		const matches = recent.filter(row => keywords.some(word => row.content.toLowerCase().includes(word)));
+		if (matches.length) return matches.slice(0, limit);
 	}
-	return db.prepare(baseSql + order).all(params);
+	return recent.slice(0, limit);
 }
 function sessionRoot(sessionId) {
 	requireText(sessionId, "sessionId");
@@ -235,40 +249,20 @@ async function scopedPath(root, relative = ".", allowAbsolute = false) {
 	return target;
 }
 
-/** Read whitelist only. Editing and command working directories still use scopedPath. */
-async function isPathAllowed(targetPath, projectRoot) {
-	if (typeof targetPath !== "string" || !path.isAbsolute(targetPath) || targetPath.includes("\0"))
-		return false;
-	const roots = [projectRoot, require("electron").app.getPath("userData"), os.tmpdir()].filter(Boolean);
-	const lexical = path.resolve(targetPath);
-	try {
-		const canonical = await fs.realpath(lexical);
-		const allowedRoots = [];
-		for (const root of roots) {
-			try {
-				allowedRoots.push({ lexical: path.resolve(root), canonical: await fs.realpath(root) });
-			} catch (error) {
-				if (error.code !== "ENOENT") throw error;
-			}
-		}
-		return (
-			allowedRoots.some((root) => inside(root.lexical, lexical) || inside(root.canonical, lexical)) &&
-			allowedRoots.some((root) => inside(root.canonical, canonical))
-		);
-	} catch {
-		return false;
-	}
+/** Read tools accept any accessible path. Editing and command directories use scopedPath. */
+async function isPathAllowed(targetPath) {
+	try { await fs.realpath(resolveSubAgentPath(targetPath)); return true; }
+	catch { return false; }
 }
 
 async function readablePath(root, relative) {
 	requireText(relative, "relative_path");
-	// Relative paths retain project-only semantics; external attachments use absolute paths.
-	const target = path.isAbsolute(relative) ? relative : await scopedPath(root, relative);
-	if (!(await isPathAllowed(target, root)))
-		throw new Error(
-			"Read path is outside the project, app userData, or temp directories, or does not exist.",
-		);
-	return fs.realpath(target);
+	const target = resolveSubAgentPath(relative, root);
+	try { return await fs.realpath(target); }
+	catch (error) {
+		if (['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM'].includes(error.code)) throw fileNotFound(target);
+		throw error;
+	}
 }
 
 let screenshotTimestamp = 0;
@@ -337,7 +331,10 @@ function executeCommand(args, cwd, signal, workspaceRoot) {
         const run = workspaceRoot
             ? (command, options, done) => {
                 if (process.platform !== 'linux') return done(new Error('Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.'), '', '');
-                execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-all', '--cap-drop', 'ALL',
+                // Filesystem isolation is the security boundary. Unsharing the
+                // network namespace fails on some desktop/container kernels and
+                // prevents even local git commands from starting.
+                execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
                     '--ro-bind', '/', '/', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
                     '--chdir', cwd, '/bin/sh', '-c', command], options, done);
             }
@@ -385,7 +382,7 @@ async function screenshot({ display_id }, sessionId) {
 		image_url: { url: `data:image/png;base64,${png.toString("base64")}` },
 	};
 }
-async function searchContent(root, args, signal, unrestricted = false) {
+async function searchContent(root, args, signal) {
 	requireText(args.query, "query");
 	let regex;
 	try {
@@ -394,7 +391,7 @@ async function searchContent(root, args, signal, unrestricted = false) {
 		/* Treat invalid regex as a keyword. */
 	}
 	const matches = [];
-	const start = unrestricted ? path.resolve(root, args.relative_path ?? ".") : await readablePath(root, args.relative_path ?? ".");
+	const start = await readablePath(root, args.relative_path ?? ".");
 	async function visit(target) {
 		signal?.throwIfAborted();
 		if (
@@ -407,8 +404,6 @@ async function searchContent(root, args, signal, unrestricted = false) {
 			return;
 		const stat = await fs.lstat(target);
 		if (stat.isSymbolicLink()) return;
-		if (!unrestricted && !(await isPathAllowed(target, root)))
-			throw new Error("Search path is outside allowed directories.");
 		if (stat.isDirectory()) {
 			for (const entry of await fs.readdir(target)) {
 				if (matches.length >= 20) break;
@@ -481,18 +476,37 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : rawArguments;
 		if (!args || typeof args !== "object" || Array.isArray(args))
 			throw new Error("Tool arguments must be an object.");
+		if (name === 'spawn_subagent' && Object.hasOwn(args, 'target_files'))
+			throw new Error("Do NOT use sub-agents for file inspection. Use 'execute_command' with 'grep -n', 'ripgrep', or 'sed' to query local files directly.");
 		if (Object.keys(args).some((key) => !Object.hasOwn(definition.parameters.properties, key)))
 			throw new Error("Unexpected tool argument.");
 		for (const key of definition.parameters.required)
 			if (!Object.hasOwn(args, key)) throw new Error(`Missing ${key}.`);
+        if (name === 'propose_skill') {
+            if (!require('../skillsManager').validId(args.name) || typeof args.description !== 'string' || !args.description.trim() ||
+                typeof args.instructions !== 'string' || !args.instructions.trim() || args.instructions.length > 200000)
+                throw new Error('Invalid skill proposal.');
+            return { success: true, proposed: true, message: 'Skill proposal sent for user review. No skill was saved.' };
+        }
+        if (name === 'use_skill') {
+            const projectId = require('../db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id;
+            const skill = require('../skillsManager').activeProjectSkills(projectId).find(item => item.id === args.name);
+            if (!skill) throw new Error('Skill is not active for this project.');
+            return args.file
+                ? { name: skill.id, file: args.file, content: require('../skillsManager').readSkillFile(skill.id, args.file) }
+                : { name: skill.id, instructions: skill.instructions };
+        }
         const { guardTool, resolveMode, sessionProject } = require('../toolPermissions');
         const project = sessionProject(sessionId);
         permissionMode = resolveMode(permissionMode, project);
         if (!permissionGranted) await guardTool({ name, args, permissionMode, project, signal });
         const unrestricted = permissionMode === 'full_access' || permissionMode === 'ask_approval';
 		signal?.throwIfAborted();
-		if (name === "manage_mcp_servers")
+		if (name === "manage_mcp_servers") {
+			if (require('../configManager').getAppSettings().mcpMode === 'manual')
+				throw new Error('MCP server management is disabled in Manual Mode.');
 			return await require("../mcpManager").manageServers(args.action, args.server_names, sessionId);
+		}
 		if (name === "approve_mcp_mutation") {
 			if (typeof args.hash !== "string" || !/^[a-f0-9]{16}$/.test(args.hash))
 				throw new Error("Invalid mutation hash; use the hash from the safety intercept.");
@@ -503,8 +517,11 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal });
-		const root = await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
-		if (!(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
+		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
+		const readingFiles = ['spawn_subagent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
+		const root = readingFiles ? path.resolve(project?.root_path ?? process.cwd())
+			: await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
+		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_subagent")
 			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal });
 		if (name === "delegate_task")
@@ -518,10 +535,10 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 
 			return await executeCommand(args, (unrestricted ? path.resolve(root, args.cwd ?? ".") : await scopedPath(root, args.cwd ?? ".", true)), signal, permissionMode === 'workspace_write' ? root : undefined);
 		}
-		if (name === "search_project_content") return await searchContent(root, args, signal, unrestricted);
-		const target = unrestricted ? path.resolve(root, args.relative_path ?? ".") : await (
-			["read_project_file", "list_directory"].includes(name) ? readablePath : (root, value) => scopedPath(root, value, true)
-		)(root, args.relative_path ?? ".");
+		if (name === "search_project_content") return await searchContent(root, args, signal);
+		const target = ["read_project_file", "list_directory"].includes(name)
+			? await readablePath(root, args.relative_path ?? ".")
+			: unrestricted ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
 		if (name === "list_directory") {
 			const entries = await fs.readdir(target, { withFileTypes: true });
 			return {

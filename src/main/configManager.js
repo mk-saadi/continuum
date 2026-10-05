@@ -69,22 +69,67 @@ function normalizeAppSettings(input = {}) {
   if (apiServerPort !== null && (!Number.isInteger(apiServerPort) || apiServerPort < 1 || apiServerPort > 65535)) {
     throw new Error('Local API Server Port must be an integer from 1 to 65535, or null for automatic selection.');
   }
-  return { apiServerPort };
+  const mcpMode = input.mcpMode === undefined ? 'auto' : input.mcpMode;
+  if (!['auto', 'manual'].includes(mcpMode)) throw new Error('MCP mode must be auto or manual.');
+  const maxConsecutiveToolFailures = input.maxConsecutiveToolFailures === undefined ? 5 : input.maxConsecutiveToolFailures;
+  const maxTotalToolFailures = input.maxTotalToolFailures === undefined ? 10 : input.maxTotalToolFailures;
+  if (!Number.isInteger(maxConsecutiveToolFailures) || maxConsecutiveToolFailures < 3 || maxConsecutiveToolFailures > 10)
+    throw new Error('Max Consecutive Tool Failures must be an integer from 3 to 10.');
+  if (!Number.isInteger(maxTotalToolFailures) || maxTotalToolFailures < 5 || maxTotalToolFailures > 25)
+    throw new Error('Max Total Tool Failures must be an integer from 5 to 25.');
+  const notificationsEnabled = input.notificationsEnabled === undefined ? true : input.notificationsEnabled;
+  const notifyOnlyWhenBackgrounded = input.notifyOnlyWhenBackgrounded === undefined ? true : input.notifyOnlyWhenBackgrounded;
+  if (typeof notificationsEnabled !== 'boolean' || typeof notifyOnlyWhenBackgrounded !== 'boolean')
+    throw new Error('Invalid desktop notification preference.');
+  const defaultEvents = { completion: true, error: true, contextOverflow: true, action_required: true };
+  if (input.notificationEvents !== undefined && (!input.notificationEvents ||
+      typeof input.notificationEvents !== 'object' || Array.isArray(input.notificationEvents)))
+    throw new Error('Invalid notification events.');
+  const notificationEvents = { ...defaultEvents, ...input.notificationEvents };
+  if (Object.keys(notificationEvents).some(key => !Object.hasOwn(defaultEvents, key)) ||
+      Object.values(notificationEvents).some(value => typeof value !== 'boolean'))
+    throw new Error('Invalid notification events.');
+  const disabledSkills = input.disabledSkills ?? [];
+  if (!Array.isArray(disabledSkills) || disabledSkills.some(id => typeof id !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id))) throw new Error('Invalid disabledSkills.');
+  return { apiServerPort, mcpMode, maxConsecutiveToolFailures, maxTotalToolFailures,
+    notificationsEnabled, notifyOnlyWhenBackgrounded, notificationEvents, disabledSkills: [...new Set(disabledSkills)] };
 }
 function getAppSettings() {
   const { db } = require('./db');
-  const row = db.prepare("SELECT value_json FROM app_settings WHERE key = 'apiServerPort'").get();
-  return normalizeAppSettings(row ? { apiServerPort: JSON.parse(row.value_json) } : {});
+  const rows = db.prepare("SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'disabledSkills')").all();
+  return normalizeAppSettings(Object.fromEntries(rows.map(row => [row.key, JSON.parse(row.value_json)])));
 }
 function saveAppSettings(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid app settings.');
-  const settings = normalizeAppSettings(input);
+  const settings = normalizeAppSettings({ ...getAppSettings(), ...input });
   const { db } = require('./db');
-  db.prepare("INSERT INTO app_settings(key, value_json) VALUES ('apiServerPort', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
-    .run(JSON.stringify(settings.apiServerPort));
+  const save = db.prepare('INSERT INTO app_settings(key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json');
+  db.transaction(() => {
+    save.run('apiServerPort', JSON.stringify(settings.apiServerPort));
+    save.run('mcpMode', JSON.stringify(settings.mcpMode));
+    save.run('maxConsecutiveToolFailures', JSON.stringify(settings.maxConsecutiveToolFailures));
+    save.run('maxTotalToolFailures', JSON.stringify(settings.maxTotalToolFailures));
+    save.run('notificationsEnabled', JSON.stringify(settings.notificationsEnabled));
+    save.run('notifyOnlyWhenBackgrounded', JSON.stringify(settings.notifyOnlyWhenBackgrounded));
+    save.run('notificationEvents', JSON.stringify(settings.notificationEvents));
+    save.run('disabledSkills', JSON.stringify(settings.disabledSkills));
+  })();
   return settings;
 }
 Object.assign(module.exports, { normalizeAppSettings, getAppSettings, saveAppSettings });
+
+function saveNotificationPrefs(patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
+      Object.keys(patch).some(key => !['notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents'].includes(key)))
+    throw new Error('Invalid notification preferences.');
+  if (patch.notificationEvents !== undefined && (!patch.notificationEvents ||
+      typeof patch.notificationEvents !== 'object' || Array.isArray(patch.notificationEvents)))
+    throw new Error('Invalid notification events.');
+  const current = getAppSettings();
+  return saveAppSettings({ ...current, ...patch,
+    notificationEvents: { ...current.notificationEvents, ...patch.notificationEvents } });
+}
+module.exports.saveNotificationPrefs = saveNotificationPrefs;
 
 function getRagSettings() {
   const { db } = require('./db');

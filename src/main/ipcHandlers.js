@@ -1,7 +1,8 @@
 const { resolveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
 "use strict";
 
-const { fetchCloudModels, getCloudProviders, saveCloudProvider, deleteCloudProvider, validateChatProvider, createCloudFetch } = require("./cloudProviders");
+const { fetchCloudModels, getCloudProviders, getCloudProviderDefaults, saveCloudProviderDefaults,
+    saveCloudProvider, deleteCloudProvider, validateChatProvider, createCloudFetch } = require("./cloudProviders");
 
 const { localEngineFetch } = require("./localEngineFetch");
 
@@ -9,6 +10,7 @@ const {
 	getLoadConfig,
 	getAppSettings,
 	saveAppSettings,
+	saveNotificationPrefs,
 	getRagSettings,
 	saveRagSettings,
 } = require("./configManager");
@@ -16,6 +18,7 @@ const { saveGlobalSamplingParams } = require("./samplingManager");
 const profiles = require("./profileSettings");
 const agents = require("./agentManager");
 const projects = require("./projectManager");
+const skills = require('./skillsManager');
 const { agentTools, executeAgentTool } = require("./tools/agentTools");
 const { app, ipcMain, dialog, shell, nativeImage } = require("electron");
 const { validateLocalPath } = require('./localMedia');
@@ -45,6 +48,7 @@ const {
 	editMessage,
 	deleteMessage,
 	branchChat,
+	selectMessageBranch,
 	getSessionSamplingParams,
 	saveSessionSamplingParams,
 } = require("./sessionManager");
@@ -57,6 +61,17 @@ const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
 const { executeMemoryTool } = require("./memoryToolExecutor");
 const { activeStreams, truncateToolOutput } = require('./engineManager');
 const { sanitizeWebToolResult } = require('./tools/webSearch');
+const { createStreamDispatcher } = require('./streamDispatcher');
+
+const displayValue = value => {
+	if (value == null) return value;
+	const text = typeof value === 'string' ? value : JSON.stringify(value);
+	return text.length <= 10_000 ? value : `${text.slice(0, 10_000)}\n… [output truncated in chat; full result saved in session]`;
+};
+const displaySteps = steps => steps.map(step => ({ ...step,
+	args: displayValue(step.args), result: displayValue(step.result),
+	error: displayValue(step.error), streamingArguments: displayValue(step.streamingArguments),
+}));
 
 function defaultTrustedSender(event) {
 	if (!event.senderFrame || event.senderFrame !== event.sender.mainFrame) return false;
@@ -94,6 +109,11 @@ function registerIpcHandlers({
 		}
 	};
 	mcpManager.on("changed", broadcast);
+	const selectDirectory = async () => {
+		const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+		if (canceled || !filePaths?.length) return null;
+		return filePaths[0];
+	};
 	const handlers = {
         "tokens:history": input => require('./tokenUsage').getTokenHistory(input),
         "tokens:retention": ({ months }) => require('./tokenUsage').setRetention(months),
@@ -106,6 +126,13 @@ function registerIpcHandlers({
         "project:add_file": ({ project_id, ...file }) => projects.addProjectFile(project_id, file),
         "project:remove_file": ({ id }) => projects.removeProjectFile(id),
         "project:set_pinned": ({ id, is_pinned }) => projects.setProjectPinned(id, is_pinned),
+        "skills:list": () => skills.listSkills(),
+        "skills:save": input => skills.saveSkill(input),
+        "skills:delete": ({ id }) => skills.removeSkill(id),
+        "skills:import": ({ projectId = null }, _notify, sender) => {
+            const result = dialog.showOpenDialogSync({ properties: ['openFile', 'openDirectory'], filters: [{ name: 'Skills', extensions: ['md', 'zip'] }] });
+            return result?.[0] ? skills.importSkill(result[0], projectId) : null;
+        },
         "chat:export": payload => require('./exportService').exportChat(payload, { dialog }),
         "shell:open-path": async filePath => {
             validateLocalPath(filePath);
@@ -113,6 +140,19 @@ function registerIpcHandlers({
             if (error) throw new Error(error);
         },
         "cloud:get": () => getCloudProviders(),
+        "cloud:defaults:get": () => {
+            const defaults = getCloudProviderDefaults();
+            return { defaultImageProviderId: defaults.default_image_provider_id || '',
+                defaultVideoProviderId: defaults.default_video_provider_id || '' };
+        },
+        "cloud:defaults:save": input => {
+            if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid media provider defaults.');
+            const patch = {};
+            if (Object.hasOwn(input, 'defaultImageProviderId')) patch.default_image_provider_id = input.defaultImageProviderId;
+            if (Object.hasOwn(input, 'defaultVideoProviderId')) patch.default_video_provider_id = input.defaultVideoProviderId;
+            saveCloudProviderDefaults(patch);
+            return { success: true };
+        },
         "cloud:models": input => fetchCloudModels(input),
         "cloud:save": input => saveCloudProvider(input),
         "cloud:delete": id => deleteCloudProvider(id),
@@ -122,10 +162,8 @@ function registerIpcHandlers({
             onIdleTimeoutChanged?.();
             return config;
         },
-        "config:pick-directory": async () => {
-            const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
-            return result.canceled ? null : result.filePaths[0] ?? null;
-        },
+        "dialog:selectDirectory": selectDirectory,
+        "config:pick-directory": selectDirectory,
         "config:set-model-directory": ({ directory }) => require('./configStore').setModelDirectory(directory),
         "config:migrate-app-data": ({ directory }) => require('./dataMigration').migrateAppData(directory),
         "avatars:get": () => {
@@ -186,7 +224,13 @@ function registerIpcHandlers({
 			}
 		},
 		"app:get-settings": () => getAppSettings(),
-		"app:save-settings": (settings) => saveAppSettings(settings),
+		"settings:set-notification-prefs": prefs => saveNotificationPrefs(prefs),
+		"app:save-settings": (settings) => {
+			const previousMode = getAppSettings().mcpMode;
+			const saved = saveAppSettings(settings);
+			if (saved.mcpMode !== previousMode) broadcast();
+			return saved;
+		},
 		"mcp:get-config": () => mcpManager.getConfig(),
 		"mcp:save-config": (config) => mcpManager.saveConfig(config),
 		"mcp:get-status": async () => {
@@ -219,6 +263,15 @@ function registerIpcHandlers({
             if (!finish) throw new Error('Tool approval is no longer pending.');
             finish(action === 'allow');
         },
+        "engine:ask-user-response": ({ requestId, questionId, answer }, _notify, sender) => {
+            if (typeof requestId !== 'string' || typeof questionId !== 'string' ||
+                typeof answer !== 'string' || !answer.trim() || answer.length > 10000 || answer.includes('\0'))
+                throw new Error('Invalid answer.');
+            const finish = requests.get(sender)?.get(requestId)?.pendingQuestions?.get(questionId);
+            if (!finish) throw new Error('Question is no longer pending.');
+            finish(answer.trim());
+            return { accepted: true };
+        },
         "engine:tool-limit-response": ({ requestId, action }, _notify, sender) => {
             if (!['allow', 'deny'].includes(action)) throw new Error('Invalid tool limit action.');
             requests.get(sender)?.get(requestId)?.resolveToolLimit?.(action === 'allow');
@@ -242,8 +295,18 @@ function registerIpcHandlers({
             generationSamplingParams({}, thinkingBudget);
 			let executionSteps = [];
             let content = "";
+            const contentChunks = [];
+            const materializeContent = () => {
+                if (contentChunks.length) {
+                    content += contentChunks.join('');
+                    contentChunks.length = 0;
+                }
+                return content;
+            };
             if (!(typeof messageId === "string" && messageId.length > 0) && !Number.isSafeInteger(messageId)) throw new Error("Invalid message ID.");
 			let currentStats = null; // Never reuse a previous turn's final stats.
+			let stoppedByLimit = false;
+			let stoppedByCircuitBreak = false;
 			if (
 				typeof requestId !== "string" ||
 				!requestId ||
@@ -265,7 +328,19 @@ function registerIpcHandlers({
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
             let persistence;
-            const persist = (status = "in_progress") => persistence?.update({ content, executionSteps, stats: currentStats, status });
+			let persistTimer = null;
+			const persist = (status = "in_progress") => {
+				if (status === "in_progress") {
+					if (persistTimer === null) persistTimer = setTimeout(() => {
+						persistTimer = null;
+						persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status: "in_progress" });
+					}, 250);
+					return;
+				}
+				if (persistTimer !== null) clearTimeout(persistTimer);
+				persistTimer = null;
+				persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status });
+			};
             const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
 			try {
                 if (sessionId) {
@@ -280,24 +355,45 @@ function registerIpcHandlers({
 				if (!cloud && !config) throw new Error("Start the local model server first.");
                 if (!cloud && config.modelPath && config.modelPath !== modelId) throw new Error("The selected local model is no longer loaded.");
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
-                const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard } = require('./engineManager');
+                const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard, createToolFailureCircuitBreaker } = require('./engineManager');
+                const { maxConsecutiveToolFailures, maxTotalToolFailures } = getAppSettings();
                 const { phaseStats } = await import('../lib/completionStats.mjs');
                 const usageTurnId = require('node:crypto').randomUUID();
                 const usageTimestamp = new Date().toISOString();
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
 					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
-                    const filterTools = tools => cloud ? tools.filter(tool => !['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(tool.function.name)) : tools;
-                    const tools = filterTools(availableTools);
                     messages = messages.filter(message => !message.memoryContext);
                     const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
-                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable: !cloud }));
+                    const currentUserContent = [...messages].reverse().find(message => message.role === 'user')?.content;
+                    const currentUserText = typeof currentUserContent === 'string' ? currentUserContent
+                        : Array.isArray(currentUserContent) ? currentUserContent.filter(part => part?.type === 'text').map(part => part.text).join('\n') : '';
+                    const localFileInspection = !/https?:\/\//i.test(currentUserText)
+                        && /\b(search|read|inspect|parse|find|grep|locate|review)\b/i.test(currentUserText)
+                        && /\b(local|workspace|repository|repo|source code|codebase|file|files|directory|directories|log|logs)\b/i.test(currentUserText);
+                    const commandAvailable = availableTools.some(tool => tool.function.name === 'execute_command');
+                    const filterTools = toolList => toolList.filter(tool => {
+                        const name = tool.function.name;
+                        if (cloud && ['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(name)) return false;
+                        if (commandAvailable && name === 'delegate_task') return false;
+                        if (commandAvailable && localFileInspection && name === 'spawn_subagent') return false;
+                        return true;
+                    });
+                    const tools = filterTools(availableTools);
+                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable: !cloud, userText: currentUserText }));
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
                         projectId: usageProjectId,
                         projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
                         rewindFailedTurnRange,
                         failedToolReason,
+                        toolFailureCircuitBreaker: createToolFailureCircuitBreaker({ maxConsecutiveToolFailures, maxTotalToolFailures }),
+                        onCircuitBreak: abortReason => {
+                            stoppedByCircuitBreak = true;
+                            require('./services/notificationService').sendDesktopNotification({
+                                title: 'Agent Loop Interrupted', body: abortReason, type: 'error',
+                            });
+                        },
                         onContextRewind: ({ startTurnIndex, endTurnIndex, summary }) => {
                             require('./db').recordContextRewind({ sessionId,
                                 messageId: persistence.messageId, startTurnIndex, endTurnIndex, summary });
@@ -307,7 +403,8 @@ function registerIpcHandlers({
                             let settled = false;
                             const finish = allowed => {
                                 if (settled) return;
-                                settled = true;
+								settled = true;
+								if (!allowed) stoppedByLimit = true;
                                 clearTimeout(timeout);
                                 controller.signal.removeEventListener('abort', stop);
                                 delete controller.resolveToolLimit;
@@ -323,6 +420,7 @@ function registerIpcHandlers({
                         }),
                         onPaused: state => new Promise(resolve => {
                             const finish = resume => {
+								if (!resume) stoppedByLimit = true;
                                 controller.signal.removeEventListener('abort', stop);
                                 delete controller.resumeLoop;
                                 if (!sender.isDestroyed()) sender.send('loop:paused', { requestId, sessionId, ...state, executionState: resume ? 'running' : 'stopped' });
@@ -359,15 +457,16 @@ function registerIpcHandlers({
 									onProgress: (progress) => notify({ type: "indexing", ...progress }),
 								}).finally(() => notify({ type: "indexing", progress: null }))
 						: undefined,
-					onText: (delta) => { content += delta; persist(); notify({ type: "text", delta }); },
+				onText: (delta) => { contentChunks.push(delta); persist(); notify({ type: "text", delta }); },
                     resolveTool: name => memoryTools.some(tool => tool.name === name)
                         ? { serverName: "memory", toolName: name } : agentTools.some(tool => tool.function.name === name)
-                        ? { serverName: "native", toolName: name } : mcpManager.resolveTool(name, sessionId),
+                        ? { serverName: "native", toolName: name } : name === 'ask_user'
+                        ? { serverName: 'native', toolName: name } : mcpManager.resolveTool(name, sessionId),
                     onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
                         executionSteps = steps;
                         persist();
-                        notify({ type: "step-update", messageId, executionSteps, content });
+                        notify({ type: "step-update", messageId, executionSteps: displaySteps(executionSteps) });
                     },
 					onStats: (stats) => {
 						currentStats = stats;
@@ -389,22 +488,29 @@ function registerIpcHandlers({
 						try {
 							const isMemory = memoryTools.some((t) => t.name === call.name);
                             const isAgent = agentTools.some(t => t.function.name === call.name);
+							const isAskUser = call.name === 'ask_user';
 							target = isMemory
 								? { serverName: "memory", toolName: call.name }
-								: isAgent ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name, sessionId);
+								: isAgent || isAskUser ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name, sessionId);
 							notify({ type: "tool", id, ...target, status: "pending" });
 							const args = JSON.parse(call.arguments || "{}");
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
-                            await guardTool({ name: target.toolName, args, permissionMode, project,
+							if (!isAskUser) await guardTool({ name: target.toolName, args, permissionMode, project,
                                 native: isAgent || isMemory, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
 							const rawOutput = isMemory
-								? await executeMemoryTool({ ...call, modelId })
+								? await executeMemoryTool({ ...call, modelId, sessionId, signal: controller.signal })
+								: isAskUser ? await require('./engineManager').askUserDuringRun({
+									controller, sender, requestId, sessionId, stepId: call.id, ...args,
+									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
+								})
 								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, signal: controller.signal,
                                     engine: cloud ? undefined : { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
-                                : await mcpManager.callTool(target.serverName, target.toolName, args, {
+								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
 									});
+							if (call.name === 'propose_skill' && rawOutput?.success && !sender.isDestroyed())
+								sender.send('skill:propose-approval', { sessionId, ...args });
 							const output = sanitizeWebToolResult(rawOutput, call.name);
 							if (isAgent && call.name === 'manage_mcp_servers') {
 								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
@@ -419,14 +525,14 @@ function registerIpcHandlers({
 									/* Tools may return plain text. */
 								}
 							}
-							const failed = result?.isError || result?.success === false;
+							const failed = Boolean(failedToolReason(output, call.name));
 							result = truncateToolOutput((await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name).displayResult);
 							notify({
 								type: "tool",
 								id,
 								...target,
 								status: failed ? "error" : "complete",
-								result,
+								result: displayValue(result),
 							});
 							return output;
 						} catch (error) {
@@ -442,12 +548,16 @@ function registerIpcHandlers({
 						}
 					},
 				});
-				persist(controller.signal.aborted ? "interrupted" : "completed");
+				persist(controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed");
+				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
+					interrupted: stoppedByLimit, aborted: controller.signal.aborted });
 				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
 			} catch (error) {
                 persist("interrupted");
+				require('./engineManager').notifyChatOutcome({ error, aborted: controller.signal.aborted });
                 throw error;
 			} finally {
+				if (persistTimer !== null) clearTimeout(persistTimer);
                 finishEngineRequest?.();
                 notify({ type: "indexing", progress: null });
 				sender.removeListener("destroyed", abort);
@@ -473,16 +583,36 @@ function registerIpcHandlers({
             const { db } = require('./db');
             return db.transaction(() => {
                 db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
+                db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(target.id, data.sessionId);
                 return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
             })();
 		},
 		"session:set-active-variant": ({ sessionId, messageId, index }) => setActiveVariant(sessionId, messageId, index),
+		"session:select-message-branch": ({ sessionId, messageId }) => selectMessageBranch(sessionId, messageId),
+		"engine:branch-and-execute": async (data, notify, sender) => {
+			if (activeStreams.has(data.sessionId)) throw new Error('This session is already running.');
+			if (typeof data.modelId !== 'string' || !data.modelId.trim()) throw new Error('Select a model before editing.');
+			validateChatProvider(data.activeChatProvider);
+			const { branchUserMessage, db } = require('./db');
+			if (!db.prepare("SELECT id FROM messages WHERE id = ? AND session_id = ? AND role = 'user'")
+				.get(data.messageId, data.sessionId)) throw new Error('User message not found in this session.');
+			const { userMessageId, sessionId } = branchUserMessage(data);
+			db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
+			db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
+			const { messages } = require('./engineManager').buildBranchContext(userMessageId, data.modelId);
+			return { ...await handlers['engine:chat']({ ...data, messages }, notify, sender), userMessageId };
+		},
 		"engine:get-load-config": ({ modelId }) => getLoadConfig(modelId),
 		"engine:launch": ({ modelId, config }) => launchEngine(modelId, config),
 		"file:process-uploads": (filePaths) => processUploads(filePaths),
 		"session:get-all": () => getAllSessions(),
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),
+		"session:load-display": async ({ sessionId }) => {
+			const session = loadSession(sessionId);
+			const { compactMessageForDisplay } = await import('../lib/toolDisplay.mjs');
+			return { ...session, messages: session.messages.map(compactMessageForDisplay) };
+		},
 		"session:rename": ({ sessionId, title }) => updateSession(sessionId, "title", title),
 		"session:move-to-folder": ({ sessionId, folderName }) =>
 			updateSession(sessionId, "folder_name", folderName),
@@ -587,9 +717,13 @@ function registerIpcHandlers({
 				if (!isTrustedSender(event)) throw new Error("Unauthorized IPC sender.");
 				if (channel === 'config:migrate-app-data') return handler(payload);
                 return require('./dataAccess').withDataAccess(async () => {
-                if (channel.startsWith("mcp:")) subscribers.add(event.sender);
+                if (channel.startsWith("mcp:") && !subscribers.has(event.sender)) {
+                    subscribers.add(event.sender);
+                    event.sender.once('destroyed', () => subscribers.delete(event.sender));
+                }
 				if (
 					channel === "engine:chat" ||
+					channel === "engine:branch-and-execute" ||
                     channel === "agent:execute-tool" ||
 					channel === "session:regenerate-last" ||
 					channel === "engine:cancel-chat" ||
@@ -597,23 +731,15 @@ function registerIpcHandlers({
                     channel === "loop:respond" ||
                     channel === "engine:tool-limit-response" ||
                     channel === "engine:tool-approval-response" ||
+                    channel === "engine:ask-user-response" ||
 					channel === "rag:index"
 				) {
-					return handler(
+					const dispatcher = createStreamDispatcher(event.sender, payload.requestId, payload.sessionId, () => isTrustedSender(event));
+					try { return await handler(
 						payload,
-							(result) => {
-							if (!event.sender.isDestroyed() && isTrustedSender(event)) {
-								if (result.type === "step-update") event.sender.send("stream:step-update", { requestId: payload.requestId, sessionId: payload.sessionId, ...result });
-								if (result.type === 'text') event.sender.send('engine:stream-chunk', { sessionId: payload.sessionId, content: result.delta });
-								event.sender.send("engine:chat-event", {
-									requestId: payload.requestId,
-									sessionId: payload.sessionId,
-									...result,
-								});
-                            }
-						},
+						(result) => dispatcher.dispatch(result),
 						event.sender,
-					);
+					); } finally { dispatcher.close(); }
 				}
 				if (channel === "session:trigger-compression") {
 					return handler(payload, (result) => {
