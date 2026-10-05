@@ -392,6 +392,7 @@ export async function runMemoryChat({
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
   casualMode = false, onToolLimit = async () => false,
   projectId = null, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
+  toolFailureCircuitBreaker = null, onCircuitBreak = () => {},
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
@@ -419,7 +420,13 @@ export async function runMemoryChat({
   let allowedNames = new Set(tools.map((tool) => tool.function.name));
   const usedIds = new Set();
   const executionSteps = [];
-  const publishSteps = () => onExecutionSteps(structuredClone(executionSteps));
+  let lastStepPublish = -Infinity;
+  const publishSteps = (force = false) => {
+    const timestamp = now();
+    if (!force && timestamp - lastStepPublish < 50) return;
+    lastStepPublish = timestamp;
+    onExecutionSteps(structuredClone(executionSteps));
+  };
   let text = '', thinkingText = '', thinkingDuration = 0;
   const startTime = now();
   const phases = []; // Fresh for every chat invocation.
@@ -500,7 +507,10 @@ export async function runMemoryChat({
       if (!response.ok) {
         console.error(`Model request failed: HTTP ${response.status}`, redactToolMedia(responseBody));
         console.error('Model request payload:', JSON.stringify(redactToolMedia(requestPayload), null, 2));
-        throw new Error(`Model request failed: HTTP ${response.status}`);
+        const error = new Error(`Model request failed: HTTP ${response.status}`);
+        error.status = response.status;
+        error.responseBody = responseBody;
+        throw error;
       }
     }
     const priorThinking = thinkingText;
@@ -517,7 +527,7 @@ export async function runMemoryChat({
         publishSteps();
         if (value.endedAt !== undefined) activeThought = null;
       },
-      onText: delta => { visibleContent += delta; text += delta; onText(delta); publishSteps(); },
+      onText: delta => { visibleContent += delta; text += delta; onText(delta); },
       onThinking: value => {
         thinkingText = priorThinking + (priorThinking && value.text ? '\n\n' : '') + value.text;
         thinkingDuration = priorDuration + value.duration;
@@ -547,7 +557,7 @@ export async function runMemoryChat({
           step.status = 'error'; step.error = 'Tool generation was interrupted or incomplete.';
         }
       }
-      publishSteps();
+      publishSteps(true);
     }
     if (result.loopDetected) {
       const notice = `\n\n${REASONING_LOOP_NOTICE}`;
@@ -626,7 +636,7 @@ export async function runMemoryChat({
           throw new Error(loopNotice);
         }
         Object.assign(step, resolveTool(call.function.name));
-        publishSteps();
+        publishSteps(true);
         if (casualMode && casualToolCount >= maxAllowedTools) {
           const allowed = await onToolLimit({ currentCount: casualToolCount, nextTool: call.function.name });
           signal?.throwIfAborted();
@@ -639,8 +649,8 @@ export async function runMemoryChat({
         if (casualMode) casualToolCount++;
         toolsExecuted = true;
         step.status = 'running';
-        publishSteps();
-        output = await executeTool({ name: call.function.name, arguments: call.function.arguments, modelId });
+        publishSteps(true);
+        output = await executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id });
         signal?.throwIfAborted();
         let result = output;
         if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
@@ -660,11 +670,12 @@ export async function runMemoryChat({
         step.status = 'error';
         step.error = output.error;
       } finally {
-        publishSteps();
+        publishSteps(true);
       }
       signal?.throwIfAborted();
       formatted ??= formatToolResult(output, call.function.name);
       history.push({ role: 'tool', tool_call_id: call.id, content: guardToolContent(formatted.content) });
+      toolFailureCircuitBreaker?.record(output, call.function.name, step.status === 'error');
       if (projectId && failedToolReason) {
         if (failedToolReason(output, call.function.name)) batchFailures++;
         else batchSucceeded = true;
@@ -685,6 +696,15 @@ export async function runMemoryChat({
         failedToolStreak = 0;
         failedRangeStart = null;
       }
+    }
+    const abortReason = toolFailureCircuitBreaker?.abortReason;
+    if (abortReason) {
+      const notice = `${text && !text.endsWith('\n') ? '\n\n' : ''}[System: ${abortReason}]`;
+      text += notice;
+      onText(notice);
+      onCircuitBreak(abortReason);
+      onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
+      return text;
     }
     if (finalResponseOnly) {
       history.push({ role: 'system', content: 'Tool execution budget reached and denied by user. Provide your final response immediately using only the information collected so far.' });

@@ -3,6 +3,7 @@ import { FiChevronRight, FiTool } from 'react-icons/fi';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import FileBrowserWidget from './FileBrowserWidget';
 import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.mjs';
+import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
 
 const codeTheme = {
   'pre[class*="language-"]': { background: 'transparent', color: '#cbd5e1' },
@@ -18,10 +19,12 @@ const codeTheme = {
 function formatValue(value, fallback) {
   if (value === undefined) return { text: fallback, language: 'text' };
   if (typeof value === 'string') {
+    if (value.length > TOOL_DISPLAY_LIMIT) return { text: `${value.slice(0, TOOL_DISPLAY_LIMIT)}\n… [truncated in chat]`, language: 'text' };
     try { return { text: JSON.stringify(JSON.parse(value), null, 2), language: 'json' }; }
     catch { return { text: value, language: 'text' }; }
   }
-  return { text: JSON.stringify(value, null, 2), language: 'json' };
+  const text = JSON.stringify(value, null, 2);
+  return { text: text.length > TOOL_DISPLAY_LIMIT ? `${text.slice(0, TOOL_DISPLAY_LIMIT)}\n… [truncated in chat]` : text, language: 'json' };
 }
 
 function CodeSection({ title, value }) {
@@ -47,13 +50,16 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
     if (preparing && streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight;
   }, [preparing, step.streamingArguments]);
   const running = preparing || step.status === 'running' || step.status === 'pending';
-  const listing = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName)
-    ? parseDirectoryListing(step.result, step.args) : null;
   // Follow execution status until the user explicitly chooses a view.
-  const expanded = userExpanded ?? (running || Boolean(listing));
-  const args = formatValue(step.args ?? step.streamingArguments, 'No arguments');
-  const result = formatValue(Object.hasOwn(step, 'result') ? step.result : step.error, running ? 'Waiting for result…' : 'No result');
-  const preview = value => value.text.replace(/\s+/g, ' ').slice(0, 180) + (value.text.replace(/\s+/g, ' ').length > 180 ? '…' : '');
+  const directory = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName);
+  const expanded = userExpanded ?? running;
+  const listing = expanded && directory ? parseDirectoryListing(step.result, step.args) : null;
+  const args = expanded ? formatValue(step.args ?? step.streamingArguments, 'No arguments') : null;
+  const result = expanded ? formatValue(Object.hasOwn(step, 'result') ? step.result : step.error, running ? 'Waiting for result…' : 'No result') : null;
+  const preview = value => {
+    const text = typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value);
+    return text.slice(0, 180).replace(/\s+/g, ' ') + (text.length > 180 ? '…' : '');
+  };
   return (
     <div aria-label="Tool executions" className="min-w-0 overflow-hidden rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs">
       <button type="button" aria-expanded={expanded} aria-controls={detailsId}
@@ -68,8 +74,8 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         {step.serverName && <span title={step.serverName} className="ml-auto max-w-[45%] truncate rounded border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span>}
       </button>
       {!expanded && <div className="flex min-w-0 gap-3 px-3 pb-2 pl-9 text-[var(--text-muted)]">
-        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Arguments:</span> {preview(args)}</span>
-        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {preview(result)}</span>
+        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Arguments:</span> {preview(step.args)}</span>
+        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {preview(step.result ?? step.error)}</span>
       </div>}
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
         {expanded && preparing && <section aria-label="Streaming arguments">

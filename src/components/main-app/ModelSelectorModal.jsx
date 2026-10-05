@@ -19,7 +19,7 @@ export default function ModelSelectorModal({
 	serverError,
 }) {
 	const dialog = useRef(null);
-    const configuredProviders = cloudProviders.filter(row => row.configured && row.modelId?.trim());
+	const configuredProviders = cloudProviders.filter(row => (row.category ?? 'text') === 'text' && row.configured && row.modelId?.trim());
 	const [query, setQuery] = useState("");
 	const [configuring, setConfiguring] = useState(null);
 	const [busy, setBusy] = useState(false);

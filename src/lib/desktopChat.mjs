@@ -1,5 +1,5 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onMessageCreated, messageId, sessionId, regenerate = false, memoryEnabled = true }) {
+export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -8,18 +8,18 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   // Batch text and reasoning together: both can arrive once per token. A trailing
   // timer also publishes short bursts when no further token arrives.
   let timer = null;
-  let textBuffer = '';
+  const textBuffer = [];
   let thinking, stats, indexing, executionSteps;
   const toolEvents = new Map();
   let liveSteps = [];
   const flush = () => {
     if (timer !== null) clearTimeout(timer);
     timer = null;
-    const text = textBuffer, nextThinking = thinking, nextStats = stats, nextIndexing = indexing;
+    const text = textBuffer.join(''), nextThinking = thinking, nextStats = stats, nextIndexing = indexing;
     const tools = [...toolEvents.values()];
     const nextSteps = executionSteps;
     executionSteps = undefined;
-    textBuffer = '';
+    textBuffer.length = 0;
     thinking = stats = indexing = undefined;
     toolEvents.clear();
     if (text) onText?.(text);
@@ -46,7 +46,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
       } : step);
       executionSteps = liveSteps;
     }
-    else if (event.type === 'text') textBuffer += event.delta;
+    else if (event.type === 'text') textBuffer.push(event.delta);
     else if (event.type === 'thinking') thinking = event.thinking;
     else if (event.type === 'stats') stats = event.stats;
     else if (event.type === 'indexing') {
@@ -68,7 +68,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await (regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: messageId ?? requestId, modelId, modelName, displayName, messages, permissionMode, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(thinkingBudget !== undefined ? { thinkingBudget } : {}), ...(sessionId ? { sessionId } : {}) });
+    const result = await (branchMessageId ? api.branchAndExecute : regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: branchMessageId ?? messageId ?? requestId, ...(branchMessageId ? { newContent } : {}), modelId, modelName, displayName, messages, permissionMode, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(thinkingBudget !== undefined ? { thinkingBudget } : {}), ...(sessionId ? { sessionId } : {}) });
     if (!regenerate && Number.isSafeInteger(result.message?.id)) onMessageCreated?.(result.message.id);
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;

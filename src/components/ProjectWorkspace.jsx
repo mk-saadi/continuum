@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FiArrowLeft, FiFileText, FiFolder, FiMessageSquare, FiStar, FiTrash2, FiUpload } from 'react-icons/fi';
 import { projectDate } from './ProjectsView';
+import ProjectSkillsCard from './project/ProjectSkillsCard';
 import './projects.css';
 
 export default function ProjectWorkspace({ projectId, sessions = [], onBack, onUpdated, onLoadChat, onStartChat, chatDisabled, canStartChat }) {
@@ -36,6 +37,25 @@ export default function ProjectWorkspace({ projectId, sessions = [], onBack, onU
   async function save(patch) {
     const updated = await window.api.updateProject(projectId, patch);
     setProject(updated); onUpdated(updated);
+  }
+  async function changeFolder() {
+    await perform(async () => {
+      try {
+        const selectedPath = await window.api.selectDirectory();
+        if (!selectedPath) return;
+        const previousPath = project.root_path;
+        setProject(previous => ({ ...previous, root_path: selectedPath }));
+        try {
+          await save({ root_path: selectedPath });
+        } catch (error) {
+          setProject(previous => ({ ...previous, root_path: previousPath }));
+          throw error;
+        }
+      } catch (error) {
+        console.error('Failed to change project root directory:', error);
+        throw error;
+      }
+    });
   }
   async function upload(files) {
     if (!files.length) return;
@@ -80,7 +100,8 @@ export default function ProjectWorkspace({ projectId, sessions = [], onBack, onU
           </div>
           {project.files.map(file => <div className="project-file" key={file.id}><FiFileText /><span title={file.file_path}>{file.file_name}</span><button className="project-button" aria-label={`Remove ${file.file_name}`} disabled={busy} onClick={() => perform(async () => { await window.api.removeProjectFile(file.id); setProject(previous => ({ ...previous, files: previous.files.filter(item => item.id !== file.id) })); })}><FiTrash2 /></button></div>)}
         </section>
-        <section className="project-panel"><h2 className="flex items-center gap-2"><FiFolder /> Root Directory</h2><span className="project-path" title={project.root_path || ''}>{project.root_path || 'No folder connected'}</span><p className="projects-muted mt-3">Connect your working folder to include repository guidelines and workspace context.</p><button className="project-button mt-4" disabled={busy} onClick={() => perform(async () => { const root_path = await window.api.pickDirectory(); if (root_path) await save({ root_path }); })}>{project.root_path ? 'Change Folder' : 'Connect Folder'}</button></section>
+        <ProjectSkillsCard project={project} onUpdated={updated => { setProject(updated); onUpdated(updated); }} />
+        <section className="project-panel"><h2 className="flex items-center gap-2"><FiFolder /> Root Directory</h2><span className="project-path" title={project.root_path || ''}>{project.root_path || 'No folder connected'}</span><p className="projects-muted mt-3">Connect your working folder to include repository guidelines and workspace context.</p><button className="project-button mt-4" disabled={busy} onClick={changeFolder}>{project.root_path ? 'Change Folder' : 'Connect Folder'}</button></section>
       </aside></div>
     </>}
   </div></main>;

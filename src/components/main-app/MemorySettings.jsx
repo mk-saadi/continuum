@@ -6,9 +6,12 @@ import RagSettings from "../RagSettings";
 import LocalApiSettings from "../LocalApiSettings";
 import AvatarSettings from "../AvatarSettings";
 import MemoryTab from "../MemoryTab";
-import IntegrationsTab from "../IntegrationsTab";
+import McpSettingsTab from "../settings/McpSettingsTab";
 import ServerConfigTab from "../ServerConfigTab";
 import EngineIdleSettings from '../EngineIdleSettings';
+import NotificationSettings from '../settings/NotificationSettings';
+import SkillsSettingsTab from '../settings/SkillsSettingsTab';
+import GeneralSettingsTab from '../settings/GeneralSettingsTab';
 import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from "react-icons/lu";
 import { GiStarSwirl } from "react-icons/gi";
 
@@ -35,6 +38,7 @@ const tabs = [
 		icon: LuPlug,
 		description: "Connect your local tools and servers.",
 	},
+	{ id: 'skills', label: 'Skills', icon: LuBrain, description: 'Manage reusable workflows across projects.' },
 	{
 		id: "config",
 		label: "Server Config",
@@ -282,6 +286,9 @@ export default function MemorySettings({
                         <section id="settings-panel-tokens" role="tabpanel" aria-labelledby="settings-tab-tokens" hidden={tab !== 'tokens'} tabIndex={0} className={panelClass}>
                             {tab === 'tokens' && <TokenHistory />}
                         </section>
+                        <section id="settings-panel-skills" role="tabpanel" aria-labelledby="settings-tab-skills" hidden={tab !== 'skills'} tabIndex={0} className={panelClass}>
+                            {tab === 'skills' && <SkillsSettingsTab />}
+                        </section>
 						<section
 							id="settings-panel-general"
 							role="tabpanel"
@@ -291,6 +298,8 @@ export default function MemorySettings({
 							className={panelClass}
 						>
 							<EngineIdleSettings />
+							<GeneralSettingsTab />
+							<NotificationSettings />
 							<div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
 								<h4 className="font-semibold">Color theme</h4>
 								<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
@@ -421,7 +430,7 @@ export default function MemorySettings({
 							{loading ? (
 								<p role="status">Loading MCP servers…</p>
 							) : config ? (
-								<IntegrationsTab
+								<McpSettingsTab
 									config={config}
 									status={palace.mcpStatus}
 									busy={busy}

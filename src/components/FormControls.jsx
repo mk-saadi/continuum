@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { LuCheck, LuChevronDown } from "react-icons/lu";
 
 const fieldFrame =
-	"flex min-h-8 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50";
+	"flex min-h-8 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[select:disabled]:opacity-50 has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -106,7 +106,6 @@ export const SelectField = forwardRef(function SelectField(
 	const triggerRef = useRef(null);
 	const menuRef = useRef(null);
 
-	// Use items array if provided, fallback to standard <option> children
 	const options =
 		items.length > 0
 			? items
@@ -208,9 +207,9 @@ export const SelectField = forwardRef(function SelectField(
 					aria-expanded={isOpen}
 					aria-describedby={hint ? `${id}-hint` : undefined}
 					onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
-					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-3 py-1 text-sm text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
 				>
-					<div className="flex items-center gap-2 truncate pr-2">
+					<div className="flex items-center gap-1.5 truncate pr-2">
 						{icon && (
 							<span className="flex shrink-0 items-center text-[var(--text-muted)]">
 								{icon}
@@ -218,7 +217,7 @@ export const SelectField = forwardRef(function SelectField(
 						)}
 						<span
 							className={
-								!selectedOption && !triggerLabel ? "text-[var(--text-primary)]!" : "truncate"
+								!selectedOption && !triggerLabel ? "text-[var(--text-primary)]" : "truncate"
 							}
 						>
 							{triggerLabel !== undefined
@@ -230,9 +229,9 @@ export const SelectField = forwardRef(function SelectField(
 					</div>
 					{!hideChevron && (
 						<LuChevronDown
-							size={16}
+							size={14}
 							aria-hidden="true"
-							className={`shrink-0 text-[var(--text-primary)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+							className={`shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
 						/>
 					)}
 				</button>
@@ -282,7 +281,7 @@ export const SelectField = forwardRef(function SelectField(
 									type="button"
 									role="option"
 									aria-selected={String(opt.value) === String(value)}
-									className={`flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 my-0.5 text-left text-sm transition-colors hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none ${
+									className={`flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 my-0.5 text-left text-xs transition-colors hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none ${
 										String(opt.value) === String(value)
 											? "bg-[var(--surface-hover)] font-medium"
 											: ""
@@ -305,7 +304,7 @@ export const SelectField = forwardRef(function SelectField(
 									</div>
 									{opt.description ? (
 										<span
-											className={`shrink-0 text-xs ${String(opt.value) === String(value) ? "text-[var(--accent)] font-medium" : "text-[var(--text-muted)]"}`}
+											className={`shrink-0 text-[11px] ${String(opt.value) === String(value) ? "text-[var(--accent)] font-medium" : "text-[var(--text-muted)]"}`}
 										>
 											{opt.description}
 										</span>
@@ -509,5 +508,27 @@ export const SliderField = forwardRef(function SliderField(
 				/>
 			</div>
 		</FieldShell>
+	);
+});
+
+export const PillToggle = forwardRef(function PillToggle(
+	{ active, onToggle, icon, label, activeLabel, disabled, title, className = "", ...props },
+	ref,
+) {
+	return (
+		<button
+			{...props}
+			ref={ref}
+			type="button"
+			role="switch"
+			aria-checked={active}
+			disabled={disabled}
+			title={title}
+			onClick={() => onToggle?.(!active)}
+			className={`flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1 text-xs text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+		>
+			{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
+			<span>{active ? activeLabel || label : label}</span>
+		</button>
 	);
 });

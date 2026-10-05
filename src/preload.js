@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 contextBridge.exposeInMainWorld('api', {
   getCloudProviders: () => ipcRenderer.invoke('cloud:get'),
+  getCloudProviderDefaults: () => ipcRenderer.invoke('cloud:defaults:get'),
+  saveCloudProviderDefaults: defaults => ipcRenderer.invoke('cloud:defaults:save', defaults),
+  setNotificationPrefs: prefs => ipcRenderer.invoke('settings:set-notification-prefs', prefs),
   fetchCloudModels: settings => ipcRenderer.invoke('cloud:models', settings),
   saveCloudProvider: settings => ipcRenderer.invoke('cloud:save', settings),
   deleteCloudProvider: id => ipcRenderer.invoke('cloud:delete', id),
@@ -18,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('config:get'),
   setEngineIdleTimeout: minutes => ipcRenderer.invoke('config:set-idle-timeout', minutes),
   pickDirectory: () => ipcRenderer.invoke('config:pick-directory'),
+  selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   setModelDirectory: directory => ipcRenderer.invoke('config:set-model-directory', { directory }),
   migrateAppData: directory => ipcRenderer.invoke('config:migrate-app-data', { directory }),
   getAvatarSettings: () => ipcRenderer.invoke('avatars:get'),
@@ -32,6 +36,15 @@ contextBridge.exposeInMainWorld('api', {
   deleteProject: id => ipcRenderer.invoke('project:delete', { id }),
   listProjects: () => ipcRenderer.invoke('project:list'),
   getProject: id => ipcRenderer.invoke('project:get_by_id', { id }),
+  listSkills: () => ipcRenderer.invoke('skills:list'),
+  saveSkill: skill => ipcRenderer.invoke('skills:save', skill),
+  deleteSkill: id => ipcRenderer.invoke('skills:delete', { id }),
+  importSkill: projectId => ipcRenderer.invoke('skills:import', { projectId }),
+  onSkillProposal: callback => {
+    const listener = (_event, proposal) => callback(proposal);
+    ipcRenderer.on('skill:propose-approval', listener);
+    return () => ipcRenderer.removeListener('skill:propose-approval', listener);
+  },
   importProjectFiles: (projectId, files) => ipcRenderer.invoke('project:import_files', { project_id: projectId, file_paths: Array.from(files, file => webUtils.getPathForFile(file)) }),
   addProjectFile: (projectId, file) => ipcRenderer.invoke('project:add_file', { ...file, project_id: projectId }),
   removeProjectFile: id => ipcRenderer.invoke('project:remove_file', { id }),
@@ -71,6 +84,7 @@ contextBridge.exposeInMainWorld('api', {
 contextBridge.exposeInMainWorld('memoryPalace', {
   regenerateLast: payload => ipcRenderer.invoke('session:regenerate-last', payload),
   setActiveVariant: (sessionId, messageId, index) => ipcRenderer.invoke('session:set-active-variant', { sessionId, messageId, index }),
+  selectMessageBranch: (sessionId, messageId) => ipcRenderer.invoke('session:select-message-branch', { sessionId, messageId }),
   getAllSessions: () => ipcRenderer.invoke('session:get-all'),
   createFolder: (folderName) => ipcRenderer.invoke('session:create-folder', { folderName }),
   loadSession: (sessionId) => ipcRenderer.invoke('session:load', { sessionId }),
@@ -91,6 +105,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   deleteMemory: (id) => ipcRenderer.invoke('memory:delete', id),
   getOrCreateSession: (sessionId, modelId, projectId) => ipcRenderer.invoke('session:get-or-create', { sessionId, modelId, projectId }),
   saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity, displayName: identity?.displayName, executionSteps }),
+  loadDisplaySession: sessionId => ipcRenderer.invoke('session:load-display', { sessionId }),
   getContextUsage: (sessionId, modelId) => ipcRenderer.invoke('session:get-usage', { sessionId, modelId }),
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),
@@ -133,6 +148,12 @@ contextBridge.exposeInMainWorld('chatAPI', {
     ipcRenderer.on('engine:request-tool-approval', listener);
     return () => ipcRenderer.removeListener('engine:request-tool-approval', listener);
   },
+  respondToAskUser: (requestId, questionId, answer) => ipcRenderer.invoke('engine:ask-user-response', { requestId, questionId, answer }),
+  onAskUser: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('engine:ask-user', listener);
+    return () => ipcRenderer.removeListener('engine:ask-user', listener);
+  },
   respondToLoop: (requestId, action) => ipcRenderer.invoke('loop:respond', { requestId, action }),
   respondToToolLimit: (requestId, action) => ipcRenderer.invoke('engine:tool-limit-response', { requestId, action }),
   onToolLimitReached: callback => {
@@ -151,6 +172,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     return () => ipcRenderer.removeListener('stream:step-update', listener);
   },
   run: payload => ipcRenderer.invoke('engine:chat', payload),
+  branchAndExecute: payload => ipcRenderer.invoke('engine:branch-and-execute', payload),
   cancel: requestId => ipcRenderer.invoke('engine:cancel-chat', { requestId }),
   cancelSession: sessionId => ipcRenderer.invoke('engine:cancel-session', { sessionId }),
   onEvent: callback => {

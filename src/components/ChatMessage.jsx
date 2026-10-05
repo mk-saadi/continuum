@@ -1,23 +1,37 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import ThoughtBlock from "./ThoughtBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import mermaid from 'mermaid';
-import DOMPurify from 'dompurify';
-import { mediaSource, isLocalVideoSource, mediaUrlTransform, rehypeMediaSources, mediaSchema } from '../lib/markdownMedia.mjs';
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import InteractiveChart from "./InteractiveChart";
+import {
+	mediaSource,
+	isLocalVideoSource,
+	mediaUrlTransform,
+	rehypeMediaSources,
+	mediaSchema,
+} from "../lib/markdownMedia.mjs";
 
 // MIME hints for local video containers so Chromium selects the right demuxer.
-const VIDEO_MIME_TYPES = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mkv: 'video/x-matroska', avi: 'video/x-msvideo', ts: 'video/mp2t' };
+const VIDEO_MIME_TYPES = {
+	mp4: "video/mp4",
+	webm: "video/webm",
+	mov: "video/quicktime",
+	mkv: "video/x-matroska",
+	avi: "video/x-msvideo",
+	ts: "video/mp2t",
+};
 
 function videoMimeType(source) {
 	try {
-		const ext = decodeURIComponent(new URL(source).pathname).split('.').pop().toLowerCase();
+		const ext = decodeURIComponent(new URL(source).pathname).split(".").pop().toLowerCase();
 		return VIDEO_MIME_TYPES[ext] || undefined;
-	} catch { return undefined; }
+	} catch {
+		return undefined;
+	}
 }
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
@@ -32,6 +46,9 @@ import {
 	FiZap,
 } from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
+import { PiWarning } from "react-icons/pi";
+import { RiRobot2Line } from "react-icons/ri";
+import { LuRepeat, LuZap } from "react-icons/lu";
 
 // Prism accepts CSS variables, so syntax colors change with data-theme.
 const syntaxTheme = {
@@ -68,49 +85,6 @@ const syntaxTheme = {
 	deleted: { color: "var(--error)" },
 };
 
-const mermaidTheme = () => typeof document !== 'undefined' &&
-	document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark';
-
-mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'loose' });
-
-let nextMermaidId = 0;
-
-function MermaidRenderer({ text }) {
-	const containerRef = useRef(null);
-	const [svg, setSvg] = useState('');
-	const [error, setError] = useState('');
-	const [theme, setTheme] = useState(mermaidTheme);
-
-	useEffect(() => {
-		const observer = new MutationObserver(() => setTheme(mermaidTheme()));
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-		return () => observer.disconnect();
-	}, []);
-
-	useEffect(() => {
-		let cancelled = false;
-		const id = `chat-mermaid-${++nextMermaidId}`;
-		setSvg('');
-		setError('');
-		mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'loose' });
-		void mermaid.render(id, text).then(({ svg: renderedSvg }) => {
-			if (!cancelled && containerRef.current) {
-				setSvg(DOMPurify.sanitize(renderedSvg, { USE_PROFILES: { svg: true, svgFilters: true, html: true } }));
-			}
-		}).catch(cause => {
-			if (!cancelled) setError(cause.message || 'Unable to render diagram.');
-		});
-		return () => { cancelled = true; };
-	}, [text, theme]);
-
-	return <div className="my-3 min-w-0 overflow-x-auto rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3">
-		{error ? <><p role="alert" className="mb-2 text-xs text-[var(--error)]">{error}</p><pre className="overflow-x-auto text-xs">{text}</pre></> :
-			<div ref={containerRef} role="img" aria-label="Mermaid diagram"
-				className="flex min-w-fit justify-center [&_svg]:max-w-full"
-				dangerouslySetInnerHTML={{ __html: svg }} />}
-	</div>;
-}
-
 function CodeBlock({ code, language }) {
 	const [copied, setCopied] = useState(false);
 	async function copy() {
@@ -138,6 +112,7 @@ function CodeBlock({ code, language }) {
 			</div>
 			<SyntaxHighlighter
 				language={language || "text"}
+				showLineNumbers
 				style={syntaxTheme}
 				customStyle={{
 					margin: 0,
@@ -155,31 +130,97 @@ function CodeBlock({ code, language }) {
 	);
 }
 
-function MarkdownMedia({ src, alt = '', children }) {
+function ChartCodeBlock({ code }) {
+	try {
+		return <InteractiveChart data={JSON.parse(code)} />;
+	} catch {
+		return (
+			<div
+				role="alert"
+				className="my-3 rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-muted)]"
+			>
+				Unable to render chart: invalid JSON schema
+			</div>
+		);
+	}
+}
+
+function MarkdownMedia({ src, alt = "", children }) {
 	const source = mediaSource(src);
 	const [failedSource, setFailedSource] = useState(null);
 	if ((!source && !children) || failedSource === source) {
-		return <span role="status" className="text-[var(--text-muted)]">{alt || 'Media unavailable'}</span>;
+		return (
+			<span
+				role="status"
+				className="text-[var(--text-muted)]"
+			>
+				{alt || "Media unavailable"}
+			</span>
+		);
 	}
 	// Video playback is restricted to local files; remote video URLs degrade to the image path.
 	if (isLocalVideoSource(source)) {
-		return <video src={source} type={videoMimeType(source)} controls preload="metadata" aria-label={alt || 'Video'}
-			className="max-w-full rounded-lg my-2 max-h-[400px]" onError={() => setFailedSource(source)}>{children}</video>;
+		return (
+			<video
+				src={source}
+				type={videoMimeType(source)}
+				controls
+				preload="metadata"
+				aria-label={alt || "Video"}
+				className="max-w-full rounded-lg my-2 max-h-[400px]"
+				onError={() => setFailedSource(source)}
+			>
+				{children}
+			</video>
+		);
 	}
 	if (!source && children) {
-		return <video controls preload="metadata" aria-label={alt || 'Video'}
-			className="max-w-full rounded-lg my-2 max-h-[400px]">{children}</video>;
+		return (
+			<video
+				controls
+				preload="metadata"
+				aria-label={alt || "Video"}
+				className="max-w-full rounded-lg my-2 max-h-[400px]"
+			>
+				{children}
+			</video>
+		);
 	}
-	return <img src={source} alt={alt} loading="lazy"
-		className="max-w-full rounded-lg my-2 max-h-[500px] object-contain" onError={() => setFailedSource(source)} />;
+	return (
+		<img
+			src={source}
+			alt={alt}
+			loading="lazy"
+			className="max-w-full rounded-lg my-2 max-h-[500px] object-contain"
+			onError={() => setFailedSource(source)}
+		/>
+	);
 }
 
 const components = {
-	img: ({ src, alt }) => <MarkdownMedia src={src} alt={alt} />,
-	video: ({ src, title, children }) => <MarkdownMedia src={src} alt={title} video>{children}</MarkdownMedia>,
+	img: ({ src, alt }) => (
+		<MarkdownMedia
+			src={src}
+			alt={alt}
+		/>
+	),
+	video: ({ src, title, children }) => (
+		<MarkdownMedia
+			src={src}
+			alt={title}
+			video
+		>
+			{children}
+		</MarkdownMedia>
+	),
 	source: ({ src, type }) => {
 		const source = mediaSource(src);
-		return <source src={source || undefined} type={type || videoMimeType(source)} />;
+		return (
+			<source
+				src={source || undefined}
+				type={type || videoMimeType(source)}
+			/>
+		);
 	},
 	pre: ({ children }) => <>{children}</>,
 	table: ({ node, ...props }) => (
@@ -193,7 +234,7 @@ const components = {
 	code({ className, children, node, ...props }) {
 		const code = String(children);
 		const language = /language-([^\s]+)/.exec(className || "")?.[1];
-		if (language === 'mermaid') return <MermaidRenderer text={code.replace(/\n$/, '')} />;
+		if (language === "json:chart" || language === "chart") return <ChartCodeBlock code={code} />;
 		if (language || code.endsWith("\n"))
 			return (
 				<CodeBlock
@@ -237,75 +278,147 @@ const components = {
 	},
 };
 
-const ChatMessage = React.memo(function ChatMessage({
-	message,
-	disabled = false,
-	onSelectVariant,
-	onSelectReplyVariant,
-	showHeader = true,
-}) {
-	const index = message.active_variant_index ?? 0;
-	const activeVariant = activeReplyVariant(message);
-	// Read the identity captured with this reply, never current branding settings.
-	const displayName = assistantLabel(message);
-	const thinking = activeVariant.thinking ?? activeVariant.thinkingText;
-	const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
-	const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
-	const steps = activeVariant.executionSteps;
+function StreamingText({ buffer, onFrame }) {
+	const text = useSyncExternalStore(buffer.subscribe, buffer.getSnapshot, buffer.getSnapshot);
+	const spanRef = useRef(null);
+	const renderedLength = useRef(0);
+	useLayoutEffect(() => {
+		const span = spanRef.current;
+		if (!span) return;
+		if (text.length < renderedLength.current || !span.firstChild) {
+			span.textContent = text;
+		} else if (text.length > renderedLength.current) {
+			span.firstChild.appendData(text.slice(renderedLength.current));
+		}
+		renderedLength.current = text.length;
+		onFrame?.();
+	}, [text, onFrame]);
 	return (
-		<div className="min-w-0 w-full whitespace-normal">
-			{showHeader && <MessageContextStatus message={message} />}
-			{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
-			{steps?.length > 0 && (
-				<div
-					key={`${message.id ?? "message"}:${index}`}
-					className="message-execution-timeline mb-3 space-y-2"
-				>
-					{steps.map((step, idx) => {
-						if (step.type === "thought") {
-							return (
-								<ThoughtBlock
-									key={step.id ?? idx}
-									content={step.content}
-									durationMs={step.durationMs}
-								/>
-							);
-						}
-						if (step.type === "tool_call") {
-                            if (step.toolName === 'delegate_task') return <SubAgentBadge key={step.id ?? idx} step={step} />;
-							return (
-								<ToolCallBlock
-									key={step.id ?? idx}
-									step={step}
-								/>
-							);
-						}
-						return null;
-					})}
+		<span
+			ref={spanRef}
+			className="whitespace-pre-wrap break-words"
+		/>
+	);
+}
+
+const ChatMessage = React.memo(
+	function ChatMessage({
+		message,
+		streamBuffer,
+		onStreamFrame,
+		projectId,
+		pendingQuestions = {},
+		onAnswerQuestion,
+		disabled = false,
+		onSelectVariant,
+		onSelectReplyVariant,
+		showHeader = true,
+	}) {
+		const index = message.active_variant_index ?? 0;
+		const activeVariant = activeReplyVariant(message);
+		// Read the identity captured with this reply, never current branding settings.
+		const displayName = assistantLabel(message);
+		const thinking = activeVariant.thinking ?? activeVariant.thinkingText;
+		const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
+		const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
+		const steps = activeVariant.executionSteps;
+		return (
+			<div className="min-w-0 w-full whitespace-normal">
+				{showHeader && <MessageContextStatus message={message} />}
+				{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
+				{steps?.length > 0 && (
+					<div
+						key={`${message.id ?? "message"}:${index}`}
+						className="message-execution-timeline mb-3 space-y-2"
+					>
+						{steps.map((step, idx) => {
+							if (step.type === "thought") {
+								return (
+									<ThoughtBlock
+										key={step.id ?? idx}
+										content={step.content}
+										durationMs={step.durationMs}
+									/>
+								);
+							}
+							if (step.type === "tool_call") {
+								if (step.toolName === "ask_user")
+									return (
+										<AskUserCard
+											key={step.id ?? idx}
+											step={step}
+											request={pendingQuestions[step.id]}
+											onAnswer={onAnswerQuestion}
+										/>
+									);
+								if (step.toolName === "propose_skill")
+									return (
+										<SkillProposalCard
+											key={step.id ?? idx}
+											step={step}
+											projectId={projectId}
+										/>
+									);
+								if (step.toolName === "delegate_task")
+									return (
+										<SubAgentBadge
+											key={step.id ?? idx}
+											step={step}
+										/>
+									);
+								return (
+									<ToolCallBlock
+										key={step.id ?? idx}
+										step={step}
+									/>
+								);
+							}
+							return null;
+						})}
+					</div>
+				)}
+				{!steps && toolCalls?.length > 0 && <ToolCallBadge toolCalls={toolCalls} />}
+				{!steps && thinking && (
+					<ThinkingAccordion
+						text={thinking}
+						duration={thinkingDuration}
+					/>
+				)}
+				<div className="assistant-markdown prose max-w-none text-inherit [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-4 [&_h2]:my-4 [&_h3]:my-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-4">
+					{message.streaming ? (
+						streamBuffer ? (
+							<StreamingText
+								buffer={streamBuffer}
+								onFrame={onStreamFrame}
+							/>
+						) : (
+							<span className="whitespace-pre-wrap break-words">
+								{activeVariant.content || ""}
+							</span>
+						)
+					) : (
+						<ReactMarkdown
+							remarkPlugins={[remarkGfm]}
+							rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
+							urlTransform={mediaUrlTransform}
+							components={components}
+						>
+							{activeVariant.content ||
+								(message.streaming || steps?.length || toolCalls?.length || thinking
+									? ""
+									: "...")}
+						</ReactMarkdown>
+					)}
 				</div>
-			)}
-			{!steps && toolCalls?.length > 0 && <ToolCallBadge toolCalls={toolCalls} />}
-			{!steps && thinking && (
-				<ThinkingAccordion
-					text={thinking}
-					duration={thinkingDuration}
-				/>
-			)}
-			<div className="assistant-markdown prose max-w-none text-inherit [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-4 [&_h2]:my-4 [&_h3]:my-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-4">
-				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
-					rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
-					urlTransform={mediaUrlTransform}
-					components={components}
-				>
-					{activeVariant.content ||
-						(message.streaming || steps?.length || toolCalls?.length || thinking ? "" : "...")}
-				</ReactMarkdown>
-			</div>
-            {message.status === 'interrupted' && <div role="status" className="mt-3 text-xs text-[var(--text-muted)]">
-                ⚠ Execution interrupted. Saved progress is shown above.
-            </div>}
-			{/* {message.streaming && (
+				{message.status === "interrupted" && (
+					<div
+						role="status"
+						className="flex gap-1.5 items-center mt-3 text-xs text-[var(--text-muted)]"
+					>
+						<PiWarning /> Execution interrupted. Saved progress is shown above.
+					</div>
+				)}
+				{/* {message.streaming && (
 				<span
 					role="status"
 					className="text-xs text-[var(--text-muted)]"
@@ -313,52 +426,237 @@ const ChatMessage = React.memo(function ChatMessage({
 					Generating…
 				</span>
 			)} */}
-			<div className="mt-2 flex items-center gap-3 text-xs text-[var(--text-muted)]">
-				{message.variants?.length > 1 && (
-					<div
-						className="flex items-center gap-2 rounded-full border border-[var(--subtle-border)] px-2 py-1"
-						aria-label="Reply versions"
-					>
-						<button
-							type="button"
-							aria-label="Previous reply version"
-							disabled={disabled || message.streaming || index === 0}
-							onClick={() =>
-								onSelectReplyVariant
-									? onSelectReplyVariant(message, index - 1)
-									: onSelectVariant?.(index - 1)
-							}
-							className="disabled:opacity-40"
+				<div className="mt-2 flex items-center gap-3 text-xs text-[var(--text-muted)]">
+					{message.variants?.length > 1 && (
+						<div
+							className="flex items-center gap-2 rounded-full border border-[var(--subtle-border)] px-2 py-1"
+							aria-label="Reply versions"
 						>
-							<FiChevronLeft />
-						</button>
-						<span aria-live="polite">
-							{index + 1} / {message.variants.length}
-						</span>
-						<button
-							type="button"
-							aria-label="Next reply version"
-							disabled={disabled || message.streaming || index === message.variants.length - 1}
-							onClick={() =>
-								onSelectReplyVariant
-									? onSelectReplyVariant(message, index + 1)
-									: onSelectVariant?.(index + 1)
-							}
-							className="disabled:opacity-40"
-						>
-							<FiChevronRight />
-						</button>
-					</div>
+							<button
+								type="button"
+								aria-label="Previous reply version"
+								disabled={disabled || message.streaming || index === 0}
+								onClick={() =>
+									onSelectReplyVariant
+										? onSelectReplyVariant(message, index - 1)
+										: onSelectVariant?.(index - 1)
+								}
+								className="disabled:opacity-40"
+							>
+								<FiChevronLeft />
+							</button>
+							<span aria-live="polite">
+								{index + 1} / {message.variants.length}
+							</span>
+							<button
+								type="button"
+								aria-label="Next reply version"
+								disabled={
+									disabled || message.streaming || index === message.variants.length - 1
+								}
+								onClick={() =>
+									onSelectReplyVariant
+										? onSelectReplyVariant(message, index + 1)
+										: onSelectVariant?.(index + 1)
+								}
+								className="disabled:opacity-40"
+							>
+								<FiChevronRight />
+							</button>
+						</div>
+					)}
+				</div>
+				{message.role === "assistant" && activeVariant.stats && (
+					<StatsFooter stats={activeVariant.stats} />
 				)}
 			</div>
-			{message.role === "assistant" && activeVariant.stats && (
-				<StatsFooter stats={activeVariant.stats} />
+		);
+	},
+	(previous, next) =>
+		previous.message === next.message &&
+		previous.streamBuffer === next.streamBuffer &&
+		previous.onStreamFrame === next.onStreamFrame &&
+		previous.projectId === next.projectId &&
+		previous.pendingQuestions === next.pendingQuestions &&
+		previous.onAnswerQuestion === next.onAnswerQuestion &&
+		previous.disabled === next.disabled &&
+		previous.onSelectVariant === next.onSelectVariant &&
+		previous.onSelectReplyVariant === next.onSelectReplyVariant &&
+		previous.showHeader === next.showHeader,
+);
+
+export default ChatMessage;
+
+function AskUserCard({ step, request, onAnswer }) {
+	const [answer, setAnswer] = useState("");
+	const [sending, setSending] = useState(false);
+	const [error, setError] = useState("");
+	const question = request?.question || step.args?.question;
+	const options = request?.options || step.args?.options || [];
+	if (!question) return <ToolCallBlock step={step} />;
+	async function submit(value) {
+		if (!request || !value.trim() || sending) return;
+		setSending(true);
+		setError("");
+		try {
+			await onAnswer(request, value.trim());
+		} catch (cause) {
+			setError(cause.message);
+			setSending(false);
+		}
+	}
+	const pending = !!request && step.status !== "error";
+	return (
+		<section
+			aria-label="Agent question"
+			className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+		>
+			<p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
+				Agent needs your input
+			</p>
+			<p className="font-medium">{question}</p>
+			{pending ? (
+				<>
+					{options.length > 0 && (
+						<div className="mt-3 flex flex-wrap gap-2">
+							{options.map((option) => (
+								<button
+									key={option}
+									type="button"
+									className="project-button"
+									disabled={sending}
+									onClick={() => submit(option)}
+								>
+									{option}
+								</button>
+							))}
+						</div>
+					)}
+					<form
+						className="mt-3 flex gap-2"
+						onSubmit={(event) => {
+							event.preventDefault();
+							submit(answer);
+						}}
+					>
+						<input
+							className="project-input min-w-0 flex-1"
+							aria-label="Your answer"
+							value={answer}
+							maxLength={10000}
+							disabled={sending}
+							onChange={(event) => setAnswer(event.target.value)}
+							placeholder="Type your answer…"
+						/>
+						<button
+							className="project-button primary"
+							disabled={sending || !answer.trim()}
+						>
+							Send answer
+						</button>
+					</form>
+				</>
+			) : (
+				<p
+					className="mt-2 text-xs text-[var(--text-muted)]"
+					role="status"
+				>
+					{step.status === "complete"
+						? `Answered: ${typeof step.result === "string" ? step.result : "Response submitted"}`
+						: step.status === "error"
+							? "Question cancelled."
+							: "Resuming…"}
+				</p>
+			)}
+			{error && (
+				<p
+					role="alert"
+					className="project-error mt-2"
+				>
+					{error}
+				</p>
+			)}
+		</section>
+	);
+}
+
+function SkillProposalCard({ step, projectId }) {
+	const proposal = step.args;
+	const storageKey = `skill-proposal:${step.id}`;
+	const [decision, setDecision] = useState(() => localStorage.getItem(storageKey) || "");
+	const [error, setError] = useState("");
+	const [busy, setBusy] = useState(false);
+	if (!proposal || step.status === "preparing" || step.status === "error")
+		return <ToolCallBlock step={step} />;
+	async function register() {
+		setBusy(true);
+		setError("");
+		try {
+			await window.api.saveSkill({ ...proposal, projectId });
+			localStorage.setItem(storageKey, "registered");
+			setDecision("registered");
+		} catch (err) {
+			setError(err.message);
+		} finally {
+			setBusy(false);
+		}
+	}
+	function decline() {
+		localStorage.setItem(storageKey, "declined");
+		setDecision("declined");
+	}
+	return (
+		<div
+			className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+			role="group"
+			aria-label="Skill proposal"
+		>
+			<p>
+				The AI agent suggests saving this workflow as a new Skill: <strong>{proposal.name}</strong>
+			</p>
+			<p className="mt-2 text-[var(--text-muted)]">{proposal.description}</p>
+			<details className="mt-3">
+				<summary className="cursor-pointer">Preview instructions</summary>
+				<pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--input)] p-3 text-xs">
+					{proposal.instructions}
+				</pre>
+			</details>
+			{decision ? (
+				<p
+					className="mt-3"
+					role="status"
+				>
+					{decision === "registered" ? "Skill registered." : "Proposal declined."}
+				</p>
+			) : (
+				<div className="mt-3 flex gap-2">
+					<button
+						className="project-button primary"
+						disabled={busy || step.status !== "complete"}
+						onClick={register}
+					>
+						Register Skill
+					</button>
+					<button
+						className="project-button"
+						disabled={busy}
+						onClick={decline}
+					>
+						Decline
+					</button>
+				</div>
+			)}
+			{error && (
+				<p
+					className="project-error mt-2"
+					role="alert"
+				>
+					{error}
+				</p>
 			)}
 		</div>
 	);
-});
-
-export default ChatMessage;
+}
 
 export function MessageContextStatus({ message }) {
 	const summarized =
@@ -456,16 +754,18 @@ export function StatsFooter({ stats }) {
 			{/* Tool Loop Indicator Badge */}
 			{isMultiPass ? (
 				<span
-					className="rounded bg-[var(--bg-subtle,#2a2d3e)] px-1.5 py-0.5 text-[10px] opacity-75 cursor-help"
+					className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help"
 					title="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
 				>
+					<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
 					Multi-turn tool loop
 				</span>
 			) : (
 				<span
-					className="rounded bg-[var(--bg-subtle,#2a2d3e)] px-1.5 py-0.5 text-[10px] opacity-75"
+					className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)]"
 					title="Direct response without internal tool calls"
 				>
+					<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
 					Single turn
 				</span>
 			)}
@@ -474,25 +774,71 @@ export function StatsFooter({ stats }) {
 }
 
 export function SubAgentBadge({ step }) {
-    let args = step.args ?? step.function?.arguments ?? {};
-    if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = {}; } }
-    const files = Array.isArray(args?.target_files) ? args.target_files.filter(file => typeof file === 'string') : [];
-    const running = ['pending', 'running'].includes(step.status);
-    const failed = ['error', 'cancelled'].includes(step.status) || step.result?.success === false || step.result?.isError;
-    const label = running ? `Researching ${files.length} files...` : failed ? 'Research failed' : `Researched ${files.length} files`;
-    const result = typeof step.result === 'string' ? step.result : step.error || step.result?.error;
-    return <details className="mb-2 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs" aria-label="Sub-agent delegation">
-        <summary className="cursor-pointer rounded-lg px-3 py-2 text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
-            <span aria-live="polite">[🤖 Sub-Agent Delegated: {label}]</span>
-        </summary>
-        <div className="space-y-3 border-t border-[var(--subtle-border)] p-3">
-            {typeof args?.task_description === 'string' && <p className="whitespace-pre-wrap break-words">{args.task_description}</p>}
-            {files.length > 0 && <ul aria-label="Research files" className="list-disc pl-5">{files.map((file, index) => <li className="break-all" key={index}>{file}</li>)}</ul>}
-            <p className={`whitespace-pre-wrap break-words ${failed ? 'text-[var(--error)]' : 'text-[var(--text-secondary)]'}`}>
-                {running ? 'The main agent is waiting for the research summary.' : result || 'No summary was saved.'}
-            </p>
-        </div>
-    </details>;
+	const [expanded, setExpanded] = useState(false);
+	let args = step.args ?? step.function?.arguments ?? {};
+	if (typeof args === "string") {
+		try {
+			args = JSON.parse(args);
+		} catch {
+			args = {};
+		}
+	}
+	const files = Array.isArray(args?.target_files)
+		? args.target_files.filter((file) => typeof file === "string")
+		: [];
+	const running = ["pending", "running"].includes(step.status);
+	const failed =
+		["error", "cancelled"].includes(step.status) ||
+		step.result?.success === false ||
+		step.result?.isError;
+	const label = running
+		? `Researching ${files.length} files...`
+		: failed
+			? "Research failed"
+			: `Researched ${files.length} files`;
+	const result = typeof step.result === "string" ? step.result : step.error || step.result?.error;
+	return (
+		<details
+			onToggle={(event) => setExpanded(event.currentTarget.open)}
+			className="mb-2 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs"
+			aria-label="Sub-agent delegation"
+		>
+			<summary className="cursor-pointer rounded-lg px-3 py-2 text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+				<span aria-live="polite">
+					[<RiRobot2Line /> Sub-Agent Delegated: {label}]
+				</span>
+			</summary>
+			{expanded && (
+				<div className="space-y-3 border-t border-[var(--subtle-border)] p-3">
+					{typeof args?.task_description === "string" && (
+						<p className="whitespace-pre-wrap break-words">{args.task_description}</p>
+					)}
+					{files.length > 0 && (
+						<ul
+							aria-label="Research files"
+							className="list-disc pl-5"
+						>
+							{files.map((file, index) => (
+								<li
+									className="break-all"
+									key={index}
+								>
+									{file}
+								</li>
+							))}
+						</ul>
+					)}
+					<p
+						className={`whitespace-pre-wrap break-words ${failed ? "text-[var(--error)]" : "text-[var(--text-secondary)]"}`}
+					>
+						{running
+							? "The main agent is waiting for the research summary."
+							: result || "No summary was saved."}
+					</p>
+				</div>
+			)}
+		</details>
+	);
 }
 
 export function ToolCallBadge({ toolCalls }) {
@@ -501,39 +847,51 @@ export function ToolCallBadge({ toolCalls }) {
 			aria-label="Tool executions"
 			className="mb-2 space-y-1"
 		>
-			{toolCalls.map((call, index) => (call.toolName || call.function?.name) === 'delegate_task'
-                ? <SubAgentBadge key={call.id || index} step={call} /> : (
-				<div
-					key={call.id || index}
-					role="status"
-					className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]"
-				>
-					<FiTool
-						aria-hidden="true"
-						className="shrink-0"
+			{toolCalls.map((call, index) =>
+				(call.toolName || call.function?.name) === "delegate_task" ? (
+					<SubAgentBadge
+						key={call.id || index}
+						step={call}
 					/>
-					<span>
-						{call.serverName ? `${call.serverName} / ` : ""}
-						{call.toolName ||
-							(typeof call.function?.name === "string" ? call.function.name : "Tool")}
-					</span>
-					{call.status && (
-						<span className="text-[var(--text-secondary)]">
-							· {call.status === "pending" ? "Running…" : call.status}
+				) : (
+					<div
+						key={call.id || index}
+						role="status"
+						className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]"
+					>
+						<FiTool
+							aria-hidden="true"
+							className="shrink-0"
+						/>
+						<span>
+							{call.serverName ? `${call.serverName} / ` : ""}
+							{call.toolName ||
+								(typeof call.function?.name === "string" ? call.function.name : "Tool")}
 						</span>
-					)}
-					{call.error && (
-						<p className="w-full pl-5 whitespace-pre-wrap text-[var(--error)]">{call.error}</p>
-					)}
-				</div>
-			))}
+						{call.status && (
+							<span className="text-[var(--text-secondary)]">
+								· {call.status === "pending" ? "Running…" : call.status}
+							</span>
+						)}
+						{call.error && (
+							<p className="w-full pl-5 whitespace-pre-wrap text-[var(--error)]">
+								{call.error}
+							</p>
+						)}
+					</div>
+				),
+			)}
 		</div>
 	);
 }
 
 export function ThinkingAccordion({ text, duration }) {
+	const [expanded, setExpanded] = useState(false);
 	return (
-		<details className="group/thinking mb-3  text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md">
+		<details
+			onToggle={(event) => setExpanded(event.currentTarget.open)}
+			className="group/thinking mb-3  text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
+		>
 			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 				<FiChevronDown
 					aria-hidden="true"
@@ -541,9 +899,11 @@ export function ThinkingAccordion({ text, duration }) {
 				/>
 				<GiStarSwirl /> Thought{duration != null ? ` for ${duration.toFixed(1)}s` : ""}
 			</summary>
-			<div className="mt-1 border-l-2 border-[var(--subtle-border)] py-1 pl-3 whitespace-pre-wrap break-words leading-relaxed">
-				{text}
-			</div>
+			{expanded && (
+				<div className="mt-1 border-l-2 border-[var(--subtle-border)] py-1 pl-3 whitespace-pre-wrap break-words leading-relaxed">
+					{text}
+				</div>
+			)}
 		</details>
 	);
 }

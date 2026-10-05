@@ -11,8 +11,10 @@ import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/m
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { LuX } from "react-icons/lu";
 import { IoIosHourglass } from "react-icons/io";
-import ToolApprovalToast from './ToolApprovalToast.jsx';
+import ToolApprovalToast from "./ToolApprovalToast.jsx";
 import ToolLimitToast from "./ToolLimitToast.jsx";
+import { useStreamBuffer } from "./useStreamBuffer.js";
+import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
 
 function SelectedFilePreview({ file, onRemove, disabled }) {
 	const [previewUrl, setPreviewUrl] = useState(null);
@@ -75,21 +77,34 @@ export function ChatInterface({
 	avatarSettings,
 	isRightSidebarOpen,
 	onCloseRightSidebar,
-	models,
+models,
 	onSelectModel,
-	onTabUpdate,
+onTabUpdate,
 	tabPermissionMode,
+	tabSaved = false,
+	onTabSaved,
 }) {
-    const [permissionBySession, setPermissionBySession] = useState({});
-    const project = projects.find(project => project.id === activeProjectId);
-    const permissionMode = permissionBySession[palace.sessionId] ?? tabPermissionMode ?? project?.permissionMode ?? project?.permission_mode ?? (activeProjectId ? 'workspace_write' : 'ask_approval');
-    const [toolApprovals, setToolApprovals] = useState([]);
-    useEffect(() => window.chatAPI?.onToolApproval?.(state => {
-        if (state.sessionId !== palace.sessionId) return;
-        setToolApprovals(current => state.resolved
-            ? current.filter(item => item.approvalId !== state.approvalId)
-            : [...current.filter(item => item.approvalId !== state.approvalId), state]);
-    }), [palace.sessionId]);
+	const [permissionBySession, setPermissionBySession] = useState({});
+	const project = projects.find((project) => project.id === activeProjectId);
+	const permissionMode =
+		permissionBySession[palace.sessionId] ??
+		tabPermissionMode ??
+		project?.permissionMode ??
+		project?.permission_mode ??
+		(activeProjectId ? "workspace_write" : "ask_approval");
+	const [toolApprovals, setToolApprovals] = useState([]);
+	useEffect(
+		() =>
+			window.chatAPI?.onToolApproval?.((state) => {
+				if (state.sessionId !== palace.sessionId) return;
+				setToolApprovals((current) =>
+					state.resolved
+						? current.filter((item) => item.approvalId !== state.approvalId)
+						: [...current.filter((item) => item.approvalId !== state.approvalId), state],
+				);
+			}),
+		[palace.sessionId],
+	);
 	const chatAvailable = activeChatProvider.type === "cloud" || !!baseUrl;
 	const currentModel = models.find((model) => model.id === selectedModel);
 	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
@@ -105,6 +120,11 @@ export function ChatInterface({
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
+	const streamBuffer = useStreamBuffer();
+	const activeStreamMessageIdRef = useRef(null);
+	const loadDisplaySession = (sessionId) => palace.api.loadDisplaySession?.(sessionId) ?? palace.api.loadSession(sessionId);
+	const displayMessages = (session) => palace.api.loadDisplaySession
+		? session.messages : session.messages.map(compactMessageForDisplay);
 	const [promptQueue, setPromptQueue] = useState([]);
 	const queuePrompt = useCallback((text) => {
 		setPromptQueue((previous) => [...previous, { id: Date.now(), text }]);
@@ -120,12 +140,70 @@ export function ChatInterface({
 		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
+	const [allowMidRunQuestions, setAllowMidRunQuestions] = useState(false);
+	const [midRunQuestionsBusy, setMidRunQuestionsBusy] = useState(true);
+	const [midRunQuestionsError, setMidRunQuestionsError] = useState("");
+	useEffect(() => {
+		let current = true;
+		setAllowMidRunQuestions(false);
+		setMidRunQuestionsError("");
+		setMidRunQuestionsBusy(true);
+		if (palace.sessionId && selectedModel)
+			window.api
+				.getEffectiveSettings(palace.sessionId, selectedModel)
+				.then((result) => {
+					if (current) setAllowMidRunQuestions(result.effective.allowMidRunQuestions === true);
+				})
+				.catch((error) => {
+					if (current) setMidRunQuestionsError(error.message);
+				})
+				.finally(() => {
+					if (current) setMidRunQuestionsBusy(false);
+				});
+		else setMidRunQuestionsBusy(false);
+		return () => {
+			current = false;
+		};
+	}, [palace.sessionId, selectedModel]);
+	async function changeMidRunQuestions(value) {
+		setMidRunQuestionsBusy(true);
+		setMidRunQuestionsError("");
+		try {
+			const result = await window.api.saveSessionMemorySettings(palace.sessionId, selectedModel, {
+				allowMidRunQuestions: value,
+			});
+			setAllowMidRunQuestions(result.effective.allowMidRunQuestions === true);
+		} catch (error) {
+			setMidRunQuestionsError(error.message);
+		} finally {
+			setMidRunQuestionsBusy(false);
+		}
+	}
+	const [pendingQuestions, setPendingQuestions] = useState({});
+	useEffect(() => {
+		setPendingQuestions({});
+		return window.chatAPI?.onAskUser?.((request) => {
+			if (request.sessionId !== palace.sessionId) return;
+			setPendingQuestions((current) => {
+				const next = { ...current };
+				if (request.resolved) delete next[request.stepId];
+				else next[request.stepId] = request;
+				return next;
+			});
+		});
+	}, [palace.sessionId]);
 	const [pausedLoop, setPausedLoop] = useState(null);
 	const [toolLimit, setToolLimit] = useState(null);
-	useEffect(() => window.chatAPI?.onToolLimitReached?.((state) => {
-		if (state.sessionId !== palace.sessionId) return;
-		setToolLimit((current) => state.resolved ? (current?.requestId === state.requestId ? null : current) : state);
-	}), [palace.sessionId]);
+	useEffect(
+		() =>
+			window.chatAPI?.onToolLimitReached?.((state) => {
+				if (state.sessionId !== palace.sessionId) return;
+				setToolLimit((current) =>
+					state.resolved ? (current?.requestId === state.requestId ? null : current) : state,
+				);
+			}),
+		[palace.sessionId],
+	);
 	useEffect(
 		() =>
 			window.chatAPI?.onLoopPaused?.((state) => {
@@ -135,11 +213,46 @@ export function ChatInterface({
 		[palace.sessionId],
 	);
 	useEffect(() => {
-		onTabUpdate?.({ status: toolApprovals.length || toolLimit || pausedLoop ? 'awaiting_approval' : streaming ? 'generating' : 'idle' });
-	}, [toolApprovals, toolLimit, pausedLoop, streaming, onTabUpdate]);
-	useEffect(() => {
-		if (!streaming) { setPausedLoop(null); setToolLimit(null); }
+		onTabUpdate?.({
+			status:
+				toolApprovals.length || toolLimit || pausedLoop || Object.keys(pendingQuestions).length
+					? "awaiting_approval"
+					: streaming
+						? "generating"
+						: "idle",
+		});
+	}, [toolApprovals, toolLimit, pausedLoop, pendingQuestions, streaming, onTabUpdate]);
+useEffect(() => {
+		if (!streaming) {
+			setPendingQuestions({});
+			setPausedLoop(null);
+			setToolLimit(null);
+		}
 	}, [streaming]);
+	// Restore the transcript for a tab rehydrated from persisted state. Only
+	// committed chats exist in the database; a never-sent tab has no row yet,
+	// so its empty history is correct and must not raise an error.
+	useEffect(() => {
+		const sessionId = palace.sessionId;
+		if (!sessionId || !tabSaved || !palace.api) return;
+		let current = true;
+		setLoading(true);
+		loadDisplaySession(sessionId)
+			.then((session) => {
+				if (!current) return;
+				setMessages(displayMessages(session));
+			})
+			.catch((error) => {
+				// The session can disappear between restore and this read.
+				if (current) setMessages([]);
+			})
+			.finally(() => {
+				if (current) setLoading(false);
+			});
+		return () => {
+			current = false;
+		};
+	}, [palace.sessionId, tabSaved, palace.api]);
 	const [groups, setGroups] = useState([]);
 	const [historyError, setHistoryError] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -169,7 +282,7 @@ export function ChatInterface({
 	const newChat = () => {
 		if (busyRef.current) return;
 		onChat();
-		onTabUpdate?.({ title: 'New chat', status: 'idle' });
+		onTabUpdate?.({ title: "New chat", status: "idle" });
 		pendingAgent.current = null;
 		pendingSend.current = null;
 		setPromptQueue([]);
@@ -187,14 +300,18 @@ export function ChatInterface({
 		setLoading(true);
 		setHistoryError("");
 		try {
-			const session = await palace.api.loadSession(id);
+			const session = await loadDisplaySession(id);
 			pendingAgent.current = null;
 			pendingSend.current = null;
 			setPromptQueue([]);
 			palace.setSessionId(id);
-			onTabUpdate?.({ title: session.title || 'Untitled chat', modelId: session.model_id || selectedModel,
-				projectId: session.project_id ?? null, permissionMode: session.project_id ? 'workspace_write' : 'ask_approval' });
-			setMessages(session.messages);
+			onTabUpdate?.({
+				title: session.title || "Untitled chat",
+				modelId: session.model_id || selectedModel,
+				projectId: session.project_id ?? null,
+				permissionMode: session.project_id ? "workspace_write" : "ask_approval",
+			});
+			setMessages(displayMessages(session));
 			onChat();
 			clearFiles();
 			setEditing(null);
@@ -227,7 +344,7 @@ export function ChatInterface({
 			pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
 			setAgentLoading(true);
 			palace.setSessionId(id);
-			onTabUpdate?.({ projectId, title: 'New chat', permissionMode: 'workspace_write' });
+			onTabUpdate?.({ projectId, title: "New chat", permissionMode: "workspace_write" });
 			setMessages([]);
 			clearFiles();
 			setEditing(null);
@@ -253,12 +370,12 @@ export function ChatInterface({
 				await palace.refresh();
 			} else {
 				const { sessionId } = await palace.api.branchChat(palace.sessionId, messageId);
-				const session = await palace.api.loadSession(sessionId);
+				const session = await loadDisplaySession(sessionId);
 				pendingAgent.current = null;
 				pendingSend.current = null;
 				setPromptQueue([]);
 				palace.setSessionId(sessionId);
-				setMessages(session.messages);
+				setMessages(displayMessages(session));
 				clearFiles();
 				setEditing(null);
 				palace.setDraftTokens(0);
@@ -381,6 +498,10 @@ export function ChatInterface({
 		}
 	};
 	const messagesRef = useRef(null);
+	const onStreamFrame = useCallback(() => {
+		if (!isUserScrolledUp.current && messagesRef.current)
+			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
+	}, []);
 	const abortRef = useRef(null);
 	useEffect(() => () => abortRef.current?.abort(), []);
 	useEffect(() => {
@@ -485,11 +606,14 @@ export function ChatInterface({
 				palace.setSessionId(crypto.randomUUID());
 				return;
 			}
-			if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
+if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
 
-			busyRef.current = true;
-			setIndexing(null);
-			setHistoryError("");
+		busyRef.current = true;
+		setIndexing(null);
+		setHistoryError("");
+		// The session row is created from here on, so the tab becomes a
+		// restorable chat rather than a blank one.
+		onTabSaved?.();
 			const identity = Object.freeze({
 				displayName: resolveDisplayName(
 					avatarSettings,
@@ -512,16 +636,21 @@ export function ChatInterface({
 			abortRef.current = controller;
 			let persistedMessageId = null;
 			let assistantText = "";
+			activeStreamMessageIdRef.current = assistantMsg.id;
+			let lastDraftTokenUpdate = 0;
+			streamBuffer.start((text) => {
+				const now = performance.now();
+				if (now - lastDraftTokenUpdate >= 1000) {
+					lastDraftTokenUpdate = now;
+					palace.setDraftTokens(Math.ceil(text.length / 4));
+				}
+			});
 			let assistantStats = null;
 			let executionSteps = [];
 			let prepared = false;
 			let failed = false;
 			try {
-				if (edit) {
-					const retained = await palace.api.editMessage(edit.id, text);
-					setMessages([...retained, assistantMsg]);
-					setEditing(null);
-				}
+				if (edit) setEditing(null);
 				let attachments = [];
 				if (!queued && !edit && !retry && selectedFiles.length) {
 					if (!window.api?.processUploads)
@@ -534,36 +663,43 @@ export function ChatInterface({
 					attachments = selectedFiles.map((file) => uploadCache.current.get(file));
 				}
 				controller.signal.throwIfAborted();
-			const requestMessages = await palace.prepareMessages(text, !!edit || retry, attachments);
-			if (!edit && !retry && text?.trim()) onTabUpdate?.({ title: text.trim().slice(0, 48) });
+				const requestMessages = edit
+					? undefined
+					: await palace.prepareMessages(text, retry, attachments);
+				if (!edit && !retry && text?.trim()) onTabUpdate?.({ title: text.trim().slice(0, 48) });
 				prepared = true;
 				if (!queued && !edit && !retry) {
 					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
 					clearFiles();
 				}
-				const saved = await palace.api.loadSession(palace.sessionId);
-				setMessages([...saved.messages, assistantMsg]);
+			const saved = await loadDisplaySession(palace.sessionId);
+			setMessages([...displayMessages(saved), assistantMsg]);
 				await refreshHistory();
-				const thinkingBudget = (await window.api.getEffectiveSettings(palace.sessionId, selectedModel)).effective.thinkingBudget ?? -1;
+				const thinkingBudget =
+					(await window.api.getEffectiveSettings(palace.sessionId, selectedModel)).effective
+						.thinkingBudget ?? -1;
 				await runDesktopChat({
 					activeChatProvider,
-                    permissionMode,
+					permissionMode,
 					reasoningEffort,
 					thinkingBudget,
 					sessionId: palace.sessionId,
 					onIndexing: setIndexing,
 					modelId: selectedModel,
 					messages: requestMessages,
+					...(edit ? { branchMessageId: edit.id, newContent: text } : {}),
 					messageId: assistantMsg.id,
-                    modelName: identity.modelName,
-                    onMessageCreated: id => { persistedMessageId = id; },
+					modelName: identity.modelName,
+					onMessageCreated: (id) => {
+						persistedMessageId = id;
+					},
 					displayName: identity.displayName,
 					onExecutionSteps: (steps) => {
 						executionSteps = steps;
 						setMessages((prev) =>
 							prev.map((message) =>
 								message.id === assistantMsg.id
-									? { ...message, executionSteps: steps }
+									? { ...message, executionSteps: compactStepsForDisplay(steps, message.executionSteps) }
 									: message,
 							),
 						);
@@ -578,19 +714,15 @@ export function ChatInterface({
 						);
 					},
 					onText: (delta) => {
-						assistantText += delta;
-						palace.setDraftTokens(Math.ceil(assistantText.length / 4));
-						setMessages((prev) => {
-							const next = [...prev];
-							next[next.length - 1] = { ...next[next.length - 1], content: assistantText };
-							return next;
-						});
+						streamBuffer.push(delta);
 					},
 				});
 			} catch (err) {
 				failed = true;
 				if (err.name !== "AbortError") setHistoryError(err.message);
 			} finally {
+				assistantText = streamBuffer.flush();
+				palace.setDraftTokens(Math.ceil(assistantText.length / 4));
 				if (prepared && (persistedMessageId || !failed || assistantText || executionSteps.length)) {
 					executionSteps = executionSteps.map((step) =>
 						step.type === "tool_call" && ["pending", "running"].includes(step.status)
@@ -612,7 +744,7 @@ export function ChatInterface({
 										...message,
 										displayName: identity.displayName,
 										stats: assistantStats,
-										executionSteps,
+										executionSteps: compactStepsForDisplay(executionSteps),
 										streaming: false,
 									}
 								: message,
@@ -626,12 +758,12 @@ export function ChatInterface({
 							null,
 							identity,
 							executionSteps,
-                            persistedMessageId,
+							persistedMessageId,
 						);
 						if (saved)
 							setMessages((prev) =>
 								prev.map((message) =>
-									message.id === assistantMsg.id ? { ...saved, streaming: false } : message,
+									message.id === assistantMsg.id ? { ...compactMessageForDisplay(saved), streaming: false } : message,
 								),
 							);
 						else setMessages((prev) => prev.filter((message) => message.id !== assistantMsg.id));
@@ -647,7 +779,15 @@ export function ChatInterface({
 					prev.map((message) => (message.streaming ? { ...message, streaming: false } : message)),
 				);
 				await refreshHistory().catch((err) => setHistoryError(err.message));
+				if (edit) {
+					try {
+						setMessages(displayMessages(await loadDisplaySession(palace.sessionId)));
+					} catch (error) {
+						setHistoryError(error.message);
+					}
+				}
 				setStreaming(false);
+				activeStreamMessageIdRef.current = null;
 				setIndexing(null);
 				busyRef.current = false;
 				abortRef.current = null;
@@ -658,7 +798,7 @@ export function ChatInterface({
 			selectedFiles,
 			clearFiles,
 			selectedModel,
-            permissionMode,
+			permissionMode,
 			reasoningEffort,
 			activeChatProvider,
 			activeModelName,
@@ -666,9 +806,10 @@ export function ChatInterface({
 			avatarSettings,
 			sessionAgent,
 			agentLoading,
-			chatAvailable,
+chatAvailable,
 			palace,
 			refreshHistory,
+			onTabSaved,
 		],
 	);
 	useEffect(() => {
@@ -752,11 +893,13 @@ export function ChatInterface({
 				),
 			);
 		};
+		activeStreamMessageIdRef.current = message.id;
+		streamBuffer.start();
 		updateDraft({});
 		try {
 			const result = await runDesktopChat({
 				activeChatProvider,
-                permissionMode,
+				permissionMode,
 				reasoningEffort,
 				regenerate: true,
 				sessionId: palace.sessionId,
@@ -766,18 +909,20 @@ export function ChatInterface({
 				memoryEnabled: palace.enabled,
 				signal: controller.signal,
 				onIndexing: setIndexing,
-				onText: (delta) => updateDraft({ content: draft.content + delta }),
+				onText: (delta) => streamBuffer.push(delta),
 				messageId: message.id,
 				onExecutionSteps: (executionSteps) => updateDraft({ executionSteps }),
 				onStats: (stats) => updateDraft({ stats }),
 			});
-			setMessages((previous) => previous.map((row) => (row.id === message.id ? result.message : row)));
+			setMessages((previous) => previous.map((row) => (row.id === message.id ? compactMessageForDisplay(result.message) : row)));
 			await palace.refresh();
 			await refreshHistory();
 		} catch (error) {
 			setMessages((previous) => previous.map((row) => (row.id === message.id ? message : row)));
 			if (error.name !== "AbortError") setHistoryError(error.message);
 		} finally {
+			streamBuffer.flush();
+			activeStreamMessageIdRef.current = null;
 			busyRef.current = false;
 			setStreaming(false);
 			setIndexing(null);
@@ -800,7 +945,7 @@ export function ChatInterface({
 			);
 			try {
 				const saved = await palace.api.setActiveVariant(palace.sessionId, message.id, index);
-				setMessages((previous) => previous.map((row) => (row.id === message.id ? saved : row)));
+				setMessages((previous) => previous.map((row) => (row.id === message.id ? compactMessageForDisplay(saved) : row)));
 				await palace.refresh();
 			} catch (error) {
 				setMessages((previous) => previous.map((row) => (row.id === message.id ? message : row)));
@@ -812,6 +957,25 @@ export function ChatInterface({
 		},
 		[palace.api, palace.sessionId, palace.refresh],
 	);
+	const answerQuestion = useCallback((request, answer) =>
+		window.chatAPI.respondToAskUser(request.requestId, request.questionId, answer), []);
+	const selectMessageBranch = async (message, offset) => {
+		if (busyRef.current || !palace.api) return;
+		const siblings = message.siblings || [];
+		const targetId = siblings[siblings.indexOf(message.id) + offset];
+		if (!targetId) return;
+		busyRef.current = true;
+		setLoading(true);
+		try {
+			setMessages((await palace.api.selectMessageBranch(palace.sessionId, targetId)).map(compactMessageForDisplay));
+			await palace.refresh();
+		} catch (error) {
+			setHistoryError(error.message);
+		} finally {
+			busyRef.current = false;
+			setLoading(false);
+		}
+	};
 	const hasUnrepliedMessage = messages.at(-1)?.role === "user" && !streaming;
 	const generateReply = useCallback(() => {
 		if (hasUnrepliedMessage && !loading) sendMessage(null, true);
@@ -833,9 +997,19 @@ export function ChatInterface({
 	};
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
-            {toolApprovals[0] && <ToolApprovalToast key={toolApprovals[0].approvalId} approval={toolApprovals[0]} />}
-			{toolLimit && <ToolLimitToast key={toolLimit.requestId + ':' + toolLimit.currentCount}
-				limit={toolLimit} onError={setHistoryError} />}
+			{toolApprovals[0] && (
+				<ToolApprovalToast
+					key={toolApprovals[0].approvalId}
+					approval={toolApprovals[0]}
+				/>
+			)}
+			{toolLimit && (
+				<ToolLimitToast
+					key={toolLimit.requestId + ":" + toolLimit.currentCount}
+					limit={toolLimit}
+					onError={setHistoryError}
+				/>
+			)}
 			{pausedLoop && (
 				<div
 					role="status"
@@ -900,7 +1074,7 @@ export function ChatInterface({
 							else {
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
-									onTabUpdate?.({ title: 'New chat', status: 'idle' });
+									onTabUpdate?.({ title: "New chat", status: "idle" });
 									pendingAgent.current = null;
 									pendingSend.current = null;
 									setPromptQueue([]);
@@ -982,7 +1156,7 @@ export function ChatInterface({
 										{isEditing ? (
 											<div className="flex w-full flex-col gap-2.5">
 												<form
-													className="flex flex-col gap-2"
+													className="flex flex-col gap-2 w-full"
 													onSubmit={(event) => {
 														event.preventDefault();
 														sendMessage(msg);
@@ -1080,6 +1254,11 @@ export function ChatInterface({
 													{msg.role === "assistant" ? (
 														<ChatMessage
 															message={msg}
+															streamBuffer={msg.streaming && activeStreamMessageIdRef.current === msg.id ? streamBuffer : undefined}
+															onStreamFrame={onStreamFrame}
+															projectId={activeProjectId}
+															pendingQuestions={pendingQuestions}
+												onAnswerQuestion={answerQuestion}
 															showHeader={false}
 															disabled={streaming || loading}
 															onSelectReplyVariant={selectReplyVariant}
@@ -1116,6 +1295,41 @@ export function ChatInterface({
 													)}
 												</div>
 												<MessageContextStatus message={msg} />
+												{msg.role === "user" && msg.siblings?.length > 1 && (
+													<div
+														className="mt-2 flex items-center gap-2 rounded-full border border-[var(--subtle-border)] px-2 py-1 text-xs text-[var(--text-muted)]"
+														aria-label="Prompt versions"
+													>
+														<button
+															type="button"
+															aria-label="Previous prompt version"
+															disabled={
+																streaming ||
+																loading ||
+																msg.siblings[0] === msg.id
+															}
+															onClick={() => selectMessageBranch(msg, -1)}
+														>
+															◄
+														</button>
+														<span aria-live="polite">
+															{msg.siblings.indexOf(msg.id) + 1} /{" "}
+															{msg.siblings.length}
+														</span>
+														<button
+															type="button"
+															aria-label="Next prompt version"
+															disabled={
+																streaming ||
+																loading ||
+																msg.siblings.at(-1) === msg.id
+															}
+															onClick={() => selectMessageBranch(msg, 1)}
+														>
+															►
+														</button>
+													</div>
+												)}
 												{/** Actions toolbar **/}
 												{["user", "assistant"].includes(msg.role) && (
 													<MessageActions
@@ -1241,12 +1455,16 @@ export function ChatInterface({
 					/>
 
 					<ChatInput
-                        modelId={selectedModel}
-                        permissionMode={permissionMode}
-                        onPermissionModeChange={mode => {
-                            setPermissionBySession(current => ({ ...current, [palace.sessionId]: mode }));
-                            onTabUpdate?.({ permissionMode: mode });
-                        }}
+						modelId={selectedModel}
+						permissionMode={permissionMode}
+						allowMidRunQuestions={allowMidRunQuestions}
+						onMidRunQuestionsChange={changeMidRunQuestions}
+						midRunQuestionsBusy={midRunQuestionsBusy}
+						midRunQuestionsError={midRunQuestionsError}
+						onPermissionModeChange={(mode) => {
+							setPermissionBySession((current) => ({ ...current, [palace.sessionId]: mode }));
+							onTabUpdate?.({ permissionMode: mode });
+						}}
 						ref={composerRef}
 						sessionId={palace.sessionId}
 						onQueue={queuePrompt}
