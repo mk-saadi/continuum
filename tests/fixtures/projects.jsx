@@ -9,6 +9,7 @@ window.api = {
   getProject: async id => structuredClone(records.find(p => p.id === id)),
   updateProject: async (id, patch) => { Object.assign(records.find(p => p.id === id), patch); return structuredClone(records.find(p => p.id === id)); },
   pickDirectory: async () => '/work/new-folder',
+  selectDirectory: async () => '/work/new-folder',
   setProjectPinned: async (id, value) => window.api.updateProject(id, { is_pinned: Number(value) }),
   importProjectFiles: async (id, files) => { for (const file of files) records.find(p => p.id === id).files.push({ id: file.name, file_name: file.name, file_path: file.name, content: await file.text() }); },
   removeProjectFile: async id => { records.forEach(p => { p.files = p.files.filter(file => file.id !== id); }); },

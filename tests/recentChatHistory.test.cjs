@@ -56,9 +56,10 @@ const run = (args = {}, sessionId = 'current') => executeAgentTool({ name: 'get_
     assert.match(buildSessionSystemPrompt({ sessionId: 'current', modelId: 'model' }).content, /CROSS-SESSION MEMORY:.*1-2 word keywords/);
     for (let i = 0; i < 12; i++) insert.run('global', 'user', `Extra ${i}`, '2026-09-08 10:00:00', 0, 0);
     const limited = await run();
-    assert.equal(limited.length, 10);
+    assert.equal(limited.length, 5);
     assert.equal(limited[0].content, 'Extra 11', 'Timestamp ties use newest ID');
-    assert.equal((await run({ limit: 12 })).length, 12);
+    assert.equal((await run({ limit: 10 })).length, 10);
+    assert.equal((await run({ limit: 12 })).success, false);
     db.prepare('DELETE FROM messages').run();
     assert.deepEqual(await run({ query: 'anything' }), []);
     console.log('Recent cross-session history: search, fallback, exclusion, defaults, validation, tool registration and prompt passed.');

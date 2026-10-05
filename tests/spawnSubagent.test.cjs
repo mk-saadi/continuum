@@ -7,10 +7,11 @@ test('spawn_subagent schema matches the prompt invocation', () => {
   const schema = spawnSubagentTool.function;
   assert.equal(schema.name, 'spawn_subagent');
   assert.deepEqual(schema.parameters.required, ['task']);
-  for (const field of ['task', 'constraint', 'expected_output', 'url', 'target_files']) {
+  for (const field of ['task', 'constraint', 'expected_output', 'url']) {
     assert.ok(schema.parameters.properties[field]);
   }
-  assert.match(schema.description, /isolated, throwaway context/);
+  assert.equal(schema.parameters.properties.target_files, undefined);
+  assert.match(schema.description, /DO NOT use this tool to search, read, inspect, or parse local workspace files/);
   assert.ok(require('../src/main/tools/agentTools').agentTools.includes(spawnSubagentTool));
 });
 
@@ -32,17 +33,13 @@ test('web invocation passes one URL and constraints to the isolated extractor', 
   } finally { runner.extractWebPageData = original; }
 });
 
-test('file invocation passes project-relative paths and returns a bounded summary', async () => {
+test('file invocation is rejected before launching a worker', async () => {
   const original = runner.runSubAgent;
-  let call;
-  runner.runSubAgent = async options => { call = options; return 'x'.repeat(3000); };
+  let called = false;
+  runner.runSubAgent = async () => { called = true; return 'unexpected'; };
   try {
-    const answer = await executeSpawnSubagent({ task: 'Inspect error logs', target_files: ['logs/app.log'],
-      constraint: 'Return only relevant errors.', rootPath: '/project', engine: { port: 4321, modelId: 'model' } });
-    assert.deepEqual(call.target_files, ['logs/app.log']);
-    assert.equal(call.rootPath, '/project');
-    assert.match(call.task_description, /Return only relevant errors/);
-    assert.ok(answer.length <= 1800);
-    await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /URL or target_files/);
+    await assert.rejects(executeSpawnSubagent({ task: 'Inspect error logs', target_files: ['logs/app.log'] }), /Do NOT use sub-agents for file inspection/);
+    await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /Provide one public web URL/);
+    assert.equal(called, false);
   } finally { runner.runSubAgent = original; }
 });

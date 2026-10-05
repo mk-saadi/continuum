@@ -26,6 +26,35 @@ test('web fetch caps downloads, rejects private URLs and returns bounded text', 
     fetchImpl: async () => new Response('x'.repeat(1024 * 1024 + 1), { headers: { 'content-type': 'text/html' } }) }), /download limit/);
 });
 
+test('web fetch sends browser headers and validates each redirect', async () => {
+  const requests = [];
+  const content = await getSingleWebPageContent({ url: 'https://example.com/start',
+    fetchImpl: async (url, options) => {
+      requests.push({ url: url.href, options });
+      return requests.length === 1
+        ? new Response(null, { status: 302, headers: { location: '/article' } })
+        : new Response('<main>Article</main>', { headers: { 'content-type': 'text/html' } });
+    } });
+  assert.equal(content, 'Article');
+  assert.deepEqual(requests.map(request => request.url), ['https://example.com/start', 'https://example.com/article']);
+  for (const { options } of requests) {
+    assert.equal(options.method, 'GET');
+    assert.match(options.headers['User-Agent'], /Chrome\/128/);
+    assert.match(options.headers.Accept, /text\/html/);
+    assert.equal(options.headers['Accept-Language'], 'en-US,en;q=0.5');
+    assert.equal(options.redirect, 'manual');
+    assert.ok(options.signal instanceof AbortSignal);
+  }
+  await assert.rejects(getSingleWebPageContent({ url: 'https://example.com/start',
+    fetchImpl: async () => new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/private' } }) }), /public/);
+});
+
+test('web fetch reports the exception and target URL', async () => {
+  await assert.rejects(getSingleWebPageContent({ url: 'https://example.com/failure',
+    fetchImpl: async () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } }); } }),
+  /SUBAGENT_FETCH_ERROR: TypeError - fetch failed \(ECONNRESET\) \(Target: https:\/\/example.com\/failure\)/);
+});
+
 test('tool output guard preserves exact limit and a truncation notice', () => {
   const original = { result: 'x'.repeat(30000) };
   const guarded = truncateToolOutput(original);

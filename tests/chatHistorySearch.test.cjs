@@ -12,8 +12,8 @@ Module._load = function (name, ...args) {
 };
 const { initDatabase, closeDatabase, db, searchChatHistory, searchMemory } = require('../src/main/db');
 const { executeMemoryTool } = require('../src/main/memoryToolExecutor');
-const { getToolContext } = require('../src/main/promptBuilder');
-try {
+const { getToolContext, buildSystemPrompt } = require('../src/main/promptBuilder');
+(async () => { try {
   initDatabase();
   db.prepare('INSERT INTO sessions(id) VALUES (?)').run('old');
   db.prepare('INSERT INTO sessions(id) VALUES (?)').run('new');
@@ -21,8 +21,8 @@ try {
   const oldId = insert.run('old', 'user', 'Discussed lunar gardening', 1).lastInsertRowid;
   const newId = insert.run('new', 'assistant', 'Lunar gardening needs water', 0).lastInsertRowid;
   assert.deepEqual(searchChatHistory('lunar gardening'), [
-    { id: oldId, session_id: 'old', role: 'user', excerpt: 'Discussed [MATCH]lunar[/MATCH] [MATCH]gardening[/MATCH]' },
     { id: newId, session_id: 'new', role: 'assistant', excerpt: '[MATCH]Lunar[/MATCH] [MATCH]gardening[/MATCH] needs water' },
+    { id: oldId, session_id: 'old', role: 'user', excerpt: 'Discussed [MATCH]lunar[/MATCH] [MATCH]gardening[/MATCH]' },
   ]);
   assert.equal(searchChatHistory('"lunar gardening"').length, 2);
   assert.equal(searchChatHistory('gard lunar').length, 2);
@@ -62,10 +62,10 @@ try {
   fact.run('preference', 'Uses lunar_100% effort', 'global', 1, null);
   fact.run('preference', 'Uses lunarX1000 effort', 'global', 1, null);
   const combined = searchMemory('lunar', 'model');
-  assert.match(combined, /Facts found:\n- \[preference\]: Enjoys lunar gardening/);
+  assert.match(combined, /Facts found:\n[\s\S]*- \[preference\]: Enjoys lunar gardening/);
   assert.match(combined, /Lunar greenhouse/);
   assert.doesNotMatch(combined, /hidden model|inactive|superseded/);
-  assert.match(combined, /Past Chat Context found:\n\[Session: old\]/);
+  assert.match(combined, /Past Chat Context found:[\s\S]*\[Session: old\]/);
   assert.match(searchMemory('arden', 'model'), /Enjoys lunar gardening/);
   assert.match(searchMemory('project_rule', 'model'), /Lunar greenhouse/);
   const literal = searchMemory('lunar_100%', 'model');
@@ -73,12 +73,40 @@ try {
   assert.doesNotMatch(literal, /lunarX1000/);
   for (const query of [null, {}, 42, 'lunar\0']) assert.throws(() => searchMemory(query, 'model'), TypeError);
   assert.throws(() => searchMemory('lunar', ''), TypeError);
-  const result = executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: '{"query":"lunar"}' });
+  const result = await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: '{"query":"lunar"}' });
   assert.equal(result, combined);
   assert.match(result, /\[Session: old\] user:\nDiscussed \[MATCH\]lunar\[\/MATCH\] gardening/);
   assert.match(result, /\[Session: new\] assistant:\n\[MATCH\]Lunar\[\/MATCH\] gardening needs water/);
-  assert.equal(executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'missing' } }),
+  assert.equal(await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'missing' } }),
     'Facts found:\nNone.\n\nPast Chat Context found:\nNone.');
+  assert.equal(await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: '' } }),
+    'Facts found:\nNone.\n\nPast Chat Context found:\nNone.');
+  const permanent = await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'lunar', target: 'permanent' } });
+  assert.match(permanent, /Enjoys lunar gardening/);
+  assert.doesNotMatch(permanent, /Past Chat Context/);
+  const session = await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'lunar', target: 'session' } });
+  assert.match(session, /Past Chat Context found/);
+  assert.doesNotMatch(session, /Facts found/);
+  assert.equal((await executeMemoryTool({ name: 'search_memory', modelId: 'model', arguments: { query: 'lunar', target: 'invalid' } })).success, false);
+  const save = (category, content) => executeMemoryTool({ name: 'save_memory', modelId: 'model', arguments: { category, content } });
+  assert.equal(save('workflow', 'Use npm for builds').success, true);
+  assert.equal(save('user_fact', 'Routine progress').success, false);
+  assert.equal(save('rule', 'x'.repeat(151)).success, false);
+  assert.equal(save('rule', 'Done with the current task').success, false);
+  for (let i = 0; i < 8; i++) fact.run('rule', `Recent rule ${i}`, 'global', 1, null);
+  const prompt = buildSystemPrompt({ modelId: 'model', memoryEnabled: true }).content;
+  assert.match(prompt, /Recent rule 7/);
+  assert.doesNotMatch(prompt, /Recent rule 2|Enjoys lunar gardening/);
+  assert.equal((prompt.match(/- \[RULE\] Recent rule/g) || []).length, 5);
+  assert.doesNotMatch(buildSystemPrompt({ modelId: 'model', memoryEnabled: true, globalMemoryEnabled: false }).content, /Recent rule/);
+  db.prepare('INSERT INTO projects(id, name, root_path) VALUES (?, ?, ?)').run('memory-project', 'Memory Project', path.join(directory, 'project'));
+  db.prepare('INSERT INTO sessions(id, project_id) VALUES (?, ?)').run('project-session', 'memory-project');
+  const scoped = executeMemoryTool({ name: 'save_memory', modelId: 'model', sessionId: 'project-session',
+    arguments: { category: 'architecture', content: 'Use the project event bus' } });
+  assert.equal(scoped.success, true);
+  assert.match(await executeMemoryTool({ name: 'search_memory', modelId: 'model', sessionId: 'project-session',
+    arguments: { query: 'event bus', target: 'permanent' } }), /project event bus/);
+  assert.doesNotMatch(searchMemory('event bus', 'model', 'permanent'), /project event bus/);
   db.prepare('DELETE FROM messages WHERE session_id = ?').run('old');
   assert.equal(searchChatHistory('lunar').length, 1);
   closeDatabase();
@@ -89,4 +117,4 @@ try {
   closeDatabase();
   Module._load = originalLoad;
   fs.rmSync(directory, { recursive: true, force: true });
-}
+} })().catch(error => { console.error(error); process.exitCode = 1; });

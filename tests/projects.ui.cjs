@@ -32,6 +32,7 @@ app.whenReady().then(async () => {
       type(document.querySelector('[aria-label="Custom Instructions"]'), 'Use tests'); await wait(); button('Save Instructions').click(); await wait();
       check((await window.api.getProject('p1')).custom_instructions === 'Use tests', 'Instructions persisted');
       button('Change Folder').click(); await wait(); check((await window.api.getProject('p1')).root_path === '/work/new-folder', 'Root changed');
+      check(document.querySelector('.project-path').textContent === '/work/new-folder', 'Root displayed');
       const transfer = new DataTransfer(); transfer.items.add(new File(['Specification'], 'spec.md', { type: 'text/markdown' }));
       document.querySelector('.project-drop').dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer })); await wait();
       check(document.querySelector('.project-file').textContent.includes('spec.md'), 'Context uploaded');

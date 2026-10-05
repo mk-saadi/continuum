@@ -12,10 +12,13 @@ test('permission defaults and validation', () => {
   assert.throws(() => resolveMode('invalid', {}), /Invalid permission/);
 });
 test('read only denies mutations, commands and unknown tools regardless of arguments', async () => {
-  for (const name of ['write_file', 'write_project_file', 'str_replace_editor', 'execute_command', 'save_memory', 'delete_file', 'execute_sql', 'approve_mcp_mutation', 'delegate_task']) {
+  for (const name of ['write_file', 'write_project_file', 'str_replace_editor', 'execute_command', 'save_memory', 'delete_file', 'execute_sql', 'approve_mcp_mutation']) {
     await assert.rejects(guardTool({ name, permissionMode: 'read_only', args: { user_confirmed: true } }), { message: 'Execution blocked: Chat is in Read Only mode.' });
   }
   await guardTool({ name: 'read_project_file', permissionMode: 'read_only' });
+  for (const name of ['read_file', 'list_directory', 'search_code', 'take_screenshot'])
+    await guardTool({ name, permissionMode: 'read_only' });
+  await guardTool({ name: 'delegate_task', permissionMode: 'read_only' });
   await assert.rejects(guardTool({ name: 'read_project_file', native: false, permissionMode: 'read_only' }));
 });
 test('workspace guards traversal, sibling-prefix paths, symlinks and dangling symlinks', async () => {
@@ -29,10 +32,18 @@ test('workspace guards traversal, sibling-prefix paths, symlinks and dangling sy
     assert.equal(await workspacePath(root, 'new/file.txt'), path.join(root, 'new/file.txt'));
     for (const value of ['../outside', '../project-other/file', 'escape/file', 'dangling/file']) await assert.rejects(workspacePath(root, value));
     await guardTool({ name: 'write_project_file', args: { relative_path: 'new/file' }, permissionMode: 'workspace_write', project: { root_path: root } });
+    await guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write', project: { root_path: root } });
+    await assert.rejects(guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write' }), /project root/);
+    await fs.mkdir(path.join(root, '.llm_workspace'));
+    await fs.symlink(temp, path.join(root, '.llm_workspace', 'screenshots'));
+    await assert.rejects(guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write', project: { root_path: root } }), /Symlink escapes/);
+    await fs.rm(path.join(root, '.llm_workspace', 'screenshots'));
     for (const command of ['sudo true', 'apt install foo', 'npm install -g foo', 'pip install -g foo']) {
       await assert.rejects(guardTool({ name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root } }), /Global installations/);
     }
     await guardTool({ name: 'execute_command', args: { command: 'echo ok' }, permissionMode: 'workspace_write', project: { root_path: root } });
+    for (const command of ['git init', 'git add .', 'git commit -m test', 'git status', 'git diff', 'git branch'])
+      await guardTool({ name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root } });
     await assert.rejects(guardTool({ name: 'execute_command', args: { command: 'echo ok', cwd: '..' }, permissionMode: 'workspace_write', project: { root_path: root } }));
   } finally { await fs.rm(temp, { recursive: true, force: true }); }
 });

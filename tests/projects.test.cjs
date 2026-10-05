@@ -6,8 +6,11 @@ const Module = require('node:module');
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'projects-'));
 const originalLoad = Module._load;
 const handlers = new Map();
+let dialogResult = { canceled: false, filePaths: ['/work/new-folder'] };
 Module._load = function(name, ...args) {
-  if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, ipcMain: {
+  if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, dialog: {
+    showOpenDialog: async () => dialogResult,
+  }, ipcMain: {
     handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name),
   } };
   return originalLoad.call(this, name, ...args);
@@ -53,18 +56,35 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
     assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[AUTONOMY RULES]') && message.content.includes('CRITICAL: Never output plain status text') && message.content.includes('[TASK COMPLETE]')));
     for (const sessionId of ['chat', 'casual']) {
       const content = buildSessionSystemPrompt({ sessionId, modelId: 'model' }).content;
-      assert.match(content, /### Visualizations & Charting/);
-      assert.match(content, /NEVER run terminal commands \(`execute_command`\)/);
-      assert.match(content, /xychart-beta/);
-      assert.match(content, /pie title Weather Distribution/);
-      assert.match(content, /graph TD/);
-      assert.equal((content.match(/### Visualizations & Charting/g) || []).length, 1);
+      assert.match(content, /### Visualizations & Charting Protocol/);
+      assert.match(content, /STRICT DECISION MATRIX/);
+      assert.match(content, /MANDATORY: Use INTERACTIVE RECHARTS/);
+	  assert.match(content, /Explain the structure with a clear list/);
+      assert.match(content, /```json:chart/);
+	  assert.match(content, /#### Interactive Data Charts/);
+	  assert.match(content, /#### ABSOLUTE FORBIDDEN ACTIONS/);
+	  assert.doesNotMatch(content, /STRUCTURAL MERMAID|```mermaid/);
+      assert.equal((content.match(/### Visualizations & Charting Protocol/g) || []).length, 1);
+      const chartExample = content.match(/```json:chart\n([\s\S]*?)\n```/)?.[1];
+      assert.ok(chartExample, 'chart example');
+      assert.equal(JSON.parse(chartExample).type, 'bar');
       assert.match(content, /### Sub-Agent Delegation Protocol/);
       assert.match(content, /MANDATORY Delegation Triggers/);
       assert.match(content, /spawn_subagent/);
       assert.match(content, /target_files/);
       assert.equal((content.match(/### Sub-Agent Delegation Protocol/g) || []).length, 1);
     }
+    const { saveAppSettings } = require('../src/main/configManager');
+    const { getToolContext } = require('../src/main/promptBuilder');
+    saveAppSettings({ mcpMode: 'manual' });
+    assert.doesNotMatch(buildSessionSystemPrompt({ sessionId: 'chat', modelId: 'model' }).content, /manage_mcp_servers|Available dynamic tools/);
+    assert.ok(!getToolContext([], false, 'chat').tools.some(tool => tool.function.name === 'manage_mcp_servers'));
+    const blockedManagement = await require('../src/main/tools/agentTools').executeAgentTool({
+      name: 'manage_mcp_servers', arguments: JSON.stringify({ action: 'enable', server_names: ['anything'] }),
+      sessionId: 'chat', permissionMode: 'full_access', permissionGranted: true,
+    });
+    assert.match(blockedManagement.error, /Manual Mode/);
+    saveAppSettings({ mcpMode: 'auto' });
     assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model' }).content.includes('[PROJECT GOAL]'));
     assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model', delegationAvailable: false }).content.includes('### Sub-Agent Delegation Protocol'));
     const subAgentRunner = require('../src/main/subAgentRunner');
@@ -109,6 +129,11 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
     assert.equal(projects.getProject(project.id).is_pinned, 1);
     dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: event => event.trusted });
     const invoke = (channel, payload) => handlers.get(channel)({ trusted: true }, payload);
+    assert.equal(await invoke('dialog:selectDirectory'), '/work/new-folder');
+    dialogResult = { canceled: true, filePaths: ['/work/new-folder'] };
+    assert.equal(await invoke('dialog:selectDirectory'), null);
+    dialogResult = { canceled: false, filePaths: [] };
+    assert.equal(await invoke('dialog:selectDirectory'), null);
     await assert.rejects(handlers.get('project:create')({ trusted: false }, { name: 'Bad' }), /Unauthorized/);
     const ipcProject = await invoke('project:create', { name: 'IPC', description: 'Goal', custom_instructions: 'Instructions', root_path: workspace });
     assert.equal((await invoke('project:update', { id: ipcProject.id, description: 'New goal' })).description, 'New goal');

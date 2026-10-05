@@ -146,3 +146,29 @@ test('lazy MCP activation is scoped to a chat and UI opt-in survives restart', a
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('manual mode exposes only UI-enabled servers and blocks dynamic activation', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-manual-'));
+  const configPath = path.join(directory, 'mcp_config.json');
+  let mode = 'auto';
+  const manager = new McpManager({ configPath, lazyByDefault: true, getMcpMode: () => mode,
+    createConnection: async () => ({ setNotificationHandler() {}, listTools: async () => ({ tools: [{ name: 'echo' }] }),
+      callTool: async () => ({ content: [] }), close: async () => {} }) });
+  try {
+    await fs.writeFile(configPath, JSON.stringify({ mcpServers: {
+      selected: { command: 'selected', uiEnabled: true }, dynamic: { command: 'dynamic' },
+    } }));
+    await manager.init();
+    await manager.manageServers('enable', ['dynamic'], 'chat');
+    assert.equal(manager.getTools('chat').length, 2);
+    mode = 'manual';
+    assert.equal(manager.getTools('chat').length, 1);
+    assert.equal(manager.getTools('chat')[0].function.name, manager.toolName('selected', 'echo'));
+    assert.throws(() => manager.resolveTool(manager.toolName('dynamic', 'echo'), 'chat'), /unavailable/);
+    await assert.rejects(manager.callTool('dynamic', 'echo', {}, { sessionId: 'chat' }), /not enabled/);
+    await assert.rejects(manager.manageServers('enable', ['dynamic'], 'chat'), /Manual Mode/);
+  } finally {
+    await manager.close();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

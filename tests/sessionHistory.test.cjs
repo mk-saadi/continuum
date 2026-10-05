@@ -51,7 +51,10 @@ try {
   assert.equal(retained[0].content, 'edited');
   assert.equal(retained[0].archived, 0);
   assert.equal(sessions.getSessionSummary('a'), null);
-  assert.equal(db.prepare('SELECT count(*) AS n FROM message_attachments').get().n, 0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM message_attachments').get().n, 1);
+  assert.equal(db.prepare('SELECT content FROM messages WHERE id = ?').get(first).content, 'original');
+  assert.equal(db.prepare('SELECT content FROM messages WHERE id = ?').get(reply).content, 'discard');
+  assert.deepEqual(sessions.loadSession('a').messages[0].siblings.length, 2);
   assert.equal(sessions.loadSession('b').messages.length, 1);
   const prompt = prepareChatMessages({sessionId: 'a', modelId: 'model', userText: 'edited', regenerate: true});
   assert.equal(prompt.filter(m => m.role === 'user').length, 1);
@@ -67,7 +70,8 @@ try {
   sessions.deleteSession('a');
   assert.equal(sessions.getAllSessions().find(group => group.folder_name === '__proto__').sessions.length, 0);
   assert.equal(db.prepare('SELECT count(*) AS n FROM message_attachments').get().n, 0);
-  assert.equal(db.prepare("SELECT count(*) AS n FROM chat_fts WHERE chat_fts MATCH 'edited'").get().n, 0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM messages WHERE session_id = ?').get('a').n, 0);
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name = 'chat_fts'").get(), undefined);
   assert.throws(() => sessions.loadSession('a'), /not found/);
   console.log('Session history migration, edit, regeneration, grouping, and cascade checks passed.');
 } finally {

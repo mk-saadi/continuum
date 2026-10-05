@@ -30,6 +30,13 @@ test('native tool guard prevents writes and model self-approval, full access can
     assert.equal(await fs.readFile(path.join(temp, 'outside.txt'), 'utf8'), 'yes');
     const command = await run('execute_command', { command: 'printf autonomous' }, 'full_access');
     assert.equal(command.stdout, 'autonomous');
+    if (process.platform === 'linux') {
+      const git = await run('execute_command', {
+        command: 'git init -q && git config user.email test@example.com && git config user.name Test && printf safe > tracked.txt && git add tracked.txt && git commit -qm first && git status --short && git diff HEAD && git branch --show-current',
+      }, 'workspace_write');
+      assert.equal(git.exitCode, 0, git.stderr);
+      assert.equal(await fs.readFile(path.join(root, 'tracked.txt'), 'utf8'), 'safe');
+    }
     const sandbox = await run('execute_command', { command: 'printf escaped > ../escaped.txt' }, 'workspace_write');
     assert.notEqual(sandbox.exitCode, 0);
     await assert.rejects(fs.stat(path.join(temp, 'escaped.txt')));

@@ -11,7 +11,7 @@ Module._load = function (name, ...args) {
   return originalLoad.call(this, name, ...args);
 };
 const { initDatabase, closeDatabase } = require('../src/main/db');
-const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings, saveAppSettings } = require('../src/main/configManager');
+const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig, getAppSettings, saveAppSettings, saveNotificationPrefs } = require('../src/main/configManager');
 const { buildLlamaServerArgs } = require('../src/main/engineManager');
 const { scanDirectoryForModels } = require('../src/main/modelScanner');
 (async () => {
@@ -24,15 +24,37 @@ try {
   assert.throws(() => store.saveConfig({ engineIdleTimeoutMinutes: 3 }), /idle timeout/);
   assert.equal(store.getConfig().engineIdleTimeoutMinutes, 15);
   assert.equal(getAppSettings().apiServerPort, 8080);
+  assert.equal(getAppSettings().mcpMode, 'auto');
   saveAppSettings({ apiServerPort: 9090 });
+  saveAppSettings({ mcpMode: 'manual' });
+  assert.deepEqual(getAppSettings(), { apiServerPort: 9090, mcpMode: 'manual',
+    maxConsecutiveToolFailures: 5, maxTotalToolFailures: 10,
+    notificationsEnabled: true, notifyOnlyWhenBackgrounded: true,
+    notificationEvents: { completion: true, error: true, contextOverflow: true, action_required: true }, disabledSkills: [] });
+  saveNotificationPrefs({ notificationsEnabled: false, notificationEvents: { completion: false } });
+  assert.equal(getAppSettings().notificationsEnabled, false);
+  assert.deepEqual(getAppSettings().notificationEvents,
+    { completion: false, error: true, contextOverflow: true, action_required: true });
+  assert.throws(() => saveNotificationPrefs({ notificationEvents: { completion: 'yes' } }), /notification events/);
   closeDatabase(); initDatabase();
   assert.equal(getAppSettings().apiServerPort, 9090);
+  assert.equal(getAppSettings().mcpMode, 'manual');
+  saveAppSettings({ maxConsecutiveToolFailures: 7, maxTotalToolFailures: 12 });
+  closeDatabase(); initDatabase();
+  assert.equal(getAppSettings().maxConsecutiveToolFailures, 7);
+  assert.equal(getAppSettings().maxTotalToolFailures, 12);
+  for (const value of [2, 11, 3.5, '5'])
+    assert.throws(() => saveAppSettings({ maxConsecutiveToolFailures: value }), /Max Consecutive Tool Failures/);
+  for (const value of [4, 26, 6.5, '10'])
+    assert.throws(() => saveAppSettings({ maxTotalToolFailures: value }), /Max Total Tool Failures/);
+  assert.throws(() => saveAppSettings({ mcpMode: 'invalid' }), /MCP mode/);
   for (const apiServerPort of [0, -1, 65536, 2.5, '8080']) {
     assert.throws(() => saveAppSettings({ apiServerPort }), /Local API Server Port/);
   }
   assert.equal(getAppSettings().apiServerPort, 9090);
   saveAppSettings({ apiServerPort: null });
   assert.equal(getAppSettings().apiServerPort, null);
+  assert.equal(getAppSettings().mcpMode, 'manual');
 
   assert.deepEqual(getLoadConfig('a'), { config: DEFAULT_LOAD_CONFIG, remembered: false });
   saveLoadConfig('a', { threads: 8, seed: 42, loadMode: 'mmap+mlock', kvCacheQuantization: 'q8_0', chatTemplate: 'chatml', reasoningFormat: 'none', keepAliveMinutes: 15 });

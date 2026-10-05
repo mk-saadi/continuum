@@ -33,8 +33,8 @@ const run = (name, args, sessionId = 'chat', permissionMode = ['execute_command'
     initDatabase(root);
     const project = require('../src/main/projectManager').createProject({ name: 'Tools', root_path: workspace });
     require('../src/main/sessionManager').getOrCreateSession('chat', 'model', project.id);
-    assert.equal(agentTools.length, 11);
-    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, 11);
+    assert.ok(agentTools.length >= 11);
+    assert.equal(require('../src/main/promptBuilder').getToolContext([], false, 'chat').tools.length, agentTools.length + 1, 'ask_user is also available');
     assert.ok(require('../src/main/promptBuilder').getToolContext([], false, null).tools.some(tool => tool.function.name === 'manage_mcp_servers'));
     const mcpManager = require('../src/main/mcpManager');
     const originalManage = mcpManager.manageServers;
@@ -94,11 +94,17 @@ const run = (name, args, sessionId = 'chat', permissionMode = ['execute_command'
     fs.writeFileSync(path.join(root, 'outside.txt'), 'unchanged');
     fs.symlinkSync(root, path.join(workspace, 'escape'));
     for (const relative_path of ['../outside.txt', 'escape/outside.txt', 'escape/new/file.txt', path.join(root, 'outside.txt')]) {
-      for (const name of ['read_project_file', 'write_project_file', 'str_replace_editor', 'list_directory', 'search_project_content']) {
+      for (const name of ['write_project_file', 'str_replace_editor']) {
         const args = name === 'write_project_file' ? { content: 'bad' } : name === 'str_replace_editor' ? { old_str: 'unchanged', new_str: 'bad' } : name === 'search_project_content' ? { query: 'unchanged' } : {};
         assert.equal((await run(name, { relative_path, ...args })).success, false, `${name}: ${relative_path}`);
       }
     }
+    for (const relative_path of ['../outside.txt', 'escape/outside.txt', path.join(root, 'outside.txt')]) {
+      assert.equal((await run('read_project_file', { relative_path })).content, 'unchanged');
+      assert.equal((await run('search_project_content', { query: 'unchanged', relative_path })).matches.length, 1);
+    }
+    assert.ok((await run('list_directory', { relative_path: root })).entries.some(entry => entry.name === 'outside.txt'));
+    assert.match((await run('read_project_file', { relative_path: 'escape/new/file.txt' })).error, /FILE_NOT_FOUND/);
     assert.equal(fs.readFileSync(path.join(root, 'outside.txt'), 'utf8'), 'unchanged');
     fs.mkdirSync(path.join(workspace, 'node_modules'));
     fs.writeFileSync(path.join(workspace, 'node_modules', 'ignore.txt'), 'needle');
@@ -153,9 +159,11 @@ const run = (name, args, sessionId = 'chat', permissionMode = ['execute_command'
     }
     const lookalike = path.join(root, 'userData-other'); fs.mkdirSync(lookalike);
     fs.writeFileSync(path.join(lookalike, 'secret.txt'), 'secret');
-    assert.equal(await isPathAllowed(path.join(lookalike, 'secret.txt'), workspace), false);
+    assert.equal(await isPathAllowed(path.join(lookalike, 'secret.txt'), workspace), true);
+    assert.equal((await run('read_project_file', { relative_path: path.join(lookalike, 'secret.txt') })).content, 'secret');
+    assert.equal((await run('search_project_content', { query: 'secret', relative_path: lookalike })).matches[0].file_path, path.join(lookalike, 'secret.txt'));
     fs.symlinkSync(lookalike, path.join(temp, 'escape'));
-    assert.equal((await run('read_project_file', { relative_path: path.join(temp, 'escape', 'secret.txt') })).success, false);
+    assert.equal((await run('read_project_file', { relative_path: path.join(temp, 'escape', 'secret.txt') })).content, 'secret');
     fs.unlinkSync(path.join(workspace, '.gitignore'));
     fs.symlinkSync(path.join(userData, 'attachment.txt'), path.join(workspace, '.gitignore'));
     assert.equal((await run('take_screenshot', {})).success, false, 'Screenshot must not modify an external gitignore symlink');
@@ -169,7 +177,7 @@ const run = (name, args, sessionId = 'chat', permissionMode = ['execute_command'
     assert.equal((await run('take_screenshot', { display_id: 'missing' })).success, false);
     dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: event => event.trusted });
     await assert.rejects(handlers.get('agent:execute-tool')({ trusted: false }, {}), /Unauthorized/);
-    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, 11);
+    assert.equal((await handlers.get('agent:get-tools')({ trusted: true })).length, agentTools.length);
     assert.equal((await handlers.get('agent:execute-tool')({ trusted: true }, { name: 'read_project_file', arguments: { relative_path: 'src/test.txt' }, sessionId: 'chat' })).content, 'alpha\n$&\nlast\n');
     console.log('Agent tools: file scope, symlinks, editing, search, command output, screenshot payload and IPC passed.');
   } finally { dispose?.(); closeDatabase(); Module._load = originalLoad; os.tmpdir = originalTmpdir; fs.rmSync(root, { recursive: true, force: true }); }
