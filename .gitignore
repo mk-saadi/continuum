@@ -46,3 +46,6 @@ next-env.d.ts
 *.njsproj
 *.sln
 *.sw?
+.llm_workspace/
+# stray build output at repo root (vite outDir is dist/)
+index-*.js
