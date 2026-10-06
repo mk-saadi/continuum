@@ -98,8 +98,12 @@ export function TabProvider({ children }) {
   const moveTab = useCallback((fromIndex, toIndex) =>
     commit(current => moveTabState(current, fromIndex, toIndex)), [commit]);
   // Called once the tab's chat is known to exist in the database, so a restart
-  // can tell a real session from a blank tab that was never sent.
-  const markTabSaved = useCallback(id => updateTab(id, { saved: true }), [updateTab]);
+  // can tell a real session from a blank tab that was never sent. Matched by
+  // session id because callers only ever know their own session — binding a
+  // tab id at every call site is how this flag silently stopped persisting.
+  const markTabSaved = useCallback(sessionId => commit(current => ({ ...current,
+    tabs: current.tabs.map(tab => tab.sessionId === sessionId ? { ...tab, saved: true } : tab),
+  })), [commit]);
 
   // Validate restored tabs against the database, then drop the orphaned ones.
   // Runs after first paint so a chat sidebar render never waits on this.

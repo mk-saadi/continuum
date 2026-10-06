@@ -613,7 +613,7 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 		setHistoryError("");
 		// The session row is created from here on, so the tab becomes a
 		// restorable chat rather than a blank one.
-		onTabSaved?.();
+		onTabSaved?.(palace.sessionId);
 			const identity = Object.freeze({
 				displayName: resolveDisplayName(
 					avatarSettings,
