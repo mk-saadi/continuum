@@ -32,6 +32,14 @@ function getOrCreateSession(sessionId, modelId, projectId = null) {
 
     db.prepare('INSERT INTO sessions(id, model_id, project_id) VALUES (?, ?, ?)')
       .run(sessionId, modelId, projectId);
+    // A session row can be created after the initDatabase backfill has already run --
+    // for example when importing a pre-parent_id database whose messages were written
+    // with foreign keys disabled, leaving message rows whose session_id has no parent
+    // session. Without a leaf pointer activePath() walks nothing and the entire
+    // transcript is silently invisible to loadSession, getActiveMessages, and export.
+    // Seed the leaf from the messages that are actually present.
+    db.prepare('UPDATE sessions SET active_leaf_id = (SELECT MAX(id) FROM messages WHERE session_id = ?) WHERE id = ?')
+      .run(sessionId, sessionId);
     return select.get(sessionId);
   }).immediate();
 }
