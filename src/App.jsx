@@ -14,7 +14,7 @@ import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
 
 function AppContent() {
-const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
+	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
 	const openProject = (id) =>
 		updateTab(activeTabId, { projectId: id, view: "project", permissionMode: "workspace_write" });
 	const [projects, setProjects] = useState([]);
@@ -298,6 +298,7 @@ const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
 					activeModelConfig={activeModelConfig}
 					serverPort={serverPort}
 					serverError={serverError}
+					markTabSaved={markTabSaved}
 				/>
 			))}
 		</div>
@@ -333,6 +334,7 @@ function TabPane({
 	activeModelConfig,
 	serverPort,
 	serverError,
+	markTabSaved,
 }) {
 	const update = useCallback((patch) => updateTab(tab.id, patch), [updateTab, tab.id]);
 	const setSessionId = useCallback((id) => update({ sessionId: id }), [update]);
@@ -450,7 +452,7 @@ function TabPane({
 						? { modelPath: tab.modelId, contextSize: activeModelConfig?.contextLength ?? 32768 }
 						: null
 				}
-palace={palace}
+				palace={palace}
 				onTabUpdate={update}
 				tabPermissionMode={tab.permissionMode}
 				tabSaved={tab.saved === true}
