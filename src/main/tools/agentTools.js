@@ -516,20 +516,21 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
-		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal });
+		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
 		const readingFiles = ['spawn_sub_agent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
 		const root = readingFiles ? path.resolve(project?.root_path ?? process.cwd())
 			: await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_sub_agent")
-			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal });
+			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId });
 		if (name === "delegate_task")
 			return await require("../subAgentRunner").runSubAgent({
 				...args,
 				rootPath: root,
 				engine,
 				signal,
+				parentSessionId: sessionId,
 			});
 		if (name === "execute_command") {
 

@@ -87,10 +87,10 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
     saveAppSettings({ mcpMode: 'auto' });
     assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model' }).content.includes('[PROJECT GOAL]'));
     assert.ok(!buildSessionSystemPrompt({ sessionId: 'casual', modelId: 'model', delegationAvailable: false }).content.includes('### Sub-Agent Delegation Protocol'));
-    const subAgentRunner = require('../src/main/subAgentRunner');
-    const originalExtract = subAgentRunner.extractWebPageData;
+    const subagentRuntime = require('../src/main/subagents');
+    const originalExtract = subagentRuntime.runWebExtraction;
     try {
-      subAgentRunner.extractWebPageData = async ({ url, query }) => {
+      subagentRuntime.runWebExtraction = async ({ url, query }) => {
         assert.equal(url, 'https://example.com/benchmarks');
         assert.match(query, /MMLU/);
         return 'MMLU: 68.0';
@@ -99,7 +99,7 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
         name: 'spawn_sub_agent', sessionId: 'chat', engine: { port: 4321, modelId: 'model' },
         arguments: { task: 'Inspect https://example.com/benchmarks for MMLU.' },
       }), 'MMLU: 68.0');
-    } finally { subAgentRunner.extractWebPageData = originalExtract; }
+    } finally { subagentRuntime.runWebExtraction = originalExtract; }
     const branch = sessions.branchChat('chat', sessions.loadSession('chat').messages[0].id);
     assert.equal(sessions.loadSession(branch.sessionId).project_id, project.id);
     fs.unlinkSync(path.join(workspace, 'AGENTS.md'));

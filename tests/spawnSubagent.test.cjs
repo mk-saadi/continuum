@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSubagentTool, executeSpawnSubagent } = require('../src/main/tools/subagent');
-const runner = require('../src/main/subAgentRunner');
+const runtime = require('../src/main/subagents');
 
 test('spawn_sub_agent schema matches the prompt invocation', () => {
   const schema = spawnSubagentTool.function;
@@ -17,9 +17,9 @@ test('spawn_sub_agent schema matches the prompt invocation', () => {
 });
 
 test('web invocation passes one URL and constraints to the isolated extractor', async () => {
-  const original = runner.extractWebPageData;
+  const original = runtime.runWebExtraction;
   let call;
-  runner.extractWebPageData = async options => { call = options; return 'Score: 68.0'; };
+  runtime.runWebExtraction = async options => { call = options; return 'Score: 68.0'; };
   try {
     const answer = await executeSpawnSubagent({
       task: 'Inspect https://example.com/benchmarks and extract MMLU.',
@@ -31,13 +31,13 @@ test('web invocation passes one URL and constraints to the isolated extractor', 
     assert.match(call.query, /No raw HTML/);
     assert.match(call.query, /One-row markdown table/);
     await assert.rejects(executeSpawnSubagent({ task: 'Compare https://a.example/a and https://b.example/b' }), /one web URL/);
-  } finally { runner.extractWebPageData = original; }
+  } finally { runtime.runWebExtraction = original; }
 });
 
-test('file invocation delegates exactly one absolute path to the isolated runner', async () => {
-  const original = runner.runSubAgent;
+test('file invocation delegates exactly one absolute path to the isolated runtime', async () => {
+  const original = runtime.runFileAnalysis;
   let call;
-  runner.runSubAgent = async options => { call = options; return 'File summary'; };
+  runtime.runFileAnalysis = async options => { call = options; return 'File summary'; };
   try {
     const answer = await executeSpawnSubagent({ task: 'Inspect error logs', target_file: '/abs/logs/app.log' });
     assert.equal(answer, 'File summary');
@@ -45,5 +45,5 @@ test('file invocation delegates exactly one absolute path to the isolated runner
     assert.match(call.task_description, /Inspect error logs/);
     await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs', target_file: '' }), /target_file must be a non-empty absolute path/);
     await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /Provide a url or target_file parameter/);
-  } finally { runner.runSubAgent = original; }
+  } finally { runtime.runFileAnalysis = original; }
 });

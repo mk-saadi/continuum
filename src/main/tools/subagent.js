@@ -21,7 +21,7 @@ const spawnSubagentTool = {
 };
 
 async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file,
-  engine, signal }) {
+  engine, signal, parentSessionId = null }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 2000 || task.includes('\0')) {
     throw new Error('Task must be a non-empty instruction of at most 2,000 characters.');
   }
@@ -38,12 +38,12 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     }
     const instruction = [task, expected_output && `Expected output: ${expected_output}`,
       constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
-    const runner = require('../subAgentRunner');
-    const summary = await runner.runSubAgent({
+    const runtime = require('../subagents');
+    const summary = await runtime.runFileAnalysis({
       task_description: instruction,
       target_files: [target_file],
       rootPath: process.cwd(),
-      engine, signal,
+      engine, signal, parentSessionId,
     });
     return summary.length > 1800 ? `${summary.slice(0, 1780)}\n[Summary truncated]` : summary;
   }
@@ -64,8 +64,8 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
   const instruction = [task, expected_output && `Expected output: ${expected_output}`,
     constraint && `Constraint: ${constraint}`, 'Return only a concise answer. Do not include raw source content.']
     .filter(Boolean).join('\n');
-  const runner = require('../subAgentRunner');
-  const summary = await runner.extractWebPageData({ url: sourceUrl, query: instruction, engine, signal });
+  const runtime = require('../subagents');
+  const summary = await runtime.runWebExtraction({ url: sourceUrl, query: instruction, engine, signal, parentSessionId });
   return summary.length > 1800 ? `${summary.slice(0, 1780)}\n[Summary truncated]` : summary;
 }
 
