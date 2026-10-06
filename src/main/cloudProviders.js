@@ -1,5 +1,10 @@
 "use strict";
 
+// Cloud chat requests POST, so they must never ride on global.fetch: the
+// sub-agent module overrides it with a GET-only transport. Bind this module's
+// default to the shared Node HTTP transport directly instead.
+const { nodeHttpFetch } = require("./nodeHttpFetch");
+
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_MEDIA_SETTINGS = Object.freeze({ default_image_provider_id: "", default_video_provider_id: "" });
 const CATEGORIES = new Set(["text", "media"]);
@@ -150,7 +155,7 @@ function deleteCloudProvider(input) {
 	}
 	return result;
 }
-async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = fetch } = {}) {
+async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = nodeHttpFetch } = {}) {
 	let endpoint = apiType === "stable-diffusion"
 		? `${normalizeBaseUrl(baseUrl)}/sdapi/v1/options`
 		: `${normalizeBaseUrl(baseUrl)}/models`;
@@ -283,7 +288,7 @@ function anthropicPayload(payload, model) {
 			: {}),
 	};
 }
-function createCloudFetch(target, { fetchImpl = fetch } = {}) {
+function createCloudFetch(target, { fetchImpl = nodeHttpFetch } = {}) {
 	target = validateChatProvider(target);
 	if (target.type !== "cloud") throw new Error("Cloud provider required.");
 	const provider = readSettings().find((row) => row.id === target.provider);

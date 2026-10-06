@@ -1,51 +1,21 @@
 'use strict';
 
-const https = require('node:https');
-const http = require('node:http');
 const path = require('node:path');
-const { Readable } = require('node:stream');
 const fs = require('node:fs/promises');
 const { resolveSubAgentPath, fileNotFound } = require('./pathUtils');
 const { localEngineFetch } = require('./localEngineFetch');
+const { nodeHttpFetch } = require('./nodeHttpFetch');
 const { getSingleWebPageContent } = require('./tools/webSearch');
 
 // Electron's RUN_AS_NODE environment can break native (undici) fetch with
-// ERR_INVALID_IP_ADDRESS. Use Node's HTTP clients for sub-agent web GETs.
+// ERR_INVALID_IP_ADDRESS, so sub-agent web GETs go through the shared Node HTTP
+// transport. The override stays GET-only: sub-agent page fetching never needs
+// anything else, and other modules must not inherit this restriction.
 global.fetch = function fetch(url, options = {}) {
-  const target = new URL(url);
-  const protocol = target.protocol === 'https:' ? https : target.protocol === 'http:' ? http : null;
-  if (!protocol) return Promise.reject(new TypeError('Only HTTP and HTTPS URLs are supported.'));
-  if (options.method && options.method.toUpperCase() !== 'GET') {
+  if (options?.method && String(options.method).toUpperCase() !== 'GET') {
     return Promise.reject(new TypeError('Sub-agent fetch only supports GET requests.'));
   }
-  if (options.signal?.aborted) return Promise.reject(options.signal.reason);
-
-  return new Promise((resolve, reject) => {
-    const headers = new Headers(options.headers);
-    if (!headers.has('user-agent')) headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    const req = protocol.get(target, {
-      family: 4, // Bypass Node 20 autoSelectFamily in Electron's RUN_AS_NODE sandbox.
-      headers: Object.fromEntries(headers),
-      lookup: options.dispatcher?.nodeLookup,
-      signal: options.signal,
-    }, res => {
-      const status = res.statusCode;
-      if (status >= 300 && status < 400 && res.headers.location && options.redirect !== 'manual') {
-        res.resume();
-        const redirects = options._redirects || 0;
-        if (redirects >= 5) { reject(new Error('Too many fetch redirects.')); return; }
-        resolve(global.fetch(new URL(res.headers.location, target), {
-          ...options, dispatcher: undefined, _redirects: redirects + 1,
-        }));
-        return;
-      }
-      const body = [204, 205, 304].includes(status) ? null : Readable.toWeb(res);
-      if (!body) res.resume();
-      resolve(new Response(body, { status, statusText: res.statusMessage, headers: res.headers }));
-    });
-    req.on('error', reject);
-    req.setTimeout(15000, () => req.destroy(new Error('Fetch timeout exceeded')));
-  });
+  return nodeHttpFetch(url, options);
 };
 
 const SUB_AGENT_SYSTEM_PROMPT = 'You are a focused sub-agent analyzer. Complete the requested task directly and output your final structured markdown answer immediately. Do not add conversational fluff or ask follow-up questions.';

@@ -340,3 +340,35 @@ test("model discovery failures are safe and keep manual entry available", async 
 	}
 	await assert.rejects(fetchCloudModels({ ...input, apiKey: "" }), /API key/);
 });
+
+test("cloud chat POST survives a GET-only global.fetch override (sub-agent shim)", async () => {
+	const http = require("node:http");
+	const server = http.createServer((req, res) => {
+		assert.equal(req.method, "POST");
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }] }));
+	});
+	server.listen(0, "127.0.0.1");
+	await new Promise(resolve => server.once("listening", resolve));
+	const baseUrl = `http://127.0.0.1:${server.address().port}/v1`;
+
+	saveCloudProvider({ id: "shim-guard", name: "Shim Guard", modelId: "m", apiKey: "k", baseUrl });
+	// Reproduce the production collision: subAgentRunner installs a GET-only global.fetch.
+	const originalGlobalFetch = globalThis.fetch;
+	globalThis.fetch = (url, options) => {
+		if (options?.method && String(options.method).toUpperCase() !== "GET") {
+			return Promise.reject(new TypeError("Sub-agent fetch only supports GET requests."));
+		}
+		return originalGlobalFetch(url, options);
+	};
+	try {
+		const adapter = createCloudFetch({ type: "cloud", provider: "shim-guard", model: "m" });
+		const response = await adapter("", { body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }) });
+		assert.equal(response.status, 200);
+		const data = await response.json();
+		assert.equal(data.choices[0].message.content, "ok");
+	} finally {
+		globalThis.fetch = originalGlobalFetch;
+		server.close();
+	}
+});
