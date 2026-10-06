@@ -382,6 +382,7 @@ async function launchProcess(command, model = null, config = null) {
 
 		childProcess.on("close", (code, signal) => {
 			startup.cancel();
+			if (startupHandler === startup) startupHandler = null;
 			processIdleService.dispose();
 			if (childProcess !== processForLaunch) return;
 			currentlyLoadedModelPath = null;
@@ -433,6 +434,13 @@ async function launchProcess(command, model = null, config = null) {
 		};
 	} catch (err) {
 		idleService?.dispose();
+		// If the process was already spawned but setup failed afterwards, kill
+		// its tree before dropping the reference — otherwise it becomes an
+		// orphan holding the model and port with no way to unload from the UI.
+		const liveProcess = childProcess;
+		if (liveProcess && typeof liveProcess.pid === "number" && !liveProcess.killed) {
+			killProcessTree(liveProcess.pid, "SIGKILL");
+		}
 		currentlyLoadedModelPath = null;
 		engineConfig.contextStatus = "stopped";
 		engineConfig.activeModelConfig = null;
@@ -474,10 +482,15 @@ async function launchModel(modelId, input) {
 				previous.once("close", closed);
 				stopEngine().then(
 					(result) => {
-						if (!result.success) {
+						if (result.success) return; // wait for the "close" event below.
+						if (result.error === "No running process") {
+							// The previous engine exited on its own — nothing to wait for.
 							cleanup();
-							reject(new Error(result.error));
+							resolve();
+							return;
 						}
+						cleanup();
+						reject(new Error(result.error));
 					},
 					(error) => {
 						cleanup();
