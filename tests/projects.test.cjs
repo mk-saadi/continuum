@@ -70,7 +70,7 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
       assert.equal(JSON.parse(chartExample).type, 'bar');
       assert.match(content, /### Sub-Agent Delegation Protocol/);
       assert.match(content, /MANDATORY Delegation Triggers/);
-      assert.match(content, /spawn_subagent/);
+      assert.match(content, /spawn_sub_agent/);
       assert.match(content, /target_files/);
       assert.equal((content.match(/### Sub-Agent Delegation Protocol/g) || []).length, 1);
     }
@@ -96,7 +96,7 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
         return 'MMLU: 68.0';
       };
       assert.equal(await require('../src/main/tools/agentTools').executeAgentTool({
-        name: 'spawn_subagent', sessionId: 'chat', engine: { port: 4321, modelId: 'model' },
+        name: 'spawn_sub_agent', sessionId: 'chat', engine: { port: 4321, modelId: 'model' },
         arguments: { task: 'Inspect https://example.com/benchmarks for MMLU.' },
       }), 'MMLU: 68.0');
     } finally { subAgentRunner.extractWebPageData = originalExtract; }

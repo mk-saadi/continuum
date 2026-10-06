@@ -2,7 +2,7 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const MODES = ['read_only', 'workspace_write', 'ask_approval', 'full_access'];
-const READ_TOOLS = new Set(['get_recent_chat_history', 'search_project_content', 'search_code', 'read_project_file', 'read_file', 'list_directory', 'take_screenshot', 'search_memory', 'get_single_web_page_content', 'extract_web_page_data', 'spawn_subagent', 'delegate_task', 'use_skill', 'propose_skill']);
+const READ_TOOLS = new Set(['get_recent_chat_history', 'search_project_content', 'search_code', 'read_project_file', 'read_file', 'list_directory', 'take_screenshot', 'search_memory', 'get_single_web_page_content', 'extract_web_page_data', 'spawn_sub_agent', 'delegate_task', 'use_skill', 'propose_skill']);
 const WRITE_TOOLS = new Set(['write_project_file', 'write_file', 'str_replace_editor', 'edit_file']);
 function resolveMode(mode, project) {
   const value = mode ?? project?.permissionMode ?? project?.permission_mode ?? (project ? 'workspace_write' : 'ask_approval');

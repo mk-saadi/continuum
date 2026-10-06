@@ -150,13 +150,13 @@ assert.equal(targetFileBudget(8192), 22268);
     assert.equal(await executeAgentTool({ name: 'delegate_task', arguments: { task_description: 'Analyze', target_files: [path.join(root, 'outside.txt')] }, sessionId: 'chat', engine }), summary);
     assert.equal(await executeAgentTool({ name: 'delegate_task', arguments: { task_description: 'Analyze', target_files: [path.join(root, 'outside.txt')] }, sessionId: 'casual', permissionMode: 'read_only', engine }), summary);
     for (const sessionId of ['chat', 'casual']) {
-      const rejected = await executeAgentTool({ name: 'spawn_subagent', arguments: { task: 'Inspect the external file',
+      const rejected = await executeAgentTool({ name: 'spawn_sub_agent', arguments: { task: 'Inspect the external file',
         target_files: [path.join(root, 'outside.txt')] }, sessionId, permissionMode: 'read_only', engine });
       assert.equal(rejected.success, false);
       assert.match(rejected.error, /Do NOT use sub-agents for file inspection/);
     }
     const missingPath = path.join(root, 'missing.txt');
-    const missing = await executeAgentTool({ name: 'spawn_subagent', arguments: { task: 'Inspect the missing file',
+    const missing = await executeAgentTool({ name: 'spawn_sub_agent', arguments: { task: 'Inspect the missing file',
       target_files: [missingPath] }, sessionId: 'casual', permissionMode: 'read_only', engine });
     assert.match(missing.error, /Do NOT use sub-agents for file inspection/);
 

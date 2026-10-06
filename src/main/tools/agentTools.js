@@ -476,7 +476,7 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : rawArguments;
 		if (!args || typeof args !== "object" || Array.isArray(args))
 			throw new Error("Tool arguments must be an object.");
-		if (name === 'spawn_subagent' && Object.hasOwn(args, 'target_files'))
+		if (name === 'spawn_sub_agent' && Object.hasOwn(args, 'target_files'))
 			throw new Error("Do NOT use sub-agents for file inspection. Use 'execute_command' with 'grep -n', 'ripgrep', or 'sed' to query local files directly.");
 		if (Object.keys(args).some((key) => !Object.hasOwn(definition.parameters.properties, key)))
 			throw new Error("Unexpected tool argument.");
@@ -518,11 +518,11 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
-		const readingFiles = ['spawn_subagent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
+		const readingFiles = ['spawn_sub_agent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
 		const root = readingFiles ? path.resolve(project?.root_path ?? process.cwd())
 			: await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
-		if (name === "spawn_subagent")
+		if (name === "spawn_sub_agent")
 			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal });
 		if (name === "delegate_task")
 			return await require("../subAgentRunner").runSubAgent({

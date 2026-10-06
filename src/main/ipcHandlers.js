@@ -374,9 +374,9 @@ function registerIpcHandlers({
                     const commandAvailable = availableTools.some(tool => tool.function.name === 'execute_command');
                     const filterTools = toolList => toolList.filter(tool => {
                         const name = tool.function.name;
-                        if (cloud && ['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(name)) return false;
+                        if (cloud && ['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) return false;
                         if (commandAvailable && name === 'delegate_task') return false;
-                        if (commandAvailable && localFileInspection && name === 'spawn_subagent') return false;
+                        if (commandAvailable && localFileInspection && name === 'spawn_sub_agent') return false;
                         return true;
                     });
                     const tools = filterTools(availableTools);
@@ -623,7 +623,7 @@ function registerIpcHandlers({
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
 		"agent:get-tools": () => agentTools,
         "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
-            if (!['delegate_task', 'extract_web_page_data', 'spawn_subagent'].includes(name)) return executeAgentTool({ name, arguments: args, sessionId, permissionMode });
+            if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) return executeAgentTool({ name, arguments: args, sessionId, permissionMode });
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
             standaloneDelegation = true;
             const controller = new AbortController();

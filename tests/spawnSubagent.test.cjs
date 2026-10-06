@@ -3,15 +3,16 @@ const assert = require('node:assert/strict');
 const { spawnSubagentTool, executeSpawnSubagent } = require('../src/main/tools/subagent');
 const runner = require('../src/main/subAgentRunner');
 
-test('spawn_subagent schema matches the prompt invocation', () => {
+test('spawn_sub_agent schema matches the prompt invocation', () => {
   const schema = spawnSubagentTool.function;
-  assert.equal(schema.name, 'spawn_subagent');
+  assert.equal(schema.name, 'spawn_sub_agent');
   assert.deepEqual(schema.parameters.required, ['task']);
   for (const field of ['task', 'constraint', 'expected_output', 'url']) {
     assert.ok(schema.parameters.properties[field]);
   }
+  assert.ok(schema.parameters.properties.target_file);
   assert.equal(schema.parameters.properties.target_files, undefined);
-  assert.match(schema.description, /DO NOT use this tool to search, read, inspect, or parse local workspace files/);
+  assert.match(schema.description, /isolated web research/);
   assert.ok(require('../src/main/tools/agentTools').agentTools.includes(spawnSubagentTool));
 });
 
@@ -33,13 +34,16 @@ test('web invocation passes one URL and constraints to the isolated extractor', 
   } finally { runner.extractWebPageData = original; }
 });
 
-test('file invocation is rejected before launching a worker', async () => {
+test('file invocation delegates exactly one absolute path to the isolated runner', async () => {
   const original = runner.runSubAgent;
-  let called = false;
-  runner.runSubAgent = async () => { called = true; return 'unexpected'; };
+  let call;
+  runner.runSubAgent = async options => { call = options; return 'File summary'; };
   try {
-    await assert.rejects(executeSpawnSubagent({ task: 'Inspect error logs', target_files: ['logs/app.log'] }), /Do NOT use sub-agents for file inspection/);
-    await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /Provide one public web URL/);
-    assert.equal(called, false);
+    const answer = await executeSpawnSubagent({ task: 'Inspect error logs', target_file: '/abs/logs/app.log' });
+    assert.equal(answer, 'File summary');
+    assert.deepEqual(call.target_files, ['/abs/logs/app.log']);
+    assert.match(call.task_description, /Inspect error logs/);
+    await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs', target_file: '' }), /target_file must be a non-empty absolute path/);
+    await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /Provide a url or target_file parameter/);
   } finally { runner.runSubAgent = original; }
 });
