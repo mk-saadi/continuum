@@ -3,10 +3,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
 
-// One-time migration after the product was renamed from "LLM Desktop Assistant" to "Continuum".
+// Migration after the product was renamed from "LLM Desktop Assistant" to "Continuum".
 // Electron derives userData from the application name, so existing installations keep their
 // data in the legacy folder while a renamed build starts with an empty profile. This copies
 // only user-owned data (never Electron caches) and leaves the legacy folder intact for recovery.
+// Because the legacy folder stays on disk, the copy runs on every launch; it is guarded so that
+// existing files — including directories.json written after the rename — are never overwritten.
 const LEGACY_APP_NAME = 'LLM Desktop Assistant';
 const DATA_ENTRIES = [
 	'memory_palace.db', 'memory_palace.db-wal', 'memory_palace.db-shm',
@@ -44,8 +46,19 @@ function migrateLegacyUserData() {
 	config.appDataDirectory = customAppData
 		? oldAppData
 		: fs.existsSync(path.join(newRoot, 'memory_palace.db')) ? newRoot : path.join(newRoot, 'App_Data');
+
+	// The legacy folder is deliberately kept on disk for recovery, so this migration runs on every
+	// launch — not just once. Once the renamed profile already owns a configuration file, only fill
+	// in keys it never stored and never overwrite saved values; otherwise every restart would revert
+	// the model directory, app data directory, and engine timeout to the legacy profile's values.
+	const configFile = path.join(newRoot, 'directories.json');
+	let current = null;
+	try { current = JSON.parse(fs.readFileSync(configFile, 'utf8')); } catch { /* first launch */ }
+	const merged = { ...config, ...current };
+	merged.appDataDirectory = current?.appDataDirectory ?? config.appDataDirectory;
+	if (current && Object.keys(merged).every((key) => Object.hasOwn(current, key))) return;
 	try {
-		fs.writeFileSync(path.join(newRoot, 'directories.json'), JSON.stringify(config, null, 2), { mode: 0o600 });
+		fs.writeFileSync(configFile, JSON.stringify(merged, null, 2), { mode: 0o600 });
 	} catch (error) {
 		console.error('Legacy data migration could not update directories.json:', error.message);
 	}

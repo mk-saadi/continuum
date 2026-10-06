@@ -78,11 +78,13 @@ async function migrateAppData(directory) {
         if (!stat.isDirectory() && !stat.isFile()) throw new Error('App data contains an unsupported file type.');
         expected[name] = stat.isDirectory() ? await manifest(path.join(oldPath, name)) : await digest(path.join(oldPath, name));
       }
-      if (legacy) {
-        for (const name of entries) await fs.cp(path.join(oldPath, name), path.join(newPath, name), { recursive: true, force: false, errorOnExist: true });
-      } else {
-        await fs.cp(oldPath, newPath, { recursive: true, force: false, errorOnExist: true });
-      }
+      // Copy entries rather than the directory itself. newPath always exists -- it came
+      // from a folder picker, and the emptiness check above reads it -- so copying the
+      // source directory onto it makes Node's cp raise ERR_FS_CP_EEXIST under
+      // errorOnExist. That failed every non-legacy migration regardless of how empty
+      // the destination was. Copying children sidesteps the collision entirely because
+      // the guard above proves no child target exists yet.
+      for (const name of entries) await fs.cp(path.join(oldPath, name), path.join(newPath, name), { recursive: true, force: false, errorOnExist: true });
       for (const name of entries) {
         const actual = typeof expected[name] === 'string' ? await digest(path.join(newPath, name)) : await manifest(path.join(newPath, name));
         if (JSON.stringify(actual) !== JSON.stringify(expected[name])) throw new Error('App data copy verification failed.');
