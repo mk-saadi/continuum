@@ -66,6 +66,11 @@ contextBridge.exposeInMainWorld('api', {
   indexDocuments: payload => ipcRenderer.invoke('rag:index', payload),
   getAppSettings: () => ipcRenderer.invoke('app:get-settings'),
   saveAppSettings: settings => ipcRenderer.invoke('app:save-settings', settings),
+  // Sub-agent model selection: null follows the chat's model, { type: 'local' }
+  // is the local model server, { type: 'cloud', provider, model } a saved
+  // cloud provider (see src/main/subagents/modelSelection.js).
+  getSubagentModel: () => ipcRenderer.invoke('subagent:get-model'),
+  saveSubagentModel: selection => ipcRenderer.invoke('subagent:save-model', selection),
   getMcpConfig: () => ipcRenderer.invoke('mcp:get-config'),
   saveMcpConfig: config => ipcRenderer.invoke('mcp:save-config', config),
   getModelLoadConfig: (modelId) => ipcRenderer.invoke('engine:get-load-config', { modelId }),

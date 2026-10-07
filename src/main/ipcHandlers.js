@@ -98,6 +98,12 @@ function registerIpcHandlers({
 		throw new TypeError("isTrustedSender must be a function.");
 	}
 
+	// Step 7 wiring: the sub-agent model resolver needs the running engine's
+	// config (port + loaded model) when the configured child model is the local
+	// server. The app hands that accessor to this composition root, so the
+	// subagent runtime never reaches for Electron state on its own.
+	require("./subagents/modelSelection").setEngineConfigProvider(() => getEngineConfig?.() ?? null);
+
 	const requests = new Map();
     let standaloneDelegation = false;
 	const subscribers = new Set();
@@ -224,6 +230,12 @@ function registerIpcHandlers({
 			}
 		},
 		"app:get-settings": () => getAppSettings(),
+		// The sub-agent model is its own setting (not part of app:get-settings):
+		// it is a model selection, validated against the saved cloud providers,
+		// and it decides what a spawned child runs on (see
+		// ./subagents/modelSelection.js). null = follow the chat's model.
+		"subagent:get-model": () => require("./subagents/modelSelection").getSubagentModel(),
+		"subagent:save-model": (selection) => require("./subagents/modelSelection").saveSubagentModel(selection),
 		"settings:set-notification-prefs": prefs => saveNotificationPrefs(prefs),
 		"app:save-settings": (settings) => {
 			const previousMode = getAppSettings().mcpMode;
@@ -354,6 +366,13 @@ function registerIpcHandlers({
 				const config = getEngineConfig?.();
 				if (!cloud && !config) throw new Error("Start the local model server first.");
                 if (!cloud && config.modelPath && config.modelPath !== modelId) throw new Error("The selected local model is no longer loaded.");
+				// What a delegated child inherits as its model: this chat's own
+				// selection. A cloud chat now carries a cloud descriptor as well, so
+				// spawn_sub_agent stays usable for it; the sub-agent model setting may
+				// override either shape at the runtime boundary (see
+				// ./subagents/modelSelection.js) without changing anything here.
+				const chatEngine = require("./subagents/modelSelection")
+					.buildChatEngine({ cloud, target, config, modelId });
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
                 const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard, createToolFailureCircuitBreaker } = require('./engineManager');
                 const { maxConsecutiveToolFailures, maxTotalToolFailures } = getAppSettings();
@@ -374,13 +393,19 @@ function registerIpcHandlers({
                     const commandAvailable = availableTools.some(tool => tool.function.name === 'execute_command');
                     const filterTools = toolList => toolList.filter(tool => {
                         const name = tool.function.name;
-                        if (cloud && ['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) return false;
+                        // The legacy delegate/extract runners stay local-only; spawn_sub_agent
+                        // (the Step 1-7 tool) is available to cloud chats too, because its
+                        // child model is resolved independently of the chat's model.
+                        if (cloud && ['delegate_task', 'extract_web_page_data'].includes(name)) return false;
                         if (commandAvailable && name === 'delegate_task') return false;
                         if (commandAvailable && localFileInspection && name === 'spawn_sub_agent') return false;
                         return true;
                     });
                     const tools = filterTools(availableTools);
-                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable: !cloud, userText: currentUserText }));
+                    // The protocol may only describe tools the model can actually call:
+                    // it is advertised exactly when spawn_sub_agent survived filtering.
+                    const delegationAvailable = tools.some(tool => tool.function.name === 'spawn_sub_agent');
+                    messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText: currentUserText }));
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
                         projectId: usageProjectId,
@@ -505,7 +530,7 @@ function registerIpcHandlers({
 									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
 								})
 								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, signal: controller.signal,
-                                    engine: cloud ? undefined : { port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength } })
+                                    engine: chatEngine })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
 									});

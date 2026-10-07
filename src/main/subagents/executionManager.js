@@ -6,6 +6,7 @@ const { resolveSubAgentPath, fileNotFound } = require('../pathUtils');
 const { nodeHttpFetch } = require('../nodeHttpFetch');
 const { getSingleWebPageContent } = require('../tools/webSearch');
 const { scheduleInference } = require('./inferenceScheduler');
+const { isEngineReady, engineNotReadyError } = require('./providers');
 
 // Electron's RUN_AS_NODE environment can break native (undici) fetch with
 // ERR_INVALID_IP_ADDRESS, so sub-agent web GETs go through the shared Node HTTP
@@ -151,10 +152,7 @@ async function runFileAnalysisExecution({ session, task_description, target_file
       target_files.some(file => typeof file !== 'string' || !file.trim() || file.includes('\0'))) {
     throw new Error('target_files must be an array of up to 32 file paths.');
   }
-  if (!Number.isInteger(engine?.port) || engine.port < 1 || engine.port > 65535 ||
-      typeof engine.modelId !== 'string' || !engine.modelId.trim()) {
-    throw new Error('Start the local model server before delegating a task.');
-  }
+  if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
   // Keep an unknown window distinct from a known one: the character budget falls back
   // to DEFAULT_TARGET_CHARACTERS, while the byte guard needs a concrete ceiling.
@@ -280,10 +278,7 @@ async function runWebExtractionExecution({ session, url, query, engine, signal, 
   if (typeof query !== 'string' || !query.trim() || query.length > 5000 || query.includes('\0')) {
     throw new Error('query must be a non-empty question of at most 5,000 characters.');
   }
-  if (!Number.isInteger(engine?.port) || engine.port < 1 || engine.port > 65535 ||
-      typeof engine.modelId !== 'string' || !engine.modelId.trim()) {
-    throw new Error('Start the local model server before extracting web page data.');
-  }
+  if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'extracting web page data');
   signal?.throwIfAborted();
   const page = await getSingleWebPageContent({ url, signal, fetchImpl: pageFetchImpl });
   signal?.throwIfAborted();

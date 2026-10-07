@@ -54,13 +54,21 @@ function childSessionId(parentSessionId) {
   return parentSessionId ? `${parentSessionId}_child_${unique}` : `child_${unique}`;
 }
 
-function createSession({ parentSessionId = null, agentId = null, model = null } = {}) {
+function createSession({ parentSessionId = null, agentId = null, model = null,
+  provider = 'local', providerId = null } = {}) {
   const now = new Date().toISOString();
   const session = {
     id: childSessionId(parentSessionId),
     parentSessionId,
     agentId,
+    // Which model this child runs on — decided once at spawn by
+    // ./modelSelection.js and never switched mid-session. `provider` is the
+    // registry id ('local' | 'cloud'); `providerId` names the saved cloud
+    // provider (null for the local server). Together with the lifecycle fields
+    // below they are the runtime's whole observability surface.
     model,
+    provider,
+    providerId,
     status: SESSION_STATUS.CREATED,
     createdAt: now,
     startedAt: null,

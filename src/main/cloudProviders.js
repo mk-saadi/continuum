@@ -288,7 +288,12 @@ function anthropicPayload(payload, model) {
 			: {}),
 	};
 }
-function createCloudFetch(target, { fetchImpl = nodeHttpFetch } = {}) {
+// `stream` selects the response shape: the main chat consumes the OpenAI-style
+// SSE stream as it arrives, while sub-agent requests are single non-streaming
+// POSTs (see ./subagents/providers/cloudProvider.js) and need one JSON body.
+// The Anthropic path is non-streaming either way — it is converted to an
+// OpenAI-shaped JSON response below.
+function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true } = {}) {
 	target = validateChatProvider(target);
 	if (target.type !== "cloud") throw new Error("Cloud provider required.");
 	const provider = readSettings().find((row) => row.id === target.provider);
@@ -303,8 +308,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch } = {}) {
 			: {
 					model: target.model,
 					messages: original.messages,
-					stream: true,
-					stream_options: { include_usage: true },
+					...(stream ? { stream: true, stream_options: { include_usage: true } } : { stream: false }),
 					...(original.tools?.length ? { tools: original.tools, tool_choice: "auto" } : {}),
 					...(original.max_tokens > 0 ? { max_tokens: original.max_tokens } : {}),
 					...(original.reasoning_budget >= 0

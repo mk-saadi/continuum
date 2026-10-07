@@ -4,6 +4,7 @@ const path = require('node:path');
 // Required through the module object so every model turn visibly goes through
 // the Step 3 scheduler (and so tests can observe each turn individually).
 const inferenceScheduler = require('./inferenceScheduler');
+const { isEngineReady, engineNotReadyError } = require('./providers');
 
 // The child agent loop: one foreground execution that turns a delegated task
 // into an investigate -> inspect -> reason -> report cycle instead of a single
@@ -199,10 +200,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       throw new Error(`${name} must be an integer from 1 to ${MAX_LIMIT}.`);
     }
   }
-  if (!Number.isInteger(engine?.port) || engine.port < 1 || engine.port > 65535 ||
-      typeof engine.modelId !== 'string' || !engine.modelId.trim()) {
-    throw new Error('Start the local model server before delegating a task.');
-  }
+  if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
 
   const { agentTools } = require('../tools/agentTools');

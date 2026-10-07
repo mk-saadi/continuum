@@ -2,12 +2,15 @@
 
 const {
   createSession, startSession, completeSession, failSession, cancelSession, interruptSession,
+  getSession,
 } = require('./sessionManager');
 const {
   createExecution, completeExecution, failExecution, cancelExecution, interruptExecution,
+  listExecutions,
 } = require('./executionStore');
 const { runFileAnalysisExecution, runWebExtractionExecution } = require('./executionManager');
 const { runInvestigationExecution } = require('./agentLoop');
+const { resolveChildEngine } = require('./modelSelection');
 const backgroundStore = require('./backgroundStore');
 const continuationManager = require('./continuationManager');
 
@@ -59,7 +62,9 @@ const continuationManager = require('./continuationManager');
 // Deliberate limitations carried over: the runtime is in-memory, so an
 // application shutdown drops active background runs — durable job recovery and
 // restart resumption belong with persistent sessions later. Step 4's context
-// isolation and read-only tool allowlist are unchanged by backgrounding.
+// isolation and read-only tool allowlist are unchanged by backgrounding, and
+// unchanged by whichever model a child runs on (Step 7 routes model choice
+// through ./modelSelection.js without touching permissions).
 //
 // Step 6 adds parent <-> child control on top of both lifetimes (see
 // ./continuationManager.js): sendMessage() queues a parent instruction into
@@ -70,13 +75,16 @@ const continuationManager = require('./continuationManager');
 // driver does, with single-turn ownership of the child's context enforced
 // there. One-shot (file-analysis/web-extraction) children have no context to
 // continue and are not continuable. Still absent by design: persistence across
-// restarts, user-facing tools/UI for control, model selection, and any form of
-// child-to-child or multi-agent messaging.
+// restarts, user-facing tools/UI for control, and any form of child-to-child
+// or multi-agent messaging.
 //
 //   tool -> runFileAnalysis/runWebExtraction/runInvestigation
+//        -> child engine (./modelSelection.js: main-chat model by default,
+//           or the independently configured sub-agent model)
 //        -> child session -> execution
 //        -> inference scheduler (one queue per provider/model, capacity-limited)
 //        -> local provider -> local model server
+//           or cloud provider -> saved cloud provider
 //   the investigation execution is an agent loop whose tool calls run
 //   against the read-only tool registry directly, outside the scheduler.
 //
@@ -147,8 +155,20 @@ function isCancellation(error, signal) {
 // child session opening with one execution attempt. Both lifetimes pass the
 // attempt's AbortController here, so every execution — caller-owned or
 // runtime-owned — can be interrupted through the same signal path later.
+// The session records which model the child runs on (decided by
+// ./modelSelection.js before this call), so the record is the observability
+// source for provider/model even for a detached background run.
 function openRun({ parentSessionId, agentId, engine }, { kind, background, controller }) {
-  const session = createSession({ parentSessionId, agentId, model: engine?.modelId ?? null });
+  const provider = typeof engine?.provider === 'string' && engine.provider.trim()
+    ? engine.provider.trim()
+    : engine?.chatTarget ? 'cloud' : 'local';
+  const session = createSession({
+    parentSessionId,
+    agentId,
+    model: engine?.modelId ?? null,
+    provider,
+    providerId: provider === 'cloud' ? (engine?.chatTarget?.provider ?? null) : null,
+  });
   startSession(session);
   const attempt = createExecution({ sessionId: session.id, kind, background, controller });
   return { session, attempt };
@@ -204,6 +224,11 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
       + 'start* entry point instead.');
   }
   const execution = executionFor(kind);
+  // The child's model is decided once, here, before anything exists: the
+  // sub-agent model setting (or the parent's own model when it is unset) is
+  // resolved into the engine descriptor that this whole run — first turn and
+  // any continuation — will keep using.
+  const childEngine = resolveChildEngine(engine);
   // The first turn also runs under a run-owned controller (the caller's signal
   // is forwarded into it), which is what lets interrupt(childId) stop a
   // foreground child at the same safe boundaries as any other turn. An
@@ -211,10 +236,10 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
   // await ends, while the child session itself stays interrupted and resumable.
   const controller = new AbortController();
   const detach = forwardAbort(signal, controller);
-  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: false, controller });
-  continuationManager.registerChild(session, { kind, engine, ...executionOptions });
+  const { session, attempt } = openRun({ parentSessionId, agentId, engine: childEngine }, { kind, background: false, controller });
+  continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
   try {
-    const { output, usage } = await execution({ session, engine, signal: controller.signal, ...executionOptions });
+    const { output, usage } = await execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
     completeExecution(attempt, { usage, result: output });
     completeSession(session, { usage, result: output });
     continuationManager.onTurnSettled(session);
@@ -230,6 +255,10 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
 function startInBackground(options, kind) {
   const { parentSessionId = null, agentId = null, engine, signal, ...executionOptions } = options ?? {};
   const execution = executionFor(kind);
+  // Same single resolution point as the foreground path: the detached run's
+  // model is fixed before the handle exists, so a background child and a
+  // foreground child of the same spawn behave identically.
+  const childEngine = resolveChildEngine(engine);
 
   // The run owns its AbortController: once the start call has returned there
   // is no caller frame left to abort, so cancellation must reach the run's own
@@ -240,8 +269,8 @@ function startInBackground(options, kind) {
   const controller = new AbortController();
   const detach = forwardAbort(signal, controller);
 
-  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: true, controller });
-  continuationManager.registerChild(session, { kind, engine, ...executionOptions });
+  const { session, attempt } = openRun({ parentSessionId, agentId, engine: childEngine }, { kind, background: true, controller });
+  continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
   backgroundStore.track({ executionId: attempt.id, childSessionId: session.id, kind, controller, detach });
 
   const handle = () => ({ childSessionId: session.id, executionId: attempt.id, status: attempt.status });
@@ -262,7 +291,7 @@ function startInBackground(options, kind) {
 
   let running;
   try {
-    running = execution({ session, engine, signal: controller.signal, ...executionOptions });
+    running = execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
   } catch (error) {
     failed(error); // an execution that throws before its first await
     return handle();
@@ -277,6 +306,35 @@ function startInBackground(options, kind) {
   return handle();
 }
 
+/**
+ * Minimal observability for one child: the identity, model, lifecycle, usage,
+ * and attempt info the runtime already keeps, exposed as a single snapshot.
+ * Deliberately not a dashboard or an event stream — this is the record the
+ * sessions/executions hold, nothing more.
+ */
+function describeChild(childId) {
+  const session = getSession(childId);
+  if (!session) return null;
+  const attempts = listExecutions(session.id);
+  const latest = attempts[attempts.length - 1] ?? null;
+  return {
+    childSessionId: session.id,
+    parentSessionId: session.parentSessionId,
+    provider: session.provider,
+    providerId: session.providerId,
+    model: session.model,
+    status: session.status,
+    createdAt: session.createdAt,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt,
+    durationMs: session.durationMs,
+    usage: session.usage,
+    turns: attempts.length,
+    kind: latest?.kind ?? null,
+    background: latest?.background ?? null,
+  };
+}
+
 module.exports = {
   runFileAnalysis, runWebExtraction, runInvestigation,
   startFileAnalysis, startWebExtraction, startInvestigation,
@@ -287,4 +345,6 @@ module.exports = {
   resume: continuationManager.resume,
   cancelBackground: backgroundStore.cancelBackground,
   backgroundEvents: backgroundStore.backgroundEvents,
+  // Step 7: one read-only snapshot of a child's model and lifecycle.
+  describeChild,
 };

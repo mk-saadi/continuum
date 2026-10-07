@@ -21,6 +21,21 @@ const spawnSubagentTool = {
   },
 };
 
+// Parent-context protection, reviewed in Step 7 and kept on purpose: whatever a
+// child returns lands in the parent's conversation as one tool result, so the
+// parent context pays for every character — the result is bounded to a short
+// summary (~1,800 characters). The full answer is NOT discarded: the child
+// session keeps it (session.result plus the whole session.context), so the
+// complete findings stay available internally for continuation (sendMessage /
+// resume) and for inspection through the runtime. One helper, one limit, one
+// notice — instead of the same slice repeated per path.
+const PARENT_RESULT_LIMIT = 1800;
+const TRUNCATED_NOTICE = '[Summary truncated]';
+function boundResultForParent(answer) {
+  if (typeof answer !== 'string' || answer.length <= PARENT_RESULT_LIMIT) return answer;
+  return `${answer.slice(0, PARENT_RESULT_LIMIT - TRUNCATED_NOTICE.length - 1)}\n${TRUNCATED_NOTICE}`;
+}
+
 async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file, investigate,
   engine, signal, parentSessionId = null, rootPath }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 2000 || task.includes('\0')) {
@@ -48,7 +63,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
       constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
     const runtime = require('../subagents');
     const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId });
-    return answer.length > 1800 ? `${answer.slice(0, 1780)}\n[Summary truncated]` : answer;
+    return boundResultForParent(answer);
   }
 
   // --- File analysis path ---
@@ -65,7 +80,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
       rootPath: process.cwd(),
       engine, signal, parentSessionId,
     });
-    return summary.length > 1800 ? `${summary.slice(0, 1780)}\n[Summary truncated]` : summary;
+    return boundResultForParent(summary);
   }
 
   // --- Web URL path ---
@@ -86,7 +101,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     .filter(Boolean).join('\n');
   const runtime = require('../subagents');
   const summary = await runtime.runWebExtraction({ url: sourceUrl, query: instruction, engine, signal, parentSessionId });
-  return summary.length > 1800 ? `${summary.slice(0, 1780)}\n[Summary truncated]` : summary;
+  return boundResultForParent(summary);
 }
 
-module.exports = { spawnSubagentTool, executeSpawnSubagent };
+module.exports = { spawnSubagentTool, executeSpawnSubagent, PARENT_RESULT_LIMIT };
