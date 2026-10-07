@@ -113,7 +113,7 @@ test('a failed execution is recorded on the session and the original error is re
   assert.ok(session.completedAt);
 });
 
-test('cancellation aborts mid-request and records the session as failed', async () => {
+test('cancellation aborts mid-request and records the session as cancelled', async () => {
   const controller = new AbortController();
   const fetchImpl = (_url, { signal }) => new Promise((_resolve, reject) => {
     signal.addEventListener('abort', () => reject(signal.reason), { once: true });
@@ -125,7 +125,7 @@ test('cancellation aborts mid-request and records the session as failed', async 
     { name: 'AbortError' },
   );
   const session = sessionManager.listSessions().find(item => item.parentSessionId === 'parent-abort');
-  assert.equal(session.status, 'failed');
+  assert.equal(session.status, 'cancelled');
 });
 
 test('malformed input is rejected before any model request', async () => {

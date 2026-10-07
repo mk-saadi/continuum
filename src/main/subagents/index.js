@@ -1,33 +1,51 @@
 'use strict';
 
-const { createSession, completeSession, failSession } = require('./sessionManager');
+const { createSession, startSession, completeSession, failSession, cancelSession } = require('./sessionManager');
+const { createExecution, completeExecution, failExecution, cancelExecution } = require('./executionStore');
 const { runFileAnalysisExecution, runWebExtractionExecution } = require('./executionManager');
 
 // Subagent runtime: the boundary between the tool layer and subagent executions.
-// Each call opens a distinct child session, runs exactly one one-shot execution
-// inside it, and records the outcome on that session. Sessions are ephemeral and
-// in-memory; loops, background runs, continuation, and messaging are deliberately
+// Each call opens a distinct child session, records one execution attempt inside
+// it, and runs that attempt against the inference scheduler. The child session
+// has its own identity, parent link, lifecycle, usage, and result — but is still
+// one-shot. Loops, background runs, continuation, and messaging are deliberately
 // not part of this step.
 //
-//   tool -> runFileAnalysis/runWebExtraction -> session -> execution
+//   tool -> runFileAnalysis/runWebExtraction -> child session -> execution
 //        -> inference scheduler -> local provider -> local model server
 
 async function runFileAnalysis(options) {
-  return runInSession(options, runFileAnalysisExecution);
+  return runInSession(options, runFileAnalysisExecution, 'file-analysis');
 }
 
 async function runWebExtraction(options) {
-  return runInSession(options, runWebExtractionExecution);
+  return runInSession(options, runWebExtractionExecution, 'web-extraction');
 }
 
-async function runInSession({ parentSessionId = null, agentId = null, engine, ...executionOptions }, execution) {
+// An aborted signal (or an AbortError bubbling out of fetch/fs) is a
+// cancellation, not a failure; every other error fails the session. Either way
+// the original error is rethrown untouched so callers see the same semantics.
+function isCancellation(error, signal) {
+  return Boolean(signal?.aborted) || error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+}
+
+async function runInSession({ parentSessionId = null, agentId = null, engine, signal, ...executionOptions }, execution, kind) {
   const session = createSession({ parentSessionId, agentId, model: engine?.modelId ?? null });
+  startSession(session);
+  const attempt = createExecution({ sessionId: session.id, kind });
   try {
-    const { output, usage } = await execution({ session, engine, ...executionOptions });
-    completeSession(session, usage);
+    const { output, usage } = await execution({ session, engine, signal, ...executionOptions });
+    completeExecution(attempt, { usage, result: output });
+    completeSession(session, { usage, result: output });
     return output;
   } catch (error) {
-    failSession(session, error);
+    if (isCancellation(error, signal)) {
+      cancelExecution(attempt);
+      cancelSession(session);
+    } else {
+      failExecution(attempt, error);
+      failSession(session, error);
+    }
     throw error;
   }
 }
