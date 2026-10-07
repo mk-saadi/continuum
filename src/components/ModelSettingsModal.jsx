@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LuCpu, LuLayers, LuPlay, LuSettings2, LuSparkles, LuX } from "react-icons/lu";
+import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSettings2, LuSlidersHorizontal, LuSparkles, LuX } from "react-icons/lu";
 import { CheckboxField, NumberField, SelectField } from "./FormControls";
 
 const integerFields = [
@@ -49,6 +49,9 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						cacheTypeV: "f16",
 						mlock: false,
 						chatTemplate: "auto",
+						kvCacheOffload: "gpu",
+						loadMode: "auto",
+						moeExpertCount: null,
 						...savedConfig,
 						reasoningFormat: remembered
 							? (savedConfig.reasoningFormat ?? "auto")
@@ -67,6 +70,25 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	}, [model.id]);
 
 	const update = (key, value) => setConfig((previous) => ({ ...previous, [key]: value }));
+
+	// The mlock checkbox mirrors the Load Mode selection so the two controls can
+	// never ask the server for contradictory loading behavior.
+	const changeLoadMode = (value) =>
+		setConfig((previous) => ({
+			...previous,
+			loadMode: value,
+			mlock:
+				value === "auto"
+					? previous.mlock
+					: ["mlock", "mmap+mlock"].includes(value),
+		}));
+
+	const mlockControlled = !!config && config.loadMode !== "auto";
+	const expertHint = !model.architecture
+		? "Model architecture is unknown, so an explicit expert count cannot be forwarded to the server."
+		: model.isMoe && model.expertCount
+			? `Total experts for MoE models only; this model reports ${model.expertCount}. Leave empty to keep the GGUF value.`
+			: "Total experts for MoE models only — not active experts per layer. Leave empty (auto) for dense models.";
 
 	const submit = async (event) => {
 		event.preventDefault();
@@ -223,17 +245,26 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
 								<SectionHeading
 									Icon={LuLayers}
-									title="Memory & attention"
-									description="Choose how model weights are loaded and processed."
+									title="Cache & attention"
+									description="KV cache precision, placement, and attention behavior."
 								/>
 								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
 									{[
-										["cacheTypeK", "K-Cache Precision"],
-										["cacheTypeV", "V-Cache Precision"],
-									].map(([key, label]) => (
+										[
+											"cacheTypeK",
+											"K-Cache Precision",
+											"Key cache precision. f16 is FP16 KV cache.",
+										],
+										[
+											"cacheTypeV",
+											"V-Cache Precision",
+											"Value cache precision. Explicit K/V precision selections always take precedence.",
+										],
+									].map(([key, label, hint]) => (
 										<SelectField
 											key={key}
 											label={label}
+											hint={hint}
 											value={config[key]}
 											onChange={(event) => update(key, event.target.value)}
 										>
@@ -242,6 +273,85 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 											<option value="q4_0">q4_0</option>
 										</SelectField>
 									))}
+									<SelectField
+										label="KV Cache Offload"
+										hint="Where the KV cache lives: GPU (default) or CPU. This is not cache precision — precision sets the data type, offload sets the device."
+										value={config.kvCacheOffload}
+										onChange={(event) => update("kvCacheOffload", event.target.value)}
+									>
+										<option value="gpu">GPU (default)</option>
+										<option value="cpu">CPU</option>
+									</SelectField>
+									<SelectField
+										label="Flash attention"
+										value={config.flashAttention}
+										onChange={(event) => update("flashAttention", event.target.value)}
+										className="z-9999"
+									>
+										<option value="auto">Auto</option>
+										<option value="on">On</option>
+										<option value="off">Off</option>
+									</SelectField>
+								</div>
+							</div>
+
+							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+								<SectionHeading
+									Icon={LuHardDrive}
+									title="Model loading & memory"
+									description="How model weights are read into memory for this model."
+								/>
+								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+									<SelectField
+										label="Load Mode"
+										hint="Auto keeps llama-server's default memory mapping. 'none' disables mmap-style model loading (recommended when tensors are pinned to CPU); mlock variants keep weights resident in RAM."
+										value={config.loadMode}
+										onChange={(event) => changeLoadMode(event.target.value)}
+									>
+										<option value="auto">Auto</option>
+										<option value="mmap">mmap</option>
+										<option value="none">none</option>
+										<option value="mlock">mlock</option>
+										<option value="mmap+mlock">mmap + mlock</option>
+										<option value="dio">Direct I/O</option>
+									</SelectField>
+									<CheckboxField
+										label="Lock in System RAM (mlock)"
+										hint={
+											mlockControlled
+												? "Controlled by the Load Mode selection above."
+												: "Keep model weights resident in RAM."
+										}
+										checked={config.mlock}
+										disabled={mlockControlled}
+										onChange={(event) => update("mlock", event.target.checked)}
+									/>
+									<NumberField
+										label="MoE Expert Count"
+										hint={expertHint}
+										min={1}
+										max={2147483647}
+										step={1}
+										placeholder="Auto"
+										disabled={!model.architecture}
+										value={config.moeExpertCount ?? ""}
+										onChange={(event) =>
+											update(
+												"moeExpertCount",
+												event.target.value === "" ? null : Number(event.target.value),
+											)
+										}
+									/>
+								</div>
+							</div>
+
+							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+								<SectionHeading
+									Icon={LuSlidersHorizontal}
+									title="Template & sampling"
+									description="Per-model defaults for templating and generation."
+								/>
+								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
 									<SelectField
 										label="Chat Template"
 										value={config.chatTemplate}
@@ -262,22 +372,6 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 										<option value="deepseek">DeepSeek</option>
 										<option value="none">None</option>
 									</SelectField>
-
-									<SelectField
-										label="Flash attention"
-										value={config.flashAttention}
-										onChange={(event) => update("flashAttention", event.target.value)}
-										className="z-9999"
-									>
-										<option value="auto">Auto</option>
-										<option value="on">On</option>
-										<option value="off">Off</option>
-									</SelectField>
-									<CheckboxField
-										label="Lock in System RAM (mlock)"
-										checked={config.mlock}
-										onChange={(event) => update("mlock", event.target.checked)}
-									/>
 									<NumberField
 										label="Seed"
 										hint="Optional. Leave empty to use the server default."

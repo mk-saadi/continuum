@@ -4,21 +4,30 @@ const DEFAULT_LOAD_CONFIG = Object.freeze({
   contextLength: 8192, gpuOffload: 'auto', threads: 4, evalBatch: 2048,
   physicalBatch: 512, parallel: 1, mlock: false, flashAttention: 'auto',
   cacheTypeK: 'f16', cacheTypeV: 'f16', chatTemplate: 'auto', reasoningFormat: 'auto',
+  kvCacheOffload: 'gpu', loadMode: 'auto', moeExpertCount: null,
 });
 const LOAD_MODES = ['auto', 'none', 'mmap', 'mlock', 'mmap+mlock', 'dio'];
+const KV_CACHE_OFFLOAD = ['gpu', 'cpu'];
 function normalizeLoadConfig(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Invalid load settings.');
   const config = { ...DEFAULT_LOAD_CONFIG };
   for (const key of Object.keys(config)) if (input[key] !== undefined) config[key] = input[key];
-  // Migrate remembered settings without retaining retired load options.
+  // Migrate remembered settings from retired config shapes without behavior changes.
   if (input.kvCacheQuantization !== undefined) {
     if (!['f16', 'q8_0', 'q4_0'].includes(input.kvCacheQuantization)) throw new Error('Invalid KV cache precision.');
     config.cacheTypeK = input.cacheTypeK ?? input.kvCacheQuantization;
     config.cacheTypeV = input.cacheTypeV ?? input.kvCacheQuantization;
   }
-  if (input.loadMode !== undefined) {
-    if (!LOAD_MODES.includes(input.loadMode)) throw new Error('Invalid load mode.');
-    if (input.mlock === undefined) config.mlock = ['mlock', 'mmap+mlock'].includes(input.loadMode);
+  if (!LOAD_MODES.includes(config.loadMode)) throw new Error('Invalid load mode.');
+  // Configs saved when load mode was a one-way mlock alias still imply mlock the same way.
+  if (input.loadMode !== undefined && input.mlock === undefined) {
+    config.mlock = ['mlock', 'mmap+mlock'].includes(config.loadMode);
+  }
+  if (!KV_CACHE_OFFLOAD.includes(config.kvCacheOffload)) throw new Error('Invalid KV cache offload setting.');
+  if (config.moeExpertCount === '' || config.moeExpertCount === undefined) config.moeExpertCount = null;
+  if (config.moeExpertCount !== null &&
+      (!Number.isSafeInteger(config.moeExpertCount) || config.moeExpertCount < 1 || config.moeExpertCount > 2147483647)) {
+    throw new Error('MoE expert count must be empty (auto) or a positive integer.');
   }
   for (const key of ['contextLength', 'threads', 'evalBatch', 'physicalBatch', 'parallel']) {
     if (!Number.isSafeInteger(config[key]) || config[key] < 1 || config[key] > 2147483647) throw new Error(`${key} must be a positive integer.`);

@@ -93,7 +93,19 @@ function buildLlamaServerArgs(model, input, port) {
   const flags = { contextLength: '-c', gpuOffload: '-ngl', threads: '-t', evalBatch: '-b', physicalBatch: '-ub', parallel: '-np', flashAttention: '-fa' };
   for (const [key, flag] of Object.entries(flags)) args.push(flag, String(config[key]));
   args.push('--cache-type-k', config.cacheTypeK, '--cache-type-v', config.cacheTypeV);
+  // KV offload defaults to GPU, so the disabling flag is only emitted for CPU placement.
+  if (config.kvCacheOffload === 'cpu') args.push('--no-kv-offload');
   if (config.mlock) args.push('--mlock');
+  // Deprecated --mlock and --load-mode must never be emitted as "--load-mode auto";
+  // load mode goes last so it wins over the legacy mlock alias when both are present.
+  if (config.loadMode !== 'auto') args.push('--load-mode', config.loadMode);
+  // The installed server has no --expert-count flag; the supported mechanism is the
+  // GGUF metadata override `<arch>.expert_count`, which the loader applies in place of
+  // the file value (even when the file omits the key). Skip it without a usable architecture.
+  if (config.moeExpertCount !== null && typeof model.architecture === 'string' &&
+      /^[A-Za-z0-9_.-]+$/.test(model.architecture)) {
+    args.push('--override-kv', `${model.architecture}.expert_count=int:${config.moeExpertCount}`);
+  }
   if (config.chatTemplate !== 'auto') args.push('--chat-template', config.chatTemplate);
   args.push('--reasoning-format', config.reasoningFormat);
   if (config.seed !== undefined) args.push('-s', String(config.seed));

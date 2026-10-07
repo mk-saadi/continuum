@@ -13,6 +13,9 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 	const result = {
 		reasoningFormat: 'auto',
 		reasoningEfforts: [],
+		architecture: null,
+		expertCount: null,
+		isMoe: false,
 		sizeFormatted: `${(stats.size / 1024 ** unit).toFixed(2)} ${units[unit]}`,
 		quantization: fileName.match(/(?:IQ\d+_[A-Z0-9_]+|Q\d+_[A-Z0-9_]+|BF16|F16|F32)(?=[.-]|$)/i)?.[0].toUpperCase() || null,
 		paramSize: fileName.match(/(?:^|[^a-z0-9])(\d+(?:\.\d+)?B)(?=[^a-z0-9]|$)/i)?.[1].toUpperCase() || null,
@@ -50,6 +53,11 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		result.reasoningFormat = chatTemplate.includes('<think>') ? 'deepseek' : 'auto';
 		result.hasReasoning ||= /deepseek|qwq|think|reasoning/i.test(result.generalName || '');
 		const arch = typeof metadata['general.architecture'] === 'string' ? metadata['general.architecture'] : '';
+		result.architecture = arch || null;
+		// Expert metadata is only present for MoE GGUFs; reuse the header already parsed here.
+		result.expertCount = Number.isSafeInteger(metadata[`${arch}.expert_count`])
+			? metadata[`${arch}.expert_count`] : null;
+		result.isMoe = result.expertCount !== null || metadata[`${arch}.expert_used_count`] !== undefined;
 		result.hasTools ||= /<tools>|tool_calls/.test(chatTemplate);
 		result.hasReasoning ||= /<think>/.test(chatTemplate) || /deepseek/i.test(arch);
 		result.hasVision ||= /vl|vision|llava|mllama|gemma3|gemma4|pixtral|idefics|minicpmv/i.test(arch)
