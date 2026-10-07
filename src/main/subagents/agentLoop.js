@@ -25,10 +25,21 @@ const inferenceScheduler = require('./inferenceScheduler');
 // other child sessions are never read, inherited, or reachable from this
 // module — there is no API here that accepts them.
 //
+// Since Step 6 the context outlives one execution: the child session carries
+// `session.context`, and the loop restores it for a continuation turn (a
+// parent message or a resume) instead of seeding a fresh [system, task] pair.
+// The context is committed only at safe boundaries — after the seed, after a
+// complete tool round, and on the final answer — so an execution stopped by an
+// interrupt always leaves a protocol-valid prefix behind (never a dangling
+// assistant tool_calls without its tool results), and the interrupted tail is
+// simply redone on resume. Only this child's own messages are ever in that
+// context: a new parent instruction is appended as one more user message, and
+// nothing of the parent's conversation is ever copied in.
+//
 // Termination is bounded three ways: the model returns a final answer without
 // tool calls, a configured loop limit is reached (inference turns / tool
-// calls), or the execution signal aborts (cancellation stops the loop before
-// the next turn and never starts another inference).
+// calls), or the execution signal aborts (cancellation or interrupt stops the
+// loop before the next turn and never starts another inference).
 
 const CHILD_AGENT_SYSTEM_PROMPT =
   'You are a read-only investigation agent. Work autonomously: investigate the task with the tools provided, '
@@ -167,12 +178,20 @@ async function executeChildTool({ name, rawArguments, rootPath, signal }) {
  * loop's tool calls/results only), sends every model turn through the
  * inference scheduler, validates each tool call against the child allowlist,
  * and finishes on a final answer, a loop limit, an inference error, or
- * cancellation. Returns { output, usage } with usage summed across turns.
- * `session` is the owning child session recorded by the runtime.
+ * cancellation/interrupt. Returns { output, usage } with usage summed across
+ * this execution's turns. `session` is the owning child session recorded by
+ * the runtime.
+ *
+ * Continuation (Step 6): when the session already carries a context, this is a
+ * resumed/message turn — the existing context is restored verbatim and the
+ * loop continues it instead of seeding a new task, so the child keeps its own
+ * history, tool results, and previous answers across any number of turns.
  */
 async function runInvestigationExecution({ session, task, rootPath, engine, signal, fetchImpl,
   maxTurns = DEFAULT_MAX_TURNS, maxToolCalls = DEFAULT_MAX_TOOL_CALLS }) {
-  if (typeof task !== 'string' || !task.trim() || task.includes('\0') || task.length > MAX_TASK_CHARACTERS) {
+  const restored = Array.isArray(session?.context) && session.context.length > 0;
+  if (!restored && (typeof task !== 'string' || !task.trim() || task.includes('\0') ||
+      task.length > MAX_TASK_CHARACTERS)) {
     throw new Error(`task must be a non-empty string of at most ${MAX_TASK_CHARACTERS} characters.`);
   }
   for (const [name, value] of Object.entries({ maxTurns, maxToolCalls })) {
@@ -192,10 +211,20 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   const tools = agentTools.filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name));
   const root = path.resolve(rootPath ?? process.cwd());
   // The child's complete context. Nothing outside this array is ever sent.
-  const messages = [
-    { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT },
-    { role: 'user', content: task },
-  ];
+  // A continuation turn starts from exactly the committed prefix it left off
+  // at; a first turn starts from the system prompt and the task.
+  const messages = restored
+    ? [...session.context]
+    : [
+      { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT },
+      { role: 'user', content: task },
+    ];
+  // Commit only at safe boundaries: the seed, a fully-answered tool round,
+  // and the final answer. Anything in between (an in-flight round) stays
+  // uncommitted, so an interrupt can never leave the persisted context ending
+  // in an assistant tool_calls message without its tool results.
+  const commit = () => { session.context = messages.slice(); };
+  if (!restored) commit();
   const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   let sawUsage = false;
   let toolCallCount = 0;
@@ -240,10 +269,12 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         }
         throw new Error('Child agent generated no output tokens. Try a simpler task.');
       }
-      return {
-        output: truncate(finalAnswer, MAX_FINAL_CHARACTERS),
-        usage: sawUsage ? usage : null,
-      };
+      // The answer becomes part of the child's own context, so a later message
+      // turn continues after it instead of pretending the turn never happened.
+      const output = truncate(finalAnswer, MAX_FINAL_CHARACTERS);
+      messages.push({ role: 'assistant', content: output });
+      commit();
+      return { output, usage: sawUsage ? usage : null };
     }
 
     messages.push({ role: 'assistant', content: content || null, tool_calls: toolCalls });
@@ -262,6 +293,9 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       signal?.throwIfAborted();
       messages.push({ role: 'tool', tool_call_id: call.id, content: toolContent });
     }
+    // Safe boundary: the round is fully answered, so the context is valid to
+    // persist and to resume from if this execution is stopped right here.
+    commit();
   }
 }
 

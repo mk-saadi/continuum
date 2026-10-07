@@ -1,10 +1,15 @@
 'use strict';
 
-const { createSession, startSession, completeSession, failSession, cancelSession } = require('./sessionManager');
-const { createExecution, completeExecution, failExecution, cancelExecution } = require('./executionStore');
+const {
+  createSession, startSession, completeSession, failSession, cancelSession, interruptSession,
+} = require('./sessionManager');
+const {
+  createExecution, completeExecution, failExecution, cancelExecution, interruptExecution,
+} = require('./executionStore');
 const { runFileAnalysisExecution, runWebExtractionExecution } = require('./executionManager');
 const { runInvestigationExecution } = require('./agentLoop');
 const backgroundStore = require('./backgroundStore');
+const continuationManager = require('./continuationManager');
 
 // Subagent runtime: the boundary between the tool layer and subagent executions.
 // Each call opens a distinct child session, records one execution attempt inside
@@ -45,17 +50,28 @@ const backgroundStore = require('./backgroundStore');
 // Ownership: the runtime owns a background run, not the caller. The caller's
 // request has already finished when the child starts, and nothing the caller
 // does (or stops doing) terminates the child — it runs until it completes,
-// fails, or is cancelled through cancelBackground()/an aborting caller signal.
-// Results, usage, and errors are written to the child session, which outlives
-// the caller; completion is reported on backgroundEvents (started, completed,
-// failed, cancelled).
+// fails, is cancelled through cancelBackground()/an aborting caller signal, or
+// is interrupted through interrupt(childId), which stops it without destroying
+// it. Results, usage, and errors are written to the child session, which
+// outlives the caller; completion is reported on backgroundEvents (started,
+// completed, failed, cancelled).
 //
-// Deliberate limitations of this step: the runtime is in-memory, so an
+// Deliberate limitations carried over: the runtime is in-memory, so an
 // application shutdown drops active background runs — durable job recovery and
-// restart resumption belong with persistent sessions later. There is also no
-// messaging, inbox, interrupt, or resume: a background child simply runs its
-// assigned task to completion, and Step 4's context isolation and read-only
-// tool allowlist are unchanged by backgrounding.
+// restart resumption belong with persistent sessions later. Step 4's context
+// isolation and read-only tool allowlist are unchanged by backgrounding.
+//
+// Step 6 adds parent <-> child control on top of both lifetimes (see
+// ./continuationManager.js): sendMessage() queues a parent instruction into
+// the child's inbox, interrupt() stops the current turn without destroying the
+// child, and resume() continues the same child session with its own context.
+// Every resumed turn is an ordinary execution of the same agent loop through
+// the same Step 3 scheduler; only who owns the turn differs — the runtime
+// driver does, with single-turn ownership of the child's context enforced
+// there. One-shot (file-analysis/web-extraction) children have no context to
+// continue and are not continuable. Still absent by design: persistence across
+// restarts, user-facing tools/UI for control, model selection, and any form of
+// child-to-child or multi-agent messaging.
 //
 //   tool -> runFileAnalysis/runWebExtraction/runInvestigation
 //        -> child session -> execution
@@ -128,12 +144,57 @@ function isCancellation(error, signal) {
 }
 
 // Identity first, work second: every run — either lifetime — is exactly one
-// child session holding one execution attempt.
-function openRun({ parentSessionId, agentId, engine }, { kind, background }) {
+// child session opening with one execution attempt. Both lifetimes pass the
+// attempt's AbortController here, so every execution — caller-owned or
+// runtime-owned — can be interrupted through the same signal path later.
+function openRun({ parentSessionId, agentId, engine }, { kind, background, controller }) {
   const session = createSession({ parentSessionId, agentId, model: engine?.modelId ?? null });
   startSession(session);
-  const attempt = createExecution({ sessionId: session.id, kind, background });
+  const attempt = createExecution({ sessionId: session.id, kind, background, controller });
   return { session, attempt };
+}
+
+// Forward a caller's AbortSignal into a run-owned controller: the controller
+// is the single signal the execution sees, so caller cancellation and
+// runtime.interrupt() travel the exact infrastructure the scheduler
+// (dequeue/abort) and the agent loop (throwIfAborted between turns) already
+// honor. The attempt's `interrupted` flag is what distinguishes the two at
+// settlement. Returns a detach function (or null when there is nothing to
+// forward).
+function forwardAbort(source, controller) {
+  if (!source) return null;
+  if (source.aborted) {
+    controller.abort(source.reason);
+    return null;
+  }
+  const onAbort = () => controller.abort(source.reason);
+  source.addEventListener('abort', onAbort, { once: true });
+  return () => source.removeEventListener('abort', onAbort);
+}
+
+// One settlement vocabulary for a first run (both lifetimes): an interrupt
+// stops the child but keeps it continuable, a cancellation ends it for good,
+// and any other error fails it. The continuation hook then gets a chance to
+// open the inbox — but only a *completed* first turn does; an interrupted
+// child waits for an explicit resume, and terminal children cannot continue.
+// `announce` is the background registry notification (none for foreground:
+// the caller is still there and nothing tracks the attempt).
+function settleFirstTurn(session, attempt, controller, error, { announce = null } = {}) {
+  if (attempt.interrupted) {
+    interruptExecution(attempt);
+    interruptSession(session);
+    continuationManager.noteInterruptedTurn(session); // unfinished turn: re-drive it on the next wake
+    announce?.('interrupted');
+  } else if (isCancellation(error, controller.signal)) {
+    cancelExecution(attempt);
+    cancelSession(session);
+    announce?.('cancelled');
+  } else {
+    failExecution(attempt, error);
+    failSession(session, error);
+    announce?.('failed', String(error?.message ?? error));
+  }
+  continuationManager.onTurnSettled(session);
 }
 
 async function runInSession({ parentSessionId = null, agentId = null, engine, signal, background,
@@ -143,45 +204,44 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
       + 'start* entry point instead.');
   }
   const execution = executionFor(kind);
-  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: false });
+  // The first turn also runs under a run-owned controller (the caller's signal
+  // is forwarded into it), which is what lets interrupt(childId) stop a
+  // foreground child at the same safe boundaries as any other turn. An
+  // interrupted foreground run rethrows the abort to its caller — the caller's
+  // await ends, while the child session itself stays interrupted and resumable.
+  const controller = new AbortController();
+  const detach = forwardAbort(signal, controller);
+  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: false, controller });
+  continuationManager.registerChild(session, { kind, engine, ...executionOptions });
   try {
-    const { output, usage } = await execution({ session, engine, signal, ...executionOptions });
+    const { output, usage } = await execution({ session, engine, signal: controller.signal, ...executionOptions });
     completeExecution(attempt, { usage, result: output });
     completeSession(session, { usage, result: output });
+    continuationManager.onTurnSettled(session);
     return output;
   } catch (error) {
-    if (isCancellation(error, signal)) {
-      cancelExecution(attempt);
-      cancelSession(session);
-    } else {
-      failExecution(attempt, error);
-      failSession(session, error);
-    }
+    settleFirstTurn(session, attempt, controller, error);
     throw error;
+  } finally {
+    detach?.();
   }
 }
 
 function startInBackground(options, kind) {
   const { parentSessionId = null, agentId = null, engine, signal, ...executionOptions } = options ?? {};
   const execution = executionFor(kind);
-  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: true });
 
   // The run owns its AbortController: once the start call has returned there
   // is no caller frame left to abort, so cancellation must reach the run's own
-  // signal. cancelBackground() aborts this controller, and a caller-supplied
-  // signal is forwarded into it for the same reason — afterwards both are the
-  // existing signal path the scheduler (dequeue/abort) and the agent loop
-  // (throwIfAborted between turns) already honor.
+  // signal. cancelBackground() aborts this controller, a caller-supplied
+  // signal is forwarded into it, and interrupt(childId) aborts it as an
+  // interrupt — afterwards all three are the existing signal path the
+  // scheduler (dequeue/abort) and the agent loop (throwIfAborted) honor.
   const controller = new AbortController();
-  let detach = null;
-  if (signal) {
-    if (signal.aborted) controller.abort(signal.reason);
-    else {
-      const forwardAbort = () => controller.abort(signal.reason);
-      signal.addEventListener('abort', forwardAbort, { once: true });
-      detach = () => signal.removeEventListener('abort', forwardAbort);
-    }
-  }
+  const detach = forwardAbort(signal, controller);
+
+  const { session, attempt } = openRun({ parentSessionId, agentId, engine }, { kind, background: true, controller });
+  continuationManager.registerChild(session, { kind, engine, ...executionOptions });
   backgroundStore.track({ executionId: attempt.id, childSessionId: session.id, kind, controller, detach });
 
   const handle = () => ({ childSessionId: session.id, executionId: attempt.id, status: attempt.status });
@@ -194,18 +254,11 @@ function startInBackground(options, kind) {
     completeExecution(attempt, { usage, result: output });
     completeSession(session, { usage, result: output });
     backgroundStore.settle(attempt.id, 'completed');
+    continuationManager.onTurnSettled(session);
   };
-  const failed = error => {
-    if (isCancellation(error, controller.signal)) {
-      cancelExecution(attempt);
-      cancelSession(session);
-      backgroundStore.settle(attempt.id, 'cancelled');
-    } else {
-      failExecution(attempt, error);
-      failSession(session, error);
-      backgroundStore.settle(attempt.id, 'failed', String(error?.message ?? error));
-    }
-  };
+  const failed = error => settleFirstTurn(session, attempt, controller, error, {
+    announce: (status, detail) => backgroundStore.settle(attempt.id, status, detail),
+  });
 
   let running;
   try {
@@ -227,6 +280,11 @@ function startInBackground(options, kind) {
 module.exports = {
   runFileAnalysis, runWebExtraction, runInvestigation,
   startFileAnalysis, startWebExtraction, startInvestigation,
+  // Parent <-> child control (Step 6): the runtime surface. Authorization is
+  // the caller's parentSessionId — only the owning parent may drive its child.
+  sendMessage: continuationManager.sendMessage,
+  interrupt: continuationManager.interrupt,
+  resume: continuationManager.resume,
   cancelBackground: backgroundStore.cancelBackground,
   backgroundEvents: backgroundStore.backgroundEvents,
 };
