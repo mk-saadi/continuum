@@ -15,8 +15,7 @@ import { TabProvider, useTabs } from "./context/TabContext.jsx";
 
 function AppContent() {
 	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
-	const openProject = (id) =>
-		updateTab(activeTabId, { projectId: id, view: "project", permissionMode: "workspace_write" });
+	const openProject = (id) => updateTab(activeTabId, { projectId: id, view: "project" });
 	const [projects, setProjects] = useState([]);
 	const [projectsLoading, setProjectsLoading] = useState(true);
 	const [projectsError, setProjectsError] = useState("");
@@ -352,7 +351,7 @@ function TabPane({
 	);
 	const view = tab.view || "chat";
 	const onChat = () => update({ view: "chat" });
-	const onProject = (id) => update({ projectId: id, view: "project", permissionMode: "workspace_write" });
+	const onProject = (id) => update({ projectId: id, view: "project" });
 	return (
 		<div
 			style={active ? undefined : { display: "none" }}

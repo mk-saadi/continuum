@@ -42,6 +42,14 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
     assert.equal(projects.updateProject(project.id, { description: 'Updated goal' }).custom_instructions, 'Keep changes small');
     assert.equal(projects.updateProject(project.id, { description: null }).description, null);
     projects.updateProject(project.id, { description: 'Updated goal' });
+    // Permission mode: the default mode for new chats in this project round
+    // trips through the DB and rejects values outside the shared catalog.
+    assert.equal(projects.getProject(project.id).permission_mode, 'workspace_write');
+    assert.equal(projects.updateProject(project.id, { permissionMode: 'read_only' }).permission_mode, 'read_only');
+    assert.equal(projects.getProject(project.id).permission_mode, 'read_only');
+    assert.throws(() => projects.updateProject(project.id, { permissionMode: 'root' }), /Invalid permission mode/);
+    assert.equal(projects.getProject(project.id).permission_mode, 'read_only');
+    projects.updateProject(project.id, { permissionMode: 'workspace_write' });
     const file = projects.addProjectFile(project.id, { file_path: '/notes/spec.md', content: 'Stored specification' });
     assert.equal(projects.getProject(project.id).files[0].file_name, 'spec.md');
     sessions.getOrCreateSession('chat', 'model', project.id);

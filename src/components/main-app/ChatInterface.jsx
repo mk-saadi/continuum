@@ -15,6 +15,11 @@ import ToolApprovalToast from "./ToolApprovalToast.jsx";
 import ToolLimitToast from "./ToolLimitToast.jsx";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
+import {
+	availablePermissionModes,
+	defaultPermissionMode,
+	resolveChatPermissionMode,
+} from "../../lib/permissionModes.mjs";
 
 function SelectedFilePreview({ file, onRemove, disabled }) {
 	const [previewUrl, setPreviewUrl] = useState(null);
@@ -85,13 +90,6 @@ onTabUpdate,
 	onTabSaved,
 }) {
 	const [permissionBySession, setPermissionBySession] = useState({});
-	const project = projects.find((project) => project.id === activeProjectId);
-	const permissionMode =
-		permissionBySession[palace.sessionId] ??
-		tabPermissionMode ??
-		project?.permissionMode ??
-		project?.permission_mode ??
-		(activeProjectId ? "workspace_write" : "ask_approval");
 	const [toolApprovals, setToolApprovals] = useState([]);
 	useEffect(
 		() =>
@@ -254,6 +252,26 @@ useEffect(() => {
 		};
 	}, [palace.sessionId, tabSaved, palace.api]);
 	const [groups, setGroups] = useState([]);
+	// Permission context for the visible chat: an existing session takes its
+	// project from its own row (the tab may have been re-bound meanwhile), a
+	// fresh chat falls back to the tab's project binding. A project without a
+	// connected root behaves as a casual chat — availablePermissionModes and
+	// the backend normalizeMode both encode that rule from the shared catalog.
+	const activeProject = projects.find((candidate) => candidate.id === activeProjectId) ?? null;
+	const sessionRow = groups
+		.flatMap((group) => group.sessions)
+		.find((row) => row.id === palace.sessionId);
+	const project = sessionRow
+		? projects.find((candidate) => candidate.id === sessionRow.project_id) ?? null
+		: activeProject;
+	const chatProjectId = sessionRow ? sessionRow.project_id ?? null : activeProjectId ?? null;
+	const permissionMode = resolveChatPermissionMode({
+		sessionId: palace.sessionId,
+		currentSessionId: palace.sessionId,
+		tabMode: tabPermissionMode,
+		sessionMode: permissionBySession[palace.sessionId],
+		project,
+	});
 	const [historyError, setHistoryError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [editing, setEditing] = useState(null);
@@ -282,7 +300,11 @@ useEffect(() => {
 	const newChat = () => {
 		if (busyRef.current) return;
 		onChat();
-		onTabUpdate?.({ title: "New chat", status: "idle" });
+		onTabUpdate?.({
+			title: "New chat",
+			status: "idle",
+			permissionMode: defaultPermissionMode(activeProject),
+		});
 		pendingAgent.current = null;
 		pendingSend.current = null;
 		setPromptQueue([]);
@@ -304,12 +326,25 @@ useEffect(() => {
 			pendingAgent.current = null;
 			pendingSend.current = null;
 			setPromptQueue([]);
+			// Resolve the mode while the tab still points at the outgoing
+			// session, so the tab's stored mode only applies when it is the
+			// same chat being reloaded (never a stale mode leaking sideways).
+			const targetProject = session.project_id
+				? projects.find((candidate) => candidate.id === session.project_id) ?? null
+				: null;
+			const nextPermissionMode = resolveChatPermissionMode({
+				sessionId: id,
+				currentSessionId: palace.sessionId,
+				tabMode: tabPermissionMode,
+				sessionMode: permissionBySession[id],
+				project: targetProject,
+			});
 			palace.setSessionId(id);
 			onTabUpdate?.({
 				title: session.title || "Untitled chat",
 				modelId: session.model_id || selectedModel,
 				projectId: session.project_id ?? null,
-				permissionMode: session.project_id ? "workspace_write" : "ask_approval",
+				permissionMode: nextPermissionMode,
 			});
 			setMessages(displayMessages(session));
 			onChat();
@@ -344,7 +379,13 @@ useEffect(() => {
 			pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
 			setAgentLoading(true);
 			palace.setSessionId(id);
-			onTabUpdate?.({ projectId, title: "New chat", permissionMode: "workspace_write" });
+			onTabUpdate?.({
+				projectId,
+				title: "New chat",
+				permissionMode: defaultPermissionMode(
+					projects.find((candidate) => candidate.id === projectId) ?? null,
+				),
+			});
 			setMessages([]);
 			clearFiles();
 			setEditing(null);
@@ -650,6 +691,10 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 			let prepared = false;
 			let failed = false;
 			try {
+				// Create/bind the session row before generation so the backend
+				// resolves the same project context (and therefore permission
+				// normalization) as the selector shown in the composer.
+				await palace.api.getOrCreateSession(palace.sessionId, selectedModel, chatProjectId);
 				if (edit) setEditing(null);
 				let attachments = [];
 				if (!queued && !edit && !retry && selectedFiles.length) {
@@ -799,6 +844,7 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 			clearFiles,
 			selectedModel,
 			permissionMode,
+			chatProjectId,
 			reasoningEffort,
 			activeChatProvider,
 			activeModelName,
@@ -1074,7 +1120,11 @@ chatAvailable,
 							else {
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
-									onTabUpdate?.({ title: "New chat", status: "idle" });
+									onTabUpdate?.({
+										title: "New chat",
+										status: "idle",
+										permissionMode: defaultPermissionMode(activeProject),
+									});
 									pendingAgent.current = null;
 									pendingSend.current = null;
 									setPromptQueue([]);
@@ -1457,6 +1507,7 @@ chatAvailable,
 					<ChatInput
 						modelId={selectedModel}
 						permissionMode={permissionMode}
+						permissionModes={availablePermissionModes(project)}
 						allowMidRunQuestions={allowMidRunQuestions}
 						onMidRunQuestionsChange={changeMidRunQuestions}
 						midRunQuestionsBusy={midRunQuestionsBusy}

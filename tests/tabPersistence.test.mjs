@@ -9,6 +9,7 @@ import {
   sanitizeTab,
   serializeTabState,
 } from '../src/lib/tabState.mjs';
+import { PERMISSION_MODES } from '../src/lib/permissionModes.mjs';
 
 const tab = (over = {}) => ({
   id: 'tab_1',
@@ -87,6 +88,22 @@ test('a project tab without an explicit mode regains workspace permissions', () 
     activeTabId: 'a',
   }));
   assert.equal(restored.tabs[0].permissionMode, 'workspace_write');
+});
+
+test('every mode in the shared catalog survives a restart, even on a project tab', () => {
+  assert.deepEqual(PERMISSION_MODES, ['read_only', 'workspace_write', 'ask_approval', 'full_access']);
+  for (const mode of PERMISSION_MODES) {
+    const casual = parseTabState(JSON.stringify({
+      tabs: [tab({ permissionMode: mode })],
+      activeTabId: 'tab_1',
+    }));
+    assert.equal(casual.tabs[0].permissionMode, mode, `casual tab must keep ${mode}`);
+    const project = parseTabState(JSON.stringify({
+      tabs: [tab({ permissionMode: mode, projectId: 'p1' })],
+      activeTabId: 'tab_1',
+    }));
+    assert.equal(project.tabs[0].permissionMode, mode, `project tab must keep ${mode}`);
+  }
 });
 
 test('closing the only tab writes the replacement, purging the closed entry', () => {

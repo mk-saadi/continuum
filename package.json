@@ -55,7 +55,8 @@
 			"src/main/**/*.js",
 			"src/preload.js",
 			"preload.js",
-			"src/lib/**/*.mjs"
+			"src/lib/**/*.mjs",
+			"src/lib/**/*.json"
 		],
 		"asarUnpack": [
 			"node_modules/@playwright/**/*",

@@ -1,10 +1,14 @@
+import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_DEFAULTS,
+} from './permissionModes.mjs';
+
 export const TAB_STORAGE_KEY = 'continuum_open_tabs';
 
 // A corrupt or hostile payload must not be able to grow without bound or
 // resurrect duplicate tabs that would collide in the status/session routing.
 const MAX_PERSISTED_TABS = 50;
 const TAB_VIEWS = ['chat', 'project', 'projects'];
-const PERMISSION_MODES = ['ask_approval', 'workspace_write'];
 
 export function cycleActiveTabState(state, direction) {
   const { tabs, activeTabId } = state;
@@ -63,7 +67,9 @@ export function sanitizeTab(tab) {
     projectId: typeof tab.projectId === 'string' && tab.projectId ? tab.projectId : null,
     permissionMode: PERMISSION_MODES.includes(tab.permissionMode)
       ? tab.permissionMode
-      : (typeof tab.projectId === 'string' && tab.projectId ? 'workspace_write' : 'ask_approval'),
+      : PERMISSION_MODE_DEFAULTS[
+          typeof tab.projectId === 'string' && tab.projectId ? 'workspace' : 'casual'
+        ],
     view: TAB_VIEWS.includes(tab.view) ? tab.view : 'chat',
     // False means "created but never written to the database yet".
     saved: tab.saved === true,

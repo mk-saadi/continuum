@@ -19,7 +19,7 @@ function Fixture() {
     finishMessage: async () => ({ id: 2 }),
   };
   return <ChatInterface palace={palace} selectedModel="model" baseUrl="http://localhost" engineRunning models={[]}
-    view={view} isSidebarOpen projects={[{ id: 'p1', name: 'Project', is_pinned: 0 }]} avatarSettings={{ showAvatars: false }}
+    view={view} isSidebarOpen activeProjectId="p1" projects={[{ id: 'p1', name: 'Project', is_pinned: 0 }]} avatarSettings={{ showAvatars: false }}
     onProjects={() => setView('project')} onProject={() => setView('project')} onChat={() => setView('chat')}
     renderWorkspace={({ startProjectChat, busy }) => view !== 'chat' && <button id="start" disabled={busy} onClick={() => startProjectChat('p1', 'Project prompt')}>Start</button>} />;
 }

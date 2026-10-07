@@ -1,0 +1,13 @@
+{
+	"modes": ["read_only", "workspace_write", "ask_approval", "full_access"],
+	"labels": {
+		"read_only": "Read Only",
+		"workspace_write": "Workspace Write",
+		"ask_approval": "Ask for Approval",
+		"full_access": "Full Access"
+	},
+	"defaults": {
+		"casual": "ask_approval",
+		"workspace": "workspace_write"
+	}
+}

@@ -6,6 +6,11 @@ import { PiShieldWarningBold } from "react-icons/pi";
 import useSessionDraft from "../hooks/useSessionDraft";
 import { SelectField } from "./FormControls";
 import { AgentSettingsPopover } from "./AgentSettingsPopover";
+import {
+	PERMISSION_MODES,
+	PERMISSION_MODE_LABELS,
+	PERMISSION_MODE_DEFAULTS,
+} from "../lib/permissionModes.mjs";
 
 const ChatInputBar = memo(
 	forwardRef(function ChatInputBar(
@@ -21,8 +26,9 @@ const ChatInputBar = memo(
 			loading,
 			attachDisabled,
 			sendTitle,
-			permissionMode = "ask_approval",
+			permissionMode = PERMISSION_MODE_DEFAULTS.casual,
 			onPermissionModeChange,
+			permissionModes = PERMISSION_MODES,
 			allowMidRunQuestions = false,
 			onMidRunQuestionsChange,
 			midRunQuestionsBusy = false,
@@ -96,6 +102,7 @@ const ChatInputBar = memo(
 							value={permissionMode}
 							onChange={onPermissionModeChange}
 							disabled={streaming || loading}
+							modes={permissionModes}
 						/>
 					</div>
 
@@ -139,7 +146,7 @@ const ChatInputBar = memo(
 	}),
 );
 
-function PermissionSelector({ value = "ask_approval", onChange, disabled }) {
+function PermissionSelector({ value = PERMISSION_MODE_DEFAULTS.casual, onChange, disabled, modes = PERMISSION_MODES }) {
 	const getIcon = (val) => {
 		switch (val) {
 			case "read_only":
@@ -166,10 +173,11 @@ function PermissionSelector({ value = "ask_approval", onChange, disabled }) {
 				icon={getIcon(value)}
 				openTop={true}
 			>
-				<option value="read_only">Read Only</option>
-				<option value="workspace_write">Workspace Write</option>
-				<option value="ask_approval">Ask for Approval</option>
-				<option value="full_access">Full Access</option>
+				{modes.map(mode => (
+					<option key={mode} value={mode}>
+						{PERMISSION_MODE_LABELS[mode]}
+					</option>
+				))}
 			</SelectField>
 		</div>
 	);

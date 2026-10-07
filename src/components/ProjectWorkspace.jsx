@@ -4,6 +4,11 @@ import remarkGfm from 'remark-gfm';
 import { FiArrowLeft, FiFileText, FiFolder, FiMessageSquare, FiStar, FiTrash2, FiUpload } from 'react-icons/fi';
 import { projectDate } from './ProjectsView';
 import ProjectSkillsCard from './project/ProjectSkillsCard';
+import {
+  PERMISSION_MODE_LABELS,
+  availablePermissionModes,
+  defaultPermissionMode,
+} from '../lib/permissionModes.mjs';
 import './projects.css';
 
 export default function ProjectWorkspace({ projectId, sessions = [], onBack, onUpdated, onLoadChat, onStartChat, chatDisabled, canStartChat }) {
@@ -102,6 +107,12 @@ export default function ProjectWorkspace({ projectId, sessions = [], onBack, onU
         </section>
         <ProjectSkillsCard project={project} onUpdated={updated => { setProject(updated); onUpdated(updated); }} />
         <section className="project-panel"><h2 className="flex items-center gap-2"><FiFolder /> Root Directory</h2><span className="project-path" title={project.root_path || ''}>{project.root_path || 'No folder connected'}</span><p className="projects-muted mt-3">Connect your working folder to include repository guidelines and workspace context.</p><button className="project-button mt-4" disabled={busy} onClick={changeFolder}>{project.root_path ? 'Change Folder' : 'Connect Folder'}</button></section>
+        <section className="project-panel"><h2>Default Permission Mode</h2><label className="project-field"><span className="projects-muted">Applied to every new chat started in this project.</span>
+          <select aria-label="Default permission mode" className="project-input" value={defaultPermissionMode(project)} disabled={busy} onChange={event => perform(() => save({ permissionMode: event.target.value }))}>
+            {availablePermissionModes(project).map(mode => <option key={mode} value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>)}
+          </select></label>
+          {!project.root_path && <p className="projects-muted mt-3">Connect a root folder to make Workspace Write available.</p>}
+        </section>
       </aside></div>
     </>}
   </div></main>;

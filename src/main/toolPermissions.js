@@ -3,7 +3,17 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
 
-const MODES = ['read_only', 'workspace_write', 'ask_approval', 'full_access'];
+// Shared catalog (single source of truth with the renderer's permission
+// selector in src/lib/permissionModes.mjs). The renderer reads the same JSON,
+// so the UI and this engine can never disagree about which modes exist or
+// what the per-context defaults are. tests/permissionSelector.test.mjs pins
+// the two sides together.
+const { modes, defaults } = require('../lib/permissionModes.json');
+if (!Array.isArray(modes) || !modes.length ||
+	![defaults?.casual, defaults?.workspace].every(mode => modes.includes(mode))) {
+	throw new Error('Invalid shared permission mode catalog.');
+}
+const MODES = Object.freeze([...modes]);
 
 // ---------------------------------------------------------------------------
 // Capability model (single source of truth)
@@ -85,7 +95,7 @@ function capabilityOf(name, native = true) {
 // ---------------------------------------------------------------------------
 
 function resolveMode(mode, project) {
-	const value = mode ?? project?.permissionMode ?? project?.permission_mode ?? (project ? 'workspace_write' : 'ask_approval');
+	const value = mode ?? project?.permissionMode ?? project?.permission_mode ?? (project ? defaults.workspace : defaults.casual);
 	if (!MODES.includes(value)) throw new Error('Invalid permission mode.');
 	return value;
 }
@@ -120,6 +130,19 @@ function normalizeMode(permissionMode, root) {
  */
 function effectiveMode(permissionMode, project) {
 	return normalizeMode(resolveMode(permissionMode, project), projectRoot(project));
+}
+
+/**
+ * The permission modes a chat in this context may run under: exactly those
+ * whose effective mode equals themselves. Anything the engine would silently
+ * normalize (workspace_write without a workspace root) is excluded, so the
+ * permission selector UI never advertises a mode that would not be honored.
+ * The renderer mirrors this rule in src/lib/permissionModes.mjs; tests assert
+ * the two agree.
+ */
+function availableModes(project) {
+	const root = projectRoot(project);
+	return MODES.filter(mode => normalizeMode(mode, root) === mode);
 }
 
 function sessionProject(sessionId) {
@@ -466,6 +489,7 @@ module.exports = {
 	resolveMode,
 	normalizeMode,
 	effectiveMode,
+	availableModes,
 	baseDecision,
 	isToolVisible,
 	isSystemAffecting,

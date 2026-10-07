@@ -9,6 +9,7 @@ import {
   parseTabState,
   serializeTabState,
 } from '../lib/tabState.mjs';
+import { PERMISSION_MODE_DEFAULTS } from '../lib/permissionModes.mjs';
 
 const TabContext = createContext(null);
 const newTab = (modelId = '', projectId = null) => ({
@@ -17,7 +18,9 @@ const newTab = (modelId = '', projectId = null) => ({
   title: 'New chat',
   modelId,
   projectId,
-  permissionMode: projectId ? 'workspace_write' : 'ask_approval',
+  permissionMode: projectId
+    ? PERMISSION_MODE_DEFAULTS.workspace
+    : PERMISSION_MODE_DEFAULTS.casual,
   view: 'chat',
   saved: false,
   status: 'idle',
