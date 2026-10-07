@@ -24,4 +24,28 @@ async function chatCompletion({ engine, payload, signal, fetchImpl = localEngine
   return { ok: true, result: await response.json() };
 }
 
-module.exports = { chatCompletion };
+const PROVIDER_ID = 'local';
+// How many generations one local provider/model lane may run at once. This is a
+// scheduling slot count, not a hardware fact: nothing here names GPUs, VRAM, or
+// device memory. The default is one — a single model server serving one
+// generation — and an engine descriptor may raise it explicitly for its model
+// (see capability() below).
+const DEFAULT_MAX_CONCURRENCY = 1;
+
+// The capability the scheduler gates on: which provider, which model, and how
+// many simultaneous generations that provider/model allows. It is the only
+// thing the scheduler reads about a provider; transport stays in chatCompletion.
+function capability(engine) {
+  if (typeof engine?.modelId !== 'string' || !engine.modelId.trim()) {
+    throw new Error('Inference capability requires a model id.');
+  }
+  const requested = engine.maxConcurrency;
+  return {
+    provider: PROVIDER_ID,
+    model: engine.modelId,
+    maxConcurrency: Number.isSafeInteger(requested) && requested >= 1
+      ? requested : DEFAULT_MAX_CONCURRENCY,
+  };
+}
+
+module.exports = { chatCompletion, PROVIDER_ID, DEFAULT_MAX_CONCURRENCY, capability };

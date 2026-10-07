@@ -12,7 +12,12 @@ const { runFileAnalysisExecution, runWebExtractionExecution } = require('./execu
 // not part of this step.
 //
 //   tool -> runFileAnalysis/runWebExtraction -> child session -> execution
-//        -> inference scheduler -> local provider -> local model server
+//        -> inference scheduler (one queue per provider/model, capacity-limited)
+//        -> local provider -> local model server
+//
+// The scheduler may queue an execution's model request when that provider/model
+// is at capacity; the caller still awaits the normal result, so concurrency here
+// is scheduling, not background execution.
 
 async function runFileAnalysis(options) {
   return runInSession(options, runFileAnalysisExecution, 'file-analysis');
