@@ -3,10 +3,15 @@
 const { randomUUID } = require('node:crypto');
 
 // Execution records answer "what actually ran", separately from the session,
-// which answers "which logical child is this". Step 2 creates exactly one
-// execution per newly-created session; retries, resume, background runs, and
-// multi-turn continuation are later steps and are deliberately not modeled
-// here. In-memory only, like the sessions themselves.
+// which answers "which logical child is this". Each newly-created session gets
+// exactly one execution; retries, resume, messaging, and multi-turn
+// continuation are later steps and are deliberately not modeled here.
+// In-memory only, like the sessions themselves.
+//
+// `background` is a property of the attempt itself: the same session, loop,
+// and scheduler run either way, only the lifetime differs — a background
+// attempt has no caller awaiting it (see ../index.js). Everything else about
+// the record, including the terminal statuses, is shared by both lifetimes.
 //
 // This module only records attempts; ./executionManager performs them.
 const executions = new Map();
@@ -18,11 +23,12 @@ const EXECUTION_STATUS = Object.freeze({
   CANCELLED: 'cancelled',
 });
 
-function createExecution({ sessionId, kind = null }) {
+function createExecution({ sessionId, kind = null, background = false }) {
   const execution = {
     id: randomUUID(),
     sessionId,
     kind,
+    background: background === true,
     status: EXECUTION_STATUS.RUNNING,
     startedAt: new Date().toISOString(),
     completedAt: null,
