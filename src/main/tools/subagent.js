@@ -4,7 +4,7 @@ const spawnSubagentTool = {
   type: 'function',
   function: {
     name: 'spawn_sub_agent',
-    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back. Returns a concise answer from the fetched page or file contents.`,
+    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project. Returns a concise answer from the fetched page, file contents, or its own investigation.`,
     parameters: {
       type: 'object',
       properties: {
@@ -13,6 +13,7 @@ const spawnSubagentTool = {
         expected_output: { type: 'string', description: 'Requested summary format, such as a markdown table and two sentences.' },
         url: { type: 'string', description: 'Public HTTP or HTTPS URL for web research (one per call).' },
         target_file: { type: 'string', description: 'Absolute path to a single local file to analyze.' },
+        investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
       },
       required: ['task'],
       additionalProperties: false,
@@ -20,8 +21,8 @@ const spawnSubagentTool = {
   },
 };
 
-async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file,
-  engine, signal, parentSessionId = null }) {
+async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file, investigate,
+  engine, signal, parentSessionId = null, rootPath }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 2000 || task.includes('\0')) {
     throw new Error('Task must be a non-empty instruction of at most 2,000 characters.');
   }
@@ -29,6 +30,25 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     if (typeof value !== 'string' || value.length > 1000 || value.includes('\0')) {
       throw new Error(`${name} must be a string of at most 1,000 characters.`);
     }
+  }
+  if (investigate !== undefined && typeof investigate !== 'boolean') {
+    throw new Error('investigate must be a boolean.');
+  }
+
+  // --- Autonomous investigation path ---
+  // The read-only child agent loop: one foreground child session that
+  // searches/reads its way to an answer over multiple model turns. The
+  // specialized file-analysis and web-extraction paths below stay exactly as
+  // they are — existing callers keep their behavior.
+  if (investigate === true) {
+    if (url !== undefined || target_file !== undefined) {
+      throw new Error('Choose either investigate or url/target_file, not both.');
+    }
+    const instruction = [task, expected_output && `Expected output: ${expected_output}`,
+      constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
+    const runtime = require('../subagents');
+    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId });
+    return answer.length > 1800 ? `${answer.slice(0, 1780)}\n[Summary truncated]` : answer;
   }
 
   // --- File analysis path ---

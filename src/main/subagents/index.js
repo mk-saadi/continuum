@@ -3,17 +3,24 @@
 const { createSession, startSession, completeSession, failSession, cancelSession } = require('./sessionManager');
 const { createExecution, completeExecution, failExecution, cancelExecution } = require('./executionStore');
 const { runFileAnalysisExecution, runWebExtractionExecution } = require('./executionManager');
+const { runInvestigationExecution } = require('./agentLoop');
 
 // Subagent runtime: the boundary between the tool layer and subagent executions.
 // Each call opens a distinct child session, records one execution attempt inside
 // it, and runs that attempt against the inference scheduler. The child session
-// has its own identity, parent link, lifecycle, usage, and result — but is still
-// one-shot. Loops, background runs, continuation, and messaging are deliberately
-// not part of this step.
+// has its own identity, parent link, lifecycle, usage, and result. One call is
+// still exactly one foreground execution: the investigation execution performs
+// many model/tool turns *inside* that single execution (one session, one
+// execution, a bounded agent loop), while file analysis and web extraction
+// remain one-shot. Background runs, continuation, messaging, and resume are
+// deliberately not part of this step.
 //
-//   tool -> runFileAnalysis/runWebExtraction -> child session -> execution
+//   tool -> runFileAnalysis/runWebExtraction/runInvestigation
+//        -> child session -> execution
 //        -> inference scheduler (one queue per provider/model, capacity-limited)
 //        -> local provider -> local model server
+//   runInvestigation only: the execution is an agent loop whose tool calls run
+//   against the read-only tool registry directly, outside the scheduler.
 //
 // The scheduler may queue an execution's model request when that provider/model
 // is at capacity; the caller still awaits the normal result, so concurrency here
@@ -25,6 +32,13 @@ async function runFileAnalysis(options) {
 
 async function runWebExtraction(options) {
   return runInSession(options, runWebExtractionExecution, 'web-extraction');
+}
+
+// One foreground multi-turn investigation: the child autonomously searches,
+// reads, and reasons over several scheduler-gated inference turns before
+// returning a single final answer.
+async function runInvestigation(options) {
+  return runInSession(options, runInvestigationExecution, 'investigation');
 }
 
 // An aborted signal (or an AbortError bubbling out of fetch/fs) is a
@@ -55,4 +69,4 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
   }
 }
 
-module.exports = { runFileAnalysis, runWebExtraction };
+module.exports = { runFileAnalysis, runWebExtraction, runInvestigation };

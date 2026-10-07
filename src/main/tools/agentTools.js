@@ -469,7 +469,7 @@ async function executeStrReplaceEditor(target, { old_str, new_str }) {
 	return { success: true };
 }
 
-async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false }) {
+async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath }) {
 	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
@@ -519,7 +519,12 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
 		const readingFiles = ['spawn_sub_agent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
-		const root = readingFiles ? path.resolve(project?.root_path ?? process.cwd())
+		// rootPath is an explicit root from the delegating caller (the child
+		// agent loop passes its execution's project root, since a child session
+		// has no database project of its own). It is honored only for read-only
+		// tools: writes and commands keep resolving their root from the session
+		// project, so this override can never redirect a mutation.
+		const root = readingFiles ? path.resolve(rootPath ?? project?.root_path ?? process.cwd())
 			: await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_sub_agent")

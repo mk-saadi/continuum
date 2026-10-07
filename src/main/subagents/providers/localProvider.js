@@ -6,16 +6,28 @@ const { localEngineFetch } = require('../../localEngineFetch');
 // depends on this contract instead of the HTTP transport, so other providers can
 // be added later without touching session or execution logic.
 //
-// Every sub-agent request is a single non-streaming POST that never carries
-// tools; the no-tool invariant is enforced here so no execution can opt back in.
-// Returns { ok: true, result } on a parsed response, or { ok: false, status }
-// after cancelling an error body — the execution layer owns the error messages.
-async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch }) {
+// Every sub-agent request is a single non-streaming POST. Requests are
+// tool-free by default — the no-tool invariant is enforced here so an ordinary
+// execution cannot opt back in — unless the caller explicitly passes
+// `allowTools: true` (only the child agent loop does, through the scheduler),
+// in which case the payload's tool list passes through untouched. Returns
+// { ok: true, result } on a parsed response, or { ok: false, status } after
+// cancelling an error body — the execution layer owns the error messages.
+async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch, allowTools = false }) {
+  // Fail closed: an allowTools caller that forgot the tool list still gets a
+  // tool-free request rather than an undefined-tools payload.
+  const toolsAllowed = allowTools === true && Array.isArray(payload.tools) && payload.tools.length > 0;
   const response = await fetchImpl(`http://127.0.0.1:${engine.port}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
-    body: JSON.stringify({ ...payload, stream: false, tools: [], tool_choice: 'none' }),
+    body: JSON.stringify({
+      ...payload,
+      stream: false,
+      ...(toolsAllowed
+        ? { tool_choice: payload.tool_choice ?? 'auto' }
+        : { tools: [], tool_choice: 'none' }),
+    }),
   });
   if (!response.ok) {
     await response.body?.cancel();

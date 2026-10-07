@@ -152,12 +152,17 @@ const defaultScheduler = createInferenceScheduler();
 // task closure that performs the actual generation through the provider. Both
 // failure modes surface as clean rejections: an unknown provider or a missing
 // model id is reported before anything is queued or sent.
-async function scheduleInference({ engine, payload, signal, fetchImpl }) {
+//
+// `allowTools` is a capability flag, not scheduling state: the scheduler still
+// only gates when the generation may run. It is forwarded to the provider so
+// the default request shape stays tool-free (see the local provider), and only
+// the child agent loop — which must model tool calls across its turns — opts in.
+async function scheduleInference({ engine, payload, signal, fetchImpl, allowTools = false }) {
   const provider = resolveProvider(engine);
   return defaultScheduler.submit({
     ...provider.capability(engine),
     signal,
-    task: () => provider.chatCompletion({ engine, payload, signal, fetchImpl }),
+    task: () => provider.chatCompletion({ engine, payload, signal, fetchImpl, allowTools }),
   });
 }
 
