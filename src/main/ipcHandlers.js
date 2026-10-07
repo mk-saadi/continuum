@@ -1,4 +1,4 @@
-const { resolveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
+const { effectiveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
 "use strict";
 
 const { fetchCloudModels, getCloudProviders, getCloudProviderDefaults, saveCloudProviderDefaults,
@@ -297,7 +297,7 @@ function registerIpcHandlers({
 		},
 		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, reasoningEffort, thinkingBudget, permissionMode, messageId = requestId }, notify, sender) => {
             const project = sessionProject(sessionId);
-            permissionMode = resolveMode(permissionMode, project);
+            permissionMode = effectiveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
             const cloud = target.type === "cloud";
             const fetchImpl = cloud ? createCloudFetch(target) : localEngineFetch;
@@ -387,9 +387,6 @@ function registerIpcHandlers({
                     const currentUserContent = [...messages].reverse().find(message => message.role === 'user')?.content;
                     const currentUserText = typeof currentUserContent === 'string' ? currentUserContent
                         : Array.isArray(currentUserContent) ? currentUserContent.filter(part => part?.type === 'text').map(part => part.text).join('\n') : '';
-                    const localFileInspection = !/https?:\/\//i.test(currentUserText)
-                        && /\b(search|read|inspect|parse|find|grep|locate|review)\b/i.test(currentUserText)
-                        && /\b(local|workspace|repository|repo|source code|codebase|file|files|directory|directories|log|logs)\b/i.test(currentUserText);
                     const commandAvailable = availableTools.some(tool => tool.function.name === 'execute_command');
                     const filterTools = toolList => toolList.filter(tool => {
                         const name = tool.function.name;
@@ -398,7 +395,6 @@ function registerIpcHandlers({
                         // child model is resolved independently of the chat's model.
                         if (cloud && ['delegate_task', 'extract_web_page_data'].includes(name)) return false;
                         if (commandAvailable && name === 'delegate_task') return false;
-                        if (commandAvailable && localFileInspection && name === 'spawn_sub_agent') return false;
                         return true;
                     });
                     const tools = filterTools(availableTools);
@@ -520,7 +516,8 @@ function registerIpcHandlers({
 							notify({ type: "tool", id, ...target, status: "pending" });
 							const args = JSON.parse(call.arguments || "{}");
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
-							if (!isAskUser) await guardTool({ name: target.toolName, args, permissionMode, project,
+							let approval;
+							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode, project,
                                 native: isAgent || isMemory, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
 							const rawOutput = isMemory
@@ -529,7 +526,7 @@ function registerIpcHandlers({
 									controller, sender, requestId, sessionId, stepId: call.id, ...args,
 									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
 								})
-								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, signal: controller.signal,
+								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, approval, signal: controller.signal,
                                     engine: chatEngine })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,

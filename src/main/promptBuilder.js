@@ -10,7 +10,8 @@ const { getSessionAgent } = require("./agentManager");
 const { getRecentPermanentMemories } = require("./memoryManager");
 const { nativeTools } = require("./nativeTools");
 const { saveMemoryTool } = require('./tools/saveMemory');
-const { agentTools, hasProjectWorkspace } = require("./tools/agentTools");
+const { agentTools } = require("./tools/agentTools");
+const { isToolVisible, sessionProject } = require("./toolPermissions");
 const { getAppSettings } = require("./configManager");
 const { askUserTool } = require('./engineManager');
 const { activeProjectSkills } = require('./skillsManager');
@@ -84,11 +85,11 @@ const SUB_AGENT_PROTOCOL = [
 	"#### 1. MANDATORY Delegation Triggers (Do NOT do these in Main Context):",
 	"- **Web Page Scraping & Reading:** NEVER call `get_single_web_page_content` or `get-single-web-page-content` to read a full URL in the main context. ALWAYS call `spawn_sub_agent` with one URL and a specific question. The sub-agent fetches the page and returns a short answer, not raw HTML.",
 	"- **Multi-Source Research:** When comparing benchmarks, documentation, or web links, call `spawn_sub_agent` separately for each URL or source, then compare the returned summaries in the main context.",
-	"- **Local Files and Logs:** Never use `spawn_sub_agent` or `delegate_task` to search, read, inspect, or parse workspace files, repositories, or logs. Use `execute_command` with `rg`, `grep -n`, `sed`, or `find` instead. For a single-file analysis, pass that one file as `target_file`.",
+	"- **Local Files and Logs:** Inspect workspace files, repositories, and logs directly with `execute_command` (`rg`, `grep -n`, `sed`, `find`) when you want the raw matches in this context. Delegate the bulk of the reading instead — large logs, multi-file reviews, or a broad sweep — with `spawn_sub_agent` (one file as `target_file`, or `investigate: true` for a read-only project investigation); you get back only a concise summary.",
 	"- **Autonomous Investigation:** When you explicitly want a read-only sweep delegated out of the main context, call `spawn_sub_agent` with `investigate: true`. The child then searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Its tool set is fixed and read-only — it cannot edit files, run commands, use memory, or spawn further agents. `investigate` cannot be combined with `url` or `target_file`.",
 	"",
-	"#### 2. Allowed Main Context Actions (Do NOT delegate):",
-	"- Search and read local files directly with `execute_command` when available.",
+	"#### 2. Allowed Main Context Actions:",
+	"- Search and read local files directly with `execute_command` when the raw output belongs in this context, or delegate a broader local sweep to `spawn_sub_agent` when only the conclusion matters.",
 	"- Use a simple `full-web-search` search, when that tool is available, to get brief search-result snippets. Delegate full-page reading after choosing a result.",
 	"- Run quick builds or tests with `execute_command` when needed.",
 	"",
@@ -356,19 +357,23 @@ function messageForModel({ role, content, attachments = [] }) {
 function getToolContext(mcpTools = [], memoryEnabled = true, sessionId = null, permissionMode) {
 	const manualMcp = getAppSettings().mcpMode === 'manual';
 	const projectId = sessionId && db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id;
-	const sessionTools = hasProjectWorkspace(sessionId) || ['ask_approval', 'full_access'].includes(permissionMode)
-		? agentTools
-		: agentTools.filter((tool) => ["get_recent_chat_history", "approve_mcp_mutation", "manage_mcp_servers", "propose_skill", ...(projectId ? ['use_skill'] : []), 'generate_image'].includes(tool.function.name));
+	// One policy decides both visibility and executability: the model is only
+	// offered tools the permission mode would actually let it run.
+	const project = sessionId ? sessionProject(sessionId) : null;
+	const visible = (name, native = true) => isToolVisible(name, { permissionMode, project, native });
 	const imageGenerationConfigured = !!require('./cloudProviders').getActiveMediaModel('image');
-	const availableSessionTools = sessionTools.filter(tool => tool.function.name !== 'generate_image' || imageGenerationConfigured);
+	const availableSessionTools = agentTools
+		.filter(tool => tool.function.name !== 'generate_image' || imageGenerationConfigured)
+		.filter(tool => visible(tool.function.name))
+		.filter(tool => (projectId || tool.function.name !== 'use_skill') && (!manualMcp || tool.function.name !== 'manage_mcp_servers'));
 	const tools = [
 		askUserTool,
-		...(memoryEnabled ? memoryTools : []).map(({ name, description, input_schema }) => ({
+		...(memoryEnabled ? memoryTools : []).filter(tool => visible(tool.name)).map(({ name, description, input_schema }) => ({
 			type: "function",
 			function: { name, description, parameters: input_schema },
 		})),
-		...availableSessionTools.filter(tool => (projectId || tool.function.name !== 'use_skill') && (!manualMcp || tool.function.name !== 'manage_mcp_servers')),
-		...mcpTools,
+		...availableSessionTools,
+		...mcpTools.filter(tool => visible(tool.function?.name, false)),
 	].filter((tool) => memoryEnabled || !["search_memory", "save_memory"].includes(tool.function.name));
 	// Model tokenizers and chat templates differ; explicitly report an estimate.
 	const estimate = (value) => (value.length ? Math.ceil(JSON.stringify(value).length / 4) : 0);

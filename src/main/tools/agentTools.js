@@ -92,7 +92,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run a shell command with a 45-second timeout. In Workspace Write mode, git and other commands can write only inside the project root. Output preserves the beginning and error tail.",
+		"Run a shell command with a 45-second timeout. Contained commands run inside the workspace sandbox and can write only inside the project root; commands that would affect the system outside the workspace request user approval first. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
 			cwd: string("Working directory; defaults to the project root"),
@@ -334,9 +334,24 @@ function executeCommand(args, cwd, signal, workspaceRoot) {
                 // Filesystem isolation is the security boundary. Unsharing the
                 // network namespace fails on some desktop/container kernels and
                 // prevents even local git commands from starting.
-                execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
-                    '--ro-bind', '/', '/', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
-                    '--chdir', cwd, '/bin/sh', '-c', command], options, done);
+                //
+                // Usability: $HOME and /tmp must be writable, but the real ones
+                // stay read-only (via `--ro-bind / /`). Workspace-local home and
+                // temp areas are created inside the workspace (symlink-checked,
+                // fail-closed through scopedPath) and exposed through env and a
+                // /tmp overlay. The /tmp overlay is mounted BEFORE the workspace
+                // bind: when the workspace itself lives under /tmp, mounting it
+                // afterwards would hide the workspace bind from the namespace.
+                (async () => {
+                    const sandboxHome = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/home');
+                    const sandboxTmp = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/tmp');
+                    await fs.mkdir(sandboxHome, { recursive: true });
+                    await fs.mkdir(sandboxTmp, { recursive: true });
+                    execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
+                        '--ro-bind', '/', '/', '--bind', sandboxTmp, '/tmp', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
+                        '--chdir', cwd, '/bin/sh', '-c', command],
+                        { ...options, env: { ...process.env, HOME: sandboxHome, TMPDIR: sandboxTmp } }, done);
+                })().catch(error => done(error, '', ''));
             }
             : exec;
         run(
@@ -469,7 +484,7 @@ async function executeStrReplaceEditor(target, { old_str, new_str }) {
 	return { success: true };
 }
 
-async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath }) {
+async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval }) {
 	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
@@ -496,11 +511,19 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
                 ? { name: skill.id, file: args.file, content: require('../skillsManager').readSkillFile(skill.id, args.file) }
                 : { name: skill.id, instructions: skill.instructions };
         }
-        const { guardTool, resolveMode, sessionProject } = require('../toolPermissions');
+        const { guardTool, effectiveMode, sessionProject } = require('../toolPermissions');
         const project = sessionProject(sessionId);
-        permissionMode = resolveMode(permissionMode, project);
-        if (!permissionGranted) await guardTool({ name, args, permissionMode, project, signal });
-        const unrestricted = permissionMode === 'full_access' || permissionMode === 'ask_approval';
+        permissionMode = effectiveMode(permissionMode, project);
+        // Without an explicit permission grant the model cannot approve itself:
+        // the inner guard runs with no approval channel, so anything that would
+        // prompt is denied here. The IPC path grants after the real prompt and
+        // passes that decision in as `approval`.
+        let guardDecision = approval;
+        if (!permissionGranted) guardDecision = await guardTool({ name, args, permissionMode, project, signal });
+        // Uncontained means the user explicitly consented (full access, or an
+        // approval grant): paths resolve freely and commands run outside the
+        // bwrap sandbox. Everything else stays workspace-scoped and sandboxed.
+        const uncontained = permissionMode === 'full_access' || guardDecision?.approved === true;
 		signal?.throwIfAborted();
 		if (name === "manage_mcp_servers") {
 			if (require('../configManager').getAppSettings().mcpMode === 'manual')
@@ -525,7 +548,7 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		// tools: writes and commands keep resolving their root from the session
 		// project, so this override can never redirect a mutation.
 		const root = readingFiles ? path.resolve(rootPath ?? project?.root_path ?? process.cwd())
-			: await fs.realpath(project?.root_path ?? (unrestricted ? process.cwd() : sessionRoot(sessionId)));
+			: await fs.realpath(project?.root_path ?? (uncontained ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_sub_agent")
 			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId });
@@ -538,13 +561,17 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 				parentSessionId: sessionId,
 			});
 		if (name === "execute_command") {
-
-			return await executeCommand(args, (unrestricted ? path.resolve(root, args.cwd ?? ".") : await scopedPath(root, args.cwd ?? ".", true)), signal, permissionMode === 'workspace_write' ? root : undefined);
+			// Contained commands run inside the bwrap sandbox (workspace_write and
+			// unapproved ask_approval alike); an approval grant or full access runs
+			// them directly, since explicit consent is the escape hatch.
+			return await executeCommand(args,
+				uncontained ? path.resolve(root, args.cwd ?? ".") : await scopedPath(root, args.cwd ?? ".", true),
+				signal, uncontained ? undefined : root);
 		}
 		if (name === "search_project_content") return await searchContent(root, args, signal);
 		const target = ["read_project_file", "list_directory"].includes(name)
 			? await readablePath(root, args.relative_path ?? ".")
-			: unrestricted ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
+			: uncontained ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
 		if (name === "list_directory") {
 			const entries = await fs.readdir(target, { withFileTypes: true });
 			return {

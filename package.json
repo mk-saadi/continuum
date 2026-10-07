@@ -73,6 +73,7 @@
 		}
 	},
 	"devDependencies": {
+		"@electron/rebuild": "^4.2.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@vitejs/plugin-react": "^4.3.4",
 		"concurrently": "^9.1.2",

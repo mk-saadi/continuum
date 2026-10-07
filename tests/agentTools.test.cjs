@@ -68,10 +68,11 @@ const run = (
 		});
 		require("../src/main/sessionManager").getOrCreateSession("chat", "model", project.id);
 		assert.ok(agentTools.length >= 11);
+		const imageGenerationConfigured = !!require("../src/main/cloudProviders").getActiveMediaModel("image");
 		assert.equal(
 			require("../src/main/promptBuilder").getToolContext([], false, "chat").tools.length,
-			agentTools.length + 1,
-			"ask_user is also available",
+			agentTools.length + 1 - (imageGenerationConfigured ? 0 : 1),
+			"ask_user is also available (generate_image only when an image provider is configured)",
 		);
 		assert.ok(
 			require("../src/main/promptBuilder")
@@ -279,6 +280,8 @@ const run = (
 		assert.equal(commandSchema.properties.user_confirmed.type, "boolean");
 		assert.ok(!commandSchema.required.includes("user_confirmed"));
 		// Harmless shell payload with a mutation-shaped string exercises the real guard and dispatch.
+		// The cwd points outside the workspace so ask_approval must prompt (in-workspace
+		// commands run autonomously and would not exercise the approval path here).
 		const guardedCommand = "printf 'DELETE FROM test_records' > confirmed-command.txt";
 		const marker = path.join(workspace, "confirmed-command.txt");
 		for (const confirmation of [
@@ -291,7 +294,7 @@ const run = (
 				(
 					await run(
 						"execute_command",
-						{ command: guardedCommand, ...confirmation },
+						{ command: guardedCommand, cwd: "..", ...confirmation },
 						"chat",
 						"ask_approval",
 					)
@@ -318,7 +321,7 @@ const run = (
 			(
 				await run(
 					"execute_command",
-					{ command: guardedCommand, user_confirmed: true },
+					{ command: guardedCommand, user_confirmed: true, cwd: ".." },
 					"chat",
 					"ask_approval",
 				)
