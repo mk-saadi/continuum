@@ -19,9 +19,11 @@ export function compactStepsForDisplay(steps, previousSteps) {
     // old cards do not reformat and render for each later step snapshot.
     const prior = settled.get(step.id);
     if (prior && prior.status === step.status && prior.toolName === step.toolName) return prior;
+    // Truncate only display-oriented text. `args` must stay structured —
+    // SkillProposalCard registers it directly and normalizeExecutionSteps
+    // validates it as an object; render-time caps bound its display size.
     return {
       ...step,
-      args: preview(step.args),
       result: preview(step.result),
       error: preview(step.error),
       streamingArguments: preview(step.streamingArguments),

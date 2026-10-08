@@ -68,9 +68,15 @@ const displayValue = value => {
 	const text = typeof value === 'string' ? value : JSON.stringify(value);
 	return text.length <= 10_000 ? value : `${text.slice(0, 10_000)}\n… [output truncated in chat; full result saved in session]`;
 };
+// Truncate only display-oriented text. `args` must stay structured: the
+// renderer's SkillProposalCard and normalizeExecutionSteps/finishMessage read
+// it as an object (a stringified/truncated args corrupts propose_skill
+// registration and breaks save on aborted turns). Display bounds for args are
+// applied at render time by ToolCallBlock's formatValue/preview caps.
 const displaySteps = steps => steps.map(step => ({ ...step,
-	args: displayValue(step.args), result: displayValue(step.result),
-	error: displayValue(step.error), streamingArguments: displayValue(step.streamingArguments),
+	result: displayValue(step.result),
+	error: displayValue(step.error),
+	streamingArguments: displayValue(step.streamingArguments),
 }));
 
 function defaultTrustedSender(event) {
@@ -531,8 +537,6 @@ function registerIpcHandlers({
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
 									});
-							if (call.name === 'propose_skill' && rawOutput?.success && !sender.isDestroyed())
-								sender.send('skill:propose-approval', { sessionId, ...args });
 							const output = sanitizeWebToolResult(rawOutput, call.name);
 							if (isAgent && call.name === 'manage_mcp_servers') {
 								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);

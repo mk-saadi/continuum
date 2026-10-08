@@ -1306,7 +1306,10 @@ chatAvailable,
 															message={msg}
 															streamBuffer={msg.streaming && activeStreamMessageIdRef.current === msg.id ? streamBuffer : undefined}
 															onStreamFrame={onStreamFrame}
-															projectId={activeProjectId}
+															// Skill proposals register against the chat's own
+															// project (session row, else the tab binding) —
+															// never the currently selected tab's project.
+															projectId={chatProjectId}
 															pendingQuestions={pendingQuestions}
 												onAnswerQuestion={answerQuestion}
 															showHeader={false}

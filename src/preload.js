@@ -40,11 +40,6 @@ contextBridge.exposeInMainWorld('api', {
   saveSkill: skill => ipcRenderer.invoke('skills:save', skill),
   deleteSkill: id => ipcRenderer.invoke('skills:delete', { id }),
   importSkill: projectId => ipcRenderer.invoke('skills:import', { projectId }),
-  onSkillProposal: callback => {
-    const listener = (_event, proposal) => callback(proposal);
-    ipcRenderer.on('skill:propose-approval', listener);
-    return () => ipcRenderer.removeListener('skill:propose-approval', listener);
-  },
   importProjectFiles: (projectId, files) => ipcRenderer.invoke('project:import_files', { project_id: projectId, file_paths: Array.from(files, file => webUtils.getPathForFile(file)) }),
   addProjectFile: (projectId, file) => ipcRenderer.invoke('project:add_file', { ...file, project_id: projectId }),
   removeProjectFile: id => ipcRenderer.invoke('project:remove_file', { id }),
