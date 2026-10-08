@@ -80,7 +80,7 @@ const VISUALIZATION_PROMPT = [
 
 const SUB_AGENT_PROTOCOL = [
 	"### Sub-Agent Delegation Protocol",
-	"You have access to the `spawn_sub_agent` tool for isolated web research on one public URL, to analyze a single local file and report back, or — with `investigate: true` — for an autonomous read-only investigation of the project. Each sub-agent runs in an isolated model context (it may even be a different model from yours) and returns only a concise answer.",
+	"You have access to the `spawn_sub_agent` tool for isolated web research on one public URL, to analyze a single local file and report back, or — with `investigate: true` — for an autonomous read-only investigation of the project. Each sub-agent runs in an isolated model context (it may even be a different model from yours) and returns only a concise answer. Sub-agent web work is fetch-only: a worker cannot search or discover pages, so name the exact URL it should read — a research task needs its source URLs (or `investigate: true` for the project).",
 	"",
 	"#### 1. MANDATORY Delegation Triggers (Do NOT do these in Main Context):",
 	"- **Web Page Scraping & Reading:** NEVER call `get_single_web_page_content` or `get-single-web-page-content` to read a full URL in the main context. ALWAYS call `spawn_sub_agent` with one URL and a specific question. The sub-agent fetches the page and returns a short answer, not raw HTML.",
@@ -94,7 +94,7 @@ const SUB_AGENT_PROTOCOL = [
 	"- Run quick builds or tests with `execute_command` when needed.",
 	"",
 	"#### 3. Sub-Agent Invocation Pattern:",
-	"Call `spawn_sub_agent` with a single-purpose `task` and exactly one of: a public URL (in `task` or the `url` field), one absolute path in `target_file`, or `investigate: true` for an autonomous read-only investigation. Use `constraint` and `expected_output` to keep the answer short. Never pass multiple local file paths as `target_files`.",
+	"Call `spawn_sub_agent` with a single-purpose `task` and exactly one of: a public URL (in `task` or the `url` field), one absolute path in `target_file`, or `investigate: true` for an autonomous read-only investigation. A task with none of the three fails: the worker has no web search, so it cannot research the web without the source URL. Use `constraint` and `expected_output` to keep the answer short. Never pass multiple local file paths as `target_files`.",
 	"",
 	"Example correct invocation:",
 	"```json",

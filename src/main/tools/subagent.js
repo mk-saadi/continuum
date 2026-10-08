@@ -1,17 +1,31 @@
 'use strict';
 
+// Supported spawn_sub_agent inputs — there is no fourth mode and no web search:
+//   1. url (or exactly one URL inside `task`): ONE public page, fetched with
+//      the SSRF-protected getSingleWebPageContent (public-host validation,
+//      pinned DNS, GET-only, 1 MB / 12k-char caps) and answered in one shot.
+//   2. target_file: ONE local text file, analyzed in one shot.
+//   3. investigate: true: a multi-turn read-only child loop over
+//      search_project_content / read_project_file / list_directory /
+//      get_single_web_page_content — still fetch-a-known-URL only.
+// The application exposes no search/discovery facility anywhere (the only web
+// tool, in the main context or in a child, is the single-URL fetcher above;
+// `full-web-search` exists only as an optional user-provided MCP tool and MCP
+// tools are deliberately not part of the child allowlist). A research task
+// without a URL therefore cannot be serviced and must fail with actionable
+// guidance instead of a bare parameter complaint.
 const spawnSubagentTool = {
   type: 'function',
   function: {
     name: 'spawn_sub_agent',
-    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project. Returns a concise answer from the fetched page, file contents, or its own investigation.`,
+    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project. Returns a concise answer from the fetched page, file contents, or its own investigation. WEB CAPABILITY IS FETCH-ONLY: the worker cannot search or discover pages, so web research requires the exact URL to read.`,
     parameters: {
       type: 'object',
       properties: {
         task: { type: 'string', description: 'Clear, specific question or instruction for the worker.' },
         constraint: { type: 'string', description: 'Optional length and omission rules, such as no raw HTML or boilerplate.' },
         expected_output: { type: 'string', description: 'Requested summary format, such as a markdown table and two sentences.' },
-        url: { type: 'string', description: 'Public HTTP or HTTPS URL for web research (one per call).' },
+        url: { type: 'string', description: 'Public HTTP or HTTPS URL for web research (one per call). The worker fetches only this page — there is no web search, so discovery-style tasks need the exact URL supplied.' },
         target_file: { type: 'string', description: 'Absolute path to a single local file to analyze.' },
         investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
       },
@@ -94,7 +108,15 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     throw new Error('Delegate one web URL per sub-agent call.');
   }
   const sourceUrl = resolvedUrl;
-  if (!sourceUrl) throw new Error('Provide a url or target_file parameter.');
+  // No URL, no target_file, no investigate: the remaining shape is a research
+  // task that expects search/discovery, which this interface does not have —
+  // it fetches one URL, reads one file, or investigates the project. Fail with
+  // guidance the caller can act on instead of a bare parameter complaint.
+  if (!sourceUrl) {
+    throw new Error('Provide a url or target_file parameter (or set investigate: true). '
+      + 'Web research through spawn_sub_agent is fetch-only: the sub-agent cannot search or discover pages, '
+      + 'so pass the exact public URL to read.');
+  }
 
   const instruction = [task, expected_output && `Expected output: ${expected_output}`,
     constraint && `Constraint: ${constraint}`, 'Return only a concise answer. Do not include raw source content.']

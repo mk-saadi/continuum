@@ -386,6 +386,15 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
   return { content, toolCalls, usage, timings, endTime, loopDetected };
 }
 
+// Tools that start an independent child-agent execution: the sub-agent
+// runtime's spawn entry plus the two legacy delegation twins. Real capacity
+// for these lives in the inference scheduler's per-provider/model lanes, so
+// the parent's tool batch dispatches them without waiting for the previous
+// call to finish (see the batch dispatch in runMemoryChat). Everything else
+// — commands, edits, memory, ask_user — is not a sub-agent execution and
+// keeps its strictly sequential execution.
+const SUB_AGENT_TOOL_NAMES = new Set(['spawn_sub_agent', 'delegate_task', 'extract_web_page_data']);
+
 export async function runMemoryChat({
   baseUrl, modelId, messages, loadedContextSize, reasoningEffort, memoryTools = [], chatTools, getChatTools, executeTool, retrieveDocuments, samplingParams = {}, getSamplingParams,
   onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }), guardToolContent = content => content,
@@ -607,7 +616,61 @@ export async function runMemoryChat({
     const loopNotices = [];
     let batchLoopDetected = false;
     history.push({ role: 'assistant', content: result.content || null, tool_calls: result.toolCalls });
+    // Sub-agent tools each open an independent child execution whose real
+    // capacity lives in the inference scheduler's per-provider/model lanes, so
+    // dispatching one must not wait for the previous call of the batch to
+    // finish — otherwise a "run these in parallel" batch silently becomes a
+    // serial queue before the scheduler ever sees it. Dispatched entries
+    // settle below in call order through the same processing every other call
+    // gets, so history, execution steps, failure tracking, and the circuit
+    // breaker observe exactly what a sequential batch produced. Every other
+    // tool keeps its inline await unchanged.
+    const pendingEntries = [];
+    const settleEntry = async (entry) => {
+      let output;
+      let formatted;
+      try {
+        if (entry.failure) throw entry.failure;
+        output = await entry.outcome;
+        signal?.throwIfAborted();
+        let result = output;
+        if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
+        formatted = formatToolResult(output, entry.call.function.name);
+        entry.step.result = formatted.displayResult;
+        const failure = failedToolReason?.(output, entry.call.function.name);
+        entry.step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
+        if (failure) entry.step.error = failure;
+        if (['str_replace_editor', 'write_project_file'].includes(entry.call.function.name) &&
+            result?.success === true && !result?.isError) {
+          turnCount = 0;
+          toolRounds = 0;
+        }
+      } catch (error) {
+        output = { isError: true, success: false, error: signal?.aborted ? 'Tool execution cancelled.' : error.message };
+        entry.step.result = output;
+        entry.step.status = 'error';
+        entry.step.error = output.error;
+      } finally {
+        publishSteps(true);
+      }
+      signal?.throwIfAborted();
+      formatted ??= formatToolResult(output, entry.call.function.name);
+      history.push({ role: 'tool', tool_call_id: entry.call.id, content: guardToolContent(formatted.content) });
+      toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
+      if (projectId && failedToolReason) {
+        if (failedToolReason(output, entry.call.function.name)) batchFailures++;
+        else batchSucceeded = true;
+      }
+    };
+    // The single place a tool result reaches history: oldest entry first, so
+    // call order holds no matter which entries were dispatched ahead.
+    const drainPending = async () => {
+      while (pendingEntries.length) await settleEntry(pendingEntries.shift());
+    };
     for (const call of result.toolCalls) {
+      // A non-sub-agent call runs exactly where it always has: after every
+      // earlier call — including dispatched sub-agents — has fully settled.
+      if (!SUB_AGENT_TOOL_NAMES.has(call.function.name)) await drainPending();
       signal?.throwIfAborted();
       let step = executionSteps.find(step => step.id === call.id);
       if (!step) {
@@ -617,8 +680,7 @@ export async function runMemoryChat({
       Object.assign(step, { serverName: null, args: null, status: 'pending' });
       delete step.streamingArguments;
       delete step.streamingParameter;
-      let output;
-      let formatted;
+      const entry = { call, step, outcome: null, failure: null };
       try {
         if (batchLoopDetected) throw new Error('Tool call skipped after repetition loop warning. Re-evaluate the approach.');
         if (finalResponseOnly) throw new Error('Tool execution budget denied by user.');
@@ -650,37 +712,26 @@ export async function runMemoryChat({
         toolsExecuted = true;
         step.status = 'running';
         publishSteps(true);
-        output = await executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id });
-        signal?.throwIfAborted();
-        let result = output;
-        if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
-        formatted = formatToolResult(output, call.function.name);
-        step.result = formatted.displayResult;
-        const failure = failedToolReason?.(output, call.function.name);
-        step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
-        if (failure) step.error = failure;
-        if (['str_replace_editor', 'write_project_file'].includes(call.function.name) &&
-            result?.success === true && !result?.isError) {
-          turnCount = 0;
-          toolRounds = 0;
+        const dispatched = executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id });
+        if (SUB_AGENT_TOOL_NAMES.has(call.function.name)) {
+          // Dispatched ahead: settled after the rest of the batch, in call
+          // order. The no-op catch keeps a rejection from going unhandled
+          // while it waits; the settlement path observes the same rejection.
+          entry.outcome = dispatched;
+          Promise.resolve(dispatched).catch(() => {});
+          pendingEntries.push(entry);
+          continue;
         }
+        entry.outcome = await dispatched;
       } catch (error) {
-        output = { isError: true, success: false, error: signal?.aborted ? 'Tool execution cancelled.' : error.message };
-        step.result = output;
-        step.status = 'error';
-        step.error = output.error;
+        entry.failure = error;
       } finally {
         publishSteps(true);
       }
-      signal?.throwIfAborted();
-      formatted ??= formatToolResult(output, call.function.name);
-      history.push({ role: 'tool', tool_call_id: call.id, content: guardToolContent(formatted.content) });
-      toolFailureCircuitBreaker?.record(output, call.function.name, step.status === 'error');
-      if (projectId && failedToolReason) {
-        if (failedToolReason(output, call.function.name)) batchFailures++;
-        else batchSucceeded = true;
-      }
+      pendingEntries.push(entry);
+      if (!SUB_AGENT_TOOL_NAMES.has(call.function.name)) await drainPending();
     }
+    await drainPending();
     if (loopNotices.length) {
       // Keep the matching synthetic tool result and give the model an explicit
       // system instruction on its next generation. Do not rewind this warning.
