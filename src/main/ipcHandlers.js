@@ -44,6 +44,8 @@ const {
 	getAllSessions,
 	createFolder,
 	updateSession,
+	getSessionTitle,
+	applyGeneratedTitle,
 	deleteSession,
 	editMessage,
 	deleteMessage,
@@ -141,8 +143,15 @@ function registerIpcHandlers({
         "skills:list": () => skills.listSkills(),
         "skills:save": input => skills.saveSkill(input),
         "skills:delete": ({ id }) => skills.removeSkill(id),
-        "skills:import": ({ projectId = null }, _notify, sender) => {
-            const result = dialog.showOpenDialogSync({ properties: ['openFile', 'openDirectory'], filters: [{ name: 'Skills', extensions: ['md', 'zip'] }] });
+        // Electron's native picker cannot be a file and a directory selector at
+        // the same time: on Linux, listing both properties opens a folder picker,
+        // so .md/.zip files cannot be chosen. File and folder imports are
+        // therefore separate picker modes over the same skills.importSkill path.
+        "skills:import": ({ projectId = null, kind = 'file' }, _notify, sender) => {
+            const options = kind === 'folder'
+                ? { properties: ['openDirectory'] }
+                : { properties: ['openFile'], filters: [{ name: 'Skills', extensions: ['md', 'zip'] }] };
+            const result = dialog.showOpenDialogSync(options);
             return result?.[0] ? skills.importSkill(result[0], projectId) : null;
         },
         "chat:export": payload => require('./exportService').exportChat(payload, { dialog }),
@@ -640,6 +649,52 @@ function registerIpcHandlers({
 			return { ...session, messages: session.messages.map(compactMessageForDisplay) };
 		},
 		"session:rename": ({ sessionId, title }) => updateSession(sessionId, "title", title),
+		// One-shot AI title for a chat's FIRST prompt. The renderer fires this
+		// after the first reply finishes, so the request never competes with the
+		// main generation; the title is written only while it still equals the
+		// snapshot taken here, so a manual rename that lands mid-generation wins.
+		"session:generate-title": async ({ sessionId, prompt, modelId, activeChatProvider }) => {
+			if (typeof sessionId !== "string" || !sessionId.trim()) throw new Error("Invalid session.");
+			if (typeof modelId !== "string" || !modelId.trim()) throw new Error("Invalid model.");
+			if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Invalid prompt.");
+			const target = validateChatProvider(activeChatProvider);
+			const cloud = target.type === "cloud";
+			const config = getEngineConfig?.();
+			if (!cloud && !config) throw new Error("Start the local model server first.");
+			const engine = require("./subagents/modelSelection").buildChatEngine({ cloud, target, config, modelId });
+			const { resolveProvider, isEngineReady, engineNotReadyError } = require("./subagents/providers");
+			if (!isEngineReady(engine)) throw engineNotReadyError(engine, "naming this chat");
+			const expectedTitle = getSessionTitle(sessionId);
+			if (expectedTitle === undefined) throw new Error("Session not found.");
+			const { TITLE_SYSTEM_PROMPT, sanitizeChatTitle } = await import("../lib/chatTitle.mjs");
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 30_000);
+			let finishEngineRequest;
+			try {
+				finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
+				const { ok, result, status } = await resolveProvider(engine).chatCompletion({
+					engine,
+					signal: controller.signal,
+					payload: {
+						model: engine.modelId,
+						messages: [
+							{ role: "system", content: TITLE_SYSTEM_PROMPT },
+							{ role: "user", content: prompt.trim().slice(0, 2000) },
+						],
+						temperature: 0.2,
+						max_tokens: 48,
+					},
+				});
+				if (!ok) throw new Error(`Title generation failed (HTTP ${status}).`);
+				const title = sanitizeChatTitle(result);
+				if (!title) return { applied: false, title: null };
+				const applied = applyGeneratedTitle(sessionId, expectedTitle, title);
+				return { applied, title: applied ? title : null };
+			} finally {
+				clearTimeout(timeout);
+				finishEngineRequest?.();
+			}
+		},
 		"session:move-to-folder": ({ sessionId, folderName }) =>
 			updateSession(sessionId, "folder_name", folderName),
 		"session:delete": ({ sessionId }) => deleteSession(sessionId),

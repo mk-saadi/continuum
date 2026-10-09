@@ -3,6 +3,7 @@ import { useTabs } from "../context/TabContext.jsx";
 import { getTabShortcut } from "../lib/tabShortcuts.mjs";
 import { PiWarning } from "react-icons/pi";
 import { LuPlus, LuX } from "react-icons/lu";
+import { getTabTypeIcon } from "../lib/tabIcons.mjs";
 
 export default function TabBar() {
 	const { tabs, activeTabId, activateTab, closeTab, closeAllTabs, cycleTab, openTab, activeTab } =
@@ -59,19 +60,28 @@ export default function TabBar() {
 						className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
 						title={tab.title}
 					>
-						<span
-							aria-hidden="true"
-							className={`size-2 shrink-0 rounded-full ${tab.status === "awaiting_approval" ? "bg-amber-500" : tab.status === "generating" ? "animate-pulse bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
-						/>
+						{(() => {
+							if (tab.status === "awaiting_approval") {
+								return (
+									<PiWarning
+										className="size-3 shrink-0 text-red-500 animate-pulse"
+										aria-label="Needs attention"
+										title="Needs attention"
+									/>
+								);
+							}
+							const tabType = getTabTypeIcon(tab);
+							const { Icon, label } = tabType;
+							const isGenerating = tab.status === "generating";
+							return (
+								<Icon
+									className={`size-3 shrink-0 ${isGenerating ? "animate-pulse [filter:drop-shadow(0_0_4px_var(--accent))]" : ""}`}
+									aria-label={label}
+									title={label}
+								/>
+							);
+						})()}
 						<span className="truncate">{tab.title}</span>
-						{tab.status === "awaiting_approval" && (
-							<span
-								aria-label="Needs attention"
-								title="Needs attention"
-							>
-								<PiWarning />
-							</span>
-						)}
 					</button>
 					<button
 						type="button"

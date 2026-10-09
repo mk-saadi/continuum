@@ -9,6 +9,7 @@ import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
+import { firstPromptTitle } from "../../lib/chatTitle.mjs";
 import { LuX } from "react-icons/lu";
 import { IoIosHourglass } from "react-icons/io";
 import ToolApprovalToast from "./ToolApprovalToast.jsx";
@@ -545,6 +546,18 @@ useEffect(() => {
 	}, []);
 	const abortRef = useRef(null);
 	useEffect(() => () => abortRef.current?.abort(), []);
+	// Latest transcript/session for the send flow: the "first prompt" decision
+	// must never read a stale render's messages.
+	const loadedMessagesRef = useRef(messages);
+	useEffect(() => {
+		loadedMessagesRef.current = messages;
+	}, [messages]);
+	const sessionIdRef = useRef(palace.sessionId);
+	useEffect(() => {
+		sessionIdRef.current = palace.sessionId;
+	}, [palace.sessionId]);
+	// The first prompt's pending AI title, requested once the first reply finishes.
+	const pendingTitleGen = useRef(null);
 	useEffect(() => {
 		if (!streaming) return;
 		const timer = setTimeout(palace.schedule, 250);
@@ -711,7 +724,23 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 				const requestMessages = edit
 					? undefined
 					: await palace.prepareMessages(text, retry, attachments);
-				if (!edit && !retry && text?.trim()) onTabUpdate?.({ title: text.trim().slice(0, 48) });
+				// The first prompt names the chat (placeholder now, AI title after
+				// the first reply). Later prompts, edits and retries never touch
+				// the title again — it stays locked until a manual rename.
+				const placeholderTitle = firstPromptTitle(text, {
+					edit,
+					retry,
+					hasMessages: loadedMessagesRef.current.length > 0,
+				});
+				if (placeholderTitle) {
+					onTabUpdate?.({ title: placeholderTitle });
+					pendingTitleGen.current = {
+						sessionId: palace.sessionId,
+						prompt: text.trim(),
+						modelId: selectedModel,
+						activeChatProvider,
+					};
+				}
 				prepared = true;
 				if (!queued && !edit && !retry) {
 					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
@@ -835,6 +864,27 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 				activeStreamMessageIdRef.current = null;
 				setIndexing(null);
 				busyRef.current = false;
+				// The first prompt's AI title: requested now that the engine is
+				// free, so generation never competes with the main reply. The main
+				// process applies it only if the title is unchanged (a manual
+				// rename wins), and the tab follows only while this session is
+				// still open here.
+				const titleJob = pendingTitleGen.current;
+				pendingTitleGen.current = null;
+				if (titleJob) {
+					void (async () => {
+						try {
+							const result = await window.memoryPalace?.generateSessionTitle?.(titleJob);
+							if (!result?.applied || !result.title) return;
+							if (sessionIdRef.current === titleJob.sessionId)
+								onTabUpdate?.({ title: result.title });
+							await refreshHistory().catch(() => {});
+						} catch (error) {
+							// Keep the prompt placeholder when generation fails.
+							console.warn("Chat title generation failed:", error);
+						}
+					})();
+				}
 				abortRef.current = null;
 			}
 		},
@@ -1115,7 +1165,12 @@ chatAvailable,
 						setLoading(true);
 						try {
 							if (kind === "New Folder") await palace.api.createFolder(value);
-							else if (kind === "Rename") await palace.api.renameSession(id, value);
+							else if (kind === "Rename") {
+								await palace.api.renameSession(id, value);
+								// A manual rename is the locked title — reflect it in the
+								// open tab instead of waiting for the session to reload.
+								if (id === palace.sessionId) onTabUpdate?.({ title: value.trim() });
+							}
 							else if (kind === "Move to Folder") await palace.api.moveSession(id, value);
 							else {
 								await palace.api.deleteSession(id);

@@ -1,6 +1,7 @@
 import React from "react";
 import { FaBars, FaCog, FaSlidersH } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
+import { LuFolder, LuHouse } from "react-icons/lu";
 
 export default function Header({
 	isSidebarOpen,
@@ -14,6 +15,7 @@ export default function Header({
 	onOpenModels,
 	palace,
 	onOpenSettings,
+	workspace = null,
 }) {
 	const total = palace.totalTokens === null ? null : palace.totalTokens + (palace.pluginTokens || 0);
 	const label =
@@ -38,6 +40,37 @@ export default function Header({
 			>
 				<FaBars />
 			</button>
+
+			{workspace ? (
+				<div className="flex min-w-0 items-center gap-1.5">
+					<button
+						type="button"
+						className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] active:translate-y-0.5 duration-300"
+						aria-label="Workspace Home"
+						title="Workspace Home"
+						onClick={workspace.onOpenHome}
+					>
+						<LuHouse className="size-3.5" />
+					</button>
+					{workspace.name && (
+						<>
+							<span aria-hidden="true" className="text-xs text-[var(--text-muted)]">|</span>
+							<button
+								type="button"
+								className="flex min-w-0 max-w-44 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:translate-y-0.5 duration-300 max-[700px]:max-w-24"
+								aria-label="Open workspace"
+								title="Open workspace"
+								onClick={workspace.onOpenWorkspace}
+							>
+								<LuFolder className="size-3.5 shrink-0" />
+								<span className="truncate">{workspace.name}</span>
+							</button>
+						</>
+					)}
+				</div>
+			) : (
+				<span className="truncate text-xs font-medium text-[var(--text-primary)]">Chat</span>
+			)}
 
 			{/* Absolutely centered relative to the whole header, not the remaining flex space */}
 			<div className="pointer-events-none absolute inset-0 flex items-center justify-center px-32 max-[600px]:px-20">

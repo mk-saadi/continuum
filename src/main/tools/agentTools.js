@@ -80,7 +80,7 @@ const agentTools = [
 	spawnSubagentTool,
 	define(
 		"get_single_web_page_content",
-		"Fetch a public web page and return readable article text, capped at 12,000 characters.",
+		"Fetch a public web page or JSON API endpoint and return readable article text or pretty-printed JSON, capped at 12,000 characters.",
 		{ url: string("Public HTTP or HTTPS page URL") },
 		["url"],
 	),

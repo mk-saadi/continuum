@@ -95,6 +95,67 @@ function sanitizeWebToolResult(output, toolName = '') {
   return clean(output);
 }
 
+// Textual JSON media types: application/json, text/json and structured-syntax
+// suffix types such as application/problem+json, application/ld+json or
+// application/vnd.api+json. Parameters (e.g. "; charset=utf-8") are ignored.
+const JSON_MEDIA_TYPE = /^(?:application|text)\/(?:[\w!#$&^_.+-]+\+)?json$/i;
+
+function isJsonMediaType(contentType) {
+  return JSON_MEDIA_TYPE.test(String(contentType || '').split(';')[0].trim());
+}
+
+// Strip anything that is not printable ASCII and bound the length, so an
+// untrusted header value is safe to embed in errors and output metadata.
+function safeContentType(value) {
+  return String(value || '').replace(/[^\x20-\x7e]/g, '').trim().slice(0, 200);
+}
+
+// A response mislabelled as HTML or plain text can still carry a JSON body;
+// the body itself decides, but only when it both looks like JSON and parses —
+// real HTML/JavaScript never satisfies both, so normal pages keep their path.
+function looksLikeJsonBody(text) {
+  const body = text.trimStart();
+  if (!body.startsWith('{') && !body.startsWith('[')) return false;
+  try { JSON.parse(body); return true; } catch { return false; }
+}
+
+// Present a JSON body the model can read directly: valid JSON is
+// pretty-printed under a content-type header so the original type stays
+// visible in the output; a malformed body (or a JSON content type on non-JSON
+// text) degrades to a diagnostic note plus the raw text instead of failing
+// the fetch. HTML extraction never runs on a JSON body. Capped like every
+// other page read so oversized JSON cannot flood the context.
+function formatJsonBody(text, contentType) {
+  const body = text.trim();
+  if (!body) return '';
+  const declared = safeContentType(contentType) || 'application/json';
+  let header = `[Content-Type: ${declared}]`;
+  let formatted = body;
+  try {
+    formatted = JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    header = `[Content-Type: ${declared}] body was not valid JSON; raw response text follows:`;
+  }
+  return `${header}\n\n${formatted}`.slice(0, MAX_PAGE_CHARS);
+}
+
+// Stream a response body to text under the download cap. The size check runs
+// before decoding, so an oversized body is rejected the same way for HTML,
+// plain text and JSON alike.
+async function readBoundedText(reader) {
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = '';
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    bytes += chunk.value.byteLength;
+    if (bytes > MAX_DOWNLOAD_BYTES) { await reader.cancel(); throw new Error('Web page exceeds the download limit.'); }
+    text += decoder.decode(chunk.value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
   let target = publicWebUrl(url);
   for (let redirects = 0; redirects <= 5; redirects++) {
@@ -129,24 +190,14 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
       }
       if (!response.ok) { await response.body?.cancel(); throw new Error(`Web page request failed (HTTP ${response.status}).`); }
       const type = response.headers.get('content-type') || '';
-      if (type && !/(?:text\/html|text\/plain|application\/xhtml\+xml)/i.test(type)) {
+      const json = isJsonMediaType(type);
+      if (type && !json && !/(?:text\/html|text\/plain|application\/xhtml\+xml)/i.test(type)) {
         await response.body?.cancel();
-        throw new Error('Web page did not return HTML or plain text.');
+        throw new Error(`Web page did not return HTML, plain text or JSON (content-type: ${safeContentType(type) || 'unknown'}).`);
       }
       const reader = response.body?.getReader();
-      if (!reader) return sanitizeWebPageContent(await response.text());
-      const decoder = new TextDecoder();
-      let bytes = 0;
-      let text = '';
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        bytes += chunk.value.byteLength;
-        if (bytes > MAX_DOWNLOAD_BYTES) { await reader.cancel(); throw new Error('Web page exceeds the download limit.'); }
-        text += decoder.decode(chunk.value, { stream: true });
-      }
-      text += decoder.decode();
-      return sanitizeWebPageContent(text);
+      const text = reader ? await readBoundedText(reader) : await response.text();
+      return json || looksLikeJsonBody(text) ? formatJsonBody(text, type) : sanitizeWebPageContent(text);
     } finally { await dispatcher?.close(); }
   }
 }

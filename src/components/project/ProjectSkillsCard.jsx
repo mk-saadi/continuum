@@ -18,9 +18,9 @@ export default function ProjectSkillsCard({ project, onUpdated }) {
     const next = enabled.has(id) ? [...enabled].filter(value => value !== id) : [...enabled, id];
     await action(async () => onUpdated(await window.api.updateProject(project.id, { enabledSkills: next })));
   }
-  async function importNew() {
+  async function importNew(pick) {
     await action(async () => {
-      const skill = await window.api.importSkill(project.id);
+      const skill = pick === 'folder' ? await window.api.importSkillFolder(project.id) : await window.api.importSkill(project.id);
       if (skill) onUpdated(await window.api.getProject(project.id));
     });
   }
@@ -35,7 +35,10 @@ export default function ProjectSkillsCard({ project, onUpdated }) {
         <p className="projects-muted my-3">Select globally active skills for this project.</p>
         <div className="max-h-72 space-y-2 overflow-auto">{active.map(skill => <label key={skill.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3"><input type="checkbox" checked={enabled.has(skill.id)} disabled={busy} onChange={() => toggle(skill.id)} /><span><strong>{skill.title}</strong><small className="block text-[var(--text-muted)]">{skill.description}</small></span></label>)}
           {!active.length && <p className="projects-muted">No globally active skills. Import one to begin.</p>}</div>
-        <button className="project-button primary mt-4" disabled={busy} onClick={importNew}>Import New Skill</button>
+        <div className="mt-4 flex gap-2">
+          <button className="project-button primary" disabled={busy} title="Import a .md or .zip skill file" onClick={() => importNew()}>Import Skill File</button>
+          <button className="project-button" disabled={busy} title="Import a folder containing SKILL.md" onClick={() => importNew('folder')}>Import Skill Folder</button>
+        </div>
       </div></div>}
   </section>;
 }

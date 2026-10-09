@@ -40,6 +40,10 @@ contextBridge.exposeInMainWorld('api', {
   saveSkill: skill => ipcRenderer.invoke('skills:save', skill),
   deleteSkill: id => ipcRenderer.invoke('skills:delete', { id }),
   importSkill: projectId => ipcRenderer.invoke('skills:import', { projectId }),
+  // The native dialog cannot offer file and folder selection at once (on Linux
+  // it becomes a folder picker), so folder import is its own picker mode over
+  // the same skills:import handler.
+  importSkillFolder: projectId => ipcRenderer.invoke('skills:import', { projectId, kind: 'folder' }),
   importProjectFiles: (projectId, files) => ipcRenderer.invoke('project:import_files', { project_id: projectId, file_paths: Array.from(files, file => webUtils.getPathForFile(file)) }),
   addProjectFile: (projectId, file) => ipcRenderer.invoke('project:add_file', { ...file, project_id: projectId }),
   removeProjectFile: id => ipcRenderer.invoke('project:remove_file', { id }),
@@ -89,6 +93,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   createFolder: (folderName) => ipcRenderer.invoke('session:create-folder', { folderName }),
   loadSession: (sessionId) => ipcRenderer.invoke('session:load', { sessionId }),
   renameSession: (sessionId, title) => ipcRenderer.invoke('session:rename', { sessionId, title }),
+  generateSessionTitle: payload => ipcRenderer.invoke('session:generate-title', payload),
   moveSession: (sessionId, folderName) => ipcRenderer.invoke('session:move-to-folder', { sessionId, folderName }),
   deleteSession: (sessionId) => ipcRenderer.invoke('session:delete', { sessionId }),
   deleteMessage: (sessionId, messageId) => ipcRenderer.invoke('session:delete-message', { sessionId, messageId }),

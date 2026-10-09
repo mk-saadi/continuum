@@ -12,6 +12,7 @@ import { ChatInterface } from "./components/main-app/ChatInterface.jsx";
 import { Titlebar } from "./components/main-app/Titlebar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
+import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
 
 function AppContent() {
 	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
@@ -352,6 +353,8 @@ function TabPane({
 	const view = tab.view || "chat";
 	const onChat = () => update({ view: "chat" });
 	const onProject = (id) => update({ projectId: id, view: "project" });
+	// Chat vs Workspace Chat for the Header, keyed on tab.projectId.
+	const workspaceHeader = workspaceHeaderFor(tab, projects, update);
 	return (
 		<div
 			style={active ? undefined : { display: "none" }}
@@ -376,6 +379,7 @@ function TabPane({
 				onOpenModels={onOpenModels}
 				palace={palace}
 				onOpenSettings={() => setSettingsOpen(true)}
+				workspace={workspaceHeader}
 			/>
 			{settingsOpen && (
 				<MemorySettings

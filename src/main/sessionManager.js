@@ -275,6 +275,30 @@ function updateSession(sessionId, field, value) {
   }).immediate();
 }
 
+// The session's current title: null when the row has none yet, undefined when
+// the session does not exist. Title generation snapshots this before it calls
+// the model, so a manual rename that lands mid-generation is detectable.
+function getSessionTitle(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  const row = db.prepare('SELECT title FROM sessions WHERE id = ?').get(sessionId);
+  return row === undefined ? undefined : row.title ?? null;
+}
+
+// Write an AI-generated title only when the title is still exactly what the
+// caller snapshotted before generating (`title IS ?` covers both the null and
+// string cases in one statement). Returns false when a manual rename won the
+// race — the caller must then keep whatever the user chose.
+function applyGeneratedTitle(sessionId, expectedTitle, title) {
+  requireIdentifier(sessionId, 'sessionId');
+  requireIdentifier(title, 'title');
+  if (expectedTitle !== null && typeof expectedTitle !== 'string') {
+    throw new TypeError('expectedTitle must be a string or null.');
+  }
+  const result = db.prepare('UPDATE sessions SET title = ? WHERE id = ? AND title IS ?')
+    .run(title.trim(), sessionId, expectedTitle);
+  return result.changes > 0;
+}
+
 function requireMutableSession(sessionId) {
   const session = loadSession(sessionId);
   if (session.is_compressing) throw new Error('History is being summarized. Please retry shortly.');
@@ -313,7 +337,7 @@ function selectMessageBranch(sessionId, messageId) {
   }).immediate();
 }
 
-Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, deleteSession, editMessage, selectMessageBranch });
+Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, getSessionTitle, applyGeneratedTitle, deleteSession, editMessage, selectMessageBranch });
 
 function withAttachments(messages) {
   const select = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id');
