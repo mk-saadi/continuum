@@ -45,8 +45,11 @@ try {
   assert.equal(notifyChatOutcome({ error: new Error('Network disconnected') }), 'error');
   assert.equal(shown.at(-1).options.title, 'Execution Interrupted');
   assert.equal(notifyChatOutcome({ text: '   ' }), 'error');
-  assert.equal(isContextLimitError({ status: 400, message: 'Model request failed' }), true);
-  assert.equal(notifyChatOutcome({ error: { status: 400, message: 'Model request failed' } }), 'contextOverflow');
+  assert.equal(isContextLimitError({ status: 400, message: 'Invalid sampling parameter' }), false);
+  assert.equal(notifyChatOutcome({ error: { status: 400, message: 'Invalid sampling parameter' } }), 'error');
+  const overflow = { status: 400, responseBody: JSON.stringify({ error: { type: 'exceed_context_size_error', n_prompt_tokens: 8619, n_ctx: 8192 } }) };
+  assert.equal(isContextLimitError(overflow), true);
+  assert.equal(notifyChatOutcome({ error: overflow }), 'contextOverflow');
   assert.equal(shown.at(-1).options.title, 'Context Limit Reached');
   assert.equal(notifyChatOutcome({ aborted: true, error: new Error('Cancelled') }), null);
   prefs = { ...prefs, notificationEvents: { ...prefs.notificationEvents, error: false } };

@@ -221,8 +221,7 @@ function createIdleService({ onIdle, getIdleMinutes = () => require('./configSto
 module.exports.createIdleService = createIdleService;
 
 function isContextLimitError(error) {
-  const detail = `${error?.message ?? ''} ${error?.responseBody ?? ''}`;
-  return error?.status === 400 || /(?:context window|context size|n_ctx|token limit|too many tokens|prompt too long|exceed(?:ed|s)?.*(?:context|tokens))/i.test(detail);
+  return require('./contextBudget').isContextOverflow(error);
 }
 
 function notifyChatOutcome({ text = '', error = null, interrupted = false, aborted = false }) {

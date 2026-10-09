@@ -10,6 +10,7 @@ const {
 
 const idleTimers = new Map();
 const pendingUnlocks = new Set();
+const inFlight = new Map();
 const PROTECTED_MESSAGES = 10;
 const IDLE_DELAY_MS = 10_000;
 
@@ -37,8 +38,32 @@ function releaseCompressionLock(sessionId) {
   }).immediate();
 }
 
-async function checkAndCompressContext(options) {
-  return require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
+function checkAndCompressContext(options) {
+  const current = inFlight.get(options.sessionId);
+  if (current) return current;
+  const promise = require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
+  inFlight.set(options.sessionId, promise);
+  promise.finally(() => { if (inFlight.get(options.sessionId) === promise) inFlight.delete(options.sessionId); }).catch(() => {});
+  return promise;
+}
+async function recoverContextOverflow(options) {
+  const timer = idleTimers.get(options.sessionId);
+  if (timer) clearTimeout(timer);
+  idleTimers.delete(options.sessionId);
+  options.signal?.throwIfAborted();
+  // Await the actual operation, never the scheduling acknowledgement.
+  const current = inFlight.get(options.sessionId);
+  if (current) await new Promise((resolve, reject) => {
+    const abort = () => reject(options.signal.reason ?? Object.assign(new Error('Cancelled'), { name: 'AbortError' }));
+    options.signal?.addEventListener('abort', abort, { once: true });
+    current.then(resolve, reject).finally(() => options.signal?.removeEventListener('abort', abort)).catch(() => {});
+    if (options.signal?.aborted) abort();
+  });
+  options.signal?.throwIfAborted();
+  const result = await checkAndCompressContext({ ...options, force: true });
+  options.signal?.throwIfAborted();
+  if (result.retry) throw new Error('Context recovery is waiting for the database. Retry after it becomes available.');
+  return result;
 }
 async function checkAndCompressWithAccess(options) {
   const { sessionId, modelId, contextWindowLimit, llmSummarizeCallback } = options;
@@ -64,6 +89,7 @@ async function compressContext({
   modelId,
   contextWindowLimit,
   llmSummarizeCallback,
+  force = false, signal,
 }) {
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
 
@@ -72,7 +98,7 @@ async function compressContext({
   const snapshot = db.transaction(() => {
     if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return null;
     const usage = getContextUsage(sessionId, modelId);
-    if (usage.totalTokens <= 0.75 * contextWindowLimit) return null;
+    if (!force && usage.totalTokens <= 0.75 * contextWindowLimit) return null;
 
     const lock = db.prepare(`
       UPDATE sessions SET is_compressing = 1
@@ -104,15 +130,18 @@ async function compressContext({
     // Start with the existing summary's size as an estimate. If the generated
     // summary is larger, include more eligible messages and summarize again.
     do {
+      signal?.throwIfAborted();
       do {
         remainingTokens -= candidates[selectedCount].estimated_tokens;
         selectedCount += 1;
-      } while (remainingTokens > target && selectedCount < candidates.length);
+      } while ((force || remainingTokens > target) && selectedCount < candidates.length);
 
       newSummary = await llmSummarizeCallback(
         snapshot.oldSummary,
-        candidates.slice(0, selectedCount).map((message) => ({ ...message })),
+        candidates.slice(0, selectedCount).map((message) => ({ ...message,
+          ...(force ? { content: require('./promptBuilder').messageForModel(message).content } : {}) })),
       );
+      signal?.throwIfAborted();
       if (typeof newSummary !== 'string' || !newSummary.trim() || newSummary.includes('\0')) {
         throw new TypeError('The summarizer must return a non-empty summary string.');
       }
@@ -125,7 +154,15 @@ async function compressContext({
 
     // Core memories and the ten protected messages can make 65% unattainable.
     // Do not replace context with a summary that saves no tokens.
-    if (remainingTokens >= snapshot.totalTokens) {
+    const selectedSourceTokens = force ? candidates.slice(0, selectedCount).reduce((total, message) => {
+      const content = require('./promptBuilder').messageForModel(message).content;
+      return total + estimateTokens(typeof content === 'string' ? content : JSON.stringify(content));
+    }, 0) : 0;
+    // Include expanded attachment text for forced recovery. Refuse a summary
+    // that makes the recoverable source larger, even though its DB estimate
+    // may have counted only a tiny user caption.
+    if ((!force && remainingTokens >= snapshot.totalTokens) ||
+        (force && estimateTokens(newSummary) >= oldSummaryTokens + selectedSourceTokens)) {
       return { compressed: false, archivedCount: 0 };
     }
 
@@ -211,4 +248,4 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
   idleTimers.set(sessionId, timer);
 }
 
-module.exports = { checkAndCompressContext, scheduleIdleCompression };
+module.exports = { checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow };

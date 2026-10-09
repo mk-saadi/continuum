@@ -7,8 +7,7 @@ const { Agent, fetch } = require('undici');
 // Connection establishment still has its normal timeout; caller aborts work.
 const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
-function localEngineFetch(url, options) {
-  return fetch(url, { ...options, dispatcher });
-}
+const { createContextGuardedFetch } = require('./contextBudget');
+const localEngineFetch = createContextGuardedFetch((url, options) => fetch(url, { ...options, dispatcher }));
 
 module.exports = { localEngineFetch };

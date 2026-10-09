@@ -132,6 +132,9 @@ test('each spawn_sub_agent call opens its own completed child session end to end
   const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'subagent-spawn-session-'));
   const requests = [];
   const server = http.createServer((req, res) => {
+    // This fixture has no tokenizer endpoints. Exercise the documented fallback
+    // and count only actual completions in the original E2E assertions.
+    if (req.url !== '/v1/chat/completions') { req.resume(); res.statusCode = 404; res.end(); return; }
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {

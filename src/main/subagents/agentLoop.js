@@ -248,6 +248,8 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       signal,
       fetchImpl,
       allowTools: true,
+      recoverContext: require('./contextRecovery').childContextRecovery({ session, messages, engine,
+        fetchImpl: fetchImpl ?? require('../localEngineFetch').localEngineFetch, signal, commit }),
     });
     if (!reply.ok) throw new Error(`Child agent request failed (HTTP ${reply.status}).`);
     signal?.throwIfAborted();

@@ -13,7 +13,7 @@ const { localEngineFetch } = require('../../localEngineFetch');
 // in which case the payload's tool list passes through untouched. Returns
 // { ok: true, result } on a parsed response, or { ok: false, status } after
 // cancelling an error body — the execution layer owns the error messages.
-async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch, allowTools = false }) {
+async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch, allowTools = false, recoverContext }) {
   // Fail closed: an allowTools caller that forgot the tool list still gets a
   // tool-free request rather than an undefined-tools payload.
   const toolsAllowed = allowTools === true && Array.isArray(payload.tools) && payload.tools.length > 0;
@@ -21,6 +21,8 @@ async function chatCompletion({ engine, payload, signal, fetchImpl = localEngine
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
+    contextWindowLimit: engine.contextLength,
+    contextRecovery: recoverContext ?? (async () => null),
     body: JSON.stringify({
       ...payload,
       stream: false,

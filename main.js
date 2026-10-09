@@ -632,17 +632,19 @@ app.whenReady().then(() => {
 				return false;
 			}
 		},
-		llmSummarizeCallback: async (oldSummary, messageBatch, modelId) => {
+		llmSummarizeCallback: async (oldSummary, messageBatch, modelId, recovery = {}) => {
 			if (!childProcess) throw new Error("Start the local model server before compressing context.");
 			const response = await localEngineFetch(
 				`http://127.0.0.1:${engineConfig.port}/v1/chat/completions`,
 				{
 					method: "POST",
+					signal: recovery.signal,
 					headers: {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
 						model: modelId,
+						...(recovery.maxTokens ? { max_tokens: recovery.maxTokens } : {}),
 						stream: false,
 						messages: [
 							{

@@ -157,12 +157,12 @@ const defaultScheduler = createInferenceScheduler();
 // only gates when the generation may run. It is forwarded to the provider so
 // the default request shape stays tool-free (see the local provider), and only
 // the child agent loop — which must model tool calls across its turns — opts in.
-async function scheduleInference({ engine, payload, signal, fetchImpl, allowTools = false }) {
+async function scheduleInference({ engine, payload, signal, fetchImpl, recoverContext, allowTools = false }) {
   const provider = resolveProvider(engine);
   return defaultScheduler.submit({
     ...provider.capability(engine),
     signal,
-    task: () => provider.chatCompletion({ engine, payload, signal, fetchImpl, allowTools }),
+    task: () => provider.chatCompletion({ engine, payload, signal, fetchImpl, recoverContext, allowTools }),
   });
 }
 

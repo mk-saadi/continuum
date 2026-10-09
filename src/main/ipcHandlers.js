@@ -56,7 +56,7 @@ const {
 } = require("./sessionManager");
 const { scheduleIdleCompression } = require("./compressionEngine");
 const mcpManager = require("./mcpManager");
-const { prepareChatMessages, memoryTools, getToolContext, buildSessionSystemPrompt } = require("./promptBuilder");
+const { prepareChatMessages, memoryTools, getToolContext, buildSessionSystemPrompt, rebuildChatMessages } = require("./promptBuilder");
 const { indexDocuments, retrieveContext } = require("./ragManager");
 const { processUploads } = require("./fileUploads");
 const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
@@ -357,6 +357,14 @@ function registerIpcHandlers({
             let persistence;
 			let persistTimer = null;
 			const persist = (status = "in_progress") => {
+                // An overflow before any generated data must not leave a blank
+                // assistant row on every attempt. Existing real output persists.
+                if (!persistence && sessionId && (materializeContent() || executionSteps.length || currentStats)) {
+                    persistence = require('./engineManager').createMessagePersistence({ sessionId, modelId, modelName,
+                        displayName: capturedDisplayName, agentName: agents.getSessionAgent(sessionId)?.name });
+                    notify({ type: 'message-created', messageId: persistence.messageId });
+                }
+
 				if (status === "in_progress") {
 					if (persistTimer === null) persistTimer = setTimeout(() => {
 						persistTimer = null;
@@ -370,11 +378,6 @@ function registerIpcHandlers({
 			};
             const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
 			try {
-                if (sessionId) {
-                    persistence = require('./engineManager').createMessagePersistence({ sessionId, modelId, modelName,
-                        displayName: capturedDisplayName, agentName: agents.getSessionAgent(sessionId)?.name });
-                    notify({ type: "message-created", messageId: persistence.messageId });
-                }
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
@@ -432,7 +435,7 @@ function registerIpcHandlers({
                         },
                         onContextRewind: ({ startTurnIndex, endTurnIndex, summary }) => {
                             require('./db').recordContextRewind({ sessionId,
-                                messageId: persistence.messageId, startTurnIndex, endTurnIndex, summary });
+                                messageId: persistence?.messageId, startTurnIndex, endTurnIndex, summary });
                         },
                         casualMode: usageProjectId == null,
                         onToolLimit: ({ currentCount, nextTool }) => permissionMode === 'full_access' ? Promise.resolve(true) : new Promise(resolve => {
@@ -471,6 +474,21 @@ function registerIpcHandlers({
                         fetchImpl,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
                         loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
+                        recoverContext: !cloud && sessionId ? async ({ contextWindowLimit, signal }) => {
+                            if (typeof llmSummarizeCallback !== 'function') return null;
+                            const result = await require('./compressionEngine').recoverContextOverflow({
+                                sessionId, modelId, contextWindowLimit, signal,
+                                llmSummarizeCallback: (old, batch) => llmSummarizeCallback(old, batch, modelId, { signal, maxTokens: 512 }),
+                            });
+                            if (!result.compressed) return null;
+                            if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, ...result });
+                            const current = getEngineConfig?.();
+                            if (current?.modelPath !== config.modelPath || current?.port !== config.port) throw new Error('The local model changed during context recovery. Send again with the loaded model.');
+                            const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
+                            const fresh = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode).tools);
+                            return { messages: rebuildChatMessages({ sessionId, modelId, excludeMessageIds: [persistence?.messageId, Number.isSafeInteger(messageId) ? messageId : null],
+                                delegationAvailable: fresh.some(tool => tool.function.name === 'spawn_sub_agent'), userText: currentUserText }) };
+                        } : undefined,
 					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
 					reasoningEffort,
@@ -479,7 +497,7 @@ function registerIpcHandlers({
 					chatTools: tools,
                     getChatTools: async () => {
                         await mcpManager.reload();
-                        const context = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
+                        const context = getToolContext(mcpManager.getTools(sessionId), profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled, sessionId, permissionMode);
                         notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
                         return filterTools(context.tools);
                     },
@@ -617,7 +635,7 @@ function registerIpcHandlers({
             };
             const { db } = require('./db');
             return db.transaction(() => {
-                db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
+                if (result.message.id !== target.id) db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
                 db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(target.id, data.sessionId);
                 return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
             })();

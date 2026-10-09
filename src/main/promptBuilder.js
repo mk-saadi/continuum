@@ -271,6 +271,22 @@ Before executing any delete/bulk-write operation outside of that id-scoped patte
 	return { ...prompt, memoryContext: true };
 }
 
+// Read-only rebuild: keeps originals in SQLite, excludes this generation's
+// persistence row and empty failed attempts from the model-facing transcript.
+function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], delegationAvailable = true, userText = '' }) {
+  return db.transaction(() => {
+    const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+    const summary = getSessionSummary(sessionId);
+    const active = getActiveMessages(sessionId).filter(message => !(message.role === 'assistant' && excludeMessageIds.includes(message.id)) &&
+      !(message.role === 'assistant' && message.status === 'interrupted' && !message.content));
+    return prependBaseSystemPrompt([
+      ...(summary ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
+      buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
+      ...active.map(messageForModel),
+    ], effective.memoryEnabled);
+  })();
+}
+
 function prepareChatMessages({
 	sessionId,
 	modelId,
@@ -308,7 +324,8 @@ function prepareChatMessages({
 			const activeSessionMessages = (
 				regenerateLast ? getActiveMessages(sessionId).slice(0, -1) : getActiveMessages(sessionId)
 			)
-				.filter((message) => !message.is_summarized && !message.archived)
+				.filter((message) => !message.is_summarized && !message.archived &&
+                    !(message.role === 'assistant' && message.status === 'interrupted' && !message.content))
 				.map(messageForModel);
 
 			return prependBaseSystemPrompt(
@@ -392,5 +409,6 @@ module.exports = {
 	memoryTools,
 	buildSystemPrompt,
 	prepareChatMessages,
+	rebuildChatMessages,
 	messageForModel,
 };
