@@ -56,7 +56,8 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   [Node.js](https://nodejs.org/) ≥ 20 (LTS recommended; `pdf-parse` and `playwright-core` require Node 20+)
+*   [Node.js](https://nodejs.org/) ≥ 22.12 for development and release builds (required by Electron 44 tooling).
+*   Linux x86_64: Ubuntu 22.04 LTS / Debian 12 or newer. See [Linux support and release validation](docs/migration-electron44-release-build.md); package execution on these minimum distributions remains unverified.
 
 ### Installation & Development
 
@@ -68,7 +69,9 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 
 2.  **Install dependencies:**
     ```bash
-    npm install
+    npm ci --ignore-scripts
+    npm exec --no -- install-electron
+    npm rebuild --foreground-scripts
     ```
 
 3.  **Run in development mode:**
