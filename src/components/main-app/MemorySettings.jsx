@@ -12,6 +12,7 @@ import EngineIdleSettings from '../EngineIdleSettings';
 import NotificationSettings from '../settings/NotificationSettings';
 import SkillsSettingsTab from '../settings/SkillsSettingsTab';
 import GeneralSettingsTab from '../settings/GeneralSettingsTab';
+import BackgroundSettings from '../settings/BackgroundSettings';
 import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from "react-icons/lu";
 import { GiStarSwirl } from "react-icons/gi";
 
@@ -299,6 +300,7 @@ export default function MemorySettings({
 						>
 							<EngineIdleSettings />
 							<GeneralSettingsTab />
+							<BackgroundSettings />
 							<NotificationSettings />
 							<div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
 								<h4 className="font-semibold">Color theme</h4>

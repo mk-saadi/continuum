@@ -198,6 +198,19 @@ function registerIpcHandlers({
             require('./db').db.prepare("INSERT INTO app_settings(key, value_json) VALUES ('avatar-settings', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json").run(json);
             return settings;
         },
+        "background:get": () => require('./backgroundSettings').getBackgroundSettings(),
+        "background:set-opacity": ({ opacity }) => require('./backgroundSettings').setBackgroundOpacity(opacity),
+        "background:remove": () => require('./backgroundSettings').removeBackgroundImage(),
+        // The picker runs in main so the chosen file can be copied into the
+        // managed backgrounds directory before its path is ever trusted.
+        "background:pick": () => {
+            const result = dialog.showOpenDialogSync({
+                properties: ['openFile'],
+                filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp', 'ico'] }],
+            });
+            if (!result?.[0]) return null;
+            return require('./backgroundSettings').adoptBackgroundImage(result[0]);
+        },
         "settings:profiles": () => profiles.getProfileSettings(),
         "settings:save-profile": ({ modelPath, patch }) => profiles.saveProfileSettings(modelPath, patch),
         "settings:save-memory": ({ sessionId, modelId, patch }) => profiles.saveSessionMemorySettings(sessionId, modelId, patch),
