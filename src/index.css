@@ -532,3 +532,11 @@
 	background-color: var(--accent) !important;
 	background-clip: padding-box !important;
 }
+
+html[data-bg-image="true"] dialog {
+	opacity: var(--bg-ui-opacity, 1);
+}
+
+html[data-bg-image="true"] dialog::backdrop {
+	backdrop-filter: blur(8px);
+}

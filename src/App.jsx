@@ -12,6 +12,7 @@ import { ChatInterface } from "./components/main-app/ChatInterface.jsx";
 import { Titlebar } from "./components/main-app/Titlebar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
+import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
 
 function AppContent() {
@@ -42,6 +43,9 @@ function AppContent() {
 				.sort((a, b) => b.is_pinned - a.is_pinned || b.updated_at.localeCompare(a.updated_at)),
 		);
 	const avatars = useAvatarSettings();
+	// Owns the custom background image + whole-UI opacity layer (side effect;
+	// the returned state is currently unused by the shell itself).
+	useBackgroundSettings();
 	const terminalLog = useTerminalLog();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
