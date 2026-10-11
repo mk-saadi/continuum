@@ -12,7 +12,7 @@ SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC;
 DELETE FROM sessions WHERE id = ?;
 ```
 
-The startup migration installs delete triggers for existing databases: deleting a session deletes its messages and summaries; deleting a message deletes its attachment records. Referenced files on disk are not removed.
+The startup migration installs delete triggers for existing databases: deleting a session deletes its messages, summaries, Workspace task briefs, and Workspace checkpoints; deleting a message deletes its attachment records. Referenced files on disk are not removed.
 
 Editing executes these statements in one immediate transaction, after validating a user message and ensuring compression is not in progress:
 

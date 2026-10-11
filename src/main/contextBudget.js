@@ -1,5 +1,6 @@
 'use strict';
 const { createHash } = require('node:crypto');
+const { mergeSystemMessages } = require('../lib/systemMessages.cjs');
 
 class ContextBudgetError extends Error {
   constructor(detail = '') {
@@ -35,7 +36,12 @@ function approximateTokens(payload) {
   // still required; this number is deliberately never labeled exact.
   return Math.ceil(Buffer.byteLength(text, 'utf8') / 3) + (payload.messages?.length ?? 0) * 32 + images * 4096;
 }
-function createContextGuardedFetch(fetchImpl) {
+// Standalone measurer over the same server-template/tokenizer path the guard
+// uses: /props capability check, /apply-template rendering, /tokenize count,
+// SHA-256 cache keyed on model/template/context/payload, and the documented
+// approximate fallback (explicitly labeled, never exact). Lets pre-commit
+// verification measure a prospective prompt without sending it.
+function createPromptMeasurer(fetchImpl) {
   const counts = new Map();
   async function measure(url, payload, options, knownLimit) {
     const signal = options.signal;
@@ -48,7 +54,14 @@ function createContextGuardedFetch(fetchImpl) {
         method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' },
         ...(body ? { body: JSON.stringify(body) } : {}), signal: probeSignal,
       });
-      if (!response.ok) { await response.body?.cancel(); throw new Error('Counting endpoint unavailable'); }
+      if (!response.ok) {
+        await response.body?.cancel();
+        const detail = await response.text().catch(() => '');
+        const error = new Error(`Counting endpoint ${route} failed (HTTP ${response.status})`);
+        error.status = response.status;
+        error.responseBody = detail.slice(0, 300);
+        throw error;
+      }
       return response.json();
     };
     try {
@@ -57,7 +70,7 @@ function createContextGuardedFetch(fetchImpl) {
       if (Number.isSafeInteger(reported) && reported > 0) limit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, reported) : reported;
     } catch { signal?.throwIfAborted(); }
     if (!Number.isSafeInteger(limit) || limit <= 0) limit = 8192;
-    let tokens, method = 'approximate-full-request';
+    let tokens, method = 'approximate-full-request', note = null;
     const multimodal = payload.messages.some(message => Array.isArray(message.content) && message.content.some(part => part?.type === 'image_url'));
     // Reuse only after verifying the same server model/template/context through
     // props. Cache is bounded; unavailable props and images are never cached.
@@ -66,7 +79,11 @@ function createContextGuardedFetch(fetchImpl) {
     if (!multimodal && key && counts.has(key)) { tokens = counts.get(key); method = 'server-template-tokenizer'; }
     else if (!multimodal) {
       try {
-        const rendered = await probe('/apply-template', { ...payload, stream: false });
+        // Strict templates (e.g. Qwen) accept a single leading system turn
+        // and require a user message. Measure the merged wire shape, exactly
+        // as inference sends it, so template-capable backends count exactly.
+        const merged = mergeSystemMessages(payload.messages);
+        const rendered = await probe('/apply-template', { ...payload, messages: merged, stream: false });
         if (typeof rendered.prompt !== 'string' || !rendered.prompt.length) throw new Error('Missing template');
         // Old servers may ignore tools in /apply-template. Never claim their
         // message-only template measures a tool-bearing request.
@@ -76,20 +93,30 @@ function createContextGuardedFetch(fetchImpl) {
         if (!Array.isArray(counted.tokens)) throw new Error('Missing token count');
         tokens = counted.tokens.length; method = 'server-template-tokenizer';
         if (key) { if (counts.size >= 64) counts.delete(counts.keys().next().value); counts.set(key, tokens); }
-      } catch { signal?.throwIfAborted(); }
+      } catch (error) {
+        signal?.throwIfAborted();
+        // A template rejection must stay a labeled fallback, never the silent
+        // normal path. Empty initial chats carry no user turn yet, which
+        // strict templates reject outright; record why instead of pretending.
+        if (!payload.messages.some(message => message.role === 'user')) note = 'no-user-message';
+        else if (error?.status === 500 && /no user query|system message must be/i.test(error?.responseBody ?? '')) note = 'template-rejected-prompt-shape';
+        else if (/tools absent from template/i.test(error?.message ?? '')) note = 'tools-absent-from-template';
+        else note = 'tokenizer-measurement-failed';
+      }
     }
     tokens ??= approximateTokens(payload);
-    return { tokens, method, limit, budget: limit - reserveTokens(payload, limit) };
+    return { tokens, method, limit, budget: limit - reserveTokens(payload, limit), ...(note ? { note } : {}) };
   }
+  return measure;
+}
+function createContextGuardedFetch(fetchImpl) {
+  const measure = createPromptMeasurer(fetchImpl);
   return async function guardedFetch(url, options = {}) {
     if ((options.method ?? 'GET').toUpperCase() !== 'POST' || new URL(url).pathname !== '/v1/chat/completions') return fetchImpl(url, options);
     let payload;
     try { payload = JSON.parse(options.body); } catch { return fetchImpl(url, options); }
     if (!Array.isArray(payload.messages)) return fetchImpl(url, options);
-    const normalize = value => {
-      const system = value.messages.filter(message => message.role === 'system');
-      return system.length > 1 ? { ...value, messages: [{ role: 'system', content: system.map(message => message.content ?? '').join('\n\n') }, ...value.messages.filter(message => message.role !== 'system')] } : value;
-    };
+    const normalize = value => ({ ...value, messages: mergeSystemMessages(value.messages) });
     payload = normalize(payload);
     const { contextWindowLimit, contextRecovery, ...wireOptions } = options;
     let recovered = false, knownLimit;
@@ -139,4 +166,4 @@ function createContextGuardedFetch(fetchImpl) {
     return response;
   };
 }
-module.exports = { createContextGuardedFetch, ContextBudgetError, isContextOverflow, approximateTokens };
+module.exports = { createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };

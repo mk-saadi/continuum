@@ -13,12 +13,10 @@ function limitToolArguments(call) {
 }
 import { createRepetitionDetector } from './repetitionDetector.mjs';
 
-export const AUTO_CONTINUE_NUDGE = "[System: You haven't executed a tool or declared the task complete. Proceed with the next step or issue a tool call.]";
-
 export const REASONING_LOOP_NOTICE = '[System: Reasoning loop detected and terminated. Output may be incomplete.]';
 import { formatToolResult, hasToolImages, moveToolImagesToUser, rejectsToolImages, redactToolMedia } from './toolResultFormatter.mjs';
 import { resolveThinkingBudget } from './thinkingBudget.mjs';
-import { mergeMetrics, phaseStats, mergePhaseStats } from './completionStats.mjs';
+import { mergeMetrics, phaseStats, mergePhaseStats, turnPromptTelemetry } from './completionStats.mjs';
 import { createThinkingStream } from './thinkingStream.mjs';
 
 // Convert native definitions to the OpenAI-compatible format llama-server uses.
@@ -30,14 +28,12 @@ export function toChatTools(memoryTools) {
 
 // Strict Jinja templates accept only one leading system turn. Merge at the wire
 // boundary so session memories, summaries, agents, and RAG all participate.
-export function mergeSystemMessages(messages) {
-  const system = messages.filter(message => message.role === 'system');
-  if (!system.length) return messages;
-  return [
-    { role: 'system', content: system.map(message => message.content ?? '').join('\n\n') },
-    ...messages.filter(message => message.role !== 'system'),
-  ];
-}
+// Shared with the standalone measurer (src/lib/systemMessages.cjs).
+import { mergeSystemMessages } from './systemMessages.cjs';
+import { CASUAL_FILE_OPS_REMINDER, CASUAL_SUBAGENT_PATTERN_REMINDER, FILE_OPS_TOOL_NAMES } from './systemMessages.cjs';
+// Re-exported for compatibility; the implementation lives in systemMessages.cjs
+// so the standalone measurer shares the exact wire behavior.
+export { mergeSystemMessages };
 
 // Strip application metadata and normalize both native and OpenAI tool calls.
 export function sanitizeChatMessages(messages, decodeImage) {
@@ -401,7 +397,7 @@ export async function runMemoryChat({
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
   casualMode = false, onToolLimit = async () => false,
   projectId = null, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
-  toolFailureCircuitBreaker = null, onCircuitBreak = () => {},
+  toolFailureCircuitBreaker = null, onCircuitBreak = () => {}, onPhase = () => {},
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
@@ -444,6 +440,7 @@ export async function runMemoryChat({
   const phases = []; // Fresh for every chat invocation.
 
   let toolsExecuted = false, toolRounds = 0;
+  let remindedFileOps = false, remindedSubagent = false;
   let casualToolCount = 0, maxAllowedTools = 5, finalResponseOnly = false;
   let turnCount = 0, round = 0, executionState = 'running';
   let failedToolStreak = 0, failedRangeStart = null;
@@ -612,21 +609,22 @@ export async function runMemoryChat({
     result.toolCalls = result.toolCalls.map(limitToolArguments);
     phases.push({ ...phaseStats({ ...result, startTime: phaseStart, endTime: result.endTime ?? now() }),
       raw: { usage: result.usage, timings: result.timings } });
+    // Live per-request telemetry for the header: each completed request
+    // reports its server-observed prompt size and the turn peak so far.
+    // This never touches cumulative accounting; onStats stays the single
+    // writer of persisted turn stats (no double counting).
+    try {
+      onPhase({ round, promptTokens: phases[phases.length - 1].promptTokens ?? null,
+        completionTokens: phases[phases.length - 1].completionTokens ?? null,
+        phase: phases[phases.length - 1], telemetry: turnPromptTelemetry(phases) });
+    } catch { /* Telemetry listeners must not break the tool loop. */ }
     // A provider that ignores tool_choice:none must not create an endless loop.
     if (finalResponseOnly && result.toolCalls.length) {
       onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
       return text;
     }
     if (!result.toolCalls.length) {
-      const unfinished = !finalResponseOnly && toolsExecuted && !result.loopDetected &&
-        !/(?:\?|\[TASK COMPLETE\])$/.test(result.content.trimEnd());
-      if (unfinished) {
-        history.push({ role: 'assistant', content: result.content || null });
-        history.push({ role: 'user', content: AUTO_CONTINUE_NUDGE });
-        if (turnCount >= maxAutoTurns && !await pauseAtLimit()) return text;
-        if (text && !text.endsWith('\n\n')) { text += '\n\n'; onText('\n\n'); }
-        continue;
-      }
+      signal?.throwIfAborted();
       onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
       return text;
     }
@@ -760,6 +758,25 @@ export async function runMemoryChat({
       if (!SUB_AGENT_TOOL_NAMES.has(call.function.name)) await drainPending();
     }
     await drainPending();
+    // Casual-Chat just-in-time guardrails: the static prompt carries only the
+    // safety core, so the deferred details arrive here as a system notice on
+    // the first relevant tool call of the turn. Gated on projectId (not the
+    // casualMode budget flag): sessionless runs also take this path, where a
+    // duplicate notice is harmless, while tying it to the flag could drop
+    // rules with no reminder. Workspace prompts already contain the full
+    // text and never take this path. Once per turn per reminder; never
+    // persisted (history is in-memory).
+    if (projectId == null && !finalResponseOnly) {
+      const usedNames = new Set(result.toolCalls.map(call => call.function?.name));
+      if (!remindedFileOps && [...usedNames].some(name => FILE_OPS_TOOL_NAMES.has(name))) {
+        remindedFileOps = true;
+        history.push({ role: 'system', content: CASUAL_FILE_OPS_REMINDER });
+      }
+      if (!remindedSubagent && usedNames.has('spawn_sub_agent')) {
+        remindedSubagent = true;
+        history.push({ role: 'system', content: CASUAL_SUBAGENT_PATTERN_REMINDER });
+      }
+    }
     if (loopNotices.length) {
       // Keep the matching synthetic tool result and give the model an explicit
       // system instruction on its next generation. Do not rewind this warning.

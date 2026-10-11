@@ -16,6 +16,8 @@ import {
 	FiX,
 } from "react-icons/fi";
 
+import { getRecentSessions } from "../lib/sidebarHistory.mjs";
+
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
 const buttonStyle =
@@ -25,11 +27,13 @@ const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximu
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
 	const dialog = useRef(null);
 	const [value, setValue] = useState(
-		action.kind === "Export Chat..." ? "json" : action.kind === "Rename"
-			? action.session.title || ""
-			: action.kind === "Move to Folder"
-				? action.session.folder_name || UNASSIGNED
-				: "",
+		action.kind === "Export Chat..."
+			? "json"
+			: action.kind === "Rename"
+				? action.session.title || ""
+				: action.kind === "Move to Folder"
+					? action.session.folder_name || UNASSIGNED
+					: "",
 	);
 	useEffect(() => {
 		const element = dialog.current;
@@ -72,18 +76,38 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					</button>
 				</div>
 				{action.kind === "Export Chat..." ? (
-                    <fieldset disabled={busy || disabled} className="space-y-2">
-                        <legend className="mb-2 text-sm">Export “{action.session.title || 'Untitled chat'}”</legend>
-                        <p className="mb-3 text-xs text-[var(--text-muted)]">Includes all saved messages, metadata, and regenerated replies.</p>
-                        {[['json', 'JSON'], ['markdown', 'Markdown'], ['text', 'Plain Text']].map(([format, label]) => (
-                            <label key={format} className={`${buttonStyle} cursor-pointer`}>
-                                <input type="radio" name="export-format" value={format} checked={value === format}
-                                    onChange={() => setValue(format)} className="accent-[var(--accent)]" />
-                                {label}
-                            </label>
-                        ))}
-                    </fieldset>
-                ) : action.kind === "Delete" ? (
+					<fieldset
+						disabled={busy || disabled}
+						className="space-y-2"
+					>
+						<legend className="mb-2 text-sm">
+							Export “{action.session.title || "Untitled chat"}”
+						</legend>
+						<p className="mb-3 text-xs text-[var(--text-muted)]">
+							Includes all saved messages, metadata, and regenerated replies.
+						</p>
+						{[
+							["json", "JSON"],
+							["markdown", "Markdown"],
+							["text", "Plain Text"],
+						].map(([format, label]) => (
+							<label
+								key={format}
+								className={`${buttonStyle} cursor-pointer`}
+							>
+								<input
+									type="radio"
+									name="export-format"
+									value={format}
+									checked={value === format}
+									onChange={() => setValue(format)}
+									className="accent-[var(--accent)]"
+								/>
+								{label}
+							</label>
+						))}
+					</fieldset>
+				) : action.kind === "Delete" ? (
 					<p className="text-sm text-[var(--text-secondary)]">
 						Delete “{action.session.title || "Untitled chat"}” and all its messages?
 					</p>
@@ -155,13 +179,15 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					>
 						{busy
 							? "Saving…"
-							: action.kind === "Export Chat..." ? "Export" : action.kind === "Move to Folder"
-								? "Move chat"
-								: action.kind === "New Folder"
-									? "Create folder"
-									: action.kind === "Delete"
-										? "Delete chat"
-										: "Save"}
+							: action.kind === "Export Chat..."
+								? "Export"
+								: action.kind === "Move to Folder"
+									? "Move chat"
+									: action.kind === "New Folder"
+										? "Create folder"
+										: action.kind === "Delete"
+											? "Delete chat"
+											: "Save"}
 					</button>
 				</div>
 			</form>
@@ -170,7 +196,21 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 	);
 }
 
-export default function ChatHistory({ groups, activeId, disabled, isOpen = true, onLoad, onNew, onAction }) {
+export default function ChatHistory({
+	groups,
+	activeId,
+	disabled,
+	isOpen = true,
+	onLoad,
+	onNew,
+	onAction,
+	mode = "casual",
+	workspaceName = null,
+	workspaceChatCount = null,
+	onNewWorkspaceChat = null,
+	canCreateWorkspaceChat = false,
+	showRecents = false,
+}) {
 	const [search, setSearch] = useState("");
 	const [collapsed, setCollapsed] = useState(new Set());
 	const [menu, setMenu] = useState(null);
@@ -212,6 +252,13 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 			(group) =>
 				!query || group.sessions.length || group.folder_name.toLocaleLowerCase().includes(query),
 		);
+	const recentSessions = useMemo(() => {
+		if (!showRecents) return [];
+		return getRecentSessions(
+			groups.flatMap((group) => group.sessions),
+			6,
+		);
+	}, [groups, showRecents]);
 
 	function closeMenu(restoreFocus = false) {
 		setMenu(null);
@@ -263,16 +310,16 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 		if (locked) return;
 		setBusy(true);
 		setError("");
-		if (kind === 'Export Chat...') setToast(null);
+		if (kind === "Export Chat...") setToast(null);
 		try {
-			if (kind === 'Export Chat...') {
-                if (!window.api?.exportChat) throw new Error('Chat export is available in the desktop app.');
-                const result = await window.api.exportChat(id, value);
-                if (!result?.canceled) {
-                    if (!result?.success) throw new Error(result?.error || 'Could not export chat.');
-                    setToast({ text: 'Chat exported successfully.', error: false });
-                }
-            } else await onAction(kind, id, value);
+			if (kind === "Export Chat...") {
+				if (!window.api?.exportChat) throw new Error("Chat export is available in the desktop app.");
+				const result = await window.api.exportChat(id, value);
+				if (!result?.canceled) {
+					if (!result?.success) throw new Error(result?.error || "Could not export chat.");
+					setToast({ text: "Chat exported successfully.", error: false });
+				}
+			} else await onAction(kind, id, value);
 			if (kind === "Move to Folder" || kind === "New Folder")
 				setCollapsed((current) => {
 					const next = new Set(current);
@@ -282,7 +329,7 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 			setAction(null);
 		} catch (err) {
 			setError(err.message);
-			if (kind === 'Export Chat...') setToast({ text: err.message, error: true });
+			if (kind === "Export Chat...") setToast({ text: err.message, error: true });
 		} finally {
 			setBusy(false);
 		}
@@ -296,26 +343,115 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 		if (session && session.folder_name !== folder) perform("Move to Folder", id, folder);
 	}
 
+	function SessionRow({ session }) {
+		return (
+			<div
+				key={session.id}
+				data-session-id={session.id}
+				draggable={!locked}
+				onDragStart={(event) => {
+					if (locked) {
+						event.preventDefault();
+						return;
+					}
+					closeMenu();
+					event.dataTransfer.setData(DRAG_TYPE, session.id);
+					event.dataTransfer.effectAllowed = "move";
+				}}
+				onDragEnd={() => setDropTarget(null)}
+				onContextMenu={(event) =>
+					openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
+				}
+				className={`group relative flex py-1 duration-300 items-center rounded-lg transition-colors ${activeId === session.id ? "bg-[var(--active-chat)]" : "bg-transparent hover:bg-[var(--surface-hover)]"}`}
+			>
+				<button
+					className="min-w-0 flex-1 truncate rounded-lg py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
+					disabled={locked}
+					aria-current={activeId === session.id ? "page" : undefined}
+					title={session.title || "Untitled chat"}
+					onClick={() => {
+						closeMenu();
+						onLoad(session.id);
+					}}
+				>
+					{session.title || "Untitled chat"}
+				</button>
+				<span
+					className="shrink-0 block group-hover:hidden text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
+					title={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}
+				>
+					{tokenFormatter.format(session.total_tokens || 0)} tokens
+				</span>
+				<button
+					className="shrink-0 hidden group-hover:block rounded-md px-1.5 text-[var(--text-muted)] cursor-pointer hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40"
+					aria-label={`Actions for ${session.title || "Untitled chat"}`}
+					aria-haspopup="menu"
+					aria-expanded={menu?.session.id === session.id}
+					disabled={locked}
+					onClick={(event) => openMenu(event, session)}
+				>
+					<FiMoreHorizontal />
+				</button>
+			</div>
+		);
+	}
+
 	return (
 		<aside
 			aria-label="Chat history"
 			className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
 		>
 			<div className="space-y-3 px-3 pt-4 pb-2">
-				<div className="flex items-center gap-1">
-					<button
-						className="flex-1 w-full py-1 shrink-0 items-center justify-center rounded-md border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
-						disabled={locked}
-						onClick={onNew}
+				{mode === "workspace" ? (
+					<div
+						className="rounded-lg bg-[var(--input)] px-3 py-2"
+						aria-label="Workspace conversations"
 					>
-						✦ New chat
-					</button>
-				</div>
+						<p className="truncate text-sm font-semibold">
+							{workspaceName ?? "Workspace chats"}
+							{workspaceChatCount != null && (
+								<span className="ml-2 text-xs font-normal text-[var(--text-muted)]">
+									{workspaceChatCount}
+								</span>
+							)}
+						</p>
+						<button
+							className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--accent)] py-1 text-[var(--on-accent)] transition-all duration-300 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+							disabled={locked || !canCreateWorkspaceChat}
+							title={
+								canCreateWorkspaceChat
+									? "Start a new chat in this workspace"
+									: "Select and start a model before creating a workspace chat"
+							}
+							onClick={() => onNewWorkspaceChat?.()}
+						>
+							<FiPlus className="shrink-0" />
+							New workspace chat
+						</button>
+						{!canCreateWorkspaceChat && (
+							<p className="mt-1 text-[11px] text-[var(--text-muted)]">
+								Select and start a model to begin chatting.
+							</p>
+						)}
+					</div>
+				) : (
+					<div className="flex items-center gap-1">
+						<button
+							className="flex-1 w-full py-1 shrink-0 items-center justify-center rounded-md border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
+							disabled={locked}
+							onClick={onNew}
+						>
+							✦ New chat
+						</button>
+					</div>
+				)}
 				<label className="flex items-center gap-2 rounded-lg bg-[var(--input)] px-3 py-2 text-[var(--text-muted)] focus-within:ring-1 focus-within:ring-[var(--accent)]">
 					<FiSearch className="shrink-0" />
 					<input
 						type="search"
-						aria-label="Search chats and folders"
+						aria-label={
+							mode === "workspace" ? "Search workspace chats and folders" : "Search chats and folders"
+						}
 						placeholder="Search chats…"
 						value={search}
 						onChange={(event) => {
@@ -342,6 +478,22 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 				aria-label="Saved chats"
 				className="min-h-0 flex-1 overflow-y-auto px-2 pb-4"
 			>
+				{showRecents && !query && recentSessions.length > 0 && (
+					<section
+						aria-label="Recent chats"
+						className="mt-3 rounded-lg"
+					>
+						<p className="px-3 pb-1 text-xs font-medium text-[var(--text-muted)]">Recent</p>
+						<div className="space-y-0.5">
+							{recentSessions.map((session) => (
+								<SessionRow
+									key={`recent-${session.id}`}
+									session={session}
+								/>
+							))}
+						</div>
+					</section>
+				)}
 				{visibleGroups.map((group) => {
 					const expanded = !!query || !collapsed.has(group.folder_name);
 					return (
@@ -399,58 +551,10 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 										</p>
 									)}
 									{group.sessions.map((session) => (
-										<div
+										<SessionRow
 											key={session.id}
-											data-session-id={session.id}
-											draggable={!locked}
-											onDragStart={(event) => {
-												if (locked) {
-													event.preventDefault();
-													return;
-												}
-												closeMenu();
-												event.dataTransfer.setData(DRAG_TYPE, session.id);
-												event.dataTransfer.effectAllowed = "move";
-											}}
-											onDragEnd={() => setDropTarget(null)}
-											onContextMenu={(event) =>
-												openMenu(
-													event,
-													session,
-													event.currentTarget.querySelector("[aria-haspopup]"),
-												)
-											}
-											className={`group relative flex py-1 duration-300 items-center rounded-lg transition-colors ${activeId === session.id ? "bg-[var(--active-chat)]" : "bg-transparent hover:bg-[var(--surface-hover)]"}`}
-										>
-											<button
-												className="min-w-0 flex-1 truncate rounded-lg py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
-												disabled={locked}
-												aria-current={activeId === session.id ? "page" : undefined}
-												title={session.title || "Untitled chat"}
-												onClick={() => {
-													closeMenu();
-													onLoad(session.id);
-												}}
-											>
-												{session.title || "Untitled chat"}
-											</button>
-											<span
-												className="shrink-0 block group-hover:hidden text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
-												title={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}
-											>
-												{tokenFormatter.format(session.total_tokens || 0)} tokens
-											</span>
-											<button
-												className="shrink-0 hidden group-hover:block rounded-md px-1.5 text-[var(--text-muted)] cursor-pointer hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40"
-												aria-label={`Actions for ${session.title || "Untitled chat"}`}
-												aria-haspopup="menu"
-												aria-expanded={menu?.session.id === session.id}
-												disabled={locked}
-												onClick={(event) => openMenu(event, session)}
-											>
-												<FiMoreHorizontal />
-											</button>
-										</div>
+											session={session}
+										/>
 									))}
 								</div>
 							)}
@@ -521,10 +625,16 @@ export default function ChatHistory({ groups, activeId, disabled, isOpen = true,
 					</div>,
 					document.body,
 				)}
-			{toast && createPortal(<div role={toast.error ? 'alert' : 'status'}
-                className="fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-xl">
-                {toast.text}
-            </div>, document.body)}
+			{toast &&
+				createPortal(
+					<div
+						role={toast.error ? "alert" : "status"}
+						className="fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-xl"
+					>
+						{toast.text}
+					</div>,
+					document.body,
+				)}
 			{action && (
 				<ActionDialog
 					action={action}

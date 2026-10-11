@@ -1,296 +1,441 @@
-'use strict';
-const { localEngineFetch } = require('./localEngineFetch');
-const { normalizeLoadConfig } = require('./configManager');
-const { createHash, randomUUID } = require('node:crypto');
+"use strict";
+const { localEngineFetch } = require("./localEngineFetch");
+const { normalizeLoadConfig } = require("./configManager");
+const { createHash, randomUUID } = require("node:crypto");
 
 const askUserTool = {
-  type: 'function',
-  function: {
-    name: 'ask_user',
-    description: 'Pause the current task and ask the user a question or decision. Available only when Mid-Run Questions is enabled.',
-    parameters: { type: 'object', properties: {
-      question: { type: 'string', description: 'A clear, self-contained question for the user.' },
-      options: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6, description: 'Optional quick reply choices.' },
-    }, required: ['question'], additionalProperties: false },
-  },
+	type: "function",
+	function: {
+		name: "ask_user",
+		description:
+			"Pause the current task and ask the user a question or decision. Available only when Mid-Run Questions is enabled.",
+		parameters: {
+			type: "object",
+			properties: {
+				question: { type: "string", description: "A clear, self-contained question for the user." },
+				options: {
+					type: "array",
+					items: { type: "string" },
+					minItems: 1,
+					maxItems: 6,
+					description: "Optional quick reply choices.",
+				},
+			},
+			required: ["question"],
+			additionalProperties: false,
+		},
+	},
 };
 
 function askUserDuringRun({ controller, sender, requestId, sessionId, stepId, question, options, enabled }) {
-  if (!enabled) return Promise.resolve('Mid-run questions are currently disabled by user preference. Proceed with the task using your best judgment.');
-  if (typeof question !== 'string' || !question.trim() || question.length > 2000 || question.includes('\0') ||
-      options !== undefined && (!Array.isArray(options) || options.length < 1 || options.length > 6 ||
-        options.some(option => typeof option !== 'string' || !option.trim() || option.length > 200)))
-    throw new Error('Invalid ask_user question or options.');
-  controller.signal.throwIfAborted();
-  const questionId = randomUUID();
-  return new Promise((resolve, reject) => {
-    const finish = answer => {
-      if (!controller.pendingQuestions?.delete(questionId)) return;
-      controller.signal.removeEventListener('abort', abort);
-      if (!sender.isDestroyed()) sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, resolved: true });
-      resolve(answer);
-    };
-    const abort = () => {
-      if (!controller.pendingQuestions?.delete(questionId)) return;
-      controller.signal.removeEventListener('abort', abort);
-      if (!sender.isDestroyed()) sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, resolved: true });
-      reject(new Error('Question cancelled.'));
-    };
-    controller.pendingQuestions ??= new Map();
-    controller.pendingQuestions.set(questionId, finish);
-    controller.signal.addEventListener('abort', abort, { once: true });
-    if (controller.signal.aborted || sender.isDestroyed()) return abort();
-    sender.send('engine:ask-user', { requestId, sessionId, stepId, questionId, question, options: options || [] });
-    const notifications = require('./services/notificationService');
-    if (notifications.isMainWindowBackgrounded())
-      notifications.sendDesktopNotification({ title: 'Agent Needs Input', body: question, type: 'action_required' });
-  });
+	if (!enabled)
+		return Promise.resolve(
+			"Mid-run questions are currently disabled by user preference. Proceed with the task using your best judgment.",
+		);
+	if (
+		typeof question !== "string" ||
+		!question.trim() ||
+		question.length > 2000 ||
+		question.includes("\0") ||
+		(options !== undefined &&
+			(!Array.isArray(options) ||
+				options.length < 1 ||
+				options.length > 6 ||
+				options.some(
+					(option) => typeof option !== "string" || !option.trim() || option.length > 200,
+				)))
+	)
+		throw new Error("Invalid ask_user question or options.");
+	controller.signal.throwIfAborted();
+	const questionId = randomUUID();
+	return new Promise((resolve, reject) => {
+		const finish = (answer) => {
+			if (!controller.pendingQuestions?.delete(questionId)) return;
+			controller.signal.removeEventListener("abort", abort);
+			if (!sender.isDestroyed())
+				sender.send("engine:ask-user", { requestId, sessionId, stepId, questionId, resolved: true });
+			resolve(answer);
+		};
+		const abort = () => {
+			if (!controller.pendingQuestions?.delete(questionId)) return;
+			controller.signal.removeEventListener("abort", abort);
+			if (!sender.isDestroyed())
+				sender.send("engine:ask-user", { requestId, sessionId, stepId, questionId, resolved: true });
+			reject(new Error("Question cancelled."));
+		};
+		controller.pendingQuestions ??= new Map();
+		controller.pendingQuestions.set(questionId, finish);
+		controller.signal.addEventListener("abort", abort, { once: true });
+		if (controller.signal.aborted || sender.isDestroyed()) return abort();
+		sender.send("engine:ask-user", {
+			requestId,
+			sessionId,
+			stepId,
+			questionId,
+			question,
+			options: options || [],
+		});
+		const notifications = require("./services/notificationService");
+		if (notifications.isMainWindowBackgrounded())
+			notifications.sendDesktopNotification({
+				title: "Agent Needs Input",
+				body: question,
+				type: "action_required",
+			});
+	});
 }
 
 const TOOL_OUTPUT_LIMIT = 20000;
-const TOOL_OUTPUT_NOTICE = '\n\n[SYSTEM NOTICE: Tool output exceeded context threshold (20,000 chars) and was safely truncated by Continuum Engine to prevent context overflow.]';
+const TOOL_OUTPUT_NOTICE =
+	"\n\n[SYSTEM NOTICE: Tool output exceeded context threshold (20,000 chars) and was safely truncated by Continuum Engine to prevent context overflow.]";
 
 function truncateToolOutput(toolResult) {
-  const isMediaParts = Array.isArray(toolResult) && toolResult.every(part =>
-    part?.type === 'text' && typeof part.text === 'string' || part?.type === 'image_url');
-  // Image bytes are carried as multimodal attachments, not tokenizer-facing text.
-  const measure = value => JSON.stringify(isMediaParts ? value.map(part => part.type === 'image_url'
-    ? { type: 'image_url', image_url: { url: '[attached image]' } } : part) : value ?? '').length;
-  if (measure(toolResult) <= TOOL_OUTPUT_LIMIT) return toolResult;
-  const images = isMediaParts ? toolResult.filter(part => part.type === 'image_url') : [];
-  const source = isMediaParts ? toolResult.filter(part => part.type === 'text').map(part => part.text).join('\n')
-    : typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult ?? '');
-  const wrap = count => {
-    let prefix = source.slice(0, count);
-    if (/[\uD800-\uDBFF]$/.test(prefix)) prefix = prefix.slice(0, -1);
-    const text = prefix + TOOL_OUTPUT_NOTICE;
-    return isMediaParts ? [{ type: 'text', text }, ...images] : text;
-  };
-  let low = 0;
-  let high = source.length;
-  while (low < high) {
-    const middle = Math.ceil((low + high) / 2);
-    if (measure(wrap(middle)) <= TOOL_OUTPUT_LIMIT) low = middle;
-    else high = middle - 1;
-  }
-  return wrap(low);
+	const isMediaParts =
+		Array.isArray(toolResult) &&
+		toolResult.every(
+			(part) => (part?.type === "text" && typeof part.text === "string") || part?.type === "image_url",
+		);
+	// Image bytes are carried as multimodal attachments, not tokenizer-facing text.
+	const measure = (value) =>
+		JSON.stringify(
+			isMediaParts
+				? value.map((part) =>
+						part.type === "image_url"
+							? { type: "image_url", image_url: { url: "[attached image]" } }
+							: part,
+					)
+				: (value ?? ""),
+		).length;
+	if (measure(toolResult) <= TOOL_OUTPUT_LIMIT) return toolResult;
+	const images = isMediaParts ? toolResult.filter((part) => part.type === "image_url") : [];
+	const source = isMediaParts
+		? toolResult
+				.filter((part) => part.type === "text")
+				.map((part) => part.text)
+				.join("\n")
+		: typeof toolResult === "string"
+			? toolResult
+			: JSON.stringify(toolResult ?? "");
+	const wrap = (count) => {
+		let prefix = source.slice(0, count);
+		if (/[\uD800-\uDBFF]$/.test(prefix)) prefix = prefix.slice(0, -1);
+		const text = prefix + TOOL_OUTPUT_NOTICE;
+		return isMediaParts ? [{ type: "text", text }, ...images] : text;
+	};
+	let low = 0;
+	let high = source.length;
+	while (low < high) {
+		const middle = Math.ceil((low + high) / 2);
+		if (measure(wrap(middle)) <= TOOL_OUTPUT_LIMIT) low = middle;
+		else high = middle - 1;
+	}
+	return wrap(low);
 }
 
 function generationSamplingParams(params, thinkingBudget) {
-  if (thinkingBudget === undefined) return params;
-  if (!Number.isSafeInteger(thinkingBudget) || (thinkingBudget !== -1 && (thinkingBudget < 0 || thinkingBudget > 65536))) {
-    throw new Error('Invalid thinking budget.');
-  }
-  return { ...params, thinking_budget: thinkingBudget };
+	if (thinkingBudget === undefined) return params;
+	if (
+		!Number.isSafeInteger(thinkingBudget) ||
+		(thinkingBudget !== -1 && (thinkingBudget < 0 || thinkingBudget > 65536))
+	) {
+		throw new Error("Invalid thinking budget.");
+	}
+	return { ...params, thinking_budget: thinkingBudget };
 }
 
 // Pass this array directly to spawn with shell:false. Paths remain single arguments.
 function buildLlamaServerArgs(model, input, port) {
-  if (!model || typeof model.modelPath !== 'string' || !model.modelPath || model.modelPath.includes('\0')) throw new Error('Invalid model path.');
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid server port.');
-  const config = normalizeLoadConfig(input);
-  const args = ['-m', model.modelPath, '--jinja'];
-  const flags = { contextLength: '-c', gpuOffload: '-ngl', threads: '-t', evalBatch: '-b', physicalBatch: '-ub', parallel: '-np', flashAttention: '-fa' };
-  for (const [key, flag] of Object.entries(flags)) args.push(flag, String(config[key]));
-  args.push('--cache-type-k', config.cacheTypeK, '--cache-type-v', config.cacheTypeV);
-  // KV offload defaults to GPU, so the disabling flag is only emitted for CPU placement.
-  if (config.kvCacheOffload === 'cpu') args.push('--no-kv-offload');
-  if (config.mlock) args.push('--mlock');
-  // Deprecated --mlock and --load-mode must never be emitted as "--load-mode auto";
-  // load mode goes last so it wins over the legacy mlock alias when both are present.
-  if (config.loadMode !== 'auto') args.push('--load-mode', config.loadMode);
-  // The installed server has no --expert-count flag; the supported mechanism is the
-  // GGUF metadata override `<arch>.expert_count`, which the loader applies in place of
-  // the file value (even when the file omits the key). Skip it without a usable architecture.
-  if (config.moeExpertCount !== null && typeof model.architecture === 'string' &&
-      /^[A-Za-z0-9_.-]+$/.test(model.architecture)) {
-    args.push('--override-kv', `${model.architecture}.expert_count=int:${config.moeExpertCount}`);
-  }
-  if (config.chatTemplate !== 'auto') args.push('--chat-template', config.chatTemplate);
-  args.push('--reasoning-format', config.reasoningFormat);
-  if (config.seed !== undefined) args.push('-s', String(config.seed));
-  args.push('--port', String(port));
-  if ((model.hasVisionProjector || model.isVision) && model.mmprojPath) {
-    if (typeof model.mmprojPath !== 'string' || model.mmprojPath.includes('\0')) throw new Error('Invalid projector path.');
-    args.push('--mmproj', model.mmprojPath);
-  }
-  return args;
+	if (!model || typeof model.modelPath !== "string" || !model.modelPath || model.modelPath.includes("\0"))
+		throw new Error("Invalid model path.");
+	if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid server port.");
+	const config = normalizeLoadConfig(input);
+	const args = ["-m", model.modelPath, "--jinja"];
+	const flags = {
+		contextLength: "-c",
+		gpuOffload: "-ngl",
+		threads: "-t",
+		evalBatch: "-b",
+		physicalBatch: "-ub",
+		parallel: "-np",
+		flashAttention: "-fa",
+	};
+	for (const [key, flag] of Object.entries(flags)) args.push(flag, String(config[key]));
+	args.push("--cache-type-k", config.cacheTypeK, "--cache-type-v", config.cacheTypeV);
+	// KV offload defaults to GPU, so the disabling flag is only emitted for CPU placement.
+	if (config.kvCacheOffload === "cpu") args.push("--no-kv-offload");
+	if (config.mlock) args.push("--mlock");
+	// Deprecated --mlock and --load-mode must never be emitted as "--load-mode auto";
+	// load mode goes last so it wins over the legacy mlock alias when both are present.
+	if (config.loadMode !== "auto") args.push("--load-mode", config.loadMode);
+	// The installed server has no --expert-count flag; the supported mechanism is the
+	// GGUF metadata override `<arch>.expert_count`, which the loader applies in place of
+	// the file value (even when the file omits the key). Skip it without a usable architecture.
+	if (
+		config.moeExpertCount !== null &&
+		typeof model.architecture === "string" &&
+		/^[A-Za-z0-9_.-]+$/.test(model.architecture)
+	) {
+		args.push("--override-kv", `${model.architecture}.expert_count=int:${config.moeExpertCount}`);
+	}
+	if (config.chatTemplate !== "auto") args.push("--chat-template", config.chatTemplate);
+	args.push("--reasoning-format", config.reasoningFormat);
+	if (config.seed !== undefined) args.push("-s", String(config.seed));
+	args.push("--port", String(port));
+	if ((model.hasVisionProjector || model.isVision) && model.mmprojPath) {
+		if (typeof model.mmprojPath !== "string" || model.mmprojPath.includes("\0"))
+			throw new Error("Invalid projector path.");
+		args.push("--mmproj", model.mmprojPath);
+	}
+	return args;
 }
-module.exports = { buildLlamaServerArgs, generationSamplingParams, truncateToolOutput, TOOL_OUTPUT_NOTICE,
-  askUserTool, askUserDuringRun };
+module.exports = {
+	buildLlamaServerArgs,
+	generationSamplingParams,
+	truncateToolOutput,
+	TOOL_OUTPUT_NOTICE,
+	askUserTool,
+	askUserDuringRun,
+};
 
 function buildLlamaServerEnv(source = process.env) {
-  const env = { ...source };
-  // Parent shell settings must not silently enable local server authentication.
-  for (const key of ['LLAMA_API_KEY', 'LLAMA_API_KEY_FILE', 'LLAMA_ARG_API_KEY', 'LLAMA_ARG_API_KEY_FILE']) delete env[key];
-  env.LLAMA_ARG_CORS_ORIGINS = '*';
-  env.LLAMA_ARG_CORS_HEADERS = '*';
-  env.LLAMA_ARG_CORS_METHODS = 'GET, POST, DELETE, OPTIONS';
-  return env;
+	const env = { ...source };
+	// Parent shell settings must not silently enable local server authentication.
+	for (const key of ["LLAMA_API_KEY", "LLAMA_API_KEY_FILE", "LLAMA_ARG_API_KEY", "LLAMA_ARG_API_KEY_FILE"])
+		delete env[key];
+	env.LLAMA_ARG_CORS_ORIGINS = "*";
+	env.LLAMA_ARG_CORS_HEADERS = "*";
+	env.LLAMA_ARG_CORS_METHODS = "GET, POST, DELETE, OPTIONS";
+	return env;
 }
 module.exports.buildLlamaServerEnv = buildLlamaServerEnv;
 
 // One warmup per process, across both output streams and split log chunks.
 function createStartupHandler({ port = 8080, getTools, onStatus, fetchImpl = localEngineFetch }) {
-  const { BASE_SYSTEM_PROMPT_WITH_TOOLS } = require('./baseSystemPrompt');
-  const controller = new AbortController();
-  const buffers = { stdout: '', stderr: '' };
-  let started = false;
-  let loaded = false;
-  let listening = false;
-  async function warmup() {
-    onStatus('warming');
-    try {
-      const tools = await getTools();
-      controller.signal.throwIfAborted();
-      const response = await fetchImpl(`http://127.0.0.1:${port}/v1/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: BASE_SYSTEM_PROMPT_WITH_TOOLS },
-            { role: 'user', content: 'Warmup sequence initialized.' },
-          ],
-          tools, tool_choice: 'auto', max_tokens: 1, stream: false, cache_prompt: true,
-        }),
-      });
-      if (!response.ok) throw new Error(`Context warmup failed: HTTP ${response.status}`);
-      const result = await response.json(); // Wait for prefill and generation, not just headers.
-      if (result.error || !result.choices?.[0]?.message) throw new Error(result.error?.message || 'Invalid warmup response.');
-      if (!controller.signal.aborted) onStatus('ready');
-    } catch (error) {
-      if (!cancelled) onStatus('warmup-failed', error.message);
-    }
-  }
-  let cancelled = false;
-  return {
-    onOutput(data, stream = 'stdout') {
-      if (started || cancelled) return;
-      buffers[stream] = (buffers[stream] + data.toString()).slice(-16384);
-      loaded ||= /model loaded/i.test(buffers[stream]);
-      listening ||= /(?:listening|server is listening)/i.test(buffers[stream]);
-      if (loaded && listening) {
-        started = true;
-        void warmup();
-      }
-    },
-    cancel() { cancelled = true; controller.abort(); },
-  };
+	const { BASE_SYSTEM_PROMPT_WITH_TOOLS } = require("./baseSystemPrompt");
+	const controller = new AbortController();
+	const buffers = { stdout: "", stderr: "" };
+	let started = false;
+	let loaded = false;
+	let listening = false;
+	async function warmup() {
+		onStatus("warming");
+		try {
+			const tools = await getTools();
+			controller.signal.throwIfAborted();
+			const response = await fetchImpl(`http://127.0.0.1:${port}/v1/chat/completions`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				signal: controller.signal,
+				body: JSON.stringify({
+					messages: [
+						{ role: "system", content: BASE_SYSTEM_PROMPT_WITH_TOOLS },
+						{ role: "user", content: "Warmup sequence initialized." },
+					],
+					tools,
+					tool_choice: "auto",
+					max_tokens: 1,
+					stream: false,
+					cache_prompt: true,
+				}),
+			});
+			if (!response.ok) throw new Error(`Context warmup failed: HTTP ${response.status}`);
+			const result = await response.json(); // Wait for prefill and generation, not just headers.
+			if (result.error || !result.choices?.[0]?.message)
+				throw new Error(result.error?.message || "Invalid warmup response.");
+			if (!controller.signal.aborted) onStatus("ready");
+		} catch (error) {
+			if (!cancelled) onStatus("warmup-failed", error.message);
+		}
+	}
+	let cancelled = false;
+	return {
+		onOutput(data, stream = "stdout") {
+			if (started || cancelled) return;
+			buffers[stream] = (buffers[stream] + data.toString()).slice(-16384);
+			loaded ||= /model loaded/i.test(buffers[stream]);
+			listening ||= /(?:listening|server is listening)/i.test(buffers[stream]);
+			if (loaded && listening) {
+				started = true;
+				void warmup();
+			}
+		},
+		cancel() {
+			cancelled = true;
+			controller.abort();
+		},
+	};
 }
 
 module.exports.createStartupHandler = createStartupHandler;
 
-
 // Each loaded process owns its service, so old requests cannot reset a new model's timer.
-function createIdleService({ onIdle, getIdleMinutes = () => require('./configStore').getConfig().engineIdleTimeoutMinutes,
-  setTimer = setTimeout, clearTimer = clearTimeout }) {
-  let timer;
-  let keepAliveMinutes = -1;
-  let active = 0;
-  let disposed = false;
-  function resetIdleTimer(minutes = getIdleMinutes()) {
-    if (![-1, 5, 15, 60].includes(minutes)) throw new Error('Invalid keepAliveMinutes setting.');
-    keepAliveMinutes = minutes;
-    clearTimer(timer);
-    timer = undefined;
-    if (disposed || active || minutes === -1) return;
-    timer = setTimer(() => {
-      timer = undefined;
-      if (!disposed && !active && keepAliveMinutes !== -1) onIdle();
-    }, minutes * 60_000);
-    timer?.unref?.();
-  }
-  return {
-    resetIdleTimer,
-    beginRequest() {
-      if (disposed) return () => {};
-      active++;
-      resetIdleTimer();
-      let finished = false;
-      return () => {
-        if (finished) return;
-        finished = true;
-        active--;
-        resetIdleTimer();
-      };
-    },
-    dispose() { disposed = true; clearTimer(timer); },
-  };
+function createIdleService({
+	onIdle,
+	getIdleMinutes = () => require("./configStore").getConfig().engineIdleTimeoutMinutes,
+	setTimer = setTimeout,
+	clearTimer = clearTimeout,
+}) {
+	let timer;
+	let keepAliveMinutes = -1;
+	let active = 0;
+	let disposed = false;
+	function resetIdleTimer(minutes = getIdleMinutes()) {
+		if (![-1, 5, 15, 60].includes(minutes)) throw new Error("Invalid keepAliveMinutes setting.");
+		keepAliveMinutes = minutes;
+		clearTimer(timer);
+		timer = undefined;
+		if (disposed || active || minutes === -1) return;
+		timer = setTimer(() => {
+			timer = undefined;
+			if (!disposed && !active && keepAliveMinutes !== -1) onIdle();
+		}, minutes * 60_000);
+		timer?.unref?.();
+	}
+	return {
+		resetIdleTimer,
+		beginRequest() {
+			if (disposed) return () => {};
+			active++;
+			resetIdleTimer();
+			let finished = false;
+			return () => {
+				if (finished) return;
+				finished = true;
+				active--;
+				resetIdleTimer();
+			};
+		},
+		dispose() {
+			disposed = true;
+			clearTimer(timer);
+		},
+	};
 }
 module.exports.createIdleService = createIdleService;
 
 function isContextLimitError(error) {
-  return require('./contextBudget').isContextOverflow(error);
+	return require("./contextBudget").isContextOverflow(error);
 }
 
-function notifyChatOutcome({ text = '', error = null, interrupted = false, aborted = false }) {
-  if (aborted) return null;
-  const taskComplete = text.includes('[TASK COMPLETE]');
-  const stuck = /\[System: Reasoning loop detected and terminated\./.test(text);
-  const type = error ? (isContextLimitError(error) ? 'contextOverflow' : 'error')
-    : interrupted || stuck || !text.trim() ? 'error' : 'completion';
-  require('./services/notificationService').sendDesktopNotification({ type,
-    ...(!taskComplete && type === 'completion'
-      ? { title: 'Response Finished', body: 'AI agent finished responding.' } : {}),
-  });
-  return type;
+function notifyChatOutcome({ text = "", error = null, interrupted = false, aborted = false }) {
+	if (aborted) return null;
+	const stuck = /\[System: Reasoning loop detected and terminated\./.test(text);
+	const type = error
+		? isContextLimitError(error)
+			? "contextOverflow"
+			: "error"
+		: interrupted || stuck || !text.trim()
+			? "error"
+			: "completion";
+	require("./services/notificationService").sendDesktopNotification({
+		type,
+		...(type === "completion"
+			? { title: "Response Finished", body: "AI agent finished responding." }
+			: {}),
+	});
+	return type;
 }
 module.exports.notifyChatOutcome = notifyChatOutcome;
 module.exports.isContextLimitError = isContextLimitError;
 
 // Synchronous commits ensure each published snapshot survives process termination.
 function createMessagePersistence({ sessionId, modelId, modelName, displayName, agentName }) {
-  const { db } = require('./db');
-  const { variantFromRow } = require('./messageVariants');
-  const parentId = db.prepare('SELECT active_leaf_id FROM sessions WHERE id = ?').get(sessionId)?.active_leaf_id ?? null;
-  const messageId = Number(db.prepare(`INSERT INTO messages
+	const { db } = require("./db");
+	const { variantFromRow } = require("./messageVariants");
+	const parentId =
+		db.prepare("SELECT active_leaf_id FROM sessions WHERE id = ?").get(sessionId)?.active_leaf_id ?? null;
+	const messageId = Number(
+		db
+			.prepare(
+				`INSERT INTO messages
     (session_id, parent_id, role, content, status, model_id, model_name, display_name, agent_name)
-    VALUES (?, ?, 'assistant', '', 'in_progress', ?, ?, ?, ?)`).run(
-      sessionId, parentId, modelId, modelName ?? modelId, displayName, agentName ?? null).lastInsertRowid);
-  db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(messageId, sessionId);
-  return {
-    messageId,
-    update({ content, executionSteps, stats, status = 'in_progress' }) {
-      db.transaction(() => {
-        db.prepare(`UPDATE messages SET content = ?, execution_steps = ?, tool_calls = ?,
-          stats = ?, estimated_tokens = ?, status = ? WHERE id = ? AND session_id = ?`).run(
-          content, JSON.stringify(executionSteps),
-          JSON.stringify(executionSteps.filter(step => step.type === 'tool_call')),
-          stats ? JSON.stringify(stats) : null, Math.ceil(content.length / 4), status, messageId, sessionId);
-        const row = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
-        if (!row) throw new Error('Assistant message was deleted during generation.');
-        db.prepare('UPDATE messages SET variants = ? WHERE id = ?').run(JSON.stringify([variantFromRow(row)]), messageId);
-        db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
-      })();
-    },
-  };
+    VALUES (?, ?, 'assistant', '', 'in_progress', ?, ?, ?, ?)`,
+			)
+			.run(sessionId, parentId, modelId, modelName ?? modelId, displayName, agentName ?? null)
+			.lastInsertRowid,
+	);
+	db.prepare("UPDATE sessions SET active_leaf_id = ? WHERE id = ?").run(messageId, sessionId);
+	return {
+		messageId,
+		update({ content, executionSteps, stats, status = "in_progress" }) {
+			db.transaction(() => {
+				db.prepare(
+					`UPDATE messages SET content = ?, execution_steps = ?, tool_calls = ?,
+          stats = ?, estimated_tokens = ?, status = ? WHERE id = ? AND session_id = ?`,
+				).run(
+					content,
+					JSON.stringify(executionSteps),
+					JSON.stringify(executionSteps.filter((step) => step.type === "tool_call")),
+					stats ? JSON.stringify(stats) : null,
+					Math.ceil(content.length / 4),
+					status,
+					messageId,
+					sessionId,
+				);
+				const row = db.prepare("SELECT * FROM messages WHERE id = ?").get(messageId);
+				if (!row) throw new Error("Assistant message was deleted during generation.");
+				db.prepare("UPDATE messages SET variants = ? WHERE id = ?").run(
+					JSON.stringify([variantFromRow(row)]),
+					messageId,
+				);
+				db.prepare("UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?").run(
+					sessionId,
+				);
+			})();
+		},
+	};
 }
 module.exports.createMessagePersistence = createMessagePersistence;
 
 function buildBranchContext(userMessageId, modelId) {
-  const { db } = require('./db');
-  if (!Number.isSafeInteger(userMessageId) || userMessageId <= 0) throw new TypeError('Invalid branch message.');
-  const path = [];
-  const seen = new Set();
-  let row = db.prepare('SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?').get(userMessageId);
-  if (!row || row.role !== 'user') throw new Error('Branch user message not found.');
-  const sessionId = row.session_id;
-  while (row) {
-    if (row.session_id !== sessionId || seen.has(row.id)) throw new Error('Invalid message branch.');
-    seen.add(row.id);
-    const attachments = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id').all(row.id);
-    path.unshift({ role: row.role, content: row.content, attachments });
-    row = row.parent_id == null ? null
-      : db.prepare('SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?').get(row.parent_id);
-  }
-  if (!modelId) return { sessionId, messages: path };
-  const { buildSessionSystemPrompt, messageForModel } = require('./promptBuilder');
-  const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
-  const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
-  return { sessionId, messages: prependBaseSystemPrompt([
-    buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? '' }), ...path.map(messageForModel),
-  ], effective.memoryEnabled) };
+	const { db } = require("./db");
+	if (!Number.isSafeInteger(userMessageId) || userMessageId <= 0)
+		throw new TypeError("Invalid branch message.");
+	const path = [];
+	const pathIds = [];
+	const seen = new Set();
+	let row = db
+		.prepare("SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?")
+		.get(userMessageId);
+	if (!row || row.role !== "user") throw new Error("Branch user message not found.");
+	const sessionId = row.session_id;
+	while (row) {
+		if (row.session_id !== sessionId || seen.has(row.id)) throw new Error("Invalid message branch.");
+		seen.add(row.id);
+		const attachments = db
+			.prepare("SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id")
+			.all(row.id);
+		path.unshift({ role: row.role, content: row.content, attachments });
+		pathIds.unshift(row.id);
+		row =
+			row.parent_id == null
+				? null
+				: db
+						.prepare("SELECT id, session_id, parent_id, role, content FROM messages WHERE id = ?")
+						.get(row.parent_id);
+	}
+	if (!modelId) return { sessionId, messages: path };
+	const { buildSessionSystemPrompt, messageForModel } = require("./promptBuilder");
+	const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
+	const effective = require("./profileSettings").getSessionSettings(sessionId, modelId).effective;
+	// Same applicability rule as cloning: only briefs anchored to this branch's
+	// ancestor messages apply. Later instructions from beyond the branch point
+	// are excluded even though they share the session. The session checkpoint
+	// (if any) is included with live staleness derivation.
+	const brief = require("./taskBriefs").buildTaskBriefSection(sessionId, { messageIds: pathIds });
+	const checkpoint = require("./taskCheckpoints").buildCheckpointSection(sessionId);
+	return {
+		sessionId,
+		messages: prependBaseSystemPrompt(
+			[
+				...(brief ? [brief] : []),
+				...(checkpoint ? [checkpoint] : []),
+				buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? "" }),
+				...path.map(messageForModel),
+			],
+			effective.memoryEnabled,
+		),
+	};
 }
 module.exports.buildBranchContext = buildBranchContext;
 
@@ -301,111 +446,146 @@ module.exports.activeStreams = activeStreams;
 
 // Only completed tool attempts are eligible. A nonzero shell exit is an error
 // even when the command tool itself returned a well-formed result object.
-function failedToolReason(output, toolName = '') {
-  if (typeof output === 'string') {
-    try { return failedToolReason(JSON.parse(output), toolName); }
-    catch {
-      if (/(?:^|\n)\s*error\s*:|SUBAGENT_FETCH_ERROR/i.test(output)) return 'A tool call failed.';
-      if (/\b(?:ENOENT|no such file or directory|file not found|path does not exist)\b/i.test(output)) return 'A file path was not found.';
-      if (/\b(?:execution blocked|permission denied|approval denied|rejected call)\b/i.test(output)) return 'A tool call was rejected.';
-      return null;
-    }
-  }
-  if (!output || typeof output !== 'object') return null;
-  if (Array.isArray(output)) return output.map(item => failedToolReason(item, toolName)).find(Boolean) ?? null;
-  if (typeof output.exitCode === 'number' && output.exitCode !== 0) {
-    return `Command exited with status ${output.exitCode}.`;
-  }
-  if (output.isError === true || output.success === false) {
-    const detail = String(output.error ?? output.message ?? '');
-    if (/\b(?:ENOENT|no such file or directory|file not found|path does not exist)\b/i.test(detail)) return 'A file path was not found.';
-    if (/\b(?:execution blocked|permission denied|approval denied|rejected)\b/i.test(detail)) return 'A tool call was rejected.';
-    return /(?:command|shell|execute)/i.test(toolName) ? 'A shell command failed.' : 'A tool call failed.';
-  }
-  if (typeof output.error === 'string' && output.error.trim()) return 'A tool call failed.';
-  if (Array.isArray(output.content)) return failedToolReason(output.content, toolName);
-  if (typeof output.text === 'string') return failedToolReason(output.text, toolName);
-  return null;
+function failedToolReason(output, toolName = "") {
+	if (typeof output === "string") {
+		try {
+			return failedToolReason(JSON.parse(output), toolName);
+		} catch {
+			if (/(?:^|\n)\s*error\s*:|SUBAGENT_FETCH_ERROR/i.test(output)) return "A tool call failed.";
+			if (/\b(?:ENOENT|no such file or directory|file not found|path does not exist)\b/i.test(output))
+				return "A file path was not found.";
+			if (/\b(?:execution blocked|permission denied|approval denied|rejected call)\b/i.test(output))
+				return "A tool call was rejected.";
+			return null;
+		}
+	}
+	if (!output || typeof output !== "object") return null;
+	if (Array.isArray(output))
+		return output.map((item) => failedToolReason(item, toolName)).find(Boolean) ?? null;
+	if (typeof output.exitCode === "number" && output.exitCode !== 0) {
+		return `Command exited with status ${output.exitCode}.`;
+	}
+	if (output.isError === true || output.success === false) {
+		const detail = String(output.error ?? output.message ?? "");
+		if (/\b(?:ENOENT|no such file or directory|file not found|path does not exist)\b/i.test(detail))
+			return "A file path was not found.";
+		if (/\b(?:execution blocked|permission denied|approval denied|rejected)\b/i.test(detail))
+			return "A tool call was rejected.";
+		return /(?:command|shell|execute)/i.test(toolName)
+			? "A shell command failed."
+			: "A tool call failed.";
+	}
+	if (typeof output.error === "string" && output.error.trim()) return "A tool call failed.";
+	if (Array.isArray(output.content)) return failedToolReason(output.content, toolName);
+	if (typeof output.text === "string") return failedToolReason(output.text, toolName);
+	return null;
 }
 module.exports.failedToolReason = failedToolReason;
 
 // One breaker belongs to one chat run, including all tool batches and resumed turns.
 function createToolFailureCircuitBreaker({ maxConsecutiveToolFailures = 5, maxTotalToolFailures = 10 } = {}) {
-  let consecutiveToolFailures = 0;
-  let totalToolFailures = 0;
-  // Classified reasons of the current failure streak, so the abort notice is
-  // diagnosable without reopening persisted execution_steps.
-  const recentFailureReasons = new Map();
-  function describeFailures() {
-    if (!recentFailureReasons.size) return '';
-    const entries = [...recentFailureReasons.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    return ` (${entries.map(([reason, count]) => `${reason}${count > 1 ? ` x${count}` : ''}`).join('; ')})`;
-  }
-  return {
-    record(output, toolName, failed = false) {
-      if (failed || failedToolReason(output, toolName)) {
-        consecutiveToolFailures++;
-        totalToolFailures++;
-        const reason = failed ? 'A tool call failed.' : failedToolReason(output, toolName);
-        recentFailureReasons.set(reason, (recentFailureReasons.get(reason) ?? 0) + 1);
-      } else {
-        consecutiveToolFailures = 0;
-        recentFailureReasons.clear();
-      }
-    },
-    get abortReason() {
-      if (consecutiveToolFailures >= maxConsecutiveToolFailures)
-        return `Execution aborted: ${maxConsecutiveToolFailures} consecutive tool calls failed.${describeFailures()}`;
-      if (totalToolFailures >= maxTotalToolFailures)
-        return `Execution aborted: Exceeded maximum total tool failure cap (${maxTotalToolFailures}).${describeFailures()}`;
-      return null;
-    },
-  };
+	let consecutiveToolFailures = 0;
+	let totalToolFailures = 0;
+	// Classified reasons of the current failure streak, so the abort notice is
+	// diagnosable without reopening persisted execution_steps.
+	const recentFailureReasons = new Map();
+	function describeFailures() {
+		if (!recentFailureReasons.size) return "";
+		const entries = [...recentFailureReasons.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+		return ` (${entries.map(([reason, count]) => `${reason}${count > 1 ? ` x${count}` : ""}`).join("; ")})`;
+	}
+	return {
+		record(output, toolName, failed = false) {
+			if (failed || failedToolReason(output, toolName)) {
+				consecutiveToolFailures++;
+				totalToolFailures++;
+				const reason = failed ? "A tool call failed." : failedToolReason(output, toolName);
+				recentFailureReasons.set(reason, (recentFailureReasons.get(reason) ?? 0) + 1);
+			} else {
+				consecutiveToolFailures = 0;
+				recentFailureReasons.clear();
+			}
+		},
+		get abortReason() {
+			if (consecutiveToolFailures >= maxConsecutiveToolFailures)
+				return `Execution aborted: ${maxConsecutiveToolFailures} consecutive tool calls failed.${describeFailures()}`;
+			if (totalToolFailures >= maxTotalToolFailures)
+				return `Execution aborted: Exceeded maximum total tool failure cap (${maxTotalToolFailures}).${describeFailures()}`;
+			return null;
+		},
+	};
 }
 module.exports.createToolFailureCircuitBreaker = createToolFailureCircuitBreaker;
 
 // This only changes an in-memory prompt snapshot. Persisted messages and
 // execution_steps remain the complete audit trail of what actually happened.
 function rewindFailedTurnRange(messages, startTurnIndex) {
-  if (!Array.isArray(messages) || !Number.isInteger(startTurnIndex) || startTurnIndex < 0 || startTurnIndex >= messages.length) return messages;
-  const range = messages.slice(startTurnIndex);
-  if (range.some(message => message.role === 'user')) return messages;
-  const isCall = message => message.role === 'tool_call' || (message.role === 'assistant' &&
-    (message.tool_calls?.length || message.toolCalls?.length));
-  const calls = range.filter(isCall);
-  if (!calls.length) return messages;
-  const ids = new Set(calls.flatMap(message => message.role === 'tool_call'
-    ? [message.id ?? message.tool_call_id] : (message.tool_calls ?? message.toolCalls).map(call => call.id)));
-  if (ids.has(undefined) || range.some(message => message.role === 'tool' && !ids.has(message.tool_call_id))) return messages;
-  const results = range.filter(message => message.role === 'tool' && ids.has(message.tool_call_id));
-  // Never leave an unmatched tool call in the prompt or hide an incomplete run.
-  if (ids.size !== results.length) return messages;
-  const primaryError = results.map(message => failedToolReason(message.content) ||
-    (message.status === 'error' ? failedToolReason({ success: false, error: message.error }) : null)).find(Boolean);
-  if (!primaryError) return messages;
-  const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Proceeding with alternative strategy.`;
-  const retained = range.filter(message => !isCall(message) &&
-    !(message.role === 'tool' && ids.has(message.tool_call_id)));
-  return [...messages.slice(0, startTurnIndex), { role: 'system', content: summary }, ...retained];
+	if (
+		!Array.isArray(messages) ||
+		!Number.isInteger(startTurnIndex) ||
+		startTurnIndex < 0 ||
+		startTurnIndex >= messages.length
+	)
+		return messages;
+	const range = messages.slice(startTurnIndex);
+	if (range.some((message) => message.role === "user")) return messages;
+	const isCall = (message) =>
+		message.role === "tool_call" ||
+		(message.role === "assistant" && (message.tool_calls?.length || message.toolCalls?.length));
+	const calls = range.filter(isCall);
+	if (!calls.length) return messages;
+	const ids = new Set(
+		calls.flatMap((message) =>
+			message.role === "tool_call"
+				? [message.id ?? message.tool_call_id]
+				: (message.tool_calls ?? message.toolCalls).map((call) => call.id),
+		),
+	);
+	if (
+		ids.has(undefined) ||
+		range.some((message) => message.role === "tool" && !ids.has(message.tool_call_id))
+	)
+		return messages;
+	const results = range.filter((message) => message.role === "tool" && ids.has(message.tool_call_id));
+	// Never leave an unmatched tool call in the prompt or hide an incomplete run.
+	if (ids.size !== results.length) return messages;
+	const primaryError = results
+		.map(
+			(message) =>
+				failedToolReason(message.content) ||
+				(message.status === "error"
+					? failedToolReason({ success: false, error: message.error })
+					: null),
+		)
+		.find(Boolean);
+	if (!primaryError) return messages;
+	const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Proceeding with alternative strategy.`;
+	const retained = range.filter(
+		(message) => !isCall(message) && !(message.role === "tool" && ids.has(message.tool_call_id)),
+	);
+	return [...messages.slice(0, startTurnIndex), { role: "system", content: summary }, ...retained];
 }
 module.exports.rewindFailedTurnRange = rewindFailedTurnRange;
 
 // Create once per chat run. The window counts attempted dispatches; the third
 // identical call is intercepted before it reaches any native or MCP executor.
 function createProjectToolLoopGuard(projectId) {
-  const recentTools = [];
-  return {
-    recentTools,
-    inspect(toolName, args) {
-      if (!projectId) return null;
-      const argsHash = createHash('sha256').update(JSON.stringify(args)).digest('hex');
-      recentTools.push({ toolName, argsHash });
-      if (recentTools.length > 3) recentTools.shift();
-      if (recentTools.length !== 3 ||
-          !recentTools.every(entry => entry.toolName === toolName && entry.argsHash === argsHash)) return null;
-      recentTools.length = 0;
-      return `[LOOP DETECTED]: You have executed '${toolName}' 3 times with identical arguments without making progress. Step back, re-evaluate your plan, or ask the user for guidance.`;
-    },
-  };
+	const recentTools = [];
+	return {
+		recentTools,
+		inspect(toolName, args) {
+			if (!projectId) return null;
+			const argsHash = createHash("sha256").update(JSON.stringify(args)).digest("hex");
+			recentTools.push({ toolName, argsHash });
+			if (recentTools.length > 3) recentTools.shift();
+			if (
+				recentTools.length !== 3 ||
+				!recentTools.every((entry) => entry.toolName === toolName && entry.argsHash === argsHash)
+			)
+				return null;
+			recentTools.length = 0;
+			return `[LOOP DETECTED]: You have executed '${toolName}' 3 times with identical arguments without making progress. Step back, re-evaluate your plan, or ask the user for guidance.`;
+		},
+	};
 }
 module.exports.createProjectToolLoopGuard = createProjectToolLoopGuard;

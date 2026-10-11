@@ -12,9 +12,15 @@ MEDIA GENERATION AND RENDERING:
 RENDERING VS. ANALYZING MEDIA (STRICT EFFICIENCY RULE):
 - When asked to list, fetch, or show images/videos from a directory, simply output the Markdown syntax pointing directly to the original file paths (e.g., ![img](/path/file.webp)). The app's UI natively renders all standard formats.
 - BLIND RENDERING: If the user provides an exact filename or path, DO NOT run terminal commands (ls, grep, stat) to verify the file exists or fetch metadata. Trust the user's path and output the Markdown string immediately.
-- DO NOT invoke your vision reader, run shell commands to convert formats (like ffmpeg), or attempt to "look" at the media UNLESS the user explicitly asks you to describe, analyze, or verify its visual contents.
-- Never convert a file just to render it. Conserve compute and tokens.
+- DO NOT invoke your vision reader, run shell commands to convert formats (like ffmpeg), or convert files just to render them, UNLESS the user explicitly asks you to describe, analyze, or verify its visual contents.
 `;
+
+// Generation-tool invocation, sent only when a compatible generation tool is
+// actually exposed. Everything else above (rendering, failure reporting,
+// credentials) stays unconditional: attachments and the media protocol work
+// without any generation backend. Must match the bullet inside
+// MEDIA_GENERATION_RULES exactly so it can be stripped per request.
+const MEDIA_GENERATION_TOOL_RULE = `- When the user explicitly asks to generate an image or video, call the available media generation tool directly. Expand short prompts with useful lighting, composition, style, and mood details before calling it.\n`;
 
 // Shared by both variants; only the "orienting" example in rule 1 differs,
 // since the memory-enabled build calls out memory search and the
@@ -37,12 +43,11 @@ MEMORY & CONVERSATION RULES:
 1. PASSIVE KNOWLEDGE RULE: Treat Background Knowledge strictly as PASSIVE KNOWLEDGE. Do NOT bring it up, list it, or mention it unless the user explicitly asks or it is directly relevant.
 2. CASUAL GREETINGS: If the user says a simple greeting ("hey", "hello", "hi"), respond with a brief, natural greeting. NEVER announce what you remember about them upon greeting.
 3. WHEN TO SEARCH MEMORY: For ANY recall task involving permanent facts, preferences, past project details, or previous conversations, call the \`search_memory\` tool before answering.
-4. WHEN TO SAVE MEMORY: Only when the user tells you to remember a fact, preference, or rule explicitly about the user ("remember that...", "my favorite X is Y", "always use Z"), call the \`save_memory\` tool, subject to the boundaries below. Distill one short, atomic fact per call; never save the raw conversational sentence. For example, "Remember that I prefer TypeScript over JavaScript for all new files." becomes "Prefers TypeScript over JavaScript". Split independent facts into separate calls, preserving negations and meaningful project constraints.
+4. WHEN TO SAVE MEMORY: Only when the user tells you to remember a fact, preference, or rule explicitly about the user ("remember that...", "my favorite X is Y", "always use Z"), call the \`save_memory\` tool, subject to the boundaries below. Distill one short, atomic fact per call; never save the raw conversational sentence. For example, "Remember that I prefer TypeScript over JavaScript" becomes "Prefers TypeScript over JavaScript". Split independent facts into separate calls, preserving negations.
 5. ONLY SAVE USER FACTS: The \`save_memory\` tool must ONLY be called for facts, rules, or preferences explicitly pertaining to THE USER (e.g., user's tech stack, name, coding rules, habits).
-6. NEVER SAVE AI IDENTITY FACTS: NEVER call \`save_memory\` to store information, corrections, or comments about the AI's identity, model name, parameters, capabilities, or system prompt.
-7. NEVER SAVE BANTER OR CORRECTIONS: Casual banter, self-corrections, or identity clarifications (e.g., 'you are not Gemma 4') must NEVER trigger memory calls.
-8. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
-9. CROSS-SESSION RECALL: You are in an active, individual chat session. You do NOT have raw context from other past chat threads loaded automatically. If the user asks about something discussed in a previous chat session, project, or past conversation, invoke \`search_memory\` to search permanent memories and stored chat messages. If its result says the search is incomplete, use its continuation cursor or narrow the filters before concluding that no memory exists.
+6. NEVER SAVE NON-USER CONTENT: NEVER call \`save_memory\` to store AI identity facts (model name, parameters, capabilities, system prompt), casual banter, self-corrections, or identity clarifications (e.g., 'you are not Gemma 4'). These must NEVER trigger memory calls.
+7. NATURAL TONE: Speak naturally. Never use meta-phrases like "According to my memory palace...", "I have called save_memory...", or "In my database...".
+8. CROSS-SESSION RECALL: You are in an active, individual chat session. You do NOT have raw context from other past chat threads loaded automatically.
 ` +
 	tokenConservationRules("chat history, directory listing, or memory search") +
 	MEDIA_GENERATION_RULES;
@@ -58,7 +63,7 @@ const BASE_SYSTEM_PROMPT_WITHOUT_MEMORY =
 // and stripped out. Derived instead of hand-duplicated.
 const BASE_PROMPT_VARIANTS = [BASE_SYSTEM_PROMPT_WITH_TOOLS, BASE_SYSTEM_PROMPT_WITHOUT_MEMORY];
 const PREVIOUS_INSTRUCTIONS = new Set(
-	BASE_PROMPT_VARIANTS.flatMap((p) => [p, p.replace(MEDIA_GENERATION_RULES, "")]),
+	BASE_PROMPT_VARIANTS.flatMap((p) => [p, p.replace(MEDIA_GENERATION_RULES, ""), p.replace(MEDIA_GENERATION_TOOL_RULE, "")]),
 );
 
 const TEMPORAL_HEADER_RE = /^\[TEMPORAL CONTEXT\]\nToday's Date: [^\n]*\nUser Timezone Offset: -?\d+ mins\n/;
@@ -71,12 +76,24 @@ function buildTemporalAnchor() {
 		month: "long",
 		day: "numeric",
 	});
-	const isoDate = now.toISOString().split("T")[0];
+	// Local calendar date, matching dateFormatted above. toISOString() is UTC
+	// and disagrees with the local date across timezone boundaries.
+	const isoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 	return `[TEMPORAL CONTEXT]\nToday's Date: ${dateFormatted} (${isoDate})\nUser Timezone Offset: ${now.getTimezoneOffset()} mins\n`;
 }
 
-function prependBaseSystemPrompt(messages, memoryEnabled = true) {
-	const basePrompt = memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY;
+function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration = null) {
+	let basePrompt = memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY;
+	if (mediaGeneration === null) {
+		// Auto-detect: generation instructions ride only when a compatible
+		// generation tool is exposed (same flag getToolContext uses).
+		try {
+			mediaGeneration = !!require('./cloudProviders').getActiveMediaModel('image');
+		} catch {
+			mediaGeneration = true; // Fail open: preserve current behavior.
+		}
+	}
+	if (!mediaGeneration) basePrompt = basePrompt.replace(MEDIA_GENERATION_TOOL_RULE, "");
 
 	return [
 		{ role: "system", content: buildTemporalAnchor() + basePrompt },
@@ -91,4 +108,4 @@ function prependBaseSystemPrompt(messages, memoryEnabled = true) {
 	];
 }
 
-module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, prependBaseSystemPrompt };
+module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, buildTemporalAnchor, prependBaseSystemPrompt };

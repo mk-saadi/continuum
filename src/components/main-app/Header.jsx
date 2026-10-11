@@ -3,33 +3,46 @@ import { FaBars, FaCog, FaSlidersH } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
 import { LuFolder, LuHouse } from "react-icons/lu";
 
+import { buildContextLabel, buildContextTooltip } from "../../lib/contextDisplay.mjs";
+
 export default function Header({
 	isSidebarOpen,
 	onToggleSidebar,
 	isRightSidebarOpen,
 	onToggleRightSidebar,
 	modelName,
-    isCloud = false,
+	isCloud = false,
 	engineRunning,
-    contextStatus,
+	contextStatus,
 	onOpenModels,
 	palace,
 	onOpenSettings,
 	workspace = null,
 }) {
-	const total = palace.totalTokens === null ? null : palace.totalTokens + (palace.pluginTokens || 0);
-	const label =
-		palace.limit === null
-			? (isCloud ? "Cloud context" : "Context: Not Loaded")
-			: palace.error
-				? "Context unavailable"
-				: `${total === null ? "—" : total.toLocaleString()} / ${palace.limit.toLocaleString()} tokens`;
+	// Primary figure: tokenizer-measured prepared prompt when available,
+	// otherwise the legacy DB estimate. Older palace stubs (tests) only
+	// provide totalTokens/pluginTokens, which keep working unchanged.
+	const hasContext = palace.contextTokens !== undefined;
+	const total = hasContext
+		? (palace.contextTokens ?? null)
+		: palace.totalTokens === null
+			? null
+			: palace.totalTokens + (palace.pluginTokens || 0);
+	const { label } = buildContextLabel({ total, limit: palace.limit, error: palace.error, isCloud });
+
+	const live = palace.liveTelemetry ?? null;
+	const persisted = palace.turnTelemetry ?? null;
+
+	const tooltip = buildContextTooltip({ total, limit: palace.limit, error: palace.error, isCloud,
+		method: hasContext ? palace.contextMethod : undefined,
+		confidence: hasContext ? palace.contextConfidence : undefined,
+		live, persisted });
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
 		"flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300";
 
 	return (
-		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3">
+		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 shadow-[0_2px_10px_var(--window-shadow)]">
 			<button
 				type="button"
 				className={button}
@@ -54,7 +67,12 @@ export default function Header({
 					</button>
 					{workspace.name && (
 						<>
-							<span aria-hidden="true" className="text-xs text-[var(--text-muted)]">|</span>
+							<span
+								aria-hidden="true"
+								className="text-xs text-[var(--text-muted)]"
+							>
+								|
+							</span>
 							<button
 								type="button"
 								className="flex min-w-0 max-w-44 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:translate-y-0.5 duration-300 max-[700px]:max-w-24"
@@ -84,11 +102,26 @@ export default function Header({
 						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 					/>
 					<span className="truncate">{modelName || "Select Model"}</span>
-                    {!isCloud && !engineRunning && modelName && <span className="shrink-0 text-[10px] text-[var(--text-muted)]">Not loaded</span>}
-                    {isCloud && <span className="shrink-0 text-[10px] text-[var(--text-secondary)]">Cloud</span>}
-                    {!isCloud && engineRunning && <span role="status" className="shrink-0 text-[10px] text-[var(--text-secondary)]">
-                        {contextStatus === "ready" ? "Ready" : contextStatus === "warming" ? "Warming up context..." : contextStatus === "warmup-failed" ? "Warmup failed" : "Loading model..."}
-                    </span>}
+					{!isCloud && !engineRunning && modelName && (
+						<span className="shrink-0 text-[10px] text-[var(--text-muted)]">Not loaded</span>
+					)}
+					{isCloud && (
+						<span className="shrink-0 text-[10px] text-[var(--text-secondary)]">Cloud</span>
+					)}
+					{!isCloud && engineRunning && (
+						<span
+							role="status"
+							className="shrink-0 text-[10px] text-[var(--text-secondary)]"
+						>
+							{contextStatus === "ready"
+								? "Ready"
+								: contextStatus === "warming"
+									? "Warming up context..."
+									: contextStatus === "warmup-failed"
+										? "Warmup failed"
+										: "Loading model..."}
+						</span>
+					)}
 					<span
 						aria-hidden="true"
 						className="group-active:translate-y-0.5 duration-300"
@@ -102,17 +135,17 @@ export default function Header({
 			<div className="flex-1" />
 
 			<div
-				title={label}
+				title={tooltip}
 				className="w-44 shrink-0 text-[10px] text-[var(--text-secondary)] max-[700px]:w-28"
 			>
 				<span className="block truncate">{label}</span>
 				<div
 					role="progressbar"
-					aria-label="Estimated context usage"
+					aria-label="Context usage"
 					aria-valuemin={0}
 					aria-valuemax={100}
 					aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
-					aria-valuetext={label}
+					aria-valuetext={tooltip}
 					className="mt-1 h-1 overflow-hidden rounded bg-[var(--surface-hover)]"
 				>
 					<div

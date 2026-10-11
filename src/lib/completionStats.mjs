@@ -26,12 +26,36 @@ export function phaseStats({ usage, timings, startTime, endTime }) {
     ...(generationTime !== null ? { generationTime } : {}) };
 }
 
+export function turnPromptTelemetry(phases) {
+  if (!Array.isArray(phases) || phases.length === 0) {
+    return { lastPromptTokens: null, peakPromptTokens: null, peakRequestIndex: null,
+      promptRequests: 0, promptCoverage: 'none' };
+  }
+  const prompts = phases.map(phase => count(phase?.promptTokens));
+  const present = prompts.filter(value => value !== null);
+  let peak = null, peakIndex = null;
+  for (let index = 0; index < prompts.length; index++) {
+    if (prompts[index] !== null && (peak === null || prompts[index] > peak)) {
+      peak = prompts[index];
+      peakIndex = index + 1;
+    }
+  }
+  return {
+    lastPromptTokens: prompts[prompts.length - 1],
+    peakPromptTokens: peak,
+    peakRequestIndex: peakIndex,
+    promptRequests: phases.length,
+    promptCoverage: present.length === prompts.length ? 'complete' : present.length > 0 ? 'partial' : 'none',
+  };
+}
+
 export function mergePhaseStats(phases, startTime) {
   const final = phases.at(-1);
+  const telemetry = turnPromptTelemetry(phases);
   // Do not let an unreported tool phase erase the final answer's valid stats,
   // or label incomplete counts as totals for the entire turn.
   if (phases.length > 1 && phases.some(phase => phase.promptTokens === null || phase.completionTokens === null || phase.totalTokens === null)) {
-    return { ...final, scope: 'final' };
+    return { ...final, ...telemetry, scope: 'final' };
   }
   const sum = key => phases.every(phase => phase[key] !== null) ? count(phases.reduce((total, phase) => total + phase[key], 0)) : null;
   const promptTokens = sum('promptTokens'), completionTokens = sum('completionTokens'), totalTokens = sum('totalTokens');
@@ -41,6 +65,6 @@ export function mergePhaseStats(phases, startTime) {
     ? phases.reduce((total, phase) => total + phase.generationTime, 0) : null;
   const tokensPerSecond = generationTime > 0 && completionTokens !== null ? completionTokens / generationTime :
     phases.length === 1 ? final.tokensPerSecond : time > 0 && completionTokens !== null ? completionTokens / time : null;
-  return { startTime, endTime, time, promptTokens, completionTokens, totalTokens, tokensPerSecond, scope: 'all',
+  return { startTime, endTime, time, promptTokens, completionTokens, totalTokens, tokensPerSecond, ...telemetry, scope: 'all',
     ...(generationTime !== null ? { generationTime } : {}) };
 }

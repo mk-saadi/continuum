@@ -116,8 +116,13 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   saveMessage: (sessionId, role, content, attachments = [], stats = null, toolCalls = null, thinking = null, messageId = null, identity = null, executionSteps = null) => ipcRenderer.invoke('session:save-message', { sessionId, role, content, attachments, stats, toolCalls, thinking, messageId, identity, displayName: identity?.displayName, executionSteps }),
   loadDisplaySession: sessionId => ipcRenderer.invoke('session:load-display', { sessionId }),
   getContextUsage: (sessionId, modelId) => ipcRenderer.invoke('session:get-usage', { sessionId, modelId }),
+  measureContext: (sessionId, modelId, options) => ipcRenderer.invoke('session:measure-context', { sessionId, modelId, ...(options ?? {}) }),
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),
+  getCheckpoint: (sessionId) => ipcRenderer.invoke('session:get-checkpoint', { sessionId }),
+  getCheckpointHistory: (sessionId, limit) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit }),
+  getBriefs: (sessionId) => ipcRenderer.invoke('session:get-briefs', { sessionId }),
+  getArchivedMessages: (sessionId, options) => ipcRenderer.invoke('session:get-archived-messages', { sessionId, ...(options ?? {}) }),
   onCompressionComplete: (callback) => {
     if (typeof callback !== 'function') throw new TypeError('callback must be a function.');
     const listener = (_event, result) => callback(result);

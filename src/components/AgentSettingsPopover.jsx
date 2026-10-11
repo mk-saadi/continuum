@@ -130,7 +130,7 @@ export function ThinkingBudgetSelector({ sessionId, modelId, disabled }) {
 				aria-label={`Thinking Budget: ${badge}`}
 				value={budget}
 				onChange={(event) => void save(Number(event.target.value))}
-				disabled={disabled || !ready || saving}
+				disabled={disabled || !ready}
 				icon={<FaBrain />}
 				openTop={true}
 				items={BUDGET_PRESETS.map((item) => ({

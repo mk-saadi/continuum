@@ -1,6 +1,9 @@
 import React, { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import ThoughtBlock from "./ThoughtBlock";
 import ToolCallBlock from "./ToolCallBlock";
+import ToolEventCard from "./chat/ToolEventCard.jsx";
+import TurnOutcomes from "./chat/TurnOutcomes.jsx";
+import { readSkillDecision } from "./chat/PendingInteractions.jsx";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -122,6 +125,7 @@ function CodeBlock({ code, language }) {
 					overflowX: "auto",
 					fontSize: "12px",
 					lineHeight: 1.55,
+					fontFamily: "var(--font-mono)",
 				}}
 			>
 				{code.replace(/\n$/, "")}
@@ -245,7 +249,7 @@ const components = {
 		return (
 			<code
 				{...props}
-				className={`${className || ""} rounded bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-[var(--text-primary)]`}
+				className={`${className || ""} rounded bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
 			>
 				{children}
 			</code>
@@ -313,6 +317,18 @@ const ChatMessage = React.memo(
 		onSelectVariant,
 		onSelectReplyVariant,
 		showHeader = true,
+		// Casual Chat renders conversation-first with compact, non-interactive
+		// tool summaries; Workspace renders the full timeline separately and
+		// passes hideSteps. Interactive questions/skill approvals live above
+		// the composer (PendingInteractions), so non-interactive transcripts
+		// show static outcome records at the step's position instead.
+		mode = "casual",
+		interactive = true,
+		hideSteps = false,
+		// Resolved ask_user / skill outcomes render after the complete response.
+		// The Workspace timeline suppresses this and renders its own copy at
+		// the very bottom of the turn (below the message actions).
+		showTurnOutcomes = true,
 	}) {
 		const index = message.active_variant_index ?? 0;
 		const activeVariant = activeReplyVariant(message);
@@ -321,7 +337,7 @@ const ChatMessage = React.memo(
 		const thinking = activeVariant.thinking ?? activeVariant.thinkingText;
 		const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
 		const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
-		const steps = activeVariant.executionSteps;
+		const steps = hideSteps ? [] : activeVariant.executionSteps;
 		return (
 			<div className="min-w-0 w-full whitespace-normal">
 				{showHeader && <MessageContextStatus message={message} />}
@@ -342,7 +358,16 @@ const ChatMessage = React.memo(
 								);
 							}
 							if (step.type === "tool_call") {
-								if (step.toolName === "ask_user")
+								if (step.toolName === "ask_user") {
+									if (!interactive)
+										return (
+											<AskUserRecord
+												key={step.id ?? idx}
+												step={step}
+												request={pendingQuestions[step.id]}
+												live={!!pendingQuestions[step.id] || !!message.streaming}
+											/>
+										);
 									return (
 										<AskUserCard
 											key={step.id ?? idx}
@@ -351,7 +376,15 @@ const ChatMessage = React.memo(
 											onAnswer={onAnswerQuestion}
 										/>
 									);
-								if (step.toolName === "propose_skill")
+								}
+								if (step.toolName === "propose_skill") {
+									if (!interactive)
+										return (
+											<SkillProposalRecord
+												key={step.id ?? idx}
+												step={step}
+											/>
+										);
 									return (
 										<SkillProposalCard
 											key={step.id ?? idx}
@@ -359,11 +392,24 @@ const ChatMessage = React.memo(
 											projectId={projectId}
 										/>
 									);
+								}
 								if (step.toolName === "delegate_task")
 									return (
 										<SubAgentBadge
 											key={step.id ?? idx}
 											step={step}
+										/>
+									);
+								// Casual Chat keeps tool activity to a compact,
+								// expandable summary instead of full argument/result
+								// dumps. Workspace renders the full timeline
+								// separately (hideSteps) so this path is casual-only.
+								if (!interactive && mode === "casual")
+									return (
+										<ToolEventCard
+											key={step.id ?? idx}
+											step={step}
+											compact
 										/>
 									);
 								return (
@@ -467,7 +513,10 @@ const ChatMessage = React.memo(
 					)}
 				</div>
 				{message.role === "assistant" && activeVariant.stats && (
-					<StatsFooter stats={activeVariant.stats} />
+					<StatsFooter stats={activeVariant.stats} mode={mode} />
+				)}
+				{showTurnOutcomes && !message.streaming && (
+					<TurnOutcomes steps={activeVariant.executionSteps} pendingQuestions={pendingQuestions} />
 				)}
 			</div>
 		);
@@ -482,10 +531,66 @@ const ChatMessage = React.memo(
 		previous.disabled === next.disabled &&
 		previous.onSelectVariant === next.onSelectVariant &&
 		previous.onSelectReplyVariant === next.onSelectReplyVariant &&
-		previous.showHeader === next.showHeader,
+		previous.showHeader === next.showHeader &&
+		previous.mode === next.mode &&
+		previous.interactive === next.interactive &&
+		previous.hideSteps === next.hideSteps &&
+		previous.showTurnOutcomes === next.showTurnOutcomes,
 );
 
 export default ChatMessage;
+
+// Static outcome records for non-interactive transcripts. Pending questions
+// and skill approvals themselves render above the composer; the history keeps
+// only the resolved (or pending-pointer) state at the step's position.
+function AskUserRecord({ step, request, live }) {
+	const question = request?.question || step.args?.question;
+	const options = request?.options || step.args?.options || [];
+	const answered = typeof step.result === 'string' && step.result;
+	if (!question) return <ToolCallBlock step={step} />;
+	const resolved = step.status === 'complete' && answered;
+	// A non-terminal step with no live request belongs to a dead run (restored
+	// history, never-resumed interruption): report it cancelled, never pending.
+	const cancelled = step.status === 'error' || (!resolved && !live);
+	return (
+		<div aria-label="Agent question record" className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs">
+			<p className="mb-1 font-medium">{question}</p>
+			{options.length > 0 && <p className="text-[var(--text-muted)]">Options: {options.join(' · ')}</p>}
+			<p className="mt-1 text-[var(--text-muted)]" role="status">
+				{resolved
+					? `Answered: ${answered}`
+					: cancelled
+						? 'Question cancelled.'
+						: 'Pending — answer above the composer.'}
+			</p>
+		</div>
+	);
+}
+
+function SkillProposalRecord({ step }) {
+	const proposal = step.args;
+	const decision = readSkillDecision(step.id);
+	if (!proposal || typeof proposal !== 'object') return <ToolCallBlock step={step} />;
+	// An errored proposal with no stored decision never reached review:
+	// report the failure instead of pointing at the composer.
+	const failed = step.status === 'error' && !decision;
+	return (
+		<div aria-label="Skill proposal record" className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs">
+			<p>
+				Proposed skill: <strong>{proposal.name}</strong>
+			</p>
+			<p className="mt-1 text-[var(--text-muted)]" role="status">
+				{decision === 'registered'
+					? 'Skill registered.'
+					: decision === 'declined'
+						? 'Proposal declined.'
+						: failed
+							? 'Proposal failed.'
+							: 'Pending — review above the composer.'}
+			</p>
+		</div>
+	);
+}
 
 function AskUserCard({ step, request, onAnswer }) {
 	const [answer, setAnswer] = useState("");
@@ -692,7 +797,7 @@ export function MessageContextStatus({ message }) {
 	);
 }
 
-export function StatsFooter({ stats }) {
+export function StatsFooter({ stats, mode = "casual" }) {
 	stats = {
 		...stats,
 		tokensPerSecond: stats.tokens_per_sec ?? stats.tokensPerSecond,
@@ -707,9 +812,17 @@ export function StatsFooter({ stats }) {
 	const genFormatted = stats.completionTokens != null ? stats.completionTokens.toLocaleString() : "—";
 	const totalFormatted = stats.totalTokens != null ? stats.totalTokens.toLocaleString() : "—";
 
-	// Human-friendly hover tooltips
+	// Human-friendly hover tooltips. Cumulative workload stays defined as
+	// total compute across all tool turns; peak/last request sizes are
+	// reported separately and never substituted for it.
+	const peakLine = stats.peakPromptTokens != null
+		? `\n• Peak Single Request: ${stats.peakPromptTokens.toLocaleString()}${stats.peakRequestIndex ? ` (request ${stats.peakRequestIndex}${stats.promptRequests ? ` of ${stats.promptRequests}` : ""})` : ""}`
+		: "";
+	const lastLine = stats.lastPromptTokens != null && stats.scope === "all"
+		? `\n• Last Request Prompt: ${stats.lastPromptTokens.toLocaleString()}`
+		: "";
 	const tokenTooltip = isMultiPass
-		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}`
+		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}${lastLine}${peakLine}`
 		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}`;
 
 	const speedTooltip = isMultiPass
@@ -719,7 +832,7 @@ export function StatsFooter({ stats }) {
 	return (
 		<footer
 			aria-label="Generation statistics"
-			className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]"
+			className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums"
 		>
 			{/* Generation Speed */}
 			<span
@@ -751,8 +864,8 @@ export function StatsFooter({ stats }) {
 				<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
 			</span>
 
-			{/* Tool Loop Indicator Badge */}
-			{isMultiPass ? (
+			{/* Tool Loop Indicator Badge (workspace only; hidden in casual chat) */}
+			{mode !== "casual" && (isMultiPass ? (
 				<span
 					className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help"
 					title="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
@@ -768,7 +881,7 @@ export function StatsFooter({ stats }) {
 					<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
 					Single turn
 				</span>
-			)}
+			))}
 		</footer>
 	);
 }
@@ -892,7 +1005,7 @@ export function ThinkingAccordion({ text, duration }) {
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
 			className="group/thinking mb-3  text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
 		>
-			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 tabular-nums hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 				<FiChevronDown
 					aria-hidden="true"
 					className="-rotate-90 transition-transform group-open/thinking:rotate-0"

@@ -353,6 +353,7 @@ function TabPane({
 		localReady ? activeModelConfig : null,
 		tab.sessionId,
 		setSessionId,
+		{ isCloud, permissionMode: tab.permissionMode, engineReady: localReady, enginePort: localReady ? serverPort : null },
 	);
 	const view = tab.view || "chat";
 	const onChat = () => update({ view: "chat" });

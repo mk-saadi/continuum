@@ -61,7 +61,7 @@ const { buildProjectContext, buildSessionSystemPrompt, prepareChatMessages } = r
     require('../src/main/profileSettings').saveSessionMemorySettings('chat', 'model', { memoryEnabled: false });
     const messages = prepareChatMessages({ sessionId: 'chat', modelId: 'model', userText: 'Hello' });
     assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[PROJECT GOAL]')));
-    assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[AUTONOMY RULES]') && message.content.includes('CRITICAL: Never output plain status text') && message.content.includes('[TASK COMPLETE]')));
+    assert.ok(messages.some(message => message.role === 'system' && message.content.includes('[AUTONOMY RULES]') && message.content.includes('CRITICAL: Never output plain status text') && message.content.includes('provide your final response directly')));
     for (const sessionId of ['chat', 'casual']) {
       const content = buildSessionSystemPrompt({ sessionId, modelId: 'model' }).content;
       assert.match(content, /### Visualizations & Charting Protocol/);

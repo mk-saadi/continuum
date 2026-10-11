@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* Bundled typefaces (see src/main.jsx fontsource imports): Inter Variable
+   for UI prose, JetBrains Mono Variable for code. "Noto Sans CJK JP" is a
+   system-fallback name only — Inter has no CJK glyphs. */
+@theme {
+	--font-sans: "Inter Variable", system-ui, "Noto Sans CJK JP", sans-serif;
+	--font-mono: "JetBrains Mono Variable", ui-monospace, "Noto Sans Mono CJK JP", monospace;
+}
+
+/* Preformatted code and terminal output must never ligature: `=>` and `!=`
+   have to read as typed when reviewing exact commands and diffs. */
+pre {
+	font-variant-ligatures: none;
+}
+
 /* Include renderer sources regardless of the process working directory. */
 @source "../index.html";
 @source "./";
@@ -538,5 +552,5 @@ html[data-bg-image="true"] dialog {
 }
 
 html[data-bg-image="true"] dialog::backdrop {
-	backdrop-filter: blur(8px);
+	backdrop-filter: blur(2px);
 }

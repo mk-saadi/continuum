@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { LuBot, LuSlidersHorizontal } from "react-icons/lu";
 import IntegrationsTab from "../IntegrationsTab";
+
+const modes = [
+	{ value: "auto", label: "Auto (Dynamic AI)", Icon: LuBot },
+	{ value: "manual", label: "Manual (User Control)", Icon: LuSlidersHorizontal },
+];
 
 const descriptions = {
 	auto: "The AI dynamically enables MCP servers when needed to keep baseline prompt overhead minimal.",
@@ -26,6 +32,9 @@ export default function McpSettingsTab(props) {
 		try {
 			const settings = await window.api.saveAppSettings({ mcpMode: nextMode });
 			setMode(settings.mcpMode);
+			// MCP mode reshapes the prepared prompt (tool schemas, protocol
+			// paragraphs); listeners refresh their context measurements.
+			window.dispatchEvent(new Event("generation-settings-changed"));
 		} catch (error) {
 			setModeError(error.message);
 		} finally {
@@ -38,13 +47,11 @@ export default function McpSettingsTab(props) {
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
 				<h3 className="text-sm font-semibold">MCP Tool Management Mode</h3>
 				<div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-[var(--surface)] p-1 sm:grid-cols-2" role="group" aria-label="MCP tool management mode">
-					{[
-						["auto", "🤖 Auto (Dynamic AI)"],
-						["manual", "🎛️ Manual (User Control)"],
-					].map(([value, label]) => (
+					{modes.map(({ value, label, Icon }) => (
 						<button key={value} type="button" aria-pressed={mode === value} disabled={mode === null || saving}
 							onClick={() => selectMode(value)}
-							className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 ${mode === value ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
+							className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 ${mode === value ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
+							<Icon aria-hidden="true" className="text-sm" />
 							{label}
 						</button>
 					))}
