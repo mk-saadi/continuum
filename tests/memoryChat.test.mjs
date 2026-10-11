@@ -174,7 +174,7 @@ test('usage-only final chunk supplies message stats and requests usage', async (
       return stream([chunk({ content: 'Hello' }, 'stop'), { choices: [], usage: { prompt_tokens: 10, completion_tokens: 20 } }]);
     },
   });
-  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
+  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
 });
 
 test('missing usage and zero elapsed time never produce fabricated counts or Infinity', async () => {
@@ -624,4 +624,60 @@ test('complete arguments with a truncated finish reason still never execute', as
       chunk({}, reason),
     ]), () => {}, undefined, () => 1, () => {}), /Incomplete tool-call/);
   }
+});
+
+test('casual turns inject file-ops guardrails once on first relevant tool call', async () => {
+  const { CASUAL_FILE_OPS_REMINDER } = await import('../src/lib/systemMessages.cjs');
+  const requests = [];
+  let rounds = 0;
+  await runMemoryChat({ ...base, executeTool: async () => ({ success: true }),
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      if (++rounds === 1) return stream([
+        chunk({ tool_calls: [{ index: 0, id: 'cmd1', function: { name: 'execute_command', arguments: '{"command":"ls"}' } }] }, 'tool_calls'),
+      ]);
+      if (rounds === 2) return stream([
+        chunk({ tool_calls: [{ index: 0, id: 'cmd2', function: { name: 'execute_command', arguments: '{"command":"pwd"}' } }] }, 'tool_calls'),
+      ]);
+      return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
+    },
+  });
+  assert.equal(rounds, 3);
+  const reminders = requests[1].messages.filter(m => m.role === 'system' && String(m.content).includes(CASUAL_FILE_OPS_REMINDER));
+  assert.equal(reminders.length, 1);
+  assert.equal(requests[2].messages.filter(m => m.role === 'system' && String(m.content).includes(CASUAL_FILE_OPS_REMINDER)).length, 1);
+});
+
+test('casual sub-agent calls receive the pattern reminder; workspace never does', async () => {
+  const { CASUAL_SUBAGENT_PATTERN_REMINDER } = await import('../src/lib/systemMessages.cjs');
+  const run = (extra) => {
+    const requests = [];
+    let rounds = 0;
+    return runMemoryChat({ ...base, ...extra, executeTool: async () => ({}),
+      fetchImpl: async (_url, options) => {
+        requests.push(JSON.parse(options.body));
+        if (++rounds === 1) return stream([
+          chunk({ tool_calls: [{ index: 0, id: 'sub1', function: { name: 'spawn_sub_agent', arguments: '{"task":"read X"}' } }] }, 'tool_calls'),
+        ]);
+        return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
+      },
+    }).then(() => requests);
+  };
+  const casual = await run({});
+  assert.equal(casual[1].messages.filter(m => m.role === 'system' && String(m.content).includes(CASUAL_SUBAGENT_PATTERN_REMINDER)).length, 1);
+  const workspace = await run({ projectId: 'proj-1' });
+  assert.ok(workspace[1].messages.every(m => !(m.role === 'system' && String(m.content).includes(CASUAL_SUBAGENT_PATTERN_REMINDER))));
+});
+
+test('tool-free casual turns inject no reminders', async () => {
+  const { CASUAL_FILE_OPS_REMINDER, CASUAL_SUBAGENT_PATTERN_REMINDER } = await import('../src/lib/systemMessages.cjs');
+  const requests = [];
+  await runMemoryChat({ ...base,
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return stream([chunk({ content: 'Just chatting [TASK COMPLETE]' }, 'stop')]);
+    },
+  });
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0].messages.every(m => !(String(m.content).includes(CASUAL_FILE_OPS_REMINDER) || String(m.content).includes(CASUAL_SUBAGENT_PATTERN_REMINDER))));
 });

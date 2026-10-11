@@ -1,14 +1,7 @@
-import React, { useState } from "react";
-import {
-	FiChevronDown,
-	FiChevronRight,
-	FiFolder,
-	FiGrid,
-	FiMessageSquare,
-	FiPlus,
-	FiStar,
-} from "react-icons/fi";
+import React from "react";
+import { FiGrid, FiMessageSquare, FiPlus, FiStar } from "react-icons/fi";
 import ChatHistory from "./ChatHistory";
+import { mapSessionGroups, sessionsForProject, sessionsWithoutProject } from "../lib/sidebarHistory.mjs";
 import "./projects.css";
 
 export default function Sidebar({
@@ -19,158 +12,127 @@ export default function Sidebar({
 	onProject,
 	onCreateProject,
 	onChat,
+	isWorkspace = false,
+	chatProjectId = null,
+	onNewWorkspaceChat = null,
+	canStartChat = false,
 	...history
 }) {
-	const [expanded, setExpanded] = useState(true);
-	const [openProjects, setOpenProjects] = useState(new Set());
-	const sessions = history.groups.flatMap((group) => group.sessions);
-	const globalGroups = history.groups.map((group) => ({
-		...group,
-		sessions: group.sessions.filter((session) => !session.project_id),
-	}));
-	const pinned = projects.filter((project) => project.is_pinned);
+	const globalGroups = mapSessionGroups(history.groups, sessionsWithoutProject);
+	const workspaceProject = chatProjectId
+		? (projects.find((project) => project.id === chatProjectId) ?? null)
+		: null;
+	// Workspace mode renders only the current workspace's conversations. Groups
+	// left empty by the filter are pruned so global folder names (e.g. casual
+	// folders with no workspace chats) never appear as empty rows.
+	const workspaceGroups = mapSessionGroups(history.groups, (list) =>
+		sessionsForProject(list, chatProjectId),
+	).filter((group) => group.sessions.length > 0);
+	const workspaceChatCount = workspaceGroups.reduce(
+		(count, group) => count + group.sessions.length,
+		0,
+	);
+	if (!isWorkspace) {
+		return (
+			<aside
+				aria-label="Chat navigation"
+				className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
+			>
+				<div className="min-h-0 flex-1">
+					<ChatHistory
+						{...history}
+						mode="casual"
+						showRecents
+						groups={globalGroups}
+						activeId={view === "chat" ? history.activeId : null}
+					/>
+				</div>
+				<details className="shrink-0 border-t border-[var(--border)]">
+					<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+						<FiGrid className="shrink-0" />
+						<span className="min-w-0 flex-1 truncate text-left">
+							Projects ({projects.length})
+						</span>
+					</summary>
+					<div className="max-h-48 min-h-0 overflow-y-auto px-2 pb-2">
+						<button
+							className="project-nav-link w-full"
+							onClick={onChat}
+						>
+							<FiMessageSquare />
+							<span>Back to Chat</span>
+						</button>
+						{projects.some((project) => project.is_pinned) && (
+							<section aria-label="Pinned projects">
+								{projects
+									.filter((project) => project.is_pinned)
+									.map((project) => (
+										<button
+											key={project.id}
+											className="project-nav-link w-full"
+											onClick={() => onProject(project.id)}
+										>
+											<FiStar className="shrink-0" />
+											<span>{project.name}</span>
+										</button>
+									))}
+							</section>
+						)}
+						<button
+							className="project-nav-link w-full"
+							onClick={onProjects}
+						>
+							<FiGrid />
+							<span>All projects</span>
+						</button>
+						<button
+							className="project-nav-link w-full"
+							onClick={onCreateProject}
+						>
+							<FiPlus />
+							<span>New Project</span>
+						</button>
+					</div>
+				</details>
+			</aside>
+		);
+	}
+	// Workspace mode is a single hierarchy: the workspace card (name, count,
+	// creation) plus its folder-grouped conversations. The all-projects tree is
+	// intentionally absent here so the same conversations are never listed
+	// twice, and global casual history is never passed down.
 	return (
 		<aside
 			aria-label="Workspace navigation"
 			className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
 		>
-			<nav
-				className="project-nav"
-				aria-label="Projects"
-			>
+			<div className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 pt-3 pb-2">
 				<button
-					className="project-nav-link w-full mb-2"
+					className="project-nav-link w-full"
 					onClick={onChat}
 					aria-current={view === "chat" ? "page" : undefined}
 				>
 					<FiMessageSquare />
 					<span>Back to Chat</span>
 				</button>
-				<div className="project-nav-row">
-					<button
-						aria-label={expanded ? "Collapse projects" : "Expand projects"}
-						aria-expanded={expanded}
-						onClick={() => setExpanded(!expanded)}
-						className="px-2"
-					>
-						{expanded ? <FiChevronDown /> : <FiChevronRight />}
-					</button>
-					<button
-						className="project-nav-link"
-						onClick={onProjects}
-						aria-current={view === "projects" ? "page" : undefined}
-					>
-						<FiGrid />
-						<span>Projects</span>
-					</button>
-					<button
-						className="px-2"
-						onClick={onCreateProject}
-						aria-label="New project"
-					>
-						<FiPlus />
-					</button>
-				</div>
-				{expanded && (
-					<>
-						{pinned.length > 0 && (
-							<section aria-label="Pinned Projects">
-								<h2 className="projects-muted px-2 pt-4 pb-1">Pinned Projects</h2>
-								{pinned.map((project) => (
-									<button
-										key={project.id}
-										className="project-nav-link w-full"
-										onClick={() => onProject(project.id)}
-									>
-										<FiStar className="shrink-0" />
-										<span>{project.name}</span>
-									</button>
-								))}
-							</section>
-						)}
-						<section
-							aria-label="All projects"
-							className="mt-2"
-						>
-							{projects.map((project) => {
-								const open = openProjects.has(project.id);
-								const chats = sessions.filter((session) => session.project_id === project.id);
-								return (
-									<div key={project.id}>
-										<div className="project-nav-row">
-											<button
-												className="px-2"
-												aria-label={`${open ? "Collapse" : "Expand"} ${project.name} chats`}
-												aria-expanded={open}
-												onClick={() =>
-													setOpenProjects((previous) => {
-														const next = new Set(previous);
-														if (next.has(project.id)) next.delete(project.id);
-														else next.add(project.id);
-														return next;
-													})
-												}
-											>
-												{open ? <FiChevronDown /> : <FiChevronRight />}
-											</button>
-											<button
-												className="project-nav-link"
-												onClick={() => onProject(project.id)}
-												aria-current={
-													view === "project" && activeProjectId === project.id
-														? "page"
-														: undefined
-												}
-											>
-												<FiFolder className="shrink-0" />
-												<span>{project.name}</span>
-												<small className="ml-auto projects-muted">
-													{chats.length}
-												</small>
-											</button>
-										</div>
-										{open && (
-											<div className="project-nav-threads">
-												{chats.length ? (
-													chats.map((chat) => (
-														<button
-															key={chat.id}
-															title={chat.title || "Untitled chat"}
-															disabled={history.disabled}
-															aria-current={
-																view === "chat" &&
-																history.activeId === chat.id
-																	? "page"
-																	: undefined
-															}
-															onClick={() => history.onLoad(chat.id)}
-														>
-															{chat.title || "Untitled chat"}
-														</button>
-													))
-												) : (
-													<p className="projects-muted p-2">No chats yet</p>
-												)}
-											</div>
-										)}
-									</div>
-								);
-							})}
-						</section>
-						<button
-							className="project-nav-link w-full mt-2"
-							onClick={onCreateProject}
-						>
-							<FiPlus />
-							<span>New Project</span>
-						</button>
-					</>
-				)}
-			</nav>
+				<button
+					className="project-nav-link w-full"
+					onClick={onProjects}
+					aria-current={view === "projects" ? "page" : undefined}
+				>
+					<FiGrid />
+					<span>Projects</span>
+				</button>
+			</div>
 			<div className="min-h-0 flex-1">
 				<ChatHistory
 					{...history}
-					groups={globalGroups}
+					mode="workspace"
+					workspaceName={workspaceProject?.name ?? null}
+					workspaceChatCount={workspaceChatCount}
+					onNewWorkspaceChat={onNewWorkspaceChat}
+					canCreateWorkspaceChat={canStartChat && chatProjectId != null}
+					groups={workspaceGroups}
 					activeId={view === "chat" ? history.activeId : null}
 				/>
 			</div>

@@ -1,29 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runMemoryChat, AUTO_CONTINUE_NUDGE, REASONING_LOOP_NOTICE } from '../src/lib/memoryChat.mjs';
+import { runMemoryChat, REASONING_LOOP_NOTICE } from '../src/lib/memoryChat.mjs';
 const tool = id => ({ tool_calls: [{ id, type: 'function', function: { name: 'inspect', arguments: '{}' } }] });
 const response = message => Response.json({ choices: [{ message, finish_reason: message.tool_calls ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5 } });
 const base = { baseUrl: 'http://local', modelId: 'model', messages: [{ role: 'system', content: 'Work autonomously.' }],
   chatTools: [{ type: 'function', function: { name: 'inspect', parameters: { type: 'object' } } }] };
 
-test('status-only response after a tool is nudged, retains history, then executes the next tool', async () => {
+test('text response after a tool finishes immediately without a nudge', async () => {
   const requests = []; let executed = 0, streamed = '', stats;
-  const replies = [tool('first'), { content: 'Resuming the fix now...' }, tool('second'), { content: 'Fixed and verified. [TASK COMPLETE]   ' }];
+  const replies = [tool('first'), { content: 'Fixed and verified.' }];
   const result = await runMemoryChat({ ...base, executeTool: async () => { executed++; return 'Inspected'; },
     onText: delta => { streamed += delta; }, onStats: value => { stats = value; },
     fetchImpl: async (_url, options) => { requests.push(JSON.parse(options.body)); return response(replies[requests.length - 1]); },
   });
-  assert.equal(executed, 2); assert.equal(requests.length, 4);
-  assert.equal(requests[2].messages.at(-2).content, 'Resuming the fix now...');
-  assert.equal(requests[2].messages.at(-1).content, AUTO_CONTINUE_NUDGE);
-  assert.equal(requests[2].tool_choice, 'auto');
-  assert.equal(requests[3].messages.at(-1).tool_call_id, 'second');
-  assert.equal(result, streamed); assert.ok(!result.includes(AUTO_CONTINUE_NUDGE));
-  assert.equal(stats.completionTokens, 20);
+  assert.equal(executed, 1); assert.equal(requests.length, 2);
+  assert.equal(requests[1].tool_choice, 'auto');
+  assert.equal(result, streamed);
+  assert.equal(result, 'Fixed and verified.');
+  assert.equal(stats.completionTokens, 10);
   assert.equal(base.messages.length, 1, 'caller history is unchanged');
 });
 
-for (const ending of ['Which file should I change?  \n', 'Changes verified. [TASK COMPLETE]\n']) {
+for (const ending of ['Which file should I change?  \n', 'Changes verified.\n']) {
   test(`stops for an explicit final ending: ${ending.trim()}`, async () => {
     let requests = 0;
     await runMemoryChat({ ...base, executeTool: async () => 'OK', fetchImpl: async () => response(++requests === 1 ? tool('first') : { content: ending }) });
@@ -37,26 +35,22 @@ test('ordinary answers without prior tool execution finish immediately', async (
   assert.equal(result, 'Hello.'); assert.equal(requests, 1);
 });
 
-test('empty and unfinished responses pause at the default 30-turn cap', async () => {
-  let requests = 0, executions = 0, streamed = '', paused;
-  const result = await runMemoryChat({ ...base, onPaused: async state => { paused = state; return false; }, executeTool: async () => { executions++; return 'OK'; }, onText: delta => { streamed += delta; },
-    fetchImpl: async (_url, options) => {
-      requests++;
-      assert.equal(JSON.parse(options.body).tool_choice, 'auto');
-      return response(requests === 1 ? tool('first') : { content: requests % 2 ? '' : 'Continuing.' });
-    },
+test('plain text after a tool finishes immediately without hitting the turn cap', async () => {
+  let requests = 0, executions = 0;
+  const result = await runMemoryChat({ ...base, executeTool: async () => { executions++; return 'OK'; },
+    fetchImpl: async () => response(++requests === 1 ? tool('first') : { content: 'Continuing.' }),
   });
-  assert.equal(requests, 30); assert.equal(executions, 1);
-  assert.equal(paused.executionState, 'paused_turn_limit'); assert.equal(result, streamed);
-  assert.ok(!result.includes('[System: Autonomous turn limit'));
+  assert.equal(requests, 2); assert.equal(executions, 1);
+  assert.equal(result, 'Continuing.');
 });
 
-test('the safety cap covers alternating tool and status turns', async () => {
+test('alternating tool and text turns finish once text is produced', async () => {
   let requests = 0, executions = 0;
   const result = await runMemoryChat({ ...base, maxAutoTurns: 3, executeTool: async () => { executions++; return 'OK'; },
     fetchImpl: async () => { requests++; return response(requests % 2 ? tool(`call${requests}`) : { content: 'Still working.' }); },
   });
-  assert.equal(requests, 3); assert.equal(executions, 2);
+  assert.equal(requests, 2); assert.equal(executions, 1);
+  assert.equal(result, 'Still working.');
 });
 
 test('reasoning-loop termination after a tool never triggers an automatic restart', async () => {
@@ -67,7 +61,7 @@ test('reasoning-loop termination after a tool never triggers an automatic restar
   assert.equal(requests, 2); assert.ok(result.endsWith(REASONING_LOOP_NOTICE));
 });
 
-test('cancellation while nudging prevents another request', async () => {
+test('cancellation during final text prevents return', async () => {
   const controller = new AbortController(); let requests = 0;
   await assert.rejects(runMemoryChat({ ...base, signal: controller.signal, executeTool: async () => 'OK',
     onText: text => { if (text === 'Still working.') controller.abort(); },
@@ -86,13 +80,13 @@ test('pause waits for user continuation and never re-executes pending tools', as
     fetchImpl: async (_url, options) => {
       if (++requests === 1) return response(tool('first'));
       assert.equal(JSON.parse(options.body).messages.at(-1).tool_call_id, 'first');
-      return response({ content: 'Done. [TASK COMPLETE]' });
+      return response({ content: 'Done.' });
     },
   });
   await paused;
   assert.equal(executions, 1); assert.equal(requests, 1);
   resume(true);
-  assert.equal(await run, 'Done. [TASK COMPLETE]');
+  assert.equal(await run, 'Done.');
   assert.equal(executions, 1); assert.equal(requests, 2);
 });
 
@@ -104,7 +98,7 @@ for (const success of [true, false]) {
       chatTools: [...base.chatTools, { type: 'function', function: { name: 'write_project_file' } }],
       onPaused: async () => { pauses++; return false; },
       executeTool: async () => ({ success }),
-      fetchImpl: async () => response(++requests <= 2 ? write(`w${requests}`) : requests === 3 ? tool('inspect') : { content: '[TASK COMPLETE]' }),
+      fetchImpl: async () => response(++requests <= 2 ? write(`w${requests}`) : requests === 3 ? tool('inspect') : { content: 'Done.' }),
     });
     assert.equal(requests, success ? 4 : 3);
     assert.equal(pauses, success ? 0 : 1);

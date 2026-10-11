@@ -6,14 +6,14 @@ import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.
 import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
 
 const codeTheme = {
-  'pre[class*="language-"]': { background: 'transparent', color: '#cbd5e1' },
-  'code[class*="language-"]': { color: '#cbd5e1' },
-  property: { color: '#7dd3fc' },
-  string: { color: '#a7f3d0' },
-  number: { color: '#fcd34d' },
-  boolean: { color: '#c4b5fd' },
-  null: { color: '#c4b5fd' },
-  punctuation: { color: '#94a3b8' },
+  'pre[class*="language-"]': { background: 'transparent', color: 'var(--code-text)' },
+  'code[class*="language-"]': { color: 'var(--code-text)' },
+  property: { color: 'var(--code-key)' },
+  string: { color: 'var(--code-string)' },
+  number: { color: 'var(--code-literal)' },
+  boolean: { color: 'var(--code-literal)' },
+  null: { color: 'var(--code-literal)' },
+  punctuation: { color: 'var(--code-muted)' },
 };
 
 function formatValue(value, fallback) {
@@ -31,9 +31,9 @@ function CodeSection({ title, value }) {
   return (
     <section className="min-w-0 space-y-1.5" aria-label={title}>
       <h4 className="font-medium text-[var(--text-secondary)]">{title}</h4>
-      <div className="overflow-hidden rounded-md border border-slate-700 bg-slate-950">
+      <div className="overflow-hidden rounded-md border border-[var(--code-border)] bg-[var(--code-bg)]">
         <SyntaxHighlighter language={value.language} style={codeTheme}
-          customStyle={{ margin: 0, padding: '12px', background: 'transparent', fontSize: '12px', maxHeight: '320px', overflow: 'auto' }}>
+          customStyle={{ margin: 0, padding: '12px', background: 'transparent', fontSize: '12px', maxHeight: '320px', overflow: 'auto', fontFamily: 'var(--font-mono)' }}>
           {value.text}
         </SyntaxHighlighter>
       </div>
@@ -66,8 +66,8 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         onClick={() => setUserExpanded(!expanded)}
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
         <FiChevronRight aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-        <FiTool aria-hidden="true" className="shrink-0 text-cyan-400" />
-        <strong className="min-w-0 truncate text-cyan-500 dark:text-cyan-300" title={step.toolName}>{step.toolName || 'Tool'}</strong>
+        <FiTool aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
+        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{step.toolName || 'Tool'}</strong>
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
           {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>
@@ -80,7 +80,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
         {expanded && preparing && <section aria-label="Streaming arguments">
           <p className="mb-2 text-[var(--text-muted)]">Preparing {step.toolName}… · {(step.streamingArguments || '').length.toLocaleString()} characters</p>
-          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 font-mono text-slate-200">{step.streamingArguments || 'Waiting for arguments…'}</pre>
+          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">{step.streamingArguments || 'Waiting for arguments…'}</pre>
         </section>}
         {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
           ? <FileBrowserWidget items={listing.items} notice={listing.notice} />

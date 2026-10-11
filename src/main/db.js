@@ -158,6 +158,49 @@ const SCHEMA = `
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Workspace task briefs: verbatim copies of Workspace user requirements,
+  -- independent of the source message rows and the rolling summary. Rows are
+  -- append-only; edits insert a revision row that supersedes (never updates)
+  -- the prior row. message_id is SET NULL when the anchor message is deleted
+  -- so the requirement text is retained for inspection while no longer
+  -- applying to prompt construction (applicability follows the active path).
+  CREATE TABLE IF NOT EXISTS workspace_task_briefs (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL DEFAULT 'instruction' CHECK (kind IN ('original', 'instruction', 'revision')),
+    content_text TEXT NOT NULL,
+    attachments_json TEXT NOT NULL DEFAULT '[]',
+    supersedes_id INTEGER REFERENCES workspace_task_briefs(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_task_briefs_session ON workspace_task_briefs(session_id, id);
+  CREATE INDEX IF NOT EXISTS idx_task_briefs_message ON workspace_task_briefs(message_id);
+
+  -- Workspace checkpoints: versioned, evidence-bound task state for resuming
+  -- long coding tasks after compression. One row per compression that
+  -- archived Workspace history; only the latest row per session has status
+  -- 'current' (prior rows are 'superseded' but retained as audit history).
+  -- Each row binds the history snapshot it was built from (active leaf,
+  -- archived message ids, evidence fingerprint), the applicable task-brief
+  -- identity, and the summary version/content it complements. Staleness is
+  -- derived at read time by comparing these bindings to live state.
+  CREATE TABLE IF NOT EXISTS workspace_checkpoints (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    status TEXT NOT NULL DEFAULT 'current' CHECK (status IN ('current', 'superseded')),
+    model_id TEXT,
+    checkpoint_json TEXT NOT NULL,
+    summary_id INTEGER REFERENCES session_summaries(id) ON DELETE SET NULL,
+    summary_text TEXT NOT NULL DEFAULT '',
+    brief_identity TEXT NOT NULL DEFAULT '',
+    active_leaf_id INTEGER,
+    archived_ids_json TEXT NOT NULL DEFAULT '[]',
+    evidence_fingerprint TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON workspace_checkpoints(session_id, status, id);
+
   CREATE TABLE IF NOT EXISTS document_chunks (
     id INTEGER PRIMARY KEY,
     file_name TEXT NOT NULL,
@@ -303,10 +346,15 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       connection.exec(`INSERT OR IGNORE INTO chat_folders(name)
         SELECT DISTINCT folder_name FROM sessions WHERE folder_name <> 'Uncategorized'`);
       // Triggers also support existing databases whose foreign keys lack ON DELETE CASCADE.
+      // The sessions trigger is rebuilt (not IF-NOT-EXISTS-kept) so existing
+      // databases pick up task-brief cleanup on session deletion.
+      connection.exec(`DROP TRIGGER IF EXISTS sessions_cascade;`);
       connection.exec(`
         CREATE TRIGGER IF NOT EXISTS sessions_cascade BEFORE DELETE ON sessions BEGIN
           DELETE FROM messages WHERE session_id = OLD.id;
           DELETE FROM session_summaries WHERE session_id = OLD.id;
+          DELETE FROM workspace_task_briefs WHERE session_id = OLD.id;
+          DELETE FROM workspace_checkpoints WHERE session_id = OLD.id;
         END;
         CREATE TRIGGER IF NOT EXISTS attachments_cascade BEFORE DELETE ON messages BEGIN
           DELETE FROM message_attachments WHERE message_id = OLD.id;
@@ -409,6 +457,11 @@ function branchUserMessage({ messageId, newContent }) {
       .run(userMessageId, messageId);
     db.prepare('UPDATE sessions SET active_leaf_id = ?, last_active_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(userMessageId, target.session_id);
+    // Preserve the correction verbatim alongside the message branch. The
+    // prior brief row is retained; the new revision row supersedes it. This
+    // runs in the same transaction so message + brief commit atomically.
+    // Casual sessions return null and store nothing.
+    require('./taskBriefs').captureRevisionBrief(target.session_id, userMessageId, newContent, messageId);
     return { userMessageId, sessionId: target.session_id };
   }).immediate();
 }

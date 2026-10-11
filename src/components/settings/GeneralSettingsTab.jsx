@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { SelectField } from "../FormControls";
+import SubagentModelSelect from "../SubagentModelSelect";
 
 const limits = [
 	{
@@ -16,9 +16,6 @@ export default function GeneralSettingsTab() {
 	const [settings, setSettings] = useState(null);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
-	// null/undefined while loading: null = "follow the chat model".
-	const [subagentModel, setSubagentModel] = useState(undefined);
-	const [cloudModels, setCloudModels] = useState([]);
 
 	useEffect(() => {
 		let active = true;
@@ -26,27 +23,6 @@ export default function GeneralSettingsTab() {
 			.getAppSettings()
 			.then((value) => {
 				if (active) setSettings(value);
-			})
-			.catch((cause) => {
-				if (active) setError(cause.message);
-			});
-		window.api
-			.getSubagentModel()
-			.then((value) => {
-				if (active) setSubagentModel(value);
-			})
-			.catch((cause) => {
-				if (active) setError(cause.message);
-			});
-		window.api
-			.getCloudProviders()
-			.then((rows) => {
-				if (!active) return;
-				setCloudModels(
-					rows.filter(
-						(row) => (row.category ?? "text") === "text" && row.configured && row.modelId?.trim(),
-					),
-				);
 			})
 			.catch((cause) => {
 				if (active) setError(cause.message);
@@ -62,40 +38,9 @@ export default function GeneralSettingsTab() {
 		setError("");
 		try {
 			setSettings(await window.api.saveAppSettings({ [key]: value }));
-		} catch (cause) {
-			setError(cause.message);
-		} finally {
-			setSaving(false);
-		}
-	}
-
-	// Same encoding the rest of the app uses for a model choice: '' = follow the
-	// chat, 'local' = the local model server, otherwise the saved provider id.
-	const encodedSubagentModel =
-		subagentModel == null
-			? ""
-			: subagentModel.type === "local"
-				? "local"
-				: subagentModel.provider;
-	const storedCloudMissing =
-		subagentModel?.type === "cloud" && !cloudModels.some((row) => row.id === subagentModel.provider);
-
-	async function updateSubagentModel(encoded) {
-		if (saving || subagentModel === undefined) return;
-		setSaving(true);
-		setError("");
-		try {
-			const selection =
-				encoded === ""
-					? null
-					: encoded === "local"
-						? { type: "local" }
-						: {
-								type: "cloud",
-								provider: encoded,
-								model: cloudModels.find((row) => row.id === encoded)?.modelId,
-							};
-			setSubagentModel(await window.api.saveSubagentModel(selection));
+			// App settings (memory, MCP) reshape the prepared prompt;
+			// listeners refresh their context measurements.
+			window.dispatchEvent(new Event("generation-settings-changed"));
 		} catch (cause) {
 			setError(cause.message);
 		} finally {
@@ -120,35 +65,9 @@ export default function GeneralSettingsTab() {
 					whatever the current chat uses; choosing something else gives sub-agents their own model
 					without changing this chat. Whichever model is chosen, sub-agents stay read-only.
 				</p>
-				<SelectField
-					className="mt-4"
-					label="Sub-agent model"
-					value={encodedSubagentModel}
-					disabled={saving || subagentModel === undefined}
-					onChange={(event) => updateSubagentModel(event.target.value)}
-				>
-					<option value="">Follow the chat model</option>
-					<option value="local">Local model server (the loaded model)</option>
-					{cloudModels.map((row) => (
-						<option
-							key={row.id}
-							value={row.id}
-						>
-							{row.name} — {row.modelId}
-						</option>
-					))}
-					{storedCloudMissing && (
-						<option value={subagentModel.provider}>
-							{subagentModel.provider} — {subagentModel.model} (unavailable)
-						</option>
-					)}
-				</SelectField>
-				{!cloudModels.length && (
-					<p className="mt-2 text-xs text-[var(--text-muted)]">
-						No cloud providers configured. Add one in Settings → Cloud Providers to run sub-agents
-						on a cloud model.
-					</p>
-				)}
+				<div className="mt-4">
+					<SubagentModelSelect disabled={saving} />
+				</div>
 			</section>
 			<section
 				className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"

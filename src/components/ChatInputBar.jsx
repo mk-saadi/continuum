@@ -22,6 +22,7 @@ const ChatInputBar = memo(
 			onAttach,
 			canSubmit,
 			hasAttachments,
+			hasQuote = false,
 			streaming,
 			loading,
 			attachDisabled,
@@ -45,7 +46,15 @@ const ChatInputBar = memo(
 		const { input: draftText, updateDraft, clearSubmitted } = useSessionDraft(sessionId);
 		const textarea = useRef(null);
 
-		useImperativeHandle(ref, () => ({ clearSubmitted }), [clearSubmitted]);
+		useImperativeHandle(
+			ref,
+			() => ({
+				clearSubmitted,
+				setDraft: updateDraft,
+				focusInput: () => textarea.current?.focus?.(),
+			}),
+			[clearSubmitted, updateDraft],
+		);
 
 		useLayoutEffect(() => {
 			const element = textarea.current;
@@ -53,7 +62,7 @@ const ChatInputBar = memo(
 			element.style.height = `${element.scrollHeight}px`;
 		}, [draftText]);
 
-		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments);
+		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments || hasQuote);
 		const submit = () => {
 			if (ready) onSubmit(draftText);
 		};
@@ -146,7 +155,12 @@ const ChatInputBar = memo(
 	}),
 );
 
-function PermissionSelector({ value = PERMISSION_MODE_DEFAULTS.casual, onChange, disabled, modes = PERMISSION_MODES }) {
+function PermissionSelector({
+	value = PERMISSION_MODE_DEFAULTS.casual,
+	onChange,
+	disabled,
+	modes = PERMISSION_MODES,
+}) {
 	const getIcon = (val) => {
 		switch (val) {
 			case "read_only":
@@ -173,8 +187,11 @@ function PermissionSelector({ value = PERMISSION_MODE_DEFAULTS.casual, onChange,
 				icon={getIcon(value)}
 				openTop={true}
 			>
-				{modes.map(mode => (
-					<option key={mode} value={mode}>
+				{modes.map((mode) => (
+					<option
+						key={mode}
+						value={mode}
+					>
 						{PERMISSION_MODE_LABELS[mode]}
 					</option>
 				))}

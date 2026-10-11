@@ -69,11 +69,14 @@ const run = (
 		require("../src/main/sessionManager").getOrCreateSession("chat", "model", project.id);
 		assert.ok(agentTools.length >= 11);
 		const imageGenerationConfigured = !!require("../src/main/cloudProviders").getActiveMediaModel("image");
+		const contextTools = require("../src/main/promptBuilder").getToolContext([], false, "chat").tools;
 		assert.equal(
-			require("../src/main/promptBuilder").getToolContext([], false, "chat").tools.length,
-			agentTools.length + 1 - (imageGenerationConfigured ? 0 : 1),
-			"ask_user is also available (generate_image only when an image provider is configured)",
+			contextTools.length,
+			agentTools.length + 1 - (imageGenerationConfigured ? 0 : 1) - 1,
+			"ask_user is also available (generate_image only when an image provider is configured); legacy delegate_task is shadowed while execute_command is offered",
 		);
+		assert.ok(contextTools.some((tool) => tool.function.name === "execute_command"));
+		assert.ok(!contextTools.some((tool) => tool.function.name === "delegate_task"));
 		assert.ok(
 			require("../src/main/promptBuilder")
 				.getToolContext([], false, null)

@@ -96,6 +96,7 @@ function defaultTrustedSender(event) {
 function registerIpcHandlers({
 	isTrustedSender = defaultTrustedSender,
 	llmSummarizeCallback,
+	llmCheckpointCallback,
 	launchEngine,
 	beginEngineRequest,
 	onIdleTimeoutChanged,
@@ -412,7 +413,7 @@ function registerIpcHandlers({
                 const usageTimestamp = new Date().toISOString();
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
-					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
+					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
                     messages = messages.filter(message => !message.memoryContext);
                     const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
                     const currentUserContent = [...messages].reverse().find(message => message.role === 'user')?.content;
@@ -489,18 +490,67 @@ function registerIpcHandlers({
                         loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
                         recoverContext: !cloud && sessionId ? async ({ contextWindowLimit, signal }) => {
                             if (typeof llmSummarizeCallback !== 'function') return null;
-                            const result = await require('./compressionEngine').recoverContextOverflow({
-                                sessionId, modelId, contextWindowLimit, signal,
+                            const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
+                            // Schemas for the floor projection: the same tool
+                            // set that will ride the rebuilt request, so the
+                            // gate measures the real overhead.
+                            const preTools = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode, modelId).tools);
+                            const excludeMessageIds = [persistence?.messageId, Number.isSafeInteger(messageId) ? messageId : null];
+                            const delegationAvailable = preTools.some(tool => tool.function?.name === 'spawn_sub_agent');
+                            // Configured output caps so the prospective
+                            // measurement reserves what the real request will
+                            // reserve (uncapped defaults otherwise; the guard
+                            // re-measures the real payload afterwards).
+                            const sampling = profiles.getSessionSettings(sessionId, modelId).params ?? {};
+                            const maxTokens = Number.isSafeInteger(sampling.max_tokens) && sampling.max_tokens > 0
+                                ? sampling.max_tokens : null;
+                            const thinkingBudget = Number.isSafeInteger(sampling.thinking_budget)
+                                ? sampling.thinking_budget : null;
+                            let result;
+                            try {
+                                result = await require('./compressionEngine').recoverContextOverflow({
+                                sessionId, modelId, contextWindowLimit, signal, tools: preTools,
+                                delegationAvailable, userText: currentUserText, excludeMessageIds,
+                                maxTokens, thinkingBudget,
+                                llmCheckpointCallback: typeof llmCheckpointCallback === 'function'
+                                    ? (input) => llmCheckpointCallback(input, modelId, { signal, maxTokens: require('./taskCheckpoints').CHECKPOINT_LLM_MAX_TOKENS })
+                                    : null,
+                                // Exact pre-commit verification over the live
+                                // server-template/tokenizer path (falls back
+                                // to the labeled approximation when probes
+                                // are unavailable; never held across a txn).
+                                measurePrompt: async ({ messages, tools, limit, signal: measureSignal }) => {
+                                    const measurer = require('./contextBudget').createPromptMeasurer(
+                                        require('./localEngineFetch').localEngineFetch);
+                                    return measurer(`http://127.0.0.1:${config.port}/v1/chat/completions`,
+                                        { model: modelId, messages, tools,
+                                            ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
+                                            ...(thinkingBudget != null ? { thinking_budget: thinkingBudget } : {}) },
+                                        { signal: measureSignal, contextWindowLimit: limit });
+                                },
                                 llmSummarizeCallback: (old, batch) => llmSummarizeCallback(old, batch, modelId, { signal, maxTokens: 512 }),
-                            });
-                            if (!result.compressed) return null;
+                                });
+                            } catch (error) {
+                                // Surface the failure reason to the inspection
+                                // panel through the existing completion
+                                // channel, then let the chat error propagate
+                                // unchanged to the caller.
+                                if (!sender.isDestroyed()) sender.send('session:compression-complete',
+                                    { sessionId, compressed: false, error: error?.message ?? String(error) });
+                                throw error;
+                            }
+                            if (!result.compressed) {
+                                if (result.reason && !sender.isDestroyed()) {
+                                    sender.send('session:compression-complete', { sessionId, ...result });
+                                }
+                                return null;
+                            }
                             if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, ...result });
                             const current = getEngineConfig?.();
                             if (current?.modelPath !== config.modelPath || current?.port !== config.port) throw new Error('The local model changed during context recovery. Send again with the loaded model.');
-                            const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
-                            const fresh = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode).tools);
-                            return { messages: rebuildChatMessages({ sessionId, modelId, excludeMessageIds: [persistence?.messageId, Number.isSafeInteger(messageId) ? messageId : null],
-                                delegationAvailable: fresh.some(tool => tool.function.name === 'spawn_sub_agent'), userText: currentUserText }) };
+                            const fresh = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode, modelId).tools);
+                            return { messages: rebuildChatMessages({ sessionId, modelId, excludeMessageIds,
+                                delegationAvailable: fresh.some(tool => tool.function.name === 'spawn_sub_agent'), userText: currentUserText, contextWindowLimit }) };
                         } : undefined,
 					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
@@ -510,7 +560,7 @@ function registerIpcHandlers({
 					chatTools: tools,
                     getChatTools: async () => {
                         await mcpManager.reload();
-                        const context = getToolContext(mcpManager.getTools(sessionId), profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled, sessionId, permissionMode);
+                        const context = getToolContext(mcpManager.getTools(sessionId), profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled, sessionId, permissionMode, modelId);
                         notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
                         return filterTools(context.tools);
                     },
@@ -547,6 +597,15 @@ function registerIpcHandlers({
                         }
 						notify({ type: "stats", stats });
 					},
+					// Live per-request prompt telemetry. Forward-only: never
+					// persisted here and never logged to token usage. The final
+					// onStats above remains the single persistence/logging path.
+					onPhase: ({ round, promptTokens, completionTokens, telemetry }) => {
+						notify({ type: "phase", sessionId, round,
+							promptTokens: promptTokens ?? null,
+							completionTokens: completionTokens ?? null,
+							telemetry });
+					},
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
 					executeTool: async (call) => {
 						controller.signal.throwIfAborted();
@@ -579,7 +638,7 @@ function registerIpcHandlers({
 									});
 							const output = sanitizeWebToolResult(rawOutput, call.name);
 							if (isAgent && call.name === 'manage_mcp_servers') {
-								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode);
+								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
 								notify({ type: 'context', pluginTokens: refreshed.pluginTokens, toolTokens: refreshed.toolTokens });
 							}
 							controller.signal.throwIfAborted();
@@ -799,8 +858,23 @@ function registerIpcHandlers({
 			);
 		},
 		"session:get-usage": ({ sessionId, modelId }) => getContextUsage(sessionId, modelId),
+		// Tokenizer-based measurement of the prepared prompt for the next
+		// request. Event-driven only (never polled): the renderer calls this
+		// after prompt state changes. Failures degrade to a labeled estimate.
+		"session:measure-context": async ({ sessionId, modelId, cloud = false, permissionMode = undefined, userText = "" }) => {
+			const config = getEngineConfig?.();
+			return require("./promptMeasurement").measurePreparedContext({ sessionId, modelId, cloud, permissionMode, userText,
+				engine: cloud || !config ? null : { port: config.port, modelPath: config.modelPath ?? config.activeModelConfig?.modelPath ?? null,
+					contextLength: config.activeModelConfig?.contextLength ?? 32768 } });
+		},
 		"session:get-messages": ({ sessionId }) => getActiveMessages(sessionId),
 		"session:get-summary": ({ sessionId }) => getSessionSummary(sessionId),
+		// Read-only Workspace Context inspection (see src/main/contextInspection.js).
+		// Same trusted-sender + withDataAccess wrapping as every handler below.
+		"session:get-checkpoint": ({ sessionId }) => require('./contextInspection').getCheckpointForDisplay(sessionId),
+		"session:get-checkpoint-history": ({ sessionId, limit }) => require('./contextInspection').getCheckpointHistoryForDisplay(sessionId, limit),
+		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
+		"session:get-archived-messages": ({ sessionId, limit, offset }) => require('./contextInspection').getArchivedMessagesForDisplay(sessionId, { limit, offset }),
 		"session:trigger-compression": ({ sessionId, modelId, contextWindowLimit }, notify) => {
 			if (typeof llmSummarizeCallback !== "function") {
 				throw new Error("Configure a main-process summarizer before scheduling compression.");
@@ -811,6 +885,9 @@ function registerIpcHandlers({
 				contextWindowLimit,
 				(oldSummary, messageBatch) => llmSummarizeCallback(oldSummary, messageBatch, modelId),
 				notify,
+				typeof llmCheckpointCallback === "function"
+					? (input) => llmCheckpointCallback(input, modelId)
+					: null,
 			);
 			return { scheduled: true };
 		},

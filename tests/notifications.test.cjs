@@ -35,12 +35,12 @@ try {
   assert.equal(window.focused, true);
 
   const { notifyChatOutcome, isContextLimitError } = require('../src/main/engineManager');
-  assert.equal(notifyChatOutcome({ text: 'Done. [TASK COMPLETE]', executionSteps: [{ type: 'tool_call', status: 'error' }] }), 'completion');
-  assert.equal(shown.at(-1).options.title, 'Task Completed');
+  assert.equal(notifyChatOutcome({ text: 'Done.', executionSteps: [{ type: 'tool_call', status: 'error' }] }), 'completion');
+  assert.equal(shown.at(-1).options.title, 'Response Finished');
   assert.equal(notifyChatOutcome({ text: 'Here is my answer.', executionSteps: [{ type: 'tool_call', status: 'error' }] }), 'completion');
   assert.equal(shown.at(-1).options.title, 'Response Finished');
   assert.equal(shown.at(-1).options.body, 'AI agent finished responding.');
-  assert.equal(notifyChatOutcome({ text: 'Done. [TASK COMPLETE]', interrupted: true }), 'error');
+  assert.equal(notifyChatOutcome({ text: 'Done.', interrupted: true }), 'error');
   assert.equal(shown.at(-1).options.title, 'Execution Interrupted');
   assert.equal(notifyChatOutcome({ error: new Error('Network disconnected') }), 'error');
   assert.equal(shown.at(-1).options.title, 'Execution Interrupted');

@@ -1,5 +1,5 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
+export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onPhase, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -12,6 +12,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   let thinking, stats, indexing, executionSteps;
   const toolEvents = new Map();
   let liveSteps = [];
+  const phaseEvents = [];
   const flush = () => {
     if (timer !== null) clearTimeout(timer);
     timer = null;
@@ -22,10 +23,12 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
     textBuffer.length = 0;
     thinking = stats = indexing = undefined;
     toolEvents.clear();
+    const phases = phaseEvents.splice(0, phaseEvents.length);
     if (text) onText?.(text);
     if (nextSteps !== undefined) onExecutionSteps?.(nextSteps);
     if (nextThinking !== undefined) onThinking?.(nextThinking);
     if (nextStats !== undefined) onStats?.(nextStats);
+    for (const phase of phases) onPhase?.(phase);
     if (nextIndexing !== undefined) onIndexing?.(nextIndexing);
     for (const tool of tools) onTool?.(tool);
   };
@@ -49,6 +52,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
     else if (event.type === 'text') textBuffer.push(event.delta);
     else if (event.type === 'thinking') thinking = event.thinking;
     else if (event.type === 'stats') stats = event.stats;
+    else if (event.type === 'phase' && event.sessionId === sessionId) phaseEvents.push(event);
     else if (event.type === 'indexing') {
       if (event.progress === null) {
         // A reset supersedes any progress still waiting in the batching timer.

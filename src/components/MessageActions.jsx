@@ -13,6 +13,10 @@ export default function MessageActions({
 }) {
 	const [copied, setCopied] = useState(false);
 	const saved = Number.isSafeInteger(message.id) && message.id > 0;
+	const activeContent = message.variants?.[message.active_variant_index ?? 0]?.content;
+	const textToCopy = typeof message.content === 'string' && message.content
+		? message.content
+		: typeof activeContent === 'string' ? activeContent : '';
 	const buttonClass =
 		"inline-flex items-center cursor-pointer gap-1 rounded p-1 hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -52,7 +56,7 @@ export default function MessageActions({
 				onBlur={() => setCopied(false)}
 				onClick={async () => {
 					try {
-						await navigator.clipboard.writeText(message.content || "");
+						await navigator.clipboard.writeText(textToCopy || "");
 						setCopied(true);
 					} catch (error) {
 						onError(`Could not copy message: ${error.message}`);

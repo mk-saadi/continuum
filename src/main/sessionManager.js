@@ -119,6 +119,14 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
       insertAttachment.run(savedId, attachment.file_path, attachment.mime_type);
     }
 
+    // Preserve Workspace user requirements verbatim, independently of the
+    // rolling summary. First brief is `original`, later ones `instruction`.
+    // Casual sessions store nothing. Same-transaction insert keeps message +
+    // brief atomic; a capture failure rolls back the message save.
+    if (role === 'user' && messageId === null) {
+      require('./taskBriefs').captureBriefForUserMessage(sessionId, savedId, content, files);
+    }
+
     db.prepare(`
       UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?
     `).run(sessionId);
@@ -163,6 +171,23 @@ function getSessionSummary(sessionId) {
   return row ? row.summary_text : null;
 }
 
+function getLastTurnTelemetry(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  const row = db.prepare(`
+    SELECT id, stats FROM messages
+    WHERE session_id = ? AND role = 'assistant' AND stats IS NOT NULL
+    ORDER BY id DESC LIMIT 1`).get(sessionId);
+  if (!row) return null;
+  const stats = parseStats(row.stats);
+  if (!stats) return null;
+  const { lastPromptTokens = null, peakPromptTokens = null, peakRequestIndex = null,
+    promptRequests = null, promptCoverage = null, completionTokens = null,
+    totalTokens = null, scope = null } = stats;
+  if (lastPromptTokens === null && peakPromptTokens === null) return null;
+  return { messageId: row.id, lastPromptTokens, peakPromptTokens, peakRequestIndex,
+    promptRequests, promptCoverage, completionTokens, totalTokens, scope };
+}
+
 function getContextUsage(sessionId, currentModelId) {
   requireIdentifier(sessionId, 'sessionId');
   requireIdentifier(currentModelId, 'currentModelId');
@@ -184,6 +209,9 @@ function getContextUsage(sessionId, currentModelId) {
       totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens,
       messageCount,
       hasSummary: summary !== null,
+      // Latest persisted per-turn server telemetry for this session only.
+      // This is actual backend-reported prompt data, not part of the estimate.
+      telemetry: getLastTurnTelemetry(sessionId),
     };
   })();
 }
@@ -195,6 +223,7 @@ module.exports = {
   getActiveMessages,
   getSessionSummary,
   getContextUsage,
+  getLastTurnTelemetry,
 };
 
 function loadSession(sessionId) {
@@ -370,6 +399,20 @@ function normalizeStats(stats) {
       (key.endsWith('Tokens') && !Number.isSafeInteger(value)))) throw new TypeError(`Invalid generation stat: ${key}.`);
     result[key] = value;
   }
+  // Per-turn server telemetry: actual backend-reported prompt sizes.
+  // lastPromptTokens is the most recent request; peakPromptTokens is the
+  // maximum single request (never the sum). promptCoverage tracks whether
+  // every request in the turn reported prompt tokens.
+  for (const key of ['lastPromptTokens', 'peakPromptTokens', 'promptRequests', 'peakRequestIndex']) {
+    const value = stats[key] ?? null;
+    if (value !== null && (!Number.isSafeInteger(value) || value < 0)) throw new TypeError(`Invalid generation stat: ${key}.`);
+    if (value !== null) result[key] = value;
+    else if (key in stats && stats[key] === null) result[key] = null;
+  }
+  if (stats.promptCoverage != null) {
+    if (!['complete', 'partial', 'none'].includes(stats.promptCoverage)) throw new TypeError('Invalid generation stat: promptCoverage.');
+    result.promptCoverage = stats.promptCoverage;
+  }
   if (stats.generationTime != null) {
     if (typeof stats.generationTime !== 'number' || !Number.isFinite(stats.generationTime) || stats.generationTime < 0) throw new TypeError('Invalid generation time.');
     result.generationTime = stats.generationTime;
@@ -470,16 +513,22 @@ function branchChat(sourceSessionId, targetMessageId) {
     const copyAttachments = db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
       SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ? ORDER BY id`);
     let parentId = null;
+    const messageIdMap = new Map();
     for (const message of messages) {
       const result = insert.run(sessionId, parentId, message.role, message.content, message.variant_index, message.estimated_tokens,
         message.stats, message.tool_calls, message.thinking_text, message.thinking_duration,
         message.model_name, message.model_id, message.agent_name, message.created_at);
       parentId = Number(result.lastInsertRowid);
+      messageIdMap.set(message.id, parentId);
       db.prepare('UPDATE messages SET variants = ?, active_variant_index = ? WHERE id = ?').run(JSON.stringify(parseVariants(message)), message.active_variant_index ?? 0, result.lastInsertRowid);
       db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(message.execution_steps, message.display_name, result.lastInsertRowid);
       copyAttachments.run(result.lastInsertRowid, message.id);
     }
     db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(parentId, sessionId);
+    // Inherit only briefs anchored to the branch's ancestor messages. Later
+    // instructions from beyond the branch point are never copied.
+    require('./taskBriefs').copyBriefsForBranch(
+      sessionId, sourceSessionId, new Set(messages.map(message => message.id)), messageIdMap);
     return { sessionId };
   }).immediate();
 }

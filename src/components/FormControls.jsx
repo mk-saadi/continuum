@@ -249,6 +249,7 @@ export const SelectField = forwardRef(function SelectField(
 								...(openTop ? { transform: "translateY(-100%)" } : {}),
 							}}
 							className="absolute z-[9999] min-w-[220px] max-h-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
+							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
 									event.preventDefault();
@@ -407,7 +408,7 @@ export const TextAreaField = forwardRef(function TextAreaField(
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] ${inputClassName}`}
+					className={`min-w-0 w-full bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
 				/>
 			</div>
 		</FieldShell>

@@ -1,19 +1,26 @@
 import RightSidebar from "../RightSidebar";
+import { getSidebarMode } from "../../lib/sidebarControls.mjs";
 import AssistantAvatar from "../AssistantAvatar";
 import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
 import Sidebar from "../Sidebar.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { BsRobot } from "react-icons/bs";
+import { FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
+import { combineQuotedMessage } from "../../lib/textSelection.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { firstPromptTitle } from "../../lib/chatTitle.mjs";
 import { LuX } from "react-icons/lu";
 import { IoIosHourglass } from "react-icons/io";
 import ToolApprovalToast from "./ToolApprovalToast.jsx";
 import ToolLimitToast from "./ToolLimitToast.jsx";
+import WorkspaceTimeline from "../chat/WorkspaceTimeline.jsx";
+import TextSelectionMenu from "../chat/TextSelectionMenu.jsx";
+import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
+import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
 import {
@@ -83,9 +90,9 @@ export function ChatInterface({
 	avatarSettings,
 	isRightSidebarOpen,
 	onCloseRightSidebar,
-models,
+	models,
 	onSelectModel,
-onTabUpdate,
+	onTabUpdate,
 	tabPermissionMode,
 	tabSaved = false,
 	onTabSaved,
@@ -121,9 +128,10 @@ onTabUpdate,
 	const [messages, setMessages] = useState([]);
 	const streamBuffer = useStreamBuffer();
 	const activeStreamMessageIdRef = useRef(null);
-	const loadDisplaySession = (sessionId) => palace.api.loadDisplaySession?.(sessionId) ?? palace.api.loadSession(sessionId);
-	const displayMessages = (session) => palace.api.loadDisplaySession
-		? session.messages : session.messages.map(compactMessageForDisplay);
+	const loadDisplaySession = (sessionId) =>
+		palace.api.loadDisplaySession?.(sessionId) ?? palace.api.loadSession(sessionId);
+	const displayMessages = (session) =>
+		palace.api.loadDisplaySession ? session.messages : session.messages.map(compactMessageForDisplay);
 	const [promptQueue, setPromptQueue] = useState([]);
 	const queuePrompt = useCallback((text) => {
 		setPromptQueue((previous) => [...previous, { id: Date.now(), text }]);
@@ -131,6 +139,12 @@ onTabUpdate,
 	const isUserScrolledUp = useRef(false);
 	const composerRef = useRef(null);
 	const [selectedFiles, setSelectedFiles] = useState([]);
+	const [quotedSelection, setQuotedSelection] = useState("");
+	// A quoted selection belongs to the visible draft; drop it on chat switch
+	// so it can never leak into another conversation.
+	useEffect(() => {
+		setQuotedSelection("");
+	}, [palace.sessionId]);
 	const [indexing, setIndexing] = useState(null);
 	const fileInputRef = useRef(null);
 	const uploadCache = useRef(new Map());
@@ -221,7 +235,7 @@ onTabUpdate,
 						: "idle",
 		});
 	}, [toolApprovals, toolLimit, pausedLoop, pendingQuestions, streaming, onTabUpdate]);
-useEffect(() => {
+	useEffect(() => {
 		if (!streaming) {
 			setPendingQuestions({});
 			setPausedLoop(null);
@@ -259,13 +273,11 @@ useEffect(() => {
 	// connected root behaves as a casual chat — availablePermissionModes and
 	// the backend normalizeMode both encode that rule from the shared catalog.
 	const activeProject = projects.find((candidate) => candidate.id === activeProjectId) ?? null;
-	const sessionRow = groups
-		.flatMap((group) => group.sessions)
-		.find((row) => row.id === palace.sessionId);
+	const sessionRow = groups.flatMap((group) => group.sessions).find((row) => row.id === palace.sessionId);
 	const project = sessionRow
-		? projects.find((candidate) => candidate.id === sessionRow.project_id) ?? null
+		? (projects.find((candidate) => candidate.id === sessionRow.project_id) ?? null)
 		: activeProject;
-	const chatProjectId = sessionRow ? sessionRow.project_id ?? null : activeProjectId ?? null;
+	const chatProjectId = sessionRow ? (sessionRow.project_id ?? null) : (activeProjectId ?? null);
 	const permissionMode = resolveChatPermissionMode({
 		sessionId: palace.sessionId,
 		currentSessionId: palace.sessionId,
@@ -273,6 +285,22 @@ useEffect(() => {
 		sessionMode: permissionBySession[palace.sessionId],
 		project,
 	});
+	// Authoritative sidebar mode: the session row's project wins for existing
+	// chats, the tab's project binding for fresh drafts — never the sidebar's
+	// own visibility or tab state.
+	const isWorkspaceChat = getSidebarMode(chatProjectId) === "workspace";
+	// Skill proposals awaiting review above the composer. Resolved decisions
+	// persist per step id in localStorage; the transcript shows the outcome.
+	const skillProposals = pendingSkillProposals(messages, readSkillDecision);
+	// Skill decisions live in localStorage, outside React state. Bump this
+	// after each register/decline so the pending panel unmounts and the turn
+	// outcome renders in the same commit (a panel-local setState would leave
+	// the resolved card stuck above the composer).
+	const [, bumpSkillDecisions] = useState(0);
+	const changePermissionMode = (mode) => {
+		setPermissionBySession((current) => ({ ...current, [palace.sessionId]: mode }));
+		onTabUpdate?.({ permissionMode: mode });
+	};
 	const [historyError, setHistoryError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [editing, setEditing] = useState(null);
@@ -315,6 +343,44 @@ useEffect(() => {
 		setEditing(null);
 		palace.setDraftTokens(0);
 	};
+	const newWorkspaceChat = async (projectId) => {
+		if (busyRef.current || agentLoading) return;
+		if (!chatAvailable || !selectedModel) {
+			setHistoryError("Select and start a model before creating a workspace chat.");
+			return;
+		}
+		if (!projectId) return;
+		busyRef.current = true;
+		setIndexing(null);
+		setLoading(true);
+		setHistoryError("");
+		try {
+			const id = crypto.randomUUID();
+			await palace.api.getOrCreateSession(id, selectedModel, projectId);
+			const targetProject = projects.find((candidate) => candidate.id === projectId) ?? null;
+			pendingAgent.current = null;
+			pendingSend.current = null;
+			setPromptQueue([]);
+			palace.setSessionId(id);
+			onTabUpdate?.({
+				title: "New chat",
+				status: "idle",
+				projectId,
+				permissionMode: defaultPermissionMode(targetProject),
+			});
+			setMessages([]);
+			clearFiles();
+			setEditing(null);
+			palace.setDraftTokens(0);
+			onChat();
+			await refreshHistory();
+		} catch (err) {
+			setHistoryError(err.message);
+		} finally {
+			busyRef.current = false;
+			setLoading(false);
+		}
+	};
 
 	const loadChat = async (id) => {
 		if (busyRef.current) return;
@@ -331,7 +397,7 @@ useEffect(() => {
 			// session, so the tab's stored mode only applies when it is the
 			// same chat being reloaded (never a stale mode leaking sideways).
 			const targetProject = session.project_id
-				? projects.find((candidate) => candidate.id === session.project_id) ?? null
+				? (projects.find((candidate) => candidate.id === session.project_id) ?? null)
 				: null;
 			const nextPermissionMode = resolveChatPermissionMode({
 				sessionId: id,
@@ -644,7 +710,14 @@ useEffect(() => {
 			draftSessionId = palace.sessionId,
 			queued = false,
 		) => {
-			const text = retry ? "" : edit ? editText.trim() : submittedText.trim();
+			// A quoted transcript selection travels as context above fresh prompts
+			// (never on edits, retries, or queued sends, which bake it in at
+			// queue time instead).
+			const text = retry
+				? ""
+				: edit
+					? editText.trim()
+					: combineQuotedMessage(!queued ? quotedSelection : "", submittedText);
 			if (
 				(!retry && !text && (edit || !selectedFiles.length)) ||
 				agentLoading ||
@@ -660,14 +733,14 @@ useEffect(() => {
 				palace.setSessionId(crypto.randomUUID());
 				return;
 			}
-if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
+			if (pendingAgent.current) return; // A failed pending apply must be retried before generation.
 
-		busyRef.current = true;
-		setIndexing(null);
-		setHistoryError("");
-		// The session row is created from here on, so the tab becomes a
-		// restorable chat rather than a blank one.
-		onTabSaved?.(palace.sessionId);
+			busyRef.current = true;
+			setIndexing(null);
+			setHistoryError("");
+			// The session row is created from here on, so the tab becomes a
+			// restorable chat rather than a blank one.
+			onTabSaved?.(palace.sessionId);
 			const identity = Object.freeze({
 				displayName: resolveDisplayName(
 					avatarSettings,
@@ -745,9 +818,10 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 				if (!queued && !edit && !retry) {
 					composerRef.current?.clearSubmitted(submittedText, draftSessionId);
 					clearFiles();
+					setQuotedSelection("");
 				}
-			const saved = await loadDisplaySession(palace.sessionId);
-			setMessages([...displayMessages(saved), assistantMsg]);
+				const saved = await loadDisplaySession(palace.sessionId);
+				setMessages([...displayMessages(saved), assistantMsg]);
 				await refreshHistory();
 				const thinkingBudget =
 					(await window.api.getEffectiveSettings(palace.sessionId, selectedModel)).effective
@@ -773,7 +847,13 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 						setMessages((prev) =>
 							prev.map((message) =>
 								message.id === assistantMsg.id
-									? { ...message, executionSteps: compactStepsForDisplay(steps, message.executionSteps) }
+									? {
+											...message,
+											executionSteps: compactStepsForDisplay(
+												steps,
+												message.executionSteps,
+											),
+										}
 									: message,
 							),
 						);
@@ -786,6 +866,9 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 								message.id === assistantMsg.id ? { ...message, stats } : message,
 							),
 						);
+					},
+					onPhase: (event) => {
+						palace.noteLivePhase?.(event);
 					},
 					onText: (delta) => {
 						streamBuffer.push(delta);
@@ -837,7 +920,9 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 						if (saved)
 							setMessages((prev) =>
 								prev.map((message) =>
-									message.id === assistantMsg.id ? { ...compactMessageForDisplay(saved), streaming: false } : message,
+									message.id === assistantMsg.id
+										? { ...compactMessageForDisplay(saved), streaming: false }
+										: message,
 								),
 							);
 						else setMessages((prev) => prev.filter((message) => message.id !== assistantMsg.id));
@@ -852,6 +937,9 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 				setMessages((prev) =>
 					prev.map((message) => (message.streaming ? { ...message, streaming: false } : message)),
 				);
+				// Turn over: persisted telemetry (via finishMessage's refresh)
+				// supersedes live per-request updates from this point on.
+				palace.clearLiveTelemetry?.();
 				await refreshHistory().catch((err) => setHistoryError(err.message));
 				if (edit) {
 					try {
@@ -891,6 +979,7 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 		[
 			editText,
 			selectedFiles,
+			quotedSelection,
 			clearFiles,
 			selectedModel,
 			permissionMode,
@@ -902,7 +991,7 @@ if (pendingAgent.current) return; // A failed pending apply must be retried befo
 			avatarSettings,
 			sessionAgent,
 			agentLoading,
-chatAvailable,
+			chatAvailable,
 			palace,
 			refreshHistory,
 			onTabSaved,
@@ -1010,7 +1099,11 @@ chatAvailable,
 				onExecutionSteps: (executionSteps) => updateDraft({ executionSteps }),
 				onStats: (stats) => updateDraft({ stats }),
 			});
-			setMessages((previous) => previous.map((row) => (row.id === message.id ? compactMessageForDisplay(result.message) : row)));
+			setMessages((previous) =>
+				previous.map((row) =>
+					row.id === message.id ? compactMessageForDisplay(result.message) : row,
+				),
+			);
 			await palace.refresh();
 			await refreshHistory();
 		} catch (error) {
@@ -1041,7 +1134,9 @@ chatAvailable,
 			);
 			try {
 				const saved = await palace.api.setActiveVariant(palace.sessionId, message.id, index);
-				setMessages((previous) => previous.map((row) => (row.id === message.id ? compactMessageForDisplay(saved) : row)));
+				setMessages((previous) =>
+					previous.map((row) => (row.id === message.id ? compactMessageForDisplay(saved) : row)),
+				);
 				await palace.refresh();
 			} catch (error) {
 				setMessages((previous) => previous.map((row) => (row.id === message.id ? message : row)));
@@ -1053,8 +1148,10 @@ chatAvailable,
 		},
 		[palace.api, palace.sessionId, palace.refresh],
 	);
-	const answerQuestion = useCallback((request, answer) =>
-		window.chatAPI.respondToAskUser(request.requestId, request.questionId, answer), []);
+	const answerQuestion = useCallback(
+		(request, answer) => window.chatAPI.respondToAskUser(request.requestId, request.questionId, answer),
+		[],
+	);
 	const selectMessageBranch = async (message, offset) => {
 		if (busyRef.current || !palace.api) return;
 		const siblings = message.siblings || [];
@@ -1063,7 +1160,11 @@ chatAvailable,
 		busyRef.current = true;
 		setLoading(true);
 		try {
-			setMessages((await palace.api.selectMessageBranch(palace.sessionId, targetId)).map(compactMessageForDisplay));
+			setMessages(
+				(await palace.api.selectMessageBranch(palace.sessionId, targetId)).map(
+					compactMessageForDisplay,
+				),
+			);
 			await palace.refresh();
 		} catch (error) {
 			setHistoryError(error.message);
@@ -1091,6 +1192,20 @@ chatAvailable,
 			abortRef.current.abort();
 		}
 	};
+	// Stage a transcript excerpt as a quoted block above the composer (the
+	// Selection chip). The user reviews it, optionally types alongside it, and
+	// submits manually; sendMessage prepends the quote to fresh sends and
+	// clears the chip on submit.
+	const askAboutSelection = useCallback((selectedText) => {
+		const excerpt = String(selectedText ?? "").trim();
+		if (!excerpt) return;
+		setQuotedSelection(excerpt);
+		try {
+			composerRef.current?.focusInput?.();
+		} catch {
+			/* Focusing the composer is optional. */
+		}
+	}, []);
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
 			{toolApprovals[0] && (
@@ -1152,6 +1267,10 @@ chatAvailable,
 					onProject={onProject}
 					onCreateProject={onCreateProject}
 					onChat={onChat}
+					isWorkspace={isWorkspaceChat}
+					chatProjectId={chatProjectId}
+					onNewWorkspaceChat={() => newWorkspaceChat(chatProjectId)}
+					canStartChat={!!chatAvailable && !!selectedModel}
 					isOpen={isSidebarOpen}
 					groups={groups}
 					activeId={palace.sessionId}
@@ -1170,8 +1289,7 @@ chatAvailable,
 								// A manual rename is the locked title — reflect it in the
 								// open tab instead of waiting for the session to reload.
 								if (id === palace.sessionId) onTabUpdate?.({ title: value.trim() });
-							}
-							else if (kind === "Move to Folder") await palace.api.moveSession(id, value);
+							} else if (kind === "Move to Folder") await palace.api.moveSession(id, value);
 							else {
 								await palace.api.deleteSession(id);
 								if (id === palace.sessionId) {
@@ -1207,7 +1325,7 @@ chatAvailable,
 			})}
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}
-				className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
+				className="flex h-full min-h-0 min-w-0 bg-[var(--bg-secondary)]! flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
 			>
 				{historyError && (
 					<p
@@ -1222,7 +1340,7 @@ chatAvailable,
 					ref={messagesRef}
 					onScroll={handleScroll}
 				>
-					<div className="mx-auto flex min-h-full w-full max-w-[960px] flex-col gap-7">
+					<div className={`mx-auto flex min-h-full w-full flex-col gap-7 max-w-[960px]`}>
 						{messages.length === 0 ? (
 							<div className="flex flex-1 flex-col items-center justify-center gap-3 max-[450px]:gap-1 max-[450px]:text-center text-[var(--text-muted)]">
 								<span className="text-[50px] opacity-40 max-[450px]:text-xl">
@@ -1234,6 +1352,35 @@ chatAvailable,
 										: "Waiting for engine to report an active port..."}
 								</span>
 							</div>
+						) : isWorkspaceChat ? (
+							<WorkspaceTimeline
+								messages={messages}
+								streamBuffer={streamBuffer}
+								activeStreamMessageId={activeStreamMessageIdRef.current}
+								onStreamFrame={onStreamFrame}
+								projectId={chatProjectId}
+								pendingQuestions={pendingQuestions}
+								disabled={streaming || loading}
+								onSelectReplyVariant={selectReplyVariant}
+								activeModelName={activeModelName}
+								selectedModel={selectedModel}
+								sessionAgent={sessionAgent}
+								avatarSettings={avatarSettings}
+								onDelete={(id) => handleMessageAction("delete", id)}
+								onBranch={(id) => handleMessageAction("branch", id)}
+								onRegenerate={regenerateReply}
+								onStartEdit={(messageToEdit) => {
+									setEditing(messageToEdit.id);
+									setEditText(messageToEdit.content);
+								}}
+								onError={setHistoryError}
+								editing={editing}
+								editText={editText}
+								onEditChange={setEditText}
+								onCancelEdit={() => setEditing(null)}
+								onSubmitEdit={(messageToEdit) => sendMessage(messageToEdit)}
+								lastMessageId={messages.at(-1)?.id ?? null}
+							/>
 						) : (
 							messages.map((msg, i) => {
 								const isEditing = editing === msg.id && msg.id;
@@ -1359,17 +1506,24 @@ chatAvailable,
 													{msg.role === "assistant" ? (
 														<ChatMessage
 															message={msg}
-															streamBuffer={msg.streaming && activeStreamMessageIdRef.current === msg.id ? streamBuffer : undefined}
+															streamBuffer={
+																msg.streaming &&
+																activeStreamMessageIdRef.current === msg.id
+																	? streamBuffer
+																	: undefined
+															}
 															onStreamFrame={onStreamFrame}
 															// Skill proposals register against the chat's own
 															// project (session row, else the tab binding) —
 															// never the currently selected tab's project.
 															projectId={chatProjectId}
 															pendingQuestions={pendingQuestions}
-												onAnswerQuestion={answerQuestion}
+															onAnswerQuestion={answerQuestion}
 															showHeader={false}
 															disabled={streaming || loading}
 															onSelectReplyVariant={selectReplyVariant}
+															mode="casual"
+															interactive={false}
 														/>
 													) : (
 														msg.content ||
@@ -1462,10 +1616,27 @@ chatAvailable,
 						)}
 					</div>
 				</div>
+				{/* Pending questions and skill approvals stay anchored above the
+				composer, independent of conversation scroll. The transcript
+				below keeps only the resolved outcome at the step's position. */}
+				{/* Transcript text-selection menu (Copy / Ask question). Scoped to
+				the transcript scroll container, so it appears only for chat
+				transcript selections in both Casual and Workspace modes. */}
+				<TextSelectionMenu
+					scopeRef={messagesRef}
+					onAskQuestion={askAboutSelection}
+				/>
+				<PendingInteractions
+					pendingQuestions={pendingQuestions}
+					skillProposals={skillProposals}
+					onAnswerQuestion={answerQuestion}
+					onDecision={() => bumpSkillDecisions((version) => version + 1)}
+					projectId={chatProjectId}
+				/>
 				{selectedFiles.length > 0 && (
 					<div
 						aria-label="Selected attachments"
-						className="mx-auto mb-3 flex w-[calc(100%-2rem)] max-w-[980px] max-h-36 shrink-0 gap-2 overflow-auto border-t border-[var(--border)] py-2 "
+						className={`mx-auto mb-3 flex w-[calc(100%-2rem)] max-h-36 shrink-0 gap-2 overflow-auto border-t border-[var(--border)] py-2 max-w-[980px]`}
 					>
 						{selectedFiles.map((file, index) => (
 							<SelectedFilePreview
@@ -1508,7 +1679,7 @@ chatAvailable,
 						event.preventDefault();
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
-					className="mx-auto relative mb-3 flex w-[calc(100%-2rem)] max-w-[980px] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px]"
+					className={`mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]`}
 				>
 					{promptQueue.length > 0 && (
 						<div
@@ -1562,6 +1733,31 @@ chatAvailable,
 						}}
 					/>
 
+					{quotedSelection ? (
+						<div
+							aria-label="Quoted selection"
+							className="min-w-0 rounded-lg border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-2"
+						>
+							<p className="line-clamp-3 min-w-0 break-words whitespace-pre-wrap text-xs leading-relaxed text-[var(--text-secondary)] select-text">
+								{quotedSelection}
+							</p>
+							<div className="mt-1.5 flex items-center justify-between gap-2">
+								<span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
+									<FiMessageSquare aria-hidden="true" />
+									Selection
+								</span>
+								<button
+									type="button"
+									aria-label="Remove quoted selection"
+									onClick={() => setQuotedSelection("")}
+									className="flex size-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+								>
+									<LuX className="size-3" />
+								</button>
+							</div>
+						</div>
+					) : null}
+
 					<ChatInput
 						modelId={selectedModel}
 						permissionMode={permissionMode}
@@ -1570,13 +1766,16 @@ chatAvailable,
 						onMidRunQuestionsChange={changeMidRunQuestions}
 						midRunQuestionsBusy={midRunQuestionsBusy}
 						midRunQuestionsError={midRunQuestionsError}
-						onPermissionModeChange={(mode) => {
-							setPermissionBySession((current) => ({ ...current, [palace.sessionId]: mode }));
-							onTabUpdate?.({ permissionMode: mode });
-						}}
+						onPermissionModeChange={changePermissionMode}
 						ref={composerRef}
 						sessionId={palace.sessionId}
-						onQueue={queuePrompt}
+						hasQuote={!!quotedSelection}
+						onQueue={(text) => {
+							// Bake the quote in now: the queued send must not pick up
+							// a different (or dismissed) quote when it later runs.
+							queuePrompt(combineQuotedMessage(quotedSelection, text));
+							setQuotedSelection("");
+						}}
 						onSubmit={(text) => sendMessage(null, false, text)}
 						onStop={handleStop}
 						onAttach={() => fileInputRef.current?.click()}
@@ -1596,7 +1795,6 @@ chatAvailable,
 				</div>
 			</div>
 			<RightSidebar
-				activeModel={activeModel}
 				open={view === "chat" && isRightSidebarOpen}
 				onClose={onCloseRightSidebar}
 				sessionId={palace.sessionId}
@@ -1607,6 +1805,21 @@ chatAvailable,
 				onSelectAgent={selectAgent}
 				onSavePrompt={savePrompt}
 				tuningVersion={tuningVersion}
+				isWorkspace={isWorkspaceChat}
+				projectName={project?.name ?? null}
+				modelName={activeModelName || selectedModel}
+				cloudChat={activeChatProvider.type === "cloud"}
+				runtime={{
+					streaming,
+					loading,
+					agentLoading,
+					toolApprovals,
+					pendingQuestions,
+					toolLimit,
+					pausedLoop,
+					messages,
+					indexing,
+				}}
 			/>
 		</div>
 	);
