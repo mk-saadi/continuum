@@ -15,6 +15,9 @@ const MIME_TYPES = Object.freeze({
 	".md": "text/markdown",
 	".csv": "text/csv",
 	".pdf": "application/pdf",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".wav": "audio/wav", ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".mpeg": "video/mpeg", ".mpg": "video/mpeg",
 	".json": "application/json",
 	".js": "text/javascript",
 	".mjs": "text/javascript",
@@ -58,7 +61,7 @@ function inspectFile(filePath) {
 	const mime = MIME_TYPES[path.extname(filePath).toLowerCase()];
 	if (!mime)
 		throw new Error(
-			"Supported attachments: PNG, JPEG, GIF, WebP, PDF, and text files (TXT, Markdown, CSV, JSON, source code, and configuration files).",
+			"Supported formats: images, WAV/MP3 audio, MP4/WebM/MOV/MPEG video, PDF, XLSX, and text files. Media availability depends on the selected model.",
 		);
 	const stat = fs.statSync(filePath);
 	if (!stat.isFile()) throw new Error("Attachments must be regular files.");
@@ -124,10 +127,11 @@ async function processUploads(filePaths) {
 			if (source.bytes) await fs.promises.writeFile(filePath, source.bytes, { flag: "wx" });
 			else await fs.promises.copyFile(source.file_path, filePath, fs.constants.COPYFILE_EXCL);
 			saved.push({ file_path: filePath, mime_type: source.mime_type });
+            await require("./attachmentDocuments").extractAttachmentDocument(filePath);
 		}
 		return validateAttachments(saved);
 	} catch (error) {
-		await Promise.all(saved.map(({ file_path }) => fs.promises.unlink(file_path).catch(() => {})));
+		await Promise.all(saved.flatMap(({ file_path }) => [file_path, file_path + ".extracted.txt"].map(target => fs.promises.unlink(target).catch(() => {}))));
 		throw error;
 	}
 }

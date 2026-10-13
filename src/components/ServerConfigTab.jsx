@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DirectorySettings from './DirectorySettings';
 
 export default function ServerConfigTab({ config: mcpConfig, busy: mcpBusy, onSave: saveMcpConfig, error: mcpError, onError: setMcpError }) {
   const mcpLoading = !mcpConfig;
@@ -53,7 +52,6 @@ export default function ServerConfigTab({ config: mcpConfig, busy: mcpBusy, onSa
   }
 
   return <div className="space-y-4">
-    <DirectorySettings />
     <p className="text-xs text-[var(--text-secondary)]">Add a local process or remote SSE server, or edit the complete configuration.</p>
     {mcpError && <p role="alert" className="palace-error">{mcpError}</p>}
         {rawEditing ? <form className="palace-form" onSubmit={saveRawConfig}>

@@ -28,6 +28,7 @@ const executions = new Map();
 const EXECUTION_STATUS = Object.freeze({
   RUNNING: 'running',
   COMPLETED: 'completed',
+  PARTIAL: 'partial',
   FAILED: 'failed',
   CANCELLED: 'cancelled',
   // Interrupted is deliberately its own status: the attempt stopped early on
@@ -58,8 +59,10 @@ function listExecutions(sessionId) {
   return [...executions.values()].filter(item => item.sessionId === sessionId);
 }
 
-function completeExecution(execution, { usage = null, result = null } = {}) {
-  execution.status = EXECUTION_STATUS.COMPLETED;
+function completeExecution(execution, { usage = null, result = null, outcome = 'completed', stopReason = 'completed', accounting = null } = {}) {
+  execution.status = outcome;
+  execution.stopReason = stopReason;
+  execution.accounting = accounting;
   execution.completedAt = new Date().toISOString();
   if (usage) execution.usage = usage;
   execution.result = result;
@@ -70,11 +73,17 @@ function failExecution(execution, error) {
   execution.status = EXECUTION_STATUS.FAILED;
   execution.completedAt = new Date().toISOString();
   execution.error = String(error?.message ?? error);
+  execution.stopReason = error?.stopReason ?? 'runtime_error';
+  if (error?.subagentResult) {
+    execution.usage = error.subagentResult.usage; execution.accounting = error.subagentResult.accounting;
+    execution.result = error.subagentResult.output;
+  }
   return execution;
 }
 
 function cancelExecution(execution) {
   execution.status = EXECUTION_STATUS.CANCELLED;
+  execution.stopReason = 'cancelled';
   execution.completedAt = new Date().toISOString();
   return execution;
 }
@@ -92,6 +101,7 @@ function flagInterrupt(execution) {
 
 function interruptExecution(execution) {
   execution.status = EXECUTION_STATUS.INTERRUPTED;
+  execution.stopReason = 'interrupted';
   execution.completedAt = new Date().toISOString();
   return execution;
 }

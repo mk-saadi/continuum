@@ -11,8 +11,9 @@ try {
   fs.writeFileSync(path.join(root, 'vision-MMPROJ-f16.GGUF'), 'projector');
   let models = await scanDirectoryForModels(root);
   assert.equal(models.length, 1);
-  assert.equal(models[0].hasVisionProjector, true);
-  assert.equal(models[0].mmprojPath, path.join(root, 'vision-MMPROJ-f16.GGUF'));
+  assert.equal(models[0].hasVisionProjector, false);
+  assert.equal(models[0].projectorCandidates.length, 1);
+  assert.equal(models[0].mmprojPath, null);
   assert.equal(models[0].hasVision, true);
   assert.equal(models[0].hasTools, true);
   assert.equal(models[0].paramSize, '26B');

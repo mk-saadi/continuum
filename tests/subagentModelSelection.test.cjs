@@ -275,7 +275,7 @@ test('2. with no setting a child inherits the parent chat model exactly', async 
     assert.equal(forbidden.calls.length, 0, 'a cloud child never uses the forwarded local fetch');
     assert.equal(cloudTargets.length, 1);
     assert.deepEqual(cloudTargets[0].target, CLOUD_TARGET, 'the inherited target is the parent chat model');
-    assert.equal(cloudTargets[0].stream, false, 'sub-agent requests are single non-streaming JSON');
+    assert.equal(cloudTargets[0].stream, true, 'sub-agent requests enable live progress streaming');
     assert.equal(cloud.payloads[0].model, 'cloud-child');
     const cloudChild = childOf('sel-inherit-cloud');
     assert.equal(cloudChild.provider, 'cloud');

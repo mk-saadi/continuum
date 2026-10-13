@@ -22,9 +22,9 @@ const spawnSubagentTool = {
     parameters: {
       type: 'object',
       properties: {
-        task: { type: 'string', description: 'Clear, specific question or instruction for the worker.' },
+        task: { type: 'string', description: 'Concrete bounded question, paths or sources, exclusions, and acceptance criterion. Avoid overlap with other children.' },
         constraint: { type: 'string', description: 'Optional length and omission rules, such as no raw HTML or boilerplate.' },
-        expected_output: { type: 'string', description: 'Requested summary format, such as a markdown table and two sentences.' },
+        expected_output: { type: 'string', description: 'Concise findings with file/line or URL evidence first, followed by uncertainties and unfinished work.' },
         url: { type: 'string', description: 'Public HTTP or HTTPS URL for web research (one per call). The worker fetches only this page — there is no web search, so discovery-style tasks need the exact URL supplied.' },
         target_file: { type: 'string', description: 'Absolute path to a single local file to analyze.' },
         investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
@@ -51,7 +51,7 @@ function boundResultForParent(answer) {
 }
 
 async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file, investigate,
-  engine, signal, parentSessionId = null, rootPath }) {
+  engine, signal, parentSessionId = null, parentToolCallId = null, rootPath, onSpawn = null, budgetScope }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 2000 || task.includes('\0')) {
     throw new Error('Task must be a non-empty instruction of at most 2,000 characters.');
   }
@@ -76,7 +76,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     const instruction = [task, expected_output && `Expected output: ${expected_output}`,
       constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
     const runtime = require('../subagents');
-    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId });
+    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope });
     return boundResultForParent(answer);
   }
 
@@ -92,7 +92,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
       task_description: instruction,
       target_files: [target_file],
       rootPath: process.cwd(),
-      engine, signal, parentSessionId,
+      engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope,
     });
     return boundResultForParent(summary);
   }
@@ -122,7 +122,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     constraint && `Constraint: ${constraint}`, 'Return only a concise answer. Do not include raw source content.']
     .filter(Boolean).join('\n');
   const runtime = require('../subagents');
-  const summary = await runtime.runWebExtraction({ url: sourceUrl, query: instruction, engine, signal, parentSessionId });
+  const summary = await runtime.runWebExtraction({ url: sourceUrl, query: instruction, engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope });
   return boundResultForParent(summary);
 }
 

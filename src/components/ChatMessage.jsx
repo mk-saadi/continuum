@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
+import Tooltip from "./Tooltip.jsx";
 import {
 	mediaSource,
 	isLocalVideoSource,
@@ -37,17 +38,7 @@ function videoMimeType(source) {
 	}
 }
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-	FiChevronLeft,
-	FiChevronRight,
-	FiCheck,
-	FiChevronDown,
-	FiClock,
-	FiCopy,
-	FiFileText,
-	FiTool,
-	FiZap,
-} from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiClock, FiCopy, FiFileText, FiTool, FiZap } from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
 import { PiWarning } from "react-icons/pi";
 import { RiRobot2Line } from "react-icons/ri";
@@ -340,7 +331,7 @@ const ChatMessage = React.memo(
 		const steps = hideSteps ? [] : activeVariant.executionSteps;
 		return (
 			<div className="min-w-0 w-full whitespace-normal">
-				{showHeader && <MessageContextStatus message={message} />}
+				{showHeader && message.role !== "assistant" && <MessageContextStatus message={message} />}
 				{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
 				{steps?.length > 0 && (
 					<div
@@ -472,51 +463,33 @@ const ChatMessage = React.memo(
 					Generating…
 				</span>
 			)} */}
-				<div className="mt-2 flex items-center gap-3 text-xs text-[var(--text-muted)]">
-					{message.variants?.length > 1 && (
+				{message.role === "assistant" &&
+					(activeVariant.stats ||
+						message.created_at ||
+						message.is_summarized ||
+						message.archived) && (
 						<div
-							className="flex items-center gap-2 rounded-full border border-[var(--subtle-border)] px-2 py-1"
-							aria-label="Reply versions"
+							aria-label="Reply metadata"
+							className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]"
 						>
-							<button
-								type="button"
-								aria-label="Previous reply version"
-								disabled={disabled || message.streaming || index === 0}
-								onClick={() =>
-									onSelectReplyVariant
-										? onSelectReplyVariant(message, index - 1)
-										: onSelectVariant?.(index - 1)
-								}
-								className="disabled:opacity-40"
-							>
-								<FiChevronLeft />
-							</button>
-							<span aria-live="polite">
-								{index + 1} / {message.variants.length}
-							</span>
-							<button
-								type="button"
-								aria-label="Next reply version"
-								disabled={
-									disabled || message.streaming || index === message.variants.length - 1
-								}
-								onClick={() =>
-									onSelectReplyVariant
-										? onSelectReplyVariant(message, index + 1)
-										: onSelectVariant?.(index + 1)
-								}
-								className="disabled:opacity-40"
-							>
-								<FiChevronRight />
-							</button>
+							{activeVariant.stats && (
+								<StatsFooter
+									stats={activeVariant.stats}
+									mode={mode}
+									inline
+								/>
+							)}
+							<MessageContextStatus
+								message={message}
+								inline
+							/>
 						</div>
 					)}
-				</div>
-				{message.role === "assistant" && activeVariant.stats && (
-					<StatsFooter stats={activeVariant.stats} mode={mode} />
-				)}
 				{showTurnOutcomes && !message.streaming && (
-					<TurnOutcomes steps={activeVariant.executionSteps} pendingQuestions={pendingQuestions} />
+					<TurnOutcomes
+						steps={activeVariant.executionSteps}
+						pendingQuestions={pendingQuestions}
+					/>
 				)}
 			</div>
 		);
@@ -546,22 +519,28 @@ export default ChatMessage;
 function AskUserRecord({ step, request, live }) {
 	const question = request?.question || step.args?.question;
 	const options = request?.options || step.args?.options || [];
-	const answered = typeof step.result === 'string' && step.result;
+	const answered = typeof step.result === "string" && step.result;
 	if (!question) return <ToolCallBlock step={step} />;
-	const resolved = step.status === 'complete' && answered;
+	const resolved = step.status === "complete" && answered;
 	// A non-terminal step with no live request belongs to a dead run (restored
 	// history, never-resumed interruption): report it cancelled, never pending.
-	const cancelled = step.status === 'error' || (!resolved && !live);
+	const cancelled = step.status === "error" || (!resolved && !live);
 	return (
-		<div aria-label="Agent question record" className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs">
+		<div
+			aria-label="Agent question record"
+			className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
+		>
 			<p className="mb-1 font-medium">{question}</p>
-			{options.length > 0 && <p className="text-[var(--text-muted)]">Options: {options.join(' · ')}</p>}
-			<p className="mt-1 text-[var(--text-muted)]" role="status">
+			{options.length > 0 && <p className="text-[var(--text-muted)]">Options: {options.join(" · ")}</p>}
+			<p
+				className="mt-1 text-[var(--text-muted)]"
+				role="status"
+			>
 				{resolved
 					? `Answered: ${answered}`
 					: cancelled
-						? 'Question cancelled.'
-						: 'Pending — answer above the composer.'}
+						? "Question cancelled."
+						: "Pending — answer above the composer."}
 			</p>
 		</div>
 	);
@@ -570,23 +549,29 @@ function AskUserRecord({ step, request, live }) {
 function SkillProposalRecord({ step }) {
 	const proposal = step.args;
 	const decision = readSkillDecision(step.id);
-	if (!proposal || typeof proposal !== 'object') return <ToolCallBlock step={step} />;
+	if (!proposal || typeof proposal !== "object") return <ToolCallBlock step={step} />;
 	// An errored proposal with no stored decision never reached review:
 	// report the failure instead of pointing at the composer.
-	const failed = step.status === 'error' && !decision;
+	const failed = step.status === "error" && !decision;
 	return (
-		<div aria-label="Skill proposal record" className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs">
+		<div
+			aria-label="Skill proposal record"
+			className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
+		>
 			<p>
 				Proposed skill: <strong>{proposal.name}</strong>
 			</p>
-			<p className="mt-1 text-[var(--text-muted)]" role="status">
-				{decision === 'registered'
-					? 'Skill registered.'
-					: decision === 'declined'
-						? 'Proposal declined.'
+			<p
+				className="mt-1 text-[var(--text-muted)]"
+				role="status"
+			>
+				{decision === "registered"
+					? "Skill registered."
+					: decision === "declined"
+						? "Proposal declined."
 						: failed
-							? 'Proposal failed.'
-							: 'Pending — review above the composer.'}
+							? "Proposal failed."
+							: "Pending — review above the composer."}
 			</p>
 		</div>
 	);
@@ -763,7 +748,7 @@ function SkillProposalCard({ step, projectId }) {
 	);
 }
 
-export function MessageContextStatus({ message }) {
+export function MessageContextStatus({ message, inline = false }) {
 	const summarized =
 		message.is_summarized === true || message.is_summarized === 1 || message.archived === 1;
 	const timestamp = message.created_at;
@@ -773,31 +758,45 @@ export function MessageContextStatus({ message }) {
 	if (!summarized && !date) return null;
 	const explanation =
 		"This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing.";
+
 	return (
-		<div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+		<div
+			className={`${inline ? "" : "mt-2"} flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]`}
+		>
 			{date && !Number.isNaN(date.getTime()) && (
-				<time
-					dateTime={date.toISOString()}
-					title={date.toLocaleString()}
+				<Tooltip
+					content={date.toLocaleString()}
+					placement="top"
+					delay={350}
 				>
-					{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-				</time>
+					<time
+						dateTime={date.toISOString()}
+						className="cursor-help"
+					>
+						{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+					</time>
+				</Tooltip>
 			)}
 			{summarized && (
-				<span
-					title={explanation}
-					aria-label={`Summarized. ${explanation}`}
-					tabIndex={0}
-					className="rounded border border-[var(--subtle-border)] px-1.5 py-0.5"
+				<Tooltip
+					content={explanation}
+					placement="top"
+					delay={350}
 				>
-					[⚡ Summarized]
-				</span>
+					<span
+						aria-label={`Summarized. ${explanation}`}
+						tabIndex={0}
+						className="cursor-help rounded border border-[var(--subtle-border)] px-1.5 py-0.5"
+					>
+						[⚡ Summarized]
+					</span>
+				</Tooltip>
 			)}
 		</div>
 	);
 }
 
-export function StatsFooter({ stats, mode = "casual" }) {
+export function StatsFooter({ stats, mode = "casual", inline = false }) {
 	stats = {
 		...stats,
 		tokensPerSecond: stats.tokens_per_sec ?? stats.tokensPerSecond,
@@ -815,12 +814,14 @@ export function StatsFooter({ stats, mode = "casual" }) {
 	// Human-friendly hover tooltips. Cumulative workload stays defined as
 	// total compute across all tool turns; peak/last request sizes are
 	// reported separately and never substituted for it.
-	const peakLine = stats.peakPromptTokens != null
-		? `\n• Peak Single Request: ${stats.peakPromptTokens.toLocaleString()}${stats.peakRequestIndex ? ` (request ${stats.peakRequestIndex}${stats.promptRequests ? ` of ${stats.promptRequests}` : ""})` : ""}`
-		: "";
-	const lastLine = stats.lastPromptTokens != null && stats.scope === "all"
-		? `\n• Last Request Prompt: ${stats.lastPromptTokens.toLocaleString()}`
-		: "";
+	const peakLine =
+		stats.peakPromptTokens != null
+			? `\n• Peak Single Request: ${stats.peakPromptTokens.toLocaleString()}${stats.peakRequestIndex ? ` (request ${stats.peakRequestIndex}${stats.promptRequests ? ` of ${stats.promptRequests}` : ""})` : ""}`
+			: "";
+	const lastLine =
+		stats.lastPromptTokens != null && stats.scope === "all"
+			? `\n• Last Request Prompt: ${stats.lastPromptTokens.toLocaleString()}`
+			: "";
 	const tokenTooltip = isMultiPass
 		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}${lastLine}${peakLine}`
 		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}`;
@@ -832,56 +833,72 @@ export function StatsFooter({ stats, mode = "casual" }) {
 	return (
 		<footer
 			aria-label="Generation statistics"
-			className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums"
+			className={`${inline ? "" : "mt-3"} flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums`}
 		>
 			{/* Generation Speed */}
-			<span
-				className="inline-flex items-center gap-1"
-				title={speedTooltip}
+			<Tooltip
+				content={speedTooltip}
+				placement="top"
+				delay={350}
 			>
-				<FiZap aria-hidden="true" />{" "}
-				{stats.tokensPerSecond == null ? "—" : stats.tokensPerSecond.toFixed(1)} tok/sec
-			</span>
+				<span className="inline-flex cursor-help items-center gap-1">
+					<FiZap aria-hidden="true" />{" "}
+					{stats.tokensPerSecond == null ? "—" : stats.tokensPerSecond.toFixed(1)} tok/sec
+				</span>
+			</Tooltip>
 
 			{/* Token Breakdown */}
-			<span
-				className="inline-flex items-center gap-1 cursor-help"
-				title={tokenTooltip}
+			<Tooltip
+				content={<span className="whitespace-pre-line">{tokenTooltip}</span>}
+				placement="top"
+				delay={350}
 			>
-				<FiFileText aria-hidden="true" />{" "}
-				{stats.totalTokens == null
-					? "Tokens unavailable"
-					: isMultiPass
-						? `${totalFormatted} tokens processed`
-						: `${genFormatted} gen (${promptFormatted} ctx)`}
-			</span>
+				<span className="inline-flex items-center gap-1 cursor-help">
+					<FiFileText aria-hidden="true" />{" "}
+					{stats.totalTokens == null
+						? "Tokens unavailable"
+						: isMultiPass
+							? `${totalFormatted} tokens processed`
+							: `${genFormatted} gen (${promptFormatted} ctx)`}
+				</span>
+			</Tooltip>
 
 			{/* Duration */}
-			<span
-				className="inline-flex items-center gap-1"
-				title={isMultiPass ? "Total time spent across all tool loops" : "Response generation time"}
+			<Tooltip
+				content={isMultiPass ? "Total time spent across all tool loops" : "Response generation time"}
+				placement="top"
+				delay={350}
 			>
-				<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
-			</span>
+				<span className="inline-flex cursor-help items-center gap-1">
+					<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
+				</span>
+			</Tooltip>
 
 			{/* Tool Loop Indicator Badge (workspace only; hidden in casual chat) */}
-			{mode !== "casual" && (isMultiPass ? (
-				<span
-					className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help"
-					title="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
-				>
-					<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-					Multi-turn tool loop
-				</span>
-			) : (
-				<span
-					className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)]"
-					title="Direct response without internal tool calls"
-				>
-					<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
-					Single turn
-				</span>
-			))}
+			{mode !== "casual" &&
+				(isMultiPass ? (
+					<Tooltip
+						content="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
+						placement="top"
+						delay={350}
+					>
+						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help">
+							<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+							Multi-turn tool loop
+						</span>
+					</Tooltip>
+				) : (
+					<Tooltip
+						content="Direct response without internal tool calls"
+						placement="top"
+						delay={350}
+					>
+						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)] cursor-help">
+							<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
+							Single turn
+						</span>
+					</Tooltip>
+				))}
 		</footer>
 	);
 }
@@ -910,6 +927,7 @@ export function SubAgentBadge({ step }) {
 			? "Research failed"
 			: `Researched ${files.length} files`;
 	const result = typeof step.result === "string" ? step.result : step.error || step.result?.error;
+
 	return (
 		<details
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
@@ -1003,7 +1021,7 @@ export function ThinkingAccordion({ text, duration }) {
 	return (
 		<details
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
-			className="group/thinking mb-3  text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
+			className="group/thinking mb-3 text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
 		>
 			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 tabular-nums hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 				<FiChevronDown

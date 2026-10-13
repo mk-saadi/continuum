@@ -5,6 +5,8 @@ const path = require('node:path');
 // the Step 3 scheduler (and so tests can observe each turn individually).
 const inferenceScheduler = require('./inferenceScheduler');
 const { isEngineReady, engineNotReadyError } = require('./providers');
+const { pushActivity } = require('./sessionManager');
+const { escalatedCeiling, estimatePromptTokens } = require('./budgets');
 
 // The child agent loop: one foreground execution that turns a delegated task
 // into an investigate -> inspect -> reason -> report cycle instead of a single
@@ -32,8 +34,8 @@ const { isEngineReady, engineNotReadyError } = require('./providers');
 // The context is committed only at safe boundaries — after the seed, after a
 // complete tool round, and on the final answer — so an execution stopped by an
 // interrupt always leaves a protocol-valid prefix behind (never a dangling
-// assistant tool_calls without its tool results), and the interrupted tail is
-// simply redone on resume. Only this child's own messages are ever in that
+// assistant tool_calls without its tool results), and cancelled/interrupted batches are paired with explicit skipped or
+// unknown results before committing; completed tools are never replayed on resume. Only this child's own messages are ever in that
 // context: a new parent instruction is appended as one more user message, and
 // nothing of the parent's conversation is ever copied in.
 //
@@ -44,7 +46,8 @@ const { isEngineReady, engineNotReadyError } = require('./providers');
 
 const CHILD_AGENT_SYSTEM_PROMPT =
   'You are a read-only investigation agent. Work autonomously: investigate the task with the tools provided, '
-  + 'then answer directly with your findings in structured markdown. '
+  + 'then answer directly with your findings in structured markdown. Think briefly, then answer or act — '
+  + 'long deliberation consumes the response budget. '
   + 'Your tools can only search project files, read files, list directories, and fetch public web pages. '
   + 'Editing, writing, running commands, memory, and other capabilities are unavailable to you; a tool error is '
   + 'reported back as an error message, so adapt and continue rather than repeating the same failing call. '
@@ -63,21 +66,18 @@ const CHILD_TOOL_NAMES = Object.freeze([
   'get_single_web_page_content',
 ]);
 
-// Runaway guards for one foreground execution. A delegated investigation is
+// Backward-compatible Automatic policy exports; actual limits resolve from
+// the saved budget settings once per child lifetime. A delegated investigation is
 // short by design; the parent chat loop allows far more, and a child must not
 // be able to spin forever on a model that keeps requesting tools. This bounds
 // the loop only — it is not a token/cost budget for the agent tree.
-const DEFAULT_MAX_TURNS = 8;
-const DEFAULT_MAX_TOOL_CALLS = 10;
-const MAX_LIMIT = 100;
+const DEFAULT_MAX_TURNS = require('./budgets').MAX_TURNS.investigation;
+const DEFAULT_MAX_TOOL_CALLS = require('./budgets').MAX_TOOL_CALLS.investigation;
 const MAX_TASK_CHARACTERS = 8000;
-// Per-turn generation ceiling: aligned with the existing one-shot executions.
-const MAX_TURN_TOKENS = 1024;
 const TURN_TEMPERATURE = 0.2;
 // Final-answer and per-tool-result ceilings: aligned with the existing
 // MAX_SUMMARY_CHARACTERS and the web tool's 12,000-character page cap.
 const MAX_FINAL_CHARACTERS = 6000;
-const MAX_TOOL_RESULT_CHARACTERS = 12000;
 const TRUNCATION_NOTICE = '\n[Truncated]';
 
 /** Plain-text content of a model message, tolerating the array-of-parts form. */
@@ -117,11 +117,6 @@ function truncate(text, maxCharacters) {
   return text.slice(0, Math.max(0, maxCharacters - TRUNCATION_NOTICE.length)) + TRUNCATION_NOTICE;
 }
 
-function accumulateUsage(total, source) {
-  for (const key of Object.keys(total)) {
-    if (Number.isFinite(source[key])) total[key] += source[key];
-  }
-}
 
 /**
  * Validate one tool call against the child allowlist, then execute it through
@@ -132,10 +127,7 @@ function accumulateUsage(total, source) {
  * Cancellation is the one exception: it is rethrown as a real abort.
  */
 async function executeChildTool({ name, rawArguments, rootPath, signal }) {
-  const toContent = value => truncate(
-    typeof value === 'string' ? value : JSON.stringify(value) ?? String(value),
-    MAX_TOOL_RESULT_CHARACTERS,
-  );
+  const toContent = value => typeof value === 'string' ? value : JSON.stringify(value) ?? String(value);
   if (!CHILD_TOOL_NAMES.includes(name)) {
     return toContent(`Error: Tool "${name || ''}" is not available to this agent. `
       + `Allowed tools: ${CHILD_TOOL_NAMES.join(', ')}.`);
@@ -189,113 +181,184 @@ async function executeChildTool({ name, rawArguments, rootPath, signal }) {
  * history, tool results, and previous answers across any number of turns.
  */
 async function runInvestigationExecution({ session, task, rootPath, engine, signal, fetchImpl,
-  maxTurns = DEFAULT_MAX_TURNS, maxToolCalls = DEFAULT_MAX_TOOL_CALLS }) {
+  maxTurns, maxToolCalls, budgetScope }) {
+  const budget = require('./executionBudget');
   const restored = Array.isArray(session?.context) && session.context.length > 0;
-  if (!restored && (typeof task !== 'string' || !task.trim() || task.includes('\0') ||
-      task.length > MAX_TASK_CHARACTERS)) {
+  if (!restored && (typeof task !== 'string' || !task.trim() || task.includes('\0') || task.length > MAX_TASK_CHARACTERS)) {
     throw new Error(`task must be a non-empty string of at most ${MAX_TASK_CHARACTERS} characters.`);
-  }
-  for (const [name, value] of Object.entries({ maxTurns, maxToolCalls })) {
-    if (!Number.isSafeInteger(value) || value < 1 || value > MAX_LIMIT) {
-      throw new Error(`${name} must be an integer from 1 to ${MAX_LIMIT}.`);
-    }
   }
   if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
-
+  const state = await budget.getExecutionBudget(session, { kind: 'investigation', engine, budgetScope, maxTurns, maxToolCalls });
   const { agentTools } = require('../tools/agentTools');
-  // The model only ever sees the allowlisted schemas — a forbidden tool is
-  // not merely blocked at execution, it is never advertised.
   const tools = agentTools.filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name));
   const root = path.resolve(rootPath ?? process.cwd());
-  // The child's complete context. Nothing outside this array is ever sent.
-  // A continuation turn starts from exactly the committed prefix it left off
-  // at; a first turn starts from the system prompt and the task.
-  const messages = restored
-    ? [...session.context]
-    : [
-      { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT },
-      { role: 'user', content: task },
-    ];
-  // Commit only at safe boundaries: the seed, a fully-answered tool round,
-  // and the final answer. Anything in between (an in-flight round) stays
-  // uncommitted, so an interrupt can never leave the persisted context ending
-  // in an assistant tool_calls message without its tool results.
+  const messages = restored ? [...session.context] : [
+    { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT }, { role: 'user', content: task },
+  ];
   const commit = () => { session.context = messages.slice(); };
-  if (!restored) commit();
-  const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-  let sawUsage = false;
-  let toolCallCount = 0;
-
-  for (let turn = 1; ; turn += 1) {
+  const context = require('./contextRecovery').createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal, commit });
+  context.persist();
+  let ceiling = state.budgets.perRequestCeiling;
+  let incompleteRetries = 0;
+  let stopReason = null;
+  let finalizing = false;
+  const findings = () => session.rawContext.filter(m => m.role === 'tool' && !/^Error:|^\[Tool skipped/.test(m.content ?? ''));
+  const fallback = () => findings().slice(-6).map(m => `Tool evidence (${m.tool_call_id}): ${m.content.slice(0, 700)}`).join('\n\n');
+  const finish = (output, reason = 'completed', hasFindings = !!output?.trim(), detail = null) => {
+    const result = budget.outcome(state, { output: truncate(output || fallback(), MAX_FINAL_CHARACTERS),
+      stopReason: reason, findings: hasFindings || findings().length > 0, detail });
+    context.append({ role: 'assistant', content: result.output }); context.persist();
+    return result;
+  };
+  for (;;) {
     signal?.throwIfAborted();
-    if (turn > maxTurns) {
-      throw new Error(`Child agent reached the inference-turn limit (${maxTurns}) before producing a final answer.`);
+    stopReason ??= budget.exhaustion(state);
+    // Reserve the last configured request for reporting, rather than adding
+    // an invisible ninth request after an eight-request ceiling.
+    if (!stopReason && budget.totals(state).turns >= state.budgets.maxTurns - 1) stopReason = 'turn_limit';
+    if (stopReason && !finalizing) {
+      if (state.finalizationAttempted || budget.totals(state).turns >= state.budgets.maxTurns ||
+          (!findings().length && stopReason !== 'turn_limit')) return finish('', stopReason, false);
+      finalizing = true;
+      state.finalizationAttempted = true;
+      context.append({ role: 'system', content: `Execution stopped: ${stopReason}. Tools are unavailable. Report only findings already supported by the task and tool evidence, and clearly state incomplete work. Do not invent findings.` });
     }
-    // Every model turn goes through the Step 3 scheduler; its slot is released
-    // when this individual turn settles, so other sessions can interleave
-    // between the child's turns if capacity allows.
-    const reply = await inferenceScheduler.scheduleInference({
-      engine,
-      payload: {
-        model: engine.modelId,
-        messages,
-        temperature: TURN_TEMPERATURE,
-        max_tokens: MAX_TURN_TOKENS,
-        tools,
-        tool_choice: 'auto',
-      },
-      signal,
-      fetchImpl,
-      allowTools: true,
-      recoverContext: require('./contextRecovery').childContextRecovery({ session, messages, engine,
-        fetchImpl: fetchImpl ?? require('../localEngineFetch').localEngineFetch, signal, commit }),
-    });
-    if (!reply.ok) throw new Error(`Child agent request failed (HTTP ${reply.status}).`);
+    const requestTools = finalizing ? [] : tools;
+    let reply;
+    try {
+      let payload = { model: engine.modelId, messages, temperature: TURN_TEMPERATURE,
+        max_tokens: finalizing ? Math.min(ceiling, 1024) : ceiling, tools: requestTools, tool_choice: finalizing ? 'none' : 'auto' };
+      payload = await context.prepare(payload);
+      // Summary/checkpoint requests can consume ordinary-turn capacity. Honor
+      // the Phase 1 reporting slot after compaction as well as before it.
+      if (!finalizing && (budget.exhaustion(state) || budget.totals(state).turns >= state.budgets.maxTurns - 1)) {
+        stopReason = budget.exhaustion(state) ?? 'turn_limit'; continue;
+      }
+      let recovered = false;
+      for (;;) {
+        const measured = context.lastMeasurement;
+        payload = budget.stopBeforeRequest(state, payload,
+          measured?.method === 'server-template-tokenizer' ? measured.tokens : undefined, measured?.limit);
+        pushActivity(session, { type: 'turn', turn: budget.totals(state).turns + 1 });
+        try {
+          reply = await inferenceScheduler.scheduleInference({ session, engine, payload,
+            signal, fetchImpl, allowTools: !finalizing, budgetState: state });
+          break;
+        } catch (error) {
+          signal?.throwIfAborted();
+          // Recovery runs after scheduler settlement releases the local lane.
+          // Never schedule a summarizer recursively while holding its slot.
+          if (!error?.confirmedOverflow || recovered) throw error;
+          recovered = true;
+          payload = await context.prepare(payload, true, error.contextWindowLimit);
+        }
+      }
+      if (!reply.ok) {
+        if (finalizing) state.finalizationStopReason = 'provider_error';
+        return finish('', stopReason ?? 'provider_error', false, `Child agent request failed (HTTP ${reply.status}).`);
+      }
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
+      const reason = budget.reasonOf(error);
+      if (finalizing) state.finalizationStopReason = reason;
+      if (!finalizing && findings().length && !['provider_budget_violation', 'context_exhausted', 'compaction_failed', 'provider_error'].includes(reason)) {
+        stopReason = reason; continue;
+      }
+      return finish('', stopReason ?? reason, false);
+    }
     signal?.throwIfAborted();
     const result = reply.result;
-    if (result?.usage) { sawUsage = true; accumulateUsage(usage, result.usage); }
+    if (state.overrun) return finish('', state.overrun, false);
     const message = result?.choices?.[0]?.message;
-    const content = textContent(message?.content);
-    const toolCalls = normalizeToolCalls(message?.tool_calls);
-
-    if (!toolCalls.length) {
-      // Final answer: the model stopped asking for tools.
-      const finalAnswer = [content, result?.choices?.[0]?.text, result?.output_text]
-        .filter(value => typeof value === 'string').map(value => value.trim()).find(Boolean) || '';
-      if (!finalAnswer) {
-        if (usage.completion_tokens > 0) {
-          return { output: 'Child agent generated tokens but returned no visible answer.', usage: sawUsage ? usage : null };
+    const content = textContent(message?.content) || result?.choices?.[0]?.text || result?.output_text;
+    const calls = normalizeToolCalls(message?.tool_calls);
+    if (message?.toolMarkupIncomplete) {
+      if (finalizing) state.finalizationStopReason = 'malformed_response';
+      return finish('', stopReason ?? 'malformed_response', false);
+    }
+    const turn = budget.totals(state).turns;
+    const thought = message?.reasoning_content ?? message?.reasoning;
+    if (typeof thought === 'string' && thought.trim()) pushActivity(session, { type: 'thought', turn, text: thought });
+    if (finalizing) {
+      // Some providers ignore tool_choice:none. Pair their calls with skipped
+      // results, commit the batch, and never dispatch or retry finalization.
+      if (calls.length) {
+        state.finalizationStopReason = 'malformed_response';
+        state.blockedCalls += calls.length;
+        context.append({ role: 'assistant', content: content || null, tool_calls: calls });
+        for (const call of calls) context.append({ role: 'tool', tool_call_id: call.id,
+          content: `[Tool skipped: ${stopReason}] Tools are disabled during finalization.` });
+        context.persist();
+        return finish('', stopReason, false);
+      }
+      const visible = typeof content === 'string' && content.trim() ? content.trim() : '';
+      state.finalizationStopReason = visible ? 'completed' : 'empty_response';
+      return finish(visible, stopReason, !!visible);
+    }
+    if (!calls.length) {
+      const visible = typeof content === 'string' ? content.trim() : '';
+      if (visible) return finish(visible, result?.choices?.[0]?.finish_reason === 'length' ? 'incomplete_response' : 'completed');
+      const incomplete = result?.choices?.[0]?.finish_reason === 'length' || (typeof thought === 'string' && thought.trim());
+      if (incomplete && incompleteRetries++ < 1) {
+        if (result?.choices?.[0]?.finish_reason === 'length') {
+          ceiling = escalatedCeiling(ceiling, state.budgets, state.ledger, estimatePromptTokens(messages, tools)) ?? ceiling;
         }
-        throw new Error('Child agent generated no output tokens. Try a simpler task.');
+        pushActivity(session, { type: 'note', turn, text: 'Incomplete generation; one bounded continuation without replaying tools.' });
+        continue;
       }
-      // The answer becomes part of the child's own context, so a later message
-      // turn continues after it instead of pretending the turn never happened.
-      const output = truncate(finalAnswer, MAX_FINAL_CHARACTERS);
-      messages.push({ role: 'assistant', content: output });
-      commit();
-      return { output, usage: sawUsage ? usage : null };
+      return finish('', 'empty_response', false);
     }
-
-    messages.push({ role: 'assistant', content: content || null, tool_calls: toolCalls });
-    for (const call of toolCalls) {
-      signal?.throwIfAborted();
-      if (toolCallCount >= maxToolCalls) {
-        throw new Error(`Child agent reached the tool-call limit (${maxToolCalls}) before producing a final answer.`);
+    const ids = calls.map(c => c.id);
+    if (new Set(ids).size !== ids.length) return finish('', 'malformed_response', false);
+    context.append({ role: 'assistant', content: content || null, tool_calls: calls });
+    let batchReason = null;
+    for (const call of calls) {
+      // Even cancellation leaves a truthful, paired committed transcript for
+      // already executed tools. It never resumes by replaying a partial batch.
+      let skipped = signal?.aborted ? 'cancelled' : batchReason;
+      // The first denied call is charged by dispatchTool; subsequent calls
+      // inherit the batch stop without entering that gate, but are still
+      // distinct blocked attempts for accounting and the transcript UI.
+      if (['tool_limit', 'aggregate_tool_limit'].includes(skipped)) state.blockedCalls++;
+      if (!skipped) {
+        let args;
+        try { args = JSON.parse(call.function.arguments); } catch { args = null; }
+        const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
+          ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])])) : value;
+        const signature = JSON.stringify([call.function.name, canonical(args)]);
+        const repeated = (state.seenCalls.get(signature) ?? 0) + 1;
+        state.seenCalls.set(signature, repeated);
+        // Detect attempts, never reuse tool output or assume unchanged state.
+        if (repeated >= 3) skipped = 'no_progress';
+        else if (!CHILD_TOOL_NAMES.includes(call.function.name) || !args || typeof args !== 'object' || Array.isArray(args)) skipped = 'invalid_tool';
+        else skipped = budget.dispatchTool(state, session, call.function.name);
       }
-      toolCallCount += 1;
-      const toolContent = await executeChildTool({
-        name: call.function.name,
-        rawArguments: call.function.arguments,
-        rootPath: root,
-        signal,
-      });
-      signal?.throwIfAborted();
-      messages.push({ role: 'tool', tool_call_id: call.id, content: toolContent });
+      let toolContent;
+      if (skipped) {
+        if (skipped !== 'invalid_tool') batchReason ??= skipped;
+        state.blockedCalls += ['no_progress', 'invalid_tool', 'cancelled'].includes(skipped) ? 1 : 0;
+        toolContent = skipped === 'invalid_tool'
+          ? `Error: Tool "${call.function.name}" is not available to this agent or its arguments are invalid. This call was not executed.`
+          : `[Tool skipped: ${skipped}] This requested tool was not executed.`;
+      } else {
+        pushActivity(session, { type: 'tool', turn, name: call.function.name, arguments: call.function.arguments });
+        try {
+          toolContent = await executeChildTool({ name: call.function.name, rawArguments: call.function.arguments, rootPath: root, signal });
+        } catch (error) {
+          toolContent = 'Error: Tool execution was interrupted; its outcome is unknown and it will not be replayed.';
+          batchReason = signal?.aborted ? 'cancelled' : 'runtime_error';
+        }
+        pushActivity(session, { type: 'tool-result', turn, name: call.function.name,
+          ok: !toolContent.startsWith('Error:'), chars: toolContent.length });
+      }
+      const projected = require('./contextRecovery').trimToolResult(toolContent, { task: task ?? session.inputSummary?.task ?? '', contextLength: state.budgets.contextLength });
+      context.append({ role: 'tool', tool_call_id: call.id, content: projected }, toolContent);
     }
-    // Safe boundary: the round is fully answered, so the context is valid to
-    // persist and to resume from if this execution is stopped right here.
-    commit();
+    context.persist();
+    signal?.throwIfAborted();
+    stopReason = batchReason ?? budget.exhaustion(state);
   }
 }
 

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { SliderField } from "../FormControls";
 import SubagentModelSelect from "../SubagentModelSelect";
+import SubagentBudgetSettings from "../SubagentBudgetSettings";
 
 const limits = [
 	{
@@ -68,6 +70,9 @@ export default function GeneralSettingsTab() {
 				<div className="mt-4">
 					<SubagentModelSelect disabled={saving} />
 				</div>
+				<div className="mt-4">
+					<SubagentBudgetSettings disabled={saving} />
+				</div>
 			</section>
 			<section
 				className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
@@ -84,25 +89,21 @@ export default function GeneralSettingsTab() {
 				</p>
 				<div className="mt-4 space-y-4">
 					{limits.map(({ key, label, min, max, fallback }) => (
-						<label
-							key={key}
-							className="block text-sm"
-						>
-							<span className="flex items-center justify-between gap-3">
-								<span>{label}</span>
-								<output>{settings?.[key] ?? fallback}</output>
-							</span>
-							<input
-								type="range"
-								min={min}
-								max={max}
-								step="1"
-								value={settings?.[key] ?? fallback}
-								disabled={!settings || saving}
-								onChange={(event) => update(key, Number(event.target.value))}
-								className="mt-2 w-full accent-[var(--accent)]"
-							/>
-						</label>
+                        <SliderField
+                            key={key}
+                            label={label}
+                            valueLabel={settings?.[key] ?? fallback}
+                            min={min}
+                            max={max}
+                            step={1}
+                            value={settings?.[key] ?? fallback}
+                            disabled={!settings || saving}
+                            onChange={event => {
+                                const value = Number(event.target.value);
+                                setSettings(previous => ({ ...previous, [key]: value }));
+                            }}
+                            onCommit={event => update(key, Number(event.target.value))}
+                        />
 					))}
 				</div>
 			</section>

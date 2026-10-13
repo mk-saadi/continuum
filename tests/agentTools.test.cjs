@@ -446,6 +446,135 @@ const run = (
 			).content,
 			"alpha\n$&\nlast\n",
 		);
+		// move_project_file: rename, missing source, existing destination, traversal.
+		fs.writeFileSync(path.join(workspace, "move-me.txt"), "cargo");
+		assert.deepEqual(
+			await run("move_project_file", {
+				source_path: "move-me.txt",
+				destination_path: "sub/moved.txt",
+			}),
+			{ success: true, source_path: "move-me.txt", destination_path: "sub/moved.txt" },
+		);
+		assert.equal(fs.readFileSync(path.join(workspace, "sub/moved.txt"), "utf8"), "cargo");
+		assert.ok(!fs.existsSync(path.join(workspace, "move-me.txt")));
+		assert.equal(
+			(await run("move_project_file", { source_path: "gone.txt", destination_path: "x.txt" })).success,
+			false,
+		);
+		assert.equal(
+			(
+				await run("move_project_file", {
+					source_path: "sub/moved.txt",
+					destination_path: "sub/moved.txt",
+				})
+			).success,
+			false,
+		);
+		for (const args of [
+			{ source_path: "../outside.txt", destination_path: " in.txt" },
+			{ source_path: "sub/moved.txt", destination_path: "../outside.txt" },
+			{ source_path: path.join(root, "outside.txt"), destination_path: "in.txt" },
+			{ source_path: "escape", destination_path: "moved-escape" },
+		]) {
+			assert.equal((await run("move_project_file", args)).success, false, JSON.stringify(args));
+		}
+		assert.ok(!fs.existsSync(path.join(workspace, " in.txt")));
+
+		// edit_project_files: atomic multi-file edits, all-or-nothing validation.
+		fs.writeFileSync(path.join(workspace, "a.txt"), "one\n");
+		fs.writeFileSync(path.join(workspace, "b.txt"), "two\n");
+		assert.deepEqual(
+			await run("edit_project_files", {
+				edits: [
+					{ relative_path: "a.txt", old_str: "one", new_str: "1" },
+					{ relative_path: "b.txt", old_str: "two", new_str: "2" },
+				],
+			}),
+			{ success: true, edited: ["a.txt", "b.txt"] },
+		);
+		assert.equal(fs.readFileSync(path.join(workspace, "a.txt"), "utf8"), "1\n");
+		assert.equal(fs.readFileSync(path.join(workspace, "b.txt"), "utf8"), "2\n");
+		fs.writeFileSync(path.join(workspace, "c.txt"), "keep\n");
+		fs.writeFileSync(path.join(workspace, "d.txt"), "change\n");
+		const atomic = await run("edit_project_files", {
+			edits: [
+				{ relative_path: "c.txt", old_str: "keep", new_str: "kept" },
+				{ relative_path: "d.txt", old_str: "missing", new_str: "x" },
+			],
+		});
+		assert.equal(atomic.success, false);
+		assert.equal(fs.readFileSync(path.join(workspace, "c.txt"), "utf8"), "keep\n");
+		for (const edits of [
+			[],
+			new Array(21).fill({ relative_path: "a.txt", old_str: "1", new_str: "x" }),
+			[{ relative_path: "a.txt", old_str: "1", new_str: "x" }, { relative_path: "a.txt", old_str: "1", new_str: "y" }],
+			[{ relative_path: "ghost.txt", old_str: "1", new_str: "x" }],
+		]) {
+			assert.equal((await run("edit_project_files", { edits })).success, false, JSON.stringify(edits).slice(0, 80));
+		}
+
+		// apply_patch: single file, multi-file, creation, and safe failures.
+		fs.writeFileSync(path.join(workspace, "p1.txt"), "alpha\nbeta\ngamma\n");
+		assert.deepEqual(
+			await run("apply_patch", {
+				patch: "--- a/p1.txt\n+++ b/p1.txt\n@@ -1,3 +1,3 @@\n alpha\n-beta\n+BETA\n gamma\n",
+			}),
+			{ success: true, files: ["p1.txt"] },
+		);
+		assert.equal(fs.readFileSync(path.join(workspace, "p1.txt"), "utf8"), "alpha\nBETA\ngamma\n");
+		fs.writeFileSync(path.join(workspace, "p2.txt"), "one\n");
+		fs.writeFileSync(path.join(workspace, "p3.txt"), "uno\n");
+		assert.deepEqual(
+			await run("apply_patch", {
+				patch: [
+					"--- a/p2.txt",
+					"+++ b/p2.txt",
+					"@@ -1 +1 @@",
+					"-one",
+					"+two",
+					"--- a/p3.txt",
+					"+++ b/p3.txt",
+					"@@ -1 +1 @@",
+					"-uno",
+					"+dos",
+					"",
+				].join("\n"),
+			}),
+			{ success: true, files: ["p2.txt", "p3.txt"] },
+		);
+		assert.deepEqual(
+			await run("apply_patch", {
+				patch: "--- /dev/null\n+++ b/created/nested.txt\n@@ -0,0 +1,2 @@\n+hello\n+world\n",
+			}),
+			{ success: true, files: ["created/nested.txt"] },
+		);
+		assert.equal(fs.readFileSync(path.join(workspace, "created/nested.txt"), "utf8"), "hello\nworld");
+		fs.writeFileSync(path.join(workspace, "p4.txt"), "stable\n");
+		fs.writeFileSync(path.join(workspace, "p5.txt"), "same\nsame\n");
+		for (const [file, patch, label] of [
+			["p4", "--- a/p4.txt\n+++ b/p4.txt\n@@ -1 +1 @@\n-gone\n+here\n", "bad context"],
+			["p5", "--- a/p5.txt\n+++ b/p5.txt\n@@ -1 +1 @@\n-same\n+changed\n", "ambiguous"],
+			["p4", "--- a/p4.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-stable\n", "deletion"],
+			["..", "--- a/../outside.txt\n+++ b/../outside.txt\n@@ -1 +1 @@\n-x\n+y\n", "traversal"],
+			["??", "not a patch at all", "garbage"],
+		]) {
+			assert.equal((await run("apply_patch", { patch })).success, false, label);
+		}
+		assert.equal(fs.readFileSync(path.join(workspace, "p4.txt"), "utf8"), "stable\n");
+		assert.equal(fs.readFileSync(path.join(workspace, "p5.txt"), "utf8"), "same\nsame\n");
+		assert.equal(fs.readFileSync(path.join(root, "outside.txt"), "utf8"), "unchanged");
+
+		// Casual sessions (no project) cannot use workspace write tools.
+		require("../src/main/sessionManager").getOrCreateSession("casual", "model");
+		for (const [name, args] of [
+			["move_project_file", { source_path: "a.txt", destination_path: "b.txt" }],
+			["edit_project_files", { edits: [{ relative_path: "a.txt", old_str: "x", new_str: "y" }] }],
+			["apply_patch", { patch: "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-x\n+y\n" }],
+			["write_project_file", { relative_path: "a.txt", content: "x" }],
+		]) {
+			assert.equal((await run(name, args, "casual")).success, false, `${name} in casual chat`);
+		}
+
 		console.log(
 			"Agent tools: file scope, symlinks, editing, search, command output, screenshot payload and IPC passed.",
 		);

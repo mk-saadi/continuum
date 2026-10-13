@@ -212,7 +212,7 @@ test('5. a failing background child becomes failed without touching its caller',
   const session = sessionManager.getSession(handle.childSessionId);
   assert.equal(session.status, sessionManager.SESSION_STATUS.FAILED);
   assert.match(session.error, /HTTP 500/);
-  assert.equal(session.result, null);
+  assert.match(session.result, /provider_error/);
   assert.ok(session.completedAt);
   const [execution] = listExecutions(session.id);
   assert.equal(execution.status, 'failed');

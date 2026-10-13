@@ -37,7 +37,9 @@ function notify(type, payload) {
 }
 
 function payloadFor(record, status, error = null) {
-  return { executionId: record.executionId, childSessionId: record.childSessionId, kind: record.kind, status, error };
+  const session = require('./sessionManager').getSession(record.childSessionId);
+  return { executionId: record.executionId, childSessionId: record.childSessionId, kind: record.kind, status, error,
+    stopReason: session?.stopReason ?? null, accounting: session?.accounting ?? null, result: session?.result ?? null };
 }
 
 // Register a run that is starting now. Emits `started` synchronously, before

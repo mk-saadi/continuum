@@ -1,5 +1,4 @@
 import React, { useId, useState } from "react";
-import ModelProfileSettings from "./ModelProfileSettings";
 import { optimizeImage } from "../utils/imageUtils.mjs";
 
 export default function AvatarSettings({ avatars, models }) {
@@ -119,7 +118,6 @@ export default function AvatarSettings({ avatars, models }) {
 						</button>
 					</div>
 				)}
-				<ModelProfileSettings />
 			</section>
 
 			<div className="space-y-2">
@@ -242,7 +240,6 @@ function ModelAvatarRow({
 					Remove
 				</button>
 			)}
-			<ModelProfileSettings modelPath={model.modelPath || model.path || model.id} />
 		</li>
 	);
 }

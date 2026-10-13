@@ -1,0 +1,727 @@
+{
+  "date": "2026-10-13",
+  "timezone": "Asia/Dhaka",
+  "phase": 4,
+  "acceptance": "not_yet_accepted",
+  "decision": "Deterministic and isolated Electron acceptance passed; final live acceptance blocked by unavailable loaded backend.",
+  "baseline_host": {
+    "counts": {
+      "tests": 689,
+      "suites": 8,
+      "pass": 657,
+      "fail": 32,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 19293.147694,
+    "failures": [
+      {
+        "test": "tests/attachments.test.cjs",
+        "diagnostic": "---\n  duration_ms: 886.696299\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/attachments.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "10. background children keep the Step 4 context isolation and tool allowlist",
+        "diagnostic": "---\n  duration_ms: 12.796964\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundExecution.test.cjs:449:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    true !== false\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: false\n  actual: true\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundExecution.test.cjs:504:14)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)\n  ..."
+      },
+      {
+        "test": "background image: adopt, replace, remove, and missing-file fallback",
+        "diagnostic": "---\n  duration_ms: 99.278219\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundSettings.test.cjs:65:1'\n  failureType: 'testCodeFailure'\n  error: 'Missing expected exception.'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected:\n  operator: 'throws'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundSettings.test.cjs:87:12)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n    Test.run (node:internal/test_runner/test:1101:12)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "1. a child finishes after one model response when no tools are needed",
+        "diagnostic": "---\n  duration_ms: 76.925701\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:41:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    true !== false\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: false\n  actual: true\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:50:10)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+        "diagnostic": "---\n  duration_ms: 37.549727\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:453:1'\n  failureType: 'uncaughtException'\n  error: 'Unexpected end of JSON input'\n  code: 'ERR_TEST_FAILURE'\n  name: 'SyntaxError'\n  stack: |-\n    JSON.parse (<anonymous>)\n    IncomingMessage.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:460:26)\n    IncomingMessage.emit (node:events:519:28)\n    endReadableNT (node:internal/streams/readable:1698:12)\n    process.processTicksAndRejections (node:internal/process/task_queues:89:21)\n  ..."
+      },
+      {
+        "test": "cloud settings persist privately and cloud chat works without a local engine",
+        "diagnostic": "---\n  duration_ms: 70.109155\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/cloudIpc.test.cjs:22:1'\n  failureType: 'testCodeFailure'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/cloudIpc.test.cjs:26:12)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "tests/compactionBadge.test.cjs",
+        "diagnostic": "---\n  duration_ms: 3028.71126\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/compactionBadge.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/contextPanel.test.cjs",
+        "diagnostic": "---\n  duration_ms: 238.956188\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/contextPanel.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "MCP execution applies the cap before serialization",
+        "diagnostic": "---\n  duration_ms: 311.853253\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/filesystemToolLimits.test.cjs:45:1'\n  failureType: 'testCodeFailure'\n  error: 'Call initDatabase() before accessing the database.'\n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    getConnection (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:441:11)\n    Object.prepare (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:448:12)\n    Object.getAppSettings (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/configManager.js:175:4)\n    McpManager.getMcpMode (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/mcpManager.js:450:48)\n    McpManager.callTool (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/mcpManager.js:311:14)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/filesystemToolLimits.test.cjs:52:45)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n  ..."
+      },
+      {
+        "test": "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "diagnostic": "---\n  duration_ms: 68.959819\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:21:1'\n  failureType: 'testCodeFailure'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:25:12)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "preload config methods invoke trusted config handlers",
+        "diagnostic": "---\n  duration_ms: 48.275416\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:268:1'\n  failureType: 'testCodeFailure'\n  error: 'event.sender.once is not a function'\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    /home/mk_saadi/projects/persona-projects/llm-electron/src/main/ipcHandlers.js:970:34\n    Object.withDataAccess (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/dataAccess.js:9:22)\n    /home/mk_saadi/projects/persona-projects/llm-electron/src/main/ipcHandlers.js:967:48\n    Object.invoke (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:284:75)\n    Object.getMcpConfig (/home/mk_saadi/projects/persona-projects/llm-electron/src/preload.js:82:35)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:290:40)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n  ..."
+      },
+      {
+        "test": "tests/messageActions.test.cjs",
+        "diagnostic": "---\n  duration_ms: 771.407448\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/messageActions.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/messageStats.test.cjs",
+        "diagnostic": "---\n  duration_ms: 768.011829\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/messageStats.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/rag.test.cjs",
+        "diagnostic": "---\n  duration_ms: 1449.97157\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/rag.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/replyVariants.test.cjs",
+        "diagnostic": "---\n  duration_ms: 858.437428\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/replyVariants.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/skillImportIpc.test.cjs",
+        "diagnostic": "---\n  duration_ms: 561.325477\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/skillImportIpc.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/skillProposalIpc.test.cjs",
+        "diagnostic": "---\n  duration_ms: 631.764329\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/skillProposalIpc.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/subAgentRunner.test.cjs",
+        "diagnostic": "---\n  duration_ms: 702.583243\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subAgentRunner.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "1. the selection round-trips through its IPC channels and is validated",
+        "diagnostic": "---\n  duration_ms: 36.64208\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:206:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "2. with no setting a child inherits the parent chat model exactly",
+        "diagnostic": "---\n  duration_ms: 1.377044\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:247:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "3. a cloud selection routes a local chat's child to the saved provider",
+        "diagnostic": "---\n  duration_ms: 0.155851\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:289:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "diagnostic": "---\n  duration_ms: 0.255326\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:330:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "5. an unreadable stored selection fails at spawn, never silently",
+        "diagnostic": "---\n  duration_ms: 0.149582\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:381:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "6. foreground, messages, and background runs all keep the one resolved model",
+        "diagnostic": "---\n  duration_ms: 0.169521\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:397:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "7. interrupt and resume keep the child on the model it started with",
+        "diagnostic": "---\n  duration_ms: 0.322184\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:456:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "8. a cloud model still gets the read-only child allowlist",
+        "diagnostic": "---\n  duration_ms: 6.263769\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:492:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "9. the single local slot queues children resolved to the same server model",
+        "diagnostic": "---\n  duration_ms: 0.478027\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:533:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+        "diagnostic": "---\n  duration_ms: 0.281333\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:576:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "11. the parent-facing result stays bounded while the child keeps the full answer",
+        "diagnostic": "---\n  duration_ms: 0.075149\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:623:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "12. the chat engine descriptor keeps both chat types delegatable",
+        "diagnostic": "---\n  duration_ms: 0.065106\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:654:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "13. the parent-facing protocol advertises the investigate invocation",
+        "diagnostic": "---\n  duration_ms: 0.058476\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:666:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "tests/tokenUsage.test.cjs",
+        "diagnostic": "---\n  duration_ms: 198.884393\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/tokenUsage.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      }
+    ]
+  },
+  "final_host": {
+    "counts": {
+      "tests": 689,
+      "suites": 8,
+      "pass": 657,
+      "fail": 32,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 18587.427806,
+    "failures": [
+      {
+        "test": "tests/attachments.test.cjs",
+        "diagnostic": "---\n  duration_ms: 549.896545\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/attachments.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "10. background children keep the Step 4 context isolation and tool allowlist",
+        "diagnostic": "---\n  duration_ms: 23.377967\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundExecution.test.cjs:449:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    true !== false\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: false\n  actual: true\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundExecution.test.cjs:504:14)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)\n  ..."
+      },
+      {
+        "test": "background image: adopt, replace, remove, and missing-file fallback",
+        "diagnostic": "---\n  duration_ms: 56.563018\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundSettings.test.cjs:65:1'\n  failureType: 'testCodeFailure'\n  error: 'Missing expected exception.'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected:\n  operator: 'throws'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/backgroundSettings.test.cjs:87:12)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n    Test.run (node:internal/test_runner/test:1101:12)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "1. a child finishes after one model response when no tools are needed",
+        "diagnostic": "---\n  duration_ms: 86.505363\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:41:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    true !== false\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: false\n  actual: true\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:50:10)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+        "diagnostic": "---\n  duration_ms: 35.32129\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:453:1'\n  failureType: 'uncaughtException'\n  error: 'Unexpected end of JSON input'\n  code: 'ERR_TEST_FAILURE'\n  name: 'SyntaxError'\n  stack: |-\n    JSON.parse (<anonymous>)\n    IncomingMessage.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/childAgentLoop.test.cjs:460:26)\n    IncomingMessage.emit (node:events:519:28)\n    endReadableNT (node:internal/streams/readable:1698:12)\n    process.processTicksAndRejections (node:internal/process/task_queues:89:21)\n  ..."
+      },
+      {
+        "test": "cloud settings persist privately and cloud chat works without a local engine",
+        "diagnostic": "---\n  duration_ms: 36.584283\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/cloudIpc.test.cjs:22:1'\n  failureType: 'testCodeFailure'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/cloudIpc.test.cjs:26:12)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "tests/compactionBadge.test.cjs",
+        "diagnostic": "---\n  duration_ms: 2811.463726\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/compactionBadge.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/contextPanel.test.cjs",
+        "diagnostic": "---\n  duration_ms: 99.838361\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/contextPanel.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "MCP execution applies the cap before serialization",
+        "diagnostic": "---\n  duration_ms: 502.910997\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/filesystemToolLimits.test.cjs:45:1'\n  failureType: 'testCodeFailure'\n  error: 'Call initDatabase() before accessing the database.'\n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    getConnection (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:441:11)\n    Object.prepare (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:448:12)\n    Object.getAppSettings (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/configManager.js:175:4)\n    McpManager.getMcpMode (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/mcpManager.js:450:48)\n    McpManager.callTool (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/mcpManager.js:311:14)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/filesystemToolLimits.test.cjs:52:45)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n  ..."
+      },
+      {
+        "test": "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "diagnostic": "---\n  duration_ms: 57.635509\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:21:1'\n  failureType: 'testCodeFailure'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:25:12)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ..."
+      },
+      {
+        "test": "preload config methods invoke trusted config handlers",
+        "diagnostic": "---\n  duration_ms: 6.951762\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:268:1'\n  failureType: 'testCodeFailure'\n  error: 'event.sender.once is not a function'\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    /home/mk_saadi/projects/persona-projects/llm-electron/src/main/ipcHandlers.js:970:34\n    Object.withDataAccess (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/dataAccess.js:9:22)\n    /home/mk_saadi/projects/persona-projects/llm-electron/src/main/ipcHandlers.js:967:48\n    Object.invoke (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:284:75)\n    Object.getMcpConfig (/home/mk_saadi/projects/persona-projects/llm-electron/src/preload.js:82:35)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/mcpIpc.test.cjs:290:40)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n  ..."
+      },
+      {
+        "test": "tests/messageActions.test.cjs",
+        "diagnostic": "---\n  duration_ms: 802.030557\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/messageActions.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/messageStats.test.cjs",
+        "diagnostic": "---\n  duration_ms: 721.264363\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/messageStats.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/rag.test.cjs",
+        "diagnostic": "---\n  duration_ms: 1306.670037\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/rag.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/replyVariants.test.cjs",
+        "diagnostic": "---\n  duration_ms: 825.781487\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/replyVariants.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/skillImportIpc.test.cjs",
+        "diagnostic": "---\n  duration_ms: 693.462953\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/skillImportIpc.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/skillProposalIpc.test.cjs",
+        "diagnostic": "---\n  duration_ms: 1078.179601\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/skillProposalIpc.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "tests/subAgentRunner.test.cjs",
+        "diagnostic": "---\n  duration_ms: 1042.413184\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subAgentRunner.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      },
+      {
+        "test": "1. the selection round-trips through its IPC channels and is validated",
+        "diagnostic": "---\n  duration_ms: 32.647746\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:206:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "2. with no setting a child inherits the parent chat model exactly",
+        "diagnostic": "---\n  duration_ms: 0.844829\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:247:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "3. a cloud selection routes a local chat's child to the saved provider",
+        "diagnostic": "---\n  duration_ms: 0.11424\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:289:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "diagnostic": "---\n  duration_ms: 0.168736\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:330:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "5. an unreadable stored selection fails at spawn, never silently",
+        "diagnostic": "---\n  duration_ms: 0.109559\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:381:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "6. foreground, messages, and background runs all keep the one resolved model",
+        "diagnostic": "---\n  duration_ms: 0.080324\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:397:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "7. interrupt and resume keep the child on the model it started with",
+        "diagnostic": "---\n  duration_ms: 0.141362\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:456:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "8. a cloud model still gets the read-only child allowlist",
+        "diagnostic": "---\n  duration_ms: 0.091706\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:492:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "9. the single local slot queues children resolved to the same server model",
+        "diagnostic": "---\n  duration_ms: 3.88395\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:533:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+        "diagnostic": "---\n  duration_ms: 0.253743\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:576:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "11. the parent-facing result stays bounded while the child keeps the full answer",
+        "diagnostic": "---\n  duration_ms: 0.103975\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:623:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "12. the chat engine descriptor keeps both chat types delegatable",
+        "diagnostic": "---\n  duration_ms: 0.069195\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:654:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "13. the parent-facing protocol advertises the investigate invocation",
+        "diagnostic": "---\n  duration_ms: 0.054335\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:666:1'\n  failureType: 'hookFailed'\n  error: \"Cannot read properties of undefined (reading 'getPath')\"\n  code: 'ERR_TEST_FAILURE'\n  name: 'TypeError'\n  stack: |-\n    Object.repairLegacyAttachmentPaths (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/legacyDataMigration.js:92:80)\n    Object.initDatabase (/home/mk_saadi/projects/persona-projects/llm-electron/src/main/db.js:404:38)\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentModelSelection.test.cjs:182:29)\n    async TestHook.run (node:internal/test_runner/test:1054:7)\n  ..."
+      },
+      {
+        "test": "tests/tokenUsage.test.cjs",
+        "diagnostic": "---\n  duration_ms: 103.168222\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/tokenUsage.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+      }
+    ]
+  },
+  "new_failure_names": [],
+  "resolved_failure_names": [],
+  "fresh_baseline_names_match_phase0": true,
+  "fresh_baseline_names_match_phase3": true,
+  "focused_before": {
+    "counts": {
+      "tests": 11,
+      "suites": 0,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 2006.864773,
+    "failures": []
+  },
+  "focused_after": {
+    "counts": {
+      "tests": 11,
+      "suites": 0,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 1381.001053,
+    "failures": []
+  },
+  "direct_reliability_after": {
+    "counts": {
+      "tests": 22,
+      "suites": 0,
+      "pass": 22,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 277.011657,
+    "failures": []
+  },
+  "direct_compaction": {
+    "counts": {
+      "tests": 26,
+      "suites": 0,
+      "pass": 26,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 263.329338,
+    "failures": []
+  },
+  "defect_reproduction": {
+    "counts": {
+      "tests": 22,
+      "suites": 0,
+      "pass": 21,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "duration_ms": 209.307503,
+    "failures": [
+      {
+        "test": "batch crossing child ceiling pairs skipped calls and finalizes once without tools",
+        "diagnostic": "---\n  duration_ms: 40.685976\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentReliability.test.cjs:51:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    each skipped requested call is a blocked attempt\n    \n    1 !== 2\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: 2\n  actual: 1\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/home/mk_saadi/projects/persona-projects/llm-electron/tests/subagentReliability.test.cjs:60:10)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)\n  ..."
+      }
+    ]
+  },
+  "defects": [
+    {
+      "id": "P4-1",
+      "problem": "Later budget-skipped calls in a multi-tool batch were omitted from blockedCalls. Three requested calls with allowance one produced two paired skips but blockedCalls=1.",
+      "fix": "Increment blockedCalls for a call inheriting tool_limit or aggregate_tool_limit before bypassing dispatchTool. First denied call remains counted only by dispatchTool.",
+      "dispatch_limits_changed": false,
+      "regression": "Extended existing three-call boundary assertion; pre-fix 21 passed/1 failed, post-fix 22 passed/0 failed; Electron shows blocked attempts: 2."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": 1,
+      "task": "Short read-only investigation",
+      "result": "passed_deterministic_and_electron",
+      "evidence": "UI runtime completed fixture; 1 request, 0 tools, 0 compactions; mocked reply.",
+      "electron_cases": [
+        "completed"
+      ]
+    },
+    {
+      "id": 2,
+      "task": "Long child compacts and recalls early findings",
+      "result": "passed_deterministic_live_blocked",
+      "evidence": "26-case compaction suite: repeated-pressure fixture retains EARLY_VALUE=17 and completes; mocked summaries, not semantic live proof.",
+      "electron_cases": []
+    },
+    {
+      "id": 3,
+      "task": "Repeated compaction retains essential findings",
+      "result": "passed_deterministic_live_blocked",
+      "evidence": "Repeated-compaction and continued running-child fixtures pass; raw/active pairing and retained decisions/actions checked.",
+      "electron_cases": []
+    },
+    {
+      "id": 4,
+      "task": "Tool/request ceiling yields honest outcome",
+      "result": "passed_deterministic_and_electron",
+      "evidence": "Partial UI fixture: tool_limit, 1 dispatch, 2 blocked calls, 2/3 requests including reporting. Turn, empty and finalization failure cases pass.",
+      "electron_cases": [
+        "partial"
+      ]
+    },
+    {
+      "id": 5,
+      "task": "Multi-tool boundary enforcement",
+      "result": "passed_deterministic_and_electron",
+      "evidence": "3 requested calls at limit 1: one executed, two paired skips and two blocked attempts after fix.",
+      "electron_cases": [
+        "partial"
+      ]
+    },
+    {
+      "id": 6,
+      "task": "Shared parent aggregate ceiling",
+      "result": "passed_deterministic",
+      "evidence": "Shared-scope, atomic concurrent slot, continuation and compaction accounting cases pass; no live multi-child model trace.",
+      "electron_cases": []
+    },
+    {
+      "id": 7,
+      "task": "Completed side effects never replay",
+      "result": "passed_supported_read_only_path",
+      "evidence": "Overflow retry and repeated-compaction tests count mocked tool effects and do not repeat completed reads. Child mutation/shell/MCP tools are forbidden; no production side-effecting child tool exists to test.",
+      "electron_cases": []
+    },
+    {
+      "id": 8,
+      "task": "Cancellation/provider failure truthfully propagate",
+      "result": "passed_deterministic_and_electron",
+      "evidence": "Runtime settlement and IPC transcript show cancelled/cancelled and failed/provider_error; actual model transport not live-tested.",
+      "electron_cases": [
+        "cancelled",
+        "failed"
+      ]
+    },
+    {
+      "id": 9,
+      "task": "Usage display matches accounting",
+      "result": "passed_deterministic_and_electron",
+      "evidence": "Measured fixture usage displayed separately from estimated input/reserved output with missing provider usage; limits/parent snapshot correct.",
+      "electron_cases": [
+        "completed",
+        "unavailable",
+        "partial"
+      ]
+    },
+    {
+      "id": 10,
+      "task": "Settings persist and outcomes display",
+      "result": "passed_electron",
+      "evidence": "Real controls, production preload/IPC/SQLite; custom values, toggle retention, blank/null fallback, invalid rejection, remount, actual runtime statuses. Full app isolated smoke also passed.",
+      "electron_cases": [
+        "completed",
+        "partial",
+        "failed",
+        "cancelled",
+        "unavailable"
+      ]
+    }
+  ],
+  "electron": {
+    "available": true,
+    "existing_modal_fixture": "passed",
+    "new_acceptance_fixture": "passed",
+    "production_preload_and_ipc": true,
+    "database": "isolated temporary SQLite; real settings record verified",
+    "model_transport": "mocked JSON replies through runtime/scheduler/provider",
+    "screenshot_visually_inspected": true,
+    "full_application_smoke": {
+      "title": "Continuum",
+      "rootChildren": 1,
+      "budgets": {
+        "settings": {
+          "mode": "auto",
+          "maxInputTokens": null,
+          "maxOutputTokens": null,
+          "maxToolCalls": null,
+          "maxTurns": null,
+          "maxAggregateToolCalls": null
+        },
+        "policy": {
+          "perRequestCeiling": {
+            "investigation": 2048,
+            "file-analysis": 3072,
+            "web-extraction": 1024
+          },
+          "maxTurns": {
+            "investigation": 8,
+            "file-analysis": 2,
+            "web-extraction": 2
+          },
+          "maxToolCalls": {
+            "investigation": 10,
+            "file-analysis": 32,
+            "web-extraction": 1
+          },
+          "maxAggregateToolCalls": 40,
+          "inputRule": "4 x child context window (provider-reported, 32768 fallback)",
+          "outputRule": "turns(kind) x per-request ceiling"
+        }
+      }
+    },
+    "ui_fixture_runs": "Initial harness waits were corrected for hidden focus-out, asynchronous remount and mode persistence; final run passed. Expected rejected invalid-value IPC error appears in its log.",
+    "runtime_cases": {
+      "settings": {
+        "mode": "custom",
+        "maxInputTokens": null,
+        "maxOutputTokens": null,
+        "maxToolCalls": null,
+        "maxTurns": 5,
+        "maxAggregateToolCalls": 3
+      },
+      "cases": {
+        "completed": {
+          "status": "completed",
+          "stopReason": "completed",
+          "accounting": {
+            "inputTokens": 50,
+            "inputCoverage": "measured",
+            "outputTokens": 10,
+            "outputMeasured": 10,
+            "outputReserved": 0,
+            "outputCoverage": "measured",
+            "turns": 1,
+            "toolCalls": 0,
+            "blockedCalls": 0,
+            "aggregateToolCalls": 0,
+            "aggregateLimit": 40,
+            "parentRunId": "eefcbe70-20b9-46e0-b706-4876462787b0",
+            "finalizationAttempted": false,
+            "finalizationStopReason": null,
+            "effective": {
+              "mode": "auto",
+              "maxTurns": 8,
+              "maxToolCalls": 10,
+              "maxAggregateToolCalls": 40,
+              "kind": "investigation",
+              "inputBudget": 131072,
+              "outputBudget": 16384,
+              "perRequestCeiling": 2048,
+              "contextLength": 32768,
+              "sources": {
+                "input": "auto:4x-context",
+                "output": "auto:8-turns"
+              }
+            },
+            "contextSource": "engine"
+          },
+          "compactions": []
+        },
+        "unavailable": {
+          "status": "completed",
+          "stopReason": "completed",
+          "accounting": {
+            "inputTokens": 908,
+            "inputCoverage": "estimated",
+            "outputTokens": 2048,
+            "outputMeasured": 0,
+            "outputReserved": 2048,
+            "outputCoverage": "reserved",
+            "turns": 1,
+            "toolCalls": 0,
+            "blockedCalls": 0,
+            "aggregateToolCalls": 0,
+            "aggregateLimit": 40,
+            "parentRunId": "578a6181-5ceb-40de-9730-86c29b221cfe",
+            "finalizationAttempted": false,
+            "finalizationStopReason": null,
+            "effective": {
+              "mode": "auto",
+              "maxTurns": 8,
+              "maxToolCalls": 10,
+              "maxAggregateToolCalls": 40,
+              "kind": "investigation",
+              "inputBudget": 131072,
+              "outputBudget": 16384,
+              "perRequestCeiling": 2048,
+              "contextLength": 32768,
+              "sources": {
+                "input": "auto:4x-context",
+                "output": "auto:8-turns"
+              }
+            },
+            "contextSource": "engine"
+          },
+          "compactions": []
+        },
+        "partial": {
+          "status": "partial",
+          "stopReason": "tool_limit",
+          "accounting": {
+            "inputTokens": 100,
+            "inputCoverage": "measured",
+            "outputTokens": 20,
+            "outputMeasured": 20,
+            "outputReserved": 0,
+            "outputCoverage": "measured",
+            "turns": 2,
+            "toolCalls": 1,
+            "blockedCalls": 2,
+            "aggregateToolCalls": 1,
+            "aggregateLimit": 40,
+            "parentRunId": "df247d4e-eeea-43e6-9df2-93d9467cbfb1",
+            "finalizationAttempted": true,
+            "finalizationStopReason": "completed",
+            "effective": {
+              "mode": "custom",
+              "maxTurns": 3,
+              "maxToolCalls": 1,
+              "maxAggregateToolCalls": 40,
+              "kind": "investigation",
+              "inputBudget": 131072,
+              "outputBudget": 6144,
+              "perRequestCeiling": 2048,
+              "contextLength": 32768,
+              "sources": {
+                "input": "auto:4x-context",
+                "output": "auto:3-turns"
+              }
+            },
+            "contextSource": "engine"
+          },
+          "compactions": []
+        },
+        "failed": {
+          "status": "failed",
+          "stopReason": "provider_error",
+          "accounting": {
+            "inputTokens": 908,
+            "inputCoverage": "estimated",
+            "outputTokens": 2048,
+            "outputMeasured": 0,
+            "outputReserved": 2048,
+            "outputCoverage": "reserved",
+            "turns": 1,
+            "toolCalls": 0,
+            "blockedCalls": 0,
+            "aggregateToolCalls": 0,
+            "aggregateLimit": 40,
+            "parentRunId": "c8b6253f-c3bb-45fd-86a0-d4d7b1282cc2",
+            "finalizationAttempted": false,
+            "finalizationStopReason": null,
+            "effective": {
+              "mode": "custom",
+              "maxTurns": 3,
+              "maxToolCalls": 1,
+              "maxAggregateToolCalls": 40,
+              "kind": "investigation",
+              "inputBudget": 131072,
+              "outputBudget": 6144,
+              "perRequestCeiling": 2048,
+              "contextLength": 32768,
+              "sources": {
+                "input": "auto:4x-context",
+                "output": "auto:3-turns"
+              }
+            },
+            "contextSource": "engine"
+          },
+          "compactions": []
+        },
+        "cancelled": {
+          "status": "cancelled",
+          "stopReason": "cancelled",
+          "accounting": null,
+          "compactions": []
+        }
+      }
+    },
+    "screenshot": "docs/subagent-phase4-ui.png",
+    "screenshot_sha256": "ecf9b24616a260670765bf5fc24b2e2207e7206e5af0faf6b5ac1532a65ed421"
+  },
+  "backend": {
+    "available": false,
+    "host_process_inspection": "Continuum processes present; no llama inference process seen",
+    "host_listeners": "No Continuum/model backend listener; other listeners attributable to database/editor/language server/OpenCode/web services.",
+    "health_command": "curl --noproxy '*' --max-time 3 http://127.0.0.1:8080/health",
+    "health_exit_code": 7,
+    "blocker": "No accessible loaded expected Qwen model backend; default health refused connection. Port is dynamically assigned, so process/listener inventory also checked.",
+    "startup_attempts": 0,
+    "live_runs_completed": 0,
+    "phase0_nine_runs": "all remain unexecuted",
+    "comparative_claims": "none",
+    "expected_model_file_exists": true,
+    "expected_model_file_bytes": 11771546784
+  },
+  "commands": {
+    "focused": "node --test tests/subagentDisplay.test.mjs tests/subagentCompaction.test.cjs tests/subagentReliability.test.cjs tests/subagentBudgets.test.cjs tests/subagentRuntime.test.cjs tests/subagentTranscript.test.cjs tests/subagentStreaming.test.cjs tests/contextCompaction.test.cjs tests/contextOverflowRecovery.test.cjs tests/compressionLifecycle.test.cjs tests/contextDispatch.test.mjs",
+    "broad": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "direct": [
+      "node tests/subagentReliability.test.cjs",
+      "node tests/subagentCompaction.test.cjs"
+    ],
+    "electron_existing": "env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron --no-sandbox tests/subagentModal.ui.cjs",
+    "electron_acceptance": "env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron --no-sandbox tests/subagentAcceptance.ui.cjs",
+    "full_app_smoke": "env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron --no-sandbox .phase4-launch.cjs (temporary isolated-profile bootstrap, removed after run)",
+    "build": "npm run build",
+    "whitespace": "git diff --check"
+  },
+  "build": {
+    "passed": true,
+    "warning": "existing large-chunk warning"
+  },
+  "whitespace": {
+    "passed": true
+  },
+  "changed_source_sha256": {
+    "src/main/subagents/agentLoop.js": "acceab8465843c626334e94bec93198251575195e838df85cf3e916069d25c1a",
+    "tests/subagentReliability.test.cjs": "ca646e0bb6c8fe27f74674277e2af3ac4335c2657c1ff49a72793b10398908df",
+    "tests/subagentAcceptance.ui.cjs": "74aa6d5f33216b9e14bea7d0d575ddb6afa6ecb2269ac5fe672822922a35ce5d"
+  },
+  "historical_sha256": {
+    "docs/subagent-baseline.md": "2990ed44664440c5587ef1e875cf3464dfa316289ddb7e70f769d386c368e0ae",
+    "docs/subagent-phase3.md": "9a226f865f6b71112c671f63930decbf37252ea28aa2857cb842309f547898fe",
+    "docs/subagent-phase2-evidence.json": "4913050bdaa84fdb38e99c3527d747ca33ec4147b479abf9f7bff7e063c31d01",
+    "docs/subagent-baseline-evidence.json": "b63929dfe29e31a70ef3de3aa5caf45bb634b7553145faba3aecec3ddd32071a",
+    "docs/subagent-phase3-evidence.json": "a746b0098ed5b094bede573e8912b3e185e032ce4f920e77aa64ece9a454b80a",
+    "docs/subagents.md": "39f6bb9f48eb2148ea554a93b271c7c8d9f75d72c09ef8c1b62f92312debfe78",
+    "docs/subagent-phase1-evidence.json": "d5910d557b39e4352e21bed8f5804ffb3476988525b3d2a6184900bdcd2968e8",
+    "docs/subagent-phase2.md": "bb463d5dca1144934e85ec25482c89bca0c6f309597f90d271c78cb63f809167"
+  },
+  "limitations": [
+    "No live summary fidelity, provider adherence, pressure threshold or comparative speed evidence.",
+    "Prompt guidance does not guarantee nonredundant delegation.",
+    "Shared aggregate UI is a settlement snapshot; active accounting may lag.",
+    "Read-only children do not support mutation tools; mocked effect counters are not real mutation acceptance.",
+    "Best-effort persistence and no durable active-job restart; protected checkpoint caps fail closed.",
+    "Known 32 broad failures remain; no claim the entire app regression suite is green."
+  ]
+}

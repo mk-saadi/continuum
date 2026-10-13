@@ -6,7 +6,7 @@ const controls = [
   ['topK', 'Top-K', 1, 100, 1], ['repeatPenalty', 'Repeat penalty', 1, 1.5, 0.01],
   ['maxTokens', 'Max tokens', -1, undefined, 1],
 ];
-export default function ModelProfileSettings({ modelPath }) {
+export default function ModelProfileSettings({ modelPath, section = 'all' }) {
   const [open, setOpen] = useState(false);
   const [effective, setEffective] = useState(null);
   const [patch, setPatch] = useState({});
@@ -31,24 +31,24 @@ export default function ModelProfileSettings({ modelPath }) {
     finally { setSaving(false); }
   }
   return <details className="w-full rounded border border-[var(--border)] p-2" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="cursor-pointer text-xs font-medium">{modelPath ? 'Model default prompt & sampling' : 'Global default prompt & sampling'}</summary>
+    <summary className="cursor-pointer text-xs font-medium">{section === 'memory' ? (modelPath ? 'Model memory overrides' : 'Global memory defaults') : (modelPath ? 'Model default prompt & sampling' : 'Global default prompt & sampling')}</summary>
     {open && effective && <div className="mt-3 space-y-3">
-      <TextAreaField label={modelPath ? 'Model Default System Prompt' : 'Global Default System Prompt'}
+      {section !== 'memory' && <TextAreaField label={modelPath ? 'Model Default System Prompt' : 'Global Default System Prompt'}
         value={patch.systemPrompt ?? effective.systemPrompt} maxLength={32000} rows={4} disabled={saving}
-        onChange={event => setPatch(value => ({ ...value, systemPrompt: event.target.value }))} />
-      {[['memoryEnabled', 'Enable Memory (Facts & Past Chats)'], ['compactionEnabled', 'Auto-Compress Long Chats']].map(([key, label]) =>
+        onChange={event => setPatch(value => ({ ...value, systemPrompt: event.target.value }))} />}
+      {section !== 'generation' && [['memoryEnabled', 'Enable Memory (Facts & Past Chats)'], ['compactionEnabled', 'Auto-Compress Long Chats']].map(([key, label]) =>
         <label key={key} className="flex items-center gap-2 text-xs"><input type="checkbox" role="switch" disabled={saving}
           checked={patch[key] ?? effective[key] ?? true} onChange={event => setPatch(value => ({ ...value, [key]: event.target.checked }))} />{label}</label>)}
-      {controls.map(([key, label, min, max, step]) => {
+      {section !== 'memory' && controls.map(([key, label, min, max, step]) => {
         const Control = key === 'maxTokens' ? NumberField : SliderField;
         return <Control key={key} label={label} min={min} max={max} step={step} disabled={saving}
           value={patch[key] ?? effective[key]} {...(key === 'maxTokens' ? {} : { valueLabel: patch[key] ?? effective[key] })}
           onChange={event => setPatch(value => ({ ...value, [key]: event.target.value === '' ? '' : Number(event.target.value) }))} />;
       })}
-      <p className="text-xs text-[var(--text-muted)]">Only edited fields are saved. Unset model fields inherit global defaults. Max tokens: -1 means unlimited.</p>
+      <p className="text-xs text-[var(--text-muted)]">Only edited fields are saved. Unset model fields inherit global defaults. {section !== 'memory' && 'Max tokens: -1 means unlimited.'}</p>
       <div className="flex gap-2">
         <button type="button" disabled={saving || !Object.keys(patch).length} onClick={() => save()} className="rounded border px-2 py-1 text-xs disabled:opacity-40">Save defaults</button>
-        {modelPath && <button type="button" disabled={saving} onClick={() => save(true)} className="rounded border px-2 py-1 text-xs">Inherit global defaults</button>}
+        {modelPath && <button type="button" disabled={saving} onClick={() => save(true)} className="rounded border px-2 py-1 text-xs">Inherit all global defaults</button>}
       </div>
     </div>}
     {error && <p role="alert" className="text-xs text-[var(--error)]">{error}</p>}

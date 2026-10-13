@@ -86,4 +86,32 @@ function migrateLegacyUserData() {
 	console.log(`Migrated legacy app data from ${oldRoot} to ${newRoot}. The old folder was left in place.`);
 }
 
-module.exports = { migrateLegacyUserData };
+// Older rename migrations copied the database and files but left absolute
+// attachment paths pointing at the retained legacy profile. Only redirect to
+// existing managed copies; never authorize reading files outside the current store.
+function repairLegacyAttachmentPaths(connection, dataDirectory, userData = app.getPath('userData')) {
+    if (path.basename(userData) === LEGACY_APP_NAME) return 0;
+    const oldRoot = path.join(path.dirname(userData), LEGACY_APP_NAME);
+    const legacyDirectories = [path.join(oldRoot, 'attachments'), path.join(oldRoot, 'App_Data', 'attachments')];
+    const targetDirectory = path.join(dataDirectory, 'attachments');
+    if (!fs.existsSync(targetDirectory)) return 0;
+    const realTarget = fs.realpathSync(targetDirectory);
+    let repaired = 0;
+    connection.transaction(() => {
+        const update = connection.prepare('UPDATE message_attachments SET file_path = ? WHERE id = ? AND file_path = ?');
+        for (const row of connection.prepare('SELECT id, file_path FROM message_attachments').all()) {
+            if (typeof row.file_path !== 'string' || !path.isAbsolute(row.file_path) || !legacyDirectories.includes(path.dirname(row.file_path))) continue;
+            const target = path.join(targetDirectory, path.basename(row.file_path));
+            try {
+                if (path.dirname(fs.realpathSync(target)) !== realTarget || !fs.statSync(target).isFile()) continue;
+            } catch (error) {
+                if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
+                throw error;
+            }
+            repaired += update.run(target, row.id, row.file_path).changes;
+        }
+    })();
+    return repaired;
+}
+
+module.exports = { migrateLegacyUserData, repairLegacyAttachmentPaths };

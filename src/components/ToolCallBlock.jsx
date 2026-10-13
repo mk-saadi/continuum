@@ -4,6 +4,9 @@ import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import FileBrowserWidget from './FileBrowserWidget';
 import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.mjs';
 import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
+import SubagentTranscriptModal from './chat/SubagentTranscriptModal.jsx';
+
+const SUBAGENT_TOOL_NAMES = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 
 const codeTheme = {
   'pre[class*="language-"]': { background: 'transparent', color: 'var(--code-text)' },
@@ -51,6 +54,8 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
   }, [preparing, step.streamingArguments]);
   const running = preparing || step.status === 'running' || step.status === 'pending';
   // Follow execution status until the user explicitly chooses a view.
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const showTranscript = SUBAGENT_TOOL_NAMES.has(step.toolName) && typeof step.childSessionId === "string" && !!step.childSessionId;
   const directory = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName);
   const expanded = userExpanded ?? running;
   const listing = expanded && directory ? parseDirectoryListing(step.result, step.args) : null;
@@ -85,8 +90,27 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
           ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
           : <CodeSection title="Result" value={result} />}</>}
+
         {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}
       </div>
+      {showTranscript && (
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => setTranscriptOpen(true)}
+            className="cursor-pointer rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+          >
+            Show sub-agent activity
+          </button>
+        </div>
+      )}
+      {transcriptOpen && showTranscript && (
+        <SubagentTranscriptModal
+          childSessionId={step.childSessionId}
+          task={typeof step.args?.task === "string" ? step.args.task : typeof step.args?.task_description === "string" ? step.args.task_description : ""}
+          onClose={() => setTranscriptOpen(false)}
+        />
+      )}
     </div>
   );
 });

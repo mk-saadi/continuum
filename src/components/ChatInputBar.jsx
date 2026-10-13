@@ -11,6 +11,7 @@ import {
 	PERMISSION_MODE_LABELS,
 	PERMISSION_MODE_DEFAULTS,
 } from "../lib/permissionModes.mjs";
+import Tooltip from "./Tooltip";
 
 const ChatInputBar = memo(
 	forwardRef(function ChatInputBar(
@@ -26,6 +27,7 @@ const ChatInputBar = memo(
 			streaming,
 			loading,
 			attachDisabled,
+            attachmentTooltip = "Attach text files, PDF, or Excel (.xlsx)",
 			sendTitle,
 			permissionMode = PERMISSION_MODE_DEFAULTS.casual,
 			onPermissionModeChange,
@@ -96,16 +98,17 @@ const ChatInputBar = memo(
 				<div className="flex items-center justify-between gap-2 px-1 py-1">
 					{/* Left: Attachment & Permission Controls */}
 					<div className="flex items-center gap-1.5">
-						<button
-							type="button"
-							aria-label="Attach files"
-							title="Attach images, PDF, TXT, Markdown, or CSV"
-							disabled={streaming || loading || attachDisabled}
-							onClick={onAttach}
-							className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-muted)] hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							<GrAttachment className="size-3.5" />
-						</button>
+						<Tooltip content={attachmentTooltip}>
+							<button
+								type="button"
+								aria-label="Attach files"
+								disabled={streaming || loading || attachDisabled}
+								onClick={onAttach}
+								className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-muted)] hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+							>
+								<GrAttachment className="size-3.5" />
+							</button>
+						</Tooltip>
 
 						<PermissionSelector
 							value={permissionMode}

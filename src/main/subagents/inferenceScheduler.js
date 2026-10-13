@@ -157,12 +157,24 @@ const defaultScheduler = createInferenceScheduler();
 // only gates when the generation may run. It is forwarded to the provider so
 // the default request shape stays tool-free (see the local provider), and only
 // the child agent loop — which must model tool calls across its turns — opts in.
-async function scheduleInference({ engine, payload, signal, fetchImpl, recoverContext, allowTools = false }) {
+async function scheduleInference({ engine, payload, signal, fetchImpl, recoverContext, allowTools = false, session, budgetState }) {
   const provider = resolveProvider(engine);
+  const { pushActivity } = require('./sessionManager');
+  if (session) pushActivity(session, { type: 'queued' });
   return defaultScheduler.submit({
     ...provider.capability(engine),
     signal,
-    task: () => provider.chatCompletion({ engine, payload, signal, fetchImpl, recoverContext, allowTools }),
+    task: async () => {
+      if (session) pushActivity(session, { type: 'generating' });
+      const onProgress = session ? (progress) => {
+        session.liveProgress = { ...progress, t: Date.now() };
+      } : undefined;
+      try {
+        return await provider.chatCompletion({ engine, payload, signal, fetchImpl, recoverContext, allowTools, onProgress, budgetState });
+      } finally {
+        if (session) session.liveProgress = null;
+      }
+    },
   });
 }
 

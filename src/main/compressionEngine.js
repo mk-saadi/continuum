@@ -141,6 +141,8 @@ function releaseCompressionLock(sessionId) {
 }
 
 function checkAndCompressContext(options) {
+  if (options.transcriptAdapter) return require('./compactionCore').compactTranscript({
+    adapter: options.transcriptAdapter, payload: options.payload, force: options.force, signal: options.signal });
   const current = inFlight.get(options.sessionId);
   if (current) return current;
   const promise = require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
@@ -292,36 +294,12 @@ async function compressContext({
       if (!fits) return refuse(breakdown, budget, reserve);
     }
 
-    const target = Math.floor(0.65 * contextWindowLimit);
-    const oldSummaryTokens = estimateTokens(snapshot.oldSummary ?? '');
-    let remainingTokens = snapshot.totalTokens;
-    let selectedCount = 0;
-    let newSummary;
-
-    // Start with the existing summary's size as an estimate. If the generated
-    // summary is larger, include more eligible messages and summarize again.
-    do {
-      signal?.throwIfAborted();
-      do {
-        remainingTokens -= candidates[selectedCount].estimated_tokens;
-        selectedCount += 1;
-      } while ((force || remainingTokens > target) && selectedCount < candidates.length);
-
-      newSummary = await llmSummarizeCallback(
-        snapshot.oldSummary,
-        candidates.slice(0, selectedCount).map((message) => ({ ...message,
-          ...(force ? { content: require('./promptBuilder').messageForModel(message).content } : {}) })),
-      );
-      signal?.throwIfAborted();
-      if (typeof newSummary !== 'string' || !newSummary.trim() || newSummary.includes('\0')) {
-        throw new TypeError('The summarizer must return a non-empty summary string.');
-      }
-
-      const selectedTokens = candidates.slice(0, selectedCount)
-        .reduce((total, message) => total + message.estimated_tokens, 0);
-      remainingTokens = snapshot.totalTokens - oldSummaryTokens
-        - selectedTokens + estimateTokens(newSummary);
-    } while (remainingTokens > target && selectedCount < candidates.length);
+    const { newSummary, selectedCount, remainingTokens, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
+      candidates, oldSummary: snapshot.oldSummary, totalTokens: snapshot.totalTokens,
+      contextWindowLimit, force, signal, estimate: estimateTokens, summarize: llmSummarizeCallback,
+      modelMessage: message => ({ ...message,
+        ...(force ? { content: require('./promptBuilder').messageForModel(message).content } : {}) }),
+    });
 
     // Core memories and the ten protected messages can make 65% unattainable.
     // Do not replace context with a summary that saves no tokens.
@@ -370,31 +348,22 @@ async function compressContext({
       signal?.throwIfAborted();
       const checkpoints = require('./taskCheckpoints');
       const selected = candidates.slice(0, selectedCount);
-      let draft = null;
+      let generated;
       try {
-        draft = await llmCheckpointCallback(
-          checkpoints.buildCheckpointInput({ sessionId, candidates: selected, newSummary }),
-          modelId, { signal, maxTokens: checkpoints.CHECKPOINT_LLM_MAX_TOKENS });
+        generated = await require('./compactionCore').generateCheckpoint({
+          input: checkpoints.buildCheckpointInput({ sessionId, candidates: selected, newSummary }),
+          draft: input => llmCheckpointCallback(input, modelId, { signal, maxTokens: checkpoints.CHECKPOINT_LLM_MAX_TOKENS }),
+          validationContext: { sessionId, briefs: require('./taskBriefs').getApplicableBriefs(sessionId),
+            index: checkpoints.evidenceIndex(checkpoints.collectEvidence(selected)) },
+          version: (checkpoints.getLatestCheckpoint(sessionId)?.id ?? 0) + 1, signal,
+        });
       } catch (error) {
         signal?.throwIfAborted();
         return { compressed: false, archivedCount: 0, reason: 'checkpoint-generation-failed' };
       }
-      signal?.throwIfAborted();
-      const validation = checkpoints.validateCheckpoint(draft, {
-        sessionId,
-        briefs: require('./taskBriefs').getApplicableBriefs(sessionId),
-        index: checkpoints.evidenceIndex(checkpoints.collectEvidence(selected)),
-      });
-      if (!validation.ok) {
-        return { compressed: false, archivedCount: 0, reason: 'checkpoint-invalid' };
-      }
-      candidateCheckpoint = validation.checkpoint;
-      const previewVersion = (checkpoints.getLatestCheckpoint(sessionId)?.id ?? 0) + 1;
-      candidateSection = {
-        role: 'system',
-        content: checkpoints.renderCheckpointSection(candidateCheckpoint, { version: previewVersion, stale: false }),
-        taskCheckpoint: true,
-      };
+      if (!generated.ok) return { compressed: false, archivedCount: 0, reason: generated.reason };
+      candidateCheckpoint = generated.checkpoint;
+      candidateSection = generated.section;
       candidateSection.checkpointTokens = estimateTokens(candidateSection.content);
     }
 

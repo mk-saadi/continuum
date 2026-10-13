@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const { persistChildRun } = require('./persistence');
 
 // Explicit lifecycle for a subagent child session, extended for continuation
 // (Step 6) with the smallest state model that fits:
@@ -24,6 +25,7 @@ const SESSION_STATUS = Object.freeze({
   WAITING: 'waiting',
   RUNNING: 'running',
   COMPLETED: 'completed',
+  PARTIAL: 'partial',
   INTERRUPTED: 'interrupted',
   FAILED: 'failed',
   CANCELLED: 'cancelled',
@@ -33,7 +35,7 @@ const SESSION_STATUS = Object.freeze({
 const CAN_WAIT = new Set([SESSION_STATUS.CREATED, SESSION_STATUS.COMPLETED, SESSION_STATUS.INTERRUPTED]);
 const CAN_INTERRUPT = new Set([SESSION_STATUS.CREATED, SESSION_STATUS.WAITING, SESSION_STATUS.RUNNING]);
 const CAN_RESUME = new Set([SESSION_STATUS.WAITING]);
-const IS_TERMINAL = new Set([SESSION_STATUS.FAILED, SESSION_STATUS.CANCELLED]);
+const IS_TERMINAL = new Set([SESSION_STATUS.FAILED, SESSION_STATUS.CANCELLED, SESSION_STATUS.PARTIAL]);
 
 // Ephemeral, in-memory records only: a subagent execution belongs to a distinct
 // child session. Persistence across application restarts is deliberately not
@@ -79,6 +81,11 @@ function createSession({ parentSessionId = null, agentId = null, model = null,
     error: null,
     inbox: [],
     context: null,
+    // Live activity feed for the observability modal: turn starts, captured
+    // thinking, tool start/finish, and errors. Observational only — the loop
+    // never reads it back, and it is never sent to the model. Bounded so a
+    // long run cannot grow the session without limit.
+    activity: [],
   };
   sessions.set(session.id, session);
   return session;
@@ -103,6 +110,12 @@ function listSessions() {
 // it, so one parent's children are enumerable without a full session tree.
 function listChildren(parentSessionId) {
   return [...sessions.values()].filter(item => item.parentSessionId === parentSessionId);
+}
+
+function captureAccounting(session) {
+  if (!session.budgetState) return;
+  const value = require('./executionBudget').outcome(session.budgetState);
+  session.usage = value.usage; session.accounting = value.accounting;
 }
 
 function markCompletedAt(session) {
@@ -135,18 +148,28 @@ function resumeSession(session) {
 function interruptSession(session) {
   if (!CAN_INTERRUPT.has(session.status)) return session;
   session.status = SESSION_STATUS.INTERRUPTED;
+  session.stopReason = 'interrupted';
+  captureAccounting(session);
   markCompletedAt(session);
+  persistChildRun(session);
   return session;
 }
 
 // Terminal settlements are valid only from `running`: a completed, waiting, or
 // already-terminal session has no active execution whose outcome this could be.
-function completeSession(session, { usage = null, result = null } = {}) {
+// Each settlement mirrors the run to the database (best-effort, never
+// throwing) so every path — first runs, background runs, resumed turns —
+// leaves the same durable record.
+function completeSession(session, { usage = null, result = null, outcome = 'completed', stopReason = 'completed', accounting = null } = {}) {
   if (session.status !== SESSION_STATUS.RUNNING) return session;
-  session.status = SESSION_STATUS.COMPLETED;
+  session.status = outcome;
+  session.stopReason = stopReason;
+  session.accounting = accounting;
   markCompletedAt(session);
   if (usage) session.usage = usage;
   session.result = result;
+  session.error = outcome === 'completed' ? null : result;
+  persistChildRun(session);
   return session;
 }
 
@@ -155,18 +178,46 @@ function failSession(session, error) {
   session.status = SESSION_STATUS.FAILED;
   markCompletedAt(session);
   session.error = String(error?.message ?? error);
+  session.stopReason = error?.stopReason ?? (error?.code === 'CONTEXT_BUDGET_EXCEEDED' ? 'context_exhausted' : 'runtime_error');
+  captureAccounting(session);
+  if (error?.subagentResult) session.result = error.subagentResult.output;
+  persistChildRun(session);
   return session;
 }
 
 function cancelSession(session) {
   if (session.status !== SESSION_STATUS.RUNNING) return session;
   session.status = SESSION_STATUS.CANCELLED;
+  session.stopReason = 'cancelled';
+  captureAccounting(session);
   markCompletedAt(session);
+  persistChildRun(session);
   return session;
+}
+
+// Live activity feed (see the `activity` field on createSession). The agent
+// loop appends here as work happens; the transcript view reads it. Append
+// only — nothing in the runtime consumes these events, so recording can never
+// change loop behavior. Bounded per session.
+const ACTIVITY_LIMIT = 80;
+const ACTIVITY_TEXT_LIMIT = 600;
+function pushActivity(session, event) {
+  if (!session || typeof session !== 'object') return null;
+  if (!Array.isArray(session.activity)) session.activity = [];
+  const entry = { t: Date.now(), ...event };
+  for (const key of ['text', 'error', 'arguments']) {
+    if (typeof entry[key] === 'string' && entry[key].length > ACTIVITY_TEXT_LIMIT) {
+      entry[key] = `${entry[key].slice(0, ACTIVITY_TEXT_LIMIT)}…`;
+    }
+  }
+  session.activity.push(entry);
+  while (session.activity.length > ACTIVITY_LIMIT) session.activity.shift();
+  return entry;
 }
 
 module.exports = {
   SESSION_STATUS, IS_TERMINAL, createSession, startSession, getSession, listSessions, listChildren,
   waitSession, resumeSession, interruptSession,
   completeSession, failSession, cancelSession,
+  pushActivity, ACTIVITY_LIMIT,
 };

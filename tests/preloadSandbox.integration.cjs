@@ -19,7 +19,7 @@ const shape = {
   electronAPI: ['getEngineStatus'],
   memoryPalace: ['getOrCreateSession', 'saveMessage', 'loadSession', 'onCompressionComplete'],
   mcpAPI: ['getStatus', 'getTools', 'setToolEnabled', 'onChanged'],
-  chatAPI: ['run', 'cancel', 'cancelSession', 'onEvent', 'onStreamStatus', 'onStreamChunk'],
+  chatAPI: ['run', 'cancel', 'cancelSession', 'onEvent', 'onStreamStatus', 'onStreamChunk', 'getChildTranscript'],
   api: ['getConfig', 'createProject', 'importProjectFiles', 'processUploads', 'launchEngine', 'saveSkill'],
 };
 const events = [

@@ -59,6 +59,9 @@ const TOOL_CAPABILITIES = Object.freeze({
 	write_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	write_file: CAPABILITIES.WORKSPACE_WRITE,
 	str_replace_editor: CAPABILITIES.WORKSPACE_WRITE,
+	edit_project_files: CAPABILITIES.WORKSPACE_WRITE,
+	apply_patch: CAPABILITIES.WORKSPACE_WRITE,
+	move_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	edit_file: CAPABILITIES.WORKSPACE_WRITE,
 	delete_file: CAPABILITIES.WORKSPACE_WRITE,
 	// LOCAL_EXECUTION
@@ -148,6 +151,32 @@ function availableModes(project) {
 function sessionProject(sessionId) {
 	if (!sessionId) return null;
 	return require('./db').db.prepare('SELECT p.* FROM projects p JOIN sessions s ON s.project_id = p.id WHERE s.id = ?').get(sessionId) ?? null;
+}
+
+/**
+ * Every filesystem path a write tool may touch, for containment checks.
+ * Unknown shapes fail closed (empty list → invalid input below).
+ */
+function writeTargets(name, args) {
+	if (name === "move_project_file") return [args?.source_path, args?.destination_path];
+	if (name === "edit_project_files") {
+		if (!Array.isArray(args?.edits)) return [];
+		return args.edits.map((edit) => edit?.relative_path);
+	}
+	if (name === "apply_patch" && typeof args?.patch === "string") {
+		const paths = [];
+		for (const line of args.patch.split("\n")) {
+			if (!line.startsWith("--- ") && !line.startsWith("+++ ")) continue;
+			const name = line
+				.slice(4)
+				.trim()
+				.replace(/^["']|["']$/g, "")
+				.replace(/^a\/|^b\//, "");
+			if (name && name !== "/dev/null") paths.push(name);
+		}
+		return paths;
+	}
+	return [args?.relative_path ?? args?.path ?? args?.file_path ?? args?.filePath];
 }
 
 /**
@@ -429,9 +458,11 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 	if (capability === CAPABILITIES.WORKSPACE_WRITE) {
 		// baseDecision already denied casual writes (no workspace), so a root
 		// exists here; workspacePath re-verifies it fails closed.
-		const target = args?.relative_path ?? args?.path ?? args?.file_path ?? args?.filePath;
+		// Multi-path tools expose every path they will touch so each one is
+		// contained before execution (which re-validates content anyway).
+		const targets = writeTargets(name, args);
 		try {
-			await workspacePath(root, target);
+			for (const target of targets) await workspacePath(root, target);
 		} catch (error) {
 			const message = String(error?.message ?? '');
 			if (message.startsWith('Execution blocked:') && mode === 'ask_approval') {

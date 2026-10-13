@@ -1,22 +1,25 @@
 'use strict';
 
+const { readCompletion } = require('./streamCompletion');
+
 const { localEngineFetch } = require('../../localEngineFetch');
 
 // Inference provider for the already-running local model server. The runtime
 // depends on this contract instead of the HTTP transport, so other providers can
 // be added later without touching session or execution logic.
 //
-// Every sub-agent request is a single non-streaming POST. Requests are
+// Requests stream when an activity observer is supplied. Requests are
 // tool-free by default — the no-tool invariant is enforced here so an ordinary
 // execution cannot opt back in — unless the caller explicitly passes
 // `allowTools: true` (only the child agent loop does, through the scheduler),
 // in which case the payload's tool list passes through untouched. Returns
 // { ok: true, result } on a parsed response, or { ok: false, status } after
 // cancelling an error body — the execution layer owns the error messages.
-async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch, allowTools = false, recoverContext }) {
+async function chatCompletion({ engine, payload, signal, fetchImpl = localEngineFetch, allowTools = false, recoverContext, onProgress, budgetState }) {
   // Fail closed: an allowTools caller that forgot the tool list still gets a
   // tool-free request rather than an undefined-tools payload.
   const toolsAllowed = allowTools === true && Array.isArray(payload.tools) && payload.tools.length > 0;
+  if (budgetState) fetchImpl = require('../executionBudget').budgetedFetch(fetchImpl, budgetState);
   const response = await fetchImpl(`http://127.0.0.1:${engine.port}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,17 +28,27 @@ async function chatCompletion({ engine, payload, signal, fetchImpl = localEngine
     contextRecovery: recoverContext ?? (async () => null),
     body: JSON.stringify({
       ...payload,
-      stream: false,
+      stream: typeof onProgress === 'function',
       ...(toolsAllowed
         ? { tool_choice: payload.tool_choice ?? 'auto' }
         : { tools: [], tool_choice: 'none' }),
     }),
   });
   if (!response.ok) {
+    if (response.status === 400) {
+      const body = await response.clone().text();
+      if (require('../../contextBudget').isContextOverflow({ status: 400, responseBody: body })) {
+        await response.body?.cancel();
+        const error = new (require('../../contextBudget').ContextBudgetError)('backend context overflow');
+        error.confirmedOverflow = true; throw error;
+      }
+    }
     await response.body?.cancel();
     return { ok: false, status: response.status };
   }
-  return { ok: true, result: await response.json() };
+  const result = await readCompletion(response, onProgress);
+  if (budgetState) require('../executionBudget').settleResponse(response, result?.usage);
+  return { ok: true, result };
 }
 
 const PROVIDER_ID = 'local';

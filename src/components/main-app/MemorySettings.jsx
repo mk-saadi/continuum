@@ -13,40 +13,32 @@ import NotificationSettings from '../settings/NotificationSettings';
 import SkillsSettingsTab from '../settings/SkillsSettingsTab';
 import GeneralSettingsTab from '../settings/GeneralSettingsTab';
 import BackgroundSettings from '../settings/BackgroundSettings';
-import { LuPalette, LuTerminal, LuImage, LuBrain, LuPlug, LuSettings, LuX } from "react-icons/lu";
+import DirectorySettings from "../DirectorySettings";
+import ModelProfileSettings from "../ModelProfileSettings";
+import { LuPalette, LuBell, LuCpu, LuBot, LuBrain, LuPlug, LuServer, LuHardDrive, LuChartNoAxesCombined, LuX } from "react-icons/lu";
 import { GiStarSwirl } from "react-icons/gi";
 
 const tabs = [
-    { id: "cloud", label: "Cloud Providers", icon: LuPlug, description: "API keys and cloud model choices." },
-    { id: "tokens", label: "Token History", icon: LuTerminal, description: "Token consumption by project and period." },
-	{ id: "general", label: "General", icon: LuPalette, description: "Appearance and engine preferences." },
-	{ id: "terminal", label: "Terminal", icon: LuTerminal, description: "Engine activity and diagnostics." },
-	{
-		id: "avatars",
-		label: "Avatars & Branding",
-		icon: LuImage,
-		description: "Give your models a familiar face.",
-	},
-	{
-		id: "memory",
-		label: "Memory Palace",
-		icon: LuBrain,
-		description: "Control what your assistant remembers.",
-	},
-	{
-		id: "integrations",
-		label: "MCP Integrations",
-		icon: LuPlug,
-		description: "Connect your local tools and servers.",
-	},
-	{ id: 'skills', label: 'Skills', icon: LuBrain, description: 'Manage reusable workflows across projects.' },
-	{
-		id: "config",
-		label: "Server Config",
-		icon: LuSettings,
-		description: "Manage the API, RAG, and server setup.",
-	},
+    { id: "appearance", group: "Preferences", label: "Appearance", icon: LuPalette, description: "Themes, backgrounds, and assistant identity." },
+    { id: "notifications", group: "Preferences", label: "Notifications", icon: LuBell, description: "Choose when the app alerts you." },
+    { id: "models", group: "AI configuration", label: "Models & Generation", icon: LuCpu, description: "Providers, model defaults, and response behavior." },
+    { id: "agents", group: "AI configuration", label: "Agents & Skills", icon: LuBot, description: "Agent execution and reusable workflows." },
+    { id: "integrations", group: "AI configuration", label: "MCP Integrations", icon: LuPlug, description: "Connect and manage external tools and servers." },
+    { id: "memory", group: "AI configuration", label: "Memory", icon: LuBrain, description: "Memory defaults, model overrides, and saved memories." },
+    { id: "engine", group: "System", label: "Engine & API", icon: LuServer, description: "Local runtime and API server preferences." },
+    { id: "storage", group: "System", label: "Storage & Data", icon: LuHardDrive, description: "File locations and token-history retention." },
+    { id: "usage", group: "System", label: "Usage & Logs", icon: LuChartNoAxesCombined, description: "Token consumption and engine diagnostics." },
 ];
+
+function ProfileSettingsList({ models, section }) {
+    return <div className="space-y-4">
+        <ModelProfileSettings section={section} />
+        {models.map(model => <div key={model.id} className="space-y-2">
+            <h4 className="text-sm font-medium">{model.name || model.id}</h4>
+            <ModelProfileSettings modelPath={model.modelPath || model.path || model.id} section={section} />
+        </div>)}
+    </div>;
+}
 
 const themeGroups = [
 	{
@@ -124,10 +116,11 @@ export default function MemorySettings({
 	serverError,
 }) {
 	const dialog = useRef(null);
+	const mcpForm = useRef(null);
 	const tabButtons = useRef([]);
 	const changing = useRef(false);
 	const version = useRef(0);
-	const [tab, setTab] = useState("general");
+	const [tab, setTab] = useState("appearance");
 	const [config, setConfig] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [busy, setBusy] = useState(false);
@@ -245,10 +238,9 @@ export default function MemorySettings({
 						aria-orientation="vertical"
 						className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:border-r sm:border-b-0 sm:px-3 sm:py-5"
 					>
-						<p className="hidden px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] sm:block">
-							Preferences
-						</p>
-						{tabs.map(({ id, label, icon: Icon }, index) => (
+                        {tabs.map(({ id, label, group, icon: Icon }, index) => (
+                            <React.Fragment key={id}>
+                                {(index === 0 || tabs[index - 1].group !== group) && <p className="hidden px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] sm:block">{group}</p>}
 							<button
 								key={id}
 								ref={(element) => {
@@ -272,6 +264,7 @@ export default function MemorySettings({
 								</span>
 								<span className="whitespace-nowrap">{label}</span>
 							</button>
+                            </React.Fragment>
 						))}
 						<div className="mt-auto hidden border-t border-[var(--border)] px-3 pt-4 text-[10px] text-[var(--text-muted)] sm:flex gap-2 items-center">
 							<GiStarSwirl /> Personalize your local AI space
@@ -284,24 +277,14 @@ export default function MemorySettings({
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{activeTab.description}</p>
 						</div>
 
-                        <section id="settings-panel-tokens" role="tabpanel" aria-labelledby="settings-tab-tokens" hidden={tab !== 'tokens'} tabIndex={0} className={panelClass}>
-                            {tab === 'tokens' && <TokenHistory />}
-                        </section>
-                        <section id="settings-panel-skills" role="tabpanel" aria-labelledby="settings-tab-skills" hidden={tab !== 'skills'} tabIndex={0} className={panelClass}>
-                            {tab === 'skills' && <SkillsSettingsTab />}
-                        </section>
 						<section
-							id="settings-panel-general"
+							id="settings-panel-appearance"
 							role="tabpanel"
-							aria-labelledby="settings-tab-general"
-							hidden={tab !== "general"}
+							aria-labelledby="settings-tab-appearance"
+							hidden={tab !== "appearance"}
 							tabIndex={0}
 							className={panelClass}
 						>
-							<EngineIdleSettings />
-							<GeneralSettingsTab />
-							<BackgroundSettings />
-							<NotificationSettings />
 							<div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
 								<h4 className="font-semibold">Color theme</h4>
 								<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
@@ -367,36 +350,8 @@ export default function MemorySettings({
 									Pass an onChangeTheme handler from the app to enable theme selection.
 								</p>
 							)}
-						</section>
-
-						<section
-							id="settings-panel-terminal"
-							role="tabpanel"
-							aria-labelledby="settings-tab-terminal"
-							hidden={tab !== "terminal"}
-							tabIndex={0}
-							className={panelClass}
-						>
-							<TerminalLog
-								log={terminalLog}
-								engineRunning={engineRunning}
-								serverPort={serverPort}
-								serverError={serverError}
-							/>
-						</section>
-
-						<section
-							id="settings-panel-avatars"
-							role="tabpanel"
-							aria-labelledby="settings-tab-avatars"
-							hidden={tab !== "avatars"}
-							tabIndex={0}
-							className={panelClass}
-						>
-							<AvatarSettings
-								avatars={avatars}
-								models={models}
-							/>
+							<BackgroundSettings />
+                            <AvatarSettings avatars={avatars} models={models} />
 						</section>
 
 						<section
@@ -417,6 +372,7 @@ export default function MemorySettings({
 								/>
 								Enable memory for this chat (facts & past chats)
 							</label>
+                            <div className="mb-5"><ProfileSettingsList models={models} section="memory" /></div>
 							<MemoryTab palace={palace} />
 						</section>
 
@@ -437,7 +393,7 @@ export default function MemorySettings({
 									status={palace.mcpStatus}
 									busy={busy}
 									error={error}
-									onConfigure={() => setTab("config")}
+									onConfigure={() => { mcpForm.current?.scrollIntoView({ block: "start", behavior: "smooth" }); mcpForm.current?.focus({ preventScroll: true }); }}
 									onServerToggle={(name, enabled) =>
 										change(() => window.mcpAPI.setServerEnabled(name, enabled))
 									}
@@ -466,22 +422,7 @@ export default function MemorySettings({
 									{error}
 								</p>
 							)}
-						</section>
-
-						<section id="settings-panel-cloud" role="tabpanel" aria-labelledby="settings-tab-cloud" hidden={tab !== "cloud"} tabIndex={0} className={panelClass}>
-                            <CloudProviderSettings />
-                        </section>
-						<section
-							id="settings-panel-config"
-							role="tabpanel"
-							aria-labelledby="settings-tab-config"
-							hidden={tab !== "config"}
-							tabIndex={0}
-							className={panelClass}
-							aria-busy={busy}
-						>
-							<LocalApiSettings />
-							<RagSettings />
+                            <div ref={mcpForm} tabIndex={-1} className="mt-6">
 							{loading ? (
 								<p role="status">Loading configuration…</p>
 							) : (
@@ -493,7 +434,42 @@ export default function MemorySettings({
 									onSave={(value) => change(() => window.api.saveMcpConfig(value))}
 								/>
 							)}
+                            </div>
 						</section>
+
+                        <section id="settings-panel-notifications" role="tabpanel" aria-labelledby="settings-tab-notifications" hidden={tab !== "notifications"} tabIndex={0} className={panelClass}>
+                            <NotificationSettings />
+                        </section>
+
+                        <section id="settings-panel-models" role="tabpanel" aria-labelledby="settings-tab-models" hidden={tab !== "models"} tabIndex={0} className={panelClass}>
+                            <CloudProviderSettings />
+                            <div className="mt-6 space-y-3"><h4 className="font-semibold">Generation profiles</h4><ProfileSettingsList models={models} section="generation" /></div>
+                        </section>
+
+                        <section id="settings-panel-agents" role="tabpanel" aria-labelledby="settings-tab-agents" hidden={tab !== "agents"} tabIndex={0} className={panelClass}>
+                            <GeneralSettingsTab />
+                            {tab === "agents" && <SkillsSettingsTab />}
+                        </section>
+
+                        <section id="settings-panel-engine" role="tabpanel" aria-labelledby="settings-tab-engine" hidden={tab !== "engine"} tabIndex={0} className={panelClass}>
+                            <EngineIdleSettings />
+                            <p className="mb-5 text-xs">{engineRunning ? `Engine running on port ${serverPort}` : "Engine stopped"}</p>
+                            <LocalApiSettings />
+                        </section>
+
+                        <section id="settings-panel-storage" role="tabpanel" aria-labelledby="settings-tab-storage" hidden={tab !== "storage"} tabIndex={0} className={panelClass}>
+                            <DirectorySettings />
+                            <RagSettings />
+                            {tab === "storage" && <TokenHistory section="retention" />}
+                        </section>
+
+                        <section id="settings-panel-usage" role="tabpanel" aria-labelledby="settings-tab-usage" hidden={tab !== "usage"} tabIndex={0} className={panelClass}>
+                            <h4 className="mb-3 font-semibold">Token usage</h4>
+                            {tab === "usage" && <TokenHistory section="usage" />}
+                            <h4 className="mt-6 mb-3 font-semibold">Engine logs</h4>
+                            <TerminalLog log={terminalLog} engineRunning={engineRunning} serverPort={serverPort} serverError={serverError} />
+                        </section>
+
 					</div>
 				</div>
 			</div>

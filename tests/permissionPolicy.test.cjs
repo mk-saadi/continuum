@@ -46,7 +46,7 @@ const response = content => Response.json({ choices: [{ message: { role: 'assist
     assert.equal(effectiveMode('workspace_write', null), 'ask_approval');
 
     // 2. Casual chat hides workspace file-write tools but keeps work tools visible.
-    for (const hidden of ['write_project_file', 'str_replace_editor', 'edit_file']) {
+    for (const hidden of ['write_project_file', 'str_replace_editor', 'edit_file', 'edit_project_files', 'apply_patch', 'move_project_file']) {
       assert.ok(!casualWrite.includes(hidden), `${hidden} must be hidden in casual chat`);
       assert.ok(!casualAsk.includes(hidden), `${hidden} must be hidden in casual ask_approval`);
     }
@@ -64,7 +64,7 @@ const response = content => Response.json({ choices: [{ message: { role: 'assist
 
     // 4. Read only hides commands, writes, memory writes and MCP tools.
     const readOnly = names('pol-work', 'read_only', [MCP_TOOL]);
-    for (const hidden of ['execute_command', 'write_project_file', 'str_replace_editor', 'save_memory', 'mcp_fetch']) {
+    for (const hidden of ['execute_command', 'write_project_file', 'str_replace_editor', 'edit_project_files', 'apply_patch', 'move_project_file', 'save_memory', 'mcp_fetch']) {
       assert.ok(!readOnly.includes(hidden), `${hidden} must be hidden in read_only`);
     }
     for (const shown of ['read_project_file', 'search_project_content', 'spawn_sub_agent', 'search_memory', 'get_recent_chat_history']) {
@@ -79,7 +79,7 @@ const response = content => Response.json({ choices: [{ message: { role: 'assist
 
     // 6. Workspace modes keep working tools and MCP tools visible.
     const workspaceWrite = names('pol-work', 'workspace_write', [MCP_TOOL]);
-    for (const shown of ['execute_command', 'write_project_file', 'save_memory', 'spawn_sub_agent', 'mcp_fetch']) {
+    for (const shown of ['execute_command', 'write_project_file', 'str_replace_editor', 'edit_project_files', 'apply_patch', 'move_project_file', 'save_memory', 'spawn_sub_agent', 'mcp_fetch']) {
       assert.ok(workspaceWrite.includes(shown), `${shown} available in workspace_write`);
     }
 

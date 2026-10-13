@@ -317,11 +317,13 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     for (const fragment of delta.tool_calls ?? []) {
       if (!fragment || typeof fragment !== 'object') continue;
       const index = fragment.index ?? 0;
-      if (!Number.isInteger(index) || index < 0 || index >= 16) {
-        throw new Error('Invalid tool-call index.');
+      if (!Number.isSafeInteger(index) || index < 0) {
+        throw new Error(`Invalid tool-call index: ${JSON.stringify(index)?.slice(0, 64)} (${typeof index}); expected a non-negative safe integer.`);
       }
       // A Map also handles sparse/out-of-order indexes without empty array slots.
       if (!calls.has(index)) {
+        // Bound accumulated calls, not the provider's sparse index values.
+        if (calls.size >= 16) throw new Error('Too many streamed tool calls (maximum 16 per response); no tools were executed.');
         calls.set(index, { id: '', type: 'function', function: { name: '', arguments: '' } });
       }
       const call = calls.get(index);
@@ -666,7 +668,7 @@ export async function runMemoryChat({
         const failure = failedToolReason?.(output, entry.call.function.name);
         entry.step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
         if (failure) entry.step.error = failure;
-        if (['str_replace_editor', 'write_project_file'].includes(entry.call.function.name) &&
+        if (['str_replace_editor', 'write_project_file', 'edit_project_files', 'apply_patch', 'move_project_file'].includes(entry.call.function.name) &&
             result?.success === true && !result?.isError) {
           turnCount = 0;
           toolRounds = 0;

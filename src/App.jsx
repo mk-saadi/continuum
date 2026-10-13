@@ -181,12 +181,13 @@ function AppContent() {
 			contextStatus: status,
 			modelPath,
 			modelName,
+            capabilities,
 		}) => {
 			if (disposed) return;
 			const version = ++statusVersion;
 			setActiveModelConfig(running ? (config ?? null) : null);
 			setEngineRunning(running);
-			setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath } : null);
+			setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath, capabilities } : null);
 			setActiveModelName(running ? (modelName ?? null) : null);
 			if (running && modelPath) {
 				try {

@@ -1,0 +1,65 @@
+const { app, BrowserWindow } = require('electron');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
+const assert = require('node:assert/strict');
+const esbuild = require('esbuild');
+app.disableHardwareAcceleration();
+app.on('window-all-closed', () => {});
+app.whenReady().then(async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'model-selector-ui-'));
+  const window = new BrowserWindow({ show: false, width: 1280, height: 900, webPreferences: { sandbox: true } });
+  try {
+    await esbuild.build({ stdin: { contents: `
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import ModelSelectorModal from './src/components/main-app/ModelSelectorModal';
+      const models = ['Gemma 4 26B A4B', 'Qwen 3.6 35B A3B', 'Qwen 3.8 27B', 'Spark 2.5 4B', 'Llama 3.1 8B'].map((name, index) => ({ id: '/models/' + index + '.gguf', modelPath: '/models/' + index + '.gguf', generalName: name, name, architecture: index ? 'qwen3moe' : 'gemma4', paramSize: index ? '35B' : '26B', quantization: 'Q4_K_M', sizeFormatted: '15.76 GB', hasVision: !index, hasTools: true, hasReasoning: !!index }));
+      const cloudProviders = [{ id: 'deepseek', name: 'DeepSeek Flash', modelId: 'deepseek/deepseek-v4.1-flash', apiType: 'openai', configured: true }, { id: 'gemini', name: 'Gemini Flash Lite', modelId: 'google/gemini-2.5-flash-lite', configured: true }];
+      window.api = { getCloudModelMetadata: async () => [{providerId:'deepseek', modelId:'deepseek/deepseek-v4.1-flash', providerName:'OpenRouter', contextLength:128000, maxOutputTokens:16000, pricing:{input:0.000001,output:0.000002}, capabilities:{reasoning:true,tools:true,image:false}}], getModelLoadConfig: async () => ({ config: {}, remembered: false }) };
+      window.terminalAPI = { kill: async () => { window.unloaded = true; return { success: true }; } };
+      const root = createRoot(document.getElementById('root'));
+      window.renderPicker = () => root.render(<ModelSelectorModal models={models} cloudProviders={cloudProviders} loadedLocalModel={{modelPath: models[0].id, name: models[0].generalName, capabilities: { image: true, audio: false }}} activeChatProvider={{type: 'local'}} selectedModel={models[0].id} engineRunning onSelectProvider={value => { window.selectedProvider = value; }} onSelectModel={value => { window.selectedModel = value; }} onClose={() => { window.pickerClosed = true; }} onScan={() => { window.scanned = true; }} onLoaded={() => {}} />);
+      window.renderPicker();
+    `, loader: 'jsx', resolveDir: process.cwd() }, bundle: true, outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' } });
+    const assets = path.join(__dirname, '../dist/assets');
+    const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));
+    await fs.copyFile(path.join(assets, css), path.join(directory, 'fixture.css'));
+    await fs.writeFile(path.join(directory, 'index.html'), `<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d}</style><div id="root"></div><script src="fixture.js"></script>`);
+    await window.loadFile(path.join(directory, 'index.html'));
+    await new Promise(resolve => setTimeout(resolve, 200));
+    await fs.writeFile('/tmp/model-selector-preview.png', (await window.webContents.capturePage()).toPNG());
+    const result = await window.webContents.executeJavaScript(`(async () => {
+      const tick = () => new Promise(resolve => setTimeout(resolve, 50));
+      const check = (value, message) => { if (!value) throw new Error(message); };
+      const list = () => [...document.querySelectorAll('ul[aria-label="Available models"] > li')];
+      check(list().length === 7, 'Both sources in one list');
+      check(list()[0].getBoundingClientRect().height <= 55, 'Compact row height');
+      check(document.querySelector('[aria-label="Image input: verified by loaded engine"]'), 'Runtime verification shown');
+      check(document.querySelector('[aria-label="Audio input: unsupported"]'), 'Unsupported media distinguished');
+      const search = document.querySelector('[aria-label="Search models"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(search, 'deepseek'); search.dispatchEvent(new Event('input', {bubbles:true})); await tick();
+      check(list().length === 1 && list()[0].textContent.includes('DeepSeek'), 'Search includes cloud models');
+      list()[0].querySelector('button').click(); await tick();
+      check(window.selectedProvider.provider === 'deepseek' && window.pickerClosed, 'Cloud selection preserved');
+      document.querySelector('[aria-label="Clear model search"]').click(); await tick();
+      const filters = [...document.querySelectorAll('[aria-label="Model source"] button')];
+      filters[1].click(); await tick(); check(list().length === 5, 'Local filter');
+      filters[2].click(); await tick(); check(list().length === 2, 'Cloud filter');
+      check(document.body.textContent.includes('Max output'), 'Cloud-specific columns');
+      check(list().some(row => row.textContent.includes('OpenRouter') && row.textContent.includes('128k') && row.textContent.includes('16k') && row.textContent.includes('$1 / $2')), 'Provider metadata displayed');
+      check(document.querySelector('[aria-label="Tool use: reported by provider"]'), 'Cloud tool capability displayed');
+      filters[1].click(); await tick();
+      [...list()].find(row => row.textContent.includes('Gemma')).querySelector('button').click(); await tick();
+      check(window.selectedModel === '/models/0.gguf' && window.selectedProvider.type === 'local', 'Loaded model reuse');
+      [...document.querySelectorAll('button')].find(button => button.textContent === 'Unload').click(); await tick(); check(window.unloaded, 'Unload preserved');
+      [...list()].find(row => row.textContent.includes('Qwen')).querySelector('button').click(); await tick();
+      check(document.querySelector('#load-settings-title'), 'Unloaded model opens load dialog');
+      return true;
+    })()`);
+    assert.equal(result, true);
+    console.log('Compact model list, capabilities, cloud search, source filters, selection, unload and load dialog passed.');
+  } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
+  app.exit(0);
+}).catch(error => { console.error(error); app.exit(1); });

@@ -91,6 +91,8 @@ const SUB_AGENT_CORE = [
 	"- Run quick builds or tests with `execute_command` when needed.",
 	"",
 	"#### 3. Sub-Agent Invocation Pattern:",
+	"Delegate only when isolation is useful. Give each child a concrete bounded question, explicit paths or sources, exclusions, and an acceptance criterion. Keep sibling assignments non-overlapping; avoid duplicate sweeps. Request findings with file/line or URL evidence, uncertainties, and unfinished work, with the most useful evidence first.",
+	"Use returned partial findings and the stop reason when planning the remaining work; do not silently discard them or launch another child to repeat completed reads. Narrow any follow-up to unresolved questions. Multiple local children may share one serialized GPU lane, so extra children do not guarantee faster completion. Child lifetime limits and the shared parent-run tool ceiling still apply.",
 	"Call `spawn_sub_agent` with a single-purpose `task` and exactly one of: a public URL (in `task` or the `url` field), one absolute path in `target_file`, or `investigate: true` for an autonomous read-only investigation. A task with none of the three fails. Use `constraint` and `expected_output` to keep the answer short. Never pass multiple local file paths as `target_files`.",
 	"",
 ];
@@ -377,9 +379,10 @@ function messageForModel({ role, content, attachments = [] }) {
 	const images = [];
 	for (const { file_path, mime_type } of files) {
 		const header = `[Attached File: ${attachmentName(file_path)}]`;
-		const isText = mime_type.startsWith("text/") || mime_type === "application/json";
-		if (isText && fs.statSync(file_path).size < 50 * 1024) {
-			const raw = fs.readFileSync(file_path, "utf-8");
+		const extracted = require("./attachmentDocuments").extractedDocumentText(file_path);
+        const isText = mime_type.startsWith("text/") || mime_type === "application/json";
+		if (extracted !== null || isText) {
+			const raw = extracted ?? fs.readFileSync(file_path, "utf-8").slice(0, 100000) + (fs.statSync(file_path).size > 100000 ? "\n[Attachment text truncated to 100,000 characters.]" : "");
 			// Use a longer fence if the attached document contains Markdown fences.
 			const fence = "`".repeat(
 				Math.max(3, ...Array.from(raw.matchAll(/`+/g), (match) => match[0].length + 1)),
@@ -394,6 +397,8 @@ function messageForModel({ role, content, attachments = [] }) {
 				image_url: { url: `data:${mime_type};base64,${fs.readFileSync(file_path, "base64")}` },
 			});
 		}
+        if (mime_type.startsWith('audio/')) images.push({ type: 'input_audio', input_audio: { data: fs.readFileSync(file_path, 'base64'), format: mime_type === 'audio/wav' ? 'wav' : 'mp3' } });
+        if (mime_type.startsWith('video/')) images.push({ type: 'input_video', input_video: { data: fs.readFileSync(file_path, 'base64'), format: mime_type } });
 	}
 	const text = `${attachmentContext.join("\n\n")}\n\nUser Prompt: ${content}`;
 	return { role, content: images.length ? [{ type: "text", text }, ...images] : text };

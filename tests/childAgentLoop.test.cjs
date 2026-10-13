@@ -330,17 +330,12 @@ test('10a. the inference-turn limit terminates a child that never answers', asyn
       toolResponse([toolCall('c2', 'list_directory', { relative_path: '.' })]),
       toolResponse([toolCall('c3', 'list_directory', { relative_path: '.' })]),
     ]);
-    await assert.rejects(
-      runtime.runInvestigation({
-        task: 'Loop forever.', rootPath, engine, maxTurns: 2,
-        parentSessionId: 'loop-limit-turns', fetchImpl,
-      }),
-      /inference-turn limit \(2\)/,
-    );
+    const partial = await runtime.runInvestigation({ task: 'Loop forever.', rootPath, engine, maxTurns: 2, parentSessionId: 'loop-limit-turns', fetchImpl });
+    assert.match(partial, /turn_limit/);
     assert.equal(payloads.length, 2, 'exactly maxTurns inferences are allowed');
     const [session] = sessionManager.listChildren('loop-limit-turns');
-    assert.equal(session.status, sessionManager.SESSION_STATUS.FAILED);
-    assert.match(session.error, /inference-turn limit/);
+    assert.equal(session.status, sessionManager.SESSION_STATUS.PARTIAL);
+    assert.equal(session.stopReason, 'turn_limit');
   } finally {
     await fs.rm(rootPath, { recursive: true, force: true });
   }
@@ -354,18 +349,17 @@ test('10b. the tool-call limit terminates a runaway tool chain', async () => {
         toolCall('c1', 'list_directory', { relative_path: '.' }),
         toolCall('c2', 'list_directory', { relative_path: '.' }),
       ]),
+      jsonResponse('Listed once; remaining call skipped.'),
     ]);
-    await assert.rejects(
-      runtime.runInvestigation({
-        task: 'Spam tools.', rootPath, engine, maxToolCalls: 1,
-        parentSessionId: 'loop-limit-tools', fetchImpl,
-      }),
-      /tool-call limit \(1\)/,
-    );
-    assert.equal(payloads.length, 1);
+    const partial = await runtime.runInvestigation({ task: 'Spam tools.', rootPath, engine, maxToolCalls: 1, parentSessionId: 'loop-limit-tools', fetchImpl });
+    assert.match(partial, /tool_limit/);
+    assert.equal(payloads.length, 2);
+    assert.equal(payloads[1].tool_choice, 'none');
+    assert.equal(payloads[1].messages.filter(m => m.role === 'tool').length, 2);
     const [session] = sessionManager.listChildren('loop-limit-tools');
-    assert.equal(session.status, sessionManager.SESSION_STATUS.FAILED);
-    assert.match(session.error, /tool-call limit/);
+    assert.equal(session.status, sessionManager.SESSION_STATUS.PARTIAL);
+    assert.equal(session.stopReason, 'tool_limit');
+    assert.equal(session.accounting.toolCalls, 1);
   } finally {
     await fs.rm(rootPath, { recursive: true, force: true });
   }

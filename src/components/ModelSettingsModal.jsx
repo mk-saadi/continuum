@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSettings2, LuSlidersHorizontal, LuSparkles, LuX } from "react-icons/lu";
-import { CheckboxField, NumberField, SelectField } from "./FormControls";
+import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSlidersHorizontal, LuSparkles, LuX } from "react-icons/lu";
+import { NumberField as BaseNumberField, SelectField as BaseSelectField } from "./FormControls";
+import Tooltip from "./Tooltip";
 
 const integerFields = [
 	["contextLength", "Context length", "Total context tokens shared across concurrent predictions."],
@@ -10,26 +11,76 @@ const integerFields = [
 	["parallel", "Concurrent predictions", "Maximum simultaneous predictions."],
 ];
 
+// Compact presentation is scoped to this modal; shared controls keep their behavior.
+function CompactField({ Component, hint, ...props }) {
+	return (
+		<Tooltip
+			content={hint}
+			placement="top"
+			delay={350}
+		>
+			<div className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_120px] [&>div]:items-center [&>div]:gap-3 [&>div>label]:mb-0 [&>div>label]:text-[11px] [&>div>label]:font-normal [&_input]:text-xs [&_input]:py-1 [&_input]:px-2 [&_button]:text-[11px] [&_p]:sr-only">
+				<Component
+					{...props}
+					hint={hint}
+				/>
+			</div>
+		</Tooltip>
+	);
+}
+
+function NumberField(props) {
+	return (
+		<CompactField
+			Component={BaseNumberField}
+			{...props}
+		/>
+	);
+}
+function SelectField(props) {
+	return (
+		<CompactField
+			Component={BaseSelectField}
+			{...props}
+		/>
+	);
+}
+function CheckboxField({ label, hint, disabled, ...props }) {
+	return (
+		<label
+			title={hint}
+			className={`flex min-h-8 cursor-pointer items-center justify-between gap-3 text-[11px] ${disabled ? "opacity-40" : ""}`}
+		>
+			<span>{label}</span>
+			<input
+				{...props}
+				type="checkbox"
+				disabled={disabled}
+				className="size-3.5 accent-[var(--accent)]"
+			/>
+		</label>
+	);
+}
 function SectionHeading({ Icon, title, description }) {
 	return (
-		<div className="flex items-start gap-3">
-			<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--active-chat)] text-[var(--accent)]">
-				<Icon
-					size={18}
-					aria-hidden="true"
-				/>
-			</span>
-			<div>
-				<h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
-				<p className="mt-0.5 text-xs leading-relaxed text-[var(--text-muted)]">{description}</p>
-			</div>
-		</div>
+		<h3
+			title={description}
+			className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)]"
+		>
+			<Icon
+				size={14}
+				className="text-[var(--accent)]"
+				aria-hidden="true"
+			/>
+			{title}
+		</h3>
 	);
 }
 
 export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const dialog = useRef(null);
 	const [config, setConfig] = useState(null);
+	const [projectorPath, setProjectorPath] = useState(model.mmprojPath || "");
 	const [remember, setRemember] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -77,10 +128,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		setConfig((previous) => ({
 			...previous,
 			loadMode: value,
-			mlock:
-				value === "auto"
-					? previous.mlock
-					: ["mlock", "mmap+mlock"].includes(value),
+			mlock: value === "auto" ? previous.mlock : ["mlock", "mmap+mlock"].includes(value),
 		}));
 
 	const mlockControlled = !!config && config.loadMode !== "auto";
@@ -96,7 +144,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		setBusy(true);
 		setError("");
 		try {
-			const result = await window.api.launchEngine(model.id, { ...config, rememberSettings: remember });
+			const result = await window.api.launchEngine(model.id, {
+				...config,
+				mmprojPath: projectorPath || null,
+				rememberSettings: remember,
+			});
 			if (!result?.success) throw new Error(result?.error || "Could not start the engine.");
 			onLoaded(result);
 			onClose();
@@ -115,36 +167,26 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[min(90dvh,900px)] w-[calc(100%-24px)] max-w-2xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
 		>
 			<form
 				onSubmit={submit}
-				className="flex max-h-[min(90dvh,900px)] flex-col"
+				className="flex max-h-[85dvh] flex-col"
 			>
-				<header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-5 sm:px-6">
-					<div className="flex min-w-0 items-start gap-3">
-						<span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--active-chat)] text-[var(--accent)]">
-							<LuSettings2
-								size={20}
-								aria-hidden="true"
-							/>
-						</span>
-						<div className="min-w-0">
-							<h2
-								id="load-settings-title"
-								className="text-base font-semibold sm:text-lg"
-							>
-								Advanced load settings
-							</h2>
-							<p className="mt-1 break-all text-xs leading-relaxed text-[var(--text-secondary)]">
-								{model.name || model.id}
-							</p>
-							{model.isVision && (
-								<p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">
-									Vision projector: {model.mmprojPath?.split(/[\\/]/).pop()}
-								</p>
-							)}
-						</div>
+				<header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-3.5">
+					<div className="min-w-0">
+						<h2
+							id="load-settings-title"
+							className="text-sm font-semibold"
+						>
+							Model load settings
+						</h2>
+						<p
+							title={model.name || model.id}
+							className="mt-1 truncate text-[11px] text-[var(--text-muted)]"
+						>
+							{model.generalName || model.name || model.id}
+						</p>
 					</div>
 					<button
 						type="button"
@@ -160,11 +202,83 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					</button>
 				</header>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+					<section className="mb-4 space-y-2 border-b border-[var(--border)] pb-3">
+						<h3 className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+							Model information
+						</h3>
+						<dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 text-[11px]">
+							{[
+								["Architecture", model.architecture],
+								["Declared context", model.contextLength],
+								["Layers", model.layerCount],
+								["Experts", model.expertCount],
+							].map(([label, value]) => (
+								<div
+									key={label}
+									className="min-w-0"
+								>
+									<dt className="text-[10px] text-[var(--text-muted)]">{label}</dt>
+									<dd className="truncate tabular-nums">{value ?? "—"}</dd>
+								</div>
+							))}
+						</dl>
+						<details className="text-[10px] text-[var(--text-muted)]">
+							<summary className="cursor-pointer">More model metadata</summary>
+							<dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+								{[
+									["Active experts per token", model.activeExpertCount],
+									["Embedding size", model.embeddingLength],
+									["Attention heads", model.attentionHeads],
+									["KV heads", model.kvHeads],
+									["Expert layer indices", model.expertLayers?.join(", ")],
+								].map(([label, value]) => (
+									<div key={label}>
+										<dt>{label}</dt>
+										<dd className="break-words text-[var(--text-primary)]">
+											{value ?? "Unknown"}
+										</dd>
+									</div>
+								))}
+							</dl>
+						</details>
+						<p className="text-[10px] text-[var(--text-muted)]">
+							Image: {model.declaredCapabilities?.image ? "inferred" : "unknown"} · Audio:{" "}
+							{model.declaredCapabilities?.audio ? "inferred" : "unknown"} · Video: unknown.
+							Media support is verified after loading. Declared context is not the runtime
+							context.
+						</p>
+						{model.metadataError && (
+							<p className="text-xs text-[var(--text-muted)]">
+								Metadata could not be fully read: {model.metadataError}
+							</p>
+						)}
+						{!!model.projectorCandidates?.length && (
+							<SelectField
+								label="Multimodal projector"
+								value={projectorPath}
+								disabled={busy}
+								onChange={(event) => setProjectorPath(event.target.value)}
+								hint="Choose the projector supplied for this model. Filename matches are provisional; the engine validates it during loading."
+							>
+								<option value="">None (text only)</option>
+								{model.projectorCandidates.map((candidate) => (
+									<option
+										key={candidate.path}
+										value={candidate.path}
+									>
+										{candidate.name}
+										{candidate.error ? " (metadata unreadable)" : ""}
+									</option>
+								))}
+							</SelectField>
+						)}
+					</section>
+
 					{error && (
 						<p
 							role="alert"
-							className="mb-4 rounded-xl border border-[var(--error)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--error-strong)]"
+							className="mb-3 rounded-lg border border-[var(--error)] px-3 py-2 text-xs text-[var(--error-strong)]"
 						>
 							{error}
 						</p>
@@ -181,15 +295,15 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{config && (
 						<fieldset
 							disabled={busy}
-							className="space-y-5 disabled:opacity-60"
+							className="grid gap-x-6 gap-y-4 sm:grid-cols-2 disabled:opacity-60"
 						>
-							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+							<div className="border-b border-[var(--border)] pb-4 sm:col-span-2">
 								<SectionHeading
 									Icon={LuCpu}
 									title="Compute & context"
 									description="Tune how much the model can process at once."
 								/>
-								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+								<div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
 									{integerFields.map(([key, label, hint]) => (
 										<NumberField
 											key={key}
@@ -210,8 +324,10 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 											}
 										/>
 									))}
-									<div className="space-y-3">
-										<p className="text-xs font-semibold">GPU offload layers</p>
+									<div className="space-y-1">
+										<p className="text-[10px] text-[var(--text-muted)]">
+											GPU offload layers
+										</p>
 										<CheckboxField
 											label="Automatic"
 											checked={config.gpuOffload === "auto"}
@@ -242,13 +358,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+							<div className="border-b border-[var(--border)] pb-4">
 								<SectionHeading
 									Icon={LuLayers}
 									title="Cache & attention"
 									description="KV cache precision, placement, and attention behavior."
 								/>
-								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+								<div className="grid gap-y-2">
 									{[
 										[
 											"cacheTypeK",
@@ -295,13 +411,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+							<div className="border-b border-[var(--border)] pb-4">
 								<SectionHeading
 									Icon={LuHardDrive}
 									title="Model loading & memory"
 									description="How model weights are read into memory for this model."
 								/>
-								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+								<div className="grid gap-y-2">
 									<SelectField
 										label="Load Mode"
 										hint="Auto keeps llama-server's default memory mapping. 'none' disables mmap-style model loading (recommended when tensors are pinned to CPU); mlock variants keep weights resident in RAM."
@@ -345,13 +461,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+							<div className="border-b border-[var(--border)] pb-4 sm:col-span-2">
 								<SectionHeading
 									Icon={LuSlidersHorizontal}
 									title="Template & sampling"
 									description="Per-model defaults for templating and generation."
 								/>
-								<div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
+								<div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
 									<SelectField
 										label="Chat Template"
 										value={config.chatTemplate}
@@ -389,30 +505,32 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 									/>
 								</div>
 							</div>
-
-							<CheckboxField
-								label="Remember settings for this model"
-								hint="Use these values the next time you load this model."
-								checked={remember}
-								onChange={(event) => setRemember(event.target.checked)}
-							/>
 						</fieldset>
 					)}
 				</div>
 
-				<footer className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-4 sm:px-6">
+				<footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3">
+					<div className="mr-auto">
+						<CheckboxField
+							label="Remember settings for this model"
+							hint="Use these values the next time you load this model."
+							disabled={busy || !config}
+							checked={remember}
+							onChange={(event) => setRemember(event.target.checked)}
+						/>
+					</div>
 					<button
 						type="button"
 						disabled={busy}
 						onClick={onClose}
-						className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 cursor-pointer duration-300"
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
 						disabled={busy || !config}
-						className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40"
+						className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 cursor-pointer duration-300"
 					>
 						{busy ? (
 							<LuSparkles

@@ -8,6 +8,34 @@ const { nodeHttpFetch } = require("./nodeHttpFetch");
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_MEDIA_SETTINGS = Object.freeze({ default_image_provider_id: "", default_video_provider_id: "" });
 const CATEGORIES = new Set(["text", "media"]);
+// Local loopback / LAN hosts (LM Studio, Ollama, llama.cpp server, etc.) expose an
+// OpenAI-compatible API without an API key. These providers may be saved and used
+// with an empty key; remote providers still require one.
+function isLocalBaseUrl(value) {
+	if (typeof value !== "string" || !value.trim()) return false;
+	let hostname = "";
+	try {
+		hostname = new URL(value.trim()).hostname.toLowerCase();
+	} catch {
+		return false;
+	}
+	hostname = hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
+	if (["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname)) return true;
+	if (hostname.endsWith(".localhost") || hostname.endsWith(".local")) return true;
+	if (/^127\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+	if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+	if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true;
+	const m = /^172\.(\d+)\.\d+\.\d+$/.exec(hostname);
+	if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return true;
+	return false;
+}
+function providerNeedsKey(provider = {}) {
+	// Stable Diffusion manages its own keyless case; local text endpoints
+	// (LM Studio at http://127.0.0.1:1234/v1, Ollama, etc.) never need one.
+	if (provider.category === "media" && provider.apiType === "stable-diffusion") return false;
+	if (provider.category === "text" && isLocalBaseUrl(provider.baseUrl)) return false;
+	return true;
+}
 const MEDIA_TYPES = new Set(["image", "video"]);
 // Used only to migrate existing saved settings, never to populate provider cards.
 const LEGACY_DEFAULTS = {
@@ -36,7 +64,7 @@ function getCloudProviders(category) {
 	if (category !== undefined && !CATEGORIES.has(category)) throw new Error("Invalid provider category.");
 	// The renderer gets key presence, never the stored secret.
 	return readSettings().filter(row => !category || row.category === category)
-		.map(({ apiKey, ...row }) => ({ ...row, apiKey: "", configured: !!apiKey?.trim() || row.category === "media" && row.apiType === "stable-diffusion" }));
+		.map(({ apiKey, ...row }) => ({ ...row, apiKey: "", configured: !!apiKey?.trim() || !providerNeedsKey({ ...row, apiKey }) }));
 }
 function normalizeBaseUrl(value = DEFAULT_BASE_URL) {
 	const url = new URL(value.trim());
@@ -89,7 +117,7 @@ function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiK
 		...(category === "media" ? { mediaType } : {}),
 		apiKey: apiKey?.trim() || settings[index]?.apiKey || "",
 	};
-	if (!row.apiKey.trim() && !(category === "media" && apiType === "stable-diffusion")) throw new Error("Enter an API key.");
+	if (!row.apiKey.trim() && providerNeedsKey(row)) throw new Error("Enter an API key.");
 	if (index < 0) settings.push(row);
 	else settings[index] = row;
 	const result = writeSettings(settings);
@@ -155,12 +183,15 @@ function deleteCloudProvider(input) {
 	}
 	return result;
 }
-async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = nodeHttpFetch } = {}) {
+async function fetchCloudModels({ id, baseUrl, apiKey, apiType, includeMetadata = false }, { fetchImpl = nodeHttpFetch } = {}) {
+	const saved = id ? readSettings().find(row => row.id === id) : null;
+    baseUrl ??= saved?.baseUrl;
+    apiType ??= saved?.apiType;
 	let endpoint = apiType === "stable-diffusion"
 		? `${normalizeBaseUrl(baseUrl)}/sdapi/v1/options`
 		: `${normalizeBaseUrl(baseUrl)}/models`;
 
-	if (endpoint.includes("openrouter.ai")) {
+	if (new URL(endpoint).hostname === "openrouter.ai") {
 		endpoint += endpoint.includes("?") ? "&output_modalities=all" : "?output_modalities=all";
 	}
 
@@ -174,13 +205,13 @@ async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = 
 		readSettings()
 			.find((row) => row.id === id)
 			?.apiKey?.trim();
-	if (!key && apiType !== "stable-diffusion") throw new Error("Enter an API key before fetching models.");
+	if (!key && providerNeedsKey({ category: "text", baseUrl, apiType }) && apiType !== "stable-diffusion") throw new Error("Enter an API key before fetching models.");
 	try {
 		const response = await fetchImpl(endpoint, {
 			method: "GET",
 			redirect: "error",
 			signal: AbortSignal.timeout(15000),
-			headers: { ...(key ? { Authorization: `Bearer ${key}` } : {}), Accept: "application/json" },
+			headers: { ...(key ? apiType === 'anthropic' ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : { Authorization: `Bearer ${key}` } : {}), Accept: "application/json" },
 		});
 		if (!response.ok) {
 			await response.body?.cancel();
@@ -191,7 +222,19 @@ async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = 
 		const payload = await response.json();
 		if (apiType === "stable-diffusion") return { models: payload?.sd_model_checkpoint ? [payload.sd_model_checkpoint] : [] };
 		if (!Array.isArray(payload?.data)) throw new Error("Invalid model list.");
+        // Anthropic lists are paginated. Preserve metadata from every page.
+        let page = payload;
+        for (let count = 0; apiType === 'anthropic' && page.has_more && count < 100; count++) {
+            if (typeof page.last_id !== 'string' || !page.last_id) throw new Error('Invalid model cursor.');
+            const next = new URL(endpoint); next.searchParams.set('after_id', page.last_id);
+            const response = await fetchImpl(next.href, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000), headers: { ...(key ? { 'x-api-key': key } : {}), 'anthropic-version': '2023-06-01', Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Model pagination failed.');
+            page = await response.json();
+            if (!Array.isArray(page.data)) throw new Error('Invalid model page.');
+            payload.data.push(...page.data);
+        }
 		return {
+            ...(includeMetadata ? { metadata: payload.data.filter(model => typeof model?.id === 'string' && model.id.trim()).map(model => require('./cloudModelMetadata').normalizeCloudModel(model, normalizeBaseUrl(baseUrl), apiType)) } : {}),
 			models: [
 				...new Set(
 					payload.data
@@ -207,6 +250,25 @@ async function fetchCloudModels({ id, baseUrl, apiKey, apiType }, { fetchImpl = 
 		};
 	}
 }
+const metadataCache = new Map();
+async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = false } = {}) {
+    const providers = readSettings().filter(row => row.category === 'text' && row.modelId?.trim() && (row.apiKey?.trim() || !providerNeedsKey(row)));
+    return Promise.all(providers.map(async row => {
+        const hash = require('node:crypto').createHash('sha256').update(row.apiKey || "").digest('hex');
+        const cacheKey = `${row.baseUrl}:${row.apiType}:${hash}`;
+        let cached = metadataCache.get(cacheKey);
+        if (!cached || refresh || Date.now() - cached.time > 5 * 60 * 1000) {
+            const promise = fetchCloudModels({ id: row.id, baseUrl: row.baseUrl, apiType: row.apiType, includeMetadata: true }, { fetchImpl });
+            cached = { promise, time: Date.now() }; metadataCache.set(cacheKey, cached);
+            if (metadataCache.size > 100) metadataCache.delete(metadataCache.keys().next().value);
+        }
+        const result = await cached.promise;
+        if (result.error) metadataCache.delete(cacheKey);
+        const model = result.metadata?.find(model => model.id === row.modelId);
+        return { providerId: row.id, modelId: row.modelId, ...(model || {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
+    }));
+}
+
 function validateChatProvider(target = { type: "local" }) {
 	if (target?.type === "local") return { type: "local" };
 	if (
@@ -293,21 +355,29 @@ function anthropicPayload(payload, model) {
 // POSTs (see ./subagents/providers/cloudProvider.js) and need one JSON body.
 // The Anthropic path is non-streaming either way — it is converted to an
 // OpenAI-shaped JSON response below.
-function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true } = {}) {
+function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, getMetadata = getCloudModelMetadata, onErrorResponse = null } = {}) {
 	target = validateChatProvider(target);
 	if (target.type !== "cloud") throw new Error("Cloud provider required.");
 	const provider = readSettings().find((row) => row.id === target.provider);
 	const apiKey = provider.apiKey?.trim();
-	if (!apiKey) throw new Error(`Add your ${provider.name} API key in Settings → Cloud Providers.`);
+	if (!apiKey && providerNeedsKey(provider)) throw new Error(`Add your ${provider.name} API key in Settings → Cloud Providers.`);
 	return async (_url, options) => {
 		const original = JSON.parse(options.body);
+        const { requiredModalities, assertCapabilities } = require('./modelCapabilities');
+        const required = requiredModalities(original.messages);
+        if (required.length) {
+            const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
+            const { attachmentPolicy } = await import('../lib/attachmentPolicy.mjs');
+            const policy = attachmentPolicy(metadata?.capabilities, { apiType: provider.apiType, service: metadata?.providerName });
+            assertCapabilities(policy.enabled, required);
+        }
 		const anthropic = provider.apiType === "anthropic";
 		// Whitelist portable fields: llama.cpp sampling/cache parameters are not cloud API fields.
 		const body = anthropic
 			? anthropicPayload(original, target.model)
 			: {
 					model: target.model,
-					messages: original.messages,
+					messages: original.messages.map(message => ({ ...message, content: Array.isArray(message.content) ? message.content.map(part => part.type === 'input_video' ? { type: 'video_url', video_url: { url: `data:${part.input_video.format === 'video/quicktime' ? 'video/mov' : part.input_video.format};base64,${part.input_video.data}` } } : part) : message.content })),
 					...(stream ? { stream: true, stream_options: { include_usage: true } } : { stream: false }),
 					...(original.tools?.length ? { tools: original.tools, tool_choice: "auto" } : {}),
 					...(original.max_tokens > 0 ? { max_tokens: original.max_tokens } : {}),
@@ -324,13 +394,18 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true } =
 				headers: {
 					"Content-Type": "application/json",
 					...(anthropic
-						? { "x-api-key": apiKey, "anthropic-version": "2023-06-01" }
-						: { Authorization: `Bearer ${apiKey}` }),
+						? { ...(apiKey ? { "x-api-key": apiKey } : {}), "anthropic-version": "2023-06-01" }
+						: (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})),
 				},
 				body: JSON.stringify(body),
 			},
 		);
 		if (!response.ok) {
+			// Child recovery classifies only known overflow shapes; no remote body
+			// is logged or attached to the resulting error. Other callers unchanged.
+			if (onErrorResponse) {
+				try { await onErrorResponse(response); } catch (error) { await response.body?.cancel(); throw error; }
+			}
 			// Do not echo remote bodies, credentials or conversation text into logs.
 			await response.body?.cancel();
 			throw new Error(
@@ -384,6 +459,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true } =
 }
 module.exports = {
 	fetchCloudModels,
+    getCloudModelMetadata,
 	getCloudProviders,
 	getCloudProviderDefaults,
 	saveCloudProviderDefaults,
@@ -393,4 +469,6 @@ module.exports = {
 	validateChatProvider,
 	createCloudFetch,
 	anthropicPayload,
+	isLocalBaseUrl,
+	providerNeedsKey,
 };

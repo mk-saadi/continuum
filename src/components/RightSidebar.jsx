@@ -475,13 +475,13 @@ export default function RightSidebar({
 
 				<p className="text-xs text-[var(--text-muted)]">
 					Changes override defaults for this chat only. Configure global and model defaults in
-					Avatars &amp; Branding.
+					Models &amp; Generation.
 				</p>
 			</div>
 
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
 				<ChatTuning
-					key={`${sessionId}:${modelId}:${tuningVersion}:${settingsRevision}`}
+					key={`${sessionId}:${modelId}:${tuningVersion}`}
 					disabled={!sessionId || disabled || selecting}
 					onChanged={() => setSettingsRevision((value) => value + 1)}
 					sessionId={sessionId}

@@ -258,7 +258,7 @@ test('IPC handlers reject unauthorized senders and invalid input', async () => {
     denied();
     require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true });
   }
-  await assert.rejects(invoke('session:get-checkpoint', { sessionId: 'missing-session' }), /Session not found/);
+  assert.deepEqual(await invoke('session:get-checkpoint', { sessionId: 'missing-session' }), { checkpoint: null });
   await assert.rejects(invoke('session:get-briefs', { sessionId: '' }), /non-empty string/);
   await assert.rejects(invoke('session:get-briefs', { sessionId: 'a\0b' }), /null characters/);
   await assert.rejects(invoke('session:get-archived-messages', { sessionId: id, limit: 'many' }), /safe integers/);
@@ -275,4 +275,22 @@ test('casual sessions return empty inspection states', async () => {
   assert.deepEqual(inspection.getBriefsForDisplay(id), { applicable: [], others: [] });
   assert.equal(inspection.getSummaryForDisplay(id).text, null);
   assert.deepEqual(await invoke('session:get-checkpoint', { sessionId: id }), { checkpoint: null });
+});
+
+
+test('draft and deleted sessions have empty inspection without creating a database row', async () => {
+  const id = crypto.randomUUID();
+  const empty = async () => {
+    assert.deepEqual(await invoke('session:get-checkpoint', { sessionId: id }), { checkpoint: null });
+    assert.deepEqual(await invoke('session:get-checkpoint-history', { sessionId: id, limit: 3 }), { checkpoints: [], limit: 3 });
+    assert.deepEqual(await invoke('session:get-briefs', { sessionId: id }), { applicable: [], others: [] });
+    assert.deepEqual(await invoke('session:get-archived-messages', { sessionId: id, limit: 5, offset: 2 }), { messages: [], total: 0, limit: 5, offset: 2 });
+    assert.deepEqual(inspection.getSummaryForDisplay(id), { text: null });
+    assert.equal(db.prepare('SELECT id FROM sessions WHERE id = ?').get(id), undefined);
+    await assert.rejects(invoke('session:get-archived-messages', { sessionId: id, offset: -1 }), /non-negative/);
+  };
+  await empty();
+  sessions.getOrCreateSession(id, MODEL);
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+  await empty();
 });

@@ -248,7 +248,10 @@ test("provider CRUD keeps secrets private, preserves blank keys and rejects stal
 	]) {
 		assert.throws(() => saveCloudProvider({ ...input, baseUrl }));
 	}
-	assert.throws(() => saveCloudProvider({ ...input, apiKey: "  " }), /API key/);
+	assert.throws(() => saveCloudProvider({ ...input, baseUrl: "https://remote.example/v1", apiKey: "  " }), /API key/);
+	// Local loopback servers (LM Studio, Ollama) are keyless: empty key saves and stays configured.
+	const localRows = saveCloudProvider({ ...input, id: "local-nokey", baseUrl: "http://127.0.0.1:1234/v1", apiKey: "", modelId: "local-model" });
+	assert.equal(localRows.find(row => row.id === "local-nokey")?.configured, true);
 });
 
 test("legacy migration includes only stored providers and keeps Anthropic API selection", () => {
@@ -371,4 +374,34 @@ test("cloud chat POST survives a GET-only global.fetch override (sub-agent shim)
 		globalThis.fetch = originalGlobalFetch;
 		server.close();
 	}
+});
+
+test('model metadata is preserved on request and Anthropic discovery follows pagination', async () => {
+  let calls = 0;
+  const result = await fetchCloudModels({ baseUrl: 'https://api.anthropic.com/v1', apiType: 'anthropic', apiKey: 'private-key', includeMetadata: true }, { fetchImpl: async (url, options) => {
+    assert.equal(options.headers['x-api-key'], 'private-key');
+    assert.equal(options.headers['anthropic-version'], '2023-06-01');
+    assert.equal(options.headers.Authorization, undefined);
+    calls++;
+    if (calls === 1) return Response.json({ data: [{ id: 'claude-a', max_input_tokens: 200000, capabilities: { thinking: { supported: true } } }], has_more: true, last_id: 'claude-a' });
+    assert.match(url, /after_id=claude-a/);
+    return Response.json({ data: [{ id: 'claude-b', max_tokens: 64000, capabilities: { image_input: { supported: true } } }], has_more: false });
+  } });
+  assert.deepEqual(result.models, ['claude-a', 'claude-b']);
+  assert.equal(result.metadata[0].capabilities.reasoning, true);
+  assert.equal(result.metadata[1].capabilities.image, true);
+  assert.equal(JSON.stringify(result).includes('private-key'), false);
+});
+
+test('OpenRouter media is capability-gated and videos use the correct request format', async () => {
+ saveCloudProvider({id:'media-input',name:'OpenRouter',baseUrl:'https://openrouter.ai/api/v1',apiKey:'private',modelId:'video-model'});
+ const target={type:'cloud',provider:'media-input',model:'video-model'};
+ let allowed=true, requests=0, body;
+ const adapter=createCloudFetch(target,{getMetadata:async()=>[{providerId:target.provider,modelId:target.model,providerName:'OpenRouter',capabilities:{image:true,audio:true,video:allowed}}],fetchImpl:async(_url,options)=>{requests++;body=JSON.parse(options.body);return Response.json({choices:[]});}});
+ const messages=[{role:'user',content:[{type:'input_video',input_video:{data:'AAAA',format:'video/mp4'}},{type:'input_audio',input_audio:{data:'BBBB',format:'wav'}}]}];
+ await adapter('https://unused',{body:JSON.stringify({messages})});
+ assert.equal(body.messages[0].content[0].type,'video_url');
+ assert.equal(body.messages[0].content[0].video_url.url,'data:video/mp4;base64,AAAA');
+ assert.equal(body.messages[0].content[1].type,'input_audio');
+ allowed=false;await assert.rejects(adapter('https://unused',{body:JSON.stringify({messages})}),/does not support video/);assert.equal(requests,1);
 });

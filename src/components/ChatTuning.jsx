@@ -104,7 +104,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 								);
 								return;
 							}
-							save({ [control.key]: value });
+							if (control.type !== "range") save({ [control.key]: value });
 						},
 					};
 
@@ -113,6 +113,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 							<SliderField
 								{...commonProps}
 								valueLabel={state.params[control.key]}
+                                onCommit={event => save({ [control.key]: Number(event.target.value) })}
 							/>
 						);
 					}

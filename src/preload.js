@@ -7,7 +7,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  getModelCapabilities: modelId => ipcRenderer.invoke('engine:capabilities', { modelId }),
   getCloudProviders: () => ipcRenderer.invoke('cloud:get'),
+  getCloudModelMetadata: () => ipcRenderer.invoke('cloud:model-metadata'),
   getCloudProviderDefaults: () => ipcRenderer.invoke('cloud:defaults:get'),
   saveCloudProviderDefaults: defaults => ipcRenderer.invoke('cloud:defaults:save', defaults),
   setNotificationPrefs: prefs => ipcRenderer.invoke('settings:set-notification-prefs', prefs),
@@ -74,18 +76,22 @@ contextBridge.exposeInMainWorld('api', {
   // cloud provider (see src/main/subagents/modelSelection.js).
   getSubagentModel: () => ipcRenderer.invoke('subagent:get-model'),
   saveSubagentModel: selection => ipcRenderer.invoke('subagent:save-model', selection),
+  getSubagentBudgets: () => ipcRenderer.invoke('subagent:get-budgets'),
+  saveSubagentBudgets: patch => ipcRenderer.invoke('subagent:save-budgets', patch),
+  getChildTranscript: childSessionId => ipcRenderer.invoke('subagent:get-transcript', { childSessionId }),
   getMcpConfig: () => ipcRenderer.invoke('mcp:get-config'),
   saveMcpConfig: config => ipcRenderer.invoke('mcp:save-config', config),
   getModelLoadConfig: (modelId) => ipcRenderer.invoke('engine:get-load-config', { modelId }),
   launchEngine: (modelId, config) => ipcRenderer.invoke('engine:launch', { modelId, config }),
-  processUploads: (files) => {
+  getAttachmentPolicy: target => ipcRenderer.invoke('file:attachment-policy', target),
+  processUploads: (files, target) => {
     const paths = Array.from(files, (file) => {
       if (typeof file?.dataUrl === 'string') return { name: file.name, dataUrl: file.dataUrl };
       const filePath = webUtils.getPathForFile(file);
       if (!filePath) throw new Error('Choose a file from disk.');
       return filePath;
     });
-    return ipcRenderer.invoke('file:process-uploads', paths);
+    return ipcRenderer.invoke('file:process-uploads', target ? { ...target, files: paths } : paths);
   },
 });
 

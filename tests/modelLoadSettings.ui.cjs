@@ -4,9 +4,10 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const esbuild = require('esbuild');
 app.disableHardwareAcceleration();
+app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
   const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'model-load-ui-'));
-  const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+  const window = new BrowserWindow({ show: false, width: 1100, height: 900, webPreferences: { sandbox: true } });
   try {
     await esbuild.build({ stdin: { contents: `
       import React from 'react';
@@ -24,7 +25,10 @@ app.whenReady().then(async () => {
       window.renderEmpty = () => root.render(<React.Fragment />);
     `, loader: 'jsx', resolveDir: process.cwd() }, bundle: true, outfile: path.join(directory, 'fixture.js'),
       define: { 'process.env.NODE_ENV': '"test"' } });
-    await fs.writeFile(path.join(directory, 'index.html'), '<div id="root"></div><script src="fixture.js"></script>');
+    const assets = path.join(process.cwd(), 'dist/assets');
+    const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));
+    await fs.copyFile(path.join(assets, css), path.join(directory, 'fixture.css'));
+    await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d;--control-border:#343c53;--on-accent:#10131c}</style><div id="root"></div><script src="fixture.js"></script>');
     await window.loadFile(path.join(directory, 'index.html'));
     await window.webContents.executeJavaScript(`(async () => {
       const tick = () => new Promise(resolve => setTimeout(resolve, 80));
@@ -42,6 +46,30 @@ app.whenReady().then(async () => {
 
       // New controls render with safe defaults.
       window.renderLoad(); await tick();
+      for (const label of ['Chat Template', 'Reasoning Format']) {
+        const labelNode = [...document.querySelectorAll('label')].find(node => node.textContent === label);
+        const trigger = labelNode.parentElement.querySelector('button[aria-haspopup]');
+        trigger.scrollIntoView({block: 'end'}); await tick();
+        trigger.click(); await tick();
+        const menu = document.querySelector('[role=listbox]');
+        const bounds = menu.getBoundingClientRect();
+        const dialogBounds = document.querySelector('dialog').getBoundingClientRect();
+        const triggerBounds = trigger.getBoundingClientRect();
+        check(bounds.bottom <= dialogBounds.bottom && bounds.right <= dialogBounds.right, 'Dropdown stays inside dialog bounds');
+        check(bounds.top < triggerBounds.top, 'Bottom dropdown opens upwards');
+        const last = menu.querySelector('button[role=option]:last-child');
+        const lastBounds = last.getBoundingClientRect();
+        check(lastBounds.bottom <= bounds.bottom, 'Last option is visible');
+        check(document.elementFromPoint(lastBounds.x + lastBounds.width / 2, lastBounds.y + lastBounds.height / 2)?.closest('[role=option]') === last, 'Last option is not clipped or covered');
+        const scroller = trigger.closest('fieldset').parentElement;
+        const oldScroll = scroller.scrollTop;
+        const oldTop = menu.getBoundingClientRect().top;
+        scroller.scrollTop -= 20; scroller.dispatchEvent(new Event('scroll')); await tick();
+        if (oldScroll !== scroller.scrollTop) check(Math.abs(menu.getBoundingClientRect().top - oldTop - (oldScroll - scroller.scrollTop)) < 2, 'Dropdown follows scrolling trigger: ' + JSON.stringify({oldScroll, scroll: scroller.scrollTop, oldTop, top: menu.getBoundingClientRect().top, trigger: trigger.getBoundingClientRect().top, height: menu.getBoundingClientRect().height, scrollHeight: menu.scrollHeight, style: menu.getAttribute("style")}));
+        menu.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await tick();
+        check(!document.querySelector('[role=listbox]'), 'Escape closes dropdown');
+      }
+
       check(field('KV Cache Offload'), 'KV cache offload control exists');
       check(field('Load Mode'), 'Load mode control exists');
       check(numberField('MoE Expert Count'), 'MoE expert count control exists');
@@ -98,6 +126,11 @@ app.whenReady().then(async () => {
       window.renderLoad({ id: 'dense', name: 'Dense' }); await tick();
       check(numberField('MoE Expert Count').disabled === true, 'Unknown architecture disables the expert count input');
     })()`);
+    await window.webContents.executeJavaScript(`window.renderEmpty()`);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    await window.webContents.executeJavaScript(`window.renderLoad({ id: 'preview', name: 'Gemma4-26B-A4B-Uncensored-Q4_K_M.gguf', generalName: 'Gemma 4 26B A4B', architecture: 'gemma4', contextLength: 262144, layerCount: 64, expertCount: 128, activeExpertCount: 8, embeddingLength: 4096, attentionHeads: 32, kvHeads: 8, declaredCapabilities: { image: true } })`);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await fs.writeFile('/tmp/model-load-preview.png', (await window.webContents.capturePage()).toPNG());
     console.log('Advanced load settings modal: controls, launch payload, persistence, and legacy config loading passed.');
   } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
 }).then(() => app.quit()).catch(error => { console.error(error); app.exit(1); });

@@ -8,6 +8,8 @@ const { Agent, fetch } = require('undici');
 const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
 const { createContextGuardedFetch } = require('./contextBudget');
-const localEngineFetch = createContextGuardedFetch((url, options) => fetch(url, { ...options, dispatcher }));
+const { createMediaGuardedFetch } = require('./modelCapabilities');
+const rawFetch = (url, options) => fetch(url, { ...options, dispatcher });
+const localEngineFetch = createContextGuardedFetch(createMediaGuardedFetch(rawFetch));
 
 module.exports = { localEngineFetch };

@@ -31,10 +31,9 @@ function requireSessionId(sessionId) {
   }
 }
 
-function requireExistingSession(sessionId) {
+function findSessionForDisplay(sessionId) {
   requireSessionId(sessionId);
   const row = db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
-  if (!row) throw new Error('Session not found.');
   return row;
 }
 
@@ -160,7 +159,7 @@ function serializeCheckpointRow(sessionId, row) {
 }
 
 function getCheckpointForDisplay(sessionId) {
-  requireExistingSession(sessionId);
+  if (!findSessionForDisplay(sessionId)) return { checkpoint: null };
   const row = checkpoints.getLatestCheckpoint(sessionId);
   if (!row) return { checkpoint: null };
   const serialized = serializeCheckpointRow(sessionId, row);
@@ -168,8 +167,9 @@ function getCheckpointForDisplay(sessionId) {
 }
 
 function getCheckpointHistoryForDisplay(sessionId, limit) {
-  requireExistingSession(sessionId);
+  const session = findSessionForDisplay(sessionId);
   const safeLimit = clampPage(limit, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT);
+  if (!session) return { checkpoints: [], limit: safeLimit };
   const rows = checkpoints.getCheckpointHistory(sessionId, safeLimit);
   return {
     checkpoints: rows.map(row => {
@@ -201,7 +201,7 @@ function serializeBrief(brief, applicable) {
 }
 
 function getBriefsForDisplay(sessionId) {
-  requireExistingSession(sessionId);
+  if (!findSessionForDisplay(sessionId)) return { applicable: [], others: [] };
   const all = briefs.getAllBriefs(sessionId);
   const applicableIds = new Set(briefs.getApplicableBriefs(sessionId).map(item => item.id));
   const applicable = [];
@@ -217,7 +217,7 @@ function getBriefsForDisplay(sessionId) {
 // --- Rolling summary ---
 
 function getSummaryForDisplay(sessionId) {
-  requireExistingSession(sessionId);
+  if (!findSessionForDisplay(sessionId)) return { text: null };
   const text = require('./sessionManager').getSessionSummary(sessionId);
   return { text: text ?? null };
 }
@@ -275,9 +275,12 @@ function serializeExecutionStep(step) {
 }
 
 function getArchivedMessagesForDisplay(sessionId, { limit, offset } = {}) {
-  requireExistingSession(sessionId);
+  const session = findSessionForDisplay(sessionId);
   const safeLimit = clampPage(limit, DEFAULT_ARCHIVED_LIMIT, MAX_ARCHIVED_LIMIT);
   const safeOffset = offset === undefined || offset === null ? 0 : clampPage(offset, 0, Number.MAX_SAFE_INTEGER);
+  // Draft tabs have an ID before persistence; deletion can also race a read.
+  // Inspection must not create a session just to display empty context.
+  if (!session) return { messages: [], total: 0, limit: safeLimit, offset: safeOffset };
   // Branch-aware: only archived rows on the session's active path, oldest
   // first — the same history compression reasoned about.
   let pathIds;

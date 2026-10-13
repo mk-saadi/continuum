@@ -181,7 +181,7 @@ function buildLlamaServerArgs(model, input, port) {
 	args.push("--reasoning-format", config.reasoningFormat);
 	if (config.seed !== undefined) args.push("-s", String(config.seed));
 	args.push("--port", String(port));
-	if ((model.hasVisionProjector || model.isVision) && model.mmprojPath) {
+	if (model.mmprojPath) {
 		if (typeof model.mmprojPath !== "string" || model.mmprojPath.includes("\0"))
 			throw new Error("Invalid projector path.");
 		args.push("--mmproj", model.mmprojPath);

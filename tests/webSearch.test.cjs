@@ -177,7 +177,7 @@ test('web extractor sends only matching page text to an isolated tool-free reque
   assert.match(payload.messages[1].content, /The launch date is 1 October/);
   assert.ok(!payload.messages[1].content.includes('Navigation filler'));
   assert.deepEqual(payload.tools, []);
-  assert.equal(payload.max_tokens, 450);
+  assert.equal(payload.max_tokens, 1024);
 });
 
 test('web extractor answers a question from a JSON API response', async () => {

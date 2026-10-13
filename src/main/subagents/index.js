@@ -11,6 +11,7 @@ const {
 const { runFileAnalysisExecution, runWebExtractionExecution } = require('./executionManager');
 const { runInvestigationExecution } = require('./agentLoop');
 const { resolveChildEngine } = require('./modelSelection');
+const { summarizeRunInput, mapContextTurns } = require('./persistence');
 const backgroundStore = require('./backgroundStore');
 const continuationManager = require('./continuationManager');
 
@@ -214,11 +215,13 @@ function settleFirstTurn(session, attempt, controller, error, { announce = null 
     failSession(session, error);
     announce?.('failed', String(error?.message ?? error));
   }
+  attempt.usage = session.usage; attempt.accounting = session.accounting;
+  attempt.stopReason = session.stopReason;
   continuationManager.onTurnSettled(session);
 }
 
-async function runInSession({ parentSessionId = null, agentId = null, engine, signal, background,
-  ...executionOptions }, kind) {
+async function runInSession({ parentSessionId = null, parentToolCallId = null, agentId = null, engine, signal, background,
+  onSpawn = null, ...executionOptions }, kind) {
   if (background !== undefined) {
     throw new Error('Foreground runs take no "background" option; start a detached run with the matching '
       + 'start* entry point instead.');
@@ -237,13 +240,24 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
   const controller = new AbortController();
   const detach = forwardAbort(signal, controller);
   const { session, attempt } = openRun({ parentSessionId, agentId, engine: childEngine }, { kind, background: false, controller });
+  executionOptions.budgetScope ??= getSession(parentSessionId)?.budgetState?.scope
+    ?? getSession(parentSessionId)?.budgetScope ?? require('./executionBudget').createParentRunBudget();
+  session.budgetScope = executionOptions.budgetScope;
+  session.parentToolCallId = typeof parentToolCallId === 'string' ? parentToolCallId : null;
+  try {
+    session.inputSummary = summarizeRunInput(kind, executionOptions);
+  } catch { session.inputSummary = null; }
+  if (typeof onSpawn === 'function') {
+    try { onSpawn(session.id); } catch { /* Observability must never break execution. */ }
+  }
   continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
   try {
-    const { output, usage } = await execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
-    completeExecution(attempt, { usage, result: output });
-    completeSession(session, { usage, result: output });
+    const result = await execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
+    if (result.outcome === 'failed') throw require('./executionBudget').resultError(result);
+    completeExecution(attempt, { ...result, result: result.output });
+    completeSession(session, { ...result, result: result.output });
     continuationManager.onTurnSettled(session);
-    return output;
+    return result.output;
   } catch (error) {
     settleFirstTurn(session, attempt, controller, error);
     throw error;
@@ -253,7 +267,7 @@ async function runInSession({ parentSessionId = null, agentId = null, engine, si
 }
 
 function startInBackground(options, kind) {
-  const { parentSessionId = null, agentId = null, engine, signal, ...executionOptions } = options ?? {};
+  const { parentSessionId = null, parentToolCallId = null, agentId = null, engine, signal, onSpawn = null, ...executionOptions } = options ?? {};
   const execution = executionFor(kind);
   // Same single resolution point as the foreground path: the detached run's
   // model is fixed before the handle exists, so a background child and a
@@ -270,6 +284,16 @@ function startInBackground(options, kind) {
   const detach = forwardAbort(signal, controller);
 
   const { session, attempt } = openRun({ parentSessionId, agentId, engine: childEngine }, { kind, background: true, controller });
+  executionOptions.budgetScope ??= getSession(parentSessionId)?.budgetState?.scope
+    ?? getSession(parentSessionId)?.budgetScope ?? require('./executionBudget').createParentRunBudget();
+  session.budgetScope = executionOptions.budgetScope;
+  session.parentToolCallId = typeof parentToolCallId === 'string' ? parentToolCallId : null;
+  try {
+    session.inputSummary = summarizeRunInput(kind, executionOptions);
+  } catch { session.inputSummary = null; }
+  if (typeof onSpawn === 'function') {
+    try { onSpawn(session.id); } catch { /* Observability must never break execution. */ }
+  }
   continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
   backgroundStore.track({ executionId: attempt.id, childSessionId: session.id, kind, controller, detach });
 
@@ -279,10 +303,11 @@ function startInBackground(options, kind) {
   // the result/usage/error even with no caller present — then announces it
   // exactly once. A failure ends this child only: it is recorded, never
   // rethrown, so it can neither crash nor abort anything else.
-  const succeeded = ({ output, usage }) => {
-    completeExecution(attempt, { usage, result: output });
-    completeSession(session, { usage, result: output });
-    backgroundStore.settle(attempt.id, 'completed');
+  const succeeded = result => {
+    if (result.outcome === 'failed') { failed(require('./executionBudget').resultError(result)); return; }
+    completeExecution(attempt, { ...result, result: result.output });
+    completeSession(session, { ...result, result: result.output });
+    backgroundStore.settle(attempt.id, result.outcome ?? 'completed');
     continuationManager.onTurnSettled(session);
   };
   const failed = error => settleFirstTurn(session, attempt, controller, error, {
@@ -324,6 +349,7 @@ function describeChild(childId) {
     providerId: session.providerId,
     model: session.model,
     status: session.status,
+    stopReason: session.stopReason ?? null, accounting: session.accounting ?? null,
     createdAt: session.createdAt,
     startedAt: session.startedAt,
     completedAt: session.completedAt,
@@ -335,7 +361,59 @@ function describeChild(childId) {
   };
 }
 
+// Bounded per-message preview for the transcript view. Tool results can reach
+// 12k characters each and a context holds every turn, so nothing crosses IPC
+// uncut: overlong text is truncated with an explicit flag, never silently.
+const TRANSCRIPT_MESSAGE_LIMIT = 3000;
+const TRANSCRIPT_TURN_LIMIT = 60;
+
+function previewTurnText(value) {
+  const text = typeof value === 'string' ? value
+    : value == null ? '' : JSON.stringify(value);
+  if (text.length <= TRANSCRIPT_MESSAGE_LIMIT) return { text, truncated: false };
+  return { text: text.slice(0, TRANSCRIPT_MESSAGE_LIMIT), truncated: true };
+}
+
+/**
+ * Read-only transcript of one child for the activity modal: lifecycle header
+ * plus the child's own committed turns (task, tool calls with short args,
+ * truncated tool outputs, final answer or error) and the live activity feed.
+ * Falls back to SQLite for past runs after the in-memory runtime is cleared.
+ * Returns { found: false } only when neither store contains the child.
+ */
+function getChildTranscript(childSessionId) {
+  if (typeof childSessionId !== 'string' || !childSessionId) return { found: false };
+  const session = getSession(childSessionId);
+  if (!session) return require('./persistence').readPersistedTranscript(childSessionId);
+  const attempts = listExecutions(session.id);
+  const latest = attempts[attempts.length - 1] ?? null;
+  const turns = mapContextTurns(session.rawContext ?? session.context);
+  return {
+    found: true,
+    childSessionId: session.id,
+    parentSessionId: session.parentSessionId,
+    kind: latest?.kind ?? null,
+    status: session.status,
+    stopReason: session.stopReason ?? null, accounting: session.accounting ?? null,
+    model: session.model,
+    provider: session.provider,
+    usage: session.usage ?? null,
+    result: typeof session.result === 'string' ? previewTurnText(session.result) : null,
+    error: session.error ?? latest?.error ?? null,
+    durationMs: session.durationMs,
+    turnCount: attempts.length,
+    turns, activeTurns: mapContextTurns(session.context),
+    compactions: session.compactionState?.events ?? [], rawTurnCount: session.rawContext?.length ?? null,
+    // Live feed (turn starts, thoughts, tool start/finish). Bounded at write
+    // time; the newest entries are what a viewer polls for.
+    liveProgress: session.liveProgress ? { ...session.liveProgress } : null,
+    elapsedMs: session.createdAt ? Date.now() - Date.parse(session.createdAt) : null,
+    activity: Array.isArray(session.activity) ? session.activity.slice(-40) : [],
+  };
+}
+
 module.exports = {
+  createParentRunBudget: require('./executionBudget').createParentRunBudget,
   runFileAnalysis, runWebExtraction, runInvestigation,
   startFileAnalysis, startWebExtraction, startInvestigation,
   // Parent <-> child control (Step 6): the runtime surface. Authorization is
@@ -347,4 +425,6 @@ module.exports = {
   backgroundEvents: backgroundStore.backgroundEvents,
   // Step 7: one read-only snapshot of a child's model and lifecycle.
   describeChild,
+  // Observability: bounded read-only transcript for the activity modal.
+  getChildTranscript,
 };

@@ -222,7 +222,7 @@ async function drive(record) {
         executionId: attempt.id, childSessionId: session.id, kind: record.options.kind, controller,
       });
       try {
-        const { output, usage } = await runInvestigationExecution({
+        const result = await runInvestigationExecution({
           session,
           engine: record.options.engine,
           rootPath: record.options.rootPath,
@@ -231,11 +231,13 @@ async function drive(record) {
           maxToolCalls: record.options.maxToolCalls,
           signal: controller.signal,
         });
-        completeExecution(attempt, { usage, result: output });
+        if (result.outcome === 'failed') throw require('./executionBudget').resultError(result);
+        completeExecution(attempt, { ...result, result: result.output });
         // The session's usage is the child's lifetime total; its result is
         // the latest answer (the full transcript lives in session.context).
-        completeSession(session, { usage: mergeUsage(session.usage, usage), result: output });
-        backgroundStore.settle(attempt.id, 'completed');
+        completeSession(session, { ...result, result: result.output });
+        backgroundStore.settle(attempt.id, result.outcome ?? 'completed');
+        if (result.outcome && result.outcome !== 'completed') return;
       } catch (error) {
         settleStoppedTurn(record, session, attempt, controller, error);
         return; // any non-completed settlement ends this drive entirely
@@ -263,6 +265,7 @@ function settleStoppedTurn(record, session, attempt, controller, error) {
   } else {
     failExecution(attempt, error);
     failSession(session, error);
+    attempt.usage = session.usage; attempt.accounting = session.accounting; attempt.stopReason = session.stopReason;
     backgroundStore.settle(attempt.id, 'failed', String(error?.message ?? error));
   }
 }

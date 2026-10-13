@@ -143,6 +143,46 @@ const agentTools = [
 		{ relative_path: string("Project-relative file path"), content: string("Complete file content") },
 		["relative_path", "content"],
 	),
+	define(
+		"move_project_file",
+		"Move or rename a project file or directory. Fails if the destination already exists; create no data, only relocates it.",
+		{
+			source_path: string("Existing project-relative file or directory path"),
+			destination_path: string("New project-relative path; parent directories are created"),
+		},
+		["source_path", "destination_path"],
+	),
+	define(
+		"edit_project_files",
+		"Apply small surgical replacements to multiple project files atomically: every edit is validated first (contained path, unique match), then all are written; if any edit fails validation, nothing is written.",
+		{
+			edits: {
+				type: "array",
+				description: "At most 20 surgical replacements applied together",
+				items: {
+					type: "object",
+					properties: {
+						relative_path: string("Project-relative file path"),
+						old_str: string("Complete lines to replace; blank lines and internal spacing must match"),
+						new_str: string("Replacement text, written verbatim"),
+					},
+					required: ["relative_path", "old_str", "new_str"],
+					additionalProperties: false,
+				},
+				minItems: 1,
+				maxItems: 20,
+			},
+		},
+		["edits"],
+	),
+	define(
+		"apply_patch",
+		"Apply a unified diff to project files. Validate-all-then-write like edit_project_files: every hunk must match before anything is written. Refuses file deletions and paths escaping the project.",
+		{
+			patch: string("Unified diff text with ---/+++ file headers and @@ hunks; /dev/null as the --- source creates a file"),
+		},
+		["patch"],
+	),
 define("list_directory", "List entries in a directory (up to 200 entries).", {
 		relative_path: string("Absolute or project-relative directory; defaults to root"),
 	}),
@@ -484,8 +524,236 @@ async function executeStrReplaceEditor(target, { old_str, new_str }) {
 	return { success: true };
 }
 
-async function executeAgentTool({ name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval }) {
+// Resolve a write-target path with the same containment guarantees as the
+// other write tools: sandboxed to root unless the call is uncontained.
+async function resolveWriteTarget(root, value, uncontained) {
+	requireText(value, "path");
+	return uncontained ? path.resolve(root, value) : await scopedPath(root, value, true);
+}
+
+// Write file content atomically (temp file + rename) so an interrupted write
+// never leaves a half-written file behind.
+async function atomicWriteFile(target, content) {
+	const suffix = `.tmp-${process.pid}-${require("node:crypto").randomUUID().slice(0, 8)}`;
+	const temporary = `${target}${suffix}`;
+	await fs.writeFile(temporary, content, "utf8");
 	try {
+		await fs.rename(temporary, target);
+	} catch (error) {
+		await fs.rm(temporary, { force: true }).catch(() => {});
+		throw error;
+	}
+}
+
+// Shared surgical-replacement matcher (same whitespace-normalized, uniqueness-
+// enforcing semantics as executeStrReplaceEditor), factored so multi-file
+// edits can validate every replacement before writing anything.
+function locateReplacement(content, old_str) {
+	requireText(old_str, "old_str", true);
+	if (!old_str)
+		throw new Error("old_str must not be empty. Provide surrounding lines to identify a unique block.");
+	const lines = content.split("\n");
+	const normalize = (line) => line.replace(/\r/g, "").trim();
+	const normalizedLines = lines.map(normalize);
+	const oldLines = old_str.split("\n").map(normalize);
+	let match = -1;
+	for (let start = 0; start <= lines.length - oldLines.length; start++) {
+		if (!oldLines.every((line, offset) => line === normalizedLines[start + offset])) continue;
+		if (match !== -1) {
+			throw new Error(
+				"old_str is not unique after whitespace normalization. Provide more surrounding lines for uniqueness.",
+			);
+		}
+		match = start;
+	}
+	if (match === -1) {
+		throw new Error(
+			"old_str was not found after whitespace normalization. Provide complete surrounding lines; blank lines and internal spacing must match.",
+		);
+	}
+	let start = 0;
+	for (let index = 0; index < match; index++) start += lines[index].length + 1;
+	const last = match + oldLines.length - 1;
+	let end = start;
+	for (let index = match; index < last; index++) end += lines[index].length + 1;
+	end += lines[last].length;
+	if (last < lines.length - 1 && lines[last].endsWith("\r")) end--;
+	return { start, end };
+}
+
+async function executeMoveProjectFile(root, { source_path, destination_path }, uncontained) {
+	const source = await resolveWriteTarget(root, source_path, uncontained);
+	const destination = await resolveWriteTarget(root, destination_path, uncontained);
+	let stat;
+	try {
+		stat = await fs.lstat(source);
+	} catch (error) {
+		if (error.code === "ENOENT") throw new Error(`Source does not exist: ${source_path}.`);
+		throw error;
+	}
+	if (stat.isSymbolicLink()) throw new Error("Refusing to move a symbolic link.");
+	try {
+		await fs.lstat(destination);
+		throw new Error(`Destination already exists: ${destination_path}.`);
+	} catch (error) {
+		if (error.message.startsWith("Destination already exists")) throw error;
+		if (error.code !== "ENOENT") throw error;
+	}
+	await fs.mkdir(path.dirname(destination), { recursive: true });
+	try {
+		await fs.rename(source, destination);
+	} catch (error) {
+		if (error.code !== "EXDEV") throw error;
+		if (stat.isDirectory()) throw new Error("Cannot move a directory across filesystems.");
+		await fs.copyFile(source, destination);
+		await fs.unlink(source);
+	}
+	return { success: true, source_path, destination_path };
+}
+
+const MAX_BATCH_EDITS = 20;
+
+async function executeEditProjectFiles(root, { edits }, uncontained) {
+	if (!Array.isArray(edits) || edits.length < 1 || edits.length > MAX_BATCH_EDITS) {
+		throw new Error(`edits must be an array of 1 to ${MAX_BATCH_EDITS} replacements.`);
+	}
+	// Phase 1 — validate everything before touching the filesystem.
+	const planned = [];
+	const seen = new Set();
+	for (let index = 0; index < edits.length; index++) {
+		const edit = edits[index];
+		if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
+			throw new Error(`Edit ${index} must be an object with relative_path, old_str, and new_str.`);
+		}
+		const { relative_path, old_str, new_str } = edit;
+		requireText(relative_path, "relative_path");
+		requireText(new_str, "new_str", true);
+		const target = await resolveWriteTarget(root, relative_path, uncontained);
+		if (seen.has(target)) throw new Error(`Edit ${index} targets ${relative_path}, already edited in this batch.`);
+		seen.add(target);
+		let content;
+		try {
+			content = await fs.readFile(target, "utf8");
+		} catch (error) {
+			if (error.code === "ENOENT") throw new Error(`Edit ${index}: file does not exist: ${relative_path}.`);
+			throw error;
+		}
+		if (content.includes("\0")) throw new Error(`Edit ${index}: refusing binary file: ${relative_path}.`);
+		const { start, end } = locateReplacement(content, old_str);
+		planned.push({ target, relative_path, updated: content.slice(0, start) + new_str + content.slice(end) });
+	}
+	// Phase 2 — all validated, write atomically per file.
+	for (const { target, updated } of planned) await atomicWriteFile(target, updated);
+	return { success: true, edited: planned.map(({ relative_path }) => relative_path) };
+}
+
+// Minimal unified-diff application: exact context matching, validate-all-
+// then-write. Supports modification hunks and file creation (--- /dev/null);
+// file deletion is refused (use an explicit delete path instead).
+const MAX_PATCH_HUNKS = 50;
+const MAX_PATCH_CHARS = 200000;
+
+function parseUnifiedPatch(patch) {
+	requireText(patch, "patch", true);
+	if (patch.length > MAX_PATCH_CHARS) {
+		throw new Error(`Patch exceeds ${MAX_PATCH_CHARS} characters. Split it into smaller patches.`);
+	}
+	const files = [];
+	const lines = patch.split("\n");
+	let index = 0;
+	const fileHeader = (line, marker) => {
+		if (!line.startsWith(marker)) return null;
+		let name = line.slice(marker.length).trim();
+		if ((name.startsWith('"') && name.endsWith('"')) || (name.startsWith("'") && name.endsWith("'"))) {
+			try { name = JSON.parse(name); } catch { name = name.slice(1, -1); }
+		}
+		return name;
+	};
+	while (index < lines.length) {
+		while (index < lines.length && lines[index].trim() === "") index++;
+		if (index >= lines.length) break;
+		const oldName = fileHeader(lines[index], "--- ");
+		if (oldName === null) throw new Error(`Expected a --- file header at line ${index + 1}.`);
+		const newName = fileHeader(lines[index + 1], "+++ ");
+		if (newName === null) throw new Error(`Expected a +++ file header at line ${index + 2}.`);
+		index += 2;
+		const stripPrefix = (name) => name.replace(/^a\/|^b\//, "");
+		const hunks = [];
+		while (index < lines.length) {
+			const header = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(lines[index]);
+			if (!header) break;
+			index++;
+			const hunk = { oldLines: [], newLines: [], header: lines[index - 1] };
+			while (index < lines.length && /^[ +-\\]/.test(lines[index]) && !lines[index].startsWith("--- ")) {
+				const marker = lines[index][0];
+				const text = lines[index].slice(1);
+				if (marker === " ") { hunk.oldLines.push(text); hunk.newLines.push(text); }
+				else if (marker === "-") hunk.oldLines.push(text);
+				else if (marker === "+") hunk.newLines.push(text);
+				else if (marker === "\\") break;
+				index++;
+			}
+			hunks.push(hunk);
+		}
+		if (!hunks.length) throw new Error(`No hunks found for ${oldName}.`);
+		files.push({ oldName: stripPrefix(oldName), newName: stripPrefix(newName), hunks });
+	}
+	if (!files.length) throw new Error("No file patches found. Provide ---/+++ headers and @@ hunks.");
+	if (files.length > MAX_PATCH_HUNKS) throw new Error(`Patch touches too many files (maximum ${MAX_PATCH_HUNKS}).`);
+	return files;
+}
+
+async function executeApplyPatch(root, { patch }, uncontained) {
+	const parsed = parseUnifiedPatch(patch);
+	// Phase 1 — validate everything before touching the filesystem.
+	const planned = [];
+	for (const file of parsed) {
+		if (file.newName === "/dev/null") throw new Error(`Refusing to delete ${file.oldName}; delete files explicitly instead.`);
+		const creating = file.oldName === "/dev/null";
+		const target = await resolveWriteTarget(root, creating ? file.newName : file.oldName, uncontained);
+		let lines = [];
+		if (!creating) {
+			let content;
+			try {
+				content = await fs.readFile(target, "utf8");
+			} catch (error) {
+				if (error.code === "ENOENT") throw new Error(`File does not exist: ${file.oldName}.`);
+				throw error;
+			}
+			if (content.includes("\0")) throw new Error(`Refusing binary file: ${file.oldName}.`);
+			lines = content.split("\n");
+		}
+		// Apply hunks against a working copy, tracking the line offset so
+		// later hunks in the same file land correctly.
+		let offset = 0;
+		for (const hunk of file.hunks) {
+			const needle = hunk.oldLines;
+			let at = -1;
+			if (needle.length) {
+				for (let start = 0; start <= lines.length - needle.length; start++) {
+					if (!needle.every((line, i) => line === lines[start + i])) continue;
+					if (at !== -1) throw new Error(`Hunk is ambiguous in ${file.oldName} (${hunk.header.trim()}); add more context lines.`);
+					at = start;
+				}
+				if (at === -1) throw new Error(`Hunk does not match ${file.oldName} (${hunk.header.trim()}); context must match exactly.`);
+			} else {
+				at = Math.max(0, Math.min(lines.length, offset));
+			}
+			const next = [...lines.slice(0, at), ...hunk.newLines, ...lines.slice(at + needle.length)];
+			offset += hunk.newLines.length - needle.length;
+			lines = next;
+		}
+		planned.push({ target, relative: creating ? file.newName : file.oldName, content: lines.join("\n"), creating });
+	}
+	// Phase 2 — all validated, write atomically per file.
+	for (const { target, content, creating } of planned) {
+		if (creating) await fs.mkdir(path.dirname(target), { recursive: true });
+		await atomicWriteFile(target, content);
+	}
+	return { success: true, files: planned.map(({ relative }) => relative) };
+}
+
+async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope }) {	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
 		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : rawArguments;
@@ -539,7 +807,7 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
-		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId });
+		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId, budgetScope });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
 		const readingFiles = ['spawn_sub_agent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content'].includes(name);
 		// rootPath is an explicit root from the delegating caller (the child
@@ -551,14 +819,16 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 			: await fs.realpath(project?.root_path ?? (uncontained ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_sub_agent")
-			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId });
+			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId,
+				budgetScope, parentToolCallId: typeof id === 'string' ? id : null,
+				...(typeof onChildSession === 'function' ? { onSpawn: onChildSession } : {}) });
 		if (name === "delegate_task")
 			return await require("../subAgentRunner").runSubAgent({
 				...args,
 				rootPath: root,
 				engine,
 				signal,
-				parentSessionId: sessionId,
+				parentSessionId: sessionId, budgetScope,
 			});
 		if (name === "execute_command") {
 			// Contained commands run inside the bwrap sandbox (workspace_write and
@@ -607,9 +877,15 @@ async function executeAgentTool({ name, arguments: rawArguments, sessionId, sign
 		if (name === "write_project_file") {
 			requireText(args.content, "content", true);
 			await fs.mkdir(path.dirname(target), { recursive: true });
-			await fs.writeFile(target, args.content, "utf8");
+			await atomicWriteFile(target, args.content);
 			return { success: true };
 		}
+		if (name === "move_project_file")
+			return await executeMoveProjectFile(root, args, uncontained);
+		if (name === "edit_project_files")
+			return await executeEditProjectFiles(root, args, uncontained);
+		if (name === "apply_patch")
+			return await executeApplyPatch(root, args, uncontained);
 		return await executeStrReplaceEditor(target, args);
 	} catch (error) {
 		return { success: false, error: error.message };

@@ -2,11 +2,14 @@ import React, { useState } from "react";
 import ChatMessage from "../ChatMessage.jsx";
 import AssistantAvatar from "../AssistantAvatar.jsx";
 import MessageActions from "../MessageActions.jsx";
+import Tooltip from "../Tooltip.jsx";
 import ToolEventCard from "./ToolEventCard.jsx";
 import TurnOutcomes from "./TurnOutcomes.jsx";
 import { splitStages, summarizeStage } from "../../lib/executionEvents.mjs";
+import AttachmentPreview from "./AttachmentPreview.jsx";
 import { assistantLabel, formatModelName } from "../../lib/messageIdentity.mjs";
 import { readSkillDecision } from "./PendingInteractions.jsx";
+import { LuChevronDown, LuChevronRight } from "react-icons/lu";
 
 // Chronological, terminal-inspired execution timeline for Workspace mode.
 //
@@ -212,7 +215,7 @@ function RunHeader({
 
 	return (
 		<div
-			className="flex min-w-0 items-start gap-2.5"
+			className="flex min-w-0 gap-2.5 items-center"
 			aria-label="Workspace run attribution"
 		>
 			<span className="mt-1.5 flex shrink-0 items-center">
@@ -226,10 +229,9 @@ function RunHeader({
 			</span>
 			<div className="min-w-0 flex-1">
 				<p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-					<strong className="truncate text-sm text-[var(--text-primary)]">{label}</strong>
-					{readable && readable !== label && (
-						<span className="truncate text-xs text-[var(--text-secondary)]">{readable}</span>
-					)}
+					<Tooltip content={readable && readable !== label ? readable : null}>
+						<p className="truncate text-sm text-[var(--text-primary)] font-semibold">{label}</p>
+					</Tooltip>
 					<span
 						aria-label={`Run status: ${statusLabel}`}
 						className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
@@ -250,7 +252,7 @@ function RunHeader({
 							aria-label="Jump to final response"
 							title="Jump to final response"
 						>
-							Response ↓
+							Response <LuChevronDown />
 						</button>
 					)}
 				</p>
@@ -353,6 +355,7 @@ function RunSection({
 					/>
 					{(onDelete || onBranch || onRegenerate) && (
 						<MessageActions
+							onSelectReplyVariant={onSelectReplyVariant}
 							message={message}
 							disabled={disabled}
 							onDelete={onDelete ? (id) => onDelete(id) : () => {}}
@@ -426,7 +429,7 @@ function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
 					aria-hidden="true"
 					className={`shrink-0 text-[10px] text-[var(--text-muted)] transition-transform ${collapsed ? "" : "rotate-90"}`}
 				>
-					›
+					<LuChevronRight />
 				</span>
 				<span className="truncate text-xs text-[var(--text-secondary)]">{summary.title}</span>
 				{summary.failed > 0 && (
@@ -588,22 +591,9 @@ function UserBlock({
 				{message.content}
 			</p>
 			{message.attachments?.length > 0 && (
-				<ul
-					aria-label="Message attachments"
-					className="mt-2 flex flex-wrap gap-1"
-				>
-					{message.attachments.map((attachment) => (
-						<li
-							key={attachment.id || attachment.file_path}
-							className="max-w-full truncate rounded border border-[var(--attachment-border)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
-						>
-							{(attachment.mime_type ?? "").startsWith("image/") ? "Image: " : "File: "}
-							{String(attachment.file_path ?? "")
-								.split(/[\\/]/)
-								.pop()}
-						</li>
-					))}
-				</ul>
+				<div className="mt-2">
+					<AttachmentPreview attachments={message.attachments} />
+				</div>
 			)}
 			{(onDelete || onBranch || onStartEdit) && (
 				<MessageActions

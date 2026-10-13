@@ -2,6 +2,20 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 const inputClass = 'mt-1 block w-full rounded-lg border border-[var(--border)] bg-[var(--input)] p-2';
 const EMPTY_DEFAULTS = { defaultImageProviderId: '', defaultVideoProviderId: '' };
+function isLocalBaseUrlValue(value) {
+  const host = (() => { try { return new URL(String(value || '').trim()).hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, ''); } catch { return ''; } })();
+  if (!host) return false;
+  if (['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(host)) return true;
+  if (host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  if (/^127\.\d+\.\d+\.\d+$/.test(host) || /^10\.\d+\.\d+\.\d+$/.test(host) || /^192\.168\.\d+\.\d+$/.test(host)) return true;
+  const m = /^172\.(\d+)\.\d+\.\d+$/.exec(host);
+  return !!m && Number(m[1]) >= 16 && Number(m[1]) <= 31;
+}
+function needsApiKey(row) {
+  if (row.category === 'media' && row.apiType === 'stable-diffusion') return false;
+  if (row.category === 'text' && isLocalBaseUrlValue(row.baseUrl)) return false;
+  return true;
+}
 
 export default function CloudProviderSettings() {
   const [providers, setProviders] = useState([]);
@@ -117,7 +131,7 @@ export default function CloudProviderSettings() {
     </>}
 
     {visibleProviders.map(row => <form key={row.id} onSubmit={event => { event.preventDefault(); persist(row); }} className="space-y-3 rounded-xl border border-[var(--border)] p-4">
-      <h3 className="font-semibold">{row.name || (row.category === 'media' ? 'Media Provider' : 'Text Provider')} <span className="text-xs font-normal text-[var(--text-secondary)]">{row.configured ? 'Key saved' : 'Not configured'}</span></h3>
+      <h3 className="font-semibold">{row.name || (row.category === 'media' ? 'Media Provider' : 'Text Provider')} <span className="text-xs font-normal text-[var(--text-secondary)]">{row.configured ? (needsApiKey(row) ? 'Key saved' : 'Ready') : 'Not configured'}</span></h3>
       <label className="block text-sm">Name<input required value={row.name} disabled={busy} placeholder="OpenRouter, Stability, My API" onChange={event => update(row.id, 'name', event.target.value)} className={inputClass} /></label>
       {row.category === 'media' && <label className="block text-sm">Media Type
         <select value={row.mediaType || 'image'} disabled={busy} onChange={event => update(row.id, 'mediaType', event.target.value)} className={inputClass}>
@@ -132,14 +146,14 @@ export default function CloudProviderSettings() {
         </select>
       </label>
       <label className="block text-sm">Base URL<input required type="url" value={row.baseUrl} disabled={busy} onChange={event => update(row.id, 'baseUrl', event.target.value)} className={inputClass} /></label>
-      <label className="block text-sm">API Key<input required={!row.configured && !(row.category === 'media' && row.apiType === 'stable-diffusion')} type="password" autoComplete="off" spellCheck={false} value={row.apiKey || ''} disabled={busy}
-        placeholder={row.configured ? 'Leave blank to keep saved key' : 'Enter API key'} onChange={event => update(row.id, 'apiKey', event.target.value)} className={inputClass} /></label>
+      <label className="block text-sm">API Key{!needsApiKey(row) && <span className="text-[var(--text-muted)]"> (optional for local servers)</span>}<input required={!row.configured && needsApiKey(row)} type="password" autoComplete="off" spellCheck={false} value={row.apiKey || ''} disabled={busy}
+        placeholder={row.configured ? 'Leave blank to keep saved key' : needsApiKey(row) ? 'Enter API key' : 'Empty — not needed for LM Studio / Ollama'} onChange={event => update(row.id, 'apiKey', event.target.value)} className={inputClass} /></label>
       <div>
         <label htmlFor={`model-${row.id}`} className="block text-sm">Model ID</label>
         <div className="flex items-center gap-2">
           <input id={`model-${row.id}`} required list={`models-${row.id}`} value={row.modelId} disabled={busy} placeholder="Type a model ID or test the connection"
             onChange={event => update(row.id, 'modelId', event.target.value)} className={`${inputClass} min-w-0 flex-1`} />
-          <button type="button" disabled={busy || modelLists[row.id]?.loading || !row.baseUrl.trim() || (!row.apiKey?.trim() && !row.configured && row.apiType !== 'stable-diffusion')} onClick={() => fetchModels(row)}
+          <button type="button" disabled={busy || modelLists[row.id]?.loading || !row.baseUrl.trim() || (!row.apiKey?.trim() && !row.configured && needsApiKey(row))} onClick={() => fetchModels(row)}
             className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50">{modelLists[row.id]?.loading ? 'Testing…' : row.category === 'text' ? 'Fetch Models' : 'Test / Fetch Models'}</button>
         </div>
         <datalist id={`models-${row.id}`}>{(modelLists[row.id]?.models || []).map(modelId => <option key={modelId} value={modelId} />)}</datalist>

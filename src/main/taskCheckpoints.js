@@ -38,7 +38,7 @@ const CANCELLED_RE = /(?:tool execution cancelled|execution interrupted|question
 const INTERRUPTED_RE = /interrupt/i;
 const BLOCKED_RE = /(?:execution blocked|approval denied|permission denied|requires a project|read only mode|ask for approval|full access)/i;
 
-const FILE_EDIT_TOOLS = new Set(['str_replace_editor', 'write_project_file']);
+const FILE_EDIT_TOOLS = new Set(['str_replace_editor', 'write_project_file', 'edit_project_files', 'apply_patch', 'move_project_file']);
 const FILE_READ_TOOLS = new Set(['read_project_file', 'list_directory', 'search_project_content']);
 const COMMAND_TOOLS = new Set(['execute_command']);
 const SUBAGENT_TOOLS = new Set(['spawn_sub_agent', 'delegate_task', 'extract_web_page_data']);
@@ -461,7 +461,7 @@ function validateCheckpoint(draft, ctx) {
     for (const source of Array.isArray(entry.sources) ? entry.sources : []) {
       if (resolveStep(source)) sources.push({ messageId: source.messageId, stepId: source.stepId });
       else if (isPlainObject(source) && Number.isSafeInteger(source.messageId) && source.stepId == null
-        && messageExists(ctx.sessionId, source.messageId)) {
+        && (ctx.messageExists ? ctx.messageExists(source.messageId) : messageExists(ctx.sessionId, source.messageId))) {
         sources.push({ messageId: source.messageId, stepId: null });
       } else {
         repaired.push(`decisions[${i}]: dropped unresolvable source`);

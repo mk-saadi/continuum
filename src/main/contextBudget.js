@@ -16,7 +16,9 @@ function isContextOverflow(error) {
   let body;
   try { body = JSON.parse(error.responseBody); } catch { return false; }
   const detail = body?.error ?? body;
-  return detail?.type === 'exceed_context_size_error' || detail?.code === 'exceed_context_size_error' ||
+  return ['context_length_exceeded', 'prompt_too_long'].includes(detail?.code) ||
+    (detail?.type === 'invalid_request_error' && /prompt is too long|input length.*exceeds.*context/i.test(detail?.message ?? '')) ||
+    detail?.type === 'exceed_context_size_error' || detail?.code === 'exceed_context_size_error' ||
     (Number.isFinite(detail?.n_prompt_tokens) && Number.isFinite(detail?.n_ctx) && detail.n_prompt_tokens > detail.n_ctx);
 }
 function reserveTokens(payload, limit) {
@@ -111,14 +113,14 @@ function createPromptMeasurer(fetchImpl) {
 }
 function createContextGuardedFetch(fetchImpl) {
   const measure = createPromptMeasurer(fetchImpl);
-  return async function guardedFetch(url, options = {}) {
+  const guardedFetch = async function guardedFetch(url, options = {}) {
     if ((options.method ?? 'GET').toUpperCase() !== 'POST' || new URL(url).pathname !== '/v1/chat/completions') return fetchImpl(url, options);
     let payload;
     try { payload = JSON.parse(options.body); } catch { return fetchImpl(url, options); }
     if (!Array.isArray(payload.messages)) return fetchImpl(url, options);
     const normalize = value => ({ ...value, messages: mergeSystemMessages(value.messages) });
     payload = normalize(payload);
-    const { contextWindowLimit, contextRecovery, ...wireOptions } = options;
+    const { contextWindowLimit, contextRecovery, modelRequestBudget, ...wireOptions } = options;
     let recovered = false, knownLimit;
     const recover = async (reason) => {
       options.signal?.throwIfAborted();
@@ -129,7 +131,7 @@ function createContextGuardedFetch(fetchImpl) {
       try { rebuilt = await contextRecovery({ payload, contextWindowLimit: knownLimit ?? contextWindowLimit ?? 8192, reason }); }
       catch (error) {
         options.signal?.throwIfAborted();
-        if (error?.name === 'AbortError' || error?.code === 'CONTEXT_BUDGET_EXCEEDED') throw error;
+        if (error?.name === 'AbortError' || error?.code === 'CONTEXT_BUDGET_EXCEEDED' || error?.code === 'SUBAGENT_BUDGET_EXCEEDED') throw error;
         throw new ContextBudgetError(`summarization/rebuild failed: ${error.message}`);
       }
       options.signal?.throwIfAborted();
@@ -138,6 +140,7 @@ function createContextGuardedFetch(fetchImpl) {
       payload = normalize(rebuilt);
     };
     const check = async () => {
+      if (modelRequestBudget) payload = normalize(modelRequestBudget.prepare(payload));
       let usage = await measure(url, payload, options, knownLimit);
       knownLimit = usage.limit;
       if (usage.tokens > usage.budget) {
@@ -145,25 +148,37 @@ function createContextGuardedFetch(fetchImpl) {
         usage = await measure(url, payload, options, knownLimit);
         if (usage.tokens > usage.budget) throw new ContextBudgetError(`${usage.tokens} ${usage.method} input tokens; budget ${usage.budget}`);
       }
+      return usage;
     };
-    await check();
+    const send = async (measured) => {
+      const reservation = modelRequestBudget?.beforeRequest(payload, measured);
+      if (reservation) payload = normalize(reservation.payload);
+      const response = await fetchImpl(url, { ...wireOptions, body: JSON.stringify(payload) });
+      if (reservation) modelRequestBudget.trackResponse(response, reservation);
+      return response;
+    };
+    let measured = await check();
     options.signal?.throwIfAborted();
-    let response = await fetchImpl(url, { ...wireOptions, body: JSON.stringify(payload) });
+    let response = await send(measured);
     if (response.status !== 400) return response;
     const body = await response.clone().text();
     if (!isContextOverflow({ status: 400, responseBody: body })) return response;
     await response.body?.cancel();
     let detail; try { detail = JSON.parse(body).error ?? JSON.parse(body); } catch { /* classification already checked */ }
     if (Number.isSafeInteger(detail?.n_ctx) && detail.n_ctx > 0) knownLimit = Math.min(knownLimit, detail.n_ctx);
-    await recover(`backend reported ${detail?.n_prompt_tokens ?? 'too many'} input tokens`);
-    await check();
+    try { await recover(`backend reported ${detail?.n_prompt_tokens ?? 'too many'} input tokens`); }
+    catch (error) { error.confirmedOverflow = true; error.contextWindowLimit = knownLimit; throw error; }
+    measured = await check();
     options.signal?.throwIfAborted();
-    response = await fetchImpl(url, { ...wireOptions, body: JSON.stringify(payload) });
+    response = await send(measured);
     if (response.status === 400 && isContextOverflow({ status: 400, responseBody: await response.clone().text() })) {
       await response.body?.cancel();
-      throw new ContextBudgetError('the single recovery retry also exceeded context');
+      const error = new ContextBudgetError('the single recovery retry also exceeded context');
+      error.confirmedOverflow = true; error.contextWindowLimit = knownLimit; throw error;
     }
     return response;
   };
+  guardedFetch.contextGuarded = true;
+  return guardedFetch;
 }
 module.exports = { createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };

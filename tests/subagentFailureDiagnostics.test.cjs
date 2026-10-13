@@ -164,7 +164,7 @@ test('4. a direct URL extraction returns the answer from the fetched page', asyn
   assert.equal(output, 'About 20 GB of VRAM at Q4.');
   assert.equal(modelCalls, 1, 'a successful extraction must not be retried');
   assert.equal(payload.temperature, 0);
-  assert.equal(payload.max_tokens, 450);
+  assert.equal(payload.max_tokens, 1024);
   assert.match(payload.messages[1].content, /20 GB of VRAM/);
   const session = sessionManager.listSessions().find(item => item.parentSessionId === 'diag_url_ok');
   assert.equal(session.status, 'completed');
@@ -193,7 +193,7 @@ test('5. URL extraction with no content reports which stage failed', async () =>
   // returned no answer. Reported as the model stage — with attempt
   // diagnostics — not as a page or fetch failure.
   let calls = 0;
-  const answerError = await expectRejection(runtime.runWebExtraction({
+  const answerOutput = await runtime.runWebExtraction({
     url: 'https://example.com/story',
     query: 'When does it launch?',
     engine,
@@ -205,10 +205,12 @@ test('5. URL extraction with no content reports which stage failed', async () =>
       calls += 1;
       return completion({ content: '   ', usage: { completion_tokens: 0 } });
     },
-  }), 'empty model answer');
+  });
+  const answerError = { message: answerOutput };
+  assert.match(answerOutput, /Sub-agent partial: empty_response/);
   assert.equal(calls, 2, 'one bounded retry for the empty model answer');
-  assert.match(answerError.message, /Web extractor returned no answer/);
-  assert.match(answerError.message, /page was fetched and readable/);
+  assert.match(answerError.message, /returned no visible answer/);
+  assert.match(answerError.message, /Source evidence/);
   assert.match(answerError.message, /attempt 1/);
   assert.match(answerError.message, /attempt 2/);
   assert.match(answerError.message, /finish_reason="stop"/);

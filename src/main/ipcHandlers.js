@@ -130,6 +130,14 @@ function registerIpcHandlers({
 		return filePaths[0];
 	};
 	const handlers = {
+        "engine:capabilities": async ({ modelId }) => {
+            const config = getEngineConfig?.();
+            if (!config || config.modelPath !== modelId) throw new Error('Load the selected local model before verifying media support.');
+            const capabilities = await require('./modelCapabilities').queryCapabilities(config.port);
+            const current = getEngineConfig?.();
+            if (!current || current.port !== config.port || current.modelPath !== modelId) throw new Error('The loaded model changed during capability verification.');
+            return capabilities;
+        },
         "tokens:history": input => require('./tokenUsage').getTokenHistory(input),
         "tokens:retention": ({ months }) => require('./tokenUsage').setRetention(months),
         "project:create": input => projects.createProject(input),
@@ -162,6 +170,7 @@ function registerIpcHandlers({
             if (error) throw new Error(error);
         },
         "cloud:get": () => getCloudProviders(),
+        "cloud:model-metadata": () => require("./cloudProviders").getCloudModelMetadata(),
         "cloud:defaults:get": () => {
             const defaults = getCloudProviderDefaults();
             return { defaultImageProviderId: defaults.default_image_provider_id || '',
@@ -265,6 +274,21 @@ function registerIpcHandlers({
 		// ./subagents/modelSelection.js). null = follow the chat's model.
 		"subagent:get-model": () => require("./subagents/modelSelection").getSubagentModel(),
 		"subagent:save-model": (selection) => require("./subagents/modelSelection").saveSubagentModel(selection),
+		// Cumulative task token budgets (Automatic default, optional Custom
+		// hard limits). Same standalone settings pattern as the model above.
+		"subagent:get-budgets": () => {
+			const budgets = require("./subagents/budgetSettings").getBudgetSettings();
+			return { settings: budgets, policy: require("./subagents/budgets").describeAutoPolicy() };
+		},
+		"subagent:save-budgets": (patch) => {
+			const budgets = require("./subagents/budgetSettings").saveBudgetSettings(patch);
+			return { settings: budgets, policy: require("./subagents/budgets").describeAutoPolicy() };
+		},
+		// Read-only child transcript for the activity modal. The runtime is
+		// in-memory, so unknown ids (e.g. after a restart) report found:false
+		// instead of throwing; the UI renders that as "no longer available".
+		"subagent:get-transcript": ({ childSessionId } = {}) =>
+			require("./subagents").getChildTranscript(childSessionId),
 		"settings:set-notification-prefs": prefs => saveNotificationPrefs(prefs),
 		"app:save-settings": (settings) => {
 			const previousMode = getAppSettings().mcpMode;
@@ -335,6 +359,7 @@ function registerIpcHandlers({
             const { generationSamplingParams } = require('./engineManager');
             generationSamplingParams({}, thinkingBudget);
 			let executionSteps = [];
+            const childSessionsByToolCall = new Map();
             let content = "";
             const contentChunks = [];
             const materializeContent = () => {
@@ -410,6 +435,7 @@ function registerIpcHandlers({
                 const { maxConsecutiveToolFailures, maxTotalToolFailures } = getAppSettings();
                 const { phaseStats } = await import('../lib/completionStats.mjs');
                 const usageTurnId = require('node:crypto').randomUUID();
+                const childBudgetScope = require('./subagents/executionBudget').createParentRunBudget();
                 const usageTimestamp = new Date().toISOString();
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
@@ -581,7 +607,8 @@ function registerIpcHandlers({
                         ? { serverName: 'native', toolName: name } : mcpManager.resolveTool(name, sessionId),
                     onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
-                        executionSteps = steps;
+                        executionSteps = steps.map(step => childSessionsByToolCall.has(step.id)
+                            ? { ...step, childSessionId: childSessionsByToolCall.get(step.id) } : step);
                         persist();
                         notify({ type: "step-update", messageId, executionSteps: displaySteps(executionSteps) });
                     },
@@ -625,6 +652,25 @@ function registerIpcHandlers({
 							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode, project,
                                 native: isAgent || isMemory, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+							// Sub-agent observability: link the parent step to the child
+							// session as soon as the runtime opens it (before the
+							// child finishes), and re-assert on completion. The
+							// step id matches the tool-call id (see memoryChat),
+							// so parallel same-name calls attach independently.
+							// childSessionId survives persistence/display because
+							// step validation preserves unknown fields.
+							const attachChildSession = (childSessionId) => {
+								if (typeof childSessionId !== 'string' || !childSessionId) return;
+                                childSessionsByToolCall.set(call.id, childSessionId);
+								const step = executionSteps.find(step => step?.id === call.id);
+								if (step && step.childSessionId !== childSessionId) {
+									step.childSessionId = childSessionId;
+									persist();
+									notify({ type: "step-update", messageId, executionSteps: displaySteps(executionSteps) });
+								}
+								return childSessionId;
+							};
+							let spawnChildId = null;
 							const rawOutput = isMemory
 								? await executeMemoryTool({ ...call, modelId, sessionId, signal: controller.signal })
 								: isAskUser ? await require('./engineManager').askUserDuringRun({
@@ -632,10 +678,12 @@ function registerIpcHandlers({
 									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
 								})
 								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, approval, signal: controller.signal,
-                                    engine: chatEngine })
+                                    engine: chatEngine, budgetScope: childBudgetScope,
+                                    onChildSession: (childSessionId) => { spawnChildId = attachChildSession(childSessionId); } })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
 									});
+							if (spawnChildId) attachChildSession(spawnChildId);
 							const output = sanitizeWebToolResult(rawOutput, call.name);
 							if (isAgent && call.name === 'manage_mcp_servers') {
 								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
@@ -729,7 +777,18 @@ function registerIpcHandlers({
 		},
 		"engine:get-load-config": ({ modelId }) => getLoadConfig(modelId),
 		"engine:launch": ({ modelId, config }) => launchEngine(modelId, config),
-		"file:process-uploads": (filePaths) => processUploads(filePaths),
+		"file:attachment-policy": input => require('./attachmentAccess').getAttachmentPolicy(input, getEngineConfig),
+        "file:process-uploads": async input => {
+            if (Array.isArray(input)) {
+                const engine = getEngineConfig?.();
+                input = { files: input, modelId: engine?.modelPath, activeChatProvider: { type: 'local' } };
+            }
+            const policy = await require('./attachmentAccess').getAttachmentPolicy(input, getEngineConfig);
+            const { assertAttachmentNames } = await import('../lib/attachmentPolicy.mjs');
+            if (!Array.isArray(input.files)) throw new Error('Invalid uploads.');
+            assertAttachmentNames(input.files.map(file => typeof file === 'string' ? file : file.name), policy);
+            return processUploads(input.files);
+        },
 		"session:get-all": () => getAllSessions(),
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),

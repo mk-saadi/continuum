@@ -156,7 +156,8 @@ export default function BackgroundSettings() {
 					step={1}
 					value={settings.opacity}
 					disabled={busy}
-					onChange={(event) => changeOpacity(event.target.value)}
+					onChange={(event) => setSettings(current => ({ ...current, opacity: Number(event.target.value) }))}
+					onCommit={(event) => changeOpacity(event.target.value)}
 				/>
 			</div>
 			{error && (

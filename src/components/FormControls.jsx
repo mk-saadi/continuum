@@ -1,4 +1,4 @@
-import React, { forwardRef, useId, useState, useRef, useEffect } from "react";
+import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { LuCheck, LuChevronDown } from "react-icons/lu";
 
@@ -118,24 +118,51 @@ export const SelectField = forwardRef(function SelectField(
 
 	const selectedOption = options.find((opt) => String(opt.value) === String(value));
 
-	const handleOpen = () => {
-		if (disabled) return;
-		if (triggerRef.current) {
-			const rect = triggerRef.current.getBoundingClientRect();
-			const ownerDialog = triggerRef.current.closest("dialog");
+    const handleOpen = () => {
+        if (!disabled) setIsOpen(true);
+    };
 
-			let topPos;
-			if (ownerDialog) {
-				const dialogRect = ownerDialog.getBoundingClientRect();
-				topPos = openTop ? rect.top - dialogRect.top - 6 : rect.bottom - dialogRect.top + 6;
-				setMenuCoords({ top: topPos, left: rect.left - dialogRect.left, width: rect.width });
-			} else {
-				topPos = openTop ? rect.top + window.scrollY - 6 : rect.bottom + window.scrollY + 6;
-				setMenuCoords({ top: topPos, left: rect.left + window.scrollX, width: rect.width });
-			}
-			setIsOpen(true);
-		}
-	};
+    useLayoutEffect(() => {
+        if (!isOpen) return;
+        const trigger = triggerRef.current;
+        const menu = menuRef.current;
+        if (!trigger || !menu) return;
+        const owner = trigger.closest('dialog');
+        const placeMenu = () => {
+            const rect = trigger.getBoundingClientRect();
+            const boundary = owner?.getBoundingClientRect();
+            // Remain inside the modal's clipping boundary and the viewport.
+            const leftEdge = Math.max(8, (boundary?.left ?? 0) + 8);
+            const rightEdge = Math.min(window.innerWidth - 8, (boundary?.right ?? window.innerWidth) - 8);
+            const topEdge = Math.max(8, (boundary?.top ?? 0) + 8);
+            const bottomEdge = Math.min(window.innerHeight - 8, (boundary?.bottom ?? window.innerHeight) - 8);
+            if (rect.bottom < topEdge || rect.top > bottomEdge) { setIsOpen(false); return; }
+            const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
+            const below = Math.max(0, bottomEdge - rect.bottom - 6);
+            const above = Math.max(0, rect.top - topEdge - 6);
+            const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
+            const upwards = openTop ? above >= desiredHeight || above >= below : below < desiredHeight && above > below;
+            const maxHeight = Math.min(288, upwards ? above : below);
+            const height = Math.min(desiredHeight, maxHeight);
+            const next = {
+                left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
+                top: upwards ? rect.top - 6 - height : rect.bottom + 6,
+                width, maxHeight,
+            };
+            setMenuCoords(previous => Object.keys(next).every(key => previous[key] === next[key]) ? previous : next);
+        };
+        placeMenu();
+        window.addEventListener('resize', placeMenu);
+        document.addEventListener('scroll', placeMenu, true);
+        const observer = new ResizeObserver(placeMenu);
+        observer.observe(trigger);
+        observer.observe(menu);
+        return () => {
+            window.removeEventListener('resize', placeMenu);
+            document.removeEventListener('scroll', placeMenu, true);
+            observer.disconnect();
+        };
+    }, [isOpen, openTop]);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -246,9 +273,10 @@ export const SelectField = forwardRef(function SelectField(
 								left: menuCoords.left,
 								top: menuCoords.top,
 								width: menuCoords.width,
-								...(openTop ? { transform: "translateY(-100%)" } : {}),
+								maxHeight: menuCoords.maxHeight,
+                                margin: 0,
 							}}
-							className="absolute z-[9999] min-w-[220px] max-h-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
+							className="fixed z-[9999] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -416,12 +444,19 @@ export const TextAreaField = forwardRef(function TextAreaField(
 });
 
 export const SliderField = forwardRef(function SliderField(
-	{ label, valueLabel, hint, id: suppliedId, className, inputClassName = "", required, ...inputProps },
+	{ label, valueLabel, hint, id: suppliedId, className, inputClassName = "", required, onCommit, ...inputProps },
 	ref,
 ) {
 	const generatedId = useId();
 	const id = suppliedId || generatedId;
 	const [isActive, setIsActive] = useState(false);
+	// Keep onChange live for previews; callers can persist once the interaction ends.
+	const changed = useRef(false);
+	function commit(event) {
+		if (!changed.current) return;
+		changed.current = false;
+		onCommit?.(event);
+	}
 
 	const labelContent = (
 		<span className="flex items-center justify-between gap-2">
@@ -456,9 +491,9 @@ export const SliderField = forwardRef(function SliderField(
 				{/* Visual thumb — scales up when pressed or hovered */}
 				<div
 					aria-hidden="true"
-					className={`pointer-events-none absolute rounded-full bg-[var(--accent)] shadow-sm -translate-x-1/2 transition-all duration-200 ease-out
+					className={`pointer-events-none absolute rounded-full bg-[var(--accent)] shadow-sm -translate-x-1/2 transition-[width,height,box-shadow] duration-200 ease-out
                     ${isActive ? "size-5 shadow-md" : "size-3"}`}
-					style={{ left: `${percentage}%` }}
+					style={{ left: `calc(${percentage}% + ${8 - percentage * 0.16}px)` }}
 				/>
 
 				{/* Real input */}
@@ -469,6 +504,10 @@ export const SliderField = forwardRef(function SliderField(
 					type="range"
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
+					onChange={(e) => {
+						changed.current = true;
+						inputProps.onChange?.(e);
+					}}
 					onPointerDown={(e) => {
 						setIsActive(true);
 						inputProps.onPointerDown?.(e);
@@ -476,9 +515,15 @@ export const SliderField = forwardRef(function SliderField(
 					onPointerUp={(e) => {
 						setIsActive(false);
 						inputProps.onPointerUp?.(e);
+						commit(e);
+					}}
+					onPointerCancel={(e) => {
+						setIsActive(false);
+						inputProps.onPointerCancel?.(e);
+						commit(e);
 					}}
 					onPointerLeave={(e) => {
-						setIsActive(false);
+						if (!e.buttons) setIsActive(false);
 						inputProps.onPointerLeave?.(e);
 					}}
 					onKeyDown={(e) => {
@@ -488,10 +533,12 @@ export const SliderField = forwardRef(function SliderField(
 					onKeyUp={(e) => {
 						setIsActive(false);
 						inputProps.onKeyUp?.(e);
+						commit(e);
 					}}
 					onBlur={(e) => {
 						setIsActive(false);
 						inputProps.onBlur?.(e);
+						commit(e);
 					}}
 					className={`absolute inset-0 w-full h-full m-0 appearance-none bg-transparent cursor-pointer opacity-0 disabled:cursor-not-allowed
                     [&::-webkit-slider-thumb]:appearance-none

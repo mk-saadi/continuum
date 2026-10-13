@@ -1,0 +1,301 @@
+{
+  "date": "2026-10-13",
+  "timezone": "Asia/Dhaka",
+  "git_head": "31865ff5627538bb29cce2bd64b7115d38914f82",
+  "node": "v22.23.2",
+  "source_sha256": {
+    "main.js": "1e5d300c373e6f605e8fdee8bcaea463537185c572d2fac681969840c255d0e0",
+    "package.json": "5b9c895c0296618e8d0334f14aed1648dd8c3532925759f8957d45a8891448e0",
+    "src/lib/memoryChat.mjs": "c17a296599a5ad0e78d7621167b0a72063d7c1e20beee7ef31076f72e15ed01a",
+    "src/main/compressionEngine.js": "890bb7c3ec9a3b019d784adf807fa177f56eb93c0105a5b866d8463fb3116651",
+    "src/main/contextBudget.js": "1166bcc25df7728f2856ffb77b9e81cffb10a60ef5f921b97bda218fbaef53a8",
+    "src/main/taskCheckpoints.js": "c5d3f67cd486bccb33b854d771299b2d82575446a19b31cd05366d0c7e48bf9f",
+    "src/main/taskBriefs.js": "b01cd44272ee9e1ead108bdb26f77fc17f5a16f941394c9faa0f5da96463b845",
+    "src/main/promptBuilder.js": "c65fac828a1d77c61281c621f9374616b7fb8c650923be3e1b482fd22b0911e2",
+    "src/main/tools/agentTools.js": "e8a1c81d1b94209144a7c82c15974095a225e33e1c733a97560963138787e1bf",
+    "src/main/tools/subagent.js": "39c07ac19a10eb3b687c7a9c6d730e274a73c0d3ad43efa9b11863c6aecd2654",
+    "src/components/SubagentBudgetSettings.jsx": "d8ff7e08d07078519277fdbed63d63b22c404090e7e69868454cf18183d35d76",
+    "src/main/ipcHandlers.js": "6530e02ccb507a32329d9a6b808c70f871633098623a00583c8bb8dfdcc1d1e3",
+    "src/preload.js": "8c2d640c085b8971db1b27f2aa3270bbee508e3664abb15f489801cb36339831",
+    "src/main/subagents/index.js": "4b20a966415f2870f9b48b43ccd81019cf17f043200939f00fd0c8b1a2d8e937",
+    "src/main/subagents/budgetSettings.js": "a089f05e45f71e48f1bca94244359b0462c71f2f5e2dc41c1cc8597bba0a3d28",
+    "src/main/subagents/executionManager.js": "5008d6ba8d975835bda9b3d0a47ab36f82b22c706edb6ecf4e143f2e0d2cc5e8",
+    "src/main/subagents/executionStore.js": "7c627378769fd2abaab8fd2c74237cb550fe00b524dfadee7223f39a8e853229",
+    "src/main/subagents/agentLoop.js": "1e2b374d9e68f2dee8db7568940460975ba388a76055650c4800ea1b65d41984",
+    "src/main/subagents/inferenceScheduler.js": "5266a8a394e86a763bb6d354f4c00a2164d822a44572ac7ec2611c1dd362e1ea",
+    "src/main/subagents/modelSelection.js": "e897d06d2a1295cd96534921a93017536b8a969c4741cf1e5db2e31479bd4532",
+    "src/main/subagents/budgets.js": "a98cb382cea3f8026b0648a7a890a73ee3822c05cfcb7edcd3db3a10eaf06956",
+    "src/main/subagents/persistence.js": "2c55088a1afe0d960be1e47788334fbb6571b2df67c7c09295395c999fd0d2f7",
+    "src/main/subagents/sessionManager.js": "5b617b6f6f72237c62e1d74c1be815c3b60ceb3ce6d4afcd08eead844dab3fab",
+    "src/main/subagents/contextRecovery.js": "0a978a33744f449213894de66287311e8b3752ac0d82240748f5c907bd88e44c",
+    "src/main/subagents/continuationManager.js": "2ff4975539195b6f5d312ad016e6779c0a2d94f79a199935389353ad9556ccd5",
+    "src/main/subagents/backgroundStore.js": "5359dfafc7d1a2f4dbb83dd24ebc7bf225bc523bc4802b8ca58c954729172ade",
+    "src/main/subagents/providers/localProvider.js": "3dcc310156b4e04d1abb9188f1d200cc6cb128117798cd13e2f9c6135e430eae",
+    "src/main/subagents/providers/streamCompletion.js": "dceaf160e53eca4a4a2734fe9593190dc1466170958854047875e9e4d5014a85",
+    "src/main/subagents/providers/index.js": "3ee5ad89e644211851b7b5e3663a553f28e32e6b7867fed9b4abe2eec01cf9ba",
+    "src/main/subagents/providers/cloudProvider.js": "3c3eb30e79cd684144a5f2d6139b6d19ebfde9170b518b99a1ce8ae9191a7d8b"
+  },
+  "initial_worktree": [
+    " M main.js",
+    " M package-lock.json",
+    " M package.json",
+    " M src/App.jsx",
+    " M src/components/AssistantAvatar.jsx",
+    " M src/components/AvatarSettings.jsx",
+    " M src/components/ChatInputBar.jsx",
+    " M src/components/ChatMessage.jsx",
+    " M src/components/ChatTuning.jsx",
+    " M src/components/FormControls.jsx",
+    " M src/components/InteractiveChart.jsx",
+    " M src/components/MessageActions.jsx",
+    " M src/components/ModelProfileSettings.jsx",
+    " M src/components/ModelSettingsModal.jsx",
+    " M src/components/RightSidebar.jsx",
+    " M src/components/ServerConfigTab.jsx",
+    " M src/components/ToolCallBlock.jsx",
+    " M src/components/chat/ToolEventCard.jsx",
+    " M src/components/chat/WorkspaceTimeline.jsx",
+    " M src/components/main-app/ChatInterface.jsx",
+    " M src/components/main-app/Header.jsx",
+    " M src/components/main-app/MemorySettings.jsx",
+    " M src/components/main-app/ModelSelectorModal.jsx",
+    " M src/components/settings/BackgroundSettings.jsx",
+    " M src/components/settings/GeneralSettingsTab.jsx",
+    " M src/components/settings/TokenHistory.jsx",
+    " M src/lib/contextDisplay.mjs",
+    " M src/main/cloudProviders.js",
+    " M src/main/db.js",
+    " M src/main/engineManager.js",
+    " M src/main/fileUploads.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/legacyDataMigration.js",
+    " M src/main/localEngineFetch.js",
+    " M src/main/modelScanner.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/subagents/agentLoop.js",
+    " M src/main/subagents/executionManager.js",
+    " M src/main/subagents/index.js",
+    " M src/main/subagents/inferenceScheduler.js",
+    " M src/main/subagents/providers/cloudProvider.js",
+    " M src/main/subagents/providers/localProvider.js",
+    " M src/main/subagents/sessionManager.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/tools/subagent.js",
+    " M src/preload.js",
+    " M tests/cloudProviders.test.cjs",
+    " M tests/engineSettings.test.cjs",
+    " M tests/fixtures/memorySettings.jsx",
+    " M tests/ggufMetadata.test.cjs",
+    " M tests/memorySettings.ui.cjs",
+    " M tests/modelLoadSettings.ui.cjs",
+    " M tests/modelScanner.test.cjs",
+    " M tests/preloadSandbox.integration.cjs",
+    " M tests/subagentFailureDiagnostics.test.cjs",
+    " M tests/subagentModelSelection.test.cjs",
+    " M tests/subagentRuntime.test.cjs",
+    " M tests/subagentSession.test.cjs",
+    " M tests/toolDisplay.test.mjs",
+    " M tests/webSearch.test.cjs",
+    "?? src/components/SubagentBudgetSettings.jsx",
+    "?? src/components/Tooltip.jsx",
+    "?? src/components/chat/AttachmentPreview.jsx",
+    "?? src/components/chat/SubagentTranscriptModal.jsx",
+    "?? src/lib/attachmentPolicy.mjs",
+    "?? src/lib/tooltip.mjs",
+    "?? src/main/attachmentAccess.js",
+    "?? src/main/attachmentDocuments.js",
+    "?? src/main/cloudModelMetadata.js",
+    "?? src/main/modelCapabilities.js",
+    "?? src/main/subagents/budgetSettings.js",
+    "?? src/main/subagents/budgets.js",
+    "?? src/main/subagents/persistence.js",
+    "?? src/main/subagents/providers/streamCompletion.js",
+    "?? tests/attachmentDocuments.test.cjs",
+    "?? tests/attachmentPolicy.test.mjs",
+    "?? tests/cloudModelMetadata.test.cjs",
+    "?? tests/fixtures/rightSidebarSliders.jsx",
+    "?? tests/fixtures/sliderField.jsx",
+    "?? tests/legacyAttachmentPaths.test.cjs",
+    "?? tests/messageActionToolbar.ui.cjs",
+    "?? tests/modelCapabilities.test.cjs",
+    "?? tests/modelSelector.ui.cjs",
+    "?? tests/rightSidebarSliders.ui.cjs",
+    "?? tests/sliderField.ui.cjs",
+    "?? tests/subagentBudgets.test.cjs",
+    "?? tests/subagentModal.ui.cjs",
+    "?? tests/subagentStreaming.test.cjs",
+    "?? tests/subagentTranscript.test.cjs",
+    "?? tests/tooltip.test.mjs"
+  ],
+  "tests": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "execution": "host, existing tests, no code changes",
+    "tests": 637,
+    "pass": 605,
+    "fail": 32,
+    "suites": 8,
+    "duration_ms": 16235.348257,
+    "failures": [
+      {
+        "test": "6 - tests/attachments.test.cjs",
+        "location": "tests/attachments.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "33 - 10. background children keep the Step 4 context isolation and tool allowlist",
+        "location": "tests/backgroundExecution.test.cjs:449:1",
+        "error": "|-"
+      },
+      {
+        "test": "36 - background image: adopt, replace, remove, and missing-file fallback",
+        "location": "tests/backgroundSettings.test.cjs:65:1",
+        "error": "'Missing expected exception.'"
+      },
+      {
+        "test": "53 - 1. a child finishes after one model response when no tools are needed",
+        "location": "tests/childAgentLoop.test.cjs:41:1",
+        "error": "|-"
+      },
+      {
+        "test": "68 - spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+        "location": "tests/childAgentLoop.test.cjs:459:1",
+        "error": "'Unexpected end of JSON input'"
+      },
+      {
+        "test": "85 - cloud settings persist privately and cloud chat works without a local engine",
+        "location": "tests/cloudIpc.test.cjs:22:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "20 - tests/compactionBadge.test.cjs",
+        "location": "tests/compactionBadge.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "28 - tests/contextPanel.test.cjs",
+        "location": "tests/contextPanel.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "195 - MCP execution applies the cap before serialization",
+        "location": "tests/filesystemToolLimits.test.cjs:45:1",
+        "error": "'Call initDatabase() before accessing the database.'"
+      },
+      {
+        "test": "250 - IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "location": "tests/mcpIpc.test.cjs:21:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "251 - preload config methods invoke trusted config handlers",
+        "location": "tests/mcpIpc.test.cjs:268:1",
+        "error": "'event.sender.once is not a function'"
+      },
+      {
+        "test": "63 - tests/messageActions.test.cjs",
+        "location": "tests/messageActions.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "66 - tests/messageStats.test.cjs",
+        "location": "tests/messageStats.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "80 - tests/rag.test.cjs",
+        "location": "tests/rag.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "83 - tests/replyVariants.test.cjs",
+        "location": "tests/replyVariants.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "91 - tests/skillImportIpc.test.cjs",
+        "location": "tests/skillImportIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "92 - tests/skillProposalIpc.test.cjs",
+        "location": "tests/skillProposalIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "100 - tests/subAgentRunner.test.cjs",
+        "location": "tests/subAgentRunner.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "437 - 1. the selection round-trips through its IPC channels and is validated",
+        "location": "tests/subagentModelSelection.test.cjs:206:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "438 - 2. with no setting a child inherits the parent chat model exactly",
+        "location": "tests/subagentModelSelection.test.cjs:247:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "439 - 3. a cloud selection routes a local chat's child to the saved provider",
+        "location": "tests/subagentModelSelection.test.cjs:289:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "440 - 4. a local selection overrides a cloud chat and fails loudly without a server",
+        "location": "tests/subagentModelSelection.test.cjs:330:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "441 - 5. an unreadable stored selection fails at spawn, never silently",
+        "location": "tests/subagentModelSelection.test.cjs:381:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "442 - 6. foreground, messages, and background runs all keep the one resolved model",
+        "location": "tests/subagentModelSelection.test.cjs:397:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "443 - 7. interrupt and resume keep the child on the model it started with",
+        "location": "tests/subagentModelSelection.test.cjs:456:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "444 - 8. a cloud model still gets the read-only child allowlist",
+        "location": "tests/subagentModelSelection.test.cjs:492:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "445 - 9. the single local slot queues children resolved to the same server model",
+        "location": "tests/subagentModelSelection.test.cjs:533:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "446 - 10. mixed lanes run in parallel and a setting change only affects the next spawn",
+        "location": "tests/subagentModelSelection.test.cjs:576:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "447 - 11. the parent-facing result stays bounded while the child keeps the full answer",
+        "location": "tests/subagentModelSelection.test.cjs:623:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "448 - 12. the chat engine descriptor keeps both chat types delegatable",
+        "location": "tests/subagentModelSelection.test.cjs:654:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "449 - 13. the parent-facing protocol advertises the investigate invocation",
+        "location": "tests/subagentModelSelection.test.cjs:666:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "113 - tests/tokenUsage.test.cjs",
+        "location": "tests/tokenUsage.test.cjs:1:1",
+        "error": "'test failed'"
+      }
+    ]
+  }
+}

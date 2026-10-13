@@ -90,7 +90,7 @@ test('a failed execution fails the session and rethrows the original error', asy
   const [session] = sessionManager.listChildren(parent);
   assert.equal(session.status, sessionManager.SESSION_STATUS.FAILED);
   assert.match(session.error, /HTTP 500/);
-  assert.equal(session.result, null);
+  assert.match(session.result, /provider_error/);
   assert.ok(session.completedAt);
   const [execution] = listExecutions(session.id);
   assert.equal(execution.status, 'failed');
@@ -172,7 +172,7 @@ test('each spawn_sub_agent call opens its own completed child session end to end
     assert.equal(requests.length, 2);
     for (const payload of requests) {
       assert.equal(payload.messages.length, 2);
-      assert.equal(payload.stream, false);
+      assert.equal(payload.stream, true);
       assert.deepEqual(payload.tools, []);
       assert.equal(payload.tool_choice, 'none');
       assert.match(payload.messages[1].content, /\[FILE: .*a\.txt\]\nE2E FILE TEXT\n\[END FILE\]/);

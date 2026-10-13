@@ -105,6 +105,40 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_token_usage_time ON token_usage(timestamp);
   CREATE INDEX IF NOT EXISTS idx_token_usage_project_time ON token_usage(project_id, timestamp);
 
+  -- Sub-agent run history: one row per spawned child, upserted at every
+  -- terminal settlement (complete/fail/cancel/interrupt), so resumed turns
+  -- update the same row. Observability only: inputs, bounded outputs,
+  -- thoughts, tools used, and run metadata. Never read back by inference.
+  CREATE TABLE IF NOT EXISTS subagent_runs (
+    child_session_id TEXT PRIMARY KEY,
+    parent_session_id TEXT,
+    parent_tool_call_id TEXT,
+    kind TEXT,
+    agent_name TEXT,
+    model TEXT,
+    provider TEXT,
+    status TEXT NOT NULL,
+    stop_reason TEXT,
+    accounting_json TEXT,
+    raw_turns_json TEXT,
+    context_json TEXT,
+    compaction_json TEXT,
+    task_text TEXT,
+    output_text TEXT,
+    error_text TEXT,
+    thoughts_text TEXT,
+    tools_json TEXT NOT NULL DEFAULT '[]',
+    turns_json TEXT NOT NULL DEFAULT '[]',
+    total_tokens INTEGER,
+    duration_ms INTEGER,
+    created_at TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_subagent_runs_parent ON subagent_runs(parent_session_id);
+  CREATE INDEX IF NOT EXISTS idx_subagent_runs_status ON subagent_runs(status);
+
   CREATE TABLE IF NOT EXISTS chat_folders (
     name TEXT PRIMARY KEY NOT NULL
   );
@@ -259,6 +293,11 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
         DROP TRIGGER IF EXISTS messages_ad;
         DROP TRIGGER IF EXISTS messages_au;
         DROP TABLE IF EXISTS chat_fts;`);
+      for (const column of ['stop_reason', 'accounting_json', 'raw_turns_json', 'context_json', 'compaction_json']) {
+        if (!connection.pragma('table_info(subagent_runs)').some(entry => entry.name === column)) {
+          connection.exec(`ALTER TABLE subagent_runs ADD COLUMN ${column} TEXT`);
+        }
+      }
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
         connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");
       }
@@ -362,6 +401,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
         CREATE INDEX IF NOT EXISTS idx_sessions_folder ON sessions(folder_name, last_active_at DESC);
       `);
     })();
+    require('./legacyDataMigration').repairLegacyAttachmentPaths(connection, directory);
     database = connection;
     return database;
   } catch (error) {

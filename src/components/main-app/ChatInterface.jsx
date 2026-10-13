@@ -5,6 +5,7 @@ import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
 import Sidebar from "../Sidebar.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { attachmentPolicy, assertAttachmentNames } from '../../lib/attachmentPolicy.mjs';
 import { BsRobot } from "react-icons/bs";
 import { FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
@@ -20,6 +21,7 @@ import ToolLimitToast from "./ToolLimitToast.jsx";
 import WorkspaceTimeline from "../chat/WorkspaceTimeline.jsx";
 import TextSelectionMenu from "../chat/TextSelectionMenu.jsx";
 import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
+import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
@@ -112,6 +114,23 @@ export function ChatInterface({
 		[palace.sessionId],
 	);
 	const chatAvailable = activeChatProvider.type === "cloud" || !!baseUrl;
+    const [uploadPolicy, setUploadPolicy] = useState(() => attachmentPolicy());
+    useEffect(() => {
+        let active = true;
+        setUploadPolicy(attachmentPolicy());
+        const refresh = async () => {
+            try {
+                const policy = await window.api?.getAttachmentPolicy?.({ modelId: selectedModel, activeChatProvider });
+                if (active && policy) setUploadPolicy(policy);
+            } catch { if (active) setUploadPolicy(attachmentPolicy()); }
+        };
+        refresh();
+        const unsubscribe = window.terminalAPI?.onStatus?.(refresh);
+        window.addEventListener('cloud-providers-changed', refresh);
+        return () => { active = false; unsubscribe?.(); window.removeEventListener('cloud-providers-changed', refresh); };
+    }, [selectedModel, activeChatProvider.type, activeChatProvider.provider, activeChatProvider.model, engineRunning]);
+    const attachmentTarget = { modelId: selectedModel, activeChatProvider };
+
 	const currentModel = models.find((model) => model.id === selectedModel);
 	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
 	const [effortByModel, setEffortByModel] = useState({});
@@ -656,10 +675,13 @@ export function ChatInterface({
 			setHistoryError("Choose up to 10 files, at most 20 MB each and 50 MB total.");
 			return;
 		}
-		if (files.some((file) => !/\.(png|jpe?g|gif|webp|pdf|txt|md|csv)$/i.test(file.name))) {
-			setHistoryError("Supported attachments: PNG, JPEG, GIF, WebP, PDF, TXT, Markdown, and CSV.");
-			return;
-		}
+        busyRef.current = true;
+        try {
+            const policy = window.api?.getAttachmentPolicy ? await window.api.getAttachmentPolicy(attachmentTarget) : uploadPolicy;
+            assertAttachmentNames(files.map(file => file.name), policy);
+            setUploadPolicy(policy);
+        } catch (error) { busyRef.current = false; setHistoryError(error.message); return; }
+
 		setHistoryError("");
 		busyRef.current = true;
 		setIndexing(null);
@@ -687,7 +709,7 @@ export function ChatInterface({
 			}
 			const documents = optimized.filter((file) => /\.(pdf|txt|md|csv)$/i.test(file.name));
 			if (documents.length) {
-				const uploaded = await window.api.processUploads(documents);
+				const uploaded = await window.api.processUploads(documents, attachmentTarget);
 				await indexDesktopDocuments(uploaded, { signal: controller.signal, onProgress: setIndexing });
 				documents.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
 			}
@@ -777,6 +799,10 @@ export function ChatInterface({
 			let prepared = false;
 			let failed = false;
 			try {
+                if (!queued && !edit && !retry && selectedFiles.length) {
+                    const policy = await window.api.getAttachmentPolicy({ modelId: selectedModel, activeChatProvider });
+                    assertAttachmentNames(selectedFiles.map(file => file.name), policy);
+                }
 				// Create/bind the session row before generation so the backend
 				// resolves the same project context (and therefore permission
 				// normalization) as the selector shown in the composer.
@@ -788,7 +814,7 @@ export function ChatInterface({
 						throw new Error("File uploads are available in the desktop app.");
 					const pending = selectedFiles.filter((file) => !uploadCache.current.has(file));
 					if (pending.length) {
-						const uploaded = await window.api.processUploads(pending);
+						const uploaded = await window.api.processUploads(pending, { modelId: selectedModel, activeChatProvider });
 						pending.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
 					}
 					attachments = selectedFiles.map((file) => uploadCache.current.get(file));
@@ -1441,27 +1467,11 @@ export function ChatInterface({
 													/>
 													{/** Attachments Tray during edit mode **/}
 													{msg.attachments?.length > 0 && (
-														<ul
-															aria-label="Message attachments"
-															className="flex flex-wrap gap-1.5 whitespace-normal"
-														>
-															{msg.attachments.map((attachment) => (
-																<li
-																	key={
-																		attachment.id || attachment.file_path
-																	}
-																	className="max-w-full truncate rounded-md border border-[var(--attachment-border)] bg-[var(--surface-raised)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
-																>
-																	{attachment.mime_type.startsWith("image/")
-																		? "Image: "
-																		: "File: "}
-																	{attachment.file_path
-																		.split(/[\\\\/]/)
-																		.pop()
-																		.replace(/^\d+-[0-9a-f-]{36}-/i, "")}
-																</li>
-															))}
-														</ul>
+														<div className="mt-1">
+															<AttachmentPreview
+																attachments={msg.attachments}
+															/>
+														</div>
 													)}
 													{/** Save / Discard Actions Outside Main Box **/}
 													<div className="flex items-center justify-end gap-2 mt-1">
@@ -1533,64 +1543,15 @@ export function ChatInterface({
 													)}
 													{/** Attachments inside bubble during view mode **/}
 													{msg.attachments?.length > 0 && (
-														<ul
-															aria-label="Message attachments"
-															className="mt-2 flex flex-wrap gap-1 whitespace-normal"
-														>
-															{msg.attachments.map((attachment) => (
-																<li
-																	key={
-																		attachment.id || attachment.file_path
-																	}
-																	className="max-w-full truncate rounded border border-[var(--attachment-border)] px-2 py-1 text-[11px]"
-																>
-																	{attachment.mime_type.startsWith("image/")
-																		? "Image: "
-																		: "File: "}
-																	{attachment.file_path
-																		.split(/[\\\\/]/)
-																		.pop()
-																		.replace(/^\d+-[0-9a-f-]{36}-/i, "")}
-																</li>
-															))}
-														</ul>
+														<div className="mt-2">
+															<AttachmentPreview
+																attachments={msg.attachments}
+															/>
+														</div>
 													)}
 												</div>
-												<MessageContextStatus message={msg} />
-												{msg.role === "user" && msg.siblings?.length > 1 && (
-													<div
-														className="mt-2 flex items-center gap-2 rounded-full border border-[var(--subtle-border)] px-2 py-1 text-xs text-[var(--text-muted)]"
-														aria-label="Prompt versions"
-													>
-														<button
-															type="button"
-															aria-label="Previous prompt version"
-															disabled={
-																streaming ||
-																loading ||
-																msg.siblings[0] === msg.id
-															}
-															onClick={() => selectMessageBranch(msg, -1)}
-														>
-															◄
-														</button>
-														<span aria-live="polite">
-															{msg.siblings.indexOf(msg.id) + 1} /{" "}
-															{msg.siblings.length}
-														</span>
-														<button
-															type="button"
-															aria-label="Next prompt version"
-															disabled={
-																streaming ||
-																loading ||
-																msg.siblings.at(-1) === msg.id
-															}
-															onClick={() => selectMessageBranch(msg, 1)}
-														>
-															►
-														</button>
-													</div>
+												{msg.role !== "assistant" && (
+													<MessageContextStatus message={msg} />
 												)}
 												{/** Actions toolbar **/}
 												{["user", "assistant"].includes(msg.role) && (
@@ -1600,6 +1561,10 @@ export function ChatInterface({
 														onDelete={(id) => handleMessageAction("delete", id)}
 														onBranch={(id) => handleMessageAction("branch", id)}
 														onRegenerate={() => regenerateReply(msg)}
+														onSelectReplyVariant={selectReplyVariant}
+														onSelectPromptVersion={(offset) =>
+															selectMessageBranch(msg, offset)
+														}
 														isLast={i === messages.length - 1}
 														onEdit={(messageToEdit) => {
 															setEditing(messageToEdit.id);
@@ -1722,7 +1687,7 @@ export function ChatInterface({
 						ref={fileInputRef}
 						type="file"
 						multiple
-						accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.md,.csv,.json,.js,.mjs,.cjs,.jsx,.ts,.tsx,.py,.html,.css,.xml,.yaml,.yml,.toml,.ini,.sh,.sql,.log,.tsv,.c,.h,.cpp,.java,.go,.rs,.rb,.php"
+						accept={uploadPolicy.accept}
 						className="hidden"
 						aria-label="Choose attachments"
 						disabled={streaming || loading}
@@ -1784,6 +1749,7 @@ export function ChatInterface({
 						streaming={streaming}
 						loading={loading}
 						attachDisabled={!window.api?.processUploads}
+                        attachmentTooltip={uploadPolicy.tooltip}
 						sendTitle={chatAvailable ? "Send" : "Select a cloud model or load a local model"}
 						supportedEfforts={supportedEfforts}
 						reasoningEffort={reasoningEffort}

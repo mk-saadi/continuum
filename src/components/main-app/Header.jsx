@@ -4,6 +4,7 @@ import { FiChevronDown } from "react-icons/fi";
 import { LuFolder, LuHouse } from "react-icons/lu";
 
 import { buildContextLabel, buildContextTooltip } from "../../lib/contextDisplay.mjs";
+import Tooltip from "../Tooltip";
 
 export default function Header({
 	isSidebarOpen,
@@ -33,10 +34,17 @@ export default function Header({
 	const live = palace.liveTelemetry ?? null;
 	const persisted = palace.turnTelemetry ?? null;
 
-	const tooltip = buildContextTooltip({ total, limit: palace.limit, error: palace.error, isCloud,
+	const tooltip = buildContextTooltip({
+		total,
+		limit: palace.limit,
+		error: palace.error,
+		isCloud,
 		method: hasContext ? palace.contextMethod : undefined,
 		confidence: hasContext ? palace.contextConfidence : undefined,
-		live, persisted });
+		live,
+		persisted,
+	});
+
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
 		"flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300";
@@ -95,7 +103,7 @@ export default function Header({
 				<button
 					type="button"
 					onClick={onOpenModels}
-					className="pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--input)] px-4 py-1 text-xs cursor-pointer hover:bg-[var(--surface-hover)] duration-300"
+					className="pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-4 py-1 text-xs cursor-pointer hover:bg-[var(--surface-hover)] duration-300"
 					aria-label="Select or load model"
 				>
 					<span
@@ -134,26 +142,25 @@ export default function Header({
 			{/* Spacer to keep the right-side group pushed right, now that the center div is absolute */}
 			<div className="flex-1" />
 
-			<div
-				title={tooltip}
-				className="w-44 shrink-0 text-[10px] text-[var(--text-secondary)] max-[700px]:w-28"
-			>
-				<span className="block truncate">{label}</span>
-				<div
-					role="progressbar"
-					aria-label="Context usage"
-					aria-valuemin={0}
-					aria-valuemax={100}
-					aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
-					aria-valuetext={tooltip}
-					className="mt-1 h-1 overflow-hidden rounded bg-[var(--surface-hover)]"
-				>
+			<Tooltip content={tooltip}>
+				<div className="w-44 shrink-0 text-[10px] text-[var(--text-secondary)] max-[700px]:w-28">
+					<span className="block truncate">{label}</span>
 					<div
-						className="h-full bg-[var(--accent)] transition-[width]"
-						style={{ width: `${percent}%` }}
-					/>
+						role="progressbar"
+						aria-label="Context usage"
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
+						aria-valuetext={tooltip}
+						className="mt-1 h-1 overflow-hidden rounded bg-[var(--surface-hover)]"
+					>
+						<div
+							className="h-full bg-[var(--accent)] transition-[width]"
+							style={{ width: `${percent}%` }}
+						/>
+					</div>
 				</div>
-			</div>
+			</Tooltip>
 			<button
 				type="button"
 				className={button}

@@ -21,6 +21,13 @@ import {
 } from "../../lib/executionEvents.mjs";
 import FileBrowserWidget from "../FileBrowserWidget";
 import { isDirectoryTool, parseDirectoryListing } from "../../lib/directoryListing.mjs";
+import SubagentTranscriptModal from "./SubagentTranscriptModal.jsx";
+
+function subagentTaskText(step) {
+	const args = step?.args;
+	if (!args || typeof args !== "object") return "";
+	return args.task ?? args.task_description ?? "";
+}
 
 const TONE_STYLES = {
 	running: "border-[var(--subtle-border)]",
@@ -271,6 +278,7 @@ function rowMeta(step, kind, classification, outcome, testSummary, editStats) {
 // each section renders only when the recorded step actually contains it.
 export default function ToolEventCard({ step, compact = false, defaultExpanded = null, timeline = false }) {
 	const [userExpanded, setUserExpanded] = useState(null);
+	const [transcriptOpen, setTranscriptOpen] = useState(false);
 	if (!step || step.type !== "tool_call") return null;
 	const classification = classifyStep(step);
 	const { summary, paths } = summarizeStep(step);
@@ -420,7 +428,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						</div>
 					)}
 					{blocked && (
-						<p className="text-[11px] text-amber-500/90">
+						<p className="text-[11px] text-[var(--text-muted)]">
 							Approval is requested in the approval dialog at the top of the chat. Allowing or
 							denying it resumes this run.
 						</p>
@@ -496,6 +504,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						/>
 					)}
 					{isSubagent && <SubagentSummary step={step} />}
+
 					{kind === "media" && !imageOnly && step.result != null && (
 						<section aria-label="Tool result">
 							<h4 className="mb-1 font-medium text-[var(--text-secondary)]">Result</h4>
@@ -566,6 +575,24 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						</Detail>
 					)}
 				</div>
+			)}
+			{isSubagent && typeof step.childSessionId === "string" && step.childSessionId && (
+				<div className="px-3 pb-2">
+					<button
+						type="button"
+						onClick={() => setTranscriptOpen(true)}
+						className="cursor-pointer rounded-md border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+					>
+						Show sub-agent activity
+					</button>
+				</div>
+			)}
+			{transcriptOpen && typeof step.childSessionId === "string" && step.childSessionId && (
+				<SubagentTranscriptModal
+					childSessionId={step.childSessionId}
+					task={subagentTaskText(step)}
+					onClose={() => setTranscriptOpen(false)}
+				/>
 			)}
 		</div>
 	);

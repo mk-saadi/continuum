@@ -583,7 +583,7 @@ test('stream accumulator defaults missing indexes, initializes sparse calls, and
 
 test('stream accumulator still rejects explicitly invalid indexes', async () => {
   const { readCompletion } = await import('../src/lib/memoryChat.mjs');
-  for (const index of [-1, 0.5, '0', 16]) {
+  for (const index of [-1, 0.5, '0', Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(readCompletion(stream([
       chunk({ tool_calls: [{ index, function: { name: 'save_memory', arguments: '{}' } }] }),
       chunk({}, 'tool_calls'),
@@ -680,4 +680,31 @@ test('tool-free casual turns inject no reminders', async () => {
   });
   assert.equal(requests.length, 1);
   assert.ok(requests[0].messages.every(m => !(String(m.content).includes(CASUAL_FILE_OPS_REMINDER) || String(m.content).includes(CASUAL_SUBAGENT_PATTERN_REMINDER))));
+});
+
+
+test('streamed tool-call sparse indexes above 15 retain separate calls and fragment pairing', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  const result = await readCompletion(stream([
+    chunk({ tool_calls: [{ index: 1024, id: 'second', function: { name: 'search_memory', arguments: '{"query":' } },
+      { index: 16, id: 'first', function: { name: 'save_memory', arguments: '{}' } }] }),
+    chunk({ tool_calls: [{ index: 1024, function: { arguments: '"test"}' } }] }),
+    chunk({}, 'tool_calls'),
+  ]), () => {}, undefined, () => 1, () => {});
+  assert.deepEqual(result.toolCalls.map(call => call.id), ['first', 'second']);
+  assert.equal(result.toolCalls[1].function.arguments, '{"query":"test"}');
+});
+
+test('sparse indexes do not bypass the 16-call accumulation bound', async () => {
+  const { readCompletion } = await import('../src/lib/memoryChat.mjs');
+  const calls = Array.from({ length: 17 }, (_, i) => ({ index: i * 100, id: `call-${i}`,
+    function: { name: 'search_memory', arguments: '{}' } }));
+  const accepted = await readCompletion(stream([chunk({ tool_calls: calls.slice(0, 16) }), chunk({}, 'tool_calls')]),
+    () => {}, undefined, () => 1, () => {});
+  assert.equal(accepted.toolCalls.length, 16);
+  let executed = 0;
+  await assert.rejects(runMemoryChat({ ...base, fetchImpl: async () => stream([
+    chunk({ tool_calls: calls }), chunk({}, 'tool_calls')]),
+    executeTool: async () => { executed++; return {}; } }), /Too many streamed tool calls/);
+  assert.equal(executed, 0);
 });

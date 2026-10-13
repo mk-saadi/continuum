@@ -92,7 +92,8 @@ try {
   assert.equal(scanned[0].isVision, true);
   fs.writeFileSync(path.join(directory, 'other.gguf'), '');
   scanned = await scanDirectoryForModels(directory);
-  assert.equal(scanned.find(m => m.name.endsWith('/other.gguf')).isVision, true);
+  assert.equal(scanned.find(m => m.name.endsWith('/other.gguf')).isVision, false);
+  assert.equal(scanned.find(m => m.name.endsWith('/other.gguf')).mmprojPath, null);
   assert.equal(scanned.find(m => m.name.endsWith('/vision.gguf')).isVision, true);
   console.log('Settings persistence, defaults, validation, CLI arguments, and projector scanning passed.');
 } finally {

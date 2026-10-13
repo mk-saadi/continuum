@@ -1,0 +1,443 @@
+{
+  "phase": 2,
+  "date": "2026-10-13",
+  "timezone": "Asia/Dhaka",
+  "git_head": "31865ff5627538bb29cce2bd64b7115d38914f82",
+  "node": "v22.23.2",
+  "historical_artifacts_unchanged_sha256": {
+    "docs/subagent-baseline.md": "2990ed44664440c5587ef1e875cf3464dfa316289ddb7e70f769d386c368e0ae",
+    "docs/subagent-baseline-evidence.json": "b63929dfe29e31a70ef3de3aa5caf45bb634b7553145faba3aecec3ddd32071a",
+    "docs/subagent-phase1-evidence.json": "d5910d557b39e4352e21bed8f5804ffb3476988525b3d2a6184900bdcd2968e8"
+  },
+  "changed_source_sha256": {
+    "src/main/contextBudget.js": "e919abeb164fefea710a0b16af0599501788c36c5df69e95f88cd12a17a28d49",
+    "src/main/db.js": "a21adf00860f8bcdabde1650f02a5eea443da3e09ab6c6092ae14fc6dcc428d5",
+    "src/main/compressionEngine.js": "3bf9693c22dc726ab64f94f664affc60910ed869e93e29f8131ea5f153fc458e",
+    "src/main/taskCheckpoints.js": "e0786cc8e8cd1f27d118956e2bf9053c89a348537ff6c5664cc58cda1c2a6a55",
+    "src/main/cloudProviders.js": "9037271c42e05c4ec7beef92a3c5c52068821fdd12484f9cf871351eebe81d13",
+    "src/main/subagents/index.js": "82f68ab18d748b46b0a06ff03cb916a463b8a05391a1f29d62b983cb37077bc1",
+    "src/main/subagents/agentLoop.js": "d792df5664f0dc79865c6a5e75fb2f328d54f569fca80d490093d5b46a68cd2c",
+    "src/main/subagents/executionBudget.js": "5ab4bafa1abc1b74fe1c356d53d694074bb006ae31416efd0574be424c0cdefa",
+    "src/main/subagents/persistence.js": "9d0a2dad8dd30075ed3b098d5ddb2a7027432f118a734345974d3786dea41f11",
+    "src/main/subagents/contextRecovery.js": "2ec92ad2c2428a0fecd38e6af6a648fdfbd67c548634e7539f8adbfd16819ea7",
+    "src/main/subagents/providers/localProvider.js": "725ae1f86c622a87f22b08a2a3870fcf339190bd95d683adac513e15bb62a553",
+    "src/main/subagents/providers/cloudProvider.js": "e88265e3ea09a67205335b2262e2152e8968db48564a37097a186905a63f815f",
+    "tests/contextDispatch.test.mjs": "d71bb5e606905e3752f4f4a9b3e98a616b3db50b92bc9cd1c071b0aa27050ec4",
+    "docs/subagents.md": "341d803dd8d76da83c922f5ca73aee8f722c91c1e188a3865e64b2a69c577a71",
+    "main.js": "e4e60704af359a32c194957236fe5754b489bf103393d14950a56b0df0364a85",
+    "src/main/compactionCore.js": "e76ab9e0541c8433fd61030b81f112d38202a0add57836a590c537271e684060",
+    "tests/subagentCompaction.test.cjs": "4010bb1c6cf2f7265bd047155aa940b84af4ef28aa7fef6d84c598e274a28307",
+    "docs/subagent-phase2.md": "bb463d5dca1144934e85ec25482c89bca0c6f309597f90d271c78cb63f809167"
+  },
+  "commands": {
+    "before_and_after_host": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "new_cases": "node tests/subagentCompaction.test.cjs",
+    "focused": "node --test tests/subagentCompaction.test.cjs tests/subagentReliability.test.cjs tests/subagentBudgets.test.cjs tests/subagentRuntime.test.cjs tests/subagentTranscript.test.cjs tests/subagentStreaming.test.cjs tests/contextCompaction.test.cjs tests/contextOverflowRecovery.test.cjs tests/compressionLifecycle.test.cjs tests/contextDispatch.test.mjs",
+    "build": "npm run build",
+    "whitespace": "git diff --check"
+  },
+  "before_host": {
+    "counts": {
+      "tests": 659,
+      "suites": 8,
+      "pass": 627,
+      "fail": 32,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 15155.536526
+    },
+    "failures": [
+      {
+        "test": "tests/attachments.test.cjs",
+        "location": "tests/attachments.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "10. background children keep the Step 4 context isolation and tool allowlist",
+        "location": "tests/backgroundExecution.test.cjs:449:1",
+        "error": "|-"
+      },
+      {
+        "test": "background image: adopt, replace, remove, and missing-file fallback",
+        "location": "tests/backgroundSettings.test.cjs:65:1",
+        "error": "'Missing expected exception.'"
+      },
+      {
+        "test": "1. a child finishes after one model response when no tools are needed",
+        "location": "tests/childAgentLoop.test.cjs:41:1",
+        "error": "|-"
+      },
+      {
+        "test": "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+        "location": "tests/childAgentLoop.test.cjs:453:1",
+        "error": "'Unexpected end of JSON input'"
+      },
+      {
+        "test": "cloud settings persist privately and cloud chat works without a local engine",
+        "location": "tests/cloudIpc.test.cjs:22:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "tests/compactionBadge.test.cjs",
+        "location": "tests/compactionBadge.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/contextPanel.test.cjs",
+        "location": "tests/contextPanel.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "MCP execution applies the cap before serialization",
+        "location": "tests/filesystemToolLimits.test.cjs:45:1",
+        "error": "'Call initDatabase() before accessing the database.'"
+      },
+      {
+        "test": "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "location": "tests/mcpIpc.test.cjs:21:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "preload config methods invoke trusted config handlers",
+        "location": "tests/mcpIpc.test.cjs:268:1",
+        "error": "'event.sender.once is not a function'"
+      },
+      {
+        "test": "tests/messageActions.test.cjs",
+        "location": "tests/messageActions.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/messageStats.test.cjs",
+        "location": "tests/messageStats.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/rag.test.cjs",
+        "location": "tests/rag.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/replyVariants.test.cjs",
+        "location": "tests/replyVariants.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/skillImportIpc.test.cjs",
+        "location": "tests/skillImportIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/skillProposalIpc.test.cjs",
+        "location": "tests/skillProposalIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/subAgentRunner.test.cjs",
+        "location": "tests/subAgentRunner.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "1. the selection round-trips through its IPC channels and is validated",
+        "location": "tests/subagentModelSelection.test.cjs:206:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "2. with no setting a child inherits the parent chat model exactly",
+        "location": "tests/subagentModelSelection.test.cjs:247:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "3. a cloud selection routes a local chat's child to the saved provider",
+        "location": "tests/subagentModelSelection.test.cjs:289:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "location": "tests/subagentModelSelection.test.cjs:330:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "5. an unreadable stored selection fails at spawn, never silently",
+        "location": "tests/subagentModelSelection.test.cjs:381:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "6. foreground, messages, and background runs all keep the one resolved model",
+        "location": "tests/subagentModelSelection.test.cjs:397:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "7. interrupt and resume keep the child on the model it started with",
+        "location": "tests/subagentModelSelection.test.cjs:456:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "8. a cloud model still gets the read-only child allowlist",
+        "location": "tests/subagentModelSelection.test.cjs:492:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "9. the single local slot queues children resolved to the same server model",
+        "location": "tests/subagentModelSelection.test.cjs:533:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+        "location": "tests/subagentModelSelection.test.cjs:576:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "11. the parent-facing result stays bounded while the child keeps the full answer",
+        "location": "tests/subagentModelSelection.test.cjs:623:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "12. the chat engine descriptor keeps both chat types delegatable",
+        "location": "tests/subagentModelSelection.test.cjs:654:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "13. the parent-facing protocol advertises the investigate invocation",
+        "location": "tests/subagentModelSelection.test.cjs:666:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "tests/tokenUsage.test.cjs",
+        "location": "tests/tokenUsage.test.cjs:1:1",
+        "error": "'test failed'"
+      }
+    ]
+  },
+  "final_host": {
+    "counts": {
+      "tests": 685,
+      "suites": 8,
+      "pass": 653,
+      "fail": 32,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 21158.142746
+    },
+    "failures": [
+      {
+        "test": "tests/attachments.test.cjs",
+        "location": "tests/attachments.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "10. background children keep the Step 4 context isolation and tool allowlist",
+        "location": "tests/backgroundExecution.test.cjs:449:1",
+        "error": "|-"
+      },
+      {
+        "test": "background image: adopt, replace, remove, and missing-file fallback",
+        "location": "tests/backgroundSettings.test.cjs:65:1",
+        "error": "'Missing expected exception.'"
+      },
+      {
+        "test": "1. a child finishes after one model response when no tools are needed",
+        "location": "tests/childAgentLoop.test.cjs:41:1",
+        "error": "|-"
+      },
+      {
+        "test": "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+        "location": "tests/childAgentLoop.test.cjs:453:1",
+        "error": "'Unexpected end of JSON input'"
+      },
+      {
+        "test": "cloud settings persist privately and cloud chat works without a local engine",
+        "location": "tests/cloudIpc.test.cjs:22:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "tests/compactionBadge.test.cjs",
+        "location": "tests/compactionBadge.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/contextPanel.test.cjs",
+        "location": "tests/contextPanel.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "MCP execution applies the cap before serialization",
+        "location": "tests/filesystemToolLimits.test.cjs:45:1",
+        "error": "'Call initDatabase() before accessing the database.'"
+      },
+      {
+        "test": "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "location": "tests/mcpIpc.test.cjs:21:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "preload config methods invoke trusted config handlers",
+        "location": "tests/mcpIpc.test.cjs:268:1",
+        "error": "'event.sender.once is not a function'"
+      },
+      {
+        "test": "tests/messageActions.test.cjs",
+        "location": "tests/messageActions.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/messageStats.test.cjs",
+        "location": "tests/messageStats.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/rag.test.cjs",
+        "location": "tests/rag.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/replyVariants.test.cjs",
+        "location": "tests/replyVariants.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/skillImportIpc.test.cjs",
+        "location": "tests/skillImportIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/skillProposalIpc.test.cjs",
+        "location": "tests/skillProposalIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "tests/subAgentRunner.test.cjs",
+        "location": "tests/subAgentRunner.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "1. the selection round-trips through its IPC channels and is validated",
+        "location": "tests/subagentModelSelection.test.cjs:206:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "2. with no setting a child inherits the parent chat model exactly",
+        "location": "tests/subagentModelSelection.test.cjs:247:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "3. a cloud selection routes a local chat's child to the saved provider",
+        "location": "tests/subagentModelSelection.test.cjs:289:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "location": "tests/subagentModelSelection.test.cjs:330:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "5. an unreadable stored selection fails at spawn, never silently",
+        "location": "tests/subagentModelSelection.test.cjs:381:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "6. foreground, messages, and background runs all keep the one resolved model",
+        "location": "tests/subagentModelSelection.test.cjs:397:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "7. interrupt and resume keep the child on the model it started with",
+        "location": "tests/subagentModelSelection.test.cjs:456:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "8. a cloud model still gets the read-only child allowlist",
+        "location": "tests/subagentModelSelection.test.cjs:492:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "9. the single local slot queues children resolved to the same server model",
+        "location": "tests/subagentModelSelection.test.cjs:533:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+        "location": "tests/subagentModelSelection.test.cjs:576:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "11. the parent-facing result stays bounded while the child keeps the full answer",
+        "location": "tests/subagentModelSelection.test.cjs:623:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "12. the chat engine descriptor keeps both chat types delegatable",
+        "location": "tests/subagentModelSelection.test.cjs:654:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "13. the parent-facing protocol advertises the investigate invocation",
+        "location": "tests/subagentModelSelection.test.cjs:666:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "tests/tokenUsage.test.cjs",
+        "location": "tests/tokenUsage.test.cjs:1:1",
+        "error": "'test failed'"
+      }
+    ]
+  },
+  "new_deterministic": {
+    "counts": {
+      "tests": 26,
+      "suites": 0,
+      "pass": 26,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 379.384831
+    },
+    "failures": []
+  },
+  "focused": {
+    "counts": {
+      "tests": 10,
+      "suites": 0,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 2235.143477
+    },
+    "failures": []
+  },
+  "new_failure_names": [],
+  "resolved_failure_names": [],
+  "build": {
+    "passed": true,
+    "duration_seconds": 24.67,
+    "warning": "existing large-chunk warning"
+  },
+  "policies": {
+    "exact_pressure_threshold": 0.78,
+    "estimated_pressure_threshold": 0.75,
+    "minimum_savings_tokens": 128,
+    "minimum_savings_fraction": 0.1,
+    "protected_complete_rounds": 2,
+    "summary_max_output": 512,
+    "checkpoint_max_output": 1024,
+    "compaction_requests_required_before_start": 3,
+    "minimum_output_allowance_before_start": 1792,
+    "max_confirmed_overflow_retries": 1,
+    "aggregate_default_unchanged": 40,
+    "automatic_investigation_requests_unchanged": 8
+  },
+  "live_validation": {
+    "executed": false,
+    "verified_local_backend_available": false,
+    "blocker": "No loaded local model process/listener found; default health endpoint curl exit 7. Remote providers not live-tested.",
+    "historical_nine_runs_executed": 0
+  },
+  "scope": "Phase 2 only. No Phase 3 UI/delegation guidance or unrelated baseline fixes.",
+  "limitations": [
+    "threshold/provider adherence and interactive Settings remain live-unverified",
+    "checkpoint fidelity is structural/evidence-reference validated, not semantic proof",
+    "protected-state size caps fail closed",
+    "raw native tool results remain bounded upstream; persistence best-effort; no durable job restart"
+  ]
+}

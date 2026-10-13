@@ -24,3 +24,10 @@ test('completed tool previews retain identity while a later tool streams', () =>
   assert.notEqual(next[1], first[1]);
   assert.equal(next[1].streamingArguments, 'ab');
 });
+
+test('sub-agent linkage survives display compaction', () => {
+  const [compacted] = compactStepsForDisplay([
+    { id: 'c1', type: 'tool_call', toolName: 'spawn_sub_agent', status: 'running', childSessionId: 'parent_child_1', args: {} },
+  ]);
+  assert.equal(compacted.childSessionId, 'parent_child_1');
+});

@@ -1,5 +1,7 @@
 'use strict';
 
+const { readCompletion } = require('./streamCompletion');
+
 // Inference provider for a saved cloud provider + model (the same
 // { type: 'cloud', provider, model } target the main chat uses through
 // ../cloudProviders.js createCloudFetch). Registered next to the local
@@ -12,10 +14,8 @@
 // `fetchImpl`. The forwarded fetch is the local server's (tests and the legacy
 // runner pass it), and a local POST must never ride a cloud lane.
 //
-// Requests stay single and non-streaming, exactly like the local provider:
-// createCloudFetch is asked for `stream: false`, so the response is one JSON
-// body that the execution layer parses the same way it parses the local
-// server's reply.
+// Stream when an activity observer is supplied; JSON-only providers still
+// return their original completion shape through readCompletion.
 const cloudProviders = require('../../cloudProviders');
 
 const PROVIDER_ID = 'cloud';
@@ -29,20 +29,30 @@ const DEFAULT_MAX_CONCURRENCY = 4;
 // URL). It only has to be a well-formed absolute URL.
 const REQUEST_URL = 'https://cloud.invalid/v1/chat/completions';
 
-async function chatCompletion({ engine, payload, signal, allowTools = false }) {
+async function chatCompletion({ engine, payload, signal, allowTools = false, onProgress, budgetState }) {
   // Fail closed: an allowTools caller without tool schemas gets a tool-free
   // request, mirroring the local provider's invariant.
   const toolsAllowed = allowTools === true && Array.isArray(payload.tools) && payload.tools.length > 0;
   // createCloudFetch validates the target (saved provider, stored model) and
   // throws a clean, credential-safe error when it is gone or has no API key.
-  const fetchImpl = cloudProviders.createCloudFetch(engine.chatTarget, { stream: false });
+  let fetchImpl = cloudProviders.createCloudFetch(engine.chatTarget, { stream: typeof onProgress === 'function',
+    onErrorResponse: async response => {
+      if (response.status !== 400) return;
+      const body = await response.clone().text();
+      const context = require('../../contextBudget');
+      if (context.isContextOverflow({ status: 400, responseBody: body })) {
+        const error = new context.ContextBudgetError('provider context overflow');
+        error.confirmedOverflow = true; throw error;
+      }
+    } });
+  if (budgetState) fetchImpl = require('../executionBudget').budgetedFetch(fetchImpl, budgetState);
   const response = await fetchImpl(REQUEST_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
     body: JSON.stringify({
       ...payload,
-      stream: false,
+      stream: typeof onProgress === 'function',
       ...(toolsAllowed
         ? { tool_choice: payload.tool_choice ?? 'auto' }
         : { tools: [], tool_choice: 'none' }),
@@ -52,7 +62,9 @@ async function chatCompletion({ engine, payload, signal, allowTools = false }) {
     await response.body?.cancel();
     return { ok: false, status: response.status };
   }
-  return { ok: true, result: await response.json() };
+  const result = await readCompletion(response, onProgress);
+  if (budgetState) require('../executionBudget').settleResponse(response, result?.usage);
+  return { ok: true, result };
 }
 
 // The capability the scheduler gates on: which provider, which model, and how

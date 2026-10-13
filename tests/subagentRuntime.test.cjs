@@ -90,7 +90,7 @@ test('each execution runs in its own child session with recorded lifecycle and u
     // The request stays isolated: two messages, no tools, no parent history.
     const payload = payloads[0];
     assert.equal(payload.messages.length, 2);
-    assert.equal(payload.stream, false);
+    assert.equal(payload.stream, true);
     assert.deepEqual(payload.tools, []);
     assert.equal(payload.tool_choice, 'none');
     assert.match(payload.messages[1].content, /\[FILE: a\.txt\]\nFILE TEXT\n\[END FILE\]/);
@@ -100,13 +100,9 @@ test('each execution runs in its own child session with recorded lifecycle and u
   }
 });
 
-test('a failed execution is recorded on the session and the original error is rethrown', async () => {
+test('a failed provider execution is recorded with an explicit stop reason and rethrown', async () => {
   const fetchImpl = async () => new Response('server body', { status: 500 });
-  await assert.rejects(
-    runtime.runFileAnalysis({ task_description: 'x', target_files: [], rootPath: process.cwd(), engine,
-      parentSessionId: 'parent-fail', fetchImpl }),
-    /Sub-agent request failed \(HTTP 500\)\./,
-  );
+  await assert.rejects(runtime.runFileAnalysis({ task_description: 'x', target_files: [], rootPath: process.cwd(), engine, parentSessionId: 'parent-fail', fetchImpl }), error => error.stopReason === 'provider_error' && /HTTP 500/.test(error.message));
   const session = sessionManager.listSessions().find(item => item.parentSessionId === 'parent-fail');
   assert.equal(session.status, 'failed');
   assert.match(session.error, /HTTP 500/);
@@ -156,8 +152,8 @@ test('web extraction runs through the runtime with page text in an isolated requ
   });
   assert.equal(output, 'The launch date is 1 October.');
   assert.equal(payload.temperature, 0);
-  assert.equal(payload.max_tokens, 450);
-  assert.equal(payload.stream, false);
+  assert.equal(payload.max_tokens, 1024);
+  assert.equal(payload.stream, true);
   assert.deepEqual(payload.tools, []);
   assert.equal(payload.tool_choice, 'none');
   assert.match(payload.messages[1].content, /The launch date is 1 October/);
