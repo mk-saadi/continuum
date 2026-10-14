@@ -448,13 +448,14 @@ const run = (
 		);
 		// move_project_file: rename, missing source, existing destination, traversal.
 		fs.writeFileSync(path.join(workspace, "move-me.txt"), "cargo");
-		assert.deepEqual(
-			await run("move_project_file", {
-				source_path: "move-me.txt",
-				destination_path: "sub/moved.txt",
-			}),
-			{ success: true, source_path: "move-me.txt", destination_path: "sub/moved.txt" },
-		);
+		const moved = await run("move_project_file", {
+			source_path: "move-me.txt",
+			destination_path: "sub/moved.txt",
+		});
+		assert.equal(moved.success, true);
+		assert.equal(moved.source_path, "move-me.txt");
+		assert.equal(moved.destination_path, "sub/moved.txt");
+		assert.ok(Number.isSafeInteger(moved.recoveryCheckpointId), 'move reports its recovery checkpoint');
 		assert.equal(fs.readFileSync(path.join(workspace, "sub/moved.txt"), "utf8"), "cargo");
 		assert.ok(!fs.existsSync(path.join(workspace, "move-me.txt")));
 		assert.equal(
@@ -483,15 +484,15 @@ const run = (
 		// edit_project_files: atomic multi-file edits, all-or-nothing validation.
 		fs.writeFileSync(path.join(workspace, "a.txt"), "one\n");
 		fs.writeFileSync(path.join(workspace, "b.txt"), "two\n");
-		assert.deepEqual(
-			await run("edit_project_files", {
-				edits: [
-					{ relative_path: "a.txt", old_str: "one", new_str: "1" },
-					{ relative_path: "b.txt", old_str: "two", new_str: "2" },
-				],
-			}),
-			{ success: true, edited: ["a.txt", "b.txt"] },
-		);
+		const batch = await run("edit_project_files", {
+			edits: [
+				{ relative_path: "a.txt", old_str: "one", new_str: "1" },
+				{ relative_path: "b.txt", old_str: "two", new_str: "2" },
+			],
+		});
+		assert.equal(batch.success, true);
+		assert.deepEqual(batch.edited, ["a.txt", "b.txt"]);
+		assert.ok(Number.isSafeInteger(batch.recoveryCheckpointId), 'batch reports its recovery checkpoint');
 		assert.equal(fs.readFileSync(path.join(workspace, "a.txt"), "utf8"), "1\n");
 		assert.equal(fs.readFileSync(path.join(workspace, "b.txt"), "utf8"), "2\n");
 		fs.writeFileSync(path.join(workspace, "c.txt"), "keep\n");
@@ -515,39 +516,37 @@ const run = (
 
 		// apply_patch: single file, multi-file, creation, and safe failures.
 		fs.writeFileSync(path.join(workspace, "p1.txt"), "alpha\nbeta\ngamma\n");
-		assert.deepEqual(
-			await run("apply_patch", {
-				patch: "--- a/p1.txt\n+++ b/p1.txt\n@@ -1,3 +1,3 @@\n alpha\n-beta\n+BETA\n gamma\n",
-			}),
-			{ success: true, files: ["p1.txt"] },
-		);
+		const patched = await run("apply_patch", {
+			patch: "--- a/p1.txt\n+++ b/p1.txt\n@@ -1,3 +1,3 @@\n alpha\n-beta\n+BETA\n gamma\n",
+		});
+		assert.equal(patched.success, true);
+		assert.deepEqual(patched.files, ["p1.txt"]);
+		assert.ok(Number.isSafeInteger(patched.recoveryCheckpointId), 'patch reports its recovery checkpoint');
 		assert.equal(fs.readFileSync(path.join(workspace, "p1.txt"), "utf8"), "alpha\nBETA\ngamma\n");
 		fs.writeFileSync(path.join(workspace, "p2.txt"), "one\n");
 		fs.writeFileSync(path.join(workspace, "p3.txt"), "uno\n");
-		assert.deepEqual(
-			await run("apply_patch", {
-				patch: [
-					"--- a/p2.txt",
-					"+++ b/p2.txt",
-					"@@ -1 +1 @@",
-					"-one",
-					"+two",
-					"--- a/p3.txt",
-					"+++ b/p3.txt",
-					"@@ -1 +1 @@",
-					"-uno",
-					"+dos",
-					"",
-				].join("\n"),
-			}),
-			{ success: true, files: ["p2.txt", "p3.txt"] },
-		);
-		assert.deepEqual(
-			await run("apply_patch", {
-				patch: "--- /dev/null\n+++ b/created/nested.txt\n@@ -0,0 +1,2 @@\n+hello\n+world\n",
-			}),
-			{ success: true, files: ["created/nested.txt"] },
-		);
+		const patchedMulti = await run("apply_patch", {
+			patch: [
+				"--- a/p2.txt",
+				"+++ b/p2.txt",
+				"@@ -1 +1 @@",
+				"-one",
+				"+two",
+				"--- a/p3.txt",
+				"+++ b/p3.txt",
+				"@@ -1 +1 @@",
+				"-uno",
+				"+dos",
+				"",
+			].join("\n"),
+		});
+		assert.equal(patchedMulti.success, true);
+		assert.deepEqual(patchedMulti.files, ["p2.txt", "p3.txt"]);
+		const patchedNew = await run("apply_patch", {
+			patch: "--- /dev/null\n+++ b/created/nested.txt\n@@ -0,0 +1,2 @@\n+hello\n+world\n",
+		});
+		assert.equal(patchedNew.success, true);
+		assert.deepEqual(patchedNew.files, ["created/nested.txt"]);
 		assert.equal(fs.readFileSync(path.join(workspace, "created/nested.txt"), "utf8"), "hello\nworld");
 		fs.writeFileSync(path.join(workspace, "p4.txt"), "stable\n");
 		fs.writeFileSync(path.join(workspace, "p5.txt"), "same\nsame\n");

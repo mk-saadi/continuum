@@ -174,7 +174,7 @@ test('usage-only final chunk supplies message stats and requests usage', async (
       return stream([chunk({ content: 'Hello' }, 'stop'), { choices: [], usage: { prompt_tokens: 10, completion_tokens: 20 } }]);
     },
   });
-  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
+  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', cachedTokens: null, cacheCreationTokens: null, lastCachedTokens: null, lastCacheCreationTokens: null, scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
 });
 
 test('missing usage and zero elapsed time never produce fabricated counts or Infinity', async () => {
@@ -707,4 +707,29 @@ test('sparse indexes do not bypass the 16-call accumulation bound', async () => 
     chunk({ tool_calls: calls }), chunk({}, 'tool_calls')]),
     executeTool: async () => { executed++; return {}; } }), /Too many streamed tool calls/);
   assert.equal(executed, 0);
+});
+
+test('stopping during a tool persists completed phase usage and elapsed run time', async () => {
+  const controller = new AbortController();
+  let stats, time = 0;
+  await assert.rejects(runMemoryChat({ ...base, signal: controller.signal, now: () => time += 100,
+    onStats: value => stats = value,
+    fetchImpl: async () => Response.json({ choices: [{message: {content: '', tool_calls: [{id:'stop-tool',type:'function',function:{name:'search_memory',arguments:'{}'}}]},finish_reason:'tool_calls'}], usage:{prompt_tokens:100,completion_tokens:20,total_tokens:120} }),
+    executeTool: async () => { controller.abort(); controller.signal.throwIfAborted(); }
+  }), /abort/i);
+  assert.equal(stats.totalTokens,120);
+  assert.ok(stats.time > 0);
+  assert.equal(stats.raw.length,1);
+});
+test('stopping mid-stream preserves reported usage without inventing missing tokens', async () => {
+  const controller = new AbortController();
+  let stats, time = 0;
+  await assert.rejects(runMemoryChat({ ...base, signal: controller.signal, now: () => time += 100,
+    onStats: value => stats = value, onText: () => controller.abort(),
+    fetchImpl: async () => stream([{choices:[],usage:{prompt_tokens:42}},chunk({content:'Partial answer'})])
+  }), /abort/i);
+  assert.equal(stats.promptTokens,42);
+  assert.equal(stats.completionTokens,null);
+  assert.equal(stats.totalTokens,null);
+  assert.ok(stats.time > 0);
 });

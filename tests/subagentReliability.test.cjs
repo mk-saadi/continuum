@@ -39,7 +39,7 @@ test('legacy settings normalize safely and Custom fields resolve independently',
   const legacy = settings.normalizeBudgetSettings({ mode: 'auto', maxInputTokens: 200000, maxOutputTokens: 16000 });
   assert.equal(legacy.maxToolCalls, null);
   const auto = budgets.resolveTaskBudgets({ kind: 'investigation', engine, settings: legacy });
-  assert.equal(auto.maxToolCalls, 10); assert.equal(auto.maxTurns, 8); assert.equal(auto.maxAggregateToolCalls, 40);
+  assert.equal(auto.maxToolCalls, 25); assert.equal(auto.maxTurns, 12); assert.equal(auto.maxAggregateToolCalls, 100);
   const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine, settings: { mode: 'custom', maxToolCalls: 50, maxTurns: 30 } });
   assert.equal(custom.maxToolCalls, 50); assert.equal(custom.maxTurns, 30); assert.equal(custom.outputBudget, 30 * 2048);
   assert.equal(custom.inputBudget, 4 * 32768);
@@ -139,7 +139,7 @@ test('runtime and parent preserve partial outcome and bounded stop header', asyn
     const { subagentUsageLines, subagentResultTitle } = await import('../src/lib/subagentDisplay.mjs');
     assert.equal(subagentResultTitle(transcript.status), 'Partial findings');
     assert.match(transcript.result.text, /Useful finding/);
-    assert.match(subagentUsageLines(transcript).join('\n'), /Child model requests: 2 \/ 8/);
+    assert.match(subagentUsageLines(transcript).join('\n'), /Child model requests: 2 \/ 12/);
     assert.match(subagentUsageLines(transcript).join('\n'), /Child tool calls: 1 \/ 1/);
     assert.equal(transcript.accounting.finalizationAttempted, true);
   } finally { scheduler.scheduleInference = original; }

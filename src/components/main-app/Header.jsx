@@ -50,7 +50,7 @@ export default function Header({
 		"flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300";
 
 	return (
-		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 shadow-[0_2px_10px_var(--window-shadow)]">
+		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 shadow-[0_2px_30px_var(--window-shadow)]">
 			<button
 				type="button"
 				className={button}

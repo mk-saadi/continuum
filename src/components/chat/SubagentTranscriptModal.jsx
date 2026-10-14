@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FiArrowDown, FiChevronDown, FiX } from "react-icons/fi";
 import { RiRobot2Line } from "react-icons/ri";
 
-import { subagentUsageLines, subagentResultTitle } from "../../lib/subagentDisplay.mjs";
+import { subagentLimitNotice, subagentUsageLines, subagentResultTitle } from "../../lib/subagentDisplay.mjs";
 
 const STATUS_TONE = {
 	partial: "bg-amber-400/15 text-amber-500",
@@ -322,6 +322,11 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 								)}
 							</section>
 							<section aria-label="Execution budgets and usage" className="space-y-1 text-[11px] text-[var(--text-muted)] tabular-nums">
+								{subagentLimitNotice(transcript) && (
+									<p role="note" className="rounded-lg bg-amber-400/15 px-2 py-1.5 text-amber-500">
+										{subagentLimitNotice(transcript)}
+									</p>
+								)}
 								{subagentUsageLines(transcript).map(line => <p key={line}>{line}</p>)}
 							</section>
 							{live && (

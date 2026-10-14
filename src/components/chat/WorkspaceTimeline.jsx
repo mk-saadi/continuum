@@ -57,7 +57,7 @@ export default function WorkspaceTimeline({
 	return (
 		<div
 			aria-label="Workspace execution timeline"
-			className="mx-auto flex w-full max-w-[860px] min-w-0 flex-col gap-7 pb-10"
+			className="mx-auto flex w-full max-w-[860px] min-w-0 flex-col gap-7 pb-10 text-[var(--text-primary)]"
 		>
 			{list.map((message, index) => {
 				if (!message || typeof message !== "object") return null;
@@ -228,7 +228,7 @@ function RunHeader({
 				) : null}
 			</span>
 			<div className="min-w-0 flex-1">
-				<p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
 					<Tooltip content={readable && readable !== label ? readable : null}>
 						<p className="truncate text-sm text-[var(--text-primary)] font-semibold">{label}</p>
 					</Tooltip>
@@ -255,7 +255,7 @@ function RunHeader({
 							Response <LuChevronDown />
 						</button>
 					)}
-				</p>
+				</div>
 				{(agentName && agentName !== label) || showTechnical ? (
 					<p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-[11px] text-[var(--text-muted)]">
 						{agentName && agentName !== label && (
@@ -337,7 +337,7 @@ function RunSection({
 			{showFinal ? (
 				<div
 					id={responseId}
-					className="group mt-1 min-w-0 scroll-mt-24 border-t border-[var(--subtle-border)] pt-3 select-text"
+					className="group mt-1 min-w-0 scroll-mt-24 border-t border-[var(--subtle-border)] pt-3 text-[var(--text-primary)] select-text"
 				>
 					<ChatMessage
 						message={message}
@@ -587,7 +587,8 @@ function UserBlock({
 			<p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
 				You
 			</p>
-			<p className="whitespace-pre-wrap break-words text-sm leading-relaxed select-text">
+			{/* user message */}
+			<p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--text-primary)] select-text">
 				{message.content}
 			</p>
 			{message.attachments?.length > 0 && (

@@ -26,6 +26,9 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 *   **Native Tools:** Built-in filesystem access, media handling, memory operations, and a native Playwright browser-automation suite (no external MCP dependency needed).
 
 ### 🛡️ Safety Rails
+
+*   **Git tools:** Status, diff, log, show, branch listing, and blame run in a Linux bubblewrap sandbox with a read-only filesystem and no network. Workspace staging allows explicit files only and confines Git filters to the workspace. These operations fail closed when bubblewrap or its required namespaces are unavailable.
+*   **Commit review:** Outside Full Access, commit approval includes the staged diff; changed staged content or branch state requires a new approval. Approved commits retain normal identity, signing, and hook configuration and execute with the existing approved-command permissions. Full Access also permits unrestricted staging. Inspection remains sandboxed in every mode.
 *   Dangerous database mutations (`DELETE FROM`, `TRUNCATE`, `DROP TABLE`, `deleteMany()`, broad-scope filters like `$ne` / `!=` / `1=1`) are detected before execution and **require explicit human confirmation**.
 *   Bulk writes outside an id-scoped pattern trigger a read-only preview first — preventing accidental destruction of important data during autonomous agent operations.
 

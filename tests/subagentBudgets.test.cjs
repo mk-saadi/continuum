@@ -45,7 +45,7 @@ async function main() {
 
   await test('automatic policy scales per kind and context, custom overrides per field', () => {
     const inv = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(102400), settings: auto() });
-    assert.deepEqual([inv.inputBudget, inv.outputBudget, inv.perRequestCeiling], [409600, 16384, 2048]);
+    assert.deepEqual([inv.inputBudget, inv.outputBudget, inv.perRequestCeiling], [409600, 24576, 2048]);
     const small = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(8192), settings: auto() });
     assert.equal(small.inputBudget, 4 * 8192);
     const file = budgets.resolveTaskBudgets({ kind: 'file-analysis', engine: engine(), settings: auto() });
@@ -55,8 +55,8 @@ async function main() {
     const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(),
       settings: { mode: 'custom', maxInputTokens: 50000, maxOutputTokens: null } });
     assert.equal(custom.inputBudget, 50000);
-    assert.equal(custom.outputBudget, 16384);
-    assert.deepEqual(custom.sources, { input: 'custom', output: 'auto:8-turns' });
+    assert.equal(custom.outputBudget, 24576);
+    assert.deepEqual(custom.sources, { input: 'custom', output: 'auto:12-turns' });
     const unknown = budgets.resolveTaskBudgets({ kind: 'investigation', engine: {}, settings: auto() });
     assert.equal(unknown.inputBudget, 4 * 32768);
   });
@@ -94,7 +94,7 @@ async function main() {
     const ledger = budgets.createLedger();
     assert.equal(budgets.escalatedCeiling(2048, resolved, ledger, 1000), 4096);
     const spent = budgets.createLedger();
-    spent.outputMeasured = 16000; // 384 left of 16384
+    spent.outputMeasured = 24000; // 1576 left of 24576
     assert.equal(budgets.escalatedCeiling(2048, resolved, spent, 1000), null);
     const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(),
       settings: { mode: 'custom', maxInputTokens: 100000, maxOutputTokens: 300 } });

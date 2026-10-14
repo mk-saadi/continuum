@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import ModelCapabilitiesModal from "../ModelCapabilitiesModal";
 import ModelSettingsModal from "../ModelSettingsModal";
 import {
 	LuArrowRight,
@@ -13,6 +14,7 @@ import {
 	LuAudioLines,
 	LuVideo,
 	LuCheck,
+    LuPencil,
 } from "react-icons/lu";
 
 const rowGrid = "grid grid-cols-[minmax(240px,1fr)_95px_125px_60px_80px_80px_65px] items-center gap-3";
@@ -38,7 +40,10 @@ function priceLabel(pricing) {
     return `${cost(pricing.input)} / ${cost(pricing.output)}`;
 }
 
-function Capabilities({ model, local, runtime }) {
+function overrideKey(model, local) {
+    return JSON.stringify(local ? ['local', model.modelPath || model.path || model.id] : ['cloud', model.id, model.baseUrl, model.modelId]);
+}
+function Capabilities({ model, local, runtime, overrides = {} }) {
 	return (
 		<span className="flex items-center gap-1">
 			{capabilityIcons.map(([key, label, Icon]) => {
@@ -54,14 +59,15 @@ function Capabilities({ model, local, runtime }) {
 									? model.hasTools
 									: null;
 				const confirmed = typeof runtime?.[key] === "boolean";
-				const value = confirmed
+				const overridden = typeof overrides[key] === "boolean";
+				const value = overridden ? overrides[key] : confirmed
 					? runtime[key]
 					: typeof declared === "boolean"
 						? declared
 						: inferred
 							? true
 							: null;
-				const status =
+				const status = overridden ? (value ? "enabled by you" : "disabled by you") :
 					value === true
 						? confirmed
 							? "verified by loaded engine"
@@ -109,6 +115,9 @@ export default function ModelSelectorModal({
 	const [source, setSource] = useState("all");
 	const [sort, setSort] = useState("name");
 	const [configuring, setConfiguring] = useState(null);
+    const [editingCapabilities, setEditingCapabilities] = useState(null);
+    const [capabilityOverrides, setCapabilityOverrides] = useState({});
+    useEffect(() => { let active = true; window.api?.getCapabilityOverrides?.().then(all => { if (active) setCapabilityOverrides(all); }).catch(() => {}); return () => { active = false; }; }, []);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
     const [cloudMetadata, setCloudMetadata] = useState([]);
@@ -135,7 +144,7 @@ export default function ModelSelectorModal({
 			element.close();
 			previous?.focus();
 		};
-	}, [configuring]);
+	}, [configuring, editingCapabilities]);
 
 	const localModels = models.filter(
 		(model) =>
@@ -173,6 +182,8 @@ export default function ModelSelectorModal({
 					a.name.localeCompare(b.name)
 				: a.name.localeCompare(b.name),
 		);
+
+    if (editingCapabilities) return <ModelCapabilitiesModal entry={editingCapabilities} overrides={capabilityOverrides[overrideKey(editingCapabilities.model, editingCapabilities.local)]} onClose={() => setEditingCapabilities(null)} onSaved={all => { setCapabilityOverrides(all); window.api.getCloudModelMetadata?.().then(setCloudMetadata).catch(() => {}); }} />;
 
 	if (configuring)
 		return (
@@ -330,7 +341,7 @@ export default function ModelSelectorModal({
 										activeChatProvider.model === model.modelId;
 								const runtime = loaded ? loadedLocalModel.capabilities : undefined;
 								return (
-									<li key={`${local ? "local" : "cloud"}:${model.id}`}>
+									<li key={`${local ? "local" : "cloud"}:${model.id}`} className="relative">
 										<button
 											type="button"
 											disabled={busy}
@@ -350,7 +361,7 @@ export default function ModelSelectorModal({
 													onClose();
 												} else setConfiguring(model);
 											}}
-											className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] px-5 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${active ? "bg-[var(--active-chat)]" : ""}`}
+											className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${active ? "bg-[var(--active-chat)]" : ""}`}
 										>
 											<span
 												className="min-w-0"
@@ -399,9 +410,10 @@ export default function ModelSelectorModal({
 												model={model}
 												local={local}
 												runtime={runtime}
+                                                overrides={capabilityOverrides[overrideKey(model, local)]}
 											/>
 											<span className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-												{source === "cloud" ? tokens(model.contextLength) : model.paramSize || "—"}
+												{source === "cloud" ? tokens(capabilityOverrides[overrideKey(model, local)]?.contextLength ?? model.contextLength) : model.paramSize || "—"}
 											</span>
 											<span
 												title={
@@ -442,8 +454,9 @@ export default function ModelSelectorModal({
 													</>
 												)}
 											</span>
-										</button>
-									</li>
+                                        </button>
+                                        <button type="button" aria-label={`Edit capabilities for ${name}`} title="Edit model capabilities" disabled={busy} onClick={() => setEditingCapabilities({ model, local, name })} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"><LuPencil size={13} aria-hidden="true" /></button>
+                                    </li>
 								);
 							})}
 						</ul>

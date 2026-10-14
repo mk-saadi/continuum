@@ -410,6 +410,7 @@ function TabPane({
 				</div>
 			)}
 			<ChatInterface
+				tabActive={active}
 				view={view}
 				projects={projects}
 				activeProjectId={tab.projectId}

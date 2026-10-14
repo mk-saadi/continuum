@@ -265,7 +265,8 @@ async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = fals
         const result = await cached.promise;
         if (result.error) metadataCache.delete(cacheKey);
         const model = result.metadata?.find(model => model.id === row.modelId);
-        return { providerId: row.id, modelId: row.modelId, ...(model || {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
+        const overrides = require('./capabilityOverrides').getOverrides({ type: 'cloud', provider: row.id, model: row.modelId });
+        return { providerId: row.id, modelId: row.modelId, ...(model || {}), ...(overrides.contextLength ? { contextLength: overrides.contextLength, contextSource: 'user' } : {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
     }));
 }
 
@@ -368,7 +369,9 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
         if (required.length) {
             const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
             const { attachmentPolicy } = await import('../lib/attachmentPolicy.mjs');
-            const policy = attachmentPolicy(metadata?.capabilities, { apiType: provider.apiType, service: metadata?.providerName });
+            const { getOverrides, applyOverrides } = require('./capabilityOverrides');
+            const overrides = getOverrides(target);
+            const policy = attachmentPolicy(applyOverrides(metadata?.capabilities, overrides), { apiType: provider.apiType, service: metadata?.providerName, overrides });
             assertCapabilities(policy.enabled, required);
         }
 		const anthropic = provider.apiType === "anthropic";
@@ -451,6 +454,8 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 						(data.usage?.cache_read_input_tokens || 0) +
 						(data.usage?.cache_creation_input_tokens || 0),
 					completion_tokens: data.usage?.output_tokens || 0,
+					cache_read_input_tokens: data.usage?.cache_read_input_tokens || 0,
+					cache_creation_input_tokens: data.usage?.cache_creation_input_tokens || 0,
 				},
 			}),
 			{ headers: { "Content-Type": "application/json" } },

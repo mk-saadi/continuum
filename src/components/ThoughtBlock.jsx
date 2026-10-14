@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { FiChevronDown } from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
 
@@ -22,7 +23,7 @@ export default function ThoughtBlock({ content = "", durationMs }) {
 			</summary>
 
 			{expanded && <div className="assistant-markdown mt-2 border-l-2 border-[var(--subtle-border)] py-1 pl-3 min-w-0 break-words leading-relaxed [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[var(--code-bg)] [&_pre]:p-3 [&_a]:text-[var(--link)] [&_a]:underline">
-				<ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+				<ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeLatexArrows(content)}</ReactMarkdown>
 			</div>}
 		</details>
 	);

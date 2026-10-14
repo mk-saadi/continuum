@@ -7,6 +7,7 @@ import { readSkillDecision } from "./chat/PendingInteractions.jsx";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
@@ -440,14 +441,16 @@ const ChatMessage = React.memo(
 							urlTransform={mediaUrlTransform}
 							components={components}
 						>
-							{activeVariant.content ||
-								(message.streaming || steps?.length || toolCalls?.length || thinking
-									? ""
-									: "...")}
+							{normalizeLatexArrows(
+								activeVariant.content ||
+									(message.streaming || steps?.length || toolCalls?.length || thinking
+										? ""
+										: "..."),
+							)}
 						</ReactMarkdown>
 					)}
 				</div>
-				{message.status === "interrupted" && (
+				{activeVariant.status === "interrupted" && (
 					<div
 						role="status"
 						className="flex gap-1.5 items-center mt-3 text-xs text-[var(--text-muted)]"
@@ -811,9 +814,6 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 	const genFormatted = stats.completionTokens != null ? stats.completionTokens.toLocaleString() : "—";
 	const totalFormatted = stats.totalTokens != null ? stats.totalTokens.toLocaleString() : "—";
 
-	// Human-friendly hover tooltips. Cumulative workload stays defined as
-	// total compute across all tool turns; peak/last request sizes are
-	// reported separately and never substituted for it.
 	const peakLine =
 		stats.peakPromptTokens != null
 			? `\n• Peak Single Request: ${stats.peakPromptTokens.toLocaleString()}${stats.peakRequestIndex ? ` (request ${stats.peakRequestIndex}${stats.promptRequests ? ` of ${stats.promptRequests}` : ""})` : ""}`

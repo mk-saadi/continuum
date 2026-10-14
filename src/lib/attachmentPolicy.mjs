@@ -5,16 +5,16 @@ export function attachmentKind(name) {
   if (DOCUMENT_EXTENSIONS.includes(extension)) return 'document';
   return Object.keys(MEDIA_EXTENSIONS).find(kind => MEDIA_EXTENSIONS[kind].includes(extension)) || null;
 }
-export function attachmentPolicy(capabilities = {}, { local = false, apiType, service } = {}) {
+export function attachmentPolicy(capabilities = {}, { local = false, apiType, service, overrides = {} } = {}) {
   const enabled = {
     image: capabilities.image === true,
     audio: capabilities.audio === true && apiType !== 'anthropic',
-    video: capabilities.video === true && (local || service === 'OpenRouter') && apiType !== 'anthropic',
+    video: capabilities.video === true && (local || service === 'OpenRouter' || overrides.video === true) && apiType !== 'anthropic',
   };
   const extensions = [...DOCUMENT_EXTENSIONS, ...Object.keys(enabled).filter(kind => enabled[kind]).flatMap(kind => MEDIA_EXTENSIONS[kind])];
   const labels = ['text files', 'PDF (extracted text)', 'Excel (.xlsx)'];
   for (const kind of Object.keys(enabled)) if (enabled[kind]) labels.unshift(kind === 'image' ? 'images' : kind);
-  return { enabled, extensions, accept: extensions.join(','), tooltip: `Attach ${labels.join(', ')}. Media requires confirmed model support.` };
+  return { enabled, extensions, accept: extensions.join(','), tooltip: `Attach ${labels.join(', ')}. Media availability follows model detection and your saved overrides.` };
 }
 export function assertAttachmentNames(names, policy) {
   for (const name of names) {

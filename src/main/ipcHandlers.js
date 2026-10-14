@@ -129,7 +129,10 @@ function registerIpcHandlers({
 		if (canceled || !filePaths?.length) return null;
 		return filePaths[0];
 	};
-	const handlers = {
+	require('./localEngineFetch').setLocalCapabilityProvider?.(() => getEngineConfig?.());
+    const handlers = {
+        "models:capability-overrides": () => require('./capabilityOverrides').readOverrides(),
+        "models:save-capability-overrides": ({ target, overrides }) => require('./capabilityOverrides').saveOverrides(target, overrides),
         "engine:capabilities": async ({ modelId }) => {
             const config = getEngineConfig?.();
             if (!config || config.modelPath !== modelId) throw new Error('Load the selected local model before verifying media support.');
@@ -289,6 +292,26 @@ function registerIpcHandlers({
 		// instead of throwing; the UI renders that as "no longer available".
 		"subagent:get-transcript": ({ childSessionId } = {}) =>
 			require("./subagents").getChildTranscript(childSessionId),
+		// Workspace file recovery (Phase 3 UI). Every handler resolves the
+		// chat session to its project workspace first; checkpoint ids are
+		// then gated to that workspace root inside recoveryStore, so a
+		// renderer-supplied id can never reach another workspace's files.
+		// Restore additionally refuses while the chat has an active run.
+		"recovery:overview": ({ sessionId } = {}) =>
+			require("./recoveryIpc").recoveryOverview(sessionId),
+		"recovery:history": ({ sessionId, limit } = {}) =>
+			require("./recoveryIpc").recoveryHistory(sessionId, limit),
+		"recovery:detail": ({ sessionId, checkpointId } = {}) =>
+			require("./recoveryIpc").recoveryDetail(sessionId, checkpointId),
+		"recovery:preview": ({ sessionId, checkpointId, paths, force } = {}) =>
+			require("./recoveryIpc").recoveryPreview(sessionId, checkpointId, { paths, force }),
+		"recovery:restore": async ({ sessionId, checkpointId, paths, force } = {}) =>
+			require("./recoveryIpc").recoveryRestore(sessionId, checkpointId, { paths, force },
+				activeStreams.has(sessionId) || standaloneDelegation),
+		"recovery:pin": ({ sessionId, checkpointId, pinned } = {}) =>
+			require("./recoveryIpc").recoveryPin(sessionId, checkpointId, pinned),
+		"recovery:stats": () => require("./recoveryIpc").recoveryStats(),
+		"recovery:prune": () => require("./recoveryIpc").recoveryPrune(),
 		"settings:set-notification-prefs": prefs => saveNotificationPrefs(prefs),
 		"app:save-settings": (settings) => {
 			const previousMode = getAppSettings().mcpMode;
@@ -627,10 +650,12 @@ function registerIpcHandlers({
 					// Live per-request prompt telemetry. Forward-only: never
 					// persisted here and never logged to token usage. The final
 					// onStats above remains the single persistence/logging path.
-					onPhase: ({ round, promptTokens, completionTokens, telemetry }) => {
+					onPhase: ({ round, promptTokens, completionTokens, cachedTokens, cacheCreationTokens, telemetry }) => {
 						notify({ type: "phase", sessionId, round,
 							promptTokens: promptTokens ?? null,
 							completionTokens: completionTokens ?? null,
+							cachedTokens: cachedTokens ?? null,
+							cacheCreationTokens: cacheCreationTokens ?? null,
 							telemetry });
 					},
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
@@ -724,7 +749,7 @@ function registerIpcHandlers({
 				persist(controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed");
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
 					interrupted: stoppedByLimit, aborted: controller.signal.aborted });
-				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps } };
+				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
 				require('./engineManager').notifyChatOutcome({ error, aborted: controller.signal.aborted });
@@ -746,7 +771,7 @@ function registerIpcHandlers({
             const agent = agents.getSessionAgent(data.sessionId);
             const result = await handlers["engine:chat"]({ ...data, messages, messageId: target.id }, notify, sender);
             const variant = {
-                content: result.text, executionSteps: result.executionSteps, displayName: result.message.displayName,
+                content: result.text, status: result.message.status, executionSteps: result.executionSteps, displayName: result.message.displayName,
                 model_name: typeof data.modelName === 'string' && data.modelName.trim() ? data.modelName : data.modelId,
                 model_id: data.modelId, agent_name: agent?.name ?? null,
                 stats: result.stats ? { ...result.stats, tokens_per_sec: result.stats.tokensPerSecond,

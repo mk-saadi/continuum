@@ -182,10 +182,12 @@ function getLastTurnTelemetry(sessionId) {
   if (!stats) return null;
   const { lastPromptTokens = null, peakPromptTokens = null, peakRequestIndex = null,
     promptRequests = null, promptCoverage = null, completionTokens = null,
-    totalTokens = null, scope = null } = stats;
+    totalTokens = null, scope = null, cachedTokens = null, cacheCreationTokens = null,
+    lastCachedTokens = null, lastCacheCreationTokens = null } = stats;
   if (lastPromptTokens === null && peakPromptTokens === null) return null;
   return { messageId: row.id, lastPromptTokens, peakPromptTokens, peakRequestIndex,
-    promptRequests, promptCoverage, completionTokens, totalTokens, scope };
+    promptRequests, promptCoverage, completionTokens, totalTokens, scope,
+    cachedTokens, cacheCreationTokens, lastCachedTokens, lastCacheCreationTokens };
 }
 
 function getContextUsage(sessionId, currentModelId) {
@@ -403,7 +405,7 @@ function normalizeStats(stats) {
   // lastPromptTokens is the most recent request; peakPromptTokens is the
   // maximum single request (never the sum). promptCoverage tracks whether
   // every request in the turn reported prompt tokens.
-  for (const key of ['lastPromptTokens', 'peakPromptTokens', 'promptRequests', 'peakRequestIndex']) {
+  for (const key of ['lastPromptTokens', 'peakPromptTokens', 'promptRequests', 'peakRequestIndex', 'cachedTokens', 'cacheCreationTokens', 'lastCachedTokens', 'lastCacheCreationTokens']) {
     const value = stats[key] ?? null;
     if (value !== null && (!Number.isSafeInteger(value) || value < 0)) throw new TypeError(`Invalid generation stat: ${key}.`);
     if (value !== null) result[key] = value;
@@ -583,7 +585,7 @@ function setActiveVariant(sessionId, messageId, index) {
           totalTokens: variant.stats.total_tokens, time: variant.stats.duration }) : null,
         variant.thinking ?? null, variant.thinking_duration ?? null, JSON.stringify(variant.tool_calls ?? []),
         variant.model_name ?? null, variant.model_id ?? null, variant.agent_name ?? null, messageId);
-    db.prepare('UPDATE messages SET execution_steps = ?, display_name = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), variant.displayName ?? null, messageId);
+    db.prepare('UPDATE messages SET execution_steps = ?, display_name = ?, status = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), variant.displayName ?? null, variant.status ?? 'completed', messageId);
     // A summary may contain the previously selected reply. Rebuild context from original turns.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);

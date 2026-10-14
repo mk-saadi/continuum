@@ -22,6 +22,7 @@ import {
 import FileBrowserWidget from "../FileBrowserWidget";
 import { isDirectoryTool, parseDirectoryListing } from "../../lib/directoryListing.mjs";
 import SubagentTranscriptModal from "./SubagentTranscriptModal.jsx";
+import SubagentLimitBadge from "./SubagentLimitBadge.jsx";
 
 function subagentTaskText(step) {
 	const args = step?.args;
@@ -577,7 +578,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				</div>
 			)}
 			{isSubagent && typeof step.childSessionId === "string" && step.childSessionId && (
-				<div className="px-3 pb-2">
+				<div className="flex flex-wrap items-center gap-2 px-3 pb-2">
 					<button
 						type="button"
 						onClick={() => setTranscriptOpen(true)}
@@ -585,6 +586,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					>
 						Show sub-agent activity
 					</button>
+					<SubagentLimitBadge childSessionId={step.childSessionId} />
 				</div>
 			)}
 			{transcriptOpen && typeof step.childSessionId === "string" && step.childSessionId && (

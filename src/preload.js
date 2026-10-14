@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  getCapabilityOverrides: () => ipcRenderer.invoke('models:capability-overrides'),
+  saveCapabilityOverrides: (target, overrides) => ipcRenderer.invoke('models:save-capability-overrides', { target, overrides }),
   getModelCapabilities: modelId => ipcRenderer.invoke('engine:capabilities', { modelId }),
   getCloudProviders: () => ipcRenderer.invoke('cloud:get'),
   getCloudModelMetadata: () => ipcRenderer.invoke('cloud:model-metadata'),
@@ -79,6 +81,14 @@ contextBridge.exposeInMainWorld('api', {
   getSubagentBudgets: () => ipcRenderer.invoke('subagent:get-budgets'),
   saveSubagentBudgets: patch => ipcRenderer.invoke('subagent:save-budgets', patch),
   getChildTranscript: childSessionId => ipcRenderer.invoke('subagent:get-transcript', { childSessionId }),
+  getRecoveryOverview: sessionId => ipcRenderer.invoke('recovery:overview', { sessionId }),
+  getRecoveryHistory: (sessionId, limit) => ipcRenderer.invoke('recovery:history', { sessionId, limit }),
+  getRecoveryDetail: (sessionId, checkpointId) => ipcRenderer.invoke('recovery:detail', { sessionId, checkpointId }),
+  previewRecoveryRestore: (sessionId, checkpointId, options) => ipcRenderer.invoke('recovery:preview', { sessionId, checkpointId, ...(options ?? {}) }),
+  restoreRecoveryCheckpoint: (sessionId, checkpointId, options) => ipcRenderer.invoke('recovery:restore', { sessionId, checkpointId, ...(options ?? {}) }),
+  pinRecoveryCheckpoint: (sessionId, checkpointId, pinned) => ipcRenderer.invoke('recovery:pin', { sessionId, checkpointId, pinned }),
+  getRecoveryStats: () => ipcRenderer.invoke('recovery:stats'),
+  pruneRecoveryStore: () => ipcRenderer.invoke('recovery:prune'),
   getMcpConfig: () => ipcRenderer.invoke('mcp:get-config'),
   saveMcpConfig: config => ipcRenderer.invoke('mcp:save-config', config),
   getModelLoadConfig: (modelId) => ipcRenderer.invoke('engine:get-load-config', { modelId }),

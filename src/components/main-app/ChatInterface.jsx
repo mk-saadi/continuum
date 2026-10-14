@@ -5,13 +5,14 @@ import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
 import Sidebar from "../Sidebar.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
-import { attachmentPolicy, assertAttachmentNames } from '../../lib/attachmentPolicy.mjs';
+import { attachmentPolicy, assertAttachmentNames } from "../../lib/attachmentPolicy.mjs";
 import { BsRobot } from "react-icons/bs";
 import { FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
-import { combineQuotedMessage } from "../../lib/textSelection.mjs";
+import { combineQuotedMessage, extractScopedSelectionText } from "../../lib/textSelection.mjs";
+import { applyFindMarks, clearFindMarks, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { firstPromptTitle } from "../../lib/chatTitle.mjs";
 import { LuX } from "react-icons/lu";
@@ -20,6 +21,7 @@ import ToolApprovalToast from "./ToolApprovalToast.jsx";
 import ToolLimitToast from "./ToolLimitToast.jsx";
 import WorkspaceTimeline from "../chat/WorkspaceTimeline.jsx";
 import TextSelectionMenu from "../chat/TextSelectionMenu.jsx";
+import ChatFindBar from "../chat/ChatFindBar.jsx";
 import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
 import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
@@ -98,6 +100,7 @@ export function ChatInterface({
 	tabPermissionMode,
 	tabSaved = false,
 	onTabSaved,
+	tabActive = false,
 }) {
 	const [permissionBySession, setPermissionBySession] = useState({});
 	const [toolApprovals, setToolApprovals] = useState([]);
@@ -114,22 +117,37 @@ export function ChatInterface({
 		[palace.sessionId],
 	);
 	const chatAvailable = activeChatProvider.type === "cloud" || !!baseUrl;
-    const [uploadPolicy, setUploadPolicy] = useState(() => attachmentPolicy());
-    useEffect(() => {
-        let active = true;
-        setUploadPolicy(attachmentPolicy());
-        const refresh = async () => {
-            try {
-                const policy = await window.api?.getAttachmentPolicy?.({ modelId: selectedModel, activeChatProvider });
-                if (active && policy) setUploadPolicy(policy);
-            } catch { if (active) setUploadPolicy(attachmentPolicy()); }
-        };
-        refresh();
-        const unsubscribe = window.terminalAPI?.onStatus?.(refresh);
-        window.addEventListener('cloud-providers-changed', refresh);
-        return () => { active = false; unsubscribe?.(); window.removeEventListener('cloud-providers-changed', refresh); };
-    }, [selectedModel, activeChatProvider.type, activeChatProvider.provider, activeChatProvider.model, engineRunning]);
-    const attachmentTarget = { modelId: selectedModel, activeChatProvider };
+	const [uploadPolicy, setUploadPolicy] = useState(() => attachmentPolicy());
+	useEffect(() => {
+		let active = true;
+		setUploadPolicy(attachmentPolicy());
+		const refresh = async () => {
+			try {
+				const policy = await window.api?.getAttachmentPolicy?.({
+					modelId: selectedModel,
+					activeChatProvider,
+				});
+				if (active && policy) setUploadPolicy(policy);
+			} catch {
+				if (active) setUploadPolicy(attachmentPolicy());
+			}
+		};
+		refresh();
+		const unsubscribe = window.terminalAPI?.onStatus?.(refresh);
+		window.addEventListener("cloud-providers-changed", refresh);
+		return () => {
+			active = false;
+			unsubscribe?.();
+			window.removeEventListener("cloud-providers-changed", refresh);
+		};
+	}, [
+		selectedModel,
+		activeChatProvider.type,
+		activeChatProvider.provider,
+		activeChatProvider.model,
+		engineRunning,
+	]);
+	const attachmentTarget = { modelId: selectedModel, activeChatProvider };
 
 	const currentModel = models.find((model) => model.id === selectedModel);
 	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
@@ -145,6 +163,14 @@ export function ChatInterface({
 		models.find((model) => model.id === selectedModel)?.name || selectedModel,
 	);
 	const [messages, setMessages] = useState([]);
+	// In-chat find (Ctrl+F): browser-style floating bar scoped to the transcript.
+	const [findOpen, setFindOpen] = useState(false);
+	const [findQuery, setFindQuery] = useState("");
+	const [findPosition, setFindPosition] = useState({ active: 0, total: 0 });
+	const findMarksRef = useRef([]);
+	const findActiveRef = useRef(0);
+	const closeFindRef = useRef(null);
+	const findQueryRef = useRef("");
 	const streamBuffer = useStreamBuffer();
 	const activeStreamMessageIdRef = useRef(null);
 	const loadDisplaySession = (sessionId) =>
@@ -157,7 +183,25 @@ export function ChatInterface({
 	}, []);
 	const isUserScrolledUp = useRef(false);
 	const composerRef = useRef(null);
+	// Keep the composer ready to type: when this tab becomes active, when a
+	// new chat starts (session change), or when returning to the chat view,
+	// move focus into the textarea so typing works without an extra click.
+	// Inactive tabs (display:none) never steal focus; streaming never refocuses.
+	useEffect(() => {
+		if (!tabActive || view !== "chat") return;
+		// After paint: the pane just became visible / the new draft mounted.
+		const frame = requestAnimationFrame(() => {
+			try {
+				composerRef.current?.focusInput?.({ preventScroll: true });
+			} catch {
+				/* Focusing the composer is optional. */
+			}
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [tabActive, view, palace.sessionId]);
 	const [selectedFiles, setSelectedFiles] = useState([]);
+	const [dragActive, setDragActive] = useState(false);
+	const dragDepth = useRef(0);
 	const [quotedSelection, setQuotedSelection] = useState("");
 	// A quoted selection belongs to the visible draft; drop it on chat switch
 	// so it can never leak into another conversation.
@@ -625,6 +669,88 @@ export function ChatInterface({
 		}
 	};
 	const messagesRef = useRef(null);
+	// Open the find bar on Ctrl/Cmd+F, pre-filling the transcript selection.
+	// Capture phase on window: fires before any in-page bubble handler, so the
+	// shortcut works no matter which element has focus (chat text, whitespace
+	// gutters, composer, sidebar). `code` is matched alongside `key` so
+	// non-Latin keyboard layouts still trigger on the physical F key.
+	useEffect(() => {
+		const onFindKey = (event) => {
+			if (event.key === "Escape" && findOpen) {
+				closeFindRef.current?.();
+				return;
+			}
+			if (!(event.ctrlKey || event.metaKey)) return;
+			if (event.key.toLowerCase() !== "f" && event.code !== "KeyF") return;
+			event.preventDefault();
+			let selected = "";
+			try {
+				selected = extractScopedSelectionText(
+					messagesRef.current,
+					window.getSelection?.() ?? null,
+				);
+			} catch {
+				selected = "";
+			}
+			if (selected) setFindQuery(selected.slice(0, 200));
+			setFindOpen(true);
+		};
+		window.addEventListener("keydown", onFindKey, { capture: true });
+		return () => window.removeEventListener("keydown", onFindKey, { capture: true });
+	}, [findOpen]);
+	// Re-apply find highlights on query/transcript/streaming changes.
+	useEffect(() => {
+		const scope = messagesRef.current;
+		if (!findOpen || !findQuery.trim()) {
+			if (scope) clearFindMarks(scope);
+			findMarksRef.current = [];
+			findActiveRef.current = 0;
+			findQueryRef.current = findQuery;
+			setFindPosition({ active: 0, total: 0 });
+			return;
+		}
+		if (!scope) return;
+		const marks = applyFindMarks(scope, findQuery);
+		findMarksRef.current = marks;
+		// A new query starts at the first match (and jumps to it, like the
+		// browser); transcript growth keeps the current position.
+		const queryChanged = findQueryRef.current !== findQuery;
+		const active = queryChanged
+			? 0
+			: Math.min(findPosition.active, Math.max(0, marks.length - 1));
+		findQueryRef.current = findQuery;
+		findActiveRef.current = active;
+		setActiveFindMark(marks, active);
+		setFindPosition({ active, total: marks.length });
+		if (queryChanged && marks.length > 0) {
+			// Stop auto-follow so the jump is never yanked back to bottom.
+			isUserScrolledUp.current = true;
+			scrollMarkIntoView(scope, marks[active] ?? marks[0]);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [findOpen, findQuery, messages, streaming]);
+	const closeFind = useCallback(() => {
+		if (messagesRef.current) clearFindMarks(messagesRef.current);
+		findMarksRef.current = [];
+		findActiveRef.current = 0;
+		setFindPosition({ active: 0, total: 0 });
+		setFindOpen(false);
+	}, []);
+	useEffect(() => {
+		closeFindRef.current = closeFind;
+	}, [closeFind]);
+	const stepFind = useCallback((direction) => {
+		const marks = findMarksRef.current;
+		const scope = messagesRef.current;
+		if (!marks.length || !scope) return;
+		// Stop auto-follow so jumping between matches never yanks the viewport.
+		isUserScrolledUp.current = true;
+		const next = (findActiveRef.current + direction + marks.length) % marks.length;
+		findActiveRef.current = next;
+		setActiveFindMark(marks, next);
+		setFindPosition({ active: next, total: marks.length });
+		scrollMarkIntoView(scope, marks[next]);
+	}, []);
 	const onStreamFrame = useCallback(() => {
 		if (!isUserScrolledUp.current && messagesRef.current)
 			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
@@ -664,8 +790,40 @@ export function ChatInterface({
 			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
 		}
 	}, [messages]);
+	const MIME_FALLBACK_EXT = {
+		"image/png": ".png",
+		"image/jpeg": ".jpg",
+		"image/gif": ".gif",
+		"image/webp": ".webp",
+		"application/pdf": ".pdf",
+		"text/plain": ".txt",
+		"text/markdown": ".md",
+		"text/csv": ".csv",
+	};
+	const isImageFile = (file) =>
+		/\.(png|jpe?g|gif|webp)$/i.test(file.name || "") || /^image\/(png|jpe?g|gif|webp)$/i.test(file.type || "");
+	// Pasted/dropped clipboard images often arrive unnamed ("image.png" or no
+	// name at all). Derive a name from the MIME type so policy checks,
+	// previews, and uploads treat them like chosen files.
+	const normalizeIncomingFiles = (files) =>
+		files.map((file, index) => {
+			if (file?.name?.includes?.(".")) return file;
+			const ext = MIME_FALLBACK_EXT[file?.type] ?? "";
+			if (!ext) return file;
+			const name = `pasted-image-${Date.now()}-${index}${ext}`;
+			try {
+				return new File([file], name, { type: file.type, lastModified: file.lastModified ?? Date.now() });
+			} catch {
+				return file;
+			}
+		});
 	const addAttachments = async (files) => {
-		if (busyRef.current) return;
+		if (busyRef.current) {
+			setHistoryError("Wait for the current send to finish before attaching files.");
+			return;
+		}
+		files = normalizeIncomingFiles(files.filter(Boolean));
+		if (!files.length) return;
 		const next = [...selectedFiles, ...files];
 		if (
 			next.length > 10 ||
@@ -675,12 +833,21 @@ export function ChatInterface({
 			setHistoryError("Choose up to 10 files, at most 20 MB each and 50 MB total.");
 			return;
 		}
-        busyRef.current = true;
-        try {
-            const policy = window.api?.getAttachmentPolicy ? await window.api.getAttachmentPolicy(attachmentTarget) : uploadPolicy;
-            assertAttachmentNames(files.map(file => file.name), policy);
-            setUploadPolicy(policy);
-        } catch (error) { busyRef.current = false; setHistoryError(error.message); return; }
+		busyRef.current = true;
+		try {
+			const policy = window.api?.getAttachmentPolicy
+				? await window.api.getAttachmentPolicy(attachmentTarget)
+				: uploadPolicy;
+			assertAttachmentNames(
+				files.map((file) => file.name),
+				policy,
+			);
+			setUploadPolicy(policy);
+		} catch (error) {
+			busyRef.current = false;
+			setHistoryError(error.message);
+			return;
+		}
 
 		setHistoryError("");
 		busyRef.current = true;
@@ -692,7 +859,7 @@ export function ChatInterface({
 			const optimized = [];
 			// Decode sequentially to avoid holding several large bitmaps at once.
 			for (const file of files) {
-				if (!/\.(png|jpe?g|gif|webp)$/i.test(file.name)) {
+				if (!isImageFile(file)) {
 					optimized.push(file);
 					continue;
 				}
@@ -799,10 +966,16 @@ export function ChatInterface({
 			let prepared = false;
 			let failed = false;
 			try {
-                if (!queued && !edit && !retry && selectedFiles.length) {
-                    const policy = await window.api.getAttachmentPolicy({ modelId: selectedModel, activeChatProvider });
-                    assertAttachmentNames(selectedFiles.map(file => file.name), policy);
-                }
+				if (!queued && !edit && !retry && selectedFiles.length) {
+					const policy = await window.api.getAttachmentPolicy({
+						modelId: selectedModel,
+						activeChatProvider,
+					});
+					assertAttachmentNames(
+						selectedFiles.map((file) => file.name),
+						policy,
+					);
+				}
 				// Create/bind the session row before generation so the backend
 				// resolves the same project context (and therefore permission
 				// normalization) as the selector shown in the composer.
@@ -814,7 +987,10 @@ export function ChatInterface({
 						throw new Error("File uploads are available in the desktop app.");
 					const pending = selectedFiles.filter((file) => !uploadCache.current.has(file));
 					if (pending.length) {
-						const uploaded = await window.api.processUploads(pending, { modelId: selectedModel, activeChatProvider });
+						const uploaded = await window.api.processUploads(pending, {
+							modelId: selectedModel,
+							activeChatProvider,
+						});
 						pending.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
 					}
 					attachments = selectedFiles.map((file) => uploadCache.current.get(file));
@@ -1062,6 +1238,7 @@ export function ChatInterface({
 			: [
 					{
 						content: message.content,
+						status: message.status,
 						thinking: message.thinkingText,
 						thinking_duration: message.thinkingDuration,
 						stats: message.stats,
@@ -1074,6 +1251,7 @@ export function ChatInterface({
 				];
 		const index = previousVariants.length;
 		let draft = {
+			status: "in_progress",
 			content: "",
 			executionSteps: [],
 			stats: null,
@@ -1351,8 +1529,9 @@ export function ChatInterface({
 			})}
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}
-				className="flex h-full min-h-0 min-w-0 bg-[var(--bg-secondary)]! flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
+				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
 			>
+				{/* bg-[var(--bg-secondary)]!  */}
 				{historyError && (
 					<p
 						role="alert"
@@ -1360,6 +1539,17 @@ export function ChatInterface({
 					>
 						{historyError}
 					</p>
+				)}
+				{findOpen && view === "chat" && (
+					<ChatFindBar
+						query={findQuery}
+						onQueryChange={setFindQuery}
+						active={findPosition.active}
+						total={findPosition.total}
+						onPrev={() => stepFind(-1)}
+						onNext={() => stepFind(1)}
+						onClose={closeFind}
+					/>
 				)}
 				<div
 					className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-auto px-4 py-6 max-[450px]:px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[var(--scrollbar-track)] [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]"
@@ -1636,16 +1826,38 @@ export function ChatInterface({
 				)}
 
 				<div
+					onDragEnter={(event) => {
+						event.preventDefault();
+						if (loading || streaming) return;
+						if (!Array.from(event.dataTransfer?.types ?? []).includes("Files")) return;
+						dragDepth.current += 1;
+						setDragActive(true);
+					}}
 					onDragOver={(event) => {
 						event.preventDefault();
 						event.dataTransfer.dropEffect = loading || streaming ? "none" : "copy";
 					}}
+					onDragLeave={(event) => {
+						event.preventDefault();
+						dragDepth.current = Math.max(0, dragDepth.current - 1);
+						if (dragDepth.current === 0) setDragActive(false);
+					}}
 					onDrop={(event) => {
 						event.preventDefault();
+						dragDepth.current = 0;
+						setDragActive(false);
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
-					className={`mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]`}
+					className={`mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 rounded-xl border ${dragActive ? "border-[var(--accent)]" : "border-[var(--border)]"} bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]`}
 				>
+					{dragActive && (
+						<div
+							aria-hidden="true"
+							className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent)]/10 text-sm font-medium text-[var(--accent)]"
+						>
+							Drop files to attach
+						</div>
+					)}
 					{promptQueue.length > 0 && (
 						<div
 							aria-label="Queued prompts"
@@ -1744,12 +1956,13 @@ export function ChatInterface({
 						onSubmit={(text) => sendMessage(null, false, text)}
 						onStop={handleStop}
 						onAttach={() => fileInputRef.current?.click()}
+						onPasteFiles={(files) => addAttachments(files)}
 						canSubmit={!!chatAvailable && !!selectedModel && !!palace.api && !agentLoading}
 						hasAttachments={selectedFiles.length > 0}
 						streaming={streaming}
 						loading={loading}
 						attachDisabled={!window.api?.processUploads}
-                        attachmentTooltip={uploadPolicy.tooltip}
+						attachmentTooltip={`${uploadPolicy.tooltip} You can also paste (Ctrl+V) or drag & drop files onto the composer.`}
 						sendTitle={chatAvailable ? "Send" : "Select a cloud model or load a local model"}
 						supportedEfforts={supportedEfforts}
 						reasoningEffort={reasoningEffort}

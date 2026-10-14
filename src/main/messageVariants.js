@@ -10,6 +10,7 @@ function variantFromRow(row) {
   const stats = parseJson(row.stats);
   return {
     content: row.content,
+    status: row.status ?? 'completed',
     displayName: row.display_name ?? null,
     executionSteps: readExecutionSteps(row),
     ...(row.execution_steps == null ? { thinking: row.thinking_text ?? null, thinking_duration: row.thinking_duration ?? null, tool_calls: parseJson(row.tool_calls, []) } : {}),
@@ -27,7 +28,7 @@ function parseVariants(row) {
   if (!Array.isArray(variants) || !variants.length || !variants.every(value =>
     typeof value === 'string' || (value && typeof value.content === 'string'))) return [variantFromRow(row)];
   return variants.map((value, index) => {
-    if (typeof value !== 'string') return { ...value, executionSteps: readExecutionSteps(value) };
+    if (typeof value !== 'string') return { ...value, status: value.status ?? (index === (row.active_variant_index ?? 0) ? row.status : null) ?? 'completed', executionSteps: readExecutionSteps(value) };
     // Only the selected legacy reply has reliable row-level metadata.
     return variantFromRow(index === (row.active_variant_index ?? 0)
       ? { ...row, content: value } : { content: value });

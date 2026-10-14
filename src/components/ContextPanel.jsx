@@ -262,8 +262,10 @@ function CheckpointDetail({ record, evidence }) {
 	);
 }
 
-export default function ContextPanel({ sessionId, active = false }) {
+export default function ContextPanel({ sessionId, modelId = null, active = false }) {
 	const api = typeof window !== "undefined" ? window.memoryPalace : null;
+	const [usage, setUsage] = useState(null);
+	const [usageError, setUsageError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [checkpoint, setCheckpoint] = useState(null);
@@ -297,6 +299,19 @@ export default function ContextPanel({ sessionId, active = false }) {
 		},
 		[api, sessionId],
 	);
+
+	const refreshUsage = useCallback(async () => {
+		if (!api?.getContextUsage || !sessionId || !modelId) {
+			setUsage(null);
+			return;
+		}
+		try {
+			setUsage(await api.getContextUsage(sessionId, modelId));
+			setUsageError("");
+		} catch (err) {
+			setUsageError(err?.message ?? String(err));
+		}
+	}, [api, sessionId, modelId]);
 
 	const refresh = useCallback(async () => {
 		if (!api || !sessionId) {
@@ -352,11 +367,15 @@ export default function ContextPanel({ sessionId, active = false }) {
 		setLastAttempt(null);
 		setSelectedId(null);
 		void refresh();
-	}, [refresh]);
+		void refreshUsage();
+	}, [refresh, refreshUsage]);
 
 	useEffect(() => {
-		if (active) void refresh();
-	}, [active, refresh]);
+		if (active) {
+			void refresh();
+			void refreshUsage();
+		}
+	}, [active, refresh, refreshUsage]);
 
 	useEffect(
 		() =>
@@ -390,6 +409,66 @@ export default function ContextPanel({ sessionId, active = false }) {
 
 	return (
 		<div className="space-y-3">
+			<div className={cardClass}>
+				<div className="mb-2 flex items-center justify-between gap-2">
+					<h3 className={headingClass}>Token usage</h3>
+					<button
+						type="button"
+						onClick={() => void refreshUsage()}
+						className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+					>
+						Refresh
+					</button>
+				</div>
+				{!modelId ? (
+					<p className={bodyClass}>Select a model to load usage.</p>
+				) : usageError ? (
+					<p role="alert" className={`${bodyClass} ${errorClass}`}>
+						Could not load usage: {usageError}
+					</p>
+				) : !usage ? (
+					<p role="status" className={bodyClass}>
+						Loading usage…
+					</p>
+				) : (
+					<dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+						<dt className={bodyClass}>Current estimate</dt>
+						<dd className="text-right font-medium">
+							{(usage.totalTokens ?? 0).toLocaleString()} tokens
+						</dd>
+						<dt className={bodyClass}>Last prompt</dt>
+						<dd className="text-right font-medium">
+							{usage.telemetry?.lastPromptTokens != null
+								? usage.telemetry.lastPromptTokens.toLocaleString()
+								: "—"}
+						</dd>
+						<dt className={bodyClass}>Cache read / write</dt>
+						<dd className="text-right font-medium">
+							{(usage.telemetry?.lastCachedTokens ?? usage.telemetry?.cachedTokens) != null
+								? (usage.telemetry.lastCachedTokens ?? usage.telemetry.cachedTokens).toLocaleString()
+								: "—"}
+							{" / "}
+							{(usage.telemetry?.lastCacheCreationTokens ?? usage.telemetry?.cacheCreationTokens) != null
+								? (usage.telemetry.lastCacheCreationTokens ?? usage.telemetry.cacheCreationTokens).toLocaleString()
+								: "—"}
+						</dd>
+						<dt className={bodyClass}>Last completion</dt>
+						<dd className="text-right font-medium">
+							{usage.telemetry?.completionTokens != null
+								? usage.telemetry.completionTokens.toLocaleString()
+								: "—"}
+						</dd>
+					</dl>
+				)}
+				{usage && !usage.telemetry ? (
+					<p className={`${bodyClass} mt-1`}>No server request telemetry yet — send a message to populate cache stats.</p>
+				) : usage?.telemetry &&
+				  (usage.telemetry.lastCachedTokens ?? usage.telemetry.cachedTokens) == null ? (
+					<p className={`${bodyClass} mt-1`}>
+						Provider did not report cache tokens for the last turn (local cache shows after a llama.cpp response; cloud shows when the provider returns cached tokens).
+					</p>
+				) : null}
+			</div>
 			<div className={cardClass}>
 				<div className="mb-2 flex items-center justify-between gap-2">
 					<h3 className={headingClass}>Compression status</h3>

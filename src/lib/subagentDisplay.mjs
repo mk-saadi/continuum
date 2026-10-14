@@ -1,5 +1,18 @@
 // Display only runtime accounting; never infer measured zero from absent usage.
 const count = value => Number.isFinite(value) ? value.toLocaleString('en-US') : 'unavailable';
+const LIMIT_REASONS = new Set(['tool_limit', 'turn_limit', 'aggregate_tool_limit']);
+const SETTINGS_HINT = 'Settings → Agents & Skills → Sub-agent execution budgets → Custom hard limits';
+export function subagentLimitNotice(transcript) {
+  const stopReason = transcript?.stopReason;
+  if (!LIMIT_REASONS.has(stopReason)) return null;
+  const a = transcript.accounting ?? {};
+  const e = a.effective ?? {};
+  if (stopReason === 'tool_limit')
+    return `Hit tool-call limit (${count(a.toolCalls)} / ${count(e.maxToolCalls)}). Default is ${count(e.maxToolCalls)} per child; raise it in ${SETTINGS_HINT}.`;
+  if (stopReason === 'turn_limit')
+    return `Hit model-request limit (${count(a.turns)} / ${count(e.maxTurns)}). Default is ${count(e.maxTurns)} per child; raise it in ${SETTINGS_HINT}.`;
+  return `Hit parent-run limit (${count(a.aggregateToolCalls)} / ${count(a.aggregateLimit)}). Default shares ${count(a.aggregateLimit)} calls across children; raise it in ${SETTINGS_HINT}.`;
+}
 export function subagentUsageLines(transcript) {
   const a = transcript.accounting;
   if (!a) return [

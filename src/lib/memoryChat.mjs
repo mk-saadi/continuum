@@ -352,6 +352,9 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
       }
       if (next.done) { endTime ??= now(); if (buffer) line(buffer); dispatch(); break; }
     }
+  } catch (error) {
+    error.partialCompletion = { usage, timings, endTime: now() };
+    throw error;
   } finally {
     await reader.cancel().catch(() => {});
     reader.releaseLock();
@@ -468,6 +471,7 @@ export async function runMemoryChat({
     turnCount = 0; toolRounds = 0; executionState = 'running';
     return true;
   };
+  try {
   while (executionState === 'running') {
     turnCount++;
     round++;
@@ -586,6 +590,11 @@ export async function runMemoryChat({
       onToolStream(event);
       publishSteps();
     }); }
+    catch (error) {
+      const partial = error.partialCompletion || { endTime: now() };
+      phases.push({ ...phaseStats({ ...partial, startTime: phaseStart }), raw: { usage: partial.usage, timings: partial.timings } });
+      throw error;
+    }
     finally {
       thinking.finish();
       for (const step of executionSteps) {
@@ -618,6 +627,8 @@ export async function runMemoryChat({
     try {
       onPhase({ round, promptTokens: phases[phases.length - 1].promptTokens ?? null,
         completionTokens: phases[phases.length - 1].completionTokens ?? null,
+        cachedTokens: phases[phases.length - 1].cachedTokens ?? null,
+        cacheCreationTokens: phases[phases.length - 1].cacheCreationTokens ?? null,
         phase: phases[phases.length - 1], telemetry: turnPromptTelemetry(phases) });
     } catch { /* Telemetry listeners must not break the tool loop. */ }
     // A provider that ignores tool_choice:none must not create an endless loop.
@@ -809,5 +820,12 @@ export async function runMemoryChat({
       continue;
     }
     if (reachedLimit && !await pauseAtLimit()) return text;
+  }
+  } catch (error) {
+    const endTime = now();
+    const stats = phases.length ? mergePhaseStats(phases, startTime)
+      : phaseStats({ startTime, endTime });
+    onStats({ ...stats, endTime, time: Math.max(0, (endTime - startTime) / 1000), raw: phases.map(phase => phase.raw) });
+    throw error;
   }
 }

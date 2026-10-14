@@ -87,7 +87,9 @@ function getLoadConfig(modelId) {
 	const row = db
 		.prepare("SELECT config_json FROM model_load_configs WHERE model_id = ?")
 		.get(modelKey(modelId));
-	return { config: normalizeLoadConfig(row ? JSON.parse(row.config_json) : {}), remembered: !!row };
+	const projector = db.prepare("SELECT value_json FROM app_settings WHERE key = ?").get(`last-projector:${modelKey(modelId)}`);
+    return { config: normalizeLoadConfig(row ? JSON.parse(row.config_json) : {}), remembered: !!row,
+        ...(projector?.value_json !== undefined ? { projectorPath: JSON.parse(projector.value_json) } : {}) };
 }
 function saveLoadConfig(modelId, input) {
 	const { db } = require("./db");
@@ -97,6 +99,11 @@ function saveLoadConfig(modelId, input) {
     ON CONFLICT(model_id) DO UPDATE SET config_json = excluded.config_json, updated_at = CURRENT_TIMESTAMP`,
 	).run(modelKey(modelId), JSON.stringify(config));
 	return config;
+}
+function saveLastProjector(modelId, projectorPath) {
+    if (projectorPath !== null && (typeof projectorPath !== 'string' || !require('node:path').isAbsolute(projectorPath) || projectorPath.includes('\0'))) throw new Error('Invalid projector path.');
+    require('./db').db.prepare("INSERT INTO app_settings(key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
+        .run(`last-projector:${modelKey(modelId)}`, JSON.stringify(projectorPath));
 }
 function forgetLoadConfig(modelId) {
 	const { db } = require("./db");
@@ -108,6 +115,7 @@ module.exports = {
 	getLoadConfig,
 	saveLoadConfig,
 	forgetLoadConfig,
+    saveLastProjector,
 };
 
 function normalizeAppSettings(input = {}) {
@@ -158,6 +166,14 @@ function normalizeAppSettings(input = {}) {
 		disabledSkills.some((id) => typeof id !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id))
 	)
 		throw new Error("Invalid disabledSkills.");
+	const recoveryRetentionDays =
+		input.recoveryRetentionDays === undefined ? 30 : input.recoveryRetentionDays;
+	if (!Number.isInteger(recoveryRetentionDays) || recoveryRetentionDays < 1 || recoveryRetentionDays > 365)
+		throw new Error("Recovery retention must be an integer from 1 to 365 days.");
+	const recoveryStorageCapMB =
+		input.recoveryStorageCapMB === undefined ? 512 : input.recoveryStorageCapMB;
+	if (!Number.isInteger(recoveryStorageCapMB) || recoveryStorageCapMB < 64 || recoveryStorageCapMB > 8192)
+		throw new Error("Recovery storage cap must be an integer from 64 to 8192 MB.");
 	return {
 		apiServerPort,
 		mcpMode,
@@ -167,13 +183,15 @@ function normalizeAppSettings(input = {}) {
 		notifyOnlyWhenBackgrounded,
 		notificationEvents,
 		disabledSkills: [...new Set(disabledSkills)],
+		recoveryRetentionDays,
+		recoveryStorageCapMB,
 	};
 }
 function getAppSettings() {
 	const { db } = require("./db");
 	const rows = db
 		.prepare(
-			"SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'disabledSkills')",
+			"SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
 		)
 		.all();
 	return normalizeAppSettings(Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value_json)])));
@@ -194,6 +212,8 @@ function saveAppSettings(input) {
 		save.run("notifyOnlyWhenBackgrounded", JSON.stringify(settings.notifyOnlyWhenBackgrounded));
 		save.run("notificationEvents", JSON.stringify(settings.notificationEvents));
 		save.run("disabledSkills", JSON.stringify(settings.disabledSkills));
+		save.run("recoveryRetentionDays", JSON.stringify(settings.recoveryRetentionDays));
+		save.run("recoveryStorageCapMB", JSON.stringify(settings.recoveryStorageCapMB));
 	})();
 	return settings;
 }

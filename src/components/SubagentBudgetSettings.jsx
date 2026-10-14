@@ -87,7 +87,7 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 				{policy
 					? ` (investigation up to ${policy.maxTurns.investigation} total model requests × ${policy.perRequestCeiling.investigation} output tokens; input ${policy.inputRule})`
 					: ""}
-				. Investigations default to 10 tool calls; the parent run shares 40 calls.
+				. Investigations default to 25 tool calls; the parent run shares 100 calls.
 				The last investigation request is reserved for tool-free reporting; compaction and retries also consume requests. Custom overrides each limit independently; blank fields use Automatic. Changing settings affects new children. Inspect child activity for effective limits and measured, estimated, or reserved usage.
 			</p>
 			{custom && (

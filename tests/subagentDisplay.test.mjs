@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { subagentUsageLines, subagentResultTitle } from '../src/lib/subagentDisplay.mjs';
+import { subagentLimitNotice, subagentUsageLines, subagentResultTitle } from '../src/lib/subagentDisplay.mjs';
 
 test('legacy and missing token usage are unavailable rather than measured zero', () => {
   assert.match(subagentUsageLines({}).join('\n'), /input tokens: unavailable/);
@@ -21,6 +21,13 @@ test('effective child limits and shared parent snapshot remain distinct', () => 
   assert.match(lines, /1,000 \/ 32,000 \(mixed\)/);
   assert.match(lines, /\(reserved\); measured: 10; reserved: 512/);
   assert.match(lines, /Reporting attempted; stopped: output_budget/);
+});
+test('limit hits point to Custom hard limits with the effective default', () => {
+  assert.match(subagentLimitNotice({ stopReason: 'tool_limit', accounting: { toolCalls: 25, effective: { maxToolCalls: 25 } } }), /tool-call limit.*25 \/ 25.*Custom hard limits/);
+  assert.match(subagentLimitNotice({ stopReason: 'turn_limit', accounting: { turns: 12, effective: { maxTurns: 12 } } }), /model-request limit.*12 \/ 12.*Custom hard limits/);
+  assert.match(subagentLimitNotice({ stopReason: 'aggregate_tool_limit', accounting: { aggregateToolCalls: 100, aggregateLimit: 100 } }), /parent-run limit.*100 \/ 100.*Custom hard limits/);
+  assert.equal(subagentLimitNotice({ stopReason: 'completed' }), null);
+  assert.equal(subagentLimitNotice({}), null);
 });
 test('output labels preserve completed, partial, cancellation and failure distinctions', () => {
   assert.equal(subagentResultTitle('completed'), 'Final answer');

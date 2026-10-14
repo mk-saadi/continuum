@@ -40,12 +40,18 @@ function assertCapabilities(capabilities, required) {
         : `${kind[0].toUpperCase() + kind.slice(1)} input has not been verified. Load a compatible model and projector with an engine that reports media capabilities.`);
   }
 }
-function createMediaGuardedFetch(fetchImpl) {
+function createMediaGuardedFetch(fetchImpl, getOverrides = () => ({})) {
   return async (url, options = {}) => {
     const endpoint = new URL(url);
     if (endpoint.pathname === '/v1/chat/completions' && typeof options.body === 'string') {
       const required = requiredModalities(JSON.parse(options.body).messages);
-      if (required.length) assertCapabilities(await queryCapabilities(Number(endpoint.port), fetchImpl, options.signal), required);
+      if (required.length) {
+        const overrides = await getOverrides(endpoint);
+        let detected;
+        try { detected = await queryCapabilities(Number(endpoint.port), fetchImpl, options.signal); }
+        catch (error) { if (!required.every(kind => typeof overrides[kind] === 'boolean')) throw error; detected = {}; }
+        assertCapabilities({ ...detected, ...overrides }, required);
+      }
     }
     return fetchImpl(url, options);
   };

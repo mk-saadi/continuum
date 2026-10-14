@@ -329,9 +329,10 @@ export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision
 
 const COMMAND_TOOLS = new Set(['execute_command']);
 const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content']);
+const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
 const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history']);
 const EDIT_TOOLS = new Set(['str_replace_editor']);
-const WRITE_TOOLS = new Set(['write_project_file']);
+const WRITE_TOOLS = new Set(['write_project_file', 'git_stage', 'git_commit']);
 const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 const MEDIA_TOOLS = new Set(['generate_image', 'take_screenshot']);
@@ -345,6 +346,7 @@ export function toolKind(step) {
   if (SKILL_TOOLS.has(name)) return 'skill';
   if (COMMAND_TOOLS.has(name)) return 'command';
   if (READ_TOOLS.has(name)) return 'read';
+  if (GIT_TOOLS.has(name)) return 'read';
   if (SEARCH_TOOLS.has(name)) return 'search';
   if (EDIT_TOOLS.has(name)) return 'edit';
   if (WRITE_TOOLS.has(name)) return 'write';

@@ -15,10 +15,10 @@ app.whenReady().then(async () => {
       import ModelSettingsModal from './src/components/ModelSettingsModal';
       const root = createRoot(document.getElementById('root'));
       const baseConfig = { contextLength: 8192, threads: 4, evalBatch: 2048, physicalBatch: 512, parallel: 1, gpuOffload: 'auto', flashAttention: 'auto', cacheTypeK: 'f16', cacheTypeV: 'f16', mlock: false, chatTemplate: 'auto', reasoningFormat: 'auto' };
-      window.savedConfig = {};
+      window.savedConfig = {}; window.projectors = {};
       window.api = {
-        getModelLoadConfig: async () => ({ config: { ...baseConfig, ...window.savedConfig }, remembered: Object.keys(window.savedConfig).length > 0 }),
-        launchEngine: async (_id, config) => { window.launched = config; window.savedConfig = config; return { success: true }; },
+        getModelLoadConfig: async id => ({ ...(Object.hasOwn(window.projectors, id) ? { projectorPath: window.projectors[id] } : {}), config: { ...baseConfig, ...window.savedConfig }, remembered: Object.keys(window.savedConfig).length > 0 }),
+        launchEngine: async (_id, config) => { window.launched = config; window.savedConfig = config; window.projectors[_id] = config.mmprojPath; return { success: true }; },
       };
       const moeModel = { id: 'model', name: 'Gemma4 A4B', architecture: 'gemma4', isMoe: true, expertCount: 128 };
       window.renderLoad = (model = moeModel) => root.render(<ModelSettingsModal model={model} onClose={() => {}} onLoaded={() => {}} />);
@@ -125,6 +125,27 @@ app.whenReady().then(async () => {
       // Without architecture metadata the expert count cannot be forwarded, so it is disabled.
       window.renderLoad({ id: 'dense', name: 'Dense' }); await tick();
       check(numberField('MoE Expert Count').disabled === true, 'Unknown architecture disables the expert count input');
+    })()`);
+    await window.webContents.executeJavaScript(`(async () => {
+      const tick = () => new Promise(resolve => setTimeout(resolve, 80));
+      const check = (value, text) => { if (!value) throw new Error(text); };
+      const model = { id: 'vision-choice', name: 'Vision model', projectorCandidates: [{ path: '/models/vision.gguf', name: 'mmproj-vision.gguf' }] };
+      const render = async value => { window.renderEmpty(); await tick(); window.renderLoad(value); await tick(); };
+      await render(model); window.launched = null;
+      document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await tick();
+      check(!window.launched && document.querySelector('[role=alert]').textContent.includes('none is selected'), 'First load warns instead of launching');
+      document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await tick();
+      check(window.launched.mmprojPath === null, 'Text-only confirmation can launch');
+      await render(model);
+      const select = [...document.querySelectorAll('select')].find(select => [...select.options].some(option => option.value === '/models/vision.gguf'));
+      check(select.value === '', 'Text-only selection restored');
+      select.value = '/models/vision.gguf'; select.dispatchEvent(new Event('change', { bubbles: true })); await tick();
+      window.launched = null; document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await tick();
+      check(window.launched.mmprojPath === '/models/vision.gguf', 'Selected projector launches without warning');
+      await render(model);
+      check([...document.querySelectorAll('select')].find(select => [...select.options].some(option => option.value === '/models/vision.gguf')).value === '/models/vision.gguf', 'Last projector restored on reopen');
+      await render({ ...model, projectorCandidates: [{ path: '/models/replacement.gguf', name: 'Replacement' }] });
+      check(document.querySelector('[role=alert]').textContent.includes('no longer'), 'Missing saved projector explained');
     })()`);
     await window.webContents.executeJavaScript(`window.renderEmpty()`);
     await new Promise(resolve => setTimeout(resolve, 80));

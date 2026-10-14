@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import {
 	FiArrowLeft,
 	FiFileText,
@@ -241,8 +242,10 @@ export default function ProjectWorkspace({
 										) : (
 											<div className="project-markdown">
 												<ReactMarkdown remarkPlugins={[remarkGfm]}>
-													{project.description ||
-														"Add a goal to help guide every conversation in this project."}
+													{normalizeLatexArrows(
+														project.description ||
+															"Add a goal to help guide every conversation in this project.",
+													)}
 												</ReactMarkdown>
 											</div>
 										)}

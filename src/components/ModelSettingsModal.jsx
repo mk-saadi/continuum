@@ -81,6 +81,8 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const dialog = useRef(null);
 	const [config, setConfig] = useState(null);
 	const [projectorPath, setProjectorPath] = useState(model.mmprojPath || "");
+	const [confirmTextOnly, setConfirmTextOnly] = useState(false);
+    const [projectorNotice, setProjectorNotice] = useState("");
 	const [remember, setRemember] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -90,10 +92,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		element.showModal();
 		let active = true;
 		setConfig(null);
+        setConfirmTextOnly(false);
+        setProjectorNotice("");
+        setProjectorPath(model.mmprojPath || "");
 		setError("");
 		window.api
 			.getModelLoadConfig(model.id)
-			.then(({ config: savedConfig, remembered }) => {
+			.then(({ config: savedConfig, remembered, projectorPath: savedProjector }) => {
 				if (active) {
 					setConfig({
 						cacheTypeK: "f16",
@@ -109,6 +114,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 							: (model.reasoningFormat ?? "auto"),
 					});
 					setRemember(remembered);
+                    if (savedProjector !== undefined) {
+                        const available = savedProjector === null || savedProjector === model.mmprojPath || model.projectorCandidates?.some(candidate => candidate.path === savedProjector);
+                        setProjectorPath(available ? savedProjector || '' : '');
+                        if (!available) setProjectorNotice('The last-used projector is no longer in the scanned files. Choose a projector or rescan.');
+                    }
 				}
 			})
 			.catch((loadError) => {
@@ -141,6 +151,10 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const submit = async (event) => {
 		event.preventDefault();
 		if (busy || !config) return;
+        if (!projectorPath && model.projectorCandidates?.length && !confirmTextOnly) {
+            setConfirmTextOnly(true);
+            return;
+        }
 		setBusy(true);
 		setError("");
 		try {
@@ -258,8 +272,8 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								label="Multimodal projector"
 								value={projectorPath}
 								disabled={busy}
-								onChange={(event) => setProjectorPath(event.target.value)}
-								hint="Choose the projector supplied for this model. Filename matches are provisional; the engine validates it during loading."
+								onChange={(event) => { setProjectorPath(event.target.value); setConfirmTextOnly(false); setProjectorNotice(""); }}
+								hint="The last-used projector is remembered automatically for this model. Choose its matching projector; the engine validates it during loading."
 							>
 								<option value="">None (text only)</option>
 								{model.projectorCandidates.map((candidate) => (
@@ -509,6 +523,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					)}
 				</div>
 
+                {(confirmTextOnly || projectorNotice) && <div role="alert" className="shrink-0 border-t border-[var(--border)] bg-[var(--active-chat)] px-5 py-3 text-xs text-[var(--text-primary)]">
+                    {projectorNotice && <p>{projectorNotice}</p>}
+                    {confirmTextOnly && <p>A multimodal projector is available, but none is selected. Multimodal input will be unavailable. Choose a projector above, or click <strong>Load text only</strong> to continue.</p>}
+                </div>}
+
 				<footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3">
 					<div className="mr-auto">
 						<CheckboxField
@@ -543,7 +562,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								aria-hidden="true"
 							/>
 						)}
-						{busy ? "Starting…" : "Load model"}
+						{busy ? "Starting…" : confirmTextOnly ? "Load text only" : "Load model"}
 					</button>
 				</footer>
 			</form>

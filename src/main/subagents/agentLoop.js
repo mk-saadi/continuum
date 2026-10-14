@@ -48,7 +48,7 @@ const CHILD_AGENT_SYSTEM_PROMPT =
   'You are a read-only investigation agent. Work autonomously: investigate the task with the tools provided, '
   + 'then answer directly with your findings in structured markdown. Think briefly, then answer or act — '
   + 'long deliberation consumes the response budget. '
-  + 'Your tools can only search project files, read files, list directories, and fetch public web pages. '
+  + 'Your tools can only search project files, read files, list directories, inspect git history (status, diff, log, branches, blame), and fetch public web pages. '
   + 'Editing, writing, running commands, memory, and other capabilities are unavailable to you; a tool error is '
   + 'reported back as an error message, so adapt and continue rather than repeating the same failing call. '
   + 'Once you have gathered enough evidence, stop calling tools and return your final answer. Do not ask follow-up questions.';
@@ -64,6 +64,12 @@ const CHILD_TOOL_NAMES = Object.freeze([
   'read_project_file',
   'list_directory',
   'get_single_web_page_content',
+  'git_status',
+  'git_diff',
+  'git_log',
+  'git_show',
+  'git_branch',
+  'git_blame',
 ]);
 
 // Backward-compatible Automatic policy exports; actual limits resolve from

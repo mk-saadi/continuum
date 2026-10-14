@@ -17,6 +17,8 @@ import {
 import { CheckboxField, SelectField, TextAreaField } from "./FormControls";
 import SubagentModelSelect from "./SubagentModelSelect";
 import ContextPanel from "./ContextPanel";
+import RecoveryCard from "./chat/RecoveryCard";
+import RecoveryHistoryModal from "./chat/RecoveryHistoryModal";
 import {
 	extractSubagentRuns,
 	getNextTabIndex,
@@ -132,6 +134,7 @@ export default function RightSidebar({
 	const [memoryBusyKey, setMemoryBusyKey] = useState(null);
 	const [memoryError, setMemoryError] = useState("");
 	const [memoryStatus, setMemoryStatus] = useState("");
+	const [recoveryOpen, setRecoveryOpen] = useState(false);
 	const isDirty = isPromptDirty(prompt, savedPrompt);
 	const presetExists = !sessionAgent?.id || agents.some((agent) => agent.id === sessionAgent.id);
 	const prevMode = useRef(isWorkspace);
@@ -640,6 +643,21 @@ export default function RightSidebar({
 				)}
 			</div>
 
+			<RecoveryCard
+				sessionId={sessionId}
+				disabled={disabled}
+				running={Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading))}
+				onOpenHistory={() => setRecoveryOpen(true)}
+			/>
+			{recoveryOpen && (
+				<RecoveryHistoryModal
+					sessionId={sessionId}
+					projectName={projectName}
+					running={Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading))}
+					onClose={() => setRecoveryOpen(false)}
+				/>
+			)}
+
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_2px_var(--window-shadow)]">
 				<h3 className="mb-2 text-xs font-semibold">Recent tool activity</h3>
 				{activity.recentTools.length === 0 ? (
@@ -920,6 +938,7 @@ export default function RightSidebar({
 						>
 							<ContextPanel
 								sessionId={sessionId}
+								modelId={modelId}
 								active={tab === "context"}
 							/>
 						</section>

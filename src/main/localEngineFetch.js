@@ -10,6 +10,12 @@ const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 const { createContextGuardedFetch } = require('./contextBudget');
 const { createMediaGuardedFetch } = require('./modelCapabilities');
 const rawFetch = (url, options) => fetch(url, { ...options, dispatcher });
-const localEngineFetch = createContextGuardedFetch(createMediaGuardedFetch(rawFetch));
+let capabilityProvider = () => null;
+function setLocalCapabilityProvider(provider) { capabilityProvider = provider; }
+const localEngineFetch = createContextGuardedFetch(createMediaGuardedFetch(rawFetch, endpoint => {
+  const engine = capabilityProvider();
+  if (!engine?.modelPath || Number(endpoint.port) !== engine.port) return {};
+  return require('./capabilityOverrides').getOverrides({ type: 'local', modelId: engine.modelPath });
+}));
 
-module.exports = { localEngineFetch };
+module.exports = { localEngineFetch, setLocalCapabilityProvider };

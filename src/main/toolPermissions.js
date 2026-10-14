@@ -55,6 +55,17 @@ const TOOL_CAPABILITIES = Object.freeze({
 	extract_web_page_data: CAPABILITIES.READ,
 	use_skill: CAPABILITIES.READ,
 	propose_skill: CAPABILITIES.READ,
+	git_status: CAPABILITIES.READ,
+	git_diff: CAPABILITIES.READ,
+	git_log: CAPABILITIES.READ,
+	git_show: CAPABILITIES.READ,
+	git_branch: CAPABILITIES.READ,
+	git_blame: CAPABILITIES.READ,
+	// Staging stays in-workspace (contained like other writes). Committing
+	// creates persistent shared history, so it always confirms: modeled as an
+	// external mutation, which prompts in every mode except full_access.
+	git_stage: CAPABILITIES.WORKSPACE_WRITE,
+	git_commit: CAPABILITIES.EXTERNAL_MUTATION,
 	// WORKSPACE_WRITE
 	write_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	write_file: CAPABILITIES.WORKSPACE_WRITE,
@@ -159,6 +170,10 @@ function sessionProject(sessionId) {
  */
 function writeTargets(name, args) {
 	if (name === "move_project_file") return [args?.source_path, args?.destination_path];
+	if (name === "git_stage") {
+		if (!Array.isArray(args?.paths)) return [];
+		return args.paths;
+	}
 	if (name === "edit_project_files") {
 		if (!Array.isArray(args?.edits)) return [];
 		return args.edits.map((edit) => edit?.relative_path);
@@ -434,6 +449,12 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
 	if (mode === 'full_access') return { mode, approved: false };
+	if (name === 'git_commit' && mode !== 'read_only') {
+		if (!root) throw new Error('Git tools require a project workspace.');
+		const snapshot = await require('./tools/agentTools').prepareGitCommit(root, signal);
+		const approved = await requestApproval('tool', name, { ...args, staged_diff: snapshot.stagedDiff }, approvalHandlerFn, signal);
+		return { mode, approved, gitCommitFingerprint: snapshot.fingerprint };
+	}
 
 	const capability = capabilityOf(name, native);
 	const { decision, reason } = baseDecision({ capability, mode, hasWorkspace: Boolean(root), native });

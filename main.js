@@ -519,6 +519,7 @@ async function launchModel(modelId, input) {
 		const result = await launchProcess(null, model, config);
 		if (result.success) {
 			try {
+				require('./src/main/configManager').saveLastProjector(modelId, model.mmprojPath || null);
 				if (input.rememberSettings) saveLoadConfig(modelId, config);
 				else forgetLoadConfig(modelId);
 			} catch (error) {

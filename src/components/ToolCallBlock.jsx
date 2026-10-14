@@ -5,6 +5,7 @@ import FileBrowserWidget from './FileBrowserWidget';
 import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.mjs';
 import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
 import SubagentTranscriptModal from './chat/SubagentTranscriptModal.jsx';
+import SubagentLimitBadge from './chat/SubagentLimitBadge.jsx';
 
 const SUBAGENT_TOOL_NAMES = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 
@@ -94,7 +95,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}
       </div>
       {showTranscript && (
-        <div className="px-3 pb-2">
+        <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
           <button
             type="button"
             onClick={() => setTranscriptOpen(true)}
@@ -102,6 +103,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
           >
             Show sub-agent activity
           </button>
+          <SubagentLimitBadge childSessionId={step.childSessionId} />
         </div>
       )}
       {transcriptOpen && showTranscript && (

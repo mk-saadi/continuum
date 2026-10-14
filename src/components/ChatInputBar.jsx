@@ -21,6 +21,7 @@ const ChatInputBar = memo(
 			onQueue,
 			onStop,
 			onAttach,
+			onPasteFiles,
 			canSubmit,
 			hasAttachments,
 			hasQuote = false,
@@ -53,15 +54,21 @@ const ChatInputBar = memo(
 			() => ({
 				clearSubmitted,
 				setDraft: updateDraft,
-				focusInput: () => textarea.current?.focus?.(),
+				focusInput: (options) => textarea.current?.focus?.(options ?? { preventScroll: true }),
 			}),
 			[clearSubmitted, updateDraft],
 		);
 
 		useLayoutEffect(() => {
 			const element = textarea.current;
+			if (!element) return;
 			element.style.height = "auto";
 			element.style.height = `${element.scrollHeight}px`;
+			// Empty/single-line content must never show a scrollbar (subpixel
+			// rounding alone can trip overflow-y: auto). Only scroll once the
+			// max-height cap actually clips content.
+			element.style.overflowY =
+				element.scrollHeight > element.clientHeight + 1 ? "auto" : "hidden";
 		}, [draftText]);
 
 		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments || hasQuote);
@@ -69,14 +76,35 @@ const ChatInputBar = memo(
 			if (ready) onSubmit(draftText);
 		};
 
+	function collectPastedFiles(event) {
+		const clipboard = event.clipboardData;
+		if (!clipboard) return [];
+		// Files first (real file copies, screenshots from most apps).
+		const fromFiles = clipboard.files?.length ? Array.from(clipboard.files) : [];
+		if (fromFiles.length) return fromFiles;
+		// Fallback: clipboard items (e.g. copied web images expose no File).
+		const items = Array.from(clipboard.items ?? []);
+		return items
+			.filter((item) => item.kind === "file")
+			.map((item) => item.getAsFile())
+			.filter(Boolean);
+	}
+
 		return (
 			<>
 				<textarea
 					ref={textarea}
 					aria-label="Message"
-					className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-auto rounded-md py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+					className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-hidden rounded-md py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 					value={draftText}
 					onChange={(event) => updateDraft(event.target.value)}
+					onPaste={(event) => {
+						if (!onPasteFiles) return;
+						const files = collectPastedFiles(event);
+						if (!files.length) return;
+						event.preventDefault();
+						onPasteFiles(files);
+					}}
 					onKeyDown={(event) => {
 						if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229)
 							return;

@@ -33,14 +33,16 @@ const PER_REQUEST_CEILING = Object.freeze({
 
 // Automatic request limits, including retries, existing recovery requests and
 // final reporting. Custom overrides are resolved only for new children.
+// Investigation allows broad multi-step tasks (verified: 10-call ceiling dies
+// on real audits; OpenCode uses 23-37 calls per agent).
 const MAX_TURNS = Object.freeze({
-  investigation: 8,
+  investigation: 12,
   'file-analysis': 2,
   'web-extraction': 2,
 });
 
-const MAX_TOOL_CALLS = Object.freeze({ investigation: 10, 'file-analysis': 32, 'web-extraction': 1 });
-const DEFAULT_AGGREGATE_TOOL_CALLS = 40;
+const MAX_TOOL_CALLS = Object.freeze({ investigation: 25, 'file-analysis': 32, 'web-extraction': 1 });
+const DEFAULT_AGGREGATE_TOOL_CALLS = 100;
 const INPUT_REPLAYS = 4;
 const FALLBACK_CONTEXT_LENGTH = 32768;
 // Minimum completion allowance a next step must fit, or the turn stops

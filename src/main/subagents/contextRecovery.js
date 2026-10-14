@@ -175,7 +175,7 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
       const result = session.rawContext.find(r => r.id > m.id && r.role === 'tool' && r.tool_call_id === call.id);
       let args = {}; try { args = JSON.parse(call.function.arguments); } catch {}
       return { messageId: m.id, stepId: call.id, toolName: call.function.name,
-        kind: ['read_project_file', 'search_project_content', 'list_directory'].includes(call.function.name) ? 'file-read' : 'web',
+        kind: ['read_project_file', 'search_project_content', 'list_directory', 'git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame'].includes(call.function.name) ? 'file-read' : 'web',
         outcome: !result ? 'unknown' : /^Error:|^\[Tool skipped/.test(result.content) ? 'error' : 'success',
         paths: [args.relative_path, args.url].filter(Boolean), args,
         resultSnippet: typeof result?.content === 'string' ? trimToolResult(result.content, { task: session.inputSummary?.task ?? '', contextLength: 4096, maxCharacters: 800 }) : '' };

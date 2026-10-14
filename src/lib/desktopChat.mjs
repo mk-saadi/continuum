@@ -33,7 +33,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
     for (const tool of tools) onTool?.(tool);
   };
   const unsubscribe = api.onEvent(event => {
-    if (event.requestId !== requestId || (signal?.aborted && !['step-update', 'message-created'].includes(event.type))) return;
+    if (event.requestId !== requestId || (signal?.aborted && !['step-update', 'message-created', 'stats'].includes(event.type))) return;
     if (event.type === 'message-created') { onMessageCreated?.(event.messageId); return; }
     if (event.type === 'step-update') executionSteps = liveSteps = event.executionSteps;
     else if (event.type === 'tool_start') {

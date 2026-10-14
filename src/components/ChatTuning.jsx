@@ -77,7 +77,6 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 			{state &&
 				controls.map((control) => {
 					const commonProps = {
-						key: control.key,
 						label: control.label,
 						min: control.min,
 						max: control.max,
@@ -111,6 +110,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 					if (control.type === "range") {
 						return (
 							<SliderField
+								key={control.key}
 								{...commonProps}
 								valueLabel={state.params[control.key]}
                                 onCommit={event => save({ [control.key]: Number(event.target.value) })}
@@ -120,6 +120,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 
 					return (
 						<NumberField
+							key={control.key}
 							{...commonProps}
 							hint={
 								control.key === "max_tokens"

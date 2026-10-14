@@ -318,7 +318,26 @@ class McpManager extends EventEmitter {
         throw new Error(`SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`);
       }
     }
-    const result = await server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
+    // Phase 2 recovery: an MCP tool runs in an external process with full
+    // filesystem access, so workspace-affecting calls get the same
+    // before/after boundary as shell commands. Placement is deliberate:
+    // after the mutation-approval gate above (denied calls never scan) and
+    // covering only the actual dispatch. Read-only and non-workspace calls
+    // run exactly as before. The string result shape is unchanged (the
+    // checkpoint is discoverable via listCheckpoints, not the payload).
+    const dispatch = () => server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
+    const { shouldScanMcpCall, withMcpRecovery } = require('./recoveryBoundary');
+    const project = sessionId ? require('./toolPermissions').sessionProject(sessionId) : null;
+    const root = project?.root_path ?? null;
+    let result;
+    if (root && await shouldScanMcpCall({ toolName, args, root })) {
+      result = await withMcpRecovery({
+        root, chatSessionId: sessionId ?? null, toolName: `mcp:${serverName}/${toolName}`,
+        opMeta: { server: serverName },
+      }, dispatch);
+    } else {
+      result = await dispatch();
+    }
     return JSON.stringify(limitFilesystemResult(toolName, result));
   }
   setServerEnabled(serverName, enabled) {

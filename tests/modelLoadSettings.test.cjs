@@ -14,7 +14,7 @@ Module._load = function (name, ...args) {
   return originalLoad.call(this, name, ...args);
 };
 const { initDatabase, closeDatabase, db } = require('../src/main/db');
-const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig } = require('../src/main/configManager');
+const { DEFAULT_LOAD_CONFIG, normalizeLoadConfig, getLoadConfig, saveLoadConfig, forgetLoadConfig, saveLastProjector } = require('../src/main/configManager');
 const { buildLlamaServerArgs } = require('../src/main/engineManager');
 const { parseModelMetadata } = require('../src/main/modelScanner');
 
@@ -207,6 +207,14 @@ try {
     assert.match(launchText, /nonexistent-continuum\.gguf/);
   }
 
+  saveLastProjector(model.modelPath, '/models/mmproj-vision.gguf');
+  assert.equal(getLoadConfig(model.modelPath).projectorPath, '/models/mmproj-vision.gguf');
+  forgetLoadConfig(model.modelPath);
+  assert.equal(getLoadConfig(model.modelPath).projectorPath, '/models/mmproj-vision.gguf', 'last projector survives the remember-settings checkbox');
+  saveLastProjector(model.modelPath, null);
+  assert.equal(getLoadConfig(model.modelPath).projectorPath, null, 'text-only choice is remembered');
+  assert.equal(getLoadConfig('/models/other.gguf').projectorPath, undefined, 'choices are per model');
+  assert.throws(() => saveLastProjector(model.modelPath, 'relative.gguf'), /Invalid projector path/);
   console.log('Advanced load settings: defaults, legacy configs, validation, persistence, and CLI wiring passed.');
 } finally {
   closeDatabase(); Module._load = originalLoad;

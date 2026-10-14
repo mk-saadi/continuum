@@ -7,6 +7,7 @@
 //   2. target_file: ONE local text file, analyzed in one shot.
 //   3. investigate: true: a multi-turn read-only child loop over
 //      search_project_content / read_project_file / list_directory /
+//      git_status / git_diff / git_log / git_show / git_branch / git_blame /
 //      get_single_web_page_content — still fetch-a-known-URL only.
 // The application exposes no search/discovery facility anywhere (the only web
 // tool, in the main context or in a child, is the single-URL fetcher above;
