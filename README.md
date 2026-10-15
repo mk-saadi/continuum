@@ -14,11 +14,23 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 ### 🤖 Agent Harness & Project Management
 *   **Custom Agents (Avatars):** Create specialized AI personas, each with its own system prompt, branding, avatar, and sampling parameters.
 *   **Project Contexts:** Organize work into Projects. Attach files (text/PDF) to a project for deep, persistent context shared across every chat in that project.
-*   **Sub-Agent Delegation:** Offload scoped research tasks to background sub-agents while the main conversation stays responsive.
+*   **Sub-Agent Delegation:** Offload scoped research tasks to background sub-agents while the main conversation stays responsive. Sub-agent model, budgets, and retention are configurable; completed child contexts are pruned automatically with transcripts preserved in SQLite.
+*   **Branches, Variants & Regeneration:** Fork any message into a new branch, regenerate replies, and flip between saved variants without losing history.
+
+### 📊 Rich Responses: Cards, Checklists, Charts
+*   **Rich Blocks:** The assistant renders option cards, progress flows, and interactive checklists directly in chat. Checklist ticks persist in the local database — they survive reloads and re-renders.
+*   **Interactive Charts:** Numerical answers arrive as toggleable bar/line/area/pie charts (pastel palettes that stay readable in all 16 themes).
+*   **Faithful Rendering:** GFM tables, syntax-highlighted code with copy buttons, local image/video playback, and LaTeX-arrow normalization.
 
 ### 🧠 Intelligent Memory Palace
 *   **Permanent Memory:** Facts, preferences, and rules that persist across all sessions — with optional "always inject" for mission-critical instructions. Memories can be global or scoped to specific models/agents.
 *   **Dynamic Context Summarization (Compaction):** Token usage is continuously monitored; older messages are intelligently summarized into a compact digest before the context window fills, preserving essential history without manual intervention.
+*   **Workspace Continuity:** Task briefs and resumable checkpoints preserve objectives, decisions, files changed, and next actions across compressions and restarts.
+
+### 🛟 Workspace Recovery
+*   **Crash-Safe Sessions:** A content-addressed recovery journal (blob store, manifests, checkpoints) snapshots workspace files as the agent works. Shell and MCP writes are boundary-scanned; restores preview before applying.
+*   **Review & Restore UI:** Browse recovery history, inspect per-file diffs, pin checkpoints, and restore with one click. Retention and storage usage are configurable.
+*   **Cache-Token Telemetry:** The Context tab breaks down prompt/completion/cache tokens per turn, so you can see prompt caching working.
 
 ### 🛠️ Extensible Tooling (MCP) — Including Self-Registration
 *   **Model Context Protocol:** Full MCP support via `stdio` and `SSE`. Connect external tools, databases, and services using the industry-standard protocol.
@@ -37,8 +49,12 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 *   One-time automatic migration handles legacy data directories transparently on startup.
 
 ### 🎨 Premium User Experience
+*   **16 Themes + Custom Backgrounds:** Eight hand-built light/dark families (Mochi, Lilac, Matcha, Ember, Tokyo Night, Gruvbox, Solarized, plus defaults) with per-surface translucency over your own wallpaper.
 *   **Custom Branding:** Each agent carries unique branding and avatars across the interface.
 *   **Chat Controls (Right Sidebar):** Per-chat overrides for Agent & Persona, Sampling parameters, Thinking Budget, and Memory & Context — with one-click reset to model defaults.
+*   **Chat Power Tools:** In-chat find (Ctrl+F), text selection actions, AI-generated titles, chat export (JSON/Markdown/Text), full-text history search, and per-model capability overrides.
+*   **Rich Attachments:** Images, audio, video, PDFs, and documents via picker, paste, or drag-and-drop. Local media renders inline through a sandboxed media protocol.
+*   **Media Generation:** Image generation via configured cloud providers, with the same markdown-render pipeline as local files.
 *   **Advanced Settings Modal:** Granular control over model profiles, cloud provider credentials, memory/compaction toggles, engine connections, and offline document chat embeddings.
 
 ---
@@ -108,10 +124,10 @@ npm run build
 
 ## 📂 Project Structure
 
-*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`.
-*   `src/components/`: React components for the user interface.
+*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`, `recoveryStore`/`recoveryBoundary` (workspace recovery), `checklistState` (persisted checklist ticks), `taskBriefs`/`taskCheckpoints`.
+*   `src/components/`: React components for the user interface, including `RichBlocks` (cards/checklists/flows), `InteractiveChart`, and `chat/` timeline, recovery, and find widgets.
 *   `src/hooks/`: Custom React hooks for state management and side effects.
-*   `docs/`: Detailed documentation on chat history, file attachments, and offline document chat.
+*   `docs/`: Detailed documentation on chat history, file attachments, offline document chat, recovery architecture, and performance reports.
 *   `tests/`: Comprehensive test suite (unit, integration, and UI tests).
 
 ---
