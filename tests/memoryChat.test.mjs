@@ -87,7 +87,7 @@ test('aborted requests do not execute tools or start network requests', async ()
 
 test('tool round limit executes the boundary batch and yields without an error', async () => {
   let requests = 0, executions = 0, pauses = 0;
-  await runMemoryChat({ ...base, maxToolRounds: 1,
+  await runMemoryChat({ ...base, maxToolRounds: 1, casualMode: true,
     onPaused: async () => { pauses++; assert.equal(executions, 1); return false; },
     executeTool: () => { executions++; return { success: true }; },
     fetchImpl: async () => {

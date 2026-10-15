@@ -71,13 +71,34 @@ COLOR RULE FOR VISUALS: When you choose colors for swatches or chart series, use
 
 const RICH_BLOCKS_BASIC_CORE = `
 
+RICH BLOCKS (only when a visual summary beats prose; otherwise plain Markdown).
+Emit the fence, then one JSON object with an "items" array (never a bare array).
+- Options/comparisons:
+\`\`\`json:cards
+{"title":"...","items":[{"title":"...","badge":"...","body":"...","note":"...","swatches":["#A8D8EA"]}]}
+\`\`\`
+Every cards item MUST have a "title".
+Valid JSON only. Plain text inside strings, no Markdown. Never nest blocks.
+`;
+
+// Exact wording shipped before the explicit-format revision. Kept so system
+// messages written with it are still recognized and stripped.
+const RICH_BLOCKS_BASIC_CORE_V1 = `
+
 RICH BLOCKS (only when a visual summary beats prose; otherwise plain Markdown):
 - Options/comparisons: \`\`\`json:cards {"items":[{"title":"","badge":"","body":"","note":"","swatches":["#hex"]}]}
 - Checklists: \`\`\`json:checklist {"title":"","items":[{"text":"","done":false}],"status":""}
 Valid JSON only. Plain text inside strings, no Markdown. Never nest blocks.
 `;
 
-const RICH_BLOCKS_FLOW = `- Process/flow: \`\`\`json:flow {"steps":[{"title":"","body":""}]}
+const RICH_BLOCKS_FLOW = `- Process/flow:
+\`\`\`json:flow
+{"title":"...","steps":[{"title":"...","body":"..."}]}
+\`\`\`
+Every flow step MUST have a "title".
+`;
+
+const RICH_BLOCKS_FLOW_V1 = `- Process/flow: \`\`\`json:flow {"steps":[{"title":"","body":""}]}
 `;
 
 function richText(level, includePastel) {
@@ -104,20 +125,29 @@ function messageHasPastel(messages) {
 	});
 }
 
-const RICH_VARIANTS = ["off", "basic", "full"];
 const MEDIA_VARIANTS = [
 	(base) => base,
 	(base) => base.replace(MEDIA_GENERATION_RULES, ""),
 	(base) => base.replace(MEDIA_GENERATION_TOOL_RULE, ""),
 ];
+// Every rich suffix ever emitted (current wording plus the V1 wording), each
+// with and without the pastel rule, so rebuilds strip bases written by any
+// earlier revision instead of stacking a second system prompt.
+function richSuffixes(core, flow) {
+	const stem = core + flow;
+	return [stem + PASTEL_COLOR_RULE, stem];
+}
+const RICH_SUFFIX_HISTORY = [
+	...richSuffixes(RICH_BLOCKS_BASIC_CORE, ""),
+	...richSuffixes(RICH_BLOCKS_BASIC_CORE, RICH_BLOCKS_FLOW),
+	...richSuffixes(RICH_BLOCKS_BASIC_CORE_V1, ""),
+	...richSuffixes(RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V1),
+];
 const PREVIOUS_INSTRUCTIONS = new Set(
 	BASE_PROMPT_VARIANTS.flatMap((base) =>
 		MEDIA_VARIANTS.flatMap((applyMedia) => {
 			const mediaBase = applyMedia(base);
-			return RICH_VARIANTS.flatMap((level) => {
-				if (level === "off") return [mediaBase];
-				return [mediaBase + richText(level, true), mediaBase + richText(level, false)];
-			});
+			return ["", ...RICH_SUFFIX_HISTORY].map((suffix) => mediaBase + suffix);
 		}),
 	),
 );
@@ -168,4 +198,4 @@ function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration
 	];
 }
 
-module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, PASTEL_COLOR_RULE, RICH_BLOCKS_BASIC, RICH_BLOCKS_FULL, RICH_BLOCK_RULES, buildTemporalAnchor, prependBaseSystemPrompt };
+module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, PASTEL_COLOR_RULE, RICH_BLOCKS_BASIC, RICH_BLOCKS_FULL, RICH_BLOCK_RULES, RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V1, buildTemporalAnchor, prependBaseSystemPrompt };

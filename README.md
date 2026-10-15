@@ -17,10 +17,10 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 *   **Sub-Agent Delegation:** Offload scoped research tasks to background sub-agents while the main conversation stays responsive. Sub-agent model, budgets, and retention are configurable; completed child contexts are pruned automatically with transcripts preserved in SQLite.
 *   **Branches, Variants & Regeneration:** Fork any message into a new branch, regenerate replies, and flip between saved variants without losing history.
 
-### 📊 Rich Responses: Cards, Checklists, Charts
-*   **Rich Blocks:** The assistant renders option cards, progress flows, and interactive checklists directly in chat. Checklist ticks persist in the local database — they survive reloads and re-renders.
+### 📊 Rich Responses: Cards, Flows, Charts
+*   **Rich Blocks:** The assistant renders option cards and progress flows directly in chat.
 *   **Interactive Charts:** Numerical answers arrive as toggleable bar/line/area/pie charts (pastel palettes that stay readable in all 16 themes).
-*   **Faithful Rendering:** GFM tables, syntax-highlighted code with copy buttons, local image/video playback, and LaTeX-arrow normalization.
+*   **Faithful Rendering:** GFM tables, syntax-highlighted code with copy buttons, local image/video playback, LaTeX-arrow normalization, and inline color swatches for hex/rgb/hsl literals.
 
 ### 🧠 Intelligent Memory Palace
 *   **Permanent Memory:** Facts, preferences, and rules that persist across all sessions — with optional "always inject" for mission-critical instructions. Memories can be global or scoped to specific models/agents.
@@ -124,8 +124,8 @@ npm run build
 
 ## 📂 Project Structure
 
-*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`, `recoveryStore`/`recoveryBoundary` (workspace recovery), `checklistState` (persisted checklist ticks), `taskBriefs`/`taskCheckpoints`.
-*   `src/components/`: React components for the user interface, including `RichBlocks` (cards/checklists/flows), `InteractiveChart`, and `chat/` timeline, recovery, and find widgets.
+*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`, `recoveryStore`/`recoveryBoundary` (workspace recovery), `taskBriefs`/`taskCheckpoints`.
+*   `src/components/`: React components for the user interface, including `RichBlocks` (cards/flows), `InteractiveChart`, and `chat/` timeline, recovery, and find widgets.
 *   `src/hooks/`: Custom React hooks for state management and side effects.
 *   `docs/`: Detailed documentation on chat history, file attachments, offline document chat, recovery architecture, and performance reports.
 *   `tests/`: Comprehensive test suite (unit, integration, and UI tests).

@@ -12,6 +12,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
 import { RichBlock } from "./RichBlocks.jsx";
+import { textBlock, withColorSwatches } from "./ColorSwatch.jsx";
 import Tooltip from "./Tooltip.jsx";
 import {
 	mediaSource,
@@ -223,6 +224,13 @@ function makeComponents(isStreaming) {
 		);
 	},
 	pre: ({ children }) => <>{children}</>,
+	p: textBlock("p"),
+	li: textBlock("li"),
+	h1: textBlock("h1"),
+	h2: textBlock("h2"),
+	h3: textBlock("h3"),
+	td: textBlock("td"),
+	th: textBlock("th"),
 	table: ({ node, ...props }) => (
 		<div className="assistant-table-scroll">
 			<table
@@ -235,7 +243,7 @@ function makeComponents(isStreaming) {
 		const code = String(children);
 		const language = /language-([^\s]+)/.exec(className || "")?.[1];
 		if (language === "json:chart" || language === "chart") return <ChartCodeBlock code={code} />;
-		const m = /language-json:(cards|checklist|flow)/.exec(className ?? "");
+		const m = /language-json:(cards|flow)/.exec(className ?? "");
 		if (m) {
 			return (
 				<RichBlock
@@ -263,7 +271,7 @@ function makeComponents(isStreaming) {
 				{...props}
 				className={`${className || ""} rounded bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
 			>
-				{children}
+				{withColorSwatches(children)}
 			</code>
 		);
 	},

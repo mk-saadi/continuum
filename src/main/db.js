@@ -189,6 +189,8 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_message_attachments_message
     ON message_attachments(message_id, id);
 
+  DROP TABLE IF EXISTS checklist_state;
+
   CREATE TABLE IF NOT EXISTS session_summaries (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id),

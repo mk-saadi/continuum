@@ -448,6 +448,11 @@ export async function runMemoryChat({
   let remindedFileOps = false, remindedSubagent = false;
   let casualToolCount = 0, maxAllowedTools = 5, finalResponseOnly = false;
   let turnCount = 0, round = 0, executionState = 'running';
+  // Workspace runs (casualMode === false) have no fixed turn/round ceiling:
+  // long tasks continue until completion, cancellation, or a genuine blocker.
+  // Casual runs keep the bounded budget with user-approved continuation, so
+  // the counters below only gate execution there.
+  const enforceTurnBudget = casualMode;
   let failedToolStreak = 0, failedRangeStart = null;
   const applyContextRewind = () => {
     if (!projectId || failedRangeStart === null || !rewindFailedTurnRange) return;
@@ -643,8 +648,9 @@ export async function runMemoryChat({
     }
     toolRounds++;
     // Capture the boundary before writes reset the budget: finish this batch,
-    // then yield if this generation already reached its limit.
-    const reachedLimit = turnCount >= maxAutoTurns || toolRounds >= maxToolRounds;
+    // then yield if this generation already reached its limit. The budget only
+    // applies to casual runs; workspace runs continue without a turn ceiling.
+    const reachedLimit = enforceTurnBudget && (turnCount >= maxAutoTurns || toolRounds >= maxToolRounds);
 
     for (const call of result.toolCalls) {
       if (!call.id || usedIds.has(call.id)) throw new Error('Missing or repeated tool-call ID.');
@@ -679,7 +685,11 @@ export async function runMemoryChat({
         const failure = failedToolReason?.(output, entry.call.function.name);
         entry.step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
         if (failure) entry.step.error = failure;
-        if (['str_replace_editor', 'write_project_file', 'edit_project_files', 'apply_patch', 'move_project_file'].includes(entry.call.function.name) &&
+        // Successful file writes extend the casual turn budget. The reset only
+        // matters where the counters gate execution (casual runs); workspace
+        // runs have no ceiling, so no reset is applied there.
+        if (enforceTurnBudget &&
+            ['str_replace_editor', 'write_project_file', 'edit_project_files', 'apply_patch', 'move_project_file'].includes(entry.call.function.name) &&
             result?.success === true && !result?.isError) {
           turnCount = 0;
           toolRounds = 0;

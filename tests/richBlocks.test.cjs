@@ -31,12 +31,29 @@ test('richLevel off/basic/full produce expected text', () => {
   const basic = base.prependBaseSystemPrompt([{ role: 'user', content: 'hi' }], true, true, 'basic')[0].content;
   assert.match(basic, /RICH BLOCKS/);
   assert.match(basic, /json:cards/);
-  assert.match(basic, /json:checklist/);
+  assert.doesNotMatch(basic, /json:checklist/);
   assert.doesNotMatch(basic, /json:flow/);
   assert.match(basic, /soft pastel hues/);
   const full = base.prependBaseSystemPrompt([{ role: 'user', content: 'hi' }], true, true, 'full')[0].content;
   assert.match(full, /json:flow/);
   assert.match(full, /soft pastel hues/);
+  // Explicit shape teaching: object with items, required keys.
+  assert.match(basic, /"items"/);
+  assert.match(basic, /MUST have a "title"/);
+  assert.match(full, /"steps"/);
+  assert.match(full, /MUST have a "title"/);
+});
+
+test('V1-worded rich bases are still recognized and stripped', () => {
+  const { BASE_SYSTEM_PROMPT_WITH_TOOLS, RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V1, PASTEL_COLOR_RULE, buildTemporalAnchor } = base;
+  const legacy = BASE_SYSTEM_PROMPT_WITH_TOOLS + RICH_BLOCKS_BASIC_CORE_V1 + RICH_BLOCKS_FLOW_V1 + PASTEL_COLOR_RULE;
+  const msgs = [
+    { role: 'system', content: buildTemporalAnchor() + legacy },
+    { role: 'user', content: 'hi' },
+  ];
+  const out = base.prependBaseSystemPrompt(msgs, true, true, 'full');
+  assert.equal(out.filter((m) => m.role === 'system').length, 1, 'legacy V1 base was not stripped');
+  assert.match(out[0].content, /MUST have a "title"/, 'new wording applied after strip');
 });
 
 test('pastel rule appears exactly once when chart docs and rich blocks combine', () => {

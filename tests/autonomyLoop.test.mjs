@@ -74,7 +74,7 @@ test('pause waits for user continuation and never re-executes pending tools', as
   let resume, requests = 0, executions = 0;
   let markPaused;
   const paused = new Promise(resolve => { markPaused = resolve; });
-  const run = runMemoryChat({ ...base, maxAutoTurns: 1,
+  const run = runMemoryChat({ ...base, maxAutoTurns: 1, casualMode: true,
     onPaused: state => { assert.equal(state.reason, 'turn_limit'); markPaused(); return new Promise(resolve => { resume = resolve; }); },
     executeTool: async () => { executions++; return { success: true }; },
     fetchImpl: async (_url, options) => {
@@ -94,7 +94,7 @@ for (const success of [true, false]) {
   test(`write success=${success} ${success ? 'resets' : 'does not reset'} the turn budget`, async () => {
     let requests = 0, pauses = 0;
     const write = id => ({ tool_calls: [{ id, function: { name: 'write_project_file', arguments: '{}' } }] });
-    await runMemoryChat({ ...base, maxAutoTurns: 3,
+    await runMemoryChat({ ...base, maxAutoTurns: 3, casualMode: true,
       chatTools: [...base.chatTools, { type: 'function', function: { name: 'write_project_file' } }],
       onPaused: async () => { pauses++; return false; },
       executeTool: async () => ({ success }),
@@ -107,7 +107,7 @@ for (const success of [true, false]) {
 
 test('successful boundary write finishes before pausing', async () => {
   let written = false;
-  await runMemoryChat({ ...base, maxAutoTurns: 1,
+  await runMemoryChat({ ...base, maxAutoTurns: 1, casualMode: true,
     chatTools: [{ type: 'function', function: { name: 'str_replace_editor' } }],
     executeTool: async () => { await Promise.resolve(); written = true; return { success: true }; },
     onPaused: async () => { assert.ok(written); return false; },

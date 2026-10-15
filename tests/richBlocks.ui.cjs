@@ -67,21 +67,25 @@ app.whenReady().then(async () => {
       window.renderMessage(fence + 'json:cards\\n' + many + '\\n' + fence);
       await waitFor(() => document.querySelectorAll('.rich-card').length === 8);
       out.clipped = document.querySelector('.rich-card-title').textContent.length <= 100;
-      // 6. Checklist toggle updates footer + Complete pill.
-      const list = JSON.stringify({ title: 'Todos', items: [{ text: 'one' }, { text: 'two' }] });
-      window.renderMessage(fence + 'json:checklist\\n' + list + '\\n' + fence);
-      await waitFor(() => document.querySelector('.rich-checklist'));
-      const boxes = [...document.querySelectorAll('.rich-checklist input[type="checkbox"]')];
-      boxes.forEach(b => b.click());
-      await waitFor(() => document.querySelector('.rich-footer').textContent.includes('2 of 2 done'));
-      out.checklist = document.querySelector('.rich-footer').textContent;
-      out.complete = document.querySelector('.rich-pill').textContent === 'Complete';
-      // 7. Flow renders arrows.
+      // 6. Flow renders arrows.
       const flow = JSON.stringify({ title: 'Pipe', steps: [{ title: 's1', body: 'b1' }, { title: 's2' }] });
       window.renderMessage(fence + 'json:flow\\n' + flow + '\\n' + fence);
       await waitFor(() => document.querySelector('.rich-arrow'));
       out.flow = document.querySelector('.rich-flow').textContent.includes('s1');
-      // 8. Chart pastel default: omitted colors use pastel palette.
+      // 6b. Bare-array cards (models improvise [...] instead of {"items":[...]}).
+      const bare = JSON.stringify([
+        { title: 'Cloud', body: 'Managed infrastructure with elastic scaling.' },
+        { title: 'Local', body: 'Full control over hardware and data.' },
+        { title: 'Hybrid', body: 'Critical data local, elastic peaks in cloud.' },
+      ]);
+      window.renderMessage(fence + 'json:cards\\n' + bare + '\\n' + fence);
+      await waitFor(() => document.querySelectorAll('.rich-card').length === 3);
+      out.bareArray = [...document.querySelectorAll('.rich-card-title')].map(el => el.textContent).join('|');
+      // 6c. Empty items fall back to a code block, never empty chrome.
+      window.renderMessage(fence + 'json:cards\\n{"items":[]}\\n' + fence);
+      await waitFor(() => document.querySelector('.assistant-markdown pre'));
+      out.emptyFallback = !document.querySelector('.rich-block');
+      // 7. Chart pastel default: omitted colors use pastel palette.
       const chart = JSON.stringify({ type: 'bar', title: 'C', xAxisKey: 'd', series: [{ key: 'v' }], data: [{ d: 'x', v: 1 }] });
       window.renderMessage(fence + 'json:chart\\n' + chart + '\\n' + fence);
       await waitFor(() => document.querySelector('.recharts-bar'));
@@ -101,10 +105,11 @@ app.whenReady().then(async () => {
     if (!result.skeleton) throw new Error('streaming skeleton missing');
     if (!result.scriptLiteral || !result.noScriptTag) throw new Error('script not rendered as literal text');
     if (!result.clipped) throw new Error('strings not clipped');
-    if (!result.checklist.includes('2 of 2 done') || !result.complete) throw new Error('checklist footer wrong: ' + result.checklist);
     if (!result.flow) throw new Error('flow missing');
+    if (result.bareArray !== 'Cloud|Local|Hybrid') throw new Error('bare-array cards failed: ' + result.bareArray);
+    if (!result.emptyFallback) throw new Error('empty items did not fall back');
     const got = hexOf(result.chartSwatch) || (result.chartFill || '').toUpperCase();
     if (!pastel.map(p => p.toUpperCase()).includes(got)) throw new Error('chart pastel default missing: ' + JSON.stringify(result.chartSwatch) + ' ' + result.chartFill);
-    console.log('Rich blocks UI passed: ' + JSON.stringify({ swatches: result.swatchCount, footer: result.checklist, fill: got }));
+    console.log('Rich blocks UI passed: ' + JSON.stringify({ swatches: result.swatchCount, fill: got }));
   } finally { browser.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
 }).then(() => app.quit()).catch(error => { console.error(error); app.exit(1); });

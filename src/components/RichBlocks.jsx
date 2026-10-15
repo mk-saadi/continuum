@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { jsonrepair } from "jsonrepair";
 
 export const RICH_HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
@@ -51,34 +51,6 @@ function Cards({ data }) {
 	);
 }
 
-function Checklist({ data }) {
-	const items = (data.items ?? []).slice(0, 20);
-	const [done, setDone] = useState(() => items.map((it) => !!it.done));
-	const count = done.filter(Boolean).length;
-	const toggle = (i) => setDone((d) => d.map((v, j) => (j === i ? !v : v)));
-	return (
-		<div className="rich-block">
-			{data.title && <div className="rich-title">{clip(data.title, 120)}</div>}
-			<ul className="rich-checklist">
-				{items.map((it, i) => (
-					<li key={i}>
-						<label>
-							<input type="checkbox" checked={done[i]} onChange={() => toggle(i)} />
-							<span>{clip(it.text, 200)}</span>
-						</label>
-					</li>
-				))}
-			</ul>
-			<div className="rich-footer">
-				<span>
-					{count} of {items.length} done
-				</span>
-				<span className="rich-pill">{count === items.length ? "Complete" : clip(data.status ?? "In progress", 30)}</span>
-			</div>
-		</div>
-	);
-}
-
 function Flow({ data }) {
 	const steps = (data.steps ?? []).slice(0, 8);
 	return (
@@ -105,12 +77,39 @@ function Flow({ data }) {
 	);
 }
 
-const RENDERERS = { cards: Cards, checklist: Checklist, flow: Flow };
+const RENDERERS = { cards: Cards, flow: Flow };
+
+// Models improvise shapes (taught {"items":[...]} but emit [...] or plain
+// strings). Normalize liberally; unshaped or empty payloads fall back to a
+// code block instead of rendering empty chrome.
+const LABEL_KEYS = ["title", "text", "label", "task", "name", "content", "body"];
+
+function pickLabel(entry, textKey) {
+	if (typeof entry === "string") return entry;
+	const it = entry ?? {};
+	for (const key of [textKey, ...LABEL_KEYS]) {
+		const value = it[key];
+		if (typeof value === "string" && value.trim()) return value;
+		if (typeof value === "number") return String(value);
+	}
+	return "";
+}
+
+function normalizeData(kind, parsed) {
+	const key = kind === "flow" ? "steps" : "items";
+	const list = Array.isArray(parsed) ? parsed : parsed?.[key];
+	if (!Array.isArray(list) || !list.length) return null;
+	const shape = (entry, textKey) =>
+		typeof entry === "string" ? { [textKey]: entry } : { ...(entry ?? {}), [textKey]: pickLabel(entry, textKey) };
+	if (kind === "flow") return { title: parsed?.title, steps: list.map((s) => shape(s, "title")) };
+	return { ...parsed, [key]: list.map((it) => shape(it, "title")) };
+}
 
 export function RichBlock({ kind, raw, streaming, fallback }) {
-	const data = parseRichBlock(raw, streaming);
+	const parsed = parseRichBlock(raw, streaming);
 	const Renderer = RENDERERS[kind];
-	if (!data || !Renderer) {
+	const data = parsed && Renderer ? normalizeData(kind, parsed) : null;
+	if (!data) {
 		return streaming ? <div className="rich-block rich-skeleton" /> : fallback;
 	}
 	return <Renderer key={raw} data={data} />;

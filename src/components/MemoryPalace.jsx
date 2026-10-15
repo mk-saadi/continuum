@@ -16,7 +16,31 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     onSessionChange?.(id);
   }, [onSessionChange]);
   const [enabled, setEnabled] = useState(true);
-  const contextLength = activeModelConfig?.contextLength;
+  const [cloudContext, setCloudContext] = useState(null);
+  useEffect(() => {
+    let active = true;
+    let request = 0;
+    setCloudContext(null);
+    const refreshCloudContext = async () => {
+      const version = ++request;
+      if (!isCloud || !modelId?.startsWith('cloud:') || !window.api?.getCloudModelMetadata) return;
+      const [, provider, ...modelParts] = modelId.split(':');
+      try {
+        const rows = await window.api.getCloudModelMetadata();
+        const row = rows.find(row => row.providerId === provider && row.modelId === modelParts.join(':'));
+        if (active && version === request) setCloudContext({ modelId, contextLength: row?.contextLength ?? null });
+      } catch { if (active && version === request) setCloudContext(null); }
+    };
+    void refreshCloudContext();
+    window.addEventListener('model-capabilities-changed', refreshCloudContext);
+    window.addEventListener('cloud-providers-changed', refreshCloudContext);
+    return () => {
+      active = false;
+      window.removeEventListener('model-capabilities-changed', refreshCloudContext);
+      window.removeEventListener('cloud-providers-changed', refreshCloudContext);
+    };
+  }, [isCloud, modelId]);
+  const contextLength = isCloud ? (cloudContext?.modelId === modelId ? cloudContext.contextLength : null) : activeModelConfig?.contextLength;
   const limit = Number.isSafeInteger(contextLength) && contextLength > 0 ? contextLength : null;
   const [usage, setUsage] = useState(null);
   const [coreTokens, setCoreTokens] = useState(0);
@@ -171,9 +195,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   }, [toast]);
 
   const schedule = useCallback(() => {
-    if (!api || !modelId || limit === null) return;
+    if (!api || !modelId || isCloud || limit === null) return;
     api.scheduleIdleCompression(sessionId, modelId, limit).catch((err) => setError(err.message));
-  }, [api, modelId, sessionId, limit]);
+  }, [api, modelId, sessionId, limit, isCloud]);
 
   async function prepareMessages(text, regenerate = false, attachments = []) {
     if (!api) throw new Error('Memory Palace is available in the desktop app.');
