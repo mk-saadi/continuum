@@ -54,7 +54,7 @@ A high-performance, privacy-first desktop AI assistant built with **Electron**, 
 *   **Chat Controls (Right Sidebar):** Per-chat overrides for Agent & Persona, Sampling parameters, Thinking Budget, and Memory & Context — with one-click reset to model defaults.
 *   **Chat Power Tools:** In-chat find (Ctrl+F), text selection actions, AI-generated titles, chat export (JSON/Markdown/Text), full-text history search, and per-model capability overrides.
 *   **Rich Attachments:** Images, audio, video, PDFs, and documents via picker, paste, or drag-and-drop. Local media renders inline through a sandboxed media protocol.
-*   **Media Generation:** Image generation via configured cloud providers, with the same markdown-render pipeline as local files.
+*   **Media Generation:** Ask any chat model for an image and it invokes the image tool itself — routed to OpenRouter, any OpenAI-compatible images endpoint, or keyless local Stable Diffusion. Results save to your data directory and render inline like any other image. (Video defaults exist in settings; generation arrives with a supported video backend.)
 *   **Advanced Settings Modal:** Granular control over model profiles, cloud provider credentials, memory/compaction toggles, engine connections, and offline document chat embeddings.
 
 ---
