@@ -59,6 +59,31 @@ function listExecutions(sessionId) {
   return [...executions.values()].filter(item => item.sessionId === sessionId);
 }
 
+// Single-pass index of sessions with a live attempt, so retention pruning
+// stays O(sessions + executions) instead of re-filtering all executions per
+// session. Read-only snapshot for one prune decision.
+function runningSessionIds() {
+  const ids = new Set();
+  for (const execution of executions.values()) {
+    if (execution.status === EXECUTION_STATUS.RUNNING) ids.add(execution.sessionId);
+  }
+  return ids;
+}
+
+// Removal for the retention policy: drops every attempt of one child session.
+// Callers evict executions only together with their session — never a live
+// session's history, which transcript counts and control paths read.
+function deleteExecutionsForSession(sessionId) {
+  let removed = 0;
+  for (const [id, execution] of executions) {
+    if (execution.sessionId === sessionId) {
+      executions.delete(id);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 function completeExecution(execution, { usage = null, result = null, outcome = 'completed', stopReason = 'completed', accounting = null } = {}) {
   execution.status = outcome;
   execution.stopReason = stopReason;
@@ -107,7 +132,7 @@ function interruptExecution(execution) {
 }
 
 module.exports = {
-  EXECUTION_STATUS, createExecution, listExecutions,
+  EXECUTION_STATUS, createExecution, listExecutions, runningSessionIds, deleteExecutionsForSession,
   completeExecution, failExecution, cancelExecution,
   flagInterrupt, interruptExecution,
 };

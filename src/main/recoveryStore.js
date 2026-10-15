@@ -97,6 +97,14 @@ function ensureRecoverySchema() {
     if (!columns.some((column) => column.name === 'pinned')) {
       connection().prepare('ALTER TABLE recovery_checkpoints ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0').run();
     }
+    // ctime hardens the mtime index (Phase 1 perf): writers cannot preserve
+    // ctime while changing content, so (size, mtime, ctime) stays conservative
+    // where (size, mtime) alone trusts a stale entry. Pre-migration rows read
+    // NULL and always miss — safe direction, one rehash per file.
+    const indexColumns = connection().prepare('PRAGMA table_info(recovery_workspace_index)').all();
+    if (!indexColumns.some((column) => column.name === 'ctime_ms')) {
+      connection().prepare('ALTER TABLE recovery_workspace_index ADD COLUMN ctime_ms INTEGER').run();
+    }
   })();
 }
 
@@ -137,12 +145,23 @@ async function resolveRestoreTarget(root, rel, { uncontained = false } = {}) {
 
 // Every existing ancestor below the final component must resolve inside the
 // workspace. Missing ancestors stop the walk (they cannot hide a link).
-async function assertParentsContained(root, rel) {
+//
+// `validated` is an optional per-scan cache of already-checked ancestor
+// absolute paths. Walks proceed top-down, so a parent directory is always
+// validated before its children are recorded; re-checking the same ancestors
+// for every sibling file costs O(depth) lstat+realpath per file (the dominant
+// warm-scan cost on deep trees). Every ancestor of every recorded path is
+// still validated once per scan — the check is deduplicated, never skipped.
+// Callers that need the strictest per-path re-validation (restore time) omit
+// the cache. Concurrent-link-swap TOCTOU is unchanged in kind: the pre-existing
+// readdir→lstat race already makes containment point-in-time per scan.
+async function assertParentsContained(root, rel, validated = null) {
   const parts = rel.split('/').filter((part) => part && part !== '.');
   let current = root;
   for (const part of parts.slice(0, -1)) {
     if (part === '..') throw new Error('Execution blocked: Path escapes the project root.');
     current = path.join(current, part);
+    if (validated?.has(current)) continue;
     let stat;
     try {
       stat = await fs.lstat(current);
@@ -153,6 +172,7 @@ async function assertParentsContained(root, rel) {
     void stat;
     const real = await fs.realpath(current);
     if (!insideRoot(root, real)) throw new Error('Execution blocked: Symlink escapes the project root.');
+    validated?.add(current);
   }
 }
 
@@ -166,7 +186,10 @@ async function getOrCreateRecoverySession(projectRoot) {
 
 // fsync-durable blob publication: temp file in the same directory, fsync,
 // rename over the final name. Returns {hash, size, deduplicated}.
-async function putBlob(bytes) {
+// `opts.knownShards` (a per-scan Set of shard dirs already ensured to exist)
+// skips the redundant recursive mkdir on every blob; the call stays correct
+// without it (mkdir is idempotent), so single-path callers omit it.
+async function putBlob(bytes, opts = {}) {
   const hash = sha256Hex(bytes);
   const final = blobPath(hash);
   try {
@@ -175,7 +198,11 @@ async function putBlob(bytes) {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  await fs.mkdir(path.dirname(final), { recursive: true });
+  const shard = path.dirname(final);
+  if (!opts.knownShards?.has(shard)) {
+    await fs.mkdir(shard, { recursive: true });
+    opts.knownShards?.add(shard);
+  }
   const temporary = `${final}.tmp-${process.pid}-${crypto.randomUUID().slice(0, 8)}`;
   const handle = await fs.open(temporary, 'wx');
   try {
@@ -222,11 +249,14 @@ class ScanCapExceeded extends Error {}
 // - excluded: array collecting scope-excluded entries (policy, not failure).
 // - hardCaps: true (targeted captures) throws on cap overflow to block the
 //   operation; false (boundary scans) marks truncation and unwinds.
-// - index: Map(path -> {hash,size,mtime_ms}) for reuse without rehashing.
+// - index: Map(path -> {hash,size,mtime_ms,ctime_ms}) for reuse without rehashing.
+// - validated: per-scan Set of containment-checked ancestor absolute paths
+//   (top-down walks check each ancestor once, not once per file).
+// - shards: per-scan Set of known blob shard dirs, skipping redundant mkdir.
 // Unreadable/oversized/unsupported files are recorded as `uncaptured` (never
 // as `absent` — a failed read is not proof of absence) AND listed in skipped.
 async function recordPath(root, rel, manifest, skipped, budget, uncontained = false, opts = {}) {
-  const { explicit = false, excluded = null, hardCaps = true, index = null, now = Date.now() } = opts;
+  const { explicit = false, excluded = null, hardCaps = true, index = null, now = Date.now(), validated = null, shards = null } = opts;
   const abs = path.resolve(root, rel);
   if (!uncontained) {
     if (!insideRoot(root, abs)) {
@@ -234,7 +264,7 @@ async function recordPath(root, rel, manifest, skipped, budget, uncontained = fa
       return;
     }
     try {
-      await assertParentsContained(root, rel);
+      await assertParentsContained(root, rel, validated);
     } catch {
       skipped.push({ path: rel, reason: 'escape' });
       return;
@@ -254,6 +284,12 @@ async function recordPath(root, rel, manifest, skipped, budget, uncontained = fa
   }
   const mode = stat.mode & 0o7777;
   const mtimeMs = Math.floor(stat.mtimeMs);
+  // ctime cannot be set by writers (only the system updates it), so the
+  // (size, mtime, ctime) triple stays conservative where (size, mtime) alone
+  // is not: content changed under a preserved mtime still bumps ctime and
+  // forces a rehash instead of trusting a stale index entry. Same-tick
+  // double writes with a forced mtime remain a disclosed residual.
+  const ctimeMs = Math.floor(stat.ctimeMs);
   const volatile = now - mtimeMs < RECOVERY_VOLATILE_MS;
   if (stat.isSymbolicLink()) {
     manifest.paths[rel] = { kind: 'symlink', target: await fs.readlink(abs), mode };
@@ -303,13 +339,14 @@ async function recordPath(root, rel, manifest, skipped, budget, uncontained = fa
     manifest.paths[rel] = { kind: 'uncaptured', reason: 'cap_exceeded' };
     throw new ScanCapExceeded(rel);
   }
-  // Index fast path: unchanged size+mtime with a live blob needs no rehash.
-  // The blob-existence check keeps the core guarantee (no dangling manifest
-  // references) even if GC or another process removed the file.
+  // Index fast path: unchanged size+mtime+ctime with a live blob needs no
+  // rehash. The blob-existence check keeps the core guarantee (no dangling
+  // manifest references) even if GC or another process removed the file.
+  // Rows predating the ctime column (NULL) always miss: safe direction.
   const known = index?.get(rel);
-  if (known && known.size === stat.size && known.mtime_ms === mtimeMs && typeof known.hash === 'string') {
+  if (known && known.size === stat.size && known.mtime_ms === mtimeMs && known.ctime_ms === ctimeMs && typeof known.hash === 'string') {
     if (await blobExists(known.hash)) {
-      manifest.paths[rel] = { kind: 'file', hash: known.hash, size: stat.size, mode, mtimeMs, ...(volatile ? { volatile: true } : {}) };
+      manifest.paths[rel] = { kind: 'file', hash: known.hash, size: stat.size, mode, mtimeMs, ctimeMs, ...(volatile ? { volatile: true } : {}) };
       budget.blobs.push({ hash: known.hash, size: stat.size });
       return;
     }
@@ -332,8 +369,8 @@ async function recordPath(root, rel, manifest, skipped, budget, uncontained = fa
   } catch {
     settled = false;
   }
-  const { hash } = await putBlob(bytes);
-  manifest.paths[rel] = { kind: 'file', hash, size: bytes.length, mode, mtimeMs, ...(volatile || !settled ? { volatile: true } : {}) };
+  const { hash } = await putBlob(bytes, { knownShards: shards });
+  manifest.paths[rel] = { kind: 'file', hash, size: bytes.length, mode, mtimeMs, ctimeMs, ...(volatile || !settled ? { volatile: true } : {}) };
   budget.blobs.push({ hash, size: bytes.length });
 }
 
@@ -370,6 +407,8 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
   const budget = { files: 0, bytes: 0, blobs: [] };
   const parentSet = new Set();
   const now = Date.now();
+  const validated = new Set();
+  const shards = new Set();
   for (const rel of paths) {
     if (typeof rel !== 'string' || !rel || rel.includes('\0')) {
       skipped.push({ path: String(rel), reason: 'invalid' });
@@ -382,7 +421,7 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
     }
     for (const ancestor of await missingAncestors(realRoot, abs)) parentSet.add(ancestor);
     await recordPath(realRoot, rel, manifest, skipped, budget, uncontained,
-      { explicit: explicitPaths, excluded, now });
+      { explicit: explicitPaths, excluded, now, validated, shards });
   }
   manifest.parentsCreated = [...parentSet].sort();
   const volatile = Object.entries(manifest.paths)
@@ -404,9 +443,7 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
   }
   const sessionId = await getOrCreateRecoverySession(realRoot);
   const checkpointId = connection().transaction(() => {
-    for (const { hash, size } of budget.blobs) {
-      connection().prepare('INSERT OR IGNORE INTO recovery_blobs(hash, size) VALUES (?, ?)').run(hash, size);
-    }
+    insertBlobRows(budget.blobs);
     return Number(connection().prepare(
       `INSERT INTO recovery_checkpoints(session_id, chat_session_id, tool_name, kind, op_json, manifest_json, coverage_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -416,13 +453,18 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
   return { checkpointId, sessionId, manifest, coverage };
 }
 
-// Full-workspace restore point (run-start / manual). Walks the whole project
-// tree minus scope excludes; same caps and honesty rules as captureOperation.
-async function createManualCheckpoint(root, { chatSessionId = null, label = null } = {}) {
-  const realRoot = await fs.realpath(root).catch(() => { throw new Error('Project root is not a directory.'); });
-  const entries = await fs.readdir(realRoot).catch(() => { throw new Error('Project root is not a directory.'); });
-  const paths = entries.filter((entry) => !RECOVERY_SCOPE_EXCLUDES.has(entry));
-  return captureOperation({ root: realRoot, chatSessionId, toolName: label ?? 'manual', kind: 'manual', paths });
+// Batched INSERT OR IGNORE: per-row prepare() of the same statement dominates
+// commit cost on large scans (measured 23ms → 1ms per 1500 rows). Semantics
+// are identical to the per-row loop — rows are keyed by hash, so re-inserting
+// fast-path-reused hashes still heals crash-orphaned rows (blob file present,
+// row missing), which GC would otherwise sweep as orphans.
+function insertBlobRows(blobs) {
+  for (let start = 0; start < blobs.length; start += 500) {
+    const chunk = blobs.slice(start, start + 500);
+    connection().prepare(
+      `INSERT OR IGNORE INTO recovery_blobs(hash, size) VALUES ${chunk.map(() => '(?, ?)').join(',')}`,
+    ).run(...chunk.flatMap(({ hash, size }) => [hash, size]));
+  }
 }
 
 // Full-workspace restore point (run-start / manual). Walks the whole project
@@ -436,7 +478,7 @@ async function createManualCheckpoint(root, { chatSessionId = null, label = null
 
 function loadWorkspaceIndex(root) {
   ensureRecoverySchema();
-  const rows = connection().prepare('SELECT path, hash, size, mtime_ms FROM recovery_workspace_index WHERE root = ?').all(root);
+  const rows = connection().prepare('SELECT path, hash, size, mtime_ms, ctime_ms FROM recovery_workspace_index WHERE root = ?').all(root);
   return new Map(rows.map((row) => [row.path, row]));
 }
 
@@ -445,14 +487,32 @@ function saveWorkspaceIndex(root, records) {
   connection().transaction(() => {
     connection().prepare('DELETE FROM recovery_workspace_index WHERE root = ?').run(root);
     const insert = connection().prepare(
-      'INSERT INTO recovery_workspace_index(root, path, hash, size, mtime_ms) VALUES (?, ?, ?, ?, ?)');
+      'INSERT INTO recovery_workspace_index(root, path, hash, size, mtime_ms, ctime_ms) VALUES (?, ?, ?, ?, ?, ?)');
     for (const [rel, rec] of records) {
       insert.run(root, rel,
         rec.kind === 'file' ? rec.hash : null,
         rec.kind === 'file' ? rec.size : null,
-        rec.kind === 'file' ? (rec.mtimeMs ?? null) : null);
+        rec.kind === 'file' ? (rec.mtimeMs ?? null) : null,
+        rec.kind === 'file' ? (rec.ctimeMs ?? null) : null);
     }
   })();
+}
+
+// Pure comparison for the warm-scan fast path: skip the index DELETE+rewrite
+// when the observed file records are identical to the loaded index rows.
+// The index is a cache (correctness never depends on it), so skipping an
+// identical rewrite is observably equivalent — a crash before or after yields
+// the same content. Stale rows for vanished files linger until the next
+// content change, exactly as harmless as before (fast path revalidates blobs).
+function indexRecordsEqual(index, observed) {
+  if (!index || index.size !== observed.length) return false;
+  for (const [rel, rec] of observed) {
+    const known = index.get(rel);
+    if (!known || known.hash !== rec.hash || known.size !== rec.size
+      || (known.mtime_ms ?? null) !== (rec.mtimeMs ?? null)
+      || (known.ctime_ms ?? null) !== (rec.ctimeMs ?? null)) return false;
+  }
+  return true;
 }
 
 // Full eligible-workspace scan for shell/MCP boundaries. Unlike targeted
@@ -475,6 +535,10 @@ async function scanWorkspaceState(root, { uncontained = false } = {}) {
   };
   const index = loadWorkspaceIndex(realRoot);
   const now = Date.now();
+  // Per-scan caches: containment-checked ancestors and ensured blob shards.
+  // Fresh per scan so no validation verdict outlives the walk that made it.
+  const validated = new Set();
+  const shards = new Set();
   const stopAt = (rel) => {
     skipped.push({ path: rel, reason: 'cap_exceeded' });
     manifest.paths[rel] = { kind: 'uncaptured', reason: 'cap_exceeded' };
@@ -486,7 +550,7 @@ async function scanWorkspaceState(root, { uncontained = false } = {}) {
     }
     try {
       await recordPath(realRoot, entry, manifest, skipped, budget, uncontained,
-        { explicit: false, excluded, hardCaps: false, index, now });
+        { explicit: false, excluded, hardCaps: false, index, now, validated, shards });
     } catch (error) {
       if (!(error instanceof ScanCapExceeded)) throw error;
       budget.truncated = true;
@@ -502,9 +566,11 @@ async function scanWorkspaceState(root, { uncontained = false } = {}) {
     }
   }
   // Refresh the index from what was actually observed (present files only).
+  // Unchanged warm scans skip the DELETE+rewrite: the comparator above proves
+  // the stored rows are already identical.
   const observed = Object.entries(manifest.paths)
     .filter(([, rec]) => rec && rec.kind === 'file');
-  saveWorkspaceIndex(realRoot, observed);
+  if (!indexRecordsEqual(index, observed)) saveWorkspaceIndex(realRoot, observed);
   const volatile = Object.entries(manifest.paths)
     .filter(([, rec]) => rec && rec.volatile === true)
     .map(([rel]) => rel);
@@ -525,9 +591,7 @@ async function commitScanResult({ root, chatSessionId = null, toolName = null, k
   const sessionId = await getOrCreateRecoverySession(scan.root);
   const coverage = scan.coverage;
   const checkpointId = connection().transaction(() => {
-    for (const { hash, size } of scan.newBlobs) {
-      connection().prepare('INSERT OR IGNORE INTO recovery_blobs(hash, size) VALUES (?, ?)').run(hash, size);
-    }
+    insertBlobRows(scan.newBlobs);
     return Number(connection().prepare(
       `INSERT INTO recovery_checkpoints(session_id, chat_session_id, tool_name, kind, op_json, manifest_json, coverage_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -608,13 +672,19 @@ async function finalizeBoundaryCheckpoint(preCheckpointId, { postPaths = null, p
   if (!row) throw new Error(`Unknown recovery checkpoint: ${preCheckpointId}.`);
   const manifest = JSON.parse(row.manifest_json);
   const priorOp = row.op_json ? JSON.parse(row.op_json) : {};
+  let manifestTouched = false;
   if (postFailed) {
     priorOp.postFailed = String(postFailed).slice(0, 300);
     priorOp.postComplete = false;
   } else {
+    // Created paths gain `absent` records (they did not exist at pre-state,
+    // so removal restores it). When nothing was created or renamed, the
+    // manifest is byte-identical and only op_json is rewritten — skipping a
+    // full ~MB-scale re-serialization + row rewrite per boundary.
     for (const entry of changed) {
       if ((entry.change === 'created' || entry.change === 'renamed') && !manifest.paths[entry.path]) {
         manifest.paths[entry.path] = { kind: 'absent' };
+        manifestTouched = true;
       }
     }
     // Persist full post-operation state so later restores can tell the
@@ -628,8 +698,13 @@ async function finalizeBoundaryCheckpoint(preCheckpointId, { postPaths = null, p
     priorOp.postComplete = postSkipped.length === 0 && !truncated;
     priorOp.postSkipped = postSkipped;
   }
-  connection().prepare('UPDATE recovery_checkpoints SET manifest_json = ?, op_json = ? WHERE id = ?')
-    .run(JSON.stringify(manifest), JSON.stringify(priorOp), preCheckpointId);
+  if (manifestTouched || postFailed) {
+    connection().prepare('UPDATE recovery_checkpoints SET manifest_json = ?, op_json = ? WHERE id = ?')
+      .run(JSON.stringify(manifest), JSON.stringify(priorOp), preCheckpointId);
+  } else {
+    connection().prepare('UPDATE recovery_checkpoints SET op_json = ? WHERE id = ?')
+      .run(JSON.stringify(priorOp), preCheckpointId);
+  }
   return getCheckpoint(preCheckpointId);
 }
 
@@ -1448,6 +1523,7 @@ module.exports = {
   diffStates,
   finalizeBoundaryCheckpoint,
   loadWorkspaceIndex,
+  indexRecordsEqual,
   getCheckpoint,
   listCheckpoints,
   readBlob,

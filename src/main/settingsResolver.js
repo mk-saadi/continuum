@@ -1,5 +1,5 @@
 'use strict';
-const KEYS = ['memoryEnabled', 'compactionEnabled', 'allowMidRunQuestions', 'systemPrompt', 'temperature', 'topP', 'topK', 'repeatPenalty', 'maxTokens', 'thinkingBudget'];
+const KEYS = ['memoryEnabled', 'compactionEnabled', 'allowMidRunQuestions', 'systemPrompt', 'temperature', 'topP', 'topK', 'repeatPenalty', 'maxTokens', 'thinkingBudget', 'richBlocks'];
 const SAMPLING_KEYS = { temperature: 'temperature', topP: 'top_p', topK: 'top_k', repeatPenalty: 'repeat_penalty', maxTokens: 'max_tokens', thinkingBudget: 'thinking_budget' };
 function getEffectiveSettings(session, modelPath, globalSettings) {
   const model = Object.hasOwn(globalSettings.perModelConfigs || {}, modelPath) ? globalSettings.perModelConfigs[modelPath] : {};

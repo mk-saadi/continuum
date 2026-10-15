@@ -604,7 +604,7 @@ function registerIpcHandlers({
 					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
 					reasoningEffort,
-					messages: prependBaseSystemPrompt(messages, memoryEnabled),
+					messages: prependBaseSystemPrompt(messages, memoryEnabled, null, profiles.resolveRichLevel(sessionId, modelId)),
 					guardToolContent: truncateToolOutput,
 					chatTools: tools,
                     getChatTools: async () => {

@@ -11,6 +11,7 @@ import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
+import { RichBlock } from "./RichBlocks.jsx";
 import Tooltip from "./Tooltip.jsx";
 import {
 	mediaSource,
@@ -193,7 +194,10 @@ function MarkdownMedia({ src, alt = "", children }) {
 	);
 }
 
-const components = {
+const components = makeComponents(false);
+
+function makeComponents(isStreaming) {
+	return {
 	img: ({ src, alt }) => (
 		<MarkdownMedia
 			src={src}
@@ -231,6 +235,22 @@ const components = {
 		const code = String(children);
 		const language = /language-([^\s]+)/.exec(className || "")?.[1];
 		if (language === "json:chart" || language === "chart") return <ChartCodeBlock code={code} />;
+		const m = /language-json:(cards|checklist|flow)/.exec(className ?? "");
+		if (m) {
+			return (
+				<RichBlock
+					kind={m[1]}
+					raw={code.trim()}
+					streaming={isStreaming}
+					fallback={
+						<CodeBlock
+							code={code}
+							language={language}
+						/>
+					}
+				/>
+			);
+		}
 		if (language || code.endsWith("\n"))
 			return (
 				<CodeBlock
@@ -272,7 +292,8 @@ const components = {
 			/>
 		);
 	},
-};
+	};
+}
 
 function StreamingText({ buffer, onFrame }) {
 	const text = useSyncExternalStore(buffer.subscribe, buffer.getSnapshot, buffer.getSnapshot);
@@ -439,7 +460,7 @@ const ChatMessage = React.memo(
 							remarkPlugins={[remarkGfm]}
 							rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
 							urlTransform={mediaUrlTransform}
-							components={components}
+							components={makeComponents(!!message.streaming)}
 						>
 							{normalizeLatexArrows(
 								activeVariant.content ||

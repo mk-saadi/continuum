@@ -10,6 +10,7 @@ import {
   serializeTabState,
 } from '../lib/tabState.mjs';
 import { PERMISSION_MODE_DEFAULTS } from '../lib/permissionModes.mjs';
+import { fetchSessionGroups } from '../lib/sessionGroups.mjs';
 
 const TabContext = createContext(null);
 const newTab = (modelId = '', projectId = null) => ({
@@ -119,7 +120,9 @@ export function TabProvider({ children }) {
       if (!parsed) return;
       let live = null;
       try {
-        const groups = await window.memoryPalace?.getAllSessions?.();
+        // Shares the in-flight listing with mounting panes (dedup only; errors
+        // still fall through to keeping tabs).
+        const groups = await fetchSessionGroups(window.memoryPalace);
         live = new Set(groups?.flatMap(group => group.sessions ?? []).map(session => session.id));
       } catch {
         return; // Unknown: keep tabs rather than discard the user's workspace.

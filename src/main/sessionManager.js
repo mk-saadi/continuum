@@ -232,10 +232,29 @@ function loadSession(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
   if (!session) throw new Error('Session not found.');
+  const siblings = siblingIdGroups(sessionId);
   const path = activePath(sessionId).map(row => ({ ...row,
-    siblings: db.prepare(`SELECT id FROM messages WHERE session_id = ? AND role = ? AND parent_id IS ? ORDER BY id`)
-      .all(sessionId, row.role, row.parent_id).map(item => item.id) }));
+    siblings: siblings.get(`${row.role} ${row.parent_id}`) ?? [] }));
   return { ...session, overrides: require('./profileSettings').sessionOverrides(session), messages: withAttachments(path) };
+}
+
+// One query for every message's sibling ids instead of one per message.
+// Groups by the same (role, parent_id) the per-message query filtered on;
+// parent_id nulls stringify identically on both sides, and ids stay in
+// ascending order (ORDER BY id) exactly like the original per-message query.
+function siblingIdGroups(sessionId) {
+  const groups = new Map();
+  const rows = db.prepare('SELECT id, role, parent_id FROM messages WHERE session_id = ? ORDER BY id').all(sessionId);
+  for (const row of rows) {
+    const key = `${row.role} ${row.parent_id}`;
+    let list = groups.get(key);
+    if (!list) {
+      list = [];
+      groups.set(key, list);
+    }
+    list.push(row.id);
+  }
+  return groups;
 }
 
 function getFullChatHistory(sessionId) {
@@ -370,23 +389,49 @@ function selectMessageBranch(sessionId, messageId) {
 
 Object.assign(module.exports, { loadSession, getAllSessions, createFolder, updateSession, getSessionTitle, applyGeneratedTitle, deleteSession, editMessage, selectMessageBranch });
 
+// One batched read for every message's attachments instead of one query per
+// message (chunked for database variable limits). Rows come back in global id
+// order, so each message's list preserves the per-message ORDER BY id the
+// looped query produced. Messages without attachments map to [] identically.
+function attachmentsByMessage(messageIds) {
+  const byMessage = new Map(messageIds.map((id) => [id, []]));
+  for (let start = 0; start < messageIds.length; start += 500) {
+    const chunk = messageIds.slice(start, start + 500);
+    if (!chunk.length) continue;
+    const rows = db.prepare(
+      `SELECT * FROM message_attachments WHERE message_id IN (${chunk.map(() => '?').join(',')}) ORDER BY id`,
+    ).all(...chunk);
+    for (const row of rows) byMessage.get(row.message_id)?.push(row);
+  }
+  return byMessage;
+}
+
 function withAttachments(messages) {
-  const select = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id');
-  return messages.map(({ tool_calls, thinking_text, thinking_duration, execution_steps, ...message }) => ({
-    ...message,
-    variants: parseVariants({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
-    executionSteps: readExecutionSteps({ ...message, tool_calls, thinking_text, thinking_duration, execution_steps }),
-    content: parseVariants(message)[message.active_variant_index ?? 0]?.content ?? message.content,
-    displayName: message.display_name,
-    modelName: message.model_name,
-    modelId: message.model_id,
-    agentName: message.agent_name,
-    stats: parseStats(message.stats),
-    ...(execution_steps == null ? { toolCalls: parseToolCalls(tool_calls),
-    thinkingText: typeof thinking_text === 'string' ? thinking_text : null,
-    thinkingDuration: typeof thinking_duration === 'number' && Number.isFinite(thinking_duration) && thinking_duration >= 0 ? thinking_duration : null } : {}),
-    attachments: select.all(message.id),
-  }));
+  const attachments = attachmentsByMessage(messages.map((message) => message.id));
+  return messages.map(({ tool_calls, thinking_text, thinking_duration, execution_steps, ...message }) => {
+    // One variants parse per message: the active variant's content is exactly
+    // what a second parseVariants(message) call produced (same stored array,
+    // or row.content when no variants exist), so the duplicate parse is gone.
+    // executionSteps still reads the live column (not the possibly-stale
+    // snapshot inside stored variants) to preserve mid-stream freshness.
+    const row = { ...message, tool_calls, thinking_text, thinking_duration, execution_steps };
+    const variants = parseVariants(row);
+    return {
+      ...message,
+      variants,
+      executionSteps: readExecutionSteps(row),
+      content: variants[message.active_variant_index ?? 0]?.content ?? message.content,
+      displayName: message.display_name,
+      modelName: message.model_name,
+      modelId: message.model_id,
+      agentName: message.agent_name,
+      stats: parseStats(message.stats),
+      ...(execution_steps == null ? { toolCalls: parseToolCalls(tool_calls),
+      thinkingText: typeof thinking_text === 'string' ? thinking_text : null,
+      thinkingDuration: typeof thinking_duration === 'number' && Number.isFinite(thinking_duration) && thinking_duration >= 0 ? thinking_duration : null } : {}),
+      attachments: attachments.get(message.id) ?? [],
+    };
+  });
 }
 
 // Keep nullable metrics when the server did not report token usage.

@@ -1,9 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { PALACE_POLL_INTERVAL_MS, isDocumentHidden, shouldPollTick, usageEqual } from '../lib/palacePolling.mjs';
 
 const tokens = (text) => Math.ceil(text.length / 4);
 
 export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, onSessionChange, options = {}) {
-  const { isCloud = false, permissionMode = undefined, engineReady = false, enginePort = null } = options;
+  const { isCloud = false, permissionMode = undefined, engineReady = false, enginePort = null,
+    // Inactive panes must not poll: every mounted tab owns a hook instance,
+    // so an ungated interval would multiply IPC/DB work by the tab count.
+    // Defaults preserve behavior for callers that do not pass tab state.
+    isActive = true, pollIntervalMs = PALACE_POLL_INTERVAL_MS } = options;
   const api = window.memoryPalace;
   const [sessionId, setCurrentSessionId] = useState(() => initialSessionId || crypto.randomUUID());
   const setSessionId = useCallback(id => {
@@ -84,7 +89,10 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
         api.getContextUsage(sessionId, modelId), api.getCoreMemories(modelId), window.api.getEffectiveSettings(sessionId, modelId),
       ]);
       if (version !== generation.current || requestId !== request.current) return;
-      setUsage(next);
+      // Identical polls must not churn state: usage is a fresh object per IPC
+      // round-trip, and storing it unconditionally re-renders the pane subtree
+      // every interval even when nothing changed.
+      setUsage((previous) => (usageEqual(previous, next) ? previous : next));
       setEnabled(settings.effective.memoryEnabled);
       setCoreTokens(core.reduce((sum, memory) => sum + tokens(memory.content), 0));
       setError('');
@@ -100,12 +108,18 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     setMeasured(null);
     setMeasureError('');
     setLiveTelemetry(null);
-    if (!api || !modelId) return;
+    if (!api || !modelId || !isActive) return;
     refresh();
     measure();
-    const interval = setInterval(refresh, 2000);
+    const intervalMs = Number.isSafeInteger(pollIntervalMs) && pollIntervalMs > 0
+      ? pollIntervalMs
+      : PALACE_POLL_INTERVAL_MS;
+    const interval = setInterval(() => {
+      if (!shouldPollTick({ isActive, hidden: isDocumentHidden() })) return;
+      refresh();
+    }, intervalMs);
     return () => { generation.current += 1; measureGeneration.current += 1; clearInterval(interval); };
-  }, [api, modelId, refresh, measure]);
+  }, [api, modelId, refresh, measure, isActive, pollIntervalMs]);
 
   useEffect(() => api?.onCompressionComplete((result) => {
     if (result.sessionId !== sessionId) return;

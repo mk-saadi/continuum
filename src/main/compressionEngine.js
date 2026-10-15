@@ -60,12 +60,13 @@ function projectForcedFloor({ sessionId, modelId, summaryText, briefSection, che
   const { buildSessionSystemPrompt } = require('./promptBuilder');
   const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
   const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+  const richLevel = require('./profileSettings').resolveRichLevel(sessionId, modelId);
   const projected = prependBaseSystemPrompt([
     ...(briefSection ? [briefSection] : []),
     ...(checkpointSection ? [checkpointSection] : []),
     ...(summaryText ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summaryText}` }] : []),
     buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable: false, userText: '' }),
-  ], effective.memoryEnabled);
+  ], effective.memoryEnabled, null, richLevel);
   const breakdown = { systemTokens: 0, summaryTokens: 0, briefTokens: 0, checkpointTokens: 0, tailTokens: 0, toolTokens: 0 };
   for (const message of projected) {
     const tokens = estimateContentTokens(message.content);
@@ -114,6 +115,7 @@ function buildProspectivePrompt({ sessionId, modelId, summaryText, briefSection,
   const { buildSessionSystemPrompt, messageForModel } = require('./promptBuilder');
   const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
   const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+  const richLevel = require('./profileSettings').resolveRichLevel(sessionId, modelId);
   const excluded = new Set(excludeMessageIds ?? []);
   const retained = tailMessages.filter(message => !excluded.has(message.id)).map(message => {
     try {
@@ -130,7 +132,7 @@ function buildProspectivePrompt({ sessionId, modelId, summaryText, briefSection,
     ...(summaryText ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summaryText}` }] : []),
     buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
     ...retained,
-  ], effective.memoryEnabled);
+  ], effective.memoryEnabled, null, richLevel);
   return { messages, tools: Array.isArray(tools) ? tools : [] };
 }
 

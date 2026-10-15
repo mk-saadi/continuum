@@ -973,6 +973,26 @@ pre {
 	white-space: normal;
 }
 
+.rich-block { border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 12px; margin: 12px 0; }
+.rich-title { font-weight: 600; margin-bottom: 8px; }
+.rich-skeleton { height: 64px; opacity: 0.5; }
+.rich-cards { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rich-cards[data-cols="1"] { grid-template-columns: 1fr; }
+@media (max-width: 560px) { .rich-cards { grid-template-columns: 1fr; } }
+.rich-card { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--subtle-border); border-radius: 10px; background: var(--surface-raised); }
+.rich-card-title { font-weight: 600; }
+.rich-card-body { margin: 6px 0 0; }
+.rich-card-note { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+.rich-swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 44px; height: 44px; flex-shrink: 0; }
+.rich-swatches span { border-radius: 4px; border: 1px solid var(--border); }
+.rich-badge, .rich-pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--bg-tertiary); color: var(--text-secondary); }
+.rich-checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rich-checklist label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.rich-checklist input { accent-color: var(--accent); }
+.rich-footer { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--subtle-border); color: var(--text-muted); font-size: 12px; }
+.rich-flow { display: grid; gap: 4px; }
+.rich-arrow { text-align: center; color: var(--text-muted); }
+
 /* Custom Global Scrollbar for Electron */
 ::-webkit-scrollbar {
 	width: 4px;

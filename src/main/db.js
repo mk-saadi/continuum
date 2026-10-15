@@ -184,6 +184,10 @@ const SCHEMA = `
     mime_type TEXT NOT NULL,
     estimated_tokens INTEGER NOT NULL DEFAULT 0
   );
+  -- Covers per-message attachment reads (loadSession, transcript loads);
+  -- without it every message pays a full table scan.
+  CREATE INDEX IF NOT EXISTS idx_message_attachments_message
+    ON message_attachments(message_id, id);
 
   CREATE TABLE IF NOT EXISTS session_summaries (
     id INTEGER PRIMARY KEY,

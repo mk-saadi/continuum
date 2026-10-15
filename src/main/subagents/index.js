@@ -172,6 +172,15 @@ function openRun({ parentSessionId, agentId, engine }, { kind, background, contr
   });
   startSession(session);
   const attempt = createExecution({ sessionId: session.id, kind, background, controller });
+  try {
+    // Amortized bound on completed-runtime retention: every spawn releases
+    // long-settled children (contexts, results, driver records) whose
+    // transcripts persist in SQLite. Never touches live work (running,
+    // waiting, queued, driving) and never throws into the spawn path.
+    continuationManager.pruneChildSessions();
+  } catch (error) {
+    console.error('[subagents] retention prune failed:', error?.message ?? error);
+  }
   return { session, attempt };
 }
 

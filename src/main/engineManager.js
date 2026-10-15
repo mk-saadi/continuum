@@ -418,6 +418,7 @@ function buildBranchContext(userMessageId, modelId) {
 	const { buildSessionSystemPrompt, messageForModel } = require("./promptBuilder");
 	const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
 	const effective = require("./profileSettings").getSessionSettings(sessionId, modelId).effective;
+	const richLevel = require("./profileSettings").resolveRichLevel(sessionId, modelId);
 	// Same applicability rule as cloning: only briefs anchored to this branch's
 	// ancestor messages apply. Later instructions from beyond the branch point
 	// are excluded even though they share the session. The session checkpoint
@@ -434,6 +435,8 @@ function buildBranchContext(userMessageId, modelId) {
 				...path.map(messageForModel),
 			],
 			effective.memoryEnabled,
+			null,
+			richLevel,
 		),
 	};
 }

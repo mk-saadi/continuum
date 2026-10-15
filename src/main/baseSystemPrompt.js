@@ -62,8 +62,64 @@ const BASE_SYSTEM_PROMPT_WITHOUT_MEMORY =
 // system messages (from before a prompt revision) are still recognized
 // and stripped out. Derived instead of hand-duplicated.
 const BASE_PROMPT_VARIANTS = [BASE_SYSTEM_PROMPT_WITH_TOOLS, BASE_SYSTEM_PROMPT_WITHOUT_MEMORY];
+
+// One shared line. Also appended where json:chart syntax is documented
+// (promptBuilder VISUALIZATION_PROMPT), so charts get it even when rich is off.
+const PASTEL_COLOR_RULE = `
+COLOR RULE FOR VISUALS: When you choose colors for swatches or chart series, use soft pastel hues (e.g. #A8D8EA, #F7C6D0, #C9E4C5, #FDE2B3, #D4C5F0, #B8E0D8). Never use neon or fully saturated colors. Use a different hue per category and keep one palette within a response.
+`;
+
+const RICH_BLOCKS_BASIC_CORE = `
+
+RICH BLOCKS (only when a visual summary beats prose; otherwise plain Markdown):
+- Options/comparisons: \`\`\`json:cards {"items":[{"title":"","badge":"","body":"","note":"","swatches":["#hex"]}]}
+- Checklists: \`\`\`json:checklist {"title":"","items":[{"text":"","done":false}],"status":""}
+Valid JSON only. Plain text inside strings, no Markdown. Never nest blocks.
+`;
+
+const RICH_BLOCKS_FLOW = `- Process/flow: \`\`\`json:flow {"steps":[{"title":"","body":""}]}
+`;
+
+function richText(level, includePastel) {
+	if (level !== "basic" && level !== "full") return "";
+	let text = RICH_BLOCKS_BASIC_CORE;
+	if (level === "full") text += RICH_BLOCKS_FLOW;
+	if (includePastel) text += PASTEL_COLOR_RULE;
+	return text;
+}
+
+const RICH_BLOCKS_BASIC = RICH_BLOCKS_BASIC_CORE + PASTEL_COLOR_RULE;
+const RICH_BLOCKS_FULL = RICH_BLOCKS_BASIC + RICH_BLOCKS_FLOW;
+const RICH_BLOCK_RULES = { off: "", basic: RICH_BLOCKS_BASIC, full: RICH_BLOCKS_FULL };
+
+const PASTEL_SENTINEL = "soft pastel hues";
+
+function messageHasPastel(messages) {
+	return (messages || []).some((message) => {
+		const content = message?.content;
+		if (typeof content === "string") return content.includes(PASTEL_SENTINEL);
+		if (Array.isArray(content))
+			return content.some((part) => typeof part?.text === "string" && part.text.includes(PASTEL_SENTINEL));
+		return false;
+	});
+}
+
+const RICH_VARIANTS = ["off", "basic", "full"];
+const MEDIA_VARIANTS = [
+	(base) => base,
+	(base) => base.replace(MEDIA_GENERATION_RULES, ""),
+	(base) => base.replace(MEDIA_GENERATION_TOOL_RULE, ""),
+];
 const PREVIOUS_INSTRUCTIONS = new Set(
-	BASE_PROMPT_VARIANTS.flatMap((p) => [p, p.replace(MEDIA_GENERATION_RULES, ""), p.replace(MEDIA_GENERATION_TOOL_RULE, "")]),
+	BASE_PROMPT_VARIANTS.flatMap((base) =>
+		MEDIA_VARIANTS.flatMap((applyMedia) => {
+			const mediaBase = applyMedia(base);
+			return RICH_VARIANTS.flatMap((level) => {
+				if (level === "off") return [mediaBase];
+				return [mediaBase + richText(level, true), mediaBase + richText(level, false)];
+			});
+		}),
+	),
 );
 
 const TEMPORAL_HEADER_RE = /^\[TEMPORAL CONTEXT\]\nToday's Date: [^\n]*\nUser Timezone Offset: -?\d+ mins\n/;
@@ -82,7 +138,7 @@ function buildTemporalAnchor() {
 	return `[TEMPORAL CONTEXT]\nToday's Date: ${dateFormatted} (${isoDate})\nUser Timezone Offset: ${now.getTimezoneOffset()} mins\n`;
 }
 
-function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration = null) {
+function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration = null, richLevel = "off") {
 	let basePrompt = memoryEnabled ? BASE_SYSTEM_PROMPT_WITH_TOOLS : BASE_SYSTEM_PROMPT_WITHOUT_MEMORY;
 	if (mediaGeneration === null) {
 		// Auto-detect: generation instructions ride only when a compatible
@@ -94,6 +150,10 @@ function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration
 		}
 	}
 	if (!mediaGeneration) basePrompt = basePrompt.replace(MEDIA_GENERATION_TOOL_RULE, "");
+	if (richLevel === "basic" || richLevel === "full") {
+		const includePastel = !messageHasPastel(messages);
+		basePrompt += richText(richLevel, includePastel);
+	}
 
 	return [
 		{ role: "system", content: buildTemporalAnchor() + basePrompt },
@@ -108,4 +168,4 @@ function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration
 	];
 }
 
-module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, buildTemporalAnchor, prependBaseSystemPrompt };
+module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, PASTEL_COLOR_RULE, RICH_BLOCKS_BASIC, RICH_BLOCKS_FULL, RICH_BLOCK_RULES, buildTemporalAnchor, prependBaseSystemPrompt };

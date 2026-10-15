@@ -53,12 +53,12 @@
 // runtime API below is the capability, exposure is later work.
 
 const {
-  SESSION_STATUS, IS_TERMINAL, getSession,
+  SESSION_STATUS, IS_TERMINAL, getSession, listSessions, deleteSession, noteEvictedChild, wasEvictedChild,
   waitSession, resumeSession, interruptSession,
   completeSession, failSession, cancelSession,
 } = require('./sessionManager');
 const {
-  EXECUTION_STATUS, createExecution, listExecutions,
+  EXECUTION_STATUS, createExecution, listExecutions, runningSessionIds, deleteExecutionsForSession,
   completeExecution, failExecution, cancelExecution,
   flagInterrupt, interruptExecution,
 } = require('./executionStore');
@@ -95,7 +95,14 @@ function mergeUsage(current, addition) {
 
 function requireSession(childId) {
   const session = typeof childId === 'string' ? getSession(childId) : null;
-  if (!session) throw new Error(`Unknown child session: ${String(childId)}.`);
+  if (!session) {
+    // Evicted ids report expiry explicitly: the runtime released the state
+    // but the transcript persists, so "unknown" would be misleading.
+    if (wasEvictedChild(childId)) {
+      throw new Error(`Child session ${childId} has expired and its runtime state was released; its transcript remains available.`);
+    }
+    throw new Error(`Unknown child session: ${String(childId)}.`);
+  }
   return session;
 }
 
@@ -392,9 +399,88 @@ function resume(childId, { parentSessionId = null } = {}) {
   return { childSessionId: session.id, status: session.status, resumed: true };
 }
 
+// ---- Bounded retention (process-lifetime memory) ----
+//
+// The sessions/executions/records maps grow with every delegation and nothing
+// removed entries: long app sessions with frequent subagent use retain every
+// completed child, its context, and its results. Every terminal settlement
+// already mirrors to SQLite (persistChildRun), and getChildTranscript falls
+// back to the database when the live record is gone — so completed runtime
+// records are safe to release once nothing live needs them.
+//
+// Policy (rationale in docs/subagent-retention-phase3-report.md):
+// - never evict: created/running/waiting sessions, non-empty inboxes, sessions
+//   with a running execution, driving/scheduled drivers, records without a
+//   completion timestamp.
+// - evict: completed/interrupted/failed/cancelled/partial sessions older than
+//   ttlMs, plus oldest-first beyond maxCompleted (burst backstop; liveness
+//   rules still apply, age rule does not).
+// - trigger: spawn boundary (openRun in ./index.js) — amortized O(sessions +
+//   executions) per spawn via runningSessionIds(), no timers, no sweeps.
+// Evicted ids are remembered (bounded) so control calls report expiry instead
+// of "unknown"; transcripts keep serving from SQLite.
+const COMPLETED_TTL_MS = 30 * 60 * 1000;
+const MAX_COMPLETED_SESSIONS = 500;
+
+// Liveness only, no age: true means "hands off regardless of retention".
+function isProtectedSession(session, runningIds = null) {
+  if (!session || typeof session !== 'object') return true;
+  if (!['completed', 'interrupted', 'failed', 'cancelled', 'partial'].includes(session.status)) return true;
+  if (typeof session.completedAt !== 'string' || !session.completedAt
+    || !Number.isFinite(Date.parse(session.completedAt))) return true;
+  if (Array.isArray(session.inbox) && session.inbox.length > 0) return true;
+  const record = records.get(session.id);
+  // Driving/scheduled drivers are live work; a pendingContinuation flag means
+  // an interrupted turn is still owed a re-drive — valid pending continuation.
+  if (record && (record.driving || record.scheduled || record.pendingContinuation)) return true;
+  const running = runningIds ?? runningSessionIds();
+  if (running.has(session.id)) return true;
+  return false;
+}
+
+function isSessionEvictable(session, { now = Date.now(), ttlMs = COMPLETED_TTL_MS, runningIds = null } = {}) {
+  if (isProtectedSession(session, runningIds)) return false;
+  return Date.parse(session.completedAt) <= now - ttlMs;
+}
+
+function evictOneSession(session) {
+  records.delete(session.id);
+  const executions = deleteExecutionsForSession(session.id);
+  const removed = deleteSession(session.id);
+  if (removed) noteEvictedChild(session.id);
+  return { removed, executions };
+}
+
+function pruneChildSessions({ now = Date.now(), ttlMs = COMPLETED_TTL_MS, maxCompleted = MAX_COMPLETED_SESSIONS } = {}) {
+  if (!Number.isFinite(ttlMs) || !Number.isSafeInteger(maxCompleted) || maxCompleted < 0) {
+    throw new TypeError('pruneChildSessions requires a finite ttlMs and a non-negative integer maxCompleted.');
+  }
+  const evicted = [];
+  let evictedExecutions = 0;
+  const evict = (session) => {
+    const outcome = evictOneSession(session);
+    if (outcome.removed) {
+      evicted.push(session.id);
+      evictedExecutions += outcome.executions;
+    }
+  };
+  const runningIds = runningSessionIds();
+  for (const session of listSessions()) {
+    if (isSessionEvictable(session, { now, ttlMs, runningIds })) evict(session);
+  }
+  // Count backstop for delegation bursts: oldest completed-first beyond the
+  // cap. Liveness rules hold; only the age rule is waived.
+  const resting = listSessions()
+    .filter((session) => !isProtectedSession(session, runningIds))
+    .sort((a, b) => (a.completedAt < b.completedAt ? -1 : a.completedAt > b.completedAt ? 1 : 0));
+  for (const session of resting.slice(0, Math.max(0, resting.length - maxCompleted))) evict(session);
+  return { evicted, evictedExecutions, sessions: listSessions().length };
+}
+
 module.exports = {
   registerChild, onTurnSettled, noteInterruptedTurn,
   sendMessage, interrupt, resume,
+  pruneChildSessions, isSessionEvictable, COMPLETED_TTL_MS, MAX_COMPLETED_SESSIONS,
   // Test/diagnostic visibility into the driver state; not part of the control
   // surface, but useful to assert single-turn ownership from the outside.
   getRecord: childId => records.get(childId) ?? null,

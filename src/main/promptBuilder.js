@@ -1,6 +1,6 @@
 "use strict";
 
-const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
+const { prependBaseSystemPrompt, PASTEL_COLOR_RULE } = require("./baseSystemPrompt");
 const fs = require("node:fs");
 const path = require("node:path");
 const { getProject } = require("./projectManager");
@@ -74,6 +74,7 @@ const VISUALIZATION_PROMPT = [
 	"#### ABSOLUTE FORBIDDEN ACTIONS:",
 	"- NEVER write Python scripts, run `matplotlib`, install `pip` packages, or execute terminal commands (`execute_command`) to generate PNG/JPG chart images.",
 	"- Keep `json:chart` blocks strictly valid JSON. Use ordinary Markdown for non-numerical structures.",
+	PASTEL_COLOR_RULE.trim(),
 ].join("\n");
 
 const SUB_AGENT_CORE = [
@@ -287,6 +288,7 @@ Before executing any delete/bulk-write operation outside of that id-scoped patte
 function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], delegationAvailable = true, userText = '', contextWindowLimit = null }) {
   return db.transaction(() => {
     const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
+    const richLevel = require('./profileSettings').resolveRichLevel(sessionId, modelId);
     const summary = getSessionSummary(sessionId);
     // Shared brief path: the same applicable records, in the same order, as
     // normal preparation for the same history snapshot. Throws
@@ -304,7 +306,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
       ...(summary ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
       buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
       ...active.map(messageForModel),
-    ], effective.memoryEnabled);
+    ], effective.memoryEnabled, null, richLevel);
   })();
 }
 
@@ -341,6 +343,7 @@ function prepareChatMessages({
 			else if (getActiveMessages(sessionId).at(-1)?.role !== "user")
 				throw new Error("No user message to regenerate.");
 			const effective = require("./profileSettings").getSessionSettings(sessionId, modelId).effective;
+			const richLevel = require("./profileSettings").resolveRichLevel(sessionId, modelId);
 			const systemPrompt = buildSessionSystemPrompt({ sessionId, modelId, userText });
 			const summary = getSessionSummary(sessionId);
 			// Same shared brief path as forced recovery (same snapshot -> same
@@ -367,6 +370,8 @@ function prepareChatMessages({
 					...activeSessionMessages,
 				],
 				effective.memoryEnabled,
+				null,
+				richLevel,
 			);
 		})
 		.immediate();

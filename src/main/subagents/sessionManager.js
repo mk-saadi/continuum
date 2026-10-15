@@ -102,6 +102,27 @@ function getSession(id) {
   return sessions.get(id) ?? null;
 }
 
+// Bounded registry of evicted child ids so control calls can report an
+// explicit expiry instead of "unknown session". Ids only (~70 chars each);
+// trimmed FIFO so the registry itself cannot grow without bound.
+const EVICTED_CHILD_IDS = [];
+const MAX_EVICTED_CHILD_IDS = 1000;
+function noteEvictedChild(id) {
+  if (typeof id !== 'string' || !id) return;
+  EVICTED_CHILD_IDS.push(id);
+  while (EVICTED_CHILD_IDS.length > MAX_EVICTED_CHILD_IDS) EVICTED_CHILD_IDS.shift();
+}
+function wasEvictedChild(id) {
+  return typeof id === 'string' && EVICTED_CHILD_IDS.includes(id);
+}
+
+// Removal for the retention policy (see continuationManager.pruneChildSessions):
+// drops the live record only. Durable history stays in subagent_runs, and the
+// id is remembered so later control calls report expiry truthfully.
+function deleteSession(id) {
+  return sessions.delete(id);
+}
+
 function listSessions() {
   return [...sessions.values()];
 }
@@ -217,6 +238,7 @@ function pushActivity(session, event) {
 
 module.exports = {
   SESSION_STATUS, IS_TERMINAL, createSession, startSession, getSession, listSessions, listChildren,
+  deleteSession, noteEvictedChild, wasEvictedChild, MAX_EVICTED_CHILD_IDS,
   waitSession, resumeSession, interruptSession,
   completeSession, failSession, cancelSession,
   pushActivity, ACTIVITY_LIMIT,

@@ -25,6 +25,7 @@ import ChatFindBar from "../chat/ChatFindBar.jsx";
 import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
 import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
+import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
 import {
@@ -371,7 +372,7 @@ export function ChatInterface({
 	const busyRef = useRef(false);
 
 	const refreshHistory = useCallback(async () => {
-		if (palace.api) setGroups(await palace.api.getAllSessions());
+		if (palace.api) setGroups(await fetchSessionGroups(palace.api));
 	}, [palace.api]);
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));

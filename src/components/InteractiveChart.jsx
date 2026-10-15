@@ -17,8 +17,19 @@ import {
 	YAxis,
 } from "recharts";
 
-const COLORS = ["#3b82f6", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#ef4444"];
+const PASTEL_COLORS = ["#A8D8EA", "#F7C6D0", "#C9E4C5", "#FDE2B3", "#D4C5F0", "#B8E0D8"];
+const COLORS = PASTEL_COLORS;
 const CHART_TYPES = new Set(["bar", "line", "area", "pie"]);
+
+function darken(hex, factor = 0.62) {
+	const match = /^#([0-9a-f]{6})$/i.exec(hex);
+	if (!match) return hex;
+	const value = parseInt(match[1], 16);
+	const r = Math.round(((value >> 16) & 255) * factor);
+	const g = Math.round(((value >> 8) & 255) * factor);
+	const b = Math.round((value & 255) * factor);
+	return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
 
 function prepareChart(input) {
 	if (!input || typeof input !== "object" || Array.isArray(input) || !CHART_TYPES.has(input.type)) {
@@ -217,7 +228,7 @@ export default function InteractiveChart({ data }) {
 							type="monotone"
 							dataKey={item.key}
 							name={item.label}
-							stroke={item.color}
+							stroke={darken(item.color)}
 							strokeWidth={2}
 							dot={false}
 							activeDot={{ r: 4 }}
@@ -231,7 +242,7 @@ export default function InteractiveChart({ data }) {
 							type="monotone"
 							dataKey={item.key}
 							name={item.label}
-							stroke={item.color}
+							stroke={darken(item.color)}
 							fill={item.color}
 							fillOpacity={0.25}
 							strokeWidth={2}
