@@ -65,7 +65,17 @@ const TOOL_CAPABILITIES = Object.freeze({
 	// creates persistent shared history, so it always confirms: modeled as an
 	// external mutation, which prompts in every mode except full_access.
 	git_stage: CAPABILITIES.WORKSPACE_WRITE,
+	git_unstage: CAPABILITIES.WORKSPACE_WRITE,
+	git_stash: CAPABILITIES.WORKSPACE_WRITE,
+	// Push publishes history beyond the workspace, so the whole sync tool
+	// prompts like a commit; fetch/pull refine that per-action in guardTool.
+	git_sync: CAPABILITIES.EXTERNAL_MUTATION,
 	git_commit: CAPABILITIES.EXTERNAL_MUTATION,
+	// Branch create/switch mutates refs and the worktree, so it stays a
+	// contained workspace write (sandboxed, never a read-only child tool).
+	// Commit-like history creation still prompts via EXTERNAL_MUTATION above.
+	git_create_branch: CAPABILITIES.WORKSPACE_WRITE,
+	git_switch: CAPABILITIES.WORKSPACE_WRITE,
 	// WORKSPACE_WRITE
 	write_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	write_file: CAPABILITIES.WORKSPACE_WRITE,
@@ -170,10 +180,14 @@ function sessionProject(sessionId) {
  */
 function writeTargets(name, args) {
 	if (name === "move_project_file") return [args?.source_path, args?.destination_path];
-	if (name === "git_stage") {
+	if (name === "git_stage" || name === "git_unstage") {
 		if (!Array.isArray(args?.paths)) return [];
 		return args.paths;
 	}
+	// Branch, stash, and sync tools touch no caller-supplied path; containing
+	// them to the project root itself verifies the workspace without opening
+	// any escape.
+	if (name === "git_create_branch" || name === "git_switch" || name === "git_stash" || name === "git_sync") return ["."];
 	if (name === "edit_project_files") {
 		if (!Array.isArray(args?.edits)) return [];
 		return args.edits.map((edit) => edit?.relative_path);
@@ -454,6 +468,27 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		const snapshot = await require('./tools/agentTools').prepareGitCommit(root, signal);
 		const approved = await requestApproval('tool', name, { ...args, staged_diff: snapshot.stagedDiff }, approvalHandlerFn, signal);
 		return { mode, approved, gitCommitFingerprint: snapshot.fingerprint };
+	}
+	if (name === 'git_sync' && mode !== 'read_only') {
+		if (!root) throw new Error('Git tools require a project workspace.');
+		// Fetch reads remote history without touching local state: no prompt
+		// in workspace modes (still contained, still out of child reach).
+		if (args?.action === 'fetch') return { mode, approved: false };
+		// Pull fast-forwards the worktree: one lightweight prompt, no
+		// fingerprint (it cannot create history). Execution stays in the
+		// network sandbox either way.
+		if (args?.action === 'pull') {
+			await requestApproval('tool', name, { action: 'pull', remote: args?.remote, branch: args?.branch }, approvalHandlerFn, signal);
+			return { mode, approved: false };
+		}
+		// Push publishes history: full fingerprint gate mirroring git_commit.
+		if (args?.action === 'push') {
+			const snapshot = await require('./tools/agentTools').prepareGitPush(root, args, signal);
+			const approved = await requestApproval('tool', name,
+				{ action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
+			return { mode, approved, gitPushFingerprint: snapshot.fingerprint };
+		}
+		throw new Error('action must be one of "fetch", "pull", or "push".');
 	}
 
 	const capability = capabilityOf(name, native);

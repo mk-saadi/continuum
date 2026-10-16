@@ -45,6 +45,44 @@ export function errorText(step) {
   return direct || nested;
 }
 
+// Displayed failures show a classified one-liner (step.error); the recorded
+// result usually carries the actual error underneath. Extract it so failure
+// cards can show (and copy) substance instead of only the summary. Returns ''
+// when the result adds nothing beyond the banner text.
+const FAILURE_DETAIL_LIMIT = 4000;
+
+function capDetail(text) {
+  const trimmed = text.trim();
+  return trimmed.length > FAILURE_DETAIL_LIMIT
+    ? `${trimmed.slice(0, FAILURE_DETAIL_LIMIT)}\n… [error truncated for display]`
+    : trimmed;
+}
+
+export function failureDetail(step) {
+  if (!step || typeof step !== 'object') return '';
+  const banner = errorText(step).trim();
+  const outcome = commandOutcome(step);
+  if (outcome) {
+    // stdout already has its own Output section with a copy button; only
+    // stderr adds information here. An exit-code-only outcome carries no
+    // more than the banner already says.
+    const stream = typeof outcome.stderr === 'string' ? outcome.stderr : '';
+    if (stream.trim() && stream.trim() !== banner) return capDetail(stream);
+    return '';
+  }
+  const result = step.result;
+  if (typeof result === 'string') {
+    return result.trim() && result.trim() !== banner ? capDetail(result) : '';
+  }
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    for (const key of ['error', 'message', 'details']) {
+      const value = result[key];
+      if (typeof value === 'string' && value.trim() && value.trim() !== banner) return capDetail(value);
+    }
+  }
+  return '';
+}
+
 export function isCancelledStep(step) {
   if (!step || step.type !== 'tool_call') return false;
   if (step.status === 'cancelled') return true;
@@ -332,7 +370,7 @@ const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content'])
 const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
 const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history']);
 const EDIT_TOOLS = new Set(['str_replace_editor']);
-const WRITE_TOOLS = new Set(['write_project_file', 'git_stage', 'git_commit']);
+const WRITE_TOOLS = new Set(['write_project_file', 'git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
 const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 const MEDIA_TOOLS = new Set(['generate_image', 'take_screenshot']);

@@ -233,10 +233,62 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 		["paths"],
 	),
 	define(
+		"git_unstage",
+		"Unstage explicit project files without touching worktree content (git restore --staged -- paths). Only the listed paths are unstaged, never everything; the working-tree changes are kept. Paths stay inside the project.",
+		{
+			paths: {
+				type: "array",
+				description: "Project-relative file paths to unstage (1-50)",
+				items: string("Project-relative file path"),
+				minItems: 1,
+				maxItems: 50,
+			},
+		},
+		["paths"],
+	),
+	define(
 		"git_commit",
 		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Always asks the user for confirmation except in Full Access.",
 		{ message: string("Non-empty commit message (at most 2000 characters)") },
 		["message"],
+	),
+	define(
+		"git_create_branch",
+		"Create a project branch from a ref (defaults to HEAD) and switch to it unless switch is false. Switching refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
+		{
+			name: string("New branch name: 1-100 characters of letters, digits, ., _, -, / only"),
+			start_point: string("Optional single commit, branch, or tag to start from (defaults to HEAD)"),
+			switch: { type: "boolean", default: true, description: "Switch to the new branch after creating it" },
+		},
+		["name"],
+	),
+	define(
+		"git_switch",
+		"Switch the project worktree to an existing local branch. Refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
+		{
+			ref: string("Existing local branch name to switch to"),
+		},
+		["ref"],
+	),
+	define(
+		"git_sync",
+		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push and always ask for confirmation except in Full Access.",
+		{
+			action: { type: "string", enum: ["fetch", "pull", "push"], description: "fetch reads remote history, pull fast-forwards the current branch, push publishes it" },
+			remote: string("Configured remote name (defaults to origin); never a URL"),
+			branch: string("Branch name (fetch: any branch, defaults to all; pull/push: must be the current branch)"),
+		},
+		["action"],
+	),
+	define(
+		"git_stash",
+		"Push tracked worktree changes onto the stash, pop the latest (or indexed) entry back, or list stored entries. Push stores tracked changes only, never untracked files; pop surfaces conflicts as errors and never auto-resolves them.",
+		{
+			action: { type: "string", enum: ["push", "pop", "list"], description: "push stores tracked changes, pop restores an entry and drops it, list shows stored entries" },
+			message: string("Optional push-only message (at most 500 characters)"),
+			index: { type: "number", description: "Optional pop-only entry number (defaults to the latest)" },
+		},
+		["action"],
 	),
 	define(
 		"git_blame",
@@ -563,6 +615,23 @@ function requireGitRef(value, name) {
 	return value;
 }
 
+// Strict new/existing branch names (a subset of what requireGitRef accepts:
+// no rev suffixes like ~ or ^, no @, no empty components). Used for branch
+// creation and branch-only switching so a ref can never parse as a flag,
+// a revision range, or a file path.
+function requireGitBranchName(value, name) {
+	requireText(value, name);
+	if (
+		value.length < 1 || value.length > 100 ||
+		!/^[A-Za-z0-9._\/-]+$/.test(value) ||
+		value.startsWith(".") || value.startsWith("/") || value.startsWith("-") ||
+		value.includes("..") || value.includes("@{") || value.includes("//") ||
+		value.endsWith(".lock") || value.endsWith("/")
+	)
+		throw new Error(`Invalid ${name}: use a branch name of 1-100 characters (letters, digits, ., _, -, /).`);
+	return value;
+}
+
 function optionalGitPath(value, name) {
 	if (value === undefined) return null;
 	requireText(value, name);
@@ -572,23 +641,38 @@ function optionalGitPath(value, name) {
 	return value;
 }
 
-async function runGit(root, args, signal, { write = false, uncontained = false } = {}) {
+async function runGit(root, args, signal, { write = false, uncontained = false, network = false, askpass } = {}) {
 	root = await fs.realpath(root);
 	const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
 	Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' });
+	// SSH transport is unsupported by design (gh-CLI HTTPS only): never let a
+	// sandboxed git reach the ambient agent socket, even when one is configured.
+	delete env.SSH_AUTH_SOCK;
+	// A caller-supplied askpass path (a secret-free relay client, never a
+	// token) is the only credential channel ever admitted to the sandbox.
+	if (askpass !== undefined) {
+		if (typeof askpass !== 'string' || !askpass || askpass.includes('\0')) throw new Error('Invalid askpass helper.');
+		Object.assign(env, { GIT_ASKPASS: askpass });
+	}
 	if (!uncontained) Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' });
 	const gitArgs = ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'color.ui=false',
 		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null'] : []), ...args];
 	// A cwd is not containment: Git can run filters, diff drivers and helpers.
 	// Reads always run with a read-only host filesystem and no network; only
 	// explicit write operations may receive a writable workspace mount.
+	// Remote sync uses a separate profile that shares the host network
+	// namespace but is otherwise identical (read-only /, no capabilities, no
+	// helpers, no system/global config). It exists for fetch/pull/push/ls-remote
+	// only and must never be reused for shell or file tools.
 	let command = 'git';
 	let commandArgs = gitArgs;
 	if (!uncontained) {
 		if (process.platform !== 'linux') throw new Error('Git sandbox is unavailable on this platform.');
 		command = 'bwrap';
-		commandArgs = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
+		commandArgs = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
+			...(network ? [] : ['--unshare-net']), '--cap-drop', 'ALL',
 			'--ro-bind', '/', '/', '--tmpfs', '/tmp', write ? '--bind' : '--ro-bind', root, root,
+			...(askpass ? ['--ro-bind', path.dirname(askpass), path.dirname(askpass)] : []),
 			'--proc', '/proc', '--dev', '/dev', '--chdir', root, 'git', ...gitArgs];
 		Object.assign(env, { HOME: '/tmp', TMPDIR: '/tmp' });
 	}
@@ -596,13 +680,17 @@ async function runGit(root, args, signal, { write = false, uncontained = false }
 		execFile(
 			command,
 			commandArgs,
-			{ cwd: root, timeout: 15000, maxBuffer: 8 * 1024 * 1024, encoding: "utf8", signal, env },
+			{ cwd: root, timeout: network ? 120000 : 15000, maxBuffer: 8 * 1024 * 1024, encoding: "utf8", signal, env },
 			(error, stdout, stderr) => {
 				if (error) {
 					if (error.code === "ENOENT") return reject(new Error(`${command} is not installed; Git execution is blocked.`));
 					if (/not a git repository/i.test(stderr))
 						return reject(new Error("Not a git repository: the project workspace has no .git directory."));
-					return reject(new Error(`git ${args[0]} failed: ${(stderr || error.message).trim().slice(0, 500)}`));
+					// Merge-style failures (stash pop conflicts, checkout
+					// collisions) report on stdout, not stderr: include both
+					// so the caller always sees git's own diagnosis verbatim.
+					const detail = `${stdout}\n${stderr}`.trim() || error.message;
+					return reject(new Error(`git ${args[0]} failed: ${detail.slice(0, 500)}`));
 				}
 				resolve(stdout);
 			},
@@ -621,6 +709,196 @@ async function prepareGitCommit(root, signal) {
 	const parent = await runGit(root, ['rev-parse', '--verify', 'HEAD'], signal).catch(() => 'unborn');
 	return { fingerprint: require('node:crypto').createHash('sha256').update(head).update(parent).update(diff).digest('hex'),
 		stagedDiff: truncateGitOutput(diff) };
+}
+
+// Branch switching refuses on a dirty worktree: any staged, unstaged, or
+// otherwise tracked change (anything in porcelain output besides untracked
+// ?? entries) blocks the switch. Read-only probe; the caller runs the
+// actual mutation with { write: true }.
+async function requireCleanGitWorktree(root, signal, uncontained, purpose = "switching branches") {
+	const status = await runGit(root, ["status", "--porcelain=v1"], signal, { uncontained });
+	const dirty = status.split("\n").some((line) => line.length > 0 && !line.startsWith("??"));
+	if (dirty)
+		throw new Error(`Worktree has staged or unstaged changes; commit or stash them before ${purpose}.`);
+}
+
+// Remote names come from an allow-list, never from free-form input: the value
+// must both match a strict token and equal a configured remote, so it can
+// never parse as a git flag or carry a URL/refspec.
+async function requireGitRemote(root, value, signal) {
+	requireText(value, "remote");
+	if (!/^[A-Za-z0-9._-]+$/.test(value) || value.startsWith("-") || value.length > 128)
+		throw new Error("Invalid remote: use a configured remote name (for example origin).");
+	const remotes = (await runGit(root, ["remote"], signal)).split("\n").map((line) => line.trim()).filter(Boolean);
+	if (!remotes.includes(value))
+		throw new Error(`Unknown remote '${value}': configured remotes are ${remotes.join(", ") || "(none)"}.`);
+	return value;
+}
+
+async function currentGitBranch(root, signal) {
+	let head;
+	try {
+		head = (await runGit(root, ["symbolic-ref", "--short", "HEAD"], signal)).trim();
+	} catch {
+		throw new Error("Detached HEAD: sync pull/push require an attached branch; checkout a branch first.");
+	}
+	if (!head) throw new Error("Detached HEAD: sync pull/push require an attached branch; checkout a branch first.");
+	try {
+		await runGit(root, ["rev-parse", "--verify", "HEAD"], signal);
+	} catch {
+		throw new Error("No commits on this branch yet; commit before pulling or pushing.");
+	}
+	return head;
+}
+
+// Pull and push operate on the current branch only: an explicit branch must
+// equal HEAD's branch, so a pull can never merge a foreign branch and a push
+// can never publish one.
+async function resolveSyncBranch(root, value, signal) {
+	const current = await currentGitBranch(root, signal);
+	if (value === undefined) return current;
+	requireGitBranchName(value, "branch");
+	if (value !== current)
+		throw new Error(`Sync pull/push operate on the current branch ('${current}'); checkout '${value}' first or omit branch.`);
+	return current;
+}
+
+// gh-CLI auth, the only supported credential source. The token is obtained
+// outside the sandbox and lives only in main-process memory plus one
+// single-use localhost relay (below): it never enters bwrap env, argv, tool
+// output, logs, or SQLite, and nothing of our own is stored anywhere.
+async function ghTokenFor(remote) {
+	const authFailed = () => {
+		throw new Error(`Authentication failed for '${remote}'. Ask the user to run 'gh auth login'; the token itself is never shown.`);
+	};
+	const run = (args) => new Promise((resolve, reject) => {
+		require("node:child_process").execFile("gh", args, { timeout: 15000, maxBuffer: 1024 * 1024, encoding: "utf8" }, (error, stdout) => {
+			if (error) return reject(error);
+			resolve(stdout);
+		});
+	});
+	try {
+		await run(["auth", "status"]);
+	} catch {
+		authFailed();
+	}
+	try {
+		const token = (await run(["auth", "token"])).trim();
+		if (!token) authFailed();
+		return token;
+	} catch {
+		authFailed();
+	}
+}
+
+function startTokenRelay(token) {
+	const http = require("node:http");
+	const nonce = require("node:crypto").randomBytes(16).toString("hex");
+	const server = http.createServer((req, res) => {
+		if (req.method === "GET" && req.url === `/${nonce}`) {
+			res.writeHead(200, { "Content-Type": "text/plain" });
+			res.end(token);
+		} else {
+			res.writeHead(404);
+			res.end();
+		}
+	});
+	return new Promise((resolve, reject) => {
+		server.on("error", reject);
+		// Shared network namespace makes loopback reachable from the sandbox;
+		// the server is destroyed when the git call settles, so the URL below
+		// is single-use even though it must cross into bwrap.
+		server.listen(0, "127.0.0.1", () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/${nonce}` }));
+	});
+}
+
+let relayClient = null;
+async function pickRelayClient() {
+	if (relayClient) return relayClient;
+	const run = (command) => new Promise((resolve) => {
+		require("node:child_process").execFile(command, ["--version"], { timeout: 10000 }, (error) => resolve(!error));
+	});
+	// curl/wget resolve identically inside the sandbox (ro-bind /), so a host
+	// probe decides. Neither present fails closed — but only when auth is
+	// actually required, never for public or file:// remotes.
+	if (await run("curl")) relayClient = "curl";
+	else if (await run("wget")) relayClient = "wget";
+	if (!relayClient) throw new Error("Authenticated sync needs curl or wget for the credential relay; install one and retry.");
+	return relayClient;
+}
+
+// Runs fn with a GIT_ASKPASS relay configured when the remote URL needs it.
+// Plain file:// (and other non-HTTP) URLs skip auth entirely. The staged
+// helper script embeds only the single-use relay URL — verified empirically,
+// git executes GIT_ASKPASS directly (no shell), so the helper must be a real
+// file, bind-mounted read-only by the network profile.
+async function withRemoteAuth(remote, remoteUrl, fn) {
+	if (!/^https?:/i.test(remoteUrl)) return fn(undefined);
+	const token = await ghTokenFor(remote);
+	const { server, url } = await startTokenRelay(token);
+	const dir = await fs.mkdtemp(path.join(require("node:os").tmpdir(), "git-askpass-"));
+	const helper = path.join(dir, "askpass.sh");
+	const client = await pickRelayClient();
+	const fetch = client === "curl"
+		? `exec curl -fsS --max-time 10 '${url}'`
+		: `exec wget -qO- -T 10 '${url}'`;
+	await fs.writeFile(helper, `#!/bin/sh\n# Single-use credential-relay client. Contains no secret.\n${fetch}\n`, { mode: 0o700 });
+	try {
+		return await fn(helper);
+	} finally {
+		server.close();
+		await fs.rm(dir, { recursive: true, force: true });
+	}
+}
+
+const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+async function lsRemoteSha(root, remote, branch, signal, askpass) {
+	const out = await runGit(root, ["ls-remote", remote, branch], signal, { network: true, askpass });
+	const first = out.trim().split("\n").map((line) => line.trim()).filter(Boolean)[0];
+	return first ? first.split(/\s+/)[0] : "";
+}
+
+// Push approval snapshot: everything the user confirms, fingerprinted so any
+// local or remote movement between approval and execution rejects. The
+// summary carries shas, subjects, and stat only — never secrets.
+async function prepareGitPush(root, args, signal) {
+	const remote = await requireGitRemote(root, args.remote ?? "origin", signal);
+	const branch = await resolveSyncBranch(root, args.branch, signal);
+	const localSha = (await runGit(root, ["rev-parse", "--verify", branch], signal)).trim();
+	const remoteUrl = (await runGit(root, ["remote", "get-url", remote], signal)).trim();
+	const remoteSha = await withRemoteAuth(remote, remoteUrl, (askpass) => lsRemoteSha(root, remote, branch, signal, askpass));
+	if (remoteSha) {
+		// ls-remote names a tip this repo may never have fetched: make the
+		// objects available before log/diff/merge-base touch them. Tracking-ref
+		// movement is harmless here (worktree, index, and HEAD are untouched).
+		try {
+			await runGit(root, ["cat-file", "-e", remoteSha], signal);
+		} catch {
+			await withRemoteAuth(remote, remoteUrl, (askpass) => runGit(root, ["fetch", remote, branch], signal, { network: true, write: true, askpass }));
+		}
+	}
+	const short = (sha) => sha.slice(0, 7);
+	let subjects;
+	let stat;
+	if (remoteSha) {
+		subjects = await runGit(root, ["log", "--pretty=format:%s", "-n", "20", `${remoteSha}..${localSha}`], signal);
+		stat = await runGit(root, ["diff", "--stat", remoteSha, localSha], signal);
+	} else {
+		subjects = await runGit(root, ["log", "--pretty=format:%s", "-n", "20", localSha], signal);
+		stat = await runGit(root, ["diff", "--stat", EMPTY_TREE, localSha], signal);
+	}
+	const count = subjects.split("\n").filter((line) => line.trim()).length;
+	const lines = [
+		`Push ${short(localSha)} (${count} commit${count === 1 ? "" : "s"}) '${branch}' -> '${remote}'${remoteSha ? ` (remote at ${short(remoteSha)})` : " (new upstream branch)"}:`,
+		...subjects.split("\n").filter((line) => line.trim()).slice(0, 20).map((line) => `  ${line.trim().slice(0, 200)}`),
+		stat.trim(),
+	].join("\n");
+	const summary = lines.length > 2000 ? `${lines.slice(0, 2000)}\n[truncated]` : lines;
+	const fingerprint = require("node:crypto").createHash("sha256")
+		.update(remote).update("\0").update(branch).update("\0")
+		.update(localSha).update("\0").update(remoteSha).update("\0").update(stat).digest("hex");
+	return { fingerprint, summary, remote, branch, localSha, remoteSha };
 }
 
 async function executeGitTool(root, name, args, signal, uncontained = false, approval = null, fullAccess = false) {
@@ -699,6 +977,32 @@ async function executeGitTool(root, name, args, signal, uncontained = false, app
 		}
 		return { output: truncateGitOutput(await runGit(root, ["add", "--", ...staged], signal, { write: true, uncontained })), staged };
 	}
+	if (name === "git_unstage") {
+		if (!Array.isArray(args.paths) || args.paths.length < 1 || args.paths.length > 50)
+			throw new Error("paths must be an array of 1 to 50 project-relative file paths.");
+		const seen = new Set();
+		const unstaged = [];
+		for (const value of args.paths) {
+			optionalGitPath(value, 'path');
+			if (value === '.' || value.endsWith('/')) throw new Error('Unstage explicit files, not directories.');
+			if (seen.has(value)) throw new Error(`Duplicate path: ${value}.`);
+			seen.add(value);
+			// Same containment guarantees as the other write tools: sandboxed
+			// to the project unless the call is uncontained (an approval grant
+			// or Full Access). The `--` separator below additionally keeps a
+			// path from ever parsing as a git flag.
+			if (value.length > 1024 || path.isAbsolute(value) || value.split("/").some((part) => part === ".."))
+				throw new Error(`Invalid path (must stay inside the project): ${value}.`);
+			const target = uncontained ? path.resolve(root, value) : await scopedPath(root, value, true);
+			try { if ((await fs.lstat(target)).isDirectory()) throw new Error('Unstage explicit files, not directories.'); }
+			catch (error) { if (error.code !== 'ENOENT') throw error; }
+			unstaged.push(path.relative(root, target) || ".");
+		}
+		// Index-only by construction: --staged copies HEAD into the index and
+		// leaves the worktree alone. No --worktree, no --source, no pathspec
+		// magic — working-tree content is never touched.
+		return { output: truncateGitOutput(await runGit(root, ["restore", "--staged", "--", ...unstaged], signal, { write: true, uncontained })), unstaged };
+	}
 	if (name === "git_commit") {
 		requireText(args.message, "message");
 		if (args.message.length > 2000) throw new Error("message must be at most 2000 characters.");
@@ -713,6 +1017,125 @@ async function executeGitTool(root, name, args, signal, uncontained = false, app
 		let hash = null;
 		try { hash = (await runGit(root, ["rev-parse", "HEAD"], signal)).trim(); } catch { /* Output above is the result. */ }
 		return { output, hash };
+	}
+	if (name === "git_create_branch") {
+		const branch = requireGitBranchName(args.name, "name");
+		const start = args.start_point === undefined ? "HEAD" : requireGitRef(args.start_point, "start_point");
+		if (args.switch !== undefined && typeof args.switch !== "boolean") throw new Error("switch must be a boolean.");
+		const shouldSwitch = args.switch ?? true;
+		// Check before creating: a failed switch must not leave a branch
+		// behind that the agent never asked to keep.
+		if (shouldSwitch) await requireCleanGitWorktree(root, signal, uncontained);
+		// Argv only, validated names above: no shell, no flags, no detach.
+		const output = truncateGitOutput(await runGit(root, ["branch", branch, start], signal, { write: true, uncontained }));
+		if (!shouldSwitch) return { output, branch, switched: false };
+		const switched = truncateGitOutput(await runGit(root, ["switch", branch], signal, { write: true, uncontained }));
+		return { output: [output, switched].filter(Boolean).join("\n") || `Switched to branch '${branch}'.`, branch, switched: true };
+	}
+	if (name === "git_switch") {
+		// Branch names only: rev suffixes (~, ^), ranges, and pathspecs are
+		// rejected by requireGitBranchName. No --force/--merge/--discard-
+		// changes/--detach is ever passed: a dirty worktree fails instead.
+		const branch = requireGitBranchName(args.ref, "ref");
+		await requireCleanGitWorktree(root, signal, uncontained);
+		const output = truncateGitOutput(await runGit(root, ["switch", branch], signal, { write: true, uncontained }));
+		return { output, branch };
+	}
+	if (name === "git_stash") {
+		if (args.action !== "push" && args.action !== "pop" && args.action !== "list")
+			throw new Error('action must be one of "push", "pop", or "list".');
+		if (args.action === "list") {
+			if (args.message !== undefined) throw new Error("message is only valid for push.");
+			if (args.index !== undefined) throw new Error("index is only valid for pop.");
+			return { output: truncateGitOutput(await runGit(root, ["stash", "list"], signal, { uncontained })), action: "list" };
+		}
+		if (args.action === "push") {
+			if (args.index !== undefined) throw new Error("index is only valid for pop.");
+			// Tracked changes only by construction: no -u/--all/--include-
+			// untracked, no --keep-index, no --patch. The message travels as
+			// a single argv element, never a shell string.
+			let message = "Continuum stash";
+			if (args.message !== undefined) {
+				requireText(args.message, "message");
+				if (args.message.length > 500) throw new Error("message must be at most 500 characters.");
+				message = args.message;
+			}
+			const output = truncateGitOutput(await runGit(root, ["stash", "push", "-m", message], signal, { write: true, uncontained }));
+			return { output, action: "push", message };
+		}
+		if (args.message !== undefined) throw new Error("message is only valid for push.");
+		// Build stash@{n} ourselves from a validated integer: git never
+		// resolves a caller-supplied ref string here. Deliberately no apply,
+		// drop, clear, or branch — pop restores and drops, or fails loudly.
+		let gitArgs = ["stash", "pop"];
+		let index = null;
+		if (args.index !== undefined) {
+			if (typeof args.index !== "number" || !Number.isSafeInteger(args.index) || args.index < 0)
+				throw new Error("index must be a non-negative integer.");
+			const entries = (await runGit(root, ["stash", "list"], signal, { uncontained })).split("\n").filter((line) => line.trim());
+			if (args.index >= entries.length)
+				throw new Error(`Invalid index: only ${entries.length} stash ${entries.length === 1 ? "entry" : "entries"} stored.`);
+			index = args.index;
+			gitArgs = ["stash", "pop", `stash@{${index}}`];
+		}
+		// A conflicting pop fails here with git's own error (entry kept, no
+		// auto-resolve): runGit passes stderr through verbatim.
+		const output = truncateGitOutput(await runGit(root, gitArgs, signal, { write: true, uncontained }));
+		return { output, action: "pop", ...(index === null ? {} : { index }) };
+	}
+	if (name === "git_sync") {
+		// No --force/--force-with-lease/refspec/colon/plus exists anywhere in
+		// this schema or argv: force-push is impossible by construction, and
+		// --prune/--tags/--depth/--all/--mirror/--delete/--set-upstream were
+		// deliberately excluded. Remote sync always runs in the contained
+		// network sandbox profile (never uncontained): approval gates
+		// permission, the sandbox gates containment.
+		const action = args.action;
+		if (action !== "fetch" && action !== "pull" && action !== "push")
+			throw new Error('action must be one of "fetch", "pull", or "push".');
+		const remote = await requireGitRemote(root, args.remote ?? "origin", signal);
+		const remoteUrl = (await runGit(root, ["remote", "get-url", remote], signal)).trim();
+		return await withRemoteAuth(remote, remoteUrl, async (askpass) => {
+			const net = { network: true, askpass };
+			if (action === "fetch") {
+				const fetchBranch = args.branch === undefined ? null : requireGitBranchName(args.branch, "branch");
+				const fetchArgs = fetchBranch ? ["fetch", remote, fetchBranch] : ["fetch", remote];
+				const fetched = truncateGitOutput(await runGit(root, fetchArgs, signal, { ...net, write: true }));
+				return { output: fetched, action, remote, ...(fetchBranch ? { branch: fetchBranch } : {}) };
+			}
+			const branch = await resolveSyncBranch(root, args.branch, signal);
+			if (action === "pull") {
+				await requireCleanGitWorktree(root, signal, false, "pulling");
+				// --ff-only is hard-coded, never model-supplied: a diverged
+				// history fails instead of merging, and --no-rebase forbids
+				// rewriting. Worktree dirt already refused above.
+				const pulled = truncateGitOutput(await runGit(root, ["pull", "--ff-only", "--no-rebase", remote, branch], signal, { ...net, write: true }));
+				return { output: pulled, action, remote, branch };
+			}
+			const snapshot = await prepareGitPush(root, { remote, branch }, signal);
+			if (!fullAccess) {
+				if (!approval?.gitPushFingerprint || snapshot.fingerprint !== approval.gitPushFingerprint)
+					throw new Error("Local or remote history changed since approval. Review and approve the push again.");
+			}
+			if (snapshot.remoteSha) {
+				// Pre-flight fast-forward check: the remote tip must already be
+				// an ancestor of what we publish. Anything else fails here —
+				// fetch and reconcile first, never push over it.
+				try {
+					await runGit(root, ["merge-base", "--is-ancestor", snapshot.remoteSha, snapshot.localSha], signal);
+				} catch {
+					throw new Error(`Push refused: '${branch}' has diverged from '${remote}/${branch}'. Fetch and reconcile first; force-push is not supported.`);
+				}
+			}
+			const pushed = truncateGitOutput(await runGit(root, ["push", remote, branch], signal, { ...net, write: true }));
+			// Treat push as request-then-verify: the remote tip must now be
+			// what we published. Server rejections already surface verbatim
+			// through runGit; this catches anything stranger.
+			const confirmed = await withRemoteAuth(remote, remoteUrl, (retryAskpass) => lsRemoteSha(root, remote, branch, signal, retryAskpass));
+			if (confirmed !== snapshot.localSha)
+				throw new Error(`Push reported success but '${remote}/${branch}' does not point at the published commit. Re-fetch and inspect before retrying.`);
+			return { output: pushed, action, remote, branch };
+		});
 	}
 	throw new Error("Unknown agent tool.");
 }
@@ -859,14 +1282,38 @@ async function withFileRecovery(root, { chatSessionId = null, toolName, op = nul
 		return result;
 	} catch (error) {
 		let rollback;
+		let undoCheckpointId = null;
+		let safetyNote = '';
 		try {
-			const rolled = await recoveryStore.restoreCheckpoint(checkpoint.checkpointId, { force: true, preRestore: false });
+			// Preserve evidence before the automatic rollback overwrites
+			// anything: a clearly labelled pre-rollback snapshot, best-effort.
+			// A snapshot failure must never mask the original error, and a
+			// failed rollback is reported, never retried (no recursion).
+			try {
+				const pre = await recoveryStore.captureOperation({ root, chatSessionId, toolName, op: { ...(op ?? {}), note: 'pre-rollback' },
+					paths, kind: 'pre-rollback' });
+				undoCheckpointId = pre.checkpointId;
+			} catch (snapshotError) {
+				safetyNote = ` Pre-rollback snapshot unavailable: ${snapshotError.message}.`;
+			}
+			// Rollback restores the exact pre-image of the just-authorized
+			// operation, so it carries internal authorization past the safety
+			// gate; any gate finding is reported below rather than silently
+			// applied, and the pre-rollback snapshot above keeps the
+			// overwritten state recoverable either way.
+			const rolled = await recoveryStore.restoreCheckpoint(checkpoint.checkpointId, { force: true, allowRisky: true });
+			if (rolled.safety && rolled.safety.verdict !== 'safe') {
+				const kinds = rolled.safety.anomalies.map((entry) => entry.type).join(', ');
+				safetyNote += ` Rollback applied over a flagged restore (${rolled.safety.verdict}: ${kinds}); pre-rollback state kept as checkpoint #${undoCheckpointId ?? rolled.preRestoreCheckpointId ?? 'unknown'}.`;
+			}
 			rollback = rolled.complete ? "succeeded"
 				: `incomplete (${rolled.skipped.map((entry) => `${entry.path}: ${entry.reason}`).join("; ")})`;
 		} catch (rollbackError) {
 			rollback = `failed: ${rollbackError.message}`;
 		}
-		error.message = `${error.message} [Recovery checkpoint #${checkpoint.checkpointId} captured pre-operation state; rollback ${rollback}.]`;
+		error.message = `${error.message} [Recovery checkpoint #${checkpoint.checkpointId} captured pre-operation state; rollback ${rollback}.` +
+			(undoCheckpointId !== null ? ` Pre-rollback snapshot: checkpoint #${undoCheckpointId}.` : '') +
+			`${safetyNote}]`;
 		throw error;
 	}
 }
@@ -1260,6 +1707,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 
 module.exports = {
 	prepareGitCommit,
+	prepareGitPush,
 	approvedMutations,
 	agentTools,
 	executeAgentTool,
