@@ -221,6 +221,18 @@ const themeGroups = [
 				description: "Deep teal · slate text · blue",
 				swatches: ["#00212b", "#155060", "#268bd2"],
 			},
+			{
+				id: "midnight-light",
+				label: "Midnight Find Light",
+				description: "Indigo paper · dark indigo text · rose & amber",
+				swatches: ["#f6f6fb", "#d94b60", "#daa541"],
+			},
+			{
+				id: "midnight-find",
+				label: "Midnight Find",
+				description: "Deep indigo · lavender text · rose & yellow",
+				swatches: ["#15172a", "#eb5e73", "#f3df6e"],
+			},
 		],
 	},
 ];

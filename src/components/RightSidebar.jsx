@@ -19,6 +19,7 @@ import SubagentModelSelect from "./SubagentModelSelect";
 import ContextPanel from "./ContextPanel";
 import RecoveryCard from "./chat/RecoveryCard";
 import RecoveryHistoryModal from "./chat/RecoveryHistoryModal";
+import DiffReviewModal from "./chat/DiffReviewModal";
 import {
 	extractSubagentRuns,
 	getNextTabIndex,
@@ -135,6 +136,7 @@ export default function RightSidebar({
 	const [memoryError, setMemoryError] = useState("");
 	const [memoryStatus, setMemoryStatus] = useState("");
 	const [recoveryOpen, setRecoveryOpen] = useState(false);
+	const [reviewOpen, setReviewOpen] = useState(false);
 	const isDirty = isPromptDirty(prompt, savedPrompt);
 	const presetExists = !sessionAgent?.id || agents.some((agent) => agent.id === sessionAgent.id);
 	const prevMode = useRef(isWorkspace);
@@ -306,8 +308,8 @@ export default function RightSidebar({
 		<div
 			className={
 				compact
-					? "rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
-					: "mx-4 mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+					? "rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+					: "mx-4 mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
 			}
 		>
 			<button
@@ -330,7 +332,7 @@ export default function RightSidebar({
 	);
 
 	const renderAgentSelect = () => (
-		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 			<div className="mb-3 flex items-center gap-2">
 				<LuUsers
 					size={16}
@@ -395,7 +397,7 @@ export default function RightSidebar({
 
 	const renderPromptForm = () => (
 		<form
-			className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+			className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
 			onSubmit={handleSavePrompt}
 		>
 			<div className="mb-3 flex items-center gap-2">
@@ -466,7 +468,7 @@ export default function RightSidebar({
 
 	const renderSampling = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<div className="mb-3 flex items-center gap-2">
 					<LuSlidersHorizontal
 						size={16}
@@ -482,7 +484,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<ChatTuning
 					key={`${sessionId}:${modelId}:${tuningVersion}`}
 					disabled={!sessionId || disabled || selecting}
@@ -496,7 +498,7 @@ export default function RightSidebar({
 
 	const renderMemory = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBrain
 						size={16}
@@ -522,7 +524,7 @@ export default function RightSidebar({
 			{memoryLoading ? (
 				<p
 					role="status"
-					className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-xs text-[var(--text-secondary)]"
+					className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)] text-xs text-[var(--text-secondary)]"
 				>
 					Loading memory settings…
 				</p>
@@ -533,7 +535,7 @@ export default function RightSidebar({
 					return (
 						<div
 							key={key}
-							className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+							className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
 						>
 							<CheckboxField
 								label={label}
@@ -595,7 +597,7 @@ export default function RightSidebar({
 
 	const renderActivity = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_2px_var(--window-shadow)]">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<div className="flex items-center gap-2">
 					<span
 						aria-hidden="true"
@@ -648,17 +650,30 @@ export default function RightSidebar({
 				disabled={disabled}
 				running={Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading))}
 				onOpenHistory={() => setRecoveryOpen(true)}
+				onOpenReview={() => setReviewOpen(true)}
 			/>
 			{recoveryOpen && (
 				<RecoveryHistoryModal
 					sessionId={sessionId}
 					projectName={projectName}
-					running={Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading))}
+					running={Boolean(
+						runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
+					)}
 					onClose={() => setRecoveryOpen(false)}
 				/>
 			)}
+			{reviewOpen && (
+				<DiffReviewModal
+					sessionId={sessionId}
+					projectName={projectName}
+					running={Boolean(
+						runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
+					)}
+					onClose={() => setReviewOpen(false)}
+				/>
+			)}
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_2px_var(--window-shadow)]">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<h3 className="mb-2 text-xs font-semibold">Recent tool activity</h3>
 				{activity.recentTools.length === 0 ? (
 					<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
@@ -688,7 +703,7 @@ export default function RightSidebar({
 
 	const renderAgentsPanel = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBot
 						size={16}
@@ -705,7 +720,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<h3 className="mb-1 text-xs font-semibold">Available subagents</h3>
 				<p className="mb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Fixed capabilities the main model can call. There is no per-session enablement setting;
@@ -738,7 +753,7 @@ export default function RightSidebar({
 				</ul>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<h3 className="mb-1 text-xs font-semibold">Sub-agent model</h3>
 				<p className="mb-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Global setting — applies to every chat&apos;s future subagents, not just this session.
@@ -747,7 +762,7 @@ export default function RightSidebar({
 				<SubagentModelSelect disabled={disabled} />
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<h3 className="mb-2 text-xs font-semibold">
 					Running subagents{subagentRuns.length > 0 && ` · ${subagentRuns.length}`}
 				</h3>

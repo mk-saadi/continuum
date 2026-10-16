@@ -218,7 +218,7 @@ function RunHeader({
 			className="flex min-w-0 gap-2.5 items-center"
 			aria-label="Workspace run attribution"
 		>
-			<span className="mt-1.5 flex shrink-0 items-center">
+			<span className="flex shrink-0 items-center">
 				{avatarSettings?.showAvatars !== false && avatarSettings ? (
 					<AssistantAvatar
 						sessionAvatarUrl={avatarUrl}
@@ -245,15 +245,16 @@ function RunHeader({
 						{statusLabel}
 					</span>
 					{responseId && eventCount > 4 && (
-						<button
-							type="button"
-							onClick={jumpToResponse}
-							className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
-							aria-label="Jump to final response"
-							title="Jump to final response"
-						>
-							Response <LuChevronDown />
-						</button>
+						<Tooltip content={"Jump to final response"}>
+							<button
+								type="button"
+								onClick={jumpToResponse}
+								className="flex items-center gap-2 shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+								aria-label="Jump to final response"
+							>
+								Response <LuChevronDown />
+							</button>
+						</Tooltip>
 					)}
 				</div>
 				{(agentName && agentName !== label) || showTechnical ? (

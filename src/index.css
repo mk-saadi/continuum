@@ -19,7 +19,7 @@ pre {
 @source "./";
 
 /* Named dark palettes also activate Tailwind dark: utilities. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="lilac-dark"], [data-theme="lilac-dark"] *, [data-theme="matcha-dark"], [data-theme="matcha-dark"] *, [data-theme="ember-dark"], [data-theme="ember-dark"] *, [data-theme="tokyo-dark"], [data-theme="tokyo-dark"] *, [data-theme="gruvbox-dark"], [data-theme="gruvbox-dark"] *, [data-theme="solarized-dark"], [data-theme="solarized-dark"] *, [data-theme="mochi-dark"], [data-theme="mochi-dark"] *)) {
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="lilac-dark"], [data-theme="lilac-dark"] *, [data-theme="matcha-dark"], [data-theme="matcha-dark"] *, [data-theme="ember-dark"], [data-theme="ember-dark"] *, [data-theme="tokyo-dark"], [data-theme="tokyo-dark"] *, [data-theme="gruvbox-dark"], [data-theme="gruvbox-dark"] *, [data-theme="solarized-dark"], [data-theme="solarized-dark"] *, [data-theme="mochi-dark"], [data-theme="mochi-dark"] *, [data-theme="midnight-find"], [data-theme="midnight-find"] *)) {
 }
 
 /* Original Dark Palette: Solarized Cyan/Teal (Refined with distinct elevations) */
@@ -888,6 +888,132 @@ pre {
 	--code-string: #a9caa9;
 	--code-literal: #d4a6c8;
 	--code-function: #b9cee5;
+}
+
+/* Midnight Find: Deep Indigo, Rose & Mint (from the find() editor screenshot) */
+[data-theme="midnight-find"] {
+	--bg-primary: #15172a;
+	--bg-secondary: #1b1e36;
+	--bg-tertiary: #242849;
+	--bg-input: #1f2340;
+
+	--text-primary: #dadadd;
+	--text-secondary: #b7b9d4;
+	--text-muted: #8a8db0;
+
+	--accent: #eb5e73;
+	--accent-hover: #f07c8d;
+	--accent-bright: #f6a2ae;
+	--on-accent: #1b0910;
+
+	--border: #343a63;
+	--subtle-border: #262b4e;
+	--control-border: #454c7d;
+
+	--surface: #1b1e36;
+	--surface-raised: #242849;
+	--surface-hover: #2c3158;
+	--input: #1f2340;
+
+	--shadow: rgba(7, 8, 20, 0.5);
+	--window-shadow: #07081488;
+
+	--error: #eb5e73;
+	--error-soft: #f6a2ae;
+	--error-strong: #d94b60;
+	--danger-hover: #c93f55;
+
+	--edit-border: #6b5878;
+	--edit-bg: #eb5e7322;
+	--attachment-border: #5a5f8c;
+	--tool-border: #f3df6e88;
+
+	--active-chat: #3d2440;
+	--user-bubble: #2b1f45;
+	--link: #f3df6e;
+
+	--terminal: #101223;
+	--terminal-text: #dadadd;
+	--scrollbar-track: #1b1e36;
+	--scrollbar-thumb: #4a4f7c;
+
+	--inline-code-bg: #282d52;
+	--table-header-bg: #242849;
+	--code-bg: #181a30;
+	--code-border: #343a63;
+	--code-button-hover: #2c3158;
+
+	--code-text: #dadadd;
+	--code-muted: #8a8db0;
+	--code-comment: #7ca094;
+	--code-key: #e4d4af;
+	--code-keyword: #b6ba40;
+	--code-string: #f3df6e;
+	--code-literal: #daa541;
+	--code-function: #eb5e73;
+}
+
+/* Midnight Find Light: Indigo Paper, Rose & Mint (light twin of midnight-find) */
+[data-theme="midnight-light"] {
+	--bg-primary: #f6f6fb;
+	--bg-secondary: #efeff8;
+	--bg-tertiary: #e5e5f2;
+	--bg-input: #f1f1fa;
+
+	--text-primary: #23243d;
+	--text-secondary: #4a4b6b;
+	--text-muted: #7c7da0;
+
+	--accent: #d94b60;
+	--accent-hover: #eb5e73;
+	--accent-bright: #f6a2ae;
+	--on-accent: #ffffff;
+
+	--border: #c8c8de;
+	--subtle-border: #dedeeb;
+	--control-border: #b0b1cf;
+
+	--surface: #efeff8;
+	--surface-raised: #f6f6fb;
+	--surface-hover: #e5e5f2;
+	--input: #f1f1fa;
+
+	--shadow: rgba(35, 36, 61, 0.1);
+	--window-shadow: #23243d26;
+
+	--error: #d94b60;
+	--error-soft: #eb5e73;
+	--error-strong: #a83244;
+	--danger-hover: #932c3c;
+
+	--edit-border: #b0b1cf;
+	--edit-bg: #d94b601f;
+	--attachment-border: #7ca094;
+	--tool-border: #daa54188;
+
+	--active-chat: #e2e3f2;
+	--user-bubble: #ececf6;
+	--link: #b07d1e;
+
+	--terminal: #efeff8;
+	--terminal-text: #23243d;
+	--scrollbar-track: #efeff8;
+	--scrollbar-thumb: #b0b1cf;
+
+	--inline-code-bg: #e5e5f2;
+	--table-header-bg: #ececf6;
+	--code-bg: #f1f1fa;
+	--code-border: #c8c8de;
+	--code-button-hover: #e5e5f2;
+
+	--code-text: #23243d;
+	--code-muted: #7c7da0;
+	--code-comment: #568a7b;
+	--code-key: #8a6d1f;
+	--code-keyword: #7d7a2e;
+	--code-string: #9a7414;
+	--code-literal: #a06a1c;
+	--code-function: #d94b60;
 }
 
 /* Tailwind Typography uses its own palette; bind it to the active theme. */

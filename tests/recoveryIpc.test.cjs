@@ -354,3 +354,161 @@ test('recovery IPC channels are registered and round-trip', async () => {
     dispose();
   }
 });
+
+const { execSync: execSyncCheck, execFileSync: gitBin } = require('node:child_process');
+const git = (args, cwd) => gitBin('git', args, { cwd, encoding: 'utf8', timeout: 15000 });
+let gitSandboxOk = null;
+// Diff-review reads run git through the bwrap sandbox: Linux + git + bwrap
+// or the tests skip instead of failing on other platforms.
+function gitSandboxAvailable() {
+  if (gitSandboxOk === null) {
+    try {
+      gitSandboxOk = process.platform === 'linux'
+        && execSyncCheck('command -v git', { stdio: 'pipe' }).toString().trim().length > 0
+        && execSyncCheck('command -v bwrap', { stdio: 'pipe' }).toString().trim().length > 0;
+    } catch {
+      gitSandboxOk = false;
+    }
+  }
+  return gitSandboxOk;
+}
+function makeGitWorkspace(files = {}) {
+  const root = makeWorkspace(files);
+  git(['init', '-b', 'main'], root);
+  git(['config', 'user.email', 't@t'], root);
+  git(['config', 'user.name', 't'], root);
+  git(['add', '-A'], root);
+  git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', 'init'], root);
+  return root;
+}
+
+test('diff review: changed files list staged, unstaged, and untracked rows', async (t) => {
+  if (!gitSandboxAvailable()) return t.skip('needs Linux git+bwrap sandbox');
+  const root = makeGitWorkspace({ 'a.txt': 'one\n', 'b.txt': 'two\n' });
+  const sid = chatFor(root, 'review-list');
+  fs.writeFileSync(path.join(root, 'a.txt'), 'one\nchanged\n');
+  fs.writeFileSync(path.join(root, 'b.txt'), 'two\nchanged\n');
+  git(['add', 'b.txt'], root);
+  fs.writeFileSync(path.join(root, 'c.txt'), 'new1\nnew2\nnew3\n');
+  const changed = await service.recoveryChangedFiles(sid);
+  assert.equal(changed.branch, 'main');
+  assert.equal(changed.truncated, false);
+  const byPath = Object.fromEntries(changed.files.map((entry) => [entry.path, entry]));
+  assert.equal(byPath['a.txt'].status, 'modified');
+  assert.equal(byPath['a.txt'].staged, false);
+  assert.equal(byPath['a.txt'].unstaged, true);
+  assert.equal(byPath['a.txt'].added, 1);
+  assert.equal(byPath['a.txt'].deleted, 0);
+  assert.equal(byPath['b.txt'].staged, true);
+  assert.equal(byPath['b.txt'].added, 1);
+  assert.equal(byPath['c.txt'].status, 'untracked');
+  assert.equal(byPath['c.txt'].added, 3);
+  assert.equal(byPath['c.txt'].deleted, 0);
+  // Non-repos fail closed exactly like the agent git tools.
+  const plain = makeWorkspace({ 'x.txt': 'x\n' });
+  await assert.rejects(service.recoveryChangedFiles(chatFor(plain, 'review-plain')), /Not a git repository/);
+  await assert.rejects(service.recoveryChangedFiles('no-such-session'), /project workspace/);
+});
+
+test('diff review: per-file diff text, binary, truncation, and clean states', async (t) => {
+  if (!gitSandboxAvailable()) return t.skip('needs Linux git+bwrap sandbox');
+  const root = makeGitWorkspace({ 'a.txt': 'one\ntwo\n', 'bin.dat': Buffer.from([0, 1, 2, 3]) });
+  const sid = chatFor(root, 'review-diff');
+  fs.writeFileSync(path.join(root, 'a.txt'), 'one\nTWO\nthree\n');
+  const modified = await service.recoveryFileDiff(sid, 'a.txt');
+  assert.equal(modified.binary, false);
+  assert.equal(modified.truncated, false);
+  assert.match(modified.text, /-two/);
+  assert.match(modified.text, /\+TWO/);
+  fs.writeFileSync(path.join(root, 'bin.dat'), Buffer.from([0, 9, 9, 9]));
+  const binary = await service.recoveryFileDiff(sid, 'bin.dat');
+  assert.equal(binary.binary, true);
+  assert.equal(binary.text, null);
+  assert.ok(typeof binary.bytes === 'number');
+  // Large diffs truncate with the same marker convention as other outputs.
+  fs.writeFileSync(path.join(root, 'big.txt'), Array.from({ length: 3000 }, (_, i) => `line ${i}\n`).join(''));
+  git(['add', 'big.txt'], root);
+  const big = await service.recoveryFileDiff(sid, 'big.txt');
+  assert.equal(big.truncated, true);
+  assert.match(big.text, /\[Output truncated\]$/);
+  // A file matching HEAD reports clean instead of erroring.
+  git(['checkout', '--', 'a.txt'], root);
+  const clean = await service.recoveryFileDiff(sid, 'a.txt');
+  assert.equal(clean.clean, true);
+  assert.equal(clean.text, '');
+  // Untracked content arrives as capped text; hostile paths never reach git.
+  fs.writeFileSync(path.join(root, 'new.txt'), 'hello\n');
+  const untracked = await service.recoveryFileDiff(sid, 'new.txt');
+  assert.equal(untracked.untracked, true);
+  assert.equal(untracked.text, 'hello\n');
+  for (const bad of ['../outside.txt', '/abs.txt', '', 'a'.repeat(1025)]) {
+    await assert.rejects(service.recoveryFileDiff(sid, bad), /project-relative|escapes/);
+  }
+});
+
+test('diff review: covering checkpoint resolution and single-file revert', async (t) => {
+  if (!gitSandboxAvailable()) return t.skip('needs Linux git+bwrap sandbox');
+  const root = makeGitWorkspace({ 'a.txt': 'one\n', 'b.txt': 'two\n' });
+  const sid = chatFor(root, 'review-revert');
+  const op = await toolCall(root, 'write_project_file', { relative_path: 'a.txt', content: 'one\nchanged\n' }, 'review-revert');
+  assert.ok(op.recoveryCheckpointId);
+  const covering = await service.recoveryCoveringCheckpoint(sid, 'a.txt');
+  assert.equal(covering.checkpointId, op.recoveryCheckpointId);
+  assert.equal((await service.recoveryCoveringCheckpoint(sid, 'missing.txt')).checkpointId, null);
+  // Latest wins: a newer checkpoint covering the same path supersedes.
+  const op2 = await toolCall(root, 'write_project_file', { relative_path: 'a.txt', content: 'one\nchanged again\n' }, 'review-revert');
+  assert.equal((await service.recoveryCoveringCheckpoint(sid, 'a.txt')).checkpointId, op2.recoveryCheckpointId);
+  // Dry-run preview first (the UI confirm flow), then the real single-path
+  // restore: only a.txt moves, b.txt is untouched.
+  fs.writeFileSync(path.join(root, 'b.txt'), 'two\nchanged\n');
+  const preview = await service.recoveryPreview(sid, op2.recoveryCheckpointId, { paths: ['a.txt'], force: false });
+  assert.equal(preview.complete, true);
+  const done = await service.recoveryRestore(sid, op2.recoveryCheckpointId, { paths: ['a.txt'], force: false }, false);
+  assert.equal(done.complete, true);
+  assert.ok(done.preRestoreCheckpointId);
+  // Single-path restore returns a.txt to op2's before-image; b.txt keeps its
+  // unrelated manual edit.
+  assert.equal(fs.readFileSync(path.join(root, 'a.txt'), 'utf8'), 'one\nchanged\n');
+  assert.equal(fs.readFileSync(path.join(root, 'b.txt'), 'utf8'), 'two\nchanged\n');
+  await assert.rejects(service.recoveryCoveringCheckpoint(sid, '../a.txt'), /escapes/);
+});
+
+test('diff review IPC channels are registered', async () => {
+  const onlyElectron = Module._load;
+  const seen = new Map();
+  Module._load = function (name, ...args) {
+    if (name === 'electron') {
+      return {
+        app: { isReady: () => true, getPath: () => dbDir },
+        ipcMain: { handle: (channel, fn) => seen.set(channel, fn), removeHandler: (channel) => seen.delete(channel) },
+      };
+    }
+    return onlyElectron.call(this, name, ...args);
+  };
+  let dispose = () => {};
+  try {
+    // ipcHandlers captures electron's ipcMain at module top level, so a
+    // second registration in this process must reload the module for this
+    // test's mock to take effect (the earlier channel test owns the first).
+    delete require.cache[require.resolve('../src/main/ipcHandlers')];
+    const { registerIpcHandlers } = require('../src/main/ipcHandlers');
+    const { EventEmitter } = require('node:events');
+    const sender = new EventEmitter();
+    sender.isDestroyed = () => false;
+    sender.send = () => {};
+    dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => null });
+    for (const channel of ['recovery:changed-files', 'recovery:file-diff', 'recovery:covering-checkpoint']) {
+      assert.equal(typeof seen.get(channel), 'function', `${channel} registered`);
+    }
+    // Round-trip through real wiring on a non-repo: fails closed, not crashed.
+    const root = makeWorkspace({ 'x.txt': 'x\n' });
+    const sid = chatFor(root, 'review-wire');
+    await assert.rejects(
+      seen.get('recovery:changed-files')({ sender }, { sessionId: sid }),
+      /Not a git repository/,
+    );
+  } finally {
+    Module._load = load;
+    dispose();
+  }
+});

@@ -310,6 +310,15 @@ function registerIpcHandlers({
 				activeStreams.has(sessionId) || standaloneDelegation),
 		"recovery:pin": ({ sessionId, checkpointId, pinned } = {}) =>
 			require("./recoveryIpc").recoveryPin(sessionId, checkpointId, pinned),
+		// Diff review (UI-only reads + checkpoint-backed single-file revert
+		// through the standard preview/restore path). No new destructive
+		// primitives: revert reuses recovery:preview/recovery:restore below.
+		"recovery:changed-files": ({ sessionId } = {}) =>
+			require("./recoveryIpc").recoveryChangedFiles(sessionId),
+		"recovery:file-diff": ({ sessionId, relPath } = {}) =>
+			require("./recoveryIpc").recoveryFileDiff(sessionId, relPath),
+		"recovery:covering-checkpoint": ({ sessionId, relPath } = {}) =>
+			require("./recoveryIpc").recoveryCoveringCheckpoint(sessionId, relPath),
 		"recovery:stats": () => require("./recoveryIpc").recoveryStats(),
 		"recovery:prune": () => require("./recoveryIpc").recoveryPrune(),
 		"settings:set-notification-prefs": prefs => saveNotificationPrefs(prefs),

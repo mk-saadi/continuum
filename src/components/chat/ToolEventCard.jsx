@@ -309,7 +309,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 	// The banner one-liner is a classified summary ("A tool call failed.");
 	// the detail is the recorded error underneath. Copy carries both so a
 	// pasted report stands alone.
-	const detail = (failed || blocked || cancelled) ? failureDetail(step) : "";
+	const detail = failed || blocked || cancelled ? failureDetail(step) : "";
 	const copyErrorText = detail ? `${err}\n\n${detail}` : err;
 	// The path is already the diff header (edits) or WriteSummary (writes);
 	// repeating it in the fields table would duplicate the same heading.
@@ -586,7 +586,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					)}
 					{step.args != null && (
 						<Detail summary="Full arguments">
-							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_2px_var(--window-shadow)]">
+							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 								{formatBody(step.args)}
 							</pre>
 						</Detail>
@@ -680,7 +680,7 @@ function ReadOutput({ step }) {
 					/>
 				)}
 			</h4>
-			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_2px_var(--window-shadow)]">
+			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 				{formatBody(content ?? step.error)}
 			</pre>
 		</section>
@@ -748,7 +748,7 @@ function GenericResult({ step }) {
 	return (
 		<section aria-label="Tool result">
 			<h4 className="mb-1 font-medium text-[var(--text-secondary)]">Result</h4>
-			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_2px_var(--window-shadow)]">
+			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 				{formatBody(result)}
 			</pre>
 		</section>

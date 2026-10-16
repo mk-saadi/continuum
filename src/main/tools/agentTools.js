@@ -1718,4 +1718,7 @@ module.exports = {
 	isPathAllowed,
 	screenshot,
 	atomicWriteFile,
+	// Reused by the recovery diff-review IPC for sandboxed read-only git
+	// inspection (status/numstat/diff). Same runner, same guarantees.
+	runGit,
 };

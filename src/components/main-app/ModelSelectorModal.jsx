@@ -14,7 +14,7 @@ import {
 	LuAudioLines,
 	LuVideo,
 	LuCheck,
-    LuPencil,
+	LuPencil,
 } from "react-icons/lu";
 
 const rowGrid = "grid grid-cols-[minmax(240px,1fr)_95px_125px_60px_80px_80px_65px] items-center gap-3";
@@ -27,21 +27,39 @@ const capabilityIcons = [
 ];
 
 function cloudService(model) {
-    if (model.providerName) return model.providerName;
-    try {
-        const host = new URL(model.baseUrl).hostname;
-        return ({ 'openrouter.ai': 'OpenRouter', 'api.anthropic.com': 'Anthropic', 'api.openai.com': 'OpenAI', 'api.deepseek.com': 'DeepSeek' })[host] || host;
-    } catch { return model.apiType === 'anthropic' ? 'Anthropic' : 'Cloud'; }
+	if (model.providerName) return model.providerName;
+	try {
+		const host = new URL(model.baseUrl).hostname;
+		return (
+			{
+				"openrouter.ai": "OpenRouter",
+				"api.anthropic.com": "Anthropic",
+				"api.openai.com": "OpenAI",
+				"api.deepseek.com": "DeepSeek",
+			}[host] || host
+		);
+	} catch {
+		return model.apiType === "anthropic" ? "Anthropic" : "Cloud";
+	}
 }
-const tokens = value => value ? value >= 1000 ? `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}k` : String(value) : '—';
+const tokens = (value) =>
+	value
+		? value >= 1000
+			? `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}k`
+			: String(value)
+		: "—";
 function priceLabel(pricing) {
-    if (pricing?.input == null || pricing?.output == null) return '—';
-    const cost = value => `$${(value * 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 })}`;
-    return `${cost(pricing.input)} / ${cost(pricing.output)}`;
+	if (pricing?.input == null || pricing?.output == null) return "—";
+	const cost = (value) => `$${(value * 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 })}`;
+	return `${cost(pricing.input)} / ${cost(pricing.output)}`;
 }
 
 function overrideKey(model, local) {
-    return JSON.stringify(local ? ['local', model.modelPath || model.path || model.id] : ['cloud', model.id, model.baseUrl, model.modelId]);
+	return JSON.stringify(
+		local
+			? ["local", model.modelPath || model.path || model.id]
+			: ["cloud", model.id, model.baseUrl, model.modelId],
+	);
 }
 function Capabilities({ model, local, runtime, overrides = {} }) {
 	return (
@@ -60,15 +78,20 @@ function Capabilities({ model, local, runtime, overrides = {} }) {
 									: null;
 				const confirmed = typeof runtime?.[key] === "boolean";
 				const overridden = typeof overrides[key] === "boolean";
-				const value = overridden ? overrides[key] : confirmed
-					? runtime[key]
-					: typeof declared === "boolean"
-						? declared
-						: inferred
-							? true
-							: null;
-				const status = overridden ? (value ? "enabled by you" : "disabled by you") :
-					value === true
+				const value = overridden
+					? overrides[key]
+					: confirmed
+						? runtime[key]
+						: typeof declared === "boolean"
+							? declared
+							: inferred
+								? true
+								: null;
+				const status = overridden
+					? value
+						? "enabled by you"
+						: "disabled by you"
+					: value === true
 						? confirmed
 							? "verified by loaded engine"
 							: local
@@ -115,26 +138,50 @@ export default function ModelSelectorModal({
 	const [source, setSource] = useState("all");
 	const [sort, setSort] = useState("name");
 	const [configuring, setConfiguring] = useState(null);
-    const [editingCapabilities, setEditingCapabilities] = useState(null);
-    const [capabilityOverrides, setCapabilityOverrides] = useState({});
-    useEffect(() => { let active = true; window.api?.getCapabilityOverrides?.().then(all => { if (active) setCapabilityOverrides(all); }).catch(() => {}); return () => { active = false; }; }, []);
+	const [editingCapabilities, setEditingCapabilities] = useState(null);
+	const [capabilityOverrides, setCapabilityOverrides] = useState({});
+	useEffect(() => {
+		let active = true;
+		window.api
+			?.getCapabilityOverrides?.()
+			.then((all) => {
+				if (active) setCapabilityOverrides(all);
+			})
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, []);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
-    const [cloudMetadata, setCloudMetadata] = useState([]);
-    const [metadataStatus, setMetadataStatus] = useState('');
-    const providerSignature = cloudProviders.map(row => `${row.id}:${row.baseUrl}:${row.modelId}:${row.apiType}:${row.configured}`).join('|');
-    useEffect(() => {
-        if (!window.api?.getCloudModelMetadata) return;
-        let active = true;
-        setCloudMetadata([]);
-        setMetadataStatus('Refreshing cloud metadata…');
-        window.api.getCloudModelMetadata().then(rows => {
-            if (!active) return;
-            setCloudMetadata(rows);
-            setMetadataStatus(rows.some(row => row.error) ? 'Some cloud metadata is unavailable. Hover a cloud model for details.' : '');
-        }).catch(() => { if (active) setMetadataStatus('Cloud metadata unavailable; model selection still works.'); });
-        return () => { active = false; };
-    }, [providerSignature]);
+	const [cloudMetadata, setCloudMetadata] = useState([]);
+	const [metadataStatus, setMetadataStatus] = useState("");
+	const providerSignature = cloudProviders
+		.map((row) => `${row.id}:${row.baseUrl}:${row.modelId}:${row.apiType}:${row.configured}`)
+		.join("|");
+	useEffect(() => {
+		if (!window.api?.getCloudModelMetadata) return;
+		let active = true;
+		setCloudMetadata([]);
+		setMetadataStatus("Refreshing cloud metadata…");
+		window.api
+			.getCloudModelMetadata()
+			.then((rows) => {
+				if (!active) return;
+				setCloudMetadata(rows);
+				setMetadataStatus(
+					rows.some((row) => row.error)
+						? "Some cloud metadata is unavailable. Hover a cloud model for details."
+						: "",
+				);
+			})
+			.catch(() => {
+				if (active) setMetadataStatus("Cloud metadata unavailable; model selection still works.");
+			});
+		return () => {
+			active = false;
+		};
+	}, [providerSignature]);
 	useEffect(() => {
 		const element = dialog.current;
 		if (!element) return;
@@ -150,12 +197,14 @@ export default function ModelSelectorModal({
 		(model) =>
 			!/mmproj/i.test((model.modelPath || model.path || model.name || model.id).split(/[\\/]/).pop()),
 	);
-	const providers = cloudProviders.filter(
-        row => (row.category ?? 'text') === 'text' && row.configured && row.modelId?.trim(),
-    ).map(row => {
-        const metadata = cloudMetadata.find(item => item.providerId === row.id && item.modelId === row.modelId);
-        return { ...row, ...metadata, id: row.id, name: row.name, modelId: row.modelId };
-    });
+	const providers = cloudProviders
+		.filter((row) => (row.category ?? "text") === "text" && row.configured && row.modelId?.trim())
+		.map((row) => {
+			const metadata = cloudMetadata.find(
+				(item) => item.providerId === row.id && item.modelId === row.modelId,
+			);
+			return { ...row, ...metadata, id: row.id, name: row.name, modelId: row.modelId };
+		});
 	const entries = [
 		...localModels.map((model) => ({
 			model,
@@ -183,7 +232,23 @@ export default function ModelSelectorModal({
 				: a.name.localeCompare(b.name),
 		);
 
-    if (editingCapabilities) return <ModelCapabilitiesModal entry={editingCapabilities} overrides={capabilityOverrides[overrideKey(editingCapabilities.model, editingCapabilities.local)]} onClose={() => setEditingCapabilities(null)} onSaved={all => { setCapabilityOverrides(all); window.api.getCloudModelMetadata?.().then(setCloudMetadata).catch(() => {}); }} />;
+	if (editingCapabilities)
+		return (
+			<ModelCapabilitiesModal
+				entry={editingCapabilities}
+				overrides={
+					capabilityOverrides[overrideKey(editingCapabilities.model, editingCapabilities.local)]
+				}
+				onClose={() => setEditingCapabilities(null)}
+				onSaved={(all) => {
+					setCapabilityOverrides(all);
+					window.api
+						.getCloudModelMetadata?.()
+						.then(setCloudMetadata)
+						.catch(() => {});
+				}}
+			/>
+		);
 
 	if (configuring)
 		return (
@@ -315,14 +380,16 @@ export default function ModelSelectorModal({
 					<div className="min-w-[850px]">
 						<div
 							aria-hidden="true"
-							className={`${rowGrid} sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]`}
+							className={`${rowGrid} sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)] mr-7`}
 						>
 							<span>Model</span>
 							<span>Source</span>
 							<span>Capabilities</span>
 							<span>{source === "cloud" ? "Context" : "Params"}</span>
 							<span>{source === "cloud" ? "Max output" : "Quantization"}</span>
-							<span className="text-right">{source === "cloud" ? "$/1M in · out" : "File size"}</span>
+							<span className="text-right">
+								{source === "cloud" ? "$/1M in · out" : "File size"}
+							</span>
 							<span />
 						</div>
 						<ul
@@ -341,7 +408,10 @@ export default function ModelSelectorModal({
 										activeChatProvider.model === model.modelId;
 								const runtime = loaded ? loadedLocalModel.capabilities : undefined;
 								return (
-									<li key={`${local ? "local" : "cloud"}:${model.id}`} className="relative">
+									<li
+										key={`${local ? "local" : "cloud"}:${model.id}`}
+										className="relative"
+									>
 										<button
 											type="button"
 											disabled={busy}
@@ -399,9 +469,7 @@ export default function ModelSelectorModal({
 												)}
 												<span
 													className="truncate"
-													title={
-														local ? "Local file" : cloudService(model)
-													}
+													title={local ? "Local file" : cloudService(model)}
 												>
 													{local ? "Local" : cloudService(model)}
 												</span>
@@ -410,30 +478,45 @@ export default function ModelSelectorModal({
 												model={model}
 												local={local}
 												runtime={runtime}
-                                                overrides={capabilityOverrides[overrideKey(model, local)]}
+												overrides={capabilityOverrides[overrideKey(model, local)]}
 											/>
 											<span className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-												{source === "cloud" ? tokens(capabilityOverrides[overrideKey(model, local)]?.contextLength ?? model.contextLength) : model.paramSize || "—"}
+												{source === "cloud"
+													? tokens(
+															capabilityOverrides[overrideKey(model, local)]
+																?.contextLength ?? model.contextLength,
+														)
+													: model.paramSize || "—"}
 											</span>
 											<span
 												title={
 													local
 														? "GGUF quantization"
-														: source === "cloud" ? "Maximum output tokens reported by provider" : "Remote quantization is not reported"
+														: source === "cloud"
+															? "Maximum output tokens reported by provider"
+															: "Remote quantization is not reported"
 												}
 												className="truncate font-mono text-[10px] text-[var(--text-secondary)]"
 											>
-												{source === "cloud" ? tokens(model.maxOutputTokens) : model.quantization || "—"}
+												{source === "cloud"
+													? tokens(model.maxOutputTokens)
+													: model.quantization || "—"}
 											</span>
 											<span
 												title={
 													local
 														? "File size on disk"
-														: source === "cloud" ? "USD per million input / output tokens. Routing and cache pricing may vary." : "Cloud models have no local file size"
+														: source === "cloud"
+															? "USD per million input / output tokens. Routing and cache pricing may vary."
+															: "Cloud models have no local file size"
 												}
 												className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]"
 											>
-												{source === "cloud" ? priceLabel(model.pricing) : local ? model.sizeFormatted || "—" : "—"}
+												{source === "cloud"
+													? priceLabel(model.pricing)
+													: local
+														? model.sizeFormatted || "—"
+														: "—"}
 											</span>
 											<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
 												{active ? (
@@ -454,9 +537,21 @@ export default function ModelSelectorModal({
 													</>
 												)}
 											</span>
-                                        </button>
-                                        <button type="button" aria-label={`Edit capabilities for ${name}`} title="Edit model capabilities" disabled={busy} onClick={() => setEditingCapabilities({ model, local, name })} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"><LuPencil size={13} aria-hidden="true" /></button>
-                                    </li>
+										</button>
+										<button
+											type="button"
+											aria-label={`Edit capabilities for ${name}`}
+											title="Edit model capabilities"
+											disabled={busy}
+											onClick={() => setEditingCapabilities({ model, local, name })}
+											className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+										>
+											<LuPencil
+												size={13}
+												aria-hidden="true"
+											/>
+										</button>
+									</li>
 								);
 							})}
 						</ul>
@@ -510,7 +605,7 @@ export default function ModelSelectorModal({
 					</span>
 					<span>
 						{metadataStatus && <span className="block">{metadataStatus}</span>}
-                        Icons: image · audio · video · reasoning · tools. Hover for support status; muted
+						Icons: image · audio · video · reasoning · tools. Hover for support status; muted
 						means unsupported or unknown.
 					</span>
 				</footer>

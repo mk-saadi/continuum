@@ -1570,6 +1570,35 @@ async function getRecoveryHistory(root, chatSessionId, limit = 50) {
   return { mine, other };
 }
 
+// Latest checkpoint covering one project-relative path, for single-file
+// revert: the renderer restores that path from the returned checkpoint via
+// the normal preview/restore path. Scans newest-first with a bounded window;
+// returns null when nothing covers the path (caller reports a clear error).
+// Lookup only — manifest JSON is parsed, no blob bytes are touched.
+const COVER_SCAN_CAP = 200;
+async function findLatestCheckpointForPath(root, rel) {
+  ensureRecoverySchema();
+  const realRoot = await fs.realpath(root).catch(() => null);
+  if (!realRoot) return null;
+  const session = connection().prepare('SELECT id FROM recovery_sessions WHERE project_root = ?').get(realRoot);
+  if (!session) return null;
+  const rows = connection().prepare(
+    'SELECT id, kind, created_at, manifest_json FROM recovery_checkpoints WHERE session_id = ? ORDER BY id DESC LIMIT ?',
+  ).all(session.id, COVER_SCAN_CAP);
+  for (const row of rows) {
+    let manifest;
+    try {
+      manifest = JSON.parse(row.manifest_json);
+    } catch {
+      continue;
+    }
+    if (manifest && manifest.paths && Object.hasOwn(manifest.paths, rel)) {
+      return { checkpointId: row.id, kind: row.kind, createdAt: row.created_at };
+    }
+  }
+  return null;
+}
+
 // Ownership gate: a checkpoint restores only inside its own workspace root.
 // Renderer-supplied ids can never reach another workspace's files.
 function assertCheckpointInRoot(checkpointId, root) {
@@ -1685,5 +1714,6 @@ module.exports = {
   getWorkspaceRecoveryOverview,
   getRecoveryHistory,
   assertCheckpointInRoot,
+  findLatestCheckpointForPath,
   getCheckpointDetail,
 };
