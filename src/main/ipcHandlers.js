@@ -305,8 +305,8 @@ function registerIpcHandlers({
 			require("./recoveryIpc").recoveryDetail(sessionId, checkpointId),
 		"recovery:preview": ({ sessionId, checkpointId, paths, force } = {}) =>
 			require("./recoveryIpc").recoveryPreview(sessionId, checkpointId, { paths, force }),
-		"recovery:restore": async ({ sessionId, checkpointId, paths, force } = {}) =>
-			require("./recoveryIpc").recoveryRestore(sessionId, checkpointId, { paths, force },
+		"recovery:restore": async ({ sessionId, checkpointId, paths, force, allowRisky } = {}) =>
+			require("./recoveryIpc").recoveryRestore(sessionId, checkpointId, { paths, force, allowRisky },
 				activeStreams.has(sessionId) || standaloneDelegation),
 		"recovery:pin": ({ sessionId, checkpointId, pinned } = {}) =>
 			require("./recoveryIpc").recoveryPin(sessionId, checkpointId, pinned),

@@ -7,6 +7,7 @@ import {
 	classifyStep,
 	commandOutcome,
 	fileEditStats,
+	failureDetail,
 	formatArgFields,
 	isBlockedStep,
 	isCancelledStep,
@@ -305,6 +306,11 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 	const isSubagent = ["delegate_task", "spawn_sub_agent", "extract_web_page_data"].includes(step.toolName);
 	const meta = rowMeta(step, kind, classification, outcome, showTest ? testSummary : null, editStats);
 	const err = errorText(step);
+	// The banner one-liner is a classified summary ("A tool call failed.");
+	// the detail is the recorded error underneath. Copy carries both so a
+	// pasted report stands alone.
+	const detail = (failed || blocked || cancelled) ? failureDetail(step) : "";
+	const copyErrorText = detail ? `${err}\n\n${detail}` : err;
 	// The path is already the diff header (edits) or WriteSummary (writes);
 	// repeating it in the fields table would duplicate the same heading.
 	const writePathShown = kind === "write" && typeof step.args?.relative_path === "string";
@@ -419,13 +425,23 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					{(failed || blocked || cancelled) && err && (
 						<div
 							role={failed || blocked ? "alert" : "status"}
-							className={`flex min-w-0 items-start justify-between gap-2 break-words text-xs ${failed || blocked ? "text-[var(--error)]" : "text-[var(--text-muted)]"}`}
+							className={`min-w-0 gap-2 break-words text-xs ${failed || blocked ? "text-[var(--error)]" : "text-[var(--text-muted)]"}`}
 						>
-							<p className="min-w-0 flex-1 whitespace-pre-wrap">{err}</p>
-							<CopyButton
-								text={err}
-								label="Copy error"
-							/>
+							<div className="flex min-w-0 items-start justify-between gap-2">
+								<p className="min-w-0 flex-1 whitespace-pre-wrap">{err}</p>
+								<CopyButton
+									text={copyErrorText}
+									label="Copy error"
+								/>
+							</div>
+							{detail && (
+								<pre
+									aria-label="Error details"
+									className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] p-2.5 font-mono text-[11px] text-[var(--error)]"
+								>
+									{detail}
+								</pre>
+							)}
 						</div>
 					)}
 					{blocked && (

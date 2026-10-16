@@ -35,6 +35,23 @@ const RECOVERY_SCOPE_EXCLUDES = new Set(['.git', '.llm_workspace', 'node_modules
 // A file modified within this window at capture time may still be changing;
 // flag it volatile rather than pretending the bytes are settled.
 const RECOVERY_VOLATILE_MS = 2000;
+// SHA-256 of zero bytes. Used to recognize empty-file blobs explicitly — an
+// empty file is legitimate content (never an error by itself), but restores
+// that would newly empty non-empty files are treated as risky.
+const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+// Restore safety gate: an empty recorded file overwriting a non-empty current
+// file always needs explicit authorization; a checkpoint whose in-scope file
+// records are all (or nearly all) empty is treated as possibly damaged.
+const EMPTY_OVER_HARD_COUNT = 10;
+const EMPTY_OVER_HARD_BYTES = 1024 * 1024;
+const DEGENERATE_EMPTY_RATIO = 0.9;
+const DEGENERATE_MIN_FILES = 3;
+// A recorded file less than a quarter of a sizable current file is
+// "suspiciously smaller": reported, and escalated in aggregate.
+const SHRINK_RATIO = 0.25;
+const SHRINK_MIN_CURRENT_BYTES = 4096;
+const SHRINK_HARD_COUNT = 5;
+const SHRINK_HARD_BYTES = 1024 * 1024;
 
 function appDataDirectory() {
   return require('./configStore').getConfig().appDataDirectory;
@@ -427,7 +444,22 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
   const volatile = Object.entries(manifest.paths)
     .filter(([, rec]) => rec && rec.volatile === true)
     .map(([rel]) => rel);
-  const coverage = { complete: skipped.length === 0, skipped, excluded, volatile };
+  // Empty files are legitimate content, recorded here as verified metadata
+  // (not a warning by itself) so history views and the restore safety gate
+  // can distinguish intentional empties from damage-shaped checkpoints.
+  const fileRecords = Object.entries(manifest.paths)
+    .filter(([, rec]) => rec && rec.kind === 'file');
+  const emptyFiles = fileRecords
+    .filter(([, rec]) => rec.size === 0)
+    .map(([rel]) => rel);
+  const coverage = {
+    complete: skipped.length === 0,
+    skipped,
+    excluded,
+    volatile,
+    emptyFiles,
+    allEmptyFiles: fileRecords.length > 0 && emptyFiles.length === fileRecords.length,
+  };
   // A path the operation WILL mutate must never be half-protected: any skip
   // on a required path blocks the whole capture instead of proceeding with
   // a checkpoint that cannot restore it.
@@ -899,11 +931,94 @@ async function restoreOne(root, rel, rec, { force, uncontained = false, dryRun =
   return current.kind === 'absent' ? 'restored' : 'restored';
 }
 
+// Restore safety analysis. Plans every wanted path with the same decision
+// logic as the real restore (via dry-run restoreOne, which performs no
+// writes) and measures what would be overwritten. Empty files are legitimate
+// content, so a single empty-over-nonempty is authorization-gated rather
+// than refused; mass emptying or a checkpoint whose file records are nearly
+// all empty (likely captured damage) is refused pending stronger proof.
+// Pure read-only: safe to run before any snapshot or write.
+async function analyzeRestoreSafety(root, manifest, wanted, { force = false, uncontained = false, postState = null } = {}) {
+  const perPath = [];
+  for (const rel of wanted) {
+    const rec = manifest.paths[rel];
+    let action = 'error: unknown-record';
+    try {
+      action = await restoreOne(root, rel, rec, { force, uncontained, dryRun: true, post: postState?.[rel] });
+    } catch (error) {
+      action = `error: ${String(error.message).slice(0, 160)}`;
+    }
+    let currentSize = null;
+    let currentKind = null;
+    try {
+      const abs = await resolveRestoreTarget(root, rel, { uncontained });
+      const current = await currentRecord(abs);
+      currentKind = current.kind;
+      if (typeof current.size === 'number') currentSize = current.size;
+    } catch {
+      /* Unknown current state stays conservative: excluded from risk math. */
+    }
+    perPath.push({
+      path: rel,
+      action,
+      recKind: rec?.kind ?? 'unknown',
+      recSize: typeof rec?.size === 'number' ? rec.size : null,
+      currentKind,
+      currentSize,
+    });
+  }
+  const wouldWrite = (entry) => entry.action === 'restored';
+  const emptyOvers = perPath.filter((entry) =>
+    wouldWrite(entry) && entry.recKind === 'file' && entry.recSize === 0 &&
+    entry.currentKind === 'file' && (entry.currentSize ?? 0) > 0);
+  const inScopeFiles = perPath.filter((entry) => entry.recKind === 'file' && (entry.action === 'restored' || entry.action === 'unchanged'));
+  const degenerate = inScopeFiles.length >= DEGENERATE_MIN_FILES
+    && inScopeFiles.filter((entry) => entry.recSize === 0).length / inScopeFiles.length >= DEGENERATE_EMPTY_RATIO
+    && emptyOvers.length > 0;
+  const shrinks = perPath.filter((entry) =>
+    wouldWrite(entry) && entry.recKind === 'file' && (entry.recSize ?? 0) > 0 &&
+    entry.currentKind === 'file' && (entry.currentSize ?? 0) >= SHRINK_MIN_CURRENT_BYTES &&
+    entry.recSize < entry.currentSize * SHRINK_RATIO);
+  const bytesEmptied = emptyOvers.reduce((total, entry) => total + (entry.currentSize ?? 0), 0);
+  const shrinkBytes = shrinks.reduce((total, entry) => total + ((entry.currentSize ?? 0) - (entry.recSize ?? 0)), 0);
+  const anomalies = [];
+  if (degenerate) {
+    anomalies.push({ type: 'degenerate-checkpoint',
+      message: `Checkpoint file records are nearly all empty (${inScopeFiles.filter((e) => e.recSize === 0).length}/${inScopeFiles.length}) while current files hold content; it may capture already-damaged state.`,
+      paths: emptyOvers.map((entry) => entry.path) });
+  }
+  if (emptyOvers.length > 0) {
+    anomalies.push({ type: 'empty-over-nonempty',
+      message: `Restore would turn ${emptyOvers.length} non-empty file(s) into empty files (${bytesEmptied} bytes of current content).`,
+      paths: emptyOvers.map((entry) => ({ path: entry.path, currentSize: entry.currentSize })) });
+  }
+  if (shrinks.length > 0) {
+    anomalies.push({ type: 'mass-shrink',
+      message: `Restore would shrink ${shrinks.length} file(s) to under ${Math.round(SHRINK_RATIO * 100)}% of current size (${shrinkBytes} bytes).`,
+      paths: shrinks.map((entry) => ({ path: entry.path, currentSize: entry.currentSize, restoreSize: entry.recSize })) });
+  }
+  const massEmpty = emptyOvers.length >= EMPTY_OVER_HARD_COUNT || bytesEmptied >= EMPTY_OVER_HARD_BYTES;
+  const massShrink = shrinks.length >= SHRINK_HARD_COUNT || shrinkBytes >= SHRINK_HARD_BYTES;
+  const verdict = degenerate || massEmpty ? 'refused'
+    : emptyOvers.length > 0 || massShrink ? 'authorization-required'
+    : 'safe';
+  const warnings = shrinks.length > 0 && !massShrink
+    ? [{ type: 'shrink', message: `${shrinks.length} file(s) restore to a much smaller size.`, paths: shrinks.map((entry) => entry.path) }]
+    : [];
+  return { verdict, anomalies, warnings, filesWouldEmpty: emptyOvers.length, bytesWouldDestroy: bytesEmptied + shrinkBytes, perPath };
+}
+
 // Restore a checkpoint: one path, a selected set, or everything. Never
 // reports success when paths were skipped. Unless preRestore is false, the
 // current state of affected paths is captured first as its own checkpoint,
 // so a restore is itself undoable.
-async function restoreCheckpoint(checkpointId, { paths = null, force = false, preRestore = true, uncontained = false, dryRun = false } = {}) {
+//
+// Safety gate: a restore the analysis flags as risky is NOT applied unless
+// explicitly authorized ({ allowRisky: true }; a refused verdict additionally
+// needs { force: true }). The refusal itself writes nothing — not even a
+// pre-restore snapshot. Results carry a `safety` report distinguishing safe,
+// authorization-required, refused, and failed (thrown) outcomes.
+async function restoreCheckpoint(checkpointId, { paths = null, force = false, preRestore = true, uncontained = false, dryRun = false, allowRisky = false } = {}) {
   const checkpoint = getCheckpoint(checkpointId);
   const root = checkpoint.manifest.root;
   if (checkpoint.manifest.uncontained && !(uncontained && force)) {
@@ -917,6 +1032,18 @@ async function restoreCheckpoint(checkpointId, { paths = null, force = false, pr
     : [...new Set(paths)];
   for (const rel of wanted) {
     if (!Object.hasOwn(checkpoint.manifest.paths, rel)) throw new Error(`Path not in checkpoint #${checkpointId}: ${rel}.`);
+  }
+  const postState = checkpoint.op?.postState ?? null;
+  const safety = await analyzeRestoreSafety(root, checkpoint.manifest, wanted, { force, uncontained: scopeUncontained, postState });
+  // A refused verdict (likely captured damage) needs double opt-in; anything
+  // else risky needs explicit authorization. Neither writes anything.
+  const authorized = allowRisky === true && (safety.verdict === 'authorization-required' || force === true);
+  if (!dryRun && safety.verdict !== 'safe' && !authorized) {
+    return {
+      complete: false, restored: [], removed: [], skipped: [], warnings: safety.warnings,
+      preRestoreCheckpointId: null, strategy: safety.verdict === 'refused' ? 'refused' : 'authorization-required',
+      dryRun: false, safety, needsAuthorization: true,
+    };
   }
   let preRestoreCheckpointId = null;
   if (preRestore && !dryRun) {
@@ -935,19 +1062,19 @@ async function restoreCheckpoint(checkpointId, { paths = null, force = false, pr
     if (fast) {
       return {
         complete: fast.skipped.length === 0, restored: fast.restored, removed: fast.removed,
-        skipped: fast.skipped, warnings: [], preRestoreCheckpointId, strategy: 'move-back',
+        skipped: fast.skipped, warnings: safety.warnings, preRestoreCheckpointId, strategy: 'move-back',
+        safety,
       };
     }
   }
   const restored = [];
   const removed = [];
   const skipped = [];
-  const warnings = [];
+  const warnings = [...safety.warnings];
   // Restore deeper paths before their parents: removing a created file must
   // precede removing its (then-empty) created directory. Per-path writes are
   // independent (parents are mkdir -p'd as needed), so depth order is safe.
   const ordered = [...wanted].sort((a, b) => b.split('/').length - a.split('/').length);
-  const postState = checkpoint.op?.postState ?? null;
   trackRestoreStart(checkpointId);
   try {
     for (const rel of ordered) {
@@ -985,9 +1112,22 @@ async function restoreCheckpoint(checkpointId, { paths = null, force = false, pr
   } finally {
     trackRestoreEnd(checkpointId);
   }
+  // An authorized risky restore overwrites content the gate flagged: pin the
+  // pre-restore snapshot so the last-known state survives retention pruning
+  // until the user unpins it. Smallest bounded hold: one checkpoint, reversible.
+  let undoPinned = false;
+  if (!dryRun && safety.verdict !== 'safe' && preRestoreCheckpointId !== null) {
+    try {
+      await setCheckpointPinned(preRestoreCheckpointId, true);
+      undoPinned = true;
+    } catch {
+      /* Pin failure must not fail an already-applied restore. */
+    }
+  }
   return {
     complete: skipped.length === 0, restored, removed, skipped, warnings,
     preRestoreCheckpointId, strategy: dryRun ? 'preview' : 'per-path', dryRun: dryRun === true,
+    safety, undoPinned,
   };
 }
 
@@ -1332,6 +1472,8 @@ function summarizeCheckpointRow(row) {
     coverageComplete: coverage.complete === true,
     skipped: coverage.skipped ?? [],
     excludedCount: (coverage.excluded ?? []).length,
+    emptyFileCount: (coverage.emptyFiles ?? []).length,
+    allEmptyFiles: coverage.allEmptyFiles === true,
     changedTotal: changed ? changed.length : null,
     changedKinds: changed
       ? { modified: 0, created: 0, deleted: 0, renamed: 0, other: 0, ...summarizeKinds(changed) }
@@ -1467,7 +1609,9 @@ async function getCheckpointDetail(root, checkpointId) {
       const abs = await resolveRestoreTarget(root, rel, { uncontained: checkpoint.manifest.uncontained === true });
       const current = await currentRecord(abs);
       entry.current = current.kind;
+      if (typeof current.size === 'number') entry.currentSize = current.size;
       if (rec.kind === 'file') {
+        entry.recordedSize = rec.size ?? null;
         if (current.kind === 'absent') entry.status = 'deleted';
         else if (current.kind === 'file' && current.hash === rec.hash) entry.status = 'unchanged';
         else if (current.kind === 'file') {
@@ -1513,6 +1657,7 @@ module.exports = {
   RECOVERY_SCAN_MAX_BYTES,
   RECOVERY_SCOPE_EXCLUDES,
   RECOVERY_VOLATILE_MS,
+  EMPTY_SHA256,
   ScanCapExceeded,
   ensureRecoverySchema,
   getOrCreateRecoverySession,

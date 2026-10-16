@@ -140,11 +140,16 @@ function argPaths(args) {
     args.file_path,
     args.filePath,
     args.cwd,
+    args.source_path,
+    args.destination_path,
   ];
   const files = Array.isArray(args.target_files)
     ? args.target_files.filter((file) => typeof file === 'string')
     : [];
-  return [...candidates.filter((value) => typeof value === 'string' && value), ...files].slice(0, 4);
+  const editFiles = Array.isArray(args.edits)
+    ? args.edits.map((edit) => edit?.relative_path).filter((file) => typeof file === 'string' && file)
+    : [];
+  return [...candidates.filter((value) => typeof value === 'string' && value), ...files, ...editFiles].slice(0, 4);
 }
 
 // Short human summary derived ONLY from recorded args/result.
@@ -368,8 +373,11 @@ export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision
 const COMMAND_TOOLS = new Set(['execute_command']);
 const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content']);
 const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
-const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history']);
-const EDIT_TOOLS = new Set(['str_replace_editor']);
+const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history', 'search_memory']);
+const EDIT_TOOLS = new Set(['str_replace_editor', 'edit_project_files', 'apply_patch']);
+const MOVE_TOOLS = new Set(['move_project_file']);
+const SAVE_TOOLS = new Set(['save_memory']);
+const MCP_TOOLS = new Set(['manage_mcp_servers', 'approve_mcp_mutation']);
 const WRITE_TOOLS = new Set(['write_project_file', 'git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
 const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
@@ -387,6 +395,9 @@ export function toolKind(step) {
   if (GIT_TOOLS.has(name)) return 'read';
   if (SEARCH_TOOLS.has(name)) return 'search';
   if (EDIT_TOOLS.has(name)) return 'edit';
+  if (MOVE_TOOLS.has(name)) return 'move';
+  if (SAVE_TOOLS.has(name)) return 'save';
+  if (MCP_TOOLS.has(name)) return 'mcp';
   if (WRITE_TOOLS.has(name)) return 'write';
   if (LIST_TOOLS.has(name)) return 'list';
   if (SUBAGENT_TOOLS.has(name)) return 'subagent';
@@ -402,6 +413,9 @@ export function toolVerb(step) {
     case 'read': return 'Read';
     case 'search': return 'Search';
     case 'edit': return 'Edit';
+    case 'move': return 'Move';
+    case 'save': return 'Save';
+    case 'mcp': return step?.toolName === 'approve_mcp_mutation' ? 'Approve' : 'Servers';
     case 'write': return 'Write';
     case 'list': return 'List';
     case 'subagent': return 'Subagent';
@@ -455,7 +469,7 @@ function distinctStagePaths(events) {
 // durationMs (tool steps carry no durations).
 export function summarizeStage(stage) {
   const events = stage?.events ?? [];
-  const byKind = { command: 0, read: 0, search: 0, edit: 0, write: 0, list: 0, subagent: 0, media: 0, other: 0 };
+  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, other: 0 };
   let done = 0;
   let failed = 0;
   let blocked = 0;
@@ -477,7 +491,7 @@ export function summarizeStage(stage) {
   const searches = byKind.search;
   const reads = byKind.read + byKind.list;
   const ops = events.length;
-  const onlyReads = ops > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0;
+  const onlyReads = ops > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0;
   let title;
   if (ops === 0) {
     title = 'Thought';
@@ -490,6 +504,8 @@ export function summarizeStage(stage) {
     title = `Ran ${ops} command${ops === 1 ? '' : 's'}`;
   } else if (byKind.edit > 0 && byKind.command === 0 && byKind.write === 0) {
     title = `Edited ${files.length || byKind.edit} file${(files.length || byKind.edit) === 1 ? '' : 's'}`;
+  } else if (byKind.move > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.write === 0) {
+    title = `Moved ${files.length || byKind.move} file${(files.length || byKind.move) === 1 ? '' : 's'}`;
   } else if (byKind.write > 0 && byKind.command === 0 && byKind.edit === 0) {
     title = `Wrote ${byKind.write} file${byKind.write === 1 ? '' : 's'}`;
   } else {
@@ -551,9 +567,23 @@ export function formatArgFields(step) {
       break;
     case 'edit': {
       push('Path', str(args.relative_path, 160));
-      if (typeof args.old_str === 'string' && typeof args.new_str === 'string') {
+      if (Array.isArray(args.edits)) {
+        const paths = new Set(args.edits.map((edit) => edit?.relative_path).filter(Boolean));
+        push('Edits', `${args.edits.length} replacement${args.edits.length === 1 ? '' : 's'} across ${paths.size} file${paths.size === 1 ? '' : 's'}`);
+      } else if (typeof args.patch === 'string') {
+        push('Patch', `${args.patch.split('\n').length} lines`);
+      } else if (typeof args.old_str === 'string' && typeof args.new_str === 'string') {
         push('Change', `${args.old_str.split('\n').length} lines → ${args.new_str.split('\n').length} lines`);
       }
+      break;
+    }
+    case 'move': {
+      push('From', str(args.source_path, 160));
+      push('To', str(args.destination_path, 160));
+      break;
+    }
+    case 'save': {
+      push('Memory', str(args.content, 160));
       break;
     }
     case 'write': {

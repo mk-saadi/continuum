@@ -149,6 +149,27 @@ test('restore via service creates a pre-restore point and restores', async () =>
   assert.equal(fs.readFileSync(path.join(root, 'r.txt'), 'utf8'), 'r2\n');
 });
 
+test('risky restore through the service needs explicit authorization', async () => {
+  const root = makeWorkspace({ 'e.txt': '' });
+  const sid = chatFor(root);
+  const cap = await recovery.captureOperation({ root, chatSessionId: sid, toolName: 't', paths: ['e.txt'] });
+  fs.writeFileSync(path.join(root, 'e.txt'), 'valuable\n');
+  const gated = await service.recoveryRestore(sid, cap.checkpointId, { force: true });
+  assert.equal(gated.complete, false);
+  assert.equal(gated.strategy, 'authorization-required');
+  assert.equal(gated.needsAuthorization, true);
+  assert.equal(gated.safety.verdict, 'authorization-required');
+  assert.deepEqual(gated.safety.anomalies[0].paths, [{ path: 'e.txt', currentSize: 9 }]);
+  assert.equal(fs.readFileSync(path.join(root, 'e.txt'), 'utf8'), 'valuable\n', 'nothing written without authorization');
+  const preview = await service.recoveryPreview(sid, cap.checkpointId, { force: true });
+  assert.equal(preview.dryRun, true);
+  assert.equal(preview.safety.verdict, 'authorization-required', 'preview reports the same verdict');
+  const allowed = await service.recoveryRestore(sid, cap.checkpointId, { force: true, allowRisky: true });
+  assert.equal(allowed.complete, true);
+  assert.equal(allowed.undoPinned, true);
+  assert.equal(fs.readFileSync(path.join(root, 'e.txt'), 'utf8'), '');
+});
+
 test('selective restore touches only selected conflict-free paths', async () => {
   const root = makeWorkspace({ 's1.txt': 's1\n', 's2.txt': 's2\n' });
   const sid = chatFor(root);

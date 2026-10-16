@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FiChevronDown, FiX } from "react-icons/fi";
 import { LuHistory, LuPin } from "react-icons/lu";
+import { safetyVerdictInfo, restoreOutcomeMessage } from "../../lib/recoverySafety.mjs";
 
 const KIND_TONE = {
 	op: "bg-[var(--accent)]/15 text-[var(--accent-bright)]",
@@ -55,6 +56,13 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	// Explicit user authorization for a risky-content restore. Never set
+	// programmatically: only the checkbox below flips it, and any new basis
+	// (selection, flags, preview) clears it.
+	const [riskyConfirmed, setRiskyConfirmed] = useState(false);
+	// Re-entrancy guard: `busy` state lags rapid double clicks, so the ref
+	// is the actual single-flight gate for preview/restore dispatches.
+	const busyRef = useRef(false);
 
 	useEffect(() => {
 		const element = dialogRef.current;
@@ -88,6 +96,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 		setDetail(null);
 		setPreview(null);
 		setConfirming(false);
+		setRiskyConfirmed(false);
 		setNotice('');
 		loadHistory();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,12 +107,14 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 			setDetail(null);
 			setPreview(null);
 			setConfirming(false);
+			setRiskyConfirmed(false);
 			return;
 		}
 		let active = true;
 		setDetail(null);
 		setPreview(null);
 		setConfirming(false);
+		setRiskyConfirmed(false);
 		setError('');
 		window.api.getRecoveryDetail(sessionId, selectedId).then(
 			(value) => { if (active) setDetail(value); },
@@ -114,37 +125,83 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 		};
 	}, [sessionId, selectedId]);
 
-	const runPreview = async () => {
-		if (selectedId == null || busy) return;
+	const runPreviewWith = async (forceValue) => {
+		if (selectedId == null || busyRef.current) return;
+		busyRef.current = true;
 		setBusy(true);
 		setError('');
 		setNotice('');
 		try {
-			setPreview(await window.api.previewRecoveryRestore(sessionId, selectedId, { force }));
+			setPreview(await window.api.previewRecoveryRestore(sessionId, selectedId, { force: forceValue }));
+			// A fresh preview is a new basis: prior authorization lapses.
+			setRiskyConfirmed(false);
+			setConfirming(false);
 		} catch (cause) {
 			setError(cause?.message ?? String(cause));
 		} finally {
+			busyRef.current = false;
 			setBusy(false);
 		}
 	};
 
+	const runPreview = async () => runPreviewWith(force);
+
 	const runRestore = async () => {
-		if (selectedId == null || busy) return;
+		if (selectedId == null || busyRef.current || running) return;
+		busyRef.current = true;
 		setBusy(true);
 		setError('');
 		setNotice('');
 		try {
-			const result = await window.api.restoreRecoveryCheckpoint(sessionId, selectedId, { force });
-			const changed = (result.restored ?? []).filter((r) => r.action !== 'unchanged');
-			const unchanged = (result.restored ?? []).length - changed.length;
-			const removed = result.removed?.length ?? 0;
-			const skipped = result.skipped?.length ?? 0;
-			const unchangedNote = unchanged ? `, ${unchanged} already matching` : '';
-			setNotice(result.complete
-				? `Restored ${changed.length} path${changed.length === 1 ? '' : 's'}${removed ? `, removed ${removed}` : ''}${unchangedNote}. A pre-restore point was saved first.`
-				: `Partial restore: ${changed.length} restored, ${removed} removed, ${skipped} skipped${unchangedNote} — see details.`);
+			// Revalidate before applying: the workspace or the checkpoint may
+			// have changed since the preview was taken. Never apply a stale
+			// verdict, and never infer consent from an older preview.
+			let fresh;
+			try {
+				fresh = await window.api.previewRecoveryRestore(sessionId, selectedId, { force });
+			} catch (cause) {
+				setPreview(null);
+				setConfirming(false);
+				setRiskyConfirmed(false);
+				setError(`This checkpoint is no longer available: ${cause?.message ?? String(cause)}`);
+				return;
+			}
+			const freshVerdict = fresh?.safety?.verdict ?? 'safe';
+			const shownVerdict = preview?.safety?.verdict ?? 'safe';
+			if (freshVerdict !== shownVerdict) {
+				setPreview(fresh);
+				setConfirming(false);
+				setRiskyConfirmed(false);
+				setNotice('The workspace changed since this preview was taken — review the updated preview before confirming. Nothing was restored.');
+				return;
+			}
+			const authorized = freshVerdict === 'safe'
+				|| (freshVerdict === 'authorization-required' && riskyConfirmed)
+				|| (freshVerdict === 'refused' && riskyConfirmed && force);
+			if (!authorized) {
+				setPreview(fresh);
+				setNotice(freshVerdict === 'safe'
+					? 'Preview refreshed — review it before confirming. Nothing was restored.'
+					: 'This restore still needs your explicit confirmation below. Nothing was restored.');
+				return;
+			}
+			const result = await window.api.restoreRecoveryCheckpoint(sessionId, selectedId, { force, allowRisky: riskyConfirmed });
+			if (result.strategy === 'refused' || result.strategy === 'authorization-required') {
+				// Lost a race between validation and application (or the flags
+				// were insufficient): surface the refusal, change nothing else.
+				setPreview({ ...(fresh ?? {}), safety: result.safety, strategy: result.strategy });
+				setConfirming(false);
+				const info = safetyVerdictInfo(result.safety);
+				setNotice(info != null
+					? `${info.title}. ${info.footer}`
+					: 'Restore was not applied: authorization is still required. No files were changed.');
+				return;
+			}
+			const outcome = restoreOutcomeMessage(result);
+			setNotice(outcome.text);
 			setConfirming(false);
 			setPreview(null);
+			setRiskyConfirmed(false);
 			await loadHistory();
 			if (selectedId != null) {
 				try {
@@ -154,9 +211,10 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 				}
 			}
 		} catch (cause) {
-			setError(cause?.message ?? String(cause));
+			setError(`Restore failed: ${cause?.message ?? String(cause)}`);
 			setConfirming(false);
 		} finally {
+			busyRef.current = false;
 			setBusy(false);
 		}
 	};
@@ -189,7 +247,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 				<span className="min-w-0 flex-1">
 					<span className="block truncate text-xs text-[var(--text-secondary)]">{changeSummary(entry)}</span>
 					<span className="block text-[10px] text-[var(--text-muted)] tabular-nums">
-						#{entry.id} · {formatTime(entry.createdAt)}{other ? ` · from ${entry.originChat}` : ''}{!entry.coverageComplete ? ' · partial' : ''}
+						#{entry.id} · {formatTime(entry.createdAt)}{other ? ` · from ${entry.originChat}` : ''}{!entry.coverageComplete ? ' · partial' : ''}{entry.emptyFileCount ? ` · ${entry.emptyFileCount} empty` : ''}
 					</span>
 				</span>
 				{entry.pinned && <LuPin aria-label="Pinned checkpoint" className="shrink-0 text-[var(--accent)]" />}
@@ -202,6 +260,15 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 	const previewUnchanged = (preview?.restored ?? []).length - previewChanged.length;
 	const invalidSelection = detail === null && error !== '';
 	const restoreBlocked = running || busy || selectedId == null;
+	// Safety verdict for the currently displayed preview. Null means safe:
+	// the normal flow. Authorization (risky content) and conflict overwrite
+	// (force) stay independent decisions — a refused verdict needs both.
+	const safetyInfo = safetyVerdictInfo(preview?.safety);
+	const confirmRiskyReady = safetyInfo == null || riskyConfirmed;
+	const confirmForceReady = safetyInfo?.needsForce ? force : true;
+	const confirmBlocked = busy || running || selectedId == null || invalidSelection || !confirmRiskyReady || !confirmForceReady;
+	const confirmScopePaths = [...previewPaths(previewChanged), ...previewPaths(preview?.removed ?? [])].slice(0, 12);
+	const confirmScopeExtra = previewChanged.length + (preview?.removed ?? []).length - confirmScopePaths.length;
 
 	return (
 		<dialog
@@ -292,6 +359,12 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									This checkpoint cannot fully roll back the workspace.
 								</p>
 							)}
+							{(detail.coverage.emptyFiles ?? []).length > 0 && (
+								<p className="text-[11px] text-[var(--text-muted)] tabular-nums">
+									{(detail.coverage.emptyFiles ?? []).length} recorded file(s) {(detail.coverage.emptyFiles ?? []).length === 1 ? 'is' : 'are'} empty
+									{detail.coverage.allEmptyFiles ? ' (every recorded file — treat this checkpoint with suspicion)' : ''}.
+								</p>
+							)}
 							<p className="text-[11px] text-[var(--text-muted)] tabular-nums">
 								{detail.totalPaths} path{detail.totalPaths === 1 ? '' : 's'} recorded{detail.truncated ? ' (list truncated for display)' : ''}.
 							</p>
@@ -320,7 +393,17 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 								<input
 									type="checkbox"
 									checked={force}
-									onChange={(event) => { setForce(event.target.checked); setPreview(null); setConfirming(false); }}
+									onChange={(event) => {
+										const next = event.target.checked;
+										setForce(next);
+										setPreview(null);
+										setConfirming(false);
+										setRiskyConfirmed(false);
+										// The safety verdict depends on the flags: refresh the
+										// preview so the panel always describes the current
+										// basis instead of vanishing until the next click.
+										if (selectedId != null) runPreviewWith(next);
+									}}
 									className="accent-[var(--accent)]"
 								/>
 								Overwrite files changed since the checkpoint (off = skip conflicts)
@@ -338,7 +421,9 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 							{preview && (
 								<div className="space-y-1 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface-hover)]/40 p-2.5 text-[11px]" aria-label="Restore preview">
 									<p className="font-medium">
-										{preview.complete ? 'Preview: complete restore' : 'Preview: partial restore'}
+										{preview.strategy === 'refused' ? 'Preview: restore refused'
+											: preview.strategy === 'authorization-required' ? 'Preview: restore needs confirmation'
+											: preview.complete ? 'Preview: complete restore' : 'Preview: partial restore'}
 										{preview.strategy === 'preview' ? ' (no changes made)' : ''}
 									</p>
 									{previewChanged.length > 0 && <p className="text-[var(--text-secondary)]">Would restore: {previewPaths(previewChanged).join(', ')}</p>}
@@ -348,6 +433,41 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										<p className="text-amber-500">
 											Would skip: {preview.skipped.map((s) => `${s.path} (${s.reason})`).join(', ')}
 										</p>
+									)}
+									{safetyInfo && (
+										<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === 'refused' ? 'border-[var(--error)]/50' : 'border-amber-500/50'}`} aria-label="Restore safety verdict">
+											<p className={`font-medium ${safetyInfo.tone === 'refused' ? 'text-[var(--error)]' : 'text-amber-500'}`}>
+												{safetyInfo.title}
+											</p>
+											<p className="text-[var(--text-secondary)]">{safetyInfo.explanation}</p>
+											{safetyInfo.lines.length > 0 && (
+												<ul className="list-disc pl-4 font-mono text-[var(--text-secondary)]">
+													{safetyInfo.lines.slice(0, 12).map((line) => <li key={line}>{line}</li>)}
+												</ul>
+											)}
+											{safetyInfo.lines.length > 12 && (
+												<p className="text-[var(--text-muted)]">…and {safetyInfo.lines.length - 12} more.</p>
+											)}
+											<p className="text-[var(--text-muted)]">{safetyInfo.footer}</p>
+											<label className="flex items-start gap-2 pt-1 text-[var(--text-secondary)]">
+												<input
+													type="checkbox"
+													checked={riskyConfirmed}
+													onChange={(event) => setRiskyConfirmed(event.target.checked)}
+													className="mt-0.5 accent-[var(--accent)]"
+												/>
+												<span>
+													I authorize exactly this content change
+													{safetyInfo.filesWouldEmpty > 0 && ` (${safetyInfo.filesWouldEmpty} file${safetyInfo.filesWouldEmpty === 1 ? '' : 's'} would become empty)`}.
+													This does not change the overwrite checkbox above.
+												</span>
+											</label>
+											{safetyInfo.needsForce && (
+												<p className="text-[var(--text-secondary)]">
+													A refused restore additionally requires the overwrite checkbox above — both confirmations are needed.
+												</p>
+											)}
+										</div>
 									)}
 								</div>
 							)}
@@ -369,9 +489,23 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 							) : (
 								<div className="space-y-2 rounded-lg border border-[var(--error)]/40 p-2.5" role="alertdialog" aria-label="Confirm restoration">
 									<p className="text-[11px] text-[var(--text-secondary)]">
-										Restore {preview ? `${previewChanged.length + preview.removed.length} listed path(s)` : 'the selected paths'} to checkpoint #{detail.id}?
+										Restore {confirmScopePaths.length ? confirmScopePaths.join(', ') : 'the selected paths'}
+										{confirmScopeExtra > 0 && ` (and ${confirmScopeExtra} more)`} to checkpoint #{detail.id}?
 										Current versions are saved as a pre-restore point first, but review the preview above — restores overwrite files.
 									</p>
+									<p className="text-[11px] text-[var(--text-muted)] tabular-nums">
+										Overwrite conflicts: {force ? 'on' : 'off'} · Risky content authorized: {riskyConfirmed ? 'yes' : safetyInfo == null ? 'not needed' : 'no'}
+									</p>
+									{safetyInfo && !confirmRiskyReady && (
+										<p className="text-[11px] font-medium text-amber-500">
+											Check the authorization box in the preview above first.
+										</p>
+									)}
+									{safetyInfo?.needsForce && !force && (
+										<p className="text-[11px] font-medium text-amber-500">
+											This refused restore also needs the overwrite checkbox above.
+										</p>
+									)}
 									<div className="flex gap-2">
 										<button
 											type="button"
@@ -384,7 +518,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										<button
 											type="button"
 											onClick={runRestore}
-											disabled={busy}
+											disabled={confirmBlocked}
 											className="cursor-pointer rounded-md bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40"
 										>
 											{busy ? 'Restoring…' : 'Confirm restore'}

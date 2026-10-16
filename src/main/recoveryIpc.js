@@ -77,14 +77,14 @@ async function recoveryPreview(sessionId, checkpointId, { paths = null, force = 
   return recoveryStore.restoreCheckpoint(id, { paths: normalizePaths(paths), force: force === true, dryRun: true });
 }
 
-async function recoveryRestore(sessionId, checkpointId, { paths = null, force = false } = {}, isActive = false) {
+async function recoveryRestore(sessionId, checkpointId, { paths = null, force = false, allowRisky = false } = {}, isActive = false) {
   const root = workspaceRootFor(sessionId);
   if (isActive) {
     throw new Error('Stop the run before restoring: recovery cannot run while the agent may still change files.');
   }
   const id = requireCheckpointId(checkpointId);
   recoveryStore.assertCheckpointInRoot(id, root);
-  return recoveryStore.restoreCheckpoint(id, { paths: normalizePaths(paths), force: force === true });
+  return recoveryStore.restoreCheckpoint(id, { paths: normalizePaths(paths), force: force === true, allowRisky: allowRisky === true });
 }
 
 async function recoveryPin(sessionId, checkpointId, pinned) {
