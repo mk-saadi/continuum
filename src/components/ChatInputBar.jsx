@@ -37,6 +37,7 @@ const ChatInputBar = memo(
 			onMidRunQuestionsChange,
 			midRunQuestionsBusy = false,
 			midRunQuestionsError = "",
+			midRunQuestionsLocked = false,
 			modelId,
 			supportedEfforts = [],
 			reasoningEffort,
@@ -155,6 +156,7 @@ const ChatInputBar = memo(
 							allowMidRunQuestions={allowMidRunQuestions}
 							onMidRunQuestionsChange={onMidRunQuestionsChange}
 							midRunQuestionsBusy={midRunQuestionsBusy}
+							midRunQuestionsLocked={midRunQuestionsLocked}
 							showEffort={showEffort}
 							supportedEfforts={supportedEfforts}
 							reasoningEffort={reasoningEffort}

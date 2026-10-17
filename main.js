@@ -27,6 +27,15 @@ const {
 	getAppSettings,
 } = require("./src/main/configManager");
 const { scanDirectoryForModels } = require("./src/main/modelScanner");
+const {
+	queryGpuMemory,
+	estimateOffloadRequirements,
+	assessGpuFit,
+	describeGpuFitWarning,
+	shouldPreflightOffload,
+	evaluateOffloadResult,
+	DEFAULT_SAFETY_MARGIN_MIB,
+} = require("./src/main/gpuMemory");
 const scannedModels = new Map();
 let launching = false;
 let currentlyLoadedModelPath = null;
@@ -329,6 +338,33 @@ async function launchProcess(command, model = null, config = null) {
 		engineConfig.contextStatus = "loading";
 		engineConfig.warmupError = null;
         engineConfig.capabilities = null;
+		engineConfig.offloadDiagnostics = null;
+		engineConfig.offloadWarning = null;
+		// Record the runtime's real offload state, but only judge it against a
+		// managed load. A custom shell command has no known intent, so it is
+		// never warned about.
+		const reportOffload = (diagnostics) => {
+			if (childProcess !== processForLaunch) return;
+			const evaluation = evaluateOffloadResult({
+				diagnostics,
+				gpuOffload: appliedConfig?.gpuOffload,
+				layerCount: model?.layerCount ?? null,
+			});
+			// The runtime's own log wins over the preflight estimate.
+			engineConfig.offloadDiagnostics = {
+				...diagnostics,
+				state: evaluation.state,
+				requestedLayers: evaluation.requestedLayers,
+			};
+			engineConfig.offloadWarning = evaluation.warning?.message ?? null;
+			if (mainWindow && !mainWindow.isDestroyed())
+				mainWindow.webContents.send("terminal:status", {
+					running: true,
+					pid: childPid,
+					...engineConfig,
+					...getEngineStatus(),
+				});
+		};
 		const startup = createStartupHandler({
 			port: engineConfig.port,
 			getTools: async () => {
@@ -336,6 +372,7 @@ async function launchProcess(command, model = null, config = null) {
 				await mcp.init();
 				return require("./src/main/promptBuilder").getToolContext(mcp.getTools(null)).tools;
 			},
+			onDiagnostics: appliedConfig ? reportOffload : undefined,
 			onStatus: async (contextStatus, error = null) => {
 				if (childProcess !== processForLaunch) return;
 				if (contextStatus === 'ready' || contextStatus === 'warmup-failed') {
@@ -396,6 +433,8 @@ async function launchProcess(command, model = null, config = null) {
 			currentlyLoadedModelPath = null;
 			engineConfig.contextStatus = idleUnloaded ? "idle_unloaded" : "stopped";
 			engineConfig.activeModelConfig = null;
+			engineConfig.offloadDiagnostics = null;
+			engineConfig.offloadWarning = null;
 			const msg = `\n[process exited] code=${code} signal=${signal}\n`;
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", { stream: "stdout", data: msg });
@@ -462,6 +501,30 @@ async function launchProcess(command, model = null, config = null) {
 ipcMain.handle("terminal:spawn", (_event, command) => launchProcess(command));
 
 let switchingLocalModel = false;
+
+// Advisory preflight before a fresh load: estimate whether full GPU offload
+// looks unlikely and, if so, describe it so the UI can ask the user. Returns
+// null when the estimate is unavailable or looks fine — never a hard failure.
+async function preflightGpuFit({ model, config, safetyMarginMiB = DEFAULT_SAFETY_MARGIN_MIB }) {
+	const estimate = estimateOffloadRequirements({
+		model,
+		config,
+		projectorBytes: model.mmprojPath
+			? (model.projectorCandidates?.find((candidate) => candidate.path === model.mmprojPath)?.fileIdentity?.size ?? null)
+			: null,
+	});
+	// Only warn when the caller expects full offload and the estimate is
+	// complete enough to trust. Low-confidence estimates stay silent. A manual
+	// layer count is excluded: the loader will not shed layers on its own, so a
+	// tight fit fails loudly instead of degrading quietly (see shouldPreflightOffload).
+	if (!shouldPreflightOffload(config)) return null;
+	if (!estimate.expectedFullOffload || estimate.confidence === "low" || estimate.totalMiB === null) return null;
+	const memory = await queryGpuMemory();
+	const fit = assessGpuFit({ estimate, memory, safetyMarginMiB });
+	if (fit.status !== "insufficient") return null;
+	return { ...fit, message: describeGpuFitWarning(fit) };
+}
+
 async function launchModel(modelId, input) {
 	if (switchingLocalModel || launching) throw new Error("A local model is already loading.");
 	switchingLocalModel = true;
@@ -479,8 +542,17 @@ async function launchModel(modelId, input) {
         }
         const config = normalizeLoadConfig({ reasoningFormat: model.reasoningFormat ?? "auto", ...input });
 		if (typeof input.rememberSettings !== "boolean") throw new Error("Invalid remember settings option.");
+		if (input.allowPartialOffload !== undefined && typeof input.allowPartialOffload !== "boolean")
+			throw new Error("Invalid partial-offload option.");
 		if (!fs.existsSync(model.modelPath) || (model.mmprojPath && !fs.existsSync(model.mmprojPath)))
 			throw new Error("Model or projector file no longer exists. Rescan your models.");
+		// Only preflight a fresh load: when replacing a running model, its
+		// current VRAM use would make the free-memory reading misleading.
+		// The post-load offload check still covers the replacement case.
+		if (!childProcess && !input.allowPartialOffload) {
+			const assessment = await preflightGpuFit({ model, config });
+			if (assessment) return { success: false, requiresConfirmation: true, assessment };
+		}
 		if (childProcess) {
 			const previous = childProcess;
 			await new Promise((resolve, reject) => {
@@ -572,6 +644,8 @@ ipcMain.handle("terminal:status", async () => {
 		contextStatus: engineConfig.contextStatus,
 		warmupError: engineConfig.warmupError,
         capabilities: childProcess ? engineConfig.capabilities : null,
+		offloadDiagnostics: childProcess ? engineConfig.offloadDiagnostics : null,
+		offloadWarning: childProcess ? engineConfig.offloadWarning : null,
 		pid: childPid,
 		port: childProcess !== null ? engineConfig.port : null,
 		activeModelConfig: childProcess !== null ? engineConfig.activeModelConfig : null,

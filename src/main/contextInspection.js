@@ -12,6 +12,7 @@
 // in full so the panel never silently truncates the underlying record.
 
 const fs = require('node:fs');
+const path = require('node:path');
 const { db } = require('./db');
 const briefs = require('./taskBriefs');
 const checkpoints = require('./taskCheckpoints');
@@ -200,6 +201,159 @@ function serializeBrief(brief, applicable) {
   };
 }
 
+// --- Turn work logs (per-brief attachment) ---
+
+// Bounds for work-log display: file-existence probes share one budget per
+// panel load so pathological histories cannot stall inspection.
+const MAX_WORKLOG_STAT_CALLS = 100;
+const MAX_CHIP_PATHS = 6;
+
+function workspaceRootForDisplay(sessionId) {
+  try {
+    const project = require('./toolPermissions').sessionProject(sessionId);
+    const raw = project?.root_path ?? project?.rootDirectory ?? null;
+    return typeof raw === 'string' && raw.trim() ? path.resolve(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function digestCreatedMs(createdAt) {
+  if (typeof createdAt !== 'string' || !createdAt) return null;
+  const ms = Date.parse(`${createdAt.replace(' ', 'T')}Z`);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+// Paths changed since the recorded work, one turn at a time. A path counts
+// only when the file exists now AND its mtime is safely past the digest's
+// own second: same-second writes (including the turn's own edits, which
+// always precede recording) can never mark, and missing files, directories,
+// unresolvable paths, or an unreadable baseline omit the marker rather than
+// guessing. mtime cannot distinguish "touched with identical content" (e.g.
+// a later checkout), which callers document on the marker instead of hiding.
+function stalePathsForTurn(root, digestRow, budget) {
+  const stale = [];
+  if (!root || !digestRow || !digestRow.digest || budget.remaining <= 0) return stale;
+  const baseline = digestCreatedMs(digestRow.created_at);
+  if (baseline === null) return stale;
+  const seen = new Set();
+  const entries = Array.isArray(digestRow.digest.entries) ? digestRow.digest.entries : [];
+  for (const entry of entries) {
+    if (!entry || !Array.isArray(entry.paths)) continue;
+    for (const rel of entry.paths) {
+      if (typeof rel !== 'string' || !rel || rel.includes('\0') || seen.has(rel)) continue;
+      seen.add(rel);
+      if (budget.remaining <= 0) return stale;
+      if (path.isAbsolute(rel) || rel.includes('\\') || rel.split('/').some((part) => part === '..' || part === '.')) continue;
+      const abs = path.resolve(root, rel);
+      const relative = path.relative(root, abs);
+      if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) continue;
+      budget.remaining -= 1;
+      let stat = null;
+      try {
+        stat = fs.lstatSync(abs);
+      } catch {
+        stat = null;
+      }
+      if (!stat || !stat.isFile()) continue;
+      if (stat.mtimeMs > baseline + 1000) stale.push(rel);
+    }
+  }
+  return stale;
+}
+
+function serializeDigestIssue(issue) {
+  if (!issue || typeof issue !== 'object') return null;
+  return {
+    id: typeof issue.id === 'string' ? issue.id : null,
+    kind: typeof issue.kind === 'string' ? issue.kind : null,
+    sig: typeof issue.sig === 'string' ? issue.sig : '',
+    excerpt: typeof issue.excerpt === 'string' ? issue.excerpt : '',
+    exitCode: Number.isSafeInteger(issue.exitCode) ? issue.exitCode : null,
+  };
+}
+
+function serializeDigestTurn(digestRow, stalePaths) {
+  const digest = digestRow.digest;
+  const ledgerIssues = digest && typeof digest === 'object' && Array.isArray(digest.ledger?.issues)
+    ? digest.ledger.issues
+    : [];
+  const turnSeq = Number.isSafeInteger(digest?.turnSeq) ? digest.turnSeq : null;
+  return {
+    turnSeq,
+    partial: digest?.partial === true,
+    createdAt: typeof digestRow.created_at === 'string' ? digestRow.created_at : null,
+    briefId: digestRow.brief_id ?? null,
+    entries: (Array.isArray(digest?.entries) ? digest.entries : []).map((entry) => ({
+      kind: entry?.kind ?? null,
+      tool: entry?.tool ?? null,
+      status: entry?.status ?? null,
+      paths: Array.isArray(entry?.paths) ? entry.paths.filter((part) => typeof part === 'string') : [],
+      summary: typeof entry?.summary === 'string' ? entry.summary : '',
+      exitCode: Number.isSafeInteger(entry?.exitCode) ? entry.exitCode : null,
+      hash: typeof entry?.hash === 'string' ? entry.hash : null,
+      linesAdded: Number.isSafeInteger(entry?.linesAdded) ? entry.linesAdded : null,
+      linesRemoved: Number.isSafeInteger(entry?.linesRemoved) ? entry.linesRemoved : null,
+    })),
+    openIssues: (Array.isArray(digest?.openIssues) ? digest.openIssues : [])
+      .map(serializeDigestIssue)
+      .filter(Boolean),
+    resolvedIssues: ledgerIssues
+      .filter((issue) => issue && issue.status === 'resolved' && issue.resolvedTurn === turnSeq)
+      .map(serializeDigestIssue)
+      .filter(Boolean),
+    omitted: {
+      entries: digest?.omitted && Number.isSafeInteger(digest.omitted.entries) ? digest.omitted.entries : 0,
+      issues: digest?.omitted && Number.isSafeInteger(digest.omitted.issues) ? digest.omitted.issues : 0,
+    },
+    stalePaths,
+  };
+}
+
+function workLogChips(turns) {
+  const edited = [];
+  const read = [];
+  const seenEdited = new Set();
+  const seenRead = new Set();
+  let editedMore = 0;
+  let readMore = 0;
+  for (const turn of turns) {
+    for (const entry of turn.entries) {
+      const target =
+        entry.kind === 'edit' && entry.status === 'complete'
+          ? { list: edited, seen: seenEdited, overflow: (value) => { editedMore += value; } }
+          : entry.kind === 'read'
+            ? { list: read, seen: seenRead, overflow: (value) => { readMore += value; } }
+            : null;
+      if (!target) continue;
+      for (const filePath of entry.paths) {
+        if (target.seen.has(filePath)) continue;
+        target.seen.add(filePath);
+        if (target.list.length < MAX_CHIP_PATHS) target.list.push(filePath);
+        else target.overflow(1);
+      }
+    }
+  }
+  const openIds = new Set();
+  const resolvedIds = new Set();
+  for (const turn of turns) {
+    for (const issue of turn.openIssues) if (issue.id) openIds.add(issue.id);
+    for (const issue of turn.resolvedIssues) if (issue.id) resolvedIds.add(issue.id);
+  }
+  for (const id of resolvedIds) openIds.delete(id);
+  return { turns: turns.length, edited, editedMore, read, readMore, openIssues: openIds.size };
+}
+
+function serializeBriefWorkLog(root, digestRows, budget) {
+  const ordered = [...digestRows].sort((a, b) => {
+    const turnA = Number.isSafeInteger(a.digest?.turnSeq) ? a.digest.turnSeq : 0;
+    const turnB = Number.isSafeInteger(b.digest?.turnSeq) ? b.digest.turnSeq : 0;
+    return turnA - turnB || a.id - b.id;
+  });
+  const turns = ordered.map((row) => serializeDigestTurn(row, stalePathsForTurn(root, row, budget)));
+  return { turns, chips: workLogChips(turns) };
+}
+
 function getBriefsForDisplay(sessionId) {
   if (!findSessionForDisplay(sessionId)) return { applicable: [], others: [] };
   const all = briefs.getAllBriefs(sessionId);
@@ -211,7 +365,26 @@ function getBriefsForDisplay(sessionId) {
     if (applicableIds.has(brief.id)) applicable.push(serialized);
     else others.push(serialized);
   }
-  return { applicable, others };
+  // Per-brief work logs (turn digests). Best-effort: a lookup failure must
+  // never break the brief payload itself.
+  let grouped = null;
+  try {
+    grouped = require('./workLog').getWorkLogsByBrief(sessionId);
+  } catch {
+    grouped = null;
+  }
+  const root = workspaceRootForDisplay(sessionId);
+  const budget = { remaining: MAX_WORKLOG_STAT_CALLS };
+  for (const serialized of [...applicable, ...others]) {
+    const rows = grouped?.byBriefId.get(serialized.id) ?? [];
+    serialized.workLog = rows.length ? serializeBriefWorkLog(root, rows, budget) : null;
+  }
+  const unassignedRows = grouped?.unassigned ?? [];
+  const outcome = { applicable, others };
+  if (unassignedRows.length) {
+    outcome.unassignedWorkLog = serializeBriefWorkLog(root, unassignedRows, budget);
+  }
+  return outcome;
 }
 
 // --- Rolling summary ---

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSlidersHorizontal, LuSparkles, LuX } from "react-icons/lu";
+import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSlidersHorizontal, LuSparkles, LuTriangleAlert, LuX } from "react-icons/lu";
 import { NumberField as BaseNumberField, SelectField as BaseSelectField } from "./FormControls";
 import Tooltip from "./Tooltip";
 
@@ -86,6 +86,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const [remember, setRemember] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
+	const [vramWarning, setVramWarning] = useState(null);
 
 	useEffect(() => {
 		const element = dialog.current;
@@ -96,6 +97,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
         setProjectorNotice("");
         setProjectorPath(model.mmprojPath || "");
 		setError("");
+		setVramWarning(null);
 		window.api
 			.getModelLoadConfig(model.id)
 			.then(({ config: savedConfig, remembered, projectorPath: savedProjector }) => {
@@ -130,7 +132,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		};
 	}, [model.id]);
 
-	const update = (key, value) => setConfig((previous) => ({ ...previous, [key]: value }));
+	const update = (key, value) => {
+		// Any edit invalidates a prior VRAM preflight warning.
+		setVramWarning(null);
+		setConfig((previous) => ({ ...previous, [key]: value }));
+	};
 
 	// The mlock checkbox mirrors the Load Mode selection so the two controls can
 	// never ask the server for contradictory loading behavior.
@@ -148,21 +154,24 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 			? `Total experts for MoE models only; this model reports ${model.expertCount}. Leave empty to keep the GGUF value.`
 			: "Total experts for MoE models only — not active experts per layer. Leave empty (auto) for dense models.";
 
-	const submit = async (event) => {
-		event.preventDefault();
+	const runLaunch = async (allowPartialOffload) => {
 		if (busy || !config) return;
-        if (!projectorPath && model.projectorCandidates?.length && !confirmTextOnly) {
-            setConfirmTextOnly(true);
-            return;
-        }
 		setBusy(true);
 		setError("");
+		setVramWarning(null);
 		try {
 			const result = await window.api.launchEngine(model.id, {
 				...config,
 				mmprojPath: projectorPath || null,
 				rememberSettings: remember,
+				allowPartialOffload,
 			});
+			// The engine declined to load until the user acknowledges a likely
+			// partial offload. Surface the advisory and let them decide.
+			if (result?.requiresConfirmation) {
+				setVramWarning(result.assessment);
+				return;
+			}
 			if (!result?.success) throw new Error(result?.error || "Could not start the engine.");
 			onLoaded(result);
 			onClose();
@@ -171,6 +180,16 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		} finally {
 			setBusy(false);
 		}
+	};
+
+	const submit = async (event) => {
+		event.preventDefault();
+		if (busy || !config) return;
+        if (!projectorPath && model.projectorCandidates?.length && !confirmTextOnly) {
+            setConfirmTextOnly(true);
+            return;
+        }
+		await runLaunch(false);
 	};
 
 	return (
@@ -296,6 +315,42 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						>
 							{error}
 						</p>
+					)}
+					{vramWarning && (
+						<div
+							role="alert"
+							className="mb-3 rounded-lg border border-[var(--accent)] bg-[var(--active-chat)] px-3 py-2 text-xs text-[var(--text-primary)]"
+						>
+							<p className="flex items-start gap-2">
+								<LuTriangleAlert
+									size={15}
+									className="mt-0.5 shrink-0 text-[var(--accent)]"
+									aria-hidden="true"
+								/>
+								<span>{vramWarning.message}</span>
+							</p>
+							<div className="mt-2 flex items-center gap-2 pl-[23px]">
+								<button
+									type="button"
+									disabled={busy}
+									onClick={() => runLaunch(true)}
+									className="cursor-pointer rounded-md border border-[var(--control-border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+								>
+									Continue anyway
+								</button>
+								<button
+									type="button"
+									disabled={busy}
+									onClick={() => {
+										setVramWarning(null);
+										onClose();
+									}}
+									className="cursor-pointer rounded-md px-2.5 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+								>
+									Cancel load
+								</button>
+							</div>
+						</div>
 					)}
 					{!config && !error && (
 						<p

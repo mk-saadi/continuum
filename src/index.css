@@ -910,7 +910,7 @@ pre {
 	--subtle-border: #262b4e;
 	--control-border: #454c7d;
 
-	--surface: #1b1e36;
+	--surface: #20243f;
 	--surface-raised: #242849;
 	--surface-hover: #2c3158;
 	--input: #1f2340;
@@ -956,7 +956,7 @@ pre {
 /* Midnight Find Light: Indigo Paper, Rose & Mint (light twin of midnight-find) */
 [data-theme="midnight-light"] {
 	--bg-primary: #f6f6fb;
-	--bg-secondary: #efeff8;
+	--bg-secondary: #e9e9f4;
 	--bg-tertiary: #e5e5f2;
 	--bg-input: #f1f1fa;
 
@@ -973,8 +973,8 @@ pre {
 	--subtle-border: #dedeeb;
 	--control-border: #b0b1cf;
 
-	--surface: #efeff8;
-	--surface-raised: #f6f6fb;
+	--surface: #fdfdff;
+	--surface-raised: #ffffff;
 	--surface-hover: #e5e5f2;
 	--input: #f1f1fa;
 
@@ -991,7 +991,7 @@ pre {
 	--attachment-border: #7ca094;
 	--tool-border: #daa54188;
 
-	--active-chat: #e2e3f2;
+	--active-chat: #eceef8;
 	--user-bubble: #ececf6;
 	--link: #b07d1e;
 

@@ -299,6 +299,14 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
     // Current applicable checkpoint (labeled current/stale); the brief above
     // stays authoritative and is never replaced by it.
     const checkpoint = require('./taskCheckpoints').buildCheckpointSection(sessionId);
+    // Per-turn work digests (bounded, untrusted history). Workspace sessions
+    // with recorded turns only; null everywhere else, leaving prompts
+    // byte-identical to before. Placement last: measured in
+    // tests/workLog.test.cjs to preserve strictly more reusable prompt
+    // prefix than brief-section insertion (ties when new briefs arrive,
+    // full reuse on digest-only advances). Traceability to briefs is kept
+    // inside the block via per-digest Brief #N tags.
+    const workLog = require('./workLog').buildWorkLogSection(sessionId, { contextWindowLimit });
     const active = getActiveMessages(sessionId).filter(message => !(message.role === 'assistant' && excludeMessageIds.includes(message.id)) &&
       !(message.role === 'assistant' && message.status === 'interrupted' && !message.content));
     return prependBaseSystemPrompt([
@@ -307,6 +315,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
       ...(summary ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
       buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
       ...active.map(messageForModel),
+      ...(workLog ? [workLog] : []),
     ], effective.memoryEnabled, null, richLevel);
   })();
 }
@@ -353,6 +362,10 @@ function prepareChatMessages({
 			// path; a just-saved turn labels it stale, never silently current.
 			const brief = require("./taskBriefs").buildTaskBriefSection(sessionId, { contextWindowLimit });
 			const checkpoint = require("./taskCheckpoints").buildCheckpointSection(sessionId);
+			// Per-turn work digests (bounded, untrusted history). Workspace
+			// sessions with recorded turns only; null everywhere else. Same
+			// end placement as rebuildChatMessages (measured prefix reuse).
+			const workLog = require("./workLog").buildWorkLogSection(sessionId, { contextWindowLimit });
 			const activeSessionMessages = (
 				regenerateLast ? getActiveMessages(sessionId).slice(0, -1) : getActiveMessages(sessionId)
 			)
@@ -369,6 +382,7 @@ function prepareChatMessages({
 						: []),
 					systemPrompt,
 					...activeSessionMessages,
+					...(workLog ? [workLog] : []),
 				],
 				effective.memoryEnabled,
 				null,

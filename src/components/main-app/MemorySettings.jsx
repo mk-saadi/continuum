@@ -246,7 +246,6 @@ export default function MemorySettings({
 	models,
 	theme,
 	onChangeTheme,
-	terminalLog,
 	engineRunning,
 	serverPort,
 	serverError,
@@ -677,7 +676,6 @@ export default function MemorySettings({
 							{tab === "usage" && <TokenHistory section="usage" />}
 							<h4 className="mt-6 mb-3 font-semibold">Engine logs</h4>
 							<TerminalLog
-								log={terminalLog}
 								engineRunning={engineRunning}
 								serverPort={serverPort}
 								serverError={serverError}

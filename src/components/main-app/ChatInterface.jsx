@@ -28,6 +28,7 @@ import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
+import { summarizeNoticeFor } from "../../lib/summarizeNotice.mjs";
 import {
 	availablePermissionModes,
 	defaultPermissionMode,
@@ -314,6 +315,7 @@ export function ChatInterface({
 		if (!sessionId || !tabSaved || !palace.api) return;
 		let current = true;
 		setLoading(true);
+		setSummarizeNotice("");
 		loadDisplaySession(sessionId)
 			.then((session) => {
 				if (!current) return;
@@ -366,6 +368,10 @@ export function ChatInterface({
 		onTabUpdate?.({ permissionMode: mode });
 	};
 	const [historyError, setHistoryError] = useState("");
+	// Casual-chat summarization notice: a slim inline line near the composer,
+	// set only when a sent prompt's reply save hits the compression lock.
+	// Workspace chats keep the full-width error section instead.
+	const [summarizeNotice, setSummarizeNotice] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [editing, setEditing] = useState(null);
 	const [editText, setEditText] = useState("");
@@ -928,6 +934,7 @@ export function ChatInterface({
 			busyRef.current = true;
 			setIndexing(null);
 			setHistoryError("");
+			setSummarizeNotice("");
 			// The session row is created from here on, so the tab becomes a
 			// restorable chat rather than a blank one.
 			onTabSaved?.(palace.sessionId);
@@ -1130,7 +1137,9 @@ export function ChatInterface({
 							);
 						else setMessages((prev) => prev.filter((message) => message.id !== assistantMsg.id));
 					} catch (error) {
-						setHistoryError(`Could not save reply: ${error.message}`);
+						const notice = summarizeNoticeFor({ message: error?.message, isWorkspaceChat });
+						if (notice) setSummarizeNotice(notice);
+						else setHistoryError(`Could not save reply: ${error.message}`);
 						setMessages((prev) => prev.filter((message) => message.id !== assistantMsg.id));
 					}
 				} else {
@@ -1826,6 +1835,12 @@ export function ChatInterface({
 					</div>
 				)}
 
+				{summarizeNotice && !isWorkspaceChat && (
+					<p className="mx-auto w-[calc(100%-2rem)] max-w-[980px] px-1 pb-1 text-[11px] leading-relaxed text-[var(--text-muted)] max-[450px]:w-[calc(100%-1.5rem)]">
+						{summarizeNotice}
+					</p>
+				)}
+
 				<div
 					onDragEnter={(event) => {
 						event.preventDefault();
@@ -1940,10 +1955,11 @@ export function ChatInterface({
 						modelId={selectedModel}
 						permissionMode={permissionMode}
 						permissionModes={availablePermissionModes(project)}
-						allowMidRunQuestions={allowMidRunQuestions}
+						allowMidRunQuestions={isWorkspaceChat ? true : allowMidRunQuestions}
 						onMidRunQuestionsChange={changeMidRunQuestions}
 						midRunQuestionsBusy={midRunQuestionsBusy}
 						midRunQuestionsError={midRunQuestionsError}
+						midRunQuestionsLocked={isWorkspaceChat}
 						onPermissionModeChange={changePermissionMode}
 						ref={composerRef}
 						sessionId={palace.sessionId}

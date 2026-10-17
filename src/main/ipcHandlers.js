@@ -756,11 +756,29 @@ function registerIpcHandlers({
 					},
 				});
 				persist(controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed");
+				// Per-turn work digest: built from the persisted steps for
+				// Workspace sessions only. Fail-safe by contract
+				// (recordTurnDigestSafe never throws): digest work must never
+				// break, stall, or alter a turn.
+				if (sessionId && persistence) {
+					require('./workLog').recordTurnDigestSafe({
+						sessionId,
+						assistantMessageId: persistence.messageId,
+						partial: controller.signal.aborted || stoppedByCircuitBreak,
+					});
+				}
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
 					interrupted: stoppedByLimit, aborted: controller.signal.aborted });
 				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
+				if (sessionId && persistence) {
+					require('./workLog').recordTurnDigestSafe({
+						sessionId,
+						assistantMessageId: persistence.messageId,
+						partial: true,
+					});
+				}
 				require('./engineManager').notifyChatOutcome({ error, aborted: controller.signal.aborted });
                 throw error;
 			} finally {
@@ -789,6 +807,16 @@ function registerIpcHandlers({
             };
             const { db } = require('./db');
             return db.transaction(() => {
+                try {
+                    // The re-run turn's digest was recorded against the
+                    // temporary row: re-key it onto the surviving target row
+                    // FIRST, so the temporary row's deletion below (which
+                    // cascades digest rows) never orphans it. Complete beats
+                    // stale partial, same as same-turn races.
+                    require('./workLog').rekeyTurnDigest({ sessionId: data.sessionId, fromMessageId: result.message.id, toMessageId: target.id });
+                } catch (error) {
+                    console.error('[workLog] regenerate digest rekey failed (turn unaffected):', error?.message ?? error);
+                }
                 if (result.message.id !== target.id) db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
                 db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(target.id, data.sessionId);
                 return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
@@ -976,10 +1004,10 @@ function registerIpcHandlers({
 				sessionId,
 				modelId,
 				contextWindowLimit,
-				(oldSummary, messageBatch) => llmSummarizeCallback(oldSummary, messageBatch, modelId),
+				(oldSummary, messageBatch, _modelId, opts) => llmSummarizeCallback(oldSummary, messageBatch, modelId, opts ?? {}),
 				notify,
 				typeof llmCheckpointCallback === "function"
-					? (input) => llmCheckpointCallback(input, modelId)
+					? (input, _modelId, opts) => llmCheckpointCallback(input, modelId, opts ?? {})
 					: null,
 			);
 			return { scheduled: true };

@@ -75,6 +75,9 @@ async function main() {
     assert.doesNotMatch(prompt, /replace a specific anchor at the bottom/);
     assert.doesNotMatch(prompt, /collect those ids as you create the records/);
     assert.doesNotMatch(prompt, /Example investigation invocation/);
+    // Casual chats keep the stored preference: off renders the DISABLED flow.
+    assert.match(prompt, /DISABLED - AUTONOMOUS EXECUTION/);
+    assert.match(prompt, /Summarize any assumptions made/);
   });
 
   await test('visualization keeps a parseable example and all rules', () => {
@@ -99,10 +102,14 @@ async function main() {
     assert.match(prompt, /BROWSER AUTOMATION/);
     assert.match(prompt, /playwright-native/);
     assert.match(prompt, /Available dynamic tools \(MCP servers\):/);
-    assert.match(prompt, /DISABLED - AUTONOMOUS EXECUTION/);
+    // Workspace chats force mid-run questions on (see workspaceMidRunQuestions):
+    // the prompt advertises the ENABLED clarification flow, never DISABLED.
+    assert.match(prompt, /MID-RUN CLARIFICATIONS \(ENABLED\)/);
+    assert.match(prompt, /Call the `ask_user` tool/);
+    assert.doesNotMatch(prompt, /DISABLED - AUTONOMOUS EXECUTION/);
+    assert.doesNotMatch(prompt, /Summarize any assumptions made/);
     // Removed: mid-run bullet duplicating the autonomy loop rule.
     assert.doesNotMatch(prompt, /Complete all tool steps until the task objective is resolved/);
-    assert.match(prompt, /Summarize any assumptions made/);
   });
 
   console.log('Session prompt wording: protocol, visualization, and rule behavior pinned.');

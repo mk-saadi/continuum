@@ -8,12 +8,83 @@
 		/>
 	<meta
 		http-equiv="Content-Security-Policy"
-		content="default-src 'self'; img-src 'self' blob: data: local: media:; media-src 'self' blob: data: local: media:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:* http://localhost:* ws://localhost:*"
+		content="default-src 'self'; img-src 'self' blob: data: local: media:; media-src 'self' blob: data: local: media:; font-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:* http://localhost:* ws://localhost:*"
 	/>
 		<title>Continuum</title>
+		<!-- Boot splash. Styled inline (below) and inlined in the HTML so it
+		     paints before the Tailwind/JS bundle loads: the window is
+		     transparent, so without this the first paint would be blank.
+		     Removed by src/main.jsx once React has mounted. -->
+		<style>
+			#boot-loader {
+				position: fixed;
+				inset: 0;
+				z-index: 2147483647;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 22px;
+				border-radius: 12px;
+				background: #1f1f1f;
+				color: #ececec;
+				font-family: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				-webkit-font-smoothing: antialiased;
+				user-select: none;
+				opacity: 1;
+				transition: opacity 380ms ease;
+				will-change: opacity;
+			}
+			#boot-loader.is-hidden {
+				opacity: 0;
+				pointer-events: none;
+			}
+			#boot-loader .boot-loader__wordmark {
+				font-size: 30px;
+				font-weight: 600;
+				letter-spacing: 0.3em;
+				text-indent: 0.3em; /* offset trailing letter-spacing so the text stays centered */
+				animation: boot-loader-breathe 2.4s ease-in-out infinite;
+			}
+			#boot-loader .boot-loader__bar {
+				position: relative;
+				width: 132px;
+				height: 2px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.1);
+				overflow: hidden;
+			}
+			#boot-loader .boot-loader__bar::after {
+				content: "";
+				position: absolute;
+				top: 0;
+				left: -40%;
+				width: 40%;
+				height: 100%;
+				border-radius: inherit;
+				background: #5b9bff;
+				animation: boot-loader-slide 1.25s ease-in-out infinite;
+			}
+			@keyframes boot-loader-breathe {
+				0%, 100% { opacity: 0.72; }
+				50% { opacity: 1; }
+			}
+			@keyframes boot-loader-slide {
+				0% { left: -40%; }
+				100% { left: 100%; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#boot-loader .boot-loader__wordmark,
+				#boot-loader .boot-loader__bar::after { animation: none; }
+			}
+		</style>
 	</head>
 	<body class="h-screen w-screen overflow-hidden text-[14px] text-[#1a1a2e] dark:text-[#e0e0f0] bg-[#f5f5fa] dark:bg-[#1e1e2e]">
 		<div id="root" class="flex h-full w-full flex-col overflow-hidden bg-[#f5f5fa] dark:bg-[#1e1e2e]"></div>
+		<div id="boot-loader" role="status" aria-label="Loading Continuum">
+			<span class="boot-loader__wordmark">Continuum</span>
+			<span class="boot-loader__bar" aria-hidden="true"></span>
+		</div>
 		<script
 			type="module"
 			src="/src/main.jsx"

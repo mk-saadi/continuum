@@ -75,7 +75,9 @@ export function failureDetail(step) {
     return result.trim() && result.trim() !== banner ? capDetail(result) : '';
   }
   if (result && typeof result === 'object' && !Array.isArray(result)) {
-    for (const key of ['error', 'message', 'details']) {
+    // `output` last: command stdout already has its own section, and for
+    // failed git/file ops it is the substance (e.g. "fatal: ...").
+    for (const key of ['error', 'message', 'details', 'output']) {
       const value = result[key];
       if (typeof value === 'string' && value.trim() && value.trim() !== banner) return capDetail(value);
     }
@@ -172,6 +174,15 @@ export function summarizeStep(step) {
     else if (typeof args.name === 'string' && toolName === 'use_skill') summary = truncate(args.name, 80);
     else if (typeof args.url === 'string') summary = truncate(args.url, 120);
     else if (paths.length) summary = truncate(paths.join(', '), 120);
+    else if (toolName.startsWith('git_') && typeof args.message === 'string' && args.message.trim())
+      summary = truncate(`"${args.message.trim()}"`, 120);
+    else if (toolName === 'git_sync')
+      summary = truncate(
+        [args.action, args.remote, args.branch].filter((value) => typeof value === 'string' && value).join(' ') || JSON.stringify(args),
+        120,
+      );
+    else if (toolName === 'git_log' && typeof args.limit === 'number') summary = `last ${args.limit}`;
+    else if (toolName.startsWith('git_')) summary = Object.keys(args).length ? truncate(JSON.stringify(args), 120) : '';
     else summary = truncate(JSON.stringify(args), 120);
   } else if (typeof step.streamingArguments === 'string' && step.streamingArguments) {
     summary = truncate(step.streamingArguments, 120);
@@ -373,12 +384,13 @@ export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision
 const COMMAND_TOOLS = new Set(['execute_command']);
 const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content']);
 const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
+const GIT_WRITE_TOOLS = new Set(['git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
 const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history', 'search_memory']);
 const EDIT_TOOLS = new Set(['str_replace_editor', 'edit_project_files', 'apply_patch']);
 const MOVE_TOOLS = new Set(['move_project_file']);
 const SAVE_TOOLS = new Set(['save_memory']);
 const MCP_TOOLS = new Set(['manage_mcp_servers', 'approve_mcp_mutation']);
-const WRITE_TOOLS = new Set(['write_project_file', 'git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
+const WRITE_TOOLS = new Set(['write_project_file']);
 const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 const MEDIA_TOOLS = new Set(['generate_image', 'take_screenshot']);
@@ -392,7 +404,7 @@ export function toolKind(step) {
   if (SKILL_TOOLS.has(name)) return 'skill';
   if (COMMAND_TOOLS.has(name)) return 'command';
   if (READ_TOOLS.has(name)) return 'read';
-  if (GIT_TOOLS.has(name)) return 'read';
+  if (GIT_TOOLS.has(name) || GIT_WRITE_TOOLS.has(name)) return 'git';
   if (SEARCH_TOOLS.has(name)) return 'search';
   if (EDIT_TOOLS.has(name)) return 'edit';
   if (MOVE_TOOLS.has(name)) return 'move';
@@ -405,12 +417,19 @@ export function toolKind(step) {
   return 'other';
 }
 
-// Short human verb for the row. The exact recorded tool name stays available
-// via the `title` tooltip and `data-tool` attribute on the card.
+// Short human verb for the row. Git operations keep their operation name
+// ("Git status", never "Read") — the exact recorded tool name stays
+// available via the `title` tooltip and `data-tool` attribute on the card.
 export function toolVerb(step) {
   switch (toolKind(step)) {
     case 'command': return 'Run';
     case 'read': return 'Read';
+    case 'git': {
+      const operation = typeof step?.toolName === 'string'
+        ? step.toolName.replace(/^git_/, '').replace(/_/g, ' ')
+        : '';
+      return operation ? `Git ${operation}` : 'Git';
+    }
     case 'search': return 'Search';
     case 'edit': return 'Edit';
     case 'move': return 'Move';
@@ -469,7 +488,7 @@ function distinctStagePaths(events) {
 // durationMs (tool steps carry no durations).
 export function summarizeStage(stage) {
   const events = stage?.events ?? [];
-  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, other: 0 };
+  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, git: 0, other: 0 };
   let done = 0;
   let failed = 0;
   let blocked = 0;
@@ -491,10 +510,12 @@ export function summarizeStage(stage) {
   const searches = byKind.search;
   const reads = byKind.read + byKind.list;
   const ops = events.length;
-  const onlyReads = ops > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0;
+  const onlyReads = ops > 0 && byKind.git === 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0;
   let title;
   if (ops === 0) {
     title = 'Thought';
+  } else if (byKind.git === ops) {
+    title = ops === 1 ? toolVerb(events[0]) : `${ops} git operations`;
   } else if (onlyReads) {
     const parts = [];
     if (files.length) parts.push(`${files.length} file${files.length === 1 ? '' : 's'}`);

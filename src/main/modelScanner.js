@@ -41,6 +41,7 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		architecture: null,
 		expertCount: null,
         activeExpertCount: null, contextLength: null, layerCount: null, embeddingLength: null, attentionHeads: null, kvHeads: null, expertLayers: null, metadataStatus: 'unknown', metadataError: null,
+        keyLength: null, valueLength: null, fullAttentionInterval: null,
 		isMoe: false,
 		sizeFormatted: `${(stats.size / 1024 ** unit).toFixed(2)} ${units[unit]}`,
 		quantization: fileName.match(/(?:IQ\d+_[A-Z0-9_]+|Q\d+_[A-Z0-9_]+|BF16|F16|F32)(?=[.-]|$)/i)?.[0].toUpperCase() || null,
@@ -69,7 +70,7 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		// Expert metadata is only present for MoE GGUFs; reuse the header already parsed here.
 		result.expertCount = Number.isSafeInteger(metadata[`${arch}.expert_count`])
 			? metadata[`${arch}.expert_count`] : null;
-        for (const [field, key] of Object.entries({ contextLength: 'context_length', layerCount: 'block_count', activeExpertCount: 'expert_used_count', embeddingLength: 'embedding_length', attentionHeads: 'attention.head_count', kvHeads: 'attention.head_count_kv' })) result[field] = positiveInteger(metadata[`${arch}.${key}`]);
+        for (const [field, key] of Object.entries({ contextLength: 'context_length', layerCount: 'block_count', activeExpertCount: 'expert_used_count', embeddingLength: 'embedding_length', attentionHeads: 'attention.head_count', kvHeads: 'attention.head_count_kv', keyLength: 'attention.key_length', valueLength: 'attention.value_length', fullAttentionInterval: 'full_attention_interval' })) result[field] = positiveInteger(metadata[`${arch}.${key}`]);
         const expertLayers = [...new Set(tensorInfos.filter(t => /ffn_(?:gate|up|down)_exps/.test(t.name)).map(t => t.name.match(/^blk\.(\d+)\./)?.[1]).filter(value => value !== undefined).map(Number))].sort((a, b) => a - b);
         result.expertLayers = expertLayers.length ? expertLayers : null;
         result.hasAudio = metadata['clip.has_audio_encoder'] === true || Object.keys(metadata).some(key => /(?:^|\.)audio_encoder\./i.test(key));

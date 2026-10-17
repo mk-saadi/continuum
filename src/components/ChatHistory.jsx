@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+	FiActivity,
 	FiCheck,
 	FiChevronDown,
 	FiChevronRight,
+	FiClock,
 	FiEdit2,
 	FiDownload,
 	FiFolder,
@@ -399,22 +401,25 @@ export default function ChatHistory({
 	return (
 		<aside
 			aria-label="Chat history"
-			className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
+			className="flex h-full w-[272px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] max-[650px]:w-[220px]"
 		>
 			<div className="space-y-3 px-3 pt-4 pb-2">
 				{mode === "workspace" ? (
-					<div
-						className="rounded-lg bg-[var(--input)] px-3 py-2"
-						aria-label="Workspace conversations"
-					>
-						<p className="truncate text-sm font-semibold">
+				<div
+					className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+					aria-label="Workspace conversations"
+				>
+					<div className="mb-2 flex min-w-0 items-center gap-2">
+						<FiActivity size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+						<h3 className="min-w-0 truncate text-xs font-semibold">
 							{workspaceName ?? "Workspace chats"}
-							{workspaceChatCount != null && (
-								<span className="ml-2 text-xs font-normal text-[var(--text-muted)]">
-									{workspaceChatCount}
-								</span>
-							)}
-						</p>
+						</h3>
+						{workspaceChatCount != null && (
+							<span className="ml-auto shrink-0 text-xs text-[var(--text-muted)]">
+								{workspaceChatCount}
+							</span>
+						)}
+					</div>
 						<button
 							className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--accent)] py-1 text-[var(--on-accent)] transition-all duration-300 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
 							disabled={locked || !canCreateWorkspaceChat}
@@ -445,8 +450,8 @@ export default function ChatHistory({
 						</button>
 					</div>
 				)}
-				<label className="flex items-center gap-2 rounded-lg bg-[var(--input)] px-3 py-2 text-[var(--text-muted)] focus-within:ring-1 focus-within:ring-[var(--accent)]">
-					<FiSearch className="shrink-0" />
+			<label className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text-muted)] shadow-[0_2px_4px_var(--window-shadow)] focus-within:border-[var(--accent)]">
+				<FiSearch className="shrink-0 text-[var(--accent)]" />
 					<input
 						type="search"
 						aria-label={
@@ -481,9 +486,12 @@ export default function ChatHistory({
 				{showRecents && !query && recentSessions.length > 0 && (
 					<section
 						aria-label="Recent chats"
-						className="mt-3 rounded-lg"
+						className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_2px_4px_var(--window-shadow)]"
 					>
-						<p className="px-3 pb-1 text-xs font-medium text-[var(--text-muted)]">Recent</p>
+						<div className="mb-1 flex items-center gap-2 px-1">
+							<FiClock size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+							<h3 className="text-xs font-semibold">Recent</h3>
+						</div>
 						<div className="space-y-0.5">
 							{recentSessions.map((session) => (
 								<SessionRow
@@ -500,7 +508,7 @@ export default function ChatHistory({
 						<section
 							key={group.folder_name}
 							aria-label={group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
-							className={`mt-3 rounded-lg ${dropTarget === group.folder_name ? "bg-[var(--active-chat)] ring-1 ring-[var(--accent)]" : ""}`}
+						className={`mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_2px_4px_var(--window-shadow)] ${dropTarget === group.folder_name ? "bg-[var(--active-chat)] ring-1 ring-[var(--accent)]" : ""}`}
 							onDragOver={(event) => {
 								if (!locked && [...event.dataTransfer.types].includes(DRAG_TYPE)) {
 									event.preventDefault();
@@ -525,12 +533,16 @@ export default function ChatHistory({
 									})
 								}
 							>
-								{expanded ? (
-									<FiChevronDown className="shrink-0" />
-								) : (
-									<FiChevronRight className="shrink-0" />
-								)}
-								{group.folder_name !== UNASSIGNED && <FiFolder className="shrink-0" />}
+						{expanded ? (
+							<FiChevronDown className="shrink-0 text-[var(--text-muted)]" />
+						) : (
+							<FiChevronRight className="shrink-0 text-[var(--text-muted)]" />
+						)}
+						{group.folder_name !== UNASSIGNED ? (
+							<FiFolder size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+						) : (
+							<FiMessageSquare size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+						)}
 								<span
 									className="min-w-0 flex-1 truncate text-left"
 									title={group.folder_name}

@@ -15,6 +15,7 @@ export default function Header({
 	isCloud = false,
 	engineRunning,
 	contextStatus,
+	loadWarning = null,
 	onOpenModels,
 	palace,
 	onOpenSettings,
@@ -128,6 +129,16 @@ export default function Header({
 									: contextStatus === "warmup-failed"
 										? "Warmup failed"
 										: "Loading model..."}
+						</span>
+					)}
+					{!isCloud && engineRunning && loadWarning && (
+						<span
+							role="status"
+							aria-label="Partial GPU offload"
+							title={loadWarning}
+							className="shrink-0 text-[10px] font-medium text-[var(--error)]"
+						>
+							CPU offload
 						</span>
 					)}
 					<span

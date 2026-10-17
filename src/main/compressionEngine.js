@@ -13,6 +13,110 @@ const pendingUnlocks = new Set();
 const inFlight = new Map();
 const PROTECTED_MESSAGES = 10;
 const IDLE_DELAY_MS = 10_000;
+// Idle compaction targets the *projected prompt* (system + schemas + memory +
+// summary + brief + checkpoint + retained messages), not the DB message total.
+// The target splits by session kind: workspace sessions compact to ~40% —
+// checkpoints, work logs, and the rolling summary already carry the task
+// state (user prompts, agent decisions, pain points), so verbatim tool output
+// is expendable. Casual sessions compact to ~50% — recent messages plus the
+// summary ARE the memory there, with no checkpoint to fall back on. The 2%
+// margin absorbs chars/4 estimator error (exact measurement only exists on
+// the forced path). All three are documented, tunable bounds, not optima.
+// The trigger stays at 75% for both kinds.
+const IDLE_TARGET_FRACTION_WORKSPACE = 0.40;
+const IDLE_TARGET_FRACTION_CASUAL = 0.50;
+const IDLE_ESTIMATOR_MARGIN_FRACTION = 0.02;
+// Extra summarization passes beyond the initial DB-targeted one. Bounded:
+// each pass strictly grows the archived set, so the loop always terminates.
+const IDLE_MAX_EXTRA_PASSES = 2;
+// Idle summaries are capped like forced ones; an uncapped summary would grow
+// the context floor on every cycle (the floor can never compact away).
+const IDLE_SUMMARY_MAX_TOKENS = 512;
+
+// Idle summarization wrapper: caps output like the forced path and threads
+// the abort signal through, using the same provider-compatible mechanism
+// (the local engine reads maxTokens/signal from the options object).
+function idleSummarizer(llmSummarizeCallback, modelId, { signal } = {}) {
+  return (oldSummary, messageBatch) =>
+    llmSummarizeCallback(oldSummary, messageBatch, modelId, { ...(signal ? { signal } : {}), maxTokens: IDLE_SUMMARY_MAX_TOKENS });
+}
+
+// Tool schemas for the idle projection. Resolves the same getToolContext the
+// prompt builder uses, under the session's effective mode, so the projection
+// counts what the next request would actually carry. Falls back to null
+// (documented lower bound, same as the forced path without schemas) when the
+// registry is unavailable.
+function resolveProjectionTools(sessionId, modelId, { tools } = {}) {
+  if (Array.isArray(tools)) return tools;
+  try {
+    const { getToolContext } = require('./promptBuilder');
+    const mcpTools = require('./mcpManager').getTools(sessionId);
+    const project = require('./toolPermissions').sessionProject(sessionId);
+    const { effectiveMode } = require('./toolPermissions');
+    const mode = effectiveMode(undefined, project);
+    const memoryEnabled = require('./profileSettings').getSessionSettings(sessionId, modelId).effective.memoryEnabled;
+    return getToolContext(mcpTools, memoryEnabled, sessionId, mode, modelId).tools;
+  } catch {
+    return null;
+  }
+}
+
+// Projected full prompt for an idle candidate: same builders as a real
+// request (system, schemas, summary, briefs, checkpoint, retained messages)
+// plus explicit memory/worklog accounting the DB estimate omits. The retained
+// set is every message that would stay active after archival (unarchived
+// candidates plus the protected tail), so archiving more strictly shrinks the
+// projection and the extension loop below converges. Deliberately excludes
+// RAG excerpts (spliced after recovery) and output reserve (covered by the
+// headroom between the 60% target and the window). chars/4 throughout, like
+// the trigger math — see IDLE_ESTIMATOR_MARGIN_FRACTION.
+function projectIdlePrompt({ sessionId, modelId, summaryText, briefSection, checkpointSection, retainedMessages, tools, memoryTokens = 0, workLogTokens = 0 }) {
+  const breakdown = projectForcedFloor({ sessionId, modelId, summaryText, briefSection, checkpointSection, tailMessages: retainedMessages, tools });
+  const total = breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens
+    + breakdown.checkpointTokens + breakdown.tailTokens + breakdown.toolTokens + memoryTokens + workLogTokens;
+  return { breakdown, memoryTokens, workLogTokens, total };
+}
+
+// Effective idle target for a run: kind fraction minus estimator margin.
+function idleTargetFor(contextWindowLimit, isWorkspace) {
+  const fraction = isWorkspace ? IDLE_TARGET_FRACTION_WORKSPACE : IDLE_TARGET_FRACTION_CASUAL;
+  return Math.floor(fraction * contextWindowLimit)
+    - Math.floor(IDLE_ESTIMATOR_MARGIN_FRACTION * contextWindowLimit);
+}
+
+// Extend archival until the projected prompt fits, bounded and terminating.
+// Each pass archives a strictly larger prefix (halving the remainder) and
+// re-summarizes, which shrinks the retained set the projection measures, so
+// the loop converges instead of re-measuring a fixed tail. Passes are capped,
+// and the loop exits as complete when the projection fits, or irreducible
+// when even archiving every candidate leaves the floor above target. Never
+// touches the protected tail.
+async function extendSelectionForProjectedFit({ candidates, selectedCount, newSummary, target, project, summarize, signal, maxExtraPasses = IDLE_MAX_EXTRA_PASSES }) {
+  let selected = selectedCount;
+  let summary = newSummary;
+  let projected = await project(summary, selected);
+  let passes = 0;
+  for (;;) {
+    if (projected.total <= target) return { selectedCount: selected, newSummary: summary, projected, complete: true };
+    if (selected >= candidates.length) {
+      return { selectedCount: selected, newSummary: summary, projected, complete: false, reason: 'irreducible-context-too-large' };
+    }
+    if (passes >= maxExtraPasses) {
+      return { selectedCount: selected, newSummary: summary, projected, complete: true, capped: true };
+    }
+    passes += 1;
+    const next = Math.min(candidates.length, selected + Math.max(1, Math.ceil((candidates.length - selected) / 2)));
+    signal?.throwIfAborted();
+    const grown = await summarize(summary, candidates.slice(selected, next));
+    if (typeof grown !== 'string' || !grown.trim() || grown.includes('\0')) {
+      // Keep the last good summary; commit what validates instead of failing.
+      return { selectedCount: selected, newSummary: summary, projected, complete: true, capped: true, degraded: true };
+    }
+    selected = next;
+    summary = grown;
+    projected = await project(summary, selected);
+  }
+}
 
 function validateOptions(sessionId, modelId, contextWindowLimit, callback) {
   for (const [name, value] of [['sessionId', sessionId], ['modelId', modelId]]) {
@@ -267,7 +371,38 @@ async function compressContext({
     const candidates = snapshot.messages.slice(
       0, Math.max(0, snapshot.messages.length - PROTECTED_MESSAGES),
     );
-    if (candidates.length === 0) return { compressed: false, archivedCount: 0 };
+    const tailMessages = snapshot.messages.slice(candidates.length);
+    if (candidates.length === 0) {
+      // Nothing archivable, but a bloated summary alone can still pin a short
+      // casual session above target. Same drop rule as the main path below:
+      // delete the summary only when that regains the target, so the session
+      // stays usable (tail retained, history preserved) instead of
+      // retriggering forever. Workspace sessions are excluded: their
+      // checkpoints bind to the summary.
+      if (!force && snapshot.oldSummary && !snapshot.isWorkspace) {
+        const projectionTools = resolveProjectionTools(sessionId, modelId, { tools });
+        const usageNow = getContextUsage(sessionId, modelId);
+        const target = idleTargetFor(contextWindowLimit, false);
+        const dropped = projectIdlePrompt({
+          sessionId, modelId, summaryText: null,
+          briefSection: require('./taskBriefs').buildTaskBriefSection(sessionId),
+          checkpointSection: null, retainedMessages: tailMessages, tools: projectionTools,
+          memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens,
+        });
+        if (dropped.total <= target) {
+          db.transaction(() => {
+            if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return;
+            if (getSessionSummary(sessionId) !== snapshot.oldSummary) {
+              throw new Error('Session summary changed during compression; retry later.');
+            }
+            db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
+          }).immediate();
+          return { compressed: false, archivedCount: 0, summaryDropped: true,
+            reason: 'summary-overflow-dropped', projectedTokens: dropped.total };
+        }
+      }
+      return { compressed: false, archivedCount: 0 };
+    }
 
     // Forced recovery archives every candidate, so the post-recovery floor is
     // already known: brief + checkpoint + old summary + system block +
@@ -277,7 +412,6 @@ async function compressContext({
     // attempts. Idle compression keeps its existing threshold behavior.
     let briefSection = null;
     let currentCheckpointSection = null;
-    const tailMessages = snapshot.messages.slice(candidates.length);
     const refuse = (breakdown, budget, reserve) => ({ compressed: false, archivedCount: 0,
       reason: 'non-compressible-context-too-large',
       floorTokens: breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens
@@ -296,9 +430,15 @@ async function compressContext({
       if (!fits) return refuse(breakdown, budget, reserve);
     }
 
-    const { newSummary, selectedCount, remainingTokens, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
+    // Idle summaries go through the same capped, abortable wrapper as the
+    // forced path's inline one, so no caller can grow the context floor with
+    // an unbounded summary. Force keeps its exact inline behavior below.
+    const summarize = force
+      ? llmSummarizeCallback
+      : idleSummarizer(llmSummarizeCallback, modelId, { signal });
+    let { newSummary, selectedCount, remainingTokens, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
       candidates, oldSummary: snapshot.oldSummary, totalTokens: snapshot.totalTokens,
-      contextWindowLimit, force, signal, estimate: estimateTokens, summarize: llmSummarizeCallback,
+      contextWindowLimit, force, signal, estimate: estimateTokens, summarize,
       modelMessage: message => ({ ...message,
         ...(force ? { content: require('./promptBuilder').messageForModel(message).content } : {}) }),
     });
@@ -315,6 +455,66 @@ async function compressContext({
     if ((!force && remainingTokens >= snapshot.totalTokens) ||
         (force && estimateTokens(newSummary) >= oldSummaryTokens + selectedSourceTokens)) {
       return { compressed: false, archivedCount: 0 };
+    }
+
+    // Idle path only: the DB targeted-total above omits the fixed prompt
+    // costs (system block, tool schemas, memories, worklog), which is why a
+    // "successful" compaction can land within a few turns of the trigger.
+    // Extend archival until the *projected* prompt fits the kind target
+    // (40% workspace, 50% casual), stopping at an irreducible floor or the
+    // pass cap instead of looping forever. The forced path keeps its exact
+    // verification behavior below.
+    let projectedTokens = null;
+    let overTarget = false;
+    let dropSummary = false;
+    if (!force) {
+      const idleBriefSection = require('./taskBriefs').buildTaskBriefSection(sessionId);
+      const idleCheckpointSection = snapshot.isWorkspace
+        ? require('./taskCheckpoints').buildCheckpointSection(sessionId)
+        : null;
+      const projectionTools = resolveProjectionTools(sessionId, modelId, { tools });
+      const usageNow = getContextUsage(sessionId, modelId);
+      const target = idleTargetFor(contextWindowLimit, snapshot.isWorkspace);
+      const projectWith = (summaryText, selected) => projectIdlePrompt({
+        sessionId, modelId, summaryText,
+        briefSection: idleBriefSection, checkpointSection: idleCheckpointSection,
+        retainedMessages: [...candidates.slice(selected), ...tailMessages], tools: projectionTools,
+        memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens,
+      });
+      const extension = await extendSelectionForProjectedFit({
+        candidates, selectedCount, newSummary, target,
+        project: projectWith,
+        summarize: (oldSummary, batch) => summarize(oldSummary, batch),
+        signal,
+      });
+      selectedCount = extension.selectedCount;
+      newSummary = extension.newSummary;
+      projectedTokens = extension.projected.total;
+      // Explicit whenever the projection misses the target, including the
+      // pass-capped path: the caller can see projectedTokens vs the kind
+      // target instead of mistaking a capped commit for a full fit.
+      overTarget = extension.projected.total > target;
+      // Casual summary overflow: the irreducible floor can be dominated by
+      // the stored summary itself — every cycle archives everything and the
+      // floor never moves. When deleting the summary regains the target,
+      // drop it (archived history stays searchable, the tail stays active)
+      // and say so explicitly, instead of retriggering forever. Never
+      // destroys information unless it achieves the goal: if the floor
+      // without the summary still misses, keep the summary and report
+      // over-target. Workspace sessions are excluded: their checkpoints
+      // bind to the summary, and the checkpoint carries the state instead.
+      if (overTarget && !snapshot.isWorkspace) {
+        // Projected against the selection this run actually commits, not an
+        // idealized fully-archived set: the drop must regain the target for
+        // the prompt that will really be sent next.
+        const dropped = projectWith(null, selectedCount);
+        if (dropped.total <= target) {
+          dropSummary = true;
+          newSummary = null;
+          projectedTokens = dropped.total;
+          overTarget = false;
+        }
+      }
     }
 
     // The preserved brief must survive compression, but it also consumes
@@ -467,7 +667,15 @@ async function compressContext({
         ORDER BY updated_at DESC, id DESC LIMIT 1
       `).get(sessionId);
       let summaryId = latest ? latest.id : null;
-      if (latest) {
+      if (dropSummary) {
+        // Summary-overflow recovery (casual idle only): the stored summary
+        // itself kept the floor above target. Delete it atomically with the
+        // archival above; history stays archived and searchable, the tail
+        // stays active. Workspace never takes this path (its checkpoints
+        // bind to the summary), so summaryId use below is unaffected.
+        db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
+        summaryId = null;
+      } else if (latest) {
         db.prepare(`
           UPDATE session_summaries
           SET summary_text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
@@ -501,6 +709,16 @@ async function compressContext({
     const completed = { compressed: true, archivedCount, summarizedMessageIds: candidates.slice(0, selectedCount).map(message => message.id) };
     if (measuredMethod !== undefined) completed.measuredMethod = measuredMethod;
     if (checkpointId !== null && checkpointId !== undefined) completed.checkpointId = checkpointId;
+    if (!force && projectedTokens !== null) completed.projectedTokens = projectedTokens;
+    if (dropSummary) {
+      // The notice channel: the renderer tells the user older summaries were
+      // removed from context (history preserved) and offers a fresh session.
+      completed.summaryDropped = true;
+      completed.reason = 'summary-overflow-dropped';
+    } else if (!force && overTarget) {
+      completed.overTarget = true;
+      completed.reason = 'projected-above-target';
+    }
     return completed;
   } finally {
     try {
@@ -513,21 +731,35 @@ async function compressContext({
   }
 }
 
-function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete = () => {}, llmCheckpointCallback = null) {
+function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete = () => {}, llmCheckpointCallback = null, options = {}) {
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (llmCheckpointCallback !== null && typeof llmCheckpointCallback !== 'function') throw new TypeError('llmCheckpointCallback must be a function when provided.');
   const previous = idleTimers.get(sessionId);
   if (previous) clearTimeout(previous);
 
+  // Abort wiring: the signal (when provided) is the caller's cancellation
+  // channel, threaded through checkAndCompressContext into every summarize,
+  // checkpoint, and measure call. A fresh controller per execution keeps
+  // concurrent sessions independent. No production caller passes one yet
+  // (the renderer has no idle-cancel channel), so this path is proven by
+  // tests, not yet exercised live.
+  const { signal: externalSignal = null } = options ?? {};
+  const controller = new AbortController();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort(externalSignal.reason);
+    else externalSignal.addEventListener('abort', () => controller.abort(externalSignal.reason), { once: true });
+  }
+
   const timer = setTimeout(() => {
     idleTimers.delete(sessionId);
     if (require('./dataAccess').isMigrating()) {
-      scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback);
+      scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback, options);
       return;
     }
     let retry = false;
     void checkAndCompressContext({
       sessionId, modelId, contextWindowLimit, llmSummarizeCallback, llmCheckpointCallback,
+      signal: controller.signal,
     }).then((result) => {
       retry = result.retry === true;
       if (result.compressed) onComplete({ sessionId, ...result });
@@ -541,7 +773,7 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
     }).finally(() => {
       // Keep a newer typing/streaming debounce if one has already been set.
       if ((retry || pendingUnlocks.has(sessionId)) && !idleTimers.has(sessionId)) {
-        scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback);
+        scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback, options);
       }
     });
   }, IDLE_DELAY_MS);
@@ -550,4 +782,8 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
   idleTimers.set(sessionId, timer);
 }
 
-module.exports = { checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow };
+module.exports = { checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
+  // Test-only projection helpers and bounds (pure accounting, no behavior change).
+  projectForcedFloor, projectIdlePrompt, resolveProjectionTools, idleTargetFor,
+  IDLE_TARGET_FRACTION_WORKSPACE, IDLE_TARGET_FRACTION_CASUAL,
+  IDLE_ESTIMATOR_MARGIN_FRACTION, IDLE_SUMMARY_MAX_TOKENS, IDLE_MAX_EXTRA_PASSES };

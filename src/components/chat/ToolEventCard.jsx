@@ -461,7 +461,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 							Counts parsed from recorded output — not a separate test report.
 						</p>
 					)}
-					{(kind === "read" || kind === "search") &&
+					{(kind === "read" || kind === "search" || kind === "git") &&
 						!imageOnly &&
 						classification.key === "success" && <ReadOutput step={step} />}
 					{imageOnly && images.length > 0 && (
@@ -555,6 +555,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						kind !== "command" &&
 						kind !== "read" &&
 						kind !== "search" &&
+						kind !== "git" &&
 						kind !== "media" &&
 						!isSubagent &&
 						step.toolName !== "ask_user" &&
@@ -659,12 +660,15 @@ function CommandOutcome({ outcome, testSummary }) {
 
 // Read/search results show the recorded content directly — never a JSON dump
 // of the wrapper object. Line counts are labelled as lines, not matches.
+// Git results carry the same shape ({ output }) and render the same way.
 function ReadOutput({ step }) {
 	const result = step?.result;
 	const content =
 		result && typeof result === "object" && !Array.isArray(result) && typeof result.content === "string"
 			? result.content
-			: result;
+			: result && typeof result === "object" && !Array.isArray(result) && typeof result.output === "string"
+				? result.output
+				: result;
 	const lines = resultLineCount(content);
 	return (
 		<section

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 // Read-only Workspace Context inspection: what compression preserved — the
-// current and historical checkpoints, the verbatim task brief, the rolling
-// summary, and the archived original messages. Workspace-only; Casual Chat
-// never mounts this panel. All checkpoint text and tool output render as
-// plain text (React-escaped), never as markup.
+// current and historical checkpoints, the verbatim task brief, per-brief work
+// logs of recorded tool activity, the rolling summary, and the archived
+// original messages. Workspace-only; Casual Chat never mounts this panel.
+// All checkpoint text and tool output render as plain text (React-escaped),
+// never as markup.
 
 const cardClass =
 	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]";
@@ -348,6 +349,151 @@ function CheckpointDetail({ record, evidence }) {
 	);
 }
 
+function WorkLogTurn({ turn }) {
+	const stale = new Set(turn.stalePaths ?? []);
+	const hasStale = (entry) => (entry.paths ?? []).some((filePath) => stale.has(filePath));
+	return (
+		<li
+			key={turn.turnSeq}
+			className="min-w-0 rounded-lg bg-[var(--bg-secondary)] p-2"
+		>
+			<div className="flex flex-wrap items-center gap-1.5">
+				<span className="text-[11px] font-semibold">
+					Turn {turn.turnSeq ?? "?"}
+				</span>
+				{turn.partial ? (
+					<StatusPill tone="warn">Partial</StatusPill>
+				) : (
+					<StatusPill tone="muted">Recorded</StatusPill>
+				)}
+				{turn.createdAt ? (
+					<span className="text-[10px] text-[var(--text-muted)]">{turn.createdAt}</span>
+				) : null}
+			</div>
+			{turn.entries.length > 0 ? (
+				<ul className="mt-1.5 space-y-1">
+					{turn.entries.map((entry, index) => (
+						<li
+							key={index}
+							className="text-[11px] leading-relaxed text-[var(--text-secondary)]"
+						>
+							<span className="mr-1.5 font-mono text-[10px] text-[var(--text-muted)]">
+								{entry.kind ?? "op"}
+							</span>
+							{entry.summary || "(no detail recorded)"}
+							{hasStale(entry) ? (
+								<span
+									className="ml-1.5 text-[10px] font-medium text-amber-500"
+									title="File modification time is newer than this record (mtime basis)"
+								>
+									· changed since recorded
+								</span>
+							) : null}
+						</li>
+					))}
+				</ul>
+			) : null}
+			{turn.openIssues.length > 0 ? (
+				<ul className="mt-1.5 space-y-1">
+					{turn.openIssues.map((issue) => (
+						<li
+							key={issue.id ?? issue.sig}
+							className="text-[11px] leading-relaxed"
+						>
+							<StatusPill tone="warn">Open issue</StatusPill>{" "}
+							<span className="font-mono text-[10px]">{issue.sig}</span>
+							{issue.excerpt ? (
+								<span className="text-[var(--text-secondary)]"> — {issue.excerpt}</span>
+							) : null}
+						</li>
+					))}
+				</ul>
+			) : null}
+			{turn.resolvedIssues.length > 0 ? (
+				<ul className="mt-1.5 space-y-1">
+					{turn.resolvedIssues.map((issue) => (
+						<li
+							key={issue.id ?? issue.sig}
+							className="text-[11px] leading-relaxed"
+						>
+							<StatusPill tone="good">Resolved</StatusPill>{" "}
+							<span className="font-mono text-[10px]">{issue.sig}</span>
+							{issue.excerpt ? (
+								<span className="text-[var(--text-secondary)]"> — {issue.excerpt}</span>
+							) : null}
+						</li>
+					))}
+				</ul>
+			) : null}
+			{turn.omitted.entries > 0 || turn.omitted.issues > 0 ? (
+				<p className={`${bodyClass} mt-1`}>
+					Omitted for budget:{" "}
+					{[
+						turn.omitted.entries ? `${turn.omitted.entries} entr${turn.omitted.entries === 1 ? "y" : "ies"}` : "",
+						turn.omitted.issues ? `${turn.omitted.issues} issue(s)` : "",
+					]
+						.filter(Boolean)
+						.join(", ")}
+					.
+				</p>
+			) : null}
+		</li>
+	);
+}
+
+function WorkLogChips({ chips }) {
+	if (!chips) return null;
+	const items = [];
+	if (chips.turns) items.push(`${chips.turns} turn${chips.turns === 1 ? "" : "s"}`);
+	if (chips.edited.length) {
+		items.push(
+			`edited: ${chips.edited.join(", ")}${chips.editedMore ? ` (+${chips.editedMore} more)` : ""}`,
+		);
+	}
+	if (chips.read.length) {
+		items.push(
+			`read: ${chips.read.join(", ")}${chips.readMore ? ` (+${chips.readMore} more)` : ""}`,
+		);
+	}
+	if (chips.openIssues) items.push(`${chips.openIssues} open issue${chips.openIssues === 1 ? "" : "s"}`);
+	if (!items.length) return null;
+	return (
+		<div className="mt-1.5 flex flex-wrap gap-1">
+			{items.map((item, index) => (
+				<span
+					key={index}
+					className={`${pillClass} ${index === items.length - 1 && chips.openIssues ? warnClass : unverifiedClass} font-mono normal-case`}
+				>
+					{item}
+				</span>
+			))}
+		</div>
+	);
+}
+
+function BriefWorkLog({ workLog }) {
+	if (!workLog || !Array.isArray(workLog.turns) || !workLog.turns.length) return null;
+	return (
+		<details className="mt-2 rounded-lg border border-[var(--subtle-border)] px-2 py-1.5">
+			<summary className="flex cursor-pointer items-center gap-2 text-[11px] font-semibold">
+				Work log
+				<span className="ml-auto font-normal text-[var(--text-muted)] tabular-nums">
+					{workLog.chips.turns} turn{workLog.chips.turns === 1 ? "" : "s"}
+				</span>
+			</summary>
+			<WorkLogChips chips={workLog.chips} />
+			<ul className="mt-1.5 space-y-1.5">
+				{workLog.turns.map((turn) => (
+					<WorkLogTurn
+						key={turn.turnSeq}
+						turn={turn}
+					/>
+				))}
+			</ul>
+		</details>
+	);
+}
+
 export default function ContextPanel({ sessionId, modelId = null, active = false }) {
 	const api = typeof window !== "undefined" ? window.memoryPalace : null;
 	const [usage, setUsage] = useState(null);
@@ -533,6 +679,14 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 						<dd className="text-right font-medium">
 							{(usage.totalTokens ?? 0).toLocaleString()} tokens
 						</dd>
+						{usage.workLogTokens > 0 ? (
+							<>
+								<dt className={bodyClass}>Work log (approx)</dt>
+								<dd className="text-right font-medium">
+									{usage.workLogTokens.toLocaleString()} tokens
+								</dd>
+							</>
+						) : null}
 						<dt className={bodyClass}>Last prompt</dt>
 						<dd className="text-right font-medium">
 							{usage.telemetry?.lastPromptTokens != null
@@ -768,6 +922,13 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 											))}
 										</ul>
 									) : null}
+									{brief.workLog ? (
+										<BriefWorkLog workLog={brief.workLog} />
+									) : (
+										<p className={`${bodyClass} mt-1 italic`}>
+											No work log recorded for this brief.
+										</p>
+									)}
 								</li>
 							))}
 						</ul>
@@ -793,9 +954,27 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 											<pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
 												{brief.content_text}
 											</pre>
+											{brief.workLog ? (
+												<BriefWorkLog workLog={brief.workLog} />
+											) : (
+												<p className={`${bodyClass} mt-1 italic`}>
+													No work log recorded for this brief.
+												</p>
+											)}
 										</li>
 									))}
 								</ul>
+							</>
+						) : null}
+						{briefs.unassignedWorkLog ? (
+							<>
+								<SectionTitle>Unassigned work</SectionTitle>
+								<p className={`${bodyClass} mb-2`}>
+									Recorded turns with no brief association. Only turns completed
+									through the agent engine are recorded; manual or direct saves
+									leave no work log.
+								</p>
+								<BriefWorkLog workLog={briefs.unassignedWorkLog} />
 							</>
 						) : null}
 					</>

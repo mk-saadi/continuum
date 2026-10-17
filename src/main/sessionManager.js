@@ -206,9 +206,23 @@ function getContextUsage(sessionId, currentModelId) {
     const active = activePath(sessionId).filter(row => !row.archived && !row.is_summarized);
     const messageTokens = active.reduce((total, row) => total + row.estimated_tokens, 0);
     const messageCount = active.length;
+    // Work-log contribution, estimated exactly the way the prompt builder
+    // injects it (same section text, same chars/4 heuristic, default caps).
+    // Workspace sessions with recorded turns only; everything else stays 0
+    // so casual chats and digest-free sessions are byte-identical to before.
+    // Approximate by construction; failures degrade to 0, never to an error.
+    let workLogTokens = 0;
+    try {
+      const section = require('./workLog').buildWorkLogSection(sessionId, {});
+      if (section) workLogTokens = estimateTokens(section.content);
+    } catch {
+      workLogTokens = 0;
+    }
 
     return {
-      totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens,
+      totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens + workLogTokens,
+      coreTokens,
+      workLogTokens,
       messageCount,
       hasSummary: summary !== null,
       // Latest persisted per-turn server telemetry for this session only.

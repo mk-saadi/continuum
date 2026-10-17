@@ -1,6 +1,7 @@
 "use strict";
 const { localEngineFetch } = require("./localEngineFetch");
 const { normalizeLoadConfig } = require("./configManager");
+const { parseOffloadDiagnostics } = require("./gpuMemory");
 const { createHash, randomUUID } = require("node:crypto");
 
 const askUserTool = {
@@ -205,15 +206,26 @@ function buildLlamaServerEnv(source = process.env) {
 	env.LLAMA_ARG_CORS_ORIGINS = "*";
 	env.LLAMA_ARG_CORS_HEADERS = "*";
 	env.LLAMA_ARG_CORS_METHODS = "GET, POST, DELETE, OPTIONS";
+	// The GPU-offload verification depends on the loader's trace-level summary
+	// (`load_tensors: offloaded N/M layers to GPU`), which the server hides at
+	// its default "info" verbosity. Raise it to trace without touching the CLI
+	// arguments; an explicitly higher level is preserved.
+	const requestedVerbosity = Number.parseInt(env.LLAMA_ARG_LOG_VERBOSITY, 10);
+	if (!Number.isInteger(requestedVerbosity) || requestedVerbosity < 4)
+		env.LLAMA_ARG_LOG_VERBOSITY = "4";
 	return env;
 }
 module.exports.buildLlamaServerEnv = buildLlamaServerEnv;
 
 // One warmup per process, across both output streams and split log chunks.
-function createStartupHandler({ port = 8080, getTools, onStatus, fetchImpl = localEngineFetch }) {
+function createStartupHandler({ port = 8080, getTools, onStatus, onDiagnostics, fetchImpl = localEngineFetch }) {
 	const { BASE_SYSTEM_PROMPT_WITH_TOOLS } = require("./baseSystemPrompt");
 	const controller = new AbortController();
 	const buffers = { stdout: "", stderr: "" };
+	// Offload lines can be split across chunks, so the diagnostic scan uses its
+	// own bounded accumulator until a result is found (or the process ends).
+	let diagnosticsBuffer = "";
+	let diagnosticsReported = false;
 	let started = false;
 	let loaded = false;
 	let listening = false;
@@ -250,8 +262,22 @@ function createStartupHandler({ port = 8080, getTools, onStatus, fetchImpl = loc
 	let cancelled = false;
 	return {
 		onOutput(data, stream = "stdout") {
-			if (started || cancelled) return;
-			buffers[stream] = (buffers[stream] + data.toString()).slice(-16384);
+			if (cancelled) return;
+			const text = data.toString();
+			// The offload summary is printed while tensors load, before the
+			// readiness markers, but it is scanned independently so a late log
+			// chunk is still captured. Reported at most once per process.
+			if (!diagnosticsReported && typeof onDiagnostics === "function") {
+				diagnosticsBuffer = (diagnosticsBuffer + text).slice(-65536);
+				const diagnostics = parseOffloadDiagnostics(diagnosticsBuffer);
+				if (diagnostics) {
+					diagnosticsReported = true;
+					diagnosticsBuffer = "";
+					onDiagnostics(diagnostics);
+				}
+			}
+			if (started) return;
+			buffers[stream] = (buffers[stream] + text).slice(-16384);
 			loaded ||= /model loaded/i.test(buffers[stream]);
 			listening ||= /(?:listening|server is listening)/i.test(buffers[stream]);
 			if (loaded && listening) {

@@ -69,6 +69,11 @@ function getSessionSettings(sessionId, modelPath) {
   const settings = getProfileSettings();
   const overrides = sessionOverrides(session);
   const effective = getEffectiveSettings({ overrides }, modelPath || session?.model_id, settings);
+  // Workspace chats always allow mid-run questions. With the box unchecked
+  // the ask_user tool is hidden from the schema while the model is still
+  // told about it, so agent runs that need input fail instead of asking.
+  // Forcing it on keeps the schema, prompt, and runtime consistent.
+  if (session?.project_id) effective.allowMidRunQuestions = true;
   return { effective, params: toSamplingParams(effective), overrides, exists: !!session, source: Object.keys(overrides).length ? 'chat' : 'model' };
 }
 module.exports = { getProfileSettings, saveProfileSettings, sessionOverrides, getSessionSettings, resolveRichLevel, defaultRichLevel };

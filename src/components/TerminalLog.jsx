@@ -1,21 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
+import { terminalLogStore } from "../lib/terminalLogStore.mjs";
 
+// Subscribes to the terminal-log store. Only the component calling this hook
+// re-renders when engine output arrives — the state no longer lives in
+// AppContent, so unrelated tabs, chats, and the shell are untouched.
 export function useTerminalLog() {
-	const [lines, setLines] = useState([]);
-	useEffect(() => {
-		const append = (line) => setLines((previous) => [...previous, line].slice(-2000));
-		const unsubscribe = window.terminalAPI?.onOutput(append);
-		const unsubscribeError = window.terminalAPI?.onError?.((message) =>
-			append({ stream: "stderr", data: `[error] ${message}\n` }),
-		);
-		return () => {
-			unsubscribe?.();
-			unsubscribeError?.();
-		};
-	}, []);
-	return { lines, clear: () => setLines([]) };
+	const lines = useSyncExternalStore(
+		terminalLogStore.subscribe,
+		terminalLogStore.getSnapshot,
+		terminalLogStore.getSnapshot,
+	);
+	return { lines, clear: terminalLogStore.clear };
 }
-export default function TerminalLog({ log, engineRunning, serverPort, serverError }) {
+export default function TerminalLog({ engineRunning, serverPort, serverError }) {
+	const log = useTerminalLog();
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between text-xs">

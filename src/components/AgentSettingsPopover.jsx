@@ -161,6 +161,7 @@ export function AgentSettingsPopover({
 	allowMidRunQuestions,
 	onMidRunQuestionsChange,
 	midRunQuestionsBusy,
+	midRunQuestionsLocked = false,
 	showEffort,
 	supportedEfforts = [],
 	reasoningEffort,
@@ -251,9 +252,13 @@ export function AgentSettingsPopover({
 									<span>Mid-Run Questions</span>
 								</span>
 							}
-							hint="Agent may pause mid-run to ask for input or decisions"
-							checked={allowMidRunQuestions}
-							disabled={midRunQuestionsBusy}
+							hint={
+								midRunQuestionsLocked
+									? "Always on in workspace chats — the agent needs input to proceed"
+									: "Agent may pause mid-run to ask for input or decisions"
+							}
+							checked={midRunQuestionsLocked ? true : allowMidRunQuestions}
+							disabled={midRunQuestionsBusy || midRunQuestionsLocked}
 							onChange={(e) => onMidRunQuestionsChange?.(e.target.checked)}
 						/>
 

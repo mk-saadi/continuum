@@ -4,7 +4,6 @@ import ProjectModal from "./components/ProjectModal";
 import Header from "./components/main-app/Header.jsx";
 import MemorySettings from "./components/main-app/MemorySettings.jsx";
 import ModelSelectorModal from "./components/main-app/ModelSelectorModal.jsx";
-import { useTerminalLog } from "./components/TerminalLog";
 import useAvatarSettings from "./hooks/useAvatarSettings";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useMemoryPalace } from "./components/MemoryPalace.jsx";
@@ -14,6 +13,7 @@ import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
 import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
+import { LuTriangleAlert, LuX } from "react-icons/lu";
 
 function AppContent() {
 	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
@@ -46,7 +46,6 @@ function AppContent() {
 	// Owns the custom background image + whole-UI opacity layer (side effect;
 	// the returned state is currently unused by the shell itself).
 	useBackgroundSettings();
-	const terminalLog = useTerminalLog();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 	const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(
@@ -107,6 +106,9 @@ function AppContent() {
 	const [enginePid, setEnginePid] = useState(null);
 	const [serverPort, setServerPort] = useState(null); // dynamic port reported by main/preload, null until known
 	const [serverError, setServerError] = useState(null); // last bridge-level error (spawn/bind failure, etc.)
+	// Set from the engine's own startup log when the model loads with fewer GPU
+	// layers than requested (e.g. another model is holding VRAM).
+	const [loadWarning, setLoadWarning] = useState(null);
 	const chatModels = [
 		...models,
 		...cloudProviders
@@ -182,11 +184,13 @@ function AppContent() {
 			modelPath,
 			modelName,
             capabilities,
+			offloadWarning,
 		}) => {
 			if (disposed) return;
 			const version = ++statusVersion;
 			setActiveModelConfig(running ? (config ?? null) : null);
 			setEngineRunning(running);
+			setLoadWarning(running ? (offloadWarning ?? null) : null);
 			setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath, capabilities } : null);
 			setActiveModelName(running ? (modelName ?? null) : null);
 			if (running && modelPath) {
@@ -284,7 +288,6 @@ function AppContent() {
 					refreshProjects={refreshProjects}
 					updateProject={updateProject}
 					avatars={avatars}
-					terminalLog={terminalLog}
 					models={chatModels}
 					localModels={models}
 					onOpenModels={() => setModelSelectorOpen(true)}
@@ -303,9 +306,31 @@ function AppContent() {
 					activeModelConfig={activeModelConfig}
 					serverPort={serverPort}
 					serverError={serverError}
+					loadWarning={loadWarning}
 					markTabSaved={markTabSaved}
 				/>
 			))}
+			{loadWarning && engineRunning && (
+				<div
+					role="alert"
+					className="fixed bottom-4 left-4 z-40 flex max-w-md items-start gap-2 rounded-lg border border-[var(--accent)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-primary)] shadow-lg"
+				>
+					<LuTriangleAlert
+						size={15}
+						className="mt-0.5 shrink-0 text-[var(--accent)]"
+						aria-hidden="true"
+					/>
+					<span className="min-w-0">{loadWarning}</span>
+					<button
+						type="button"
+						aria-label="Dismiss GPU offload warning"
+						onClick={() => setLoadWarning(null)}
+						className="ml-1 grid size-5 shrink-0 cursor-pointer place-items-center rounded text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+					>
+						<LuX size={13} />
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -320,7 +345,6 @@ function TabPane({
 	refreshProjects,
 	updateProject,
 	avatars,
-	terminalLog,
 	models,
 	localModels,
 	onOpenModels,
@@ -339,6 +363,7 @@ function TabPane({
 	activeModelConfig,
 	serverPort,
 	serverError,
+	loadWarning,
 	markTabSaved,
 }) {
 	const update = useCallback((patch) => updateTab(tab.id, patch), [updateTab, tab.id]);
@@ -369,6 +394,7 @@ function TabPane({
 		>
 			<Header
 				contextStatus={contextStatus}
+				loadWarning={loadWarning}
 				isSidebarOpen={isSidebarOpen}
 				onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
 				isRightSidebarOpen={isRightSidebarOpen}
@@ -394,7 +420,6 @@ function TabPane({
 					models={localModels}
 					theme={theme}
 					onChangeTheme={setTheme}
-					terminalLog={terminalLog}
 					engineRunning={engineRunning}
 					serverPort={serverPort}
 					serverError={serverError}

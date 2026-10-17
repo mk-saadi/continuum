@@ -217,6 +217,30 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_task_briefs_session ON workspace_task_briefs(session_id, id);
   CREATE INDEX IF NOT EXISTS idx_task_briefs_message ON workspace_task_briefs(message_id);
 
+  -- Workspace turn digests: small deterministic work records built from a
+  -- turn's persisted tool events (see src/main/turnDigest.js), attached to
+  -- the user request that triggered the turn. digest_json carries the full
+  -- versioned structured digest (source of truth; rendered text is derived).
+  -- Rows are append-only per turn; rebuilding a turn upserts by
+  -- (session_id, assistant_message_id), never duplicating. brief_id may be
+  -- null for turns without an applicable brief. Assistant-message deletion
+  -- cascades via the messages_digest_cascade trigger below; session
+  -- deletion via the sessions trigger.
+  CREATE TABLE IF NOT EXISTS workspace_turn_digests (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    assistant_message_id INTEGER NOT NULL REFERENCES messages(id),
+    user_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    brief_id INTEGER REFERENCES workspace_task_briefs(id) ON DELETE SET NULL,
+    turn_seq INTEGER NOT NULL,
+    partial INTEGER NOT NULL DEFAULT 0 CHECK (partial IN (0, 1)),
+    digest_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(session_id, assistant_message_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_turn_digests_session ON workspace_turn_digests(session_id, id);
+  CREATE INDEX IF NOT EXISTS idx_turn_digests_brief ON workspace_turn_digests(brief_id);
+
   -- Workspace checkpoints: versioned, evidence-bound task state for resuming
   -- long coding tasks after compression. One row per compression that
   -- archived Workspace history; only the latest row per session has status
@@ -400,9 +424,19 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
           DELETE FROM session_summaries WHERE session_id = OLD.id;
           DELETE FROM workspace_task_briefs WHERE session_id = OLD.id;
           DELETE FROM workspace_checkpoints WHERE session_id = OLD.id;
+          DELETE FROM workspace_turn_digests WHERE session_id = OLD.id;
         END;
         CREATE TRIGGER IF NOT EXISTS attachments_cascade BEFORE DELETE ON messages BEGIN
           DELETE FROM message_attachments WHERE message_id = OLD.id;
+        END;
+        -- Digest rows describe deleted turns: cascade them with the message
+        -- so dead history can never inject into later prompts. Created
+        -- unconditionally (like the triggers above) so existing databases
+        -- pick it up on next open without a table rebuild. Rebuilt (not
+        -- IF-NOT-EXISTS-kept) for the same reason as sessions_cascade.
+        DROP TRIGGER IF EXISTS messages_digest_cascade;
+        CREATE TRIGGER messages_digest_cascade BEFORE DELETE ON messages BEGIN
+          DELETE FROM workspace_turn_digests WHERE assistant_message_id = OLD.id;
         END;
         CREATE INDEX IF NOT EXISTS idx_sessions_folder ON sessions(folder_name, last_active_at DESC);
       `);

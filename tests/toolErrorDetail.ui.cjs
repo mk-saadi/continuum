@@ -69,6 +69,15 @@ app.whenReady().then(async () => {
         args: { path: 'nope.txt' } });
       await wait();
       check(!document.querySelector('[aria-label="Error details"]'), 'duplicate detail block rendered');
+      // 4. Git operations keep their names: never Read/Write/File-written.
+      window.renderStep({ id: 'g1', type: 'tool_call', toolName: 'git_sync', status: 'complete',
+        result: { output: 'pushed\n' },
+        args: { action: 'push', remote: 'origin', branch: 'main' } });
+      await wait();
+      const header = document.querySelector('[aria-label="Tool execution"] strong')?.textContent ?? '';
+      check(header === 'Git sync', 'git verb wrong: ' + header);
+      check(!document.body.textContent.includes('File written'), 'stale File written label shown');
+      check(!document.body.textContent.includes('{"output"'), 'git output dumped as JSON');
       return true;
     })()`);
     mark('Tool error detail UI passed.');

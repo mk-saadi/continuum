@@ -15,7 +15,10 @@ test('no native tool renders as raw snake_case', () => {
     approve_mcp_mutation: 'Approve',
     execute_command: 'Run',
     read_project_file: 'Read',
-    git_commit: 'Write',
+    git_status: 'Git status',
+    git_log: 'Git log',
+    git_commit: 'Git commit',
+    git_sync: 'Git sync',
     ask_user: 'Question',
     delegate_task: 'Subagent',
   };
@@ -35,4 +38,41 @@ test('batch edits and moves summarize with files, not raw names', () => {
   const summary = summarizeStage(stage);
   assert.ok(summary.files.includes('a.js') && summary.files.includes('old.js'));
   assert.match(summary.title, /Edited 4 files/);
+});
+
+test('git stages title the operation, mixed stages stay generic', async () => {
+  const { summarizeStage: summarize, summarizeStep: stepSummary } = await import('../src/lib/executionEvents.mjs');
+  const single = summarize({ events: [
+    { type: 'tool_call', toolName: 'git_status', status: 'complete', args: {} },
+  ] });
+  assert.equal(single.title, 'Git status');
+  const multi = summarize({ events: [
+    { type: 'tool_call', toolName: 'git_status', status: 'complete', args: {} },
+    { type: 'tool_call', toolName: 'git_log', status: 'complete', args: { limit: 3 } },
+  ] });
+  assert.equal(multi.title, '2 git operations');
+  const mixed = summarize({ events: [
+    { type: 'tool_call', toolName: 'read_project_file', status: 'complete',
+      args: { relative_path: 'a.js' } },
+    { type: 'tool_call', toolName: 'git_status', status: 'complete', args: {} },
+  ] });
+  assert.equal(mixed.title, '2 operations');
+  assert.equal(
+    stepSummary({ type: 'tool_call', toolName: 'git_commit', status: 'complete',
+      args: { message: 'Add Midnight themes' } }).summary,
+    '"Add Midnight themes"',
+  );
+  assert.equal(
+    stepSummary({ type: 'tool_call', toolName: 'git_sync', status: 'complete',
+      args: { action: 'push', remote: 'origin', branch: 'main' } }).summary,
+    'push origin main',
+  );
+  assert.equal(
+    stepSummary({ type: 'tool_call', toolName: 'git_log', status: 'complete', args: { limit: 3 } }).summary,
+    'last 3',
+  );
+  assert.equal(
+    stepSummary({ type: 'tool_call', toolName: 'git_status', status: 'complete', args: {} }).summary,
+    '',
+  );
 });
