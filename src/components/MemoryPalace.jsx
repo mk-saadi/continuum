@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PALACE_POLL_INTERVAL_MS, isDocumentHidden, shouldPollTick, usageEqual } from '../lib/palacePolling.mjs';
 
 const tokens = (text) => Math.ceil(text.length / 4);
@@ -199,7 +199,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     api.scheduleIdleCompression(sessionId, modelId, limit).catch((err) => setError(err.message));
   }, [api, modelId, sessionId, limit, isCloud]);
 
-  async function prepareMessages(text, regenerate = false, attachments = []) {
+  const prepareMessages = useCallback(async (text, regenerate = false, attachments = []) => {
     if (!api) throw new Error('Memory Palace is available in the desktop app.');
     if (!modelId) throw new Error('Select a model first.');
     const payload = await api.prepareChatMessages(sessionId, modelId, text, enabled, regenerate, attachments);
@@ -208,9 +208,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     // Prompt state changed (new user message saved): re-measure once.
     measure();
     return payload;
-  }
+  }, [api, modelId, sessionId, enabled, refresh, measure]);
 
-  async function finishMessage(text, stats = null, toolCalls = null, thinking = null, identity = null, executionSteps = null, messageId = null) {
+  const finishMessage = useCallback(async (text, stats = null, toolCalls = null, thinking = null, identity = null, executionSteps = null, messageId = null) => {
     const saved = messageId || text || stats || toolCalls?.length || thinking?.text || executionSteps?.length
       ? await api.saveMessage(sessionId, 'assistant', text, [], stats, toolCalls, thinking, messageId, identity, executionSteps) : null;
     setDraftTokens(0);
@@ -219,7 +219,16 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     measure();
     schedule();
     return saved;
-  }
+  }, [api, sessionId, refresh, measure, schedule]);
+
+  const toggle = useCallback(async () => {
+    try {
+      await window.api.saveSessionMemorySettings(sessionId, modelId, { memoryEnabled: !enabled });
+      await refresh();
+      measure();
+      window.dispatchEvent(new Event('generation-settings-changed'));
+    } catch (err) { setError(err.message); }
+  }, [sessionId, modelId, enabled, refresh, measure]);
 
   // Legacy DB estimate (chars/4 over saved messages). Kept as the labeled
   // fallback when tokenizer measurement is unavailable; compression and
@@ -239,23 +248,29 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     : fallbackTokens === null ? null : fallbackTokens + (pluginTokens || 0);
   const contextMethod = measuredFresh ? measured.method : 'legacy-estimate';
   const contextConfidence = measuredFresh ? measured.confidence : 'estimated';
+  // Normalized values fed to the memo below, so the dependency list can use
+  // plain references rather than recomputing the ternary inline.
+  const measuredValue = measuredFresh ? measured : null;
+  const turnTelemetry = usage?.telemetry ?? null;
 
-  return {
+  // One referentially stable result object: every value above is a dependency,
+  // so consumers see a new identity only when a meaningful value (data,
+  // operation, or setting) actually changed. The callbacks are memoized above
+  // for the same reason — an unstable closure would invalidate the whole object
+  // on every render even when nothing changed.
+  return useMemo(() => ({
     api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage, toolTokens, pluginTokens, mcpStatus,
     setDraftTokens,
-    measure, measured: measuredFresh ? measured : null, measureError,
+    measure, measured: measuredValue, measureError,
     noteLivePhase, clearLiveTelemetry, liveTelemetry,
     // Persisted per-turn server telemetry for this session (latest completed turn).
-    turnTelemetry: usage?.telemetry ?? null,
+    turnTelemetry,
     contextTokens, contextMethod, contextConfidence, fallbackTokens,
     totalTokens: fallbackTokens,
-    toggle: async () => {
-      try {
-        await window.api.saveSessionMemorySettings(sessionId, modelId, { memoryEnabled: !enabled });
-        await refresh();
-        measure();
-        window.dispatchEvent(new Event('generation-settings-changed'));
-      } catch (err) { setError(err.message); }
-    },
-  };
+    toggle,
+  }), [
+    api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage,
+    toolTokens, pluginTokens, mcpStatus, setDraftTokens, measure, measuredValue, measureError, noteLivePhase,
+    clearLiveTelemetry, liveTelemetry, turnTelemetry, contextTokens, contextMethod, contextConfidence, fallbackTokens, toggle,
+  ]);
 }

@@ -37,6 +37,36 @@ export function closeAllTabsState(createDefaultTab) {
   return { tabs: [tab], activeTabId: tab.id };
 }
 
+// Pure, side-effect-free tab mutations. Living here (rather than inline in the
+// provider) keeps them unit-testable and provably free of persistence side
+// effects. Both return the SAME state when nothing changes: a redundant update
+// must not manufacture a new state object, or it would re-render every
+// subscriber and rewrite the whole tab list for no reason.
+export function updateTabState(state, id, patch) {
+  const index = state.tabs.findIndex(tab => tab.id === id);
+  if (index < 0) return state;
+  const current = state.tabs[index];
+  if (Object.keys(patch).every(key => current[key] === patch[key])) return state;
+  const tabs = state.tabs.slice();
+  tabs[index] = { ...current, ...patch };
+  return { ...state, tabs };
+}
+
+// Stream/approval status is routed by session id, since callers only ever know
+// their own session. Multiple matches would be a corruption of the uniqueness
+// invariant the parser enforces, but they are updated uniformly anyway.
+export function updateTabsBySessionState(state, sessionId, patch) {
+  if (sessionId == null) return state;
+  let changed = false;
+  const tabs = state.tabs.map(tab => {
+    if (tab.sessionId !== sessionId) return tab;
+    if (Object.keys(patch).every(key => tab[key] === patch[key])) return tab;
+    changed = true;
+    return { ...tab, ...patch };
+  });
+  return changed ? { ...state, tabs } : state;
+}
+
 export function moveTabState(state, fromIndex, toIndex) {
   const { tabs, activeTabId } = state;
   if (fromIndex === toIndex) return state;

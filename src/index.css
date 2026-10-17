@@ -1230,3 +1230,13 @@ html[data-bg-image="true"] dialog {
 html[data-bg-image="true"] dialog::backdrop {
 	backdrop-filter: blur(2px);
 }
+
+/* An animated background keeps invalidating the compositor every frame, and a
+ * backdrop blur must be recomputed each time it does. Measured cost of the blur
+ * behind an animating GIF: ~2.5-3x frame time (50th percentile 42-54 ms vs
+ * ~16.5 ms) at 1280x800 and 1920x1080, plus paint work per frame. The blur is
+ * therefore dropped only while an animated background is active; static
+ * backgrounds (and the no-background case) keep the production look. */
+html[data-bg-image="true"][data-bg-animated="true"] dialog::backdrop {
+	backdrop-filter: none;
+}

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useRowUiState } from "../../hooks/useRowUiState.js";
 import { FiCheck, FiChevronRight, FiClock, FiCopy, FiTool, FiX } from "react-icons/fi";
 import { PiWarning } from "react-icons/pi";
 import { RiRobot2Line } from "react-icons/ri";
@@ -279,8 +280,17 @@ function rowMeta(step, kind, classification, outcome, testSummary, editStats) {
 // lets failures stand out. No duration, diff, or test data is fabricated:
 // each section renders only when the recorded step actually contains it.
 export default function ToolEventCard({ step, compact = false, defaultExpanded = null, timeline = false }) {
-	const [userExpanded, setUserExpanded] = useState(null);
-	const [transcriptOpen, setTranscriptOpen] = useState(false);
+	// Expansion choices survive the row scrolling out of the mounted virtual
+	// range and back (Phase 8). Keyed by the step's stable id.
+	const stepStateKey = step?.id != null ? `tool:${step.id}` : null;
+	const [userExpanded, setUserExpanded] = useRowUiState(
+		stepStateKey ? `${stepStateKey}:user-expanded` : null,
+		null,
+	);
+	const [transcriptOpen, setTranscriptOpen] = useRowUiState(
+		stepStateKey ? `${stepStateKey}:transcript` : null,
+		false,
+	);
 	if (!step || step.type !== "tool_call") return null;
 	const classification = classifyStep(step);
 	const { summary, paths } = summarizeStep(step);

@@ -5,23 +5,93 @@ import Header from "./components/main-app/Header.jsx";
 import MemorySettings from "./components/main-app/MemorySettings.jsx";
 import ModelSelectorModal from "./components/main-app/ModelSelectorModal.jsx";
 import useAvatarSettings from "./hooks/useAvatarSettings";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useMemoryPalace } from "./components/MemoryPalace.jsx";
 import { ChatInterface } from "./components/main-app/ChatInterface.jsx";
 import { Titlebar } from "./components/main-app/Titlebar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
+import { UIStateProvider, useModalActions, useModalState, useTheme } from "./context/UIStateContext.jsx";
 import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
 import { LuTriangleAlert, LuX } from "react-icons/lu";
 
+// Global modal visibility lives in UIStateContext, so this subscriber is the
+// only thing that re-renders when a modal opens or closes — AppContent, the tab
+// list and every mounted chat transcript stay put.
+function GlobalModals({
+	models,
+	selectedModel,
+	loadedLocalModel,
+	cloudProviders,
+	activeChatProvider,
+	onSelectProvider,
+	onSelectModel,
+	scanning,
+	onScan,
+	engineRunning,
+	serverError,
+	onLoadedModel,
+	onCreateProject,
+}) {
+	const actions = useModalActions();
+	const modals = useModalState();
+	return (
+		<>
+			{modals?.modelSelectorOpen && (
+				<ModelSelectorModal
+					models={models}
+					selectedModel={selectedModel}
+					loadedLocalModel={loadedLocalModel}
+					cloudProviders={cloudProviders}
+					activeChatProvider={activeChatProvider}
+					onSelectProvider={onSelectProvider}
+					onSelectModel={onSelectModel}
+					scanning={scanning}
+					onScan={onScan}
+					engineRunning={engineRunning}
+					serverError={serverError}
+					onLoaded={onLoadedModel}
+					onClose={actions.closeModelSelector}
+				/>
+			)}
+			{modals?.projectModalOpen && (
+				<ProjectModal onClose={actions.closeProjectModal} onCreate={onCreateProject} />
+			)}
+		</>
+	);
+}
+
+// Per-tab settings panel. Subscribing to the modal + theme contexts here means
+// opening the panel (or switching theme) never re-renders the tab's transcript.
+function SettingsModalSlot({ active, palace, avatars, models, engineRunning, serverPort, serverError }) {
+	const actions = useModalActions();
+	const modals = useModalState();
+	const themeState = useTheme();
+	if (!modals?.settingsOpen || !active) return null;
+	return (
+		<MemorySettings
+			palace={palace}
+			avatars={avatars}
+			models={models}
+			theme={themeState?.theme}
+			onChangeTheme={themeState?.setTheme}
+			engineRunning={engineRunning}
+			serverPort={serverPort}
+			serverError={serverError}
+			onClose={actions.closeSettings}
+		/>
+	);
+}
+
 function AppContent() {
 	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
-	const openProject = (id) => updateTab(activeTabId, { projectId: id, view: "project" });
+	// Stable action object: opening the project modal from the sidebar must not
+	// subscribe AppContent (or TabPane) to modal visibility changes.
+	const modalActions = useModalActions();
 	const [projects, setProjects] = useState([]);
 	const [projectsLoading, setProjectsLoading] = useState(true);
 	const [projectsError, setProjectsError] = useState("");
-	const [projectModalOpen, setProjectModalOpen] = useState(false);
 	const refreshProjects = useCallback(async () => {
 		setProjectsLoading(true);
 		setProjectsError("");
@@ -36,32 +106,21 @@ function AppContent() {
 	useEffect(() => {
 		refreshProjects();
 	}, [refreshProjects]);
-	const updateProject = (updated) =>
-		setProjects((previous) =>
-			previous
-				.map((project) => (project.id === updated.id ? updated : project))
-				.sort((a, b) => b.is_pinned - a.is_pinned || b.updated_at.localeCompare(a.updated_at)),
-		);
+	const updateProject = useCallback(
+		(updated) =>
+			setProjects((previous) =>
+				previous
+					.map((project) => (project.id === updated.id ? updated : project))
+					.sort((a, b) => b.is_pinned - a.is_pinned || b.updated_at.localeCompare(a.updated_at)),
+			),
+		[],
+	);
 	const avatars = useAvatarSettings();
 	// Owns the custom background image + whole-UI opacity layer (side effect;
 	// the returned state is currently unused by the shell itself).
 	useBackgroundSettings();
-	const [settingsOpen, setSettingsOpen] = useState(false);
-	const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-	const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(
-		() => localStorage.getItem("rightSidebarOpen") === "true",
-	);
-	useEffect(() => {
-		localStorage.setItem("rightSidebarOpen", String(isRightSidebarOpen));
-	}, [isRightSidebarOpen]);
-	const [isSidebarOpen, setIsSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") === "true");
-	useEffect(() => {
-		localStorage.setItem("sidebarOpen", String(isSidebarOpen));
-	}, [isSidebarOpen]);
-	const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 	const [models, setModels] = useState([]);
 	const selectedModel = activeTab.modelId;
-	const setSelectedModel = (modelId) => updateTab(activeTabId, { modelId });
 	const [loadedLocalModel, setLoadedLocalModel] = useState(null);
 	const activeModelPath = loadedLocalModel?.modelPath ?? null;
 	const activeChatProvider = activeTab.modelId?.startsWith("cloud:")
@@ -71,13 +130,6 @@ function AppContent() {
 				model: activeTab.modelId.split(":").slice(2).join(":"),
 			}
 		: { type: "local" };
-	const setActiveChatProvider = (provider) =>
-		updateTab(activeTabId, {
-			modelId:
-				provider.type === "cloud"
-					? `cloud:${provider.provider}:${provider.model}`
-					: activeModelPath || selectedModel,
-		});
 	const [cloudProviders, setCloudProviders] = useState([]);
 	useEffect(() => {
 		let active = true;
@@ -97,7 +149,6 @@ function AppContent() {
 			window.removeEventListener("cloud-providers-changed", refresh);
 		};
 	}, []);
-	const [activeModelName, setActiveModelName] = useState(null);
 	const [scanning, setScanning] = useState(false);
 	const scanInProgress = useRef(false);
 	const [contextStatus, setContextStatus] = useState("stopped");
@@ -109,23 +160,17 @@ function AppContent() {
 	// Set from the engine's own startup log when the model loads with fewer GPU
 	// layers than requested (e.g. another model is holding VRAM).
 	const [loadWarning, setLoadWarning] = useState(null);
-	const chatModels = [
-		...models,
-		...cloudProviders
-			.filter((row) => row.configured && row.modelId?.trim())
-			.map((row) => ({ id: `cloud:${row.id}:${row.modelId}`, name: `${row.name} / ${row.modelId}` })),
-	];
-
-	// Apply theme to document
-	useEffect(() => {
-		document.documentElement.setAttribute("data-theme", theme);
-		localStorage.setItem("theme", theme);
-	}, [theme]);
-
-	useEffect(() => {
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem("theme", theme);
-	}, [theme]);
+	// Stable array: rebuilt only when the underlying model/cloud lists change,
+	// so unrelated AppContent renders do not invalidate every TabPane.
+	const chatModels = useMemo(
+		() => [
+			...models,
+			...cloudProviders
+				.filter((row) => row.configured && row.modelId?.trim())
+				.map((row) => ({ id: `cloud:${row.id}:${row.modelId}`, name: `${row.name} / ${row.modelId}` })),
+		],
+		[models, cloudProviders],
+	);
 
 	// Scan on mount; clicking an empty dropdown also allows a retry.
 	const handleScanClick = useCallback(async () => {
@@ -192,7 +237,6 @@ function AppContent() {
 			setEngineRunning(running);
 			setLoadWarning(running ? (offloadWarning ?? null) : null);
 			setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath, capabilities } : null);
-			setActiveModelName(running ? (modelName ?? null) : null);
 			if (running && modelPath) {
 				try {
 					localStorage.setItem("lastSelectedModelPath", modelPath);
@@ -234,48 +278,60 @@ function AppContent() {
 			cleanupError?.();
 		};
 	}, []);
+	// Bound to the active tab. Kept stable per active tab so the model selector
+	// consumer is not invalidated by unrelated shell renders.
+	const setSelectedModel = useCallback((modelId) => updateTab(activeTabId, { modelId }), [updateTab, activeTabId]);
+	const setActiveChatProvider = useCallback(
+		(provider) =>
+			updateTab(activeTabId, {
+				modelId:
+					provider.type === "cloud"
+						? `cloud:${provider.provider}:${provider.model}`
+						: activeModelPath || selectedModel,
+			}),
+		[updateTab, activeTabId, activeModelPath, selectedModel],
+	);
+	const onLoadedModel = useCallback(
+		(result) => {
+			setServerError(result.warning || null);
+			if (result.modelPath) {
+				setSelectedModel(result.modelPath);
+				try {
+					localStorage.setItem("lastSelectedModelPath", result.modelPath);
+				} catch {
+					/* Optional. */
+				}
+			}
+		},
+		[setSelectedModel],
+	);
+	const handleCreateProject = useCallback(
+		async (fields) => {
+			const project = await window.api.createProject(fields);
+			setProjects((previous) => [...previous, project]);
+			updateTab(activeTabId, { projectId: project.id, view: "project" });
+		},
+		[updateTab, activeTabId],
+	);
 	return (
 		<div className="flex flex-col h-full w-full overflow-hidden rounded-xl bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
 			<Titlebar />
 			<TabBar />
-			{modelSelectorOpen && (
-				<ModelSelectorModal
-					models={models}
-					selectedModel={selectedModel}
-					loadedLocalModel={loadedLocalModel}
-					cloudProviders={cloudProviders}
-					activeChatProvider={activeChatProvider}
-					onSelectProvider={setActiveChatProvider}
-					onSelectModel={setSelectedModel}
-					scanning={scanning}
-					onScan={handleScanClick}
-					engineRunning={engineRunning}
-					serverError={serverError}
-					onLoaded={(result) => {
-						setServerError(result.warning || null);
-						if (result.modelPath) {
-							setSelectedModel(result.modelPath);
-							try {
-								localStorage.setItem("lastSelectedModelPath", result.modelPath);
-							} catch {
-								/* Optional. */
-							}
-						}
-					}}
-					onClose={() => setModelSelectorOpen(false)}
-				/>
-			)}
-			{projectModalOpen && (
-				<ProjectModal
-					onClose={() => setProjectModalOpen(false)}
-					onCreate={async (fields) => {
-						const project = await window.api.createProject(fields);
-						setProjects((previous) => [...previous, project]);
-						setProjectModalOpen(false);
-						openProject(project.id);
-					}}
-				/>
-			)}
+			<GlobalModals
+				models={models}
+				selectedModel={selectedModel}
+				loadedLocalModel={loadedLocalModel}
+				cloudProviders={cloudProviders}
+				activeChatProvider={activeChatProvider}
+				onSelectProvider={setActiveChatProvider}
+				onSelectModel={setSelectedModel}
+				scanning={scanning}
+				onScan={handleScanClick}
+				engineRunning={engineRunning}
+				serverError={serverError}
+				onLoadedModel={onLoadedModel}
+				onCreateProject={handleCreateProject}
+			/>
 			{tabs.map((tab) => (
 				<TabPane
 					key={tab.id}
@@ -290,16 +346,7 @@ function AppContent() {
 					avatars={avatars}
 					models={chatModels}
 					localModels={models}
-					onOpenModels={() => setModelSelectorOpen(true)}
-					onCreateProject={() => setProjectModalOpen(true)}
-					theme={theme}
-					setTheme={setTheme}
-					settingsOpen={settingsOpen && tab.id === activeTabId}
-					setSettingsOpen={setSettingsOpen}
-					isSidebarOpen={isSidebarOpen}
-					setIsSidebarOpen={setIsSidebarOpen}
-					isRightSidebarOpen={isRightSidebarOpen}
-					setIsRightSidebarOpen={setIsRightSidebarOpen}
+					onCreateProject={modalActions.openProjectModal}
 					engineRunning={engineRunning}
 					loadedLocalModel={loadedLocalModel}
 					contextStatus={contextStatus}
@@ -335,7 +382,12 @@ function AppContent() {
 	);
 }
 
-function TabPane({
+// Memoized: every prop above has a stable identity across unrelated shell
+// renders (state values, memoized arrays, useCallback handlers, or the tab
+// object, whose identity only changes when that tab actually changes). Sidebar,
+// modal and theme state no longer pass through here — the components that
+// render that chrome subscribe to UIStateContext directly.
+const TabPane = memo(function TabPane({
 	tab,
 	active,
 	updateTab,
@@ -347,16 +399,7 @@ function TabPane({
 	avatars,
 	models,
 	localModels,
-	onOpenModels,
 	onCreateProject,
-	theme,
-	setTheme,
-	settingsOpen,
-	setSettingsOpen,
-	isSidebarOpen,
-	setIsSidebarOpen,
-	isRightSidebarOpen,
-	setIsRightSidebarOpen,
 	engineRunning,
 	loadedLocalModel,
 	contextStatus,
@@ -370,9 +413,16 @@ function TabPane({
 	const setSessionId = useCallback((id) => update({ sessionId: id }), [update]);
 	const isCloud = tab.modelId?.startsWith("cloud:");
 	const parts = isCloud ? tab.modelId.split(":") : [];
-	const activeChatProvider = isCloud
-		? { type: "cloud", provider: parts[1], model: parts.slice(2).join(":") }
-		: { type: "local" };
+	// Derived from the tab's model id only. A fresh object on every render would
+	// invalidate ChatInterface's send/reply callbacks (and the effects that
+	// depend on them) even when the provider itself is unchanged.
+	const activeChatProvider = useMemo(
+		() =>
+			isCloud
+				? { type: "cloud", provider: parts[1], model: parts.slice(2).join(":") }
+				: { type: "local" },
+		[isCloud, tab.modelId],
+	);
 	const localReady = engineRunning && loadedLocalModel?.modelPath === tab.modelId;
 	const palace = useMemoryPalace(
 		tab.modelId,
@@ -395,10 +445,6 @@ function TabPane({
 			<Header
 				contextStatus={contextStatus}
 				loadWarning={loadWarning}
-				isSidebarOpen={isSidebarOpen}
-				onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
-				isRightSidebarOpen={isRightSidebarOpen}
-				onToggleRightSidebar={() => setIsRightSidebarOpen((open) => !open)}
 				isCloud={isCloud}
 				modelName={
 					isCloud
@@ -408,24 +454,18 @@ function TabPane({
 							: models.find((model) => model.id === tab.modelId)?.name || tab.modelId
 				}
 				engineRunning={localReady}
-				onOpenModels={onOpenModels}
 				palace={palace}
-				onOpenSettings={() => setSettingsOpen(true)}
 				workspace={workspaceHeader}
 			/>
-			{settingsOpen && (
-				<MemorySettings
-					palace={palace}
-					avatars={avatars}
-					models={localModels}
-					theme={theme}
-					onChangeTheme={setTheme}
-					engineRunning={engineRunning}
-					serverPort={serverPort}
-					serverError={serverError}
-					onClose={() => setSettingsOpen(false)}
-				/>
-			)}
+			<SettingsModalSlot
+				active={active}
+				palace={palace}
+				avatars={avatars}
+				models={localModels}
+				engineRunning={engineRunning}
+				serverPort={serverPort}
+				serverError={serverError}
+			/>
 			{palace.toast && (
 				<div
 					role="status"
@@ -472,12 +512,9 @@ function TabPane({
 						/>
 					) : null
 				}
-				isRightSidebarOpen={isRightSidebarOpen}
-				onCloseRightSidebar={() => setIsRightSidebarOpen(false)}
 				models={models}
 				onSelectModel={(modelId) => update({ modelId })}
 				avatarSettings={avatars.settings}
-				isSidebarOpen={isSidebarOpen}
 				selectedModel={tab.modelId}
 				activeChatProvider={activeChatProvider}
 				baseUrl={localReady && serverPort ? `http://127.0.0.1:${serverPort}` : null}
@@ -495,14 +532,16 @@ function TabPane({
 			/>
 		</div>
 	);
-}
+});
 
 export { TabPane };
 
 export default function App() {
 	return (
 		<TabProvider>
-			<AppContent />
+			<UIStateProvider>
+				<AppContent />
+			</UIStateProvider>
 		</TabProvider>
 	);
 }

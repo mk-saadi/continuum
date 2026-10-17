@@ -1,0 +1,112 @@
+{
+  "phase": "6-tab-persistence-and-tab-switch-isolation",
+  "baseCommit": "fab58bb",
+  "treeNote": "Phases 1-3.2, 4 and 5 were uncommitted in the working tree before Phase 6. The persistence baseline was captured on that same pre-Phase-6 tree with tests/tabContextPersistence.ui.cjs (RESULTS always printed), then the Phase 6 edits were applied in place. No stash/reset/clean/commit/worktree operations were performed.",
+  "persistenceBenchmark": {
+    "command": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/tabContextPersistence.ui.cjs",
+    "harness": "tests/fixtures/tabContextPersistence.jsx mounts the REAL TabProvider under an instrumented localStorage: setItem for the tab key is counted (and can be made to throw), and JSON.stringify of payloads containing activeTabId is counted. Counters reset between scenarios.",
+    "fixture": { "seededTabs": 2, "payloadBytes2Tabs": 311, "payloadBytesAt50TabCapApprox": 1400 },
+    "counters": ["writes (localStorage.setItem for continuum_open_tabs)", "serializes (JSON.stringify of tab state)"],
+    "baseline": {
+      "startup": { "writes": 1, "serializes": 1 },
+      "rapidUpdates": { "writes": 3, "serializes": 3, "finalTitle": "A3" },
+      "statusOnly": { "writes": 1, "inMemoryStatus": "generating" },
+      "modelChange": { "writes": 1, "persistedModelId": "m2" },
+      "createClose": { "writes": 2, "openCount": 3, "closeCount": 2, "closedPurged": true },
+      "activate": { "writes": 1, "persistedActive": "tab_b" },
+      "failedWrite": { "titleBefore": "A3", "afterFailure": "A3", "afterRetry": "Retry me" },
+      "strictMode": { "writes": 1, "title": "Strict" }
+    },
+    "postChange": {
+      "startup": { "writes": 0, "serializes": 2 },
+      "rapidUpdates": { "writes": 1, "serializes": 1, "finalTitle": "A3" },
+      "statusOnly": { "writes": 0, "inMemoryStatus": "generating" },
+      "modelChange": { "writes": 1, "persistedModelId": "m2" },
+      "createClose": { "writes": 2, "openCount": 3, "closeCount": 2, "closedPurged": true },
+      "activate": { "writes": 1, "persistedActive": "tab_a" },
+      "reactivate": { "writes": 0, "persistedActive": "tab_a" },
+      "failedWrite": { "titleBefore": "A3", "afterFailure": "A3", "afterRetry": "Retry me" },
+      "strictMode": { "writes": 1, "title": "Strict" }
+    },
+    "headline": "Startup writes 1 -> 0; three same-tick updates 3 writes/3 serializes -> 1/1; a status-only change 1 write -> 0; a failed write is retried instead of assumed durable; persistence no longer happens inside the state updater."
+  },
+  "strictModeProbe": {
+    "note": "Focused React probe (not left in the repo): under React.StrictMode dev, the component body rendered twice on mount but the useState updater was invoked once per update (mountCalls 0, updateCalls 1). The Phase 6 design does not depend on this: there is no side effect in the updater to duplicate.",
+    "mountRenders": 2,
+    "mountUpdaterCalls": 0,
+    "updateUpdaterCalls": 1
+  },
+  "renderBenchmark": {
+    "harness": "Real App shell with heavy leaves stubbed to counters (shared tests/fixtures/renderIsolationStubs.cjs). tests/renderIsolation.ui.cjs = Phase 4 baseline; tests/tabSwitchIsolation.ui.cjs = Phase 6 additions.",
+    "tabCount": 3,
+    "phase4BaselineUnchanged": {
+      "switchToFirst": { "tabsRendered": 2, "app": 1 },
+      "switchToThird": { "tabsRendered": 2, "app": 1 },
+      "streamStatus": { "tabsRendered": 1, "app": 1 }
+    },
+    "tabSwitchIsolationPost": {
+      "switchToFirst": { "tabsRendered": 2, "app": 1, "untouchedTabRendered": false, "active": 0, "visible": [0] },
+      "switchToThird": { "tabsRendered": 2, "app": 1, "untouchedTabRendered": false, "active": 2, "visible": [2] },
+      "rapidSwitch": { "tabsRendered": 2, "app": 1, "active": 1, "visible": [1] },
+      "streamInactive": { "tabsRendered": 1, "app": 1, "routedCorrectly": true },
+      "statusDuplicate": { "pre": { "tabsRendered": 1, "app": 1 }, "post": { "tabsRendered": 0, "app": 0 } },
+      "statusChanged": { "tabsRendered": 1, "app": 1 },
+      "sidebarToggle": { "tabsRendered": 0, "app": 0 },
+      "modalOpen": { "tabsRendered": 0, "app": 0, "memorySettings": 1 }
+    },
+    "headline": "The active-tab transition still renders exactly the two tabs involved plus one required AppContent render (AppContent derives the active tab's model/provider and the active prop). The only render reduction is collapsing an unchanged per-tab update: re-emitting the same status went from 1 tab + AppContent to 0/0, while a genuine status change still propagates 1 tab + AppContent."
+  },
+  "changedFiles": [
+    "src/context/TabContext.jsx (pure commit; persistence in a deduped effect that advances persistedRef only on success; stateRef moved out of the updater; updateTab/markTabSaved/status routing use pure reducers; activateTab no-op; deduped unload backstop)",
+    "src/lib/tabState.mjs (new pure updateTabState / updateTabsBySessionState reducers returning the same state for a no-op)",
+    "tests/tabPersistence.test.mjs (unit tests for the reducers, no-op collapsing, and that tab mutators never touch localStorage)",
+    "tests/tabContextPersistence.ui.cjs (new persistence suite)",
+    "tests/fixtures/tabContextPersistence.jsx (new instrumented real-TabProvider fixture)",
+    "tests/tabSwitchIsolation.ui.cjs (new tab-switch regression suite)",
+    "tests/fixtures/renderIsolationStubs.cjs (new shared stub plugin)",
+    "tests/renderIsolation.ui.cjs (uses the shared stub plugin; behavior unchanged)",
+    "docs/tab-persistence-phase6-report.md, docs/tab-persistence-phase6-evidence.json (new)"
+  ],
+  "semanticsPreserved": [
+    "storage key and JSON schema unchanged",
+    "synchronous first-paint restoration unchanged",
+    "parseTabState sanitization/migration/backward compatibility unchanged",
+    "create/close/close-all/cycle/move semantics unchanged; closing purges the entry",
+    "active-tab and persistent tab metadata (title/model/project/permission/view/saved) stay durable",
+    "runtime-only status is still excluded from persistence",
+    "initial restoration does not overwrite valid stored state (startup writes 0)"
+  ],
+  "newTests": {
+    "tabContextPersistence.ui.cjs": { "fixture": "tests/fixtures/tabContextPersistence.jsx" },
+    "tabSwitchIsolation.ui.cjs": { "fixture": "tests/fixtures/renderIsolation.jsx (shared stubs)" },
+    "tabPersistence.test.mjs": "extended with pure-reducer and purity tests"
+  },
+  "regressionTestsPassing": [
+    "renderIsolation.ui.cjs", "palaceStability.ui.cjs", "terminalLogIsolation.ui.cjs",
+    "chatPagination.ui.cjs", "chatFindNavigation.ui.cjs", "sidebarAnimation.ui.cjs",
+    "chatHistory.ui.cjs", "chatInputPerformance.ui.cjs", "messageActionToolbar.ui.cjs",
+    "headerContext.ui.cjs", "cloudContext.ui.cjs", "sessionDraft.ui.cjs",
+    "permissionMode.ui.cjs", "modelSelector.ui.cjs", "tabSavedFlag.ui.cjs", "projects.ui.cjs",
+    "tabShortcuts.test.mjs", "headerWorkspace.test.mjs"
+  ],
+  "preExistingFailuresProvenUnrelated": [
+    "40 full-suite unit failures (attachments, compactionBadge, contextPanel, engineSettings, messageActions, messageStats, rag, skillImportIpc, skillProposalIpc, subAgentRunner, tokenUsage, childAgentLoop): Electron app.getPath / ECONNREFUSED:8080 / source-text-budget assertions; none import the tab modules, and the count matches the Phase 4 report's documented 40",
+    "npm test's `node --test tests/` invocation is broken in this environment (requires the directory as a module); the glob form node --test 'tests/*.test.mjs' 'tests/*.test.cjs' was used"
+  ],
+  "counts": { "unitTests": 1033, "unitPass": 993, "unitFail": 40 },
+  "build": "vite build OK (pre-existing >500 kB chunk warning only)",
+  "diffCheck": "clean",
+  "deferred": [
+    "Splitting TabContext so AppContent stops re-rendering on discrete status changes (Phases 4/5 deferred; would relocate the same work)",
+    "Avoiding the per-change serialization used for the unchanged-payload comparison (needs a structural diff or dirty flag)"
+  ],
+  "explicitlyNotDone": [
+    "no new state-management library",
+    "no change to the storage key or schema",
+    "no persistence timers/debounce (writes stay synchronous on the latest committed state)",
+    "no freezing or comparator that ignores meaningful state (genuine changes still propagate)",
+    "no temporary profiling instrumentation left in production code",
+    "no rework of Phases 1-5 subsystems"
+  ],
+  "environment": { "platform": "linux", "runner": "electron + xvfb-run", "node": "v22.23.2" }
+}

@@ -814,9 +814,16 @@ export default function RightSidebar({
 			aria-label={isWorkspace ? "Workspace controls" : "Chat controls"}
 			aria-hidden={!open}
 			inert={open ? undefined : ""}
-			className={`h-full shrink-0 overflow-hidden bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-all duration-300 ease-in-out motion-reduce:transition-none max-[900px]:absolute max-[900px]:top-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:shadow-xl ${open ? "w-80 translate-x-0 opacity-100" : "w-0 translate-x-full opacity-0"}`}
+			className={`relative z-30 h-full shrink-0 max-[900px]:absolute max-[900px]:top-0 max-[900px]:right-0 max-[900px]:z-40 ${open ? "w-80" : "w-0"}`}
 		>
-			<div className="flex h-full w-80 flex-col border-l border-[var(--border)]">
+			{/*
+			 * The aside above is the layout spacer: it owns the transcript's
+			 * available width and changes size once per toggle (a single layout),
+			 * never animating width itself. Only this inner panel animates, using
+			 * translate/opacity, so the transcript is not re-laid-out on every
+			 * frame of the transition.
+			 */}
+			<div className={`absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}>
 				<header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
 						<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--active-chat)] text-[var(--accent)]">

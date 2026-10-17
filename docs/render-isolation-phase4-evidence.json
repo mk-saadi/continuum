@@ -1,0 +1,85 @@
+{
+  "phase": "4-render-isolation",
+  "baseCommit": "6c961b1",
+  "treeNote": "Phase 1-3.2 changes were uncommitted in the working tree before Phase 4; baseline was captured with tests/renderIsolation.ui.cjs on that pre-Phase-4 tree (same suite, RESULTS always printed), then the Phase 4 edits were applied in place. No stash/reset/commit was performed for measurement.",
+  "benchmark": {
+    "command": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/renderIsolation.ui.cjs",
+    "harness": "tests/fixtures/renderIsolation.jsx renders the REAL App shell; heavy leaves are stubbed to counters via an esbuild stub plugin. Stub ChatInterface logs palace.sessionId per render (chatTotal = leaf renders, tabsRendered = distinct tabs that rendered); stub Titlebar counts AppContent renders (app); MemorySettings/ModelSelectorModal count mounts.",
+    "fixture": {
+      "tabCount": 3,
+      "tabs": "1 default + 2 added via the real TabBar '+' control"
+    }
+  },
+  "counters": ["chatTotal", "tabsRendered", "app", "memorySettings", "modelSelector"],
+  "baseline": {
+    "note": "pre-Phase-4 working tree; only chatTotal/tabsRendered/app were recorded (panel mounts are independent of memoization)",
+    "settingsOpen": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "themeChange": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "settingsClose": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "modelSelectorOpen": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "modelSelectorClose": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "leftOpen": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "leftClose": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "rightOpen": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "rightClose": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "switchToFirst": { "chatTotal": 3, "tabsRendered": 3, "app": 1 },
+    "switchToThird": { "chatTotal": 3, "tabsRendered": 3, "app": 1 }
+  },
+  "postChange": {
+    "tabCount": 3,
+    "settingsOpen": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 1, "modelSelector": 0 },
+    "themeChange": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 1, "modelSelector": 0 },
+    "themeApplied": "light",
+    "settingsClose": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "modelSelectorOpen": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 1 },
+    "modelSelectorClose": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "leftOpen": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "leftClose": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "rightOpen": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "rightClose": { "chatTotal": 0, "tabsRendered": 0, "app": 0, "memorySettings": 0, "modelSelector": 0 },
+    "switchToFirst": { "chatTotal": 2, "tabsRendered": 2, "app": 1, "memorySettings": 0, "modelSelector": 0 },
+    "switchToThird": { "chatTotal": 2, "tabsRendered": 2, "app": 1, "memorySettings": 0, "modelSelector": 0 },
+    "streamStatus": { "chatTotal": 1, "tabsRendered": 1, "app": 1, "memorySettings": 0, "modelSelector": 0 }
+  },
+  "headline": "Chrome actions (modal open/close, theme change, sidebar toggles) go from re-rendering all 3 mounted chat tabs + AppContent to 0 chat tabs + 0 AppContent. Tab switches go from 3 tabs to 2. A real per-tab change (stream status) re-renders exactly 1 tab.",
+  "appContentNote": "app:1 on tab switches and stream status is expected: AppContent subscribes to TabContext (active tab id / tab list) which is the deferred Phase 5 fan-out, not a chrome leak.",
+  "changedFiles": [
+    "src/context/UIStateContext.jsx (new: LeftSidebar/RightSidebar/Theme/ModalActions/ModalState contexts + hooks, chrome persistence and data-theme write)",
+    "src/App.jsx (App wraps TabProvider>UIStateProvider>AppContent; GlobalModals + SettingsModalSlot are the only modal-state subscribers; memoized TabPane with stable props; removed dead activeModelName state and duplicate theme effects)",
+    "src/components/main-app/Header.jsx (chrome + modal-action contexts with prop fallbacks)",
+    "src/components/main-app/ChatInterface.jsx (LeftSidebarState/RightSidebarState render-prop context subscribers isolate the transcript subtree)",
+    "src/hooks/useAvatarSettings.js (stable update via useCallback, memoized return object)"
+  ],
+  "newTests": {
+    "renderIsolation.ui.cjs": { "file": "tests/renderIsolation.ui.cjs", "fixture": "tests/fixtures/renderIsolation.jsx" }
+  },
+  "regressionTestsPassing": [
+    "sidebarAnimation.test.cjs", "palacePolling.test.cjs", "sidebarAnimation.ui.cjs", "headerContext.ui.cjs",
+    "terminalLogIsolation.ui.cjs", "engineSelection.ui.cjs", "chatPagination.ui.cjs", "projects.ui.cjs",
+    "messageMetadata.ui.cjs", "chatFindNavigation.ui.cjs", "chatHistory.ui.cjs", "cloudSelection.ui.cjs",
+    "rightSidebarSliders.ui.cjs", "sessionDraft.ui.cjs", "permissionMode.ui.cjs", "tabSavedFlag.ui.cjs",
+    "modelSelector.ui.cjs", "modelLoadSettings.ui.cjs", "gpuOffload.ui.cjs",
+    "73 targeted unit tests"
+  ],
+  "preExistingFailuresProvenUnrelated": [
+    "memorySettings.ui.cjs (fixture lacks window.api.getSubagentBudgets)",
+    "contextPanel.ui.cjs (no token-savings claims in status)",
+    "40 full-suite failures (sqlite ABI / source-text assertions)"
+  ],
+  "build": "vite build OK (pre-existing large-chunk warning only)",
+  "diffCheck": "clean",
+  "deferred": [
+    "Phase 5: useMemoryPalace returns a fresh palace object per TabPane render (identity instability) and the pending-skill-proposal path",
+    "Phase 5: TabContext single-value fan-out (splitting it removes the remaining app:1 on tab changes)",
+    "Phase 6: synchronous localStorage writes in the TabContext updater",
+    "ChatInterface memoization (worthwhile once palace is stable)"
+  ],
+  "explicitlyNotDone": [
+    "no new state-management library",
+    "no component freezing or suppressed updates (memo is shallow prop comparison only)",
+    "no duplicate source of truth for chrome state",
+    "no behavior change to modal/sidebar persistence, dismissal, focus/accessibility, or per-active-tab settings ownership",
+    "no temporary profiling instrumentation left in production code"
+  ],
+  "environment": { "platform": "linux", "runner": "electron + xvfb-run" }
+}

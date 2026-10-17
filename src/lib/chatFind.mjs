@@ -117,3 +117,26 @@ export function setActiveFindMark(marks, activeIndex) {
 		}
 	}
 }
+
+// Index within `marks` of the nth occurrence of a query inside one message row.
+// Canonical search yields { messageId, occurrence }; the rendered row supplies
+// the actual marks, so navigation can highlight the exact segment a match
+// refers to without depending on the rendered slice's order. Returns -1 when
+// the row is not mounted (or the segment is not rendered, e.g. collapsed text).
+export function markIndexForMessage(scopeEl, marks, messageId, occurrence = 0) {
+	if (!scopeEl || !Array.isArray(marks) || messageId == null) return -1;
+	let row;
+	try {
+		row = scopeEl.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
+	} catch {
+		return -1;
+	}
+	if (!row) return -1;
+	let seen = 0;
+	for (let index = 0; index < marks.length; index++) {
+		if (!row.contains(marks[index])) continue;
+		if (seen === occurrence) return index;
+		seen += 1;
+	}
+	return -1;
+}

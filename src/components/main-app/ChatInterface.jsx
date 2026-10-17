@@ -4,29 +4,34 @@ import AssistantAvatar from "../AssistantAvatar";
 import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
 import Sidebar from "../Sidebar.jsx";
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { attachmentPolicy, assertAttachmentNames } from "../../lib/attachmentPolicy.mjs";
 import { BsRobot } from "react-icons/bs";
-import { FiMessageSquare } from "react-icons/fi";
+import { FiArrowDown, FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { combineQuotedMessage, extractScopedSelectionText } from "../../lib/textSelection.mjs";
-import { applyFindMarks, clearFindMarks, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
+import { applyFindMarks, clearFindMarks, markIndexForMessage, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
+import { findMessageMatches, resolveActiveMatchIndex } from "../../lib/chatSearch.mjs";
 import { indexDesktopDocuments, runDesktopChat } from "../../lib/desktopChat.mjs";
 import { firstPromptTitle } from "../../lib/chatTitle.mjs";
 import { LuX } from "react-icons/lu";
 import { IoIosHourglass } from "react-icons/io";
 import ToolApprovalToast from "./ToolApprovalToast.jsx";
 import ToolLimitToast from "./ToolLimitToast.jsx";
-import WorkspaceTimeline from "../chat/WorkspaceTimeline.jsx";
+import { WorkspaceMessage } from "../chat/WorkspaceTimeline.jsx";
 import TextSelectionMenu from "../chat/TextSelectionMenu.jsx";
 import ChatFindBar from "../chat/ChatFindBar.jsx";
 import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
 import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
+import { useLeftSidebar, useRightSidebar } from "../../context/UIStateContext.jsx";
 import { useStreamBuffer } from "./useStreamBuffer.js";
+import { OLDER_SCROLL_THRESHOLD_PX, useTranscriptWindow } from "./useTranscriptWindow.js";
+import { useTranscriptVirtual } from "./useTranscriptVirtual.js";
+import { clearRowUiState } from "../../lib/rowUiState.mjs";
 import { compactMessageForDisplay, compactStepsForDisplay } from "../../lib/toolDisplay.mjs";
 import { summarizeNoticeFor } from "../../lib/summarizeNotice.mjs";
 import {
@@ -75,6 +80,22 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 			</button>
 		</div>
 	);
+}
+
+// Sidebar chrome state is delivered through a tiny context subscriber, so
+// toggling a sidebar re-renders the panels and header controls but not the
+// transcript subtree that ChatInterface owns. Explicit props stay supported so
+// the standalone sidebar fixtures can drive the panels directly.
+function LeftSidebarState({ isSidebarOpen, children }) {
+	const sidebar = useLeftSidebar();
+	return children(isSidebarOpen ?? sidebar?.open ?? false);
+}
+
+function RightSidebarState({ isRightSidebarOpen, onClose, children }) {
+	const sidebar = useRightSidebar();
+	const open = isRightSidebarOpen ?? sidebar?.open ?? false;
+	const close = onClose ?? (() => sidebar?.setOpen(false));
+	return children(open, close);
 }
 
 export function ChatInterface({
@@ -161,18 +182,39 @@ export function ChatInterface({
 			? "medium"
 			: supportedEfforts[0];
 	const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
-	const activeModelName = formatModelName(
-		models.find((model) => model.id === selectedModel)?.name || selectedModel,
-	);
+	const activeModelName = formatModelName(currentModel?.name || selectedModel);
 	const [messages, setMessages] = useState([]);
+	// The session the currently-loaded `messages` belong to. During a
+	// conversation switch the session id changes a commit before the new
+	// history resolves, so reveal/navigation must wait for this to catch up.
+	const loadedSessionRef = useRef(null);
 	// In-chat find (Ctrl+F): browser-style floating bar scoped to the transcript.
+	// Matching runs over the CANONICAL messages (not the rendered window) so
+	// older, paginated-out messages stay searchable; the rendered window only
+	// supplies the visual highlight for the active result.
 	const [findOpen, setFindOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState("");
 	const [findPosition, setFindPosition] = useState({ active: 0, total: 0 });
+	// Bumped to force a re-render when the active result changes; the resolved
+	// index itself lives in findActiveRef so it can be read during render.
+	const [, setFindTick] = useState(0);
 	const findMarksRef = useRef([]);
 	const findActiveRef = useRef(0);
+	// Identity of the active result ({ messageId, occurrence }), so the current
+	// position survives recomputation when messages stream/edit/reorder.
+	const findTargetRef = useRef(null);
+	// Guards the render-time reset so a new query/session resolves on the first
+	// commit instead of a frame later.
+	const findKeyRef = useRef("");
+	// The last active result whose window was (re)resolved, so a data change that
+	// removes a match reveals the next one while an explicit return to the latest
+	// messages is not undone.
+	const findRevealedRef = useRef(null);
+	// Set when navigation should scroll to the active match once its row is
+	// mounted (which may require a target window change first).
+	const pendingFindScrollRef = useRef(false);
+	const pendingJumpBottomRef = useRef(false);
 	const closeFindRef = useRef(null);
-	const findQueryRef = useRef("");
 	const streamBuffer = useStreamBuffer();
 	const activeStreamMessageIdRef = useRef(null);
 	const loadDisplaySession = (sessionId) =>
@@ -320,10 +362,14 @@ export function ChatInterface({
 			.then((session) => {
 				if (!current) return;
 				setMessages(displayMessages(session));
+				loadedSessionRef.current = sessionId;
 			})
 			.catch((error) => {
 				// The session can disappear between restore and this read.
-				if (current) setMessages([]);
+				if (current) {
+					setMessages([]);
+					loadedSessionRef.current = sessionId;
+				}
 			})
 			.finally(() => {
 				if (current) setLoading(false);
@@ -339,7 +385,12 @@ export function ChatInterface({
 	// connected root behaves as a casual chat — availablePermissionModes and
 	// the backend normalizeMode both encode that rule from the shared catalog.
 	const activeProject = projects.find((candidate) => candidate.id === activeProjectId) ?? null;
-	const sessionRow = groups.flatMap((group) => group.sessions).find((row) => row.id === palace.sessionId);
+	// Grouped rows are only rebuilt when the history listing or active session
+	// changes, not on every transcript render.
+	const sessionRow = useMemo(
+		() => groups.flatMap((group) => group.sessions).find((row) => row.id === palace.sessionId),
+		[groups, palace.sessionId],
+	);
 	const project = sessionRow
 		? (projects.find((candidate) => candidate.id === sessionRow.project_id) ?? null)
 		: activeProject;
@@ -357,12 +408,15 @@ export function ChatInterface({
 	const isWorkspaceChat = getSidebarMode(chatProjectId) === "workspace";
 	// Skill proposals awaiting review above the composer. Resolved decisions
 	// persist per step id in localStorage; the transcript shows the outcome.
-	const skillProposals = pendingSkillProposals(messages, readSkillDecision);
-	// Skill decisions live in localStorage, outside React state. Bump this
-	// after each register/decline so the pending panel unmounts and the turn
-	// outcome renders in the same commit (a panel-local setState would leave
-	// the resolved card stuck above the composer).
-	const [, bumpSkillDecisions] = useState(0);
+	// Decision changes have their own version counter so derivation only re-runs
+	// when the transcript or a decision actually changed — not on every render,
+	// which would rescan every message and its nested steps (with a localStorage
+	// read per `propose_skill` step).
+	const [skillDecisionVersion, bumpSkillDecisions] = useState(0);
+	const skillProposals = useMemo(
+		() => pendingSkillProposals(messages, readSkillDecision),
+		[messages, skillDecisionVersion],
+	);
 	const changePermissionMode = (mode) => {
 		setPermissionBySession((current) => ({ ...current, [palace.sessionId]: mode }));
 		onTabUpdate?.({ permissionMode: mode });
@@ -676,6 +730,35 @@ export function ChatInterface({
 		}
 	};
 	const messagesRef = useRef(null);
+	// Progressive transcript rendering: only the newest slice of the canonical
+	// conversation is mounted; older messages are revealed on scroll. The full
+	// `messages` collection stays untouched for inference, persistence, export,
+	// search, editing and regeneration (see lib/transcriptWindow.mjs).
+	const transcript = useTranscriptWindow({
+		messages,
+		sessionId: palace.sessionId,
+		scrollRef: messagesRef,
+		// Phase 8: the virtualized mounted-row hook anchors the scroll position
+		// (using prefix sums), so this window hook must not anchor as well.
+		anchoring: false,
+	});
+	// Phase 8: bound the mounted rows to the viewport plus overscan. The logical
+	// window above still grows by older pages; virtualization only decides which
+	// slice of it is mounted. `focusedRowId`/`editing` are pinned so a control the
+	// user is interacting with is never unmounted mid-interaction.
+	const [focusedRowId, setFocusedRowId] = useState(null);
+	const pinnedIds = useMemo(() => {
+		const set = new Set();
+		if (editing != null) set.add(String(editing));
+		if (focusedRowId != null) set.add(String(focusedRowId));
+		return set.size ? set : null;
+	}, [editing, focusedRowId]);
+	const virtual = useTranscriptVirtual({
+		messages: transcript.visibleMessages,
+		sessionId: palace.sessionId,
+		scrollRef: messagesRef,
+		pinnedIds,
+	});
 	// Open the find bar on Ctrl/Cmd+F, pre-filling the transcript selection.
 	// Capture phase on window: fires before any in-page bubble handler, so the
 	// shortcut works no matter which element has focus (chat text, whitespace
@@ -705,41 +788,130 @@ export function ChatInterface({
 		window.addEventListener("keydown", onFindKey, { capture: true });
 		return () => window.removeEventListener("keydown", onFindKey, { capture: true });
 	}, [findOpen]);
-	// Re-apply find highlights on query/transcript/streaming changes.
+	// Track which transcript row holds focus so virtualization never unmounts the
+	// row the user is typing in or tabbing through (Phase 8).
 	useEffect(() => {
+		const node = messagesRef.current;
+		if (!node) return;
+		const onFocusIn = (event) => {
+			const row = event.target?.closest?.("[data-message-id]");
+			setFocusedRowId(row ? row.getAttribute("data-message-id") : null);
+		};
+		const onFocusOut = () => setFocusedRowId(null);
+		node.addEventListener("focusin", onFocusIn, true);
+		node.addEventListener("focusout", onFocusOut, true);
+		return () => {
+			node.removeEventListener("focusin", onFocusIn, true);
+			node.removeEventListener("focusout", onFocusOut, true);
+		};
+	}, [palace.sessionId]);
+	// Canonical matches for the current query. Memoized on the canonical array
+	// and query, so unrelated renders (scroll, sidebar, layout) never rescan the
+	// conversation. Streaming/edits replace `messages`, which correctly recomputes.
+	const findMatches = useMemo(
+		() => (!findOpen || !findQuery.trim() ? [] : findMessageMatches(messages, findQuery)),
+		[findOpen, findQuery, messages],
+	);
+	const findMatchesRef = useRef(findMatches);
+	findMatchesRef.current = findMatches;
+	// Reset tracking when the query, find visibility, or conversation changes.
+	// Guarded and idempotent, so a target from another query/session can never be
+	// applied and the first commit for a new query already knows to scroll.
+	const findKey = `${palace.sessionId}\u0000${findOpen}\u0000${findQuery}`;
+	if (findKeyRef.current !== findKey) {
+		findKeyRef.current = findKey;
+		findTargetRef.current = null;
+		findActiveRef.current = 0;
+		findRevealedRef.current = null;
+		pendingFindScrollRef.current = findOpen && findQuery.trim().length > 0;
+	}
+	// Resolve the active result by stable identity. If the tracked result is
+	// gone (edited/deleted/regenerated), fall back to the clamped index so the
+	// bar never points at a stale message.
+	const activeIndex = resolveActiveMatchIndex(findMatches, findTargetRef.current, findActiveRef.current);
+	const activeMatch = findMatches[activeIndex] ?? null;
+	findActiveRef.current = activeIndex;
+	if (activeMatch)
+		findTargetRef.current = { messageId: activeMatch.messageId, occurrence: activeMatch.occurrence };
+	// Bring the active result into the rendered window with a bounded target
+	// window (never mounting every message between it and the newest reply).
+	// Runs on navigation and when a data change moves the active result, but not
+	// merely because the result is off-window: streaming output and an explicit
+	// "jump to latest" must never yank the viewport back to an old hit.
+	useEffect(() => {
+		if (!findOpen || !activeMatch) return;
+		// A conversation switch changes the session id a commit before the new
+		// history loads; never navigate using the previous session's messages.
+		if (loadedSessionRef.current !== palace.sessionId) return;
+		const revealed = findRevealedRef.current;
+		const changed =
+			!revealed ||
+			revealed.messageId !== activeMatch.messageId ||
+			revealed.occurrence !== activeMatch.occurrence;
+		if (!pendingFindScrollRef.current && !changed) return;
+		findRevealedRef.current = {
+			messageId: activeMatch.messageId,
+			occurrence: activeMatch.occurrence,
+		};
+		pendingFindScrollRef.current = true;
+		if (!transcript.containsMessage(activeMatch.messageId)) {
+			transcript.showTarget(activeMatch.messageId);
+			// The bounded target window replaces the suffix window; anchor the
+			// virtual range to its top so the target row is mounted.
+			virtual.resetToStart();
+		} else {
+			// Already in the window: make sure the virtual range includes it.
+			virtual.scrollToKey(activeMatch.messageId, { align: "center" });
+		}
+	}, [
+		findOpen,
+		activeMatch,
+		transcript.containsMessage,
+		transcript.showTarget,
+		transcript.visibleMessages,
+		virtual.resetToStart,
+		virtual.scrollToKey,
+	]);
+	// Paint highlights over the rendered window and scroll to the active match.
+	useLayoutEffect(() => {
 		const scope = messagesRef.current;
 		if (!findOpen || !findQuery.trim()) {
 			if (scope) clearFindMarks(scope);
 			findMarksRef.current = [];
-			findActiveRef.current = 0;
-			findQueryRef.current = findQuery;
 			setFindPosition({ active: 0, total: 0 });
 			return;
 		}
 		if (!scope) return;
 		const marks = applyFindMarks(scope, findQuery);
 		findMarksRef.current = marks;
-		// A new query starts at the first match (and jumps to it, like the
-		// browser); transcript growth keeps the current position.
-		const queryChanged = findQueryRef.current !== findQuery;
-		const active = queryChanged
-			? 0
-			: Math.min(findPosition.active, Math.max(0, marks.length - 1));
-		findQueryRef.current = findQuery;
-		findActiveRef.current = active;
-		setActiveFindMark(marks, active);
-		setFindPosition({ active, total: marks.length });
-		if (queryChanged && marks.length > 0) {
-			// Stop auto-follow so the jump is never yanked back to bottom.
-			isUserScrolledUp.current = true;
-			scrollMarkIntoView(scope, marks[active] ?? marks[0]);
+		let markIndex = -1;
+		let row = null;
+		if (activeMatch && activeMatch.messageId != null) {
+			markIndex = markIndexForMessage(scope, marks, activeMatch.messageId, activeMatch.occurrence);
+			// The exact segment may be hidden (e.g. collapsed content); still show
+			// the owning row so the result is visible.
+			if (markIndex === -1)
+				row = scope.querySelector(`[data-message-id="${CSS.escape(String(activeMatch.messageId))}"]`);
+		}
+		setActiveFindMark(marks, markIndex);
+		setFindPosition({ active: activeIndex, total: findMatches.length });
+		if (pendingFindScrollRef.current) {
+			const target = markIndex >= 0 ? marks[markIndex] : row;
+			if (target) {
+				pendingFindScrollRef.current = false;
+				// Stop auto-follow so the jump is never yanked back to bottom.
+				isUserScrolledUp.current = true;
+				scrollMarkIntoView(scope, target);
+			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [findOpen, findQuery, messages, streaming]);
+	}, [findOpen, findQuery, findMatches, activeIndex, transcript.visibleMessages, virtual.first, virtual.last, streaming]);
 	const closeFind = useCallback(() => {
 		if (messagesRef.current) clearFindMarks(messagesRef.current);
 		findMarksRef.current = [];
 		findActiveRef.current = 0;
+		findTargetRef.current = null;
+		pendingFindScrollRef.current = false;
 		setFindPosition({ active: 0, total: 0 });
 		setFindOpen(false);
 	}, []);
@@ -747,17 +919,24 @@ export function ChatInterface({
 		closeFindRef.current = closeFind;
 	}, [closeFind]);
 	const stepFind = useCallback((direction) => {
-		const marks = findMarksRef.current;
-		const scope = messagesRef.current;
-		if (!marks.length || !scope) return;
-		// Stop auto-follow so jumping between matches never yanks the viewport.
-		isUserScrolledUp.current = true;
-		const next = (findActiveRef.current + direction + marks.length) % marks.length;
+		const list = findMatchesRef.current;
+		const total = list.length;
+		if (!total) return;
+		const next = (findActiveRef.current + direction + total) % total;
+		const match = list[next];
+		findTargetRef.current = match
+			? { messageId: match.messageId, occurrence: match.occurrence }
+			: null;
 		findActiveRef.current = next;
-		setActiveFindMark(marks, next);
-		setFindPosition({ active: next, total: marks.length });
-		scrollMarkIntoView(scope, marks[next]);
+		pendingFindScrollRef.current = true;
+		setFindTick((tick) => tick + 1);
 	}, []);
+	// Leave a search-navigation window for the newest messages.
+	const jumpToLatest = useCallback(() => {
+		pendingJumpBottomRef.current = true;
+		transcript.followLatest();
+		virtual.resetToEnd();
+	}, [transcript.followLatest, virtual.resetToEnd]);
 	const onStreamFrame = useCallback(() => {
 		if (!isUserScrolledUp.current && messagesRef.current)
 			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
@@ -784,19 +963,51 @@ export function ChatInterface({
 	const handleScroll = (event) => {
 		// Ignore scroll events bubbling from code blocks inside a message.
 		if (event.target !== event.currentTarget) return;
-		const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-		isUserScrolledUp.current = scrollHeight - (scrollTop + clientHeight) > 50;
+		const node = event.currentTarget;
+		const { scrollTop, scrollHeight, clientHeight } = node;
+		const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+		isUserScrolledUp.current = distanceToBottom > 50;
+		// Approaching the top reveals the next page of older messages. Capture the
+		// visible anchor first so prepended rows never shift the reader's view.
+		// Duplicate triggers within one expansion are ignored inside loadOlder.
+		if (scrollTop <= OLDER_SCROLL_THRESHOLD_PX && transcript.hasOlder) {
+			// Capture the visible anchor before the window grows so prepended rows
+			// never shift the reader's view. Duplicate triggers within one
+			// expansion are ignored inside loadOlder.
+			virtual.beginHold();
+			transcript.loadOlder();
+		} else if (transcript.hasNewer && distanceToBottom <= OLDER_SCROLL_THRESHOLD_PX) {
+			virtual.beginHold();
+			transcript.loadNewer();
+		}
+		// Keep the mounted virtual range in step with the scroll position. This
+		// only re-renders when the range actually changes.
+		virtual.onScroll(node);
 	};
 	useLayoutEffect(() => {
 		isUserScrolledUp.current = false;
+		// Row UI state (expanded blocks) is session-scoped; never carry one
+		// conversation's toggles into another (Phase 8).
+		clearRowUiState();
 	}, [palace.sessionId]);
 	// Follow before paint so growing Markdown does not briefly move the viewport.
 	// Direct scrolling affects only the chat pane and never queues animations.
+	// Re-runs when the mounted tail grows or rows change height so the newest
+	// message stays pinned while following.
 	useLayoutEffect(() => {
 		if (!isUserScrolledUp.current && messagesRef.current) {
 			messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
 		}
-	}, [messages]);
+	}, [messages, virtual.last, virtual.heightsVersion]);
+	// After leaving a search-navigation window, land on the newest messages.
+	useLayoutEffect(() => {
+		if (!pendingJumpBottomRef.current) return;
+		const node = messagesRef.current;
+		if (!node) return;
+		pendingJumpBottomRef.current = false;
+		isUserScrolledUp.current = false;
+		node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+	}, [transcript.visibleMessages]);
 	const MIME_FALLBACK_EXT = {
 		"image/png": ".png",
 		"image/jpeg": ".jpg",
@@ -1467,69 +1678,84 @@ export function ChatInterface({
 					</div>
 				</div>
 			)}
+			<LeftSidebarState isSidebarOpen={isSidebarOpen}>
+				{(isSidebarOpen) => (
 			<div
 				id="chat-sidebar"
 				aria-hidden={!isSidebarOpen}
 				inert={isSidebarOpen ? undefined : ""}
-				className={`shrink-0 overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none [&>aside]:h-full ${isSidebarOpen ? "w-[272px] translate-x-0 opacity-100 max-[650px]:w-[220px]" : "w-0 -translate-x-full opacity-0"}`}
+				className={`relative z-20 h-full shrink-0 ${isSidebarOpen ? "w-[272px] max-[650px]:w-[220px]" : "w-0"}`}
 			>
-				<Sidebar
-					projects={projects}
-					view={view}
-					activeProjectId={activeProjectId}
-					onProjects={onProjects}
-					onProject={onProject}
-					onCreateProject={onCreateProject}
-					onChat={onChat}
-					isWorkspace={isWorkspaceChat}
-					chatProjectId={chatProjectId}
-					onNewWorkspaceChat={() => newWorkspaceChat(chatProjectId)}
-					canStartChat={!!chatAvailable && !!selectedModel}
-					isOpen={isSidebarOpen}
-					groups={groups}
-					activeId={palace.sessionId}
-					disabled={streaming || loading}
-					onLoad={loadChat}
-					onNew={newChat}
-					onAction={async (kind, id, value) => {
-						if (busyRef.current) throw new Error("Wait for the current operation to finish.");
-						busyRef.current = true;
-						setIndexing(null);
-						setLoading(true);
-						try {
-							if (kind === "New Folder") await palace.api.createFolder(value);
-							else if (kind === "Rename") {
-								await palace.api.renameSession(id, value);
-								// A manual rename is the locked title — reflect it in the
-								// open tab instead of waiting for the session to reload.
-								if (id === palace.sessionId) onTabUpdate?.({ title: value.trim() });
-							} else if (kind === "Move to Folder") await palace.api.moveSession(id, value);
-							else {
-								await palace.api.deleteSession(id);
-								if (id === palace.sessionId) {
-									onTabUpdate?.({
-										title: "New chat",
-										status: "idle",
-										permissionMode: defaultPermissionMode(activeProject),
-									});
-									pendingAgent.current = null;
-									pendingSend.current = null;
-									setPromptQueue([]);
-									palace.setSessionId(crypto.randomUUID());
-									setMessages([]);
-									clearFiles();
-									setEditing(null);
-									palace.setDraftTokens(0);
+				{/*
+				 * The spacer element above owns the transcript's available width.
+				 * It changes size once per toggle (a single layout) and never
+				 * animates width, so the transcript is not re-laid-out on every
+				 * animation frame. Only this inner panel is animated, and only
+				 * with translate/opacity — properties that do not cause layout.
+				 */}
+				<div
+					className={`absolute inset-y-0 left-0 w-[272px] max-[650px]:w-[220px] overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none ${isSidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"}`}
+				>
+					<Sidebar
+						projects={projects}
+						view={view}
+						activeProjectId={activeProjectId}
+						onProjects={onProjects}
+						onProject={onProject}
+						onCreateProject={onCreateProject}
+						onChat={onChat}
+						isWorkspace={isWorkspaceChat}
+						chatProjectId={chatProjectId}
+						onNewWorkspaceChat={() => newWorkspaceChat(chatProjectId)}
+						canStartChat={!!chatAvailable && !!selectedModel}
+						isOpen={isSidebarOpen}
+						groups={groups}
+						activeId={palace.sessionId}
+						disabled={streaming || loading}
+						onLoad={loadChat}
+						onNew={newChat}
+						onAction={async (kind, id, value) => {
+							if (busyRef.current) throw new Error("Wait for the current operation to finish.");
+							busyRef.current = true;
+							setIndexing(null);
+							setLoading(true);
+							try {
+								if (kind === "New Folder") await palace.api.createFolder(value);
+								else if (kind === "Rename") {
+									await palace.api.renameSession(id, value);
+									// A manual rename is the locked title — reflect it in the
+									// open tab instead of waiting for the session to reload.
+									if (id === palace.sessionId) onTabUpdate?.({ title: value.trim() });
+								} else if (kind === "Move to Folder") await palace.api.moveSession(id, value);
+								else {
+									await palace.api.deleteSession(id);
+									if (id === palace.sessionId) {
+										onTabUpdate?.({
+											title: "New chat",
+											status: "idle",
+											permissionMode: defaultPermissionMode(activeProject),
+										});
+										pendingAgent.current = null;
+										pendingSend.current = null;
+										setPromptQueue([]);
+										palace.setSessionId(crypto.randomUUID());
+										setMessages([]);
+										clearFiles();
+										setEditing(null);
+										palace.setDraftTokens(0);
+									}
 								}
+								await refreshHistory();
+							} finally {
+								busyRef.current = false;
+								setLoading(false);
 							}
-							await refreshHistory();
-						} finally {
-							busyRef.current = false;
-							setLoading(false);
-						}
-					}}
-				/>
+						}}
+					/>
+				</div>
 			</div>
+				)}
+			</LeftSidebarState>
 			{renderWorkspace?.({
 				groups,
 				loadChat,
@@ -1561,12 +1787,34 @@ export function ChatInterface({
 						onClose={closeFind}
 					/>
 				)}
+				{transcript.hasNewer && (
+					<button
+						type="button"
+						aria-label="Jump to latest"
+						onClick={jumpToLatest}
+						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
+					>
+						<FiArrowDown aria-hidden="true" />
+						Jump to latest
+					</button>
+				)}
 				<div
 					className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-auto px-4 py-6 max-[450px]:px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[var(--scrollbar-track)] [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]"
 					ref={messagesRef}
 					onScroll={handleScroll}
 				>
-					<div className={`mx-auto flex min-h-full w-full flex-col gap-7 max-w-[960px]`}>
+					<div
+						data-transcript-list=""
+						data-window-count={transcript.visibleMessages.length}
+						data-window-first-id={transcript.visibleMessages[0]?.id ?? ""}
+						data-window-last-id={transcript.visibleMessages.at(-1)?.id ?? ""}
+						data-vt-first={virtual.first}
+						data-vt-last={virtual.last}
+						data-vt-mounted={virtual.mountedCount}
+						className={`mx-auto flex min-h-full w-full flex-col gap-7 ${
+							isWorkspaceChat ? "max-w-[860px] pb-10" : "max-w-[960px]"
+						}`}
+					>
 						{messages.length === 0 ? (
 							<div className="flex flex-1 flex-col items-center justify-center gap-3 max-[450px]:gap-1 max-[450px]:text-center text-[var(--text-muted)]">
 								<span className="text-[50px] opacity-40 max-[450px]:text-xl">
@@ -1579,42 +1827,64 @@ export function ChatInterface({
 								</span>
 							</div>
 						) : isWorkspaceChat ? (
-							<WorkspaceTimeline
-								messages={messages}
-								streamBuffer={streamBuffer}
-								activeStreamMessageId={activeStreamMessageIdRef.current}
-								onStreamFrame={onStreamFrame}
-								projectId={chatProjectId}
-								pendingQuestions={pendingQuestions}
-								disabled={streaming || loading}
-								onSelectReplyVariant={selectReplyVariant}
-								activeModelName={activeModelName}
-								selectedModel={selectedModel}
-								sessionAgent={sessionAgent}
-								avatarSettings={avatarSettings}
-								onDelete={(id) => handleMessageAction("delete", id)}
-								onBranch={(id) => handleMessageAction("branch", id)}
-								onRegenerate={regenerateReply}
-								onStartEdit={(messageToEdit) => {
-									setEditing(messageToEdit.id);
-									setEditText(messageToEdit.content);
-								}}
-								onError={setHistoryError}
-								editing={editing}
-								editText={editText}
-								onEditChange={setEditText}
-								onCancelEdit={() => setEditing(null)}
-								onSubmitEdit={(messageToEdit) => sendMessage(messageToEdit)}
-								lastMessageId={messages.at(-1)?.id ?? null}
-							/>
+							<>
+								{virtual.topSpacer > 0 && (
+									<div aria-hidden="true" style={{ height: virtual.topSpacer }} />
+								)}
+								{virtual.mountedMessages.map((msg, i) => (
+									<WorkspaceMessage
+										key={msg?.id ?? `ws-${virtual.first + i}`}
+										message={msg}
+										index={virtual.first + i}
+										lastMessageId={messages.at(-1)?.id ?? null}
+										streamBuffer={streamBuffer}
+										activeStreamMessageId={activeStreamMessageIdRef.current}
+										onStreamFrame={onStreamFrame}
+										projectId={chatProjectId}
+										pendingQuestions={pendingQuestions}
+										disabled={streaming || loading}
+										onSelectReplyVariant={selectReplyVariant}
+										activeModelName={activeModelName}
+										selectedModel={selectedModel}
+										sessionAgent={sessionAgent}
+										avatarSettings={avatarSettings}
+										onDelete={(id) => handleMessageAction("delete", id)}
+										onBranch={(id) => handleMessageAction("branch", id)}
+										onRegenerate={regenerateReply}
+										onStartEdit={(messageToEdit) => {
+											setEditing(messageToEdit.id);
+											setEditText(messageToEdit.content);
+										}}
+										onError={setHistoryError}
+										editing={editing}
+										editText={editText}
+										onEditChange={setEditText}
+										onCancelEdit={() => setEditing(null)}
+										onSubmitEdit={(messageToEdit) => sendMessage(messageToEdit)}
+										registerRow={virtual.getMeasureRef}
+									/>
+								))}
+								{virtual.bottomSpacer > 0 && (
+									<div aria-hidden="true" style={{ height: virtual.bottomSpacer }} />
+								)}
+							</>
 						) : (
-							messages.map((msg, i) => {
-								const isEditing = editing === msg.id && msg.id;
-								return (
-									<div
-										key={msg.id ?? i}
-										className={`group flex min-w-0 flex-col transition-[opacity,transform] duration-300 starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none ${
-											msg.role === "user"
+							<>
+								{virtual.topSpacer > 0 && (
+									<div aria-hidden="true" style={{ height: virtual.topSpacer }} />
+								)}
+								{virtual.mountedMessages.map((msg, i) => {
+									const windowIndex = virtual.first + i;
+									const isEditing = editing === msg.id && msg.id;
+									return (
+										<div
+											key={msg.id ?? `message-${windowIndex}`}
+											ref={virtual.getMeasureRef(
+												msg.id != null ? String(msg.id) : `__vt_${msg.role ?? "m"}_${windowIndex}`,
+											)}
+											data-message-id={msg.id}
+											className={`group flex min-w-0 flex-col transition-[opacity,transform] duration-300 starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none ${
+												msg.role === "user"
 												? "max-w-[85%] self-end items-end"
 												: "w-full self-start items-start"
 										}`}
@@ -1765,7 +2035,7 @@ export function ChatInterface({
 														onSelectPromptVersion={(offset) =>
 															selectMessageBranch(msg, offset)
 														}
-														isLast={i === messages.length - 1}
+														isLast={windowIndex === transcript.visibleMessages.length - 1}
 														onEdit={(messageToEdit) => {
 															setEditing(messageToEdit.id);
 															setEditText(messageToEdit.content);
@@ -1777,7 +2047,11 @@ export function ChatInterface({
 										)}
 									</div>
 								);
-							})
+							})}
+								{virtual.bottomSpacer > 0 && (
+									<div aria-hidden="true" style={{ height: virtual.bottomSpacer }} />
+								)}
+							</>
 						)}
 					</div>
 				</div>
@@ -1990,9 +2264,11 @@ export function ChatInterface({
 					/>
 				</div>
 			</div>
+			<RightSidebarState isRightSidebarOpen={isRightSidebarOpen} onClose={onCloseRightSidebar}>
+				{(isRightSidebarOpen, onClose) => (
 			<RightSidebar
 				open={view === "chat" && isRightSidebarOpen}
-				onClose={onCloseRightSidebar}
+				onClose={onClose}
 				sessionId={palace.sessionId}
 				modelId={selectedModel}
 				agents={agents}
@@ -2017,6 +2293,8 @@ export function ChatInterface({
 					indexing,
 				}}
 			/>
+				)}
+			</RightSidebarState>
 		</div>
 	);
 }

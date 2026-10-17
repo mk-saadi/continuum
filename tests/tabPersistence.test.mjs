@@ -8,6 +8,8 @@ import {
   parseTabState,
   sanitizeTab,
   serializeTabState,
+  updateTabState,
+  updateTabsBySessionState,
 } from '../src/lib/tabState.mjs';
 import { PERMISSION_MODES } from '../src/lib/permissionModes.mjs';
 
@@ -150,4 +152,68 @@ test('invalid reorder targets are ignored', () => {
 
 test('the storage key matches the documented contract', () => {
   assert.equal(TAB_STORAGE_KEY, 'continuum_open_tabs');
+});
+
+test('updateTabState patches one tab without touching the rest or input state', () => {
+  const state = {
+    tabs: [tab({ id: 'a', sessionId: 'sa' }), tab({ id: 'b', sessionId: 'sb' })],
+    activeTabId: 'a',
+  };
+  const next = updateTabState(state, 'b', { title: 'Renamed', modelId: 'm2' });
+  assert.equal(next.tabs[0], state.tabs[0], 'untouched tab keeps its identity');
+  assert.equal(next.tabs[1].title, 'Renamed');
+  assert.equal(next.tabs[1].modelId, 'm2');
+  assert.equal(next.activeTabId, 'a');
+  assert.equal(state.tabs[1].title, 'New chat', 'the input state is not mutated');
+});
+
+test('updateTabState returns the same state for an unknown id or a no-op patch', () => {
+  const state = { tabs: [tab({ id: 'a', sessionId: 'sa' })], activeTabId: 'a' };
+  assert.equal(updateTabState(state, 'missing', { title: 'x' }), state);
+  assert.equal(updateTabState(state, 'a', { title: 'New chat' }), state, 'identical value is a no-op');
+  assert.equal(updateTabState(state, 'a', {}), state, 'an empty patch is a no-op');
+});
+
+test('updateTabsBySessionState routes by session and collapses unchanged updates', () => {
+  const state = {
+    tabs: [tab({ id: 'a', sessionId: 'sa' }), tab({ id: 'b', sessionId: 'sb' })],
+    activeTabId: 'a',
+  };
+  const generating = updateTabsBySessionState(state, 'sb', { status: 'generating' });
+  assert.equal(generating.tabs[1].status, 'generating');
+  assert.equal(generating.tabs[0], state.tabs[0]);
+  // The same status again must not manufacture a new state.
+  assert.equal(updateTabsBySessionState(generating, 'sb', { status: 'generating' }), generating);
+  // Unknown/undefined sessions are ignored rather than matching everything.
+  assert.equal(updateTabsBySessionState(state, 'nope', { status: 'idle' }), state);
+  assert.equal(updateTabsBySessionState(state, undefined, { saved: true }), state);
+});
+
+test('updateTabsBySessionState persists the saved flag by session id only', () => {
+  const state = {
+    tabs: [tab({ id: 'a', sessionId: 'sa' }), tab({ id: 'b', sessionId: 'sb' })],
+    activeTabId: 'a',
+  };
+  const marked = updateTabsBySessionState(state, 'sa', { saved: true });
+  assert.equal(marked.tabs[0].saved, true);
+  assert.equal(marked.tabs[1].saved, false);
+  assert.equal(updateTabsBySessionState(marked, 'sa', { saved: true }), marked, 'already saved is a no-op');
+});
+
+test('tab mutations never touch storage', () => {
+  // A throwing global proves the pure mutators cannot be reading or writing it.
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() { throw new Error('pure tab state must not touch localStorage'); },
+  });
+  try {
+    const state = { tabs: [tab({ id: 'a', sessionId: 'sa' })], activeTabId: 'a' };
+    updateTabState(state, 'a', { title: 'x' });
+    updateTabsBySessionState(state, 'sa', { saved: true });
+    serializeTabState(state);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else delete globalThis.localStorage;
+  }
 });

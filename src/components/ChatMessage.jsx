@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRowUiState } from "../hooks/useRowUiState.js";
 import ThoughtBlock from "./ThoughtBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import ToolEventCard from "./chat/ToolEventCard.jsx";
@@ -449,6 +450,7 @@ const ChatMessage = React.memo(
 					<ThinkingAccordion
 						text={thinking}
 						duration={thinkingDuration}
+						stateKey={message.id ?? null}
 					/>
 				)}
 				<div className="assistant-markdown prose max-w-none text-inherit [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-4 [&_h2]:my-4 [&_h3]:my-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-4">
@@ -933,7 +935,10 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 }
 
 export function SubAgentBadge({ step }) {
-	const [expanded, setExpanded] = useState(false);
+	const [expanded, setExpanded] = useRowUiState(
+		step?.id != null ? `subagent:${step.id}` : null,
+		false,
+	);
 	let args = step.args ?? step.function?.arguments ?? {};
 	if (typeof args === "string") {
 		try {
@@ -1045,10 +1050,15 @@ export function ToolCallBadge({ toolCalls }) {
 	);
 }
 
-export function ThinkingAccordion({ text, duration }) {
-	const [expanded, setExpanded] = useState(false);
+export function ThinkingAccordion({ text, duration, stateKey = null }) {
+	// Expansion survives the row leaving the mounted virtual range (Phase 8).
+	const [expanded, setExpanded] = useRowUiState(
+		stateKey != null ? `thinking:${stateKey}` : null,
+		false,
+	);
 	return (
 		<details
+			open={expanded}
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
 			className="group/thinking mb-3 text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
 		>

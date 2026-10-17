@@ -34,6 +34,24 @@ function bodyOf(doc) {
 	return doc?.body ?? null;
 }
 
+// Applies only the UI opacity factor: no image work, no re-identification of the
+// source. Live opacity changes go through here so dragging the slider never
+// re-probes or reloads an unchanged background.
+export function applyUiOpacity(doc, opacity) {
+	const root = rootOf(doc);
+	const body = bodyOf(doc);
+	if (!root || !body) return false;
+	const factor = uiOpacityFactor(opacity);
+	try {
+		root.style.setProperty("--bg-ui-opacity", String(factor));
+		if (factor >= 1) body.style.removeProperty("opacity");
+		else body.style.setProperty("opacity", String(factor));
+	} catch {
+		return false;
+	}
+	return true;
+}
+
 // Applies the image + layer opacity. Image stays at full brightness: it lives
 // on <html>, outside the <body> opacity group. The same factor is exposed as
 // --bg-ui-opacity for top-layer <dialog> elements (see index.css): native
@@ -57,14 +75,8 @@ export function applyUiLayer(doc, { imageUrl, opacity }) {
 	} catch {
 		return false;
 	}
-	const factor = uiOpacityFactor(opacity);
-	try {
-		root.style.setProperty("--bg-ui-opacity", String(factor));
-		if (factor >= 1) body.style.removeProperty("opacity");
-		else body.style.setProperty("opacity", String(factor));
-	} catch {
-		/* Image is set; opacity is best-effort. */
-	}
+	// Opacity is best-effort; the image is already set.
+	applyUiOpacity(doc, opacity);
 	return true;
 }
 

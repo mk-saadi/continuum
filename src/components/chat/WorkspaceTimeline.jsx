@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
+import { useRowUiState } from "../../hooks/useRowUiState.js";
 import ChatMessage from "../ChatMessage.jsx";
 import AssistantAvatar from "../AssistantAvatar.jsx";
 import MessageActions from "../MessageActions.jsx";
@@ -19,6 +20,86 @@ import { LuChevronDown, LuChevronRight } from "react-icons/lu";
 // in original order, then the final assistant response. Stage summaries count
 // only what the recorded events contain; missing runtime fields (durations,
 // counts) are omitted, never synthesized.
+// One virtualizable top-level unit: a user block or one assistant run section.
+// WorkspaceTimeline maps the whole window through this; ChatInterface's
+// virtualizer mounts only the rows in range, so the same component renders both
+// ways (Phase 8). `registerRow` supplies a ref callback keyed by stable message
+// identity so the virtualizer can measure the row.
+export function WorkspaceMessage({
+	message,
+	index,
+	lastMessageId = null,
+	streamBuffer,
+	activeStreamMessageId,
+	onStreamFrame,
+	projectId,
+	pendingQuestions = {},
+	disabled = false,
+	onSelectReplyVariant,
+	activeModelName = "",
+	selectedModel = "",
+	sessionAgent = null,
+	avatarSettings = null,
+	onDelete,
+	onBranch,
+	onRegenerate,
+	onStartEdit,
+	onError,
+	editing = null,
+	editText = "",
+	onEditChange,
+	onCancelEdit,
+	onSubmitEdit,
+	registerRow = null,
+}) {
+	if (!message || typeof message !== "object") return null;
+	const rowKey = message.id != null ? String(message.id) : `ws-${index}`;
+	const measureRef = registerRow ? registerRow(rowKey) : undefined;
+	if (message.role === "user") {
+		return (
+			<UserBlock
+				measureRef={measureRef}
+				message={message}
+				disabled={disabled}
+				editing={editing}
+				editText={editText}
+				onEditChange={onEditChange}
+				onCancelEdit={onCancelEdit}
+				onSubmitEdit={onSubmitEdit}
+				onStartEdit={onStartEdit}
+				onDelete={onDelete}
+				onBranch={onBranch}
+				onError={onError}
+			/>
+		);
+	}
+	if (message.role !== "assistant") return null;
+	const isLast = lastMessageId != null ? message.id === lastMessageId : false;
+	return (
+		<RunSection
+			measureRef={measureRef}
+			message={message}
+			streamBuffer={
+				message.streaming && activeStreamMessageId === message.id ? streamBuffer : undefined
+			}
+			onStreamFrame={onStreamFrame}
+			projectId={projectId}
+			pendingQuestions={pendingQuestions}
+			disabled={disabled}
+			onSelectReplyVariant={onSelectReplyVariant}
+			activeModelName={activeModelName}
+			selectedModel={selectedModel}
+			sessionAgent={sessionAgent}
+			avatarSettings={avatarSettings}
+			onDelete={onDelete}
+			onBranch={onBranch}
+			onRegenerate={onRegenerate}
+			onError={onError}
+			isLast={isLast}
+		/>
+	);
+}
+
 export default function WorkspaceTimeline({
 	messages,
 	streamBuffer,
@@ -49,6 +130,7 @@ export default function WorkspaceTimeline({
 	lastMessageId = null,
 }) {
 	const list = Array.isArray(messages) ? messages : [];
+	const resolvedLastId = lastMessageId ?? list.at(-1)?.id ?? null;
 	// Modest trailing padding so the final response rests above the composer
 	// with breathing room. The composer sits below the scroll area (not over
 	// it), so a large spacer would only show as empty whitespace. Live
@@ -59,55 +141,35 @@ export default function WorkspaceTimeline({
 			aria-label="Workspace execution timeline"
 			className="mx-auto flex w-full max-w-[860px] min-w-0 flex-col gap-7 pb-10 text-[var(--text-primary)]"
 		>
-			{list.map((message, index) => {
-				if (!message || typeof message !== "object") return null;
-				if (message.role === "user") {
-					return (
-						<UserBlock
-							key={message.id ?? `user-${index}`}
-							message={message}
-							disabled={disabled}
-							editing={editing}
-							editText={editText}
-							onEditChange={onEditChange}
-							onCancelEdit={onCancelEdit}
-							onSubmitEdit={onSubmitEdit}
-							onStartEdit={onStartEdit}
-							onDelete={onDelete}
-							onBranch={onBranch}
-							onError={onError}
-						/>
-					);
-				}
-				if (message.role !== "assistant") return null;
-				const isLast =
-					lastMessageId != null ? message.id === lastMessageId : index === list.length - 1;
-				return (
-					<RunSection
-						key={message.id ?? `assistant-${index}`}
-						message={message}
-						streamBuffer={
-							message.streaming && activeStreamMessageId === message.id
-								? streamBuffer
-								: undefined
-						}
-						onStreamFrame={onStreamFrame}
-						projectId={projectId}
-						pendingQuestions={pendingQuestions}
-						disabled={disabled}
-						onSelectReplyVariant={onSelectReplyVariant}
-						activeModelName={activeModelName}
-						selectedModel={selectedModel}
-						sessionAgent={sessionAgent}
-						avatarSettings={avatarSettings}
-						onDelete={onDelete}
-						onBranch={onBranch}
-						onRegenerate={onRegenerate}
-						onError={onError}
-						isLast={isLast}
-					/>
-				);
-			})}
+			{list.map((message, index) => (
+				<WorkspaceMessage
+					key={message?.id ?? `ws-${index}`}
+					message={message}
+					index={index}
+					lastMessageId={resolvedLastId}
+					streamBuffer={streamBuffer}
+					activeStreamMessageId={activeStreamMessageId}
+					onStreamFrame={onStreamFrame}
+					projectId={projectId}
+					pendingQuestions={pendingQuestions}
+					disabled={disabled}
+					onSelectReplyVariant={onSelectReplyVariant}
+					activeModelName={activeModelName}
+					selectedModel={selectedModel}
+					sessionAgent={sessionAgent}
+					avatarSettings={avatarSettings}
+					onDelete={onDelete}
+					onBranch={onBranch}
+					onRegenerate={onRegenerate}
+					onStartEdit={onStartEdit}
+					onError={onError}
+					editing={editing}
+					editText={editText}
+					onEditChange={onEditChange}
+					onCancelEdit={onCancelEdit}
+					onSubmitEdit={onSubmitEdit}
+				/>
+			))}
 		</div>
 	);
 }
@@ -279,6 +341,7 @@ function RunHeader({
 
 function RunSection({
 	message,
+	measureRef,
 	streamBuffer,
 	onStreamFrame,
 	projectId,
@@ -306,7 +369,9 @@ function RunSection({
 
 	return (
 		<section
+			ref={measureRef}
 			aria-label="Workspace run"
+			data-message-id={message.id}
 			className="flex min-w-0 flex-col gap-2"
 		>
 			<RunHeader
@@ -391,7 +456,11 @@ function RunSection({
 // mid-sequence. The header summarizes only recorded facts; the toggle
 // collapses the tool events without losing them.
 function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
-	const [collapsed, setCollapsed] = useState(false);
+	// Collapse choice survives virtualization (Phase 8), keyed by run + stage.
+	const [collapsed, setCollapsed] = useRowUiState(
+		messageId != null && stage?.key != null ? `stage:${messageId}:${stage.key}` : null,
+		false,
+	);
 	const summary = summarizeStage(stage);
 	const thought = stage.thought;
 	const elapsed = formatStageElapsed(summary.elapsedMs);
@@ -526,6 +595,7 @@ function StageThought({ thought, standalone = false }) {
 
 function UserBlock({
 	message,
+	measureRef,
 	disabled,
 	editing,
 	editText,
@@ -542,6 +612,8 @@ function UserBlock({
 		return (
 			<div
 				key={message.id}
+				ref={measureRef}
+				data-message-id={message.id}
 				className="flex min-w-0 flex-col gap-2"
 			>
 				<form
@@ -584,7 +656,11 @@ function UserBlock({
 		);
 	}
 	return (
-		<div className="group flex min-w-0 flex-col">
+		<div
+			ref={measureRef}
+			data-message-id={message.id}
+			className="group flex min-w-0 flex-col"
+		>
 			<p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
 				You
 			</p>

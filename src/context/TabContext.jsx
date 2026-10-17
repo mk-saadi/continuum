@@ -8,6 +8,8 @@ import {
   moveTabState,
   parseTabState,
   serializeTabState,
+  updateTabState,
+  updateTabsBySessionState,
 } from '../lib/tabState.mjs';
 import { PERMISSION_MODE_DEFAULTS } from '../lib/permissionModes.mjs';
 import { fetchSessionGroups } from '../lib/sessionGroups.mjs';
@@ -44,33 +46,32 @@ export function TabProvider({ children }) {
   // already shows the previous session layout — no empty-shell flash.
   const [state, setState] = useState(() => readStoredState() ?? singleTab(newDefaultTab()));
   const hydrated = useRef(false);
-  // Written inside the updater so the value hits disk in the same tick as the
-  // mutation, before React re-renders or any awaited IPC can run.
+  // Latest committed state, kept current for the unload backstop and for the
+  // close handlers, which need the live tab list before the next render.
   const stateRef = useRef(state);
+  // The last tab-state payload known to be on disk. Seeded with the state we
+  // just restored/created so mounting never rewrites unchanged storage, and
+  // advanced only after a write actually succeeds (a failed write is retried).
+  const persistedRef = useRef(null);
+  // The state whose durability `persistedRef` describes. On mount this is the
+  // state we just restored, so the first effect pass skips a redundant
+  // re-serialization of the value we serialized during initialization.
+  const persistedStateRef = useRef(state);
+  if (persistedRef.current === null) {
+    persistedRef.current = serializeTabState(state);
+  }
 
+  // Pure: computes and returns the next state only. Persistence runs in the
+  // effect below, so React may safely re-run this updater (StrictMode) and may
+  // batch several updates into one commit without duplicating side effects.
   const commit = useCallback(updater => {
-    setState(current => {
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      if (next === current) return current;
-      stateRef.current = next;
-      try {
-        localStorage.setItem(TAB_STORAGE_KEY, serializeTabState(next));
-      } catch {
-        /* Persistence is best-effort; the app stays usable without it. */
-      }
-      return next;
-    });
+    setState(current => (typeof updater === 'function' ? updater(current) : updater));
   }, []);
 
-  const updateTab = useCallback((id, patch) => commit(current => ({
-    ...current,
-    tabs: current.tabs.map(tab => tab.id === id ? { ...tab, ...patch } : tab),
-  })), [commit]);
+  const updateTab = useCallback((id, patch) => commit(current => updateTabState(current, id, patch)), [commit]);
 
   useEffect(() => {
-    const bySession = (sessionId, patch) => commit(current => ({ ...current,
-      tabs: current.tabs.map(tab => tab.sessionId === sessionId ? { ...tab, ...patch } : tab),
-    }));
+    const bySession = (sessionId, patch) => commit(current => updateTabsBySessionState(current, sessionId, patch));
     const offStatus = window.chatAPI?.onStreamStatus?.(({ sessionId, status }) => bySession(sessionId, { status }));
     const offApproval = window.chatAPI?.onToolApproval?.(({ sessionId, resolved }) =>
       bySession(sessionId, { status: resolved ? 'generating' : 'awaiting_approval' }));
@@ -97,17 +98,42 @@ export function TabProvider({ children }) {
     commit(closeAllTabsState(newDefaultTab));
   }, [commit]);
   const cycleTab = useCallback(direction => commit(current => cycleActiveTabState(current, direction)), [commit]);
-  const activateTab = useCallback(id => commit(current => current.tabs.some(tab => tab.id === id)
-    ? { ...current, activeTabId: id } : current), [commit]);
+  // Re-selecting the already-active tab is a no-op: returning the same state
+  // avoids re-rendering every subscriber and rewriting disk for nothing.
+  const activateTab = useCallback(id => commit(current =>
+    current.activeTabId === id || !current.tabs.some(tab => tab.id === id)
+      ? current
+      : { ...current, activeTabId: id }), [commit]);
   const moveTab = useCallback((fromIndex, toIndex) =>
     commit(current => moveTabState(current, fromIndex, toIndex)), [commit]);
   // Called once the tab's chat is known to exist in the database, so a restart
   // can tell a real session from a blank tab that was never sent. Matched by
   // session id because callers only ever know their own session — binding a
   // tab id at every call site is how this flag silently stopped persisting.
-  const markTabSaved = useCallback(sessionId => commit(current => ({ ...current,
-    tabs: current.tabs.map(tab => tab.sessionId === sessionId ? { ...tab, saved: true } : tab),
-  })), [commit]);
+  const markTabSaved = useCallback(sessionId =>
+    commit(current => updateTabsBySessionState(current, sessionId, { saved: true })), [commit]);
+
+  // Persist exactly one write per committed change, and only when the durable
+  // representation actually changed. Moving the write out of the updater keeps
+  // the updater pure; the dedupe means a `status`-only update (streaming,
+  // approval routing) serializes identically and is skipped rather than
+  // rewriting the whole tab list. Coalescing falls out of React batching:
+  // several mutations in one tick commit once and persist once, the latest.
+  useEffect(() => {
+    stateRef.current = state;
+    // Mount adopts the state serialized during initialization; every later
+    // change is serialized once to compare against what is already on disk.
+    if (state === persistedStateRef.current) return;
+    persistedStateRef.current = state;
+    const serialized = serializeTabState(state);
+    if (serialized === persistedRef.current) return;
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, serialized);
+      persistedRef.current = serialized;
+    } catch {
+      /* Persistence is best-effort; a failed write is retried on the next change. */
+    }
+  }, [state]);
 
   // Validate restored tabs against the database, then drop the orphaned ones.
   // Runs after first paint so a chat sidebar render never waits on this.
@@ -136,11 +162,17 @@ export function TabProvider({ children }) {
     return () => { active = false; };
   }, [commit]);
 
-  // Backstop for writes made outside commit (e.g. React fast-refresh).
+  // Best-effort flush when the window is going away. The persistence effect
+  // above already writes on every committed change, so this only matters if
+  // the effect has not flushed yet; it writes the same deduped payload and
+  // never resurrects a state older than the last successful write.
   useEffect(() => {
     const flush = () => {
+      const serialized = serializeTabState(stateRef.current);
+      if (serialized === persistedRef.current) return;
       try {
-        localStorage.setItem(TAB_STORAGE_KEY, serializeTabState(stateRef.current));
+        localStorage.setItem(TAB_STORAGE_KEY, serialized);
+        persistedRef.current = serialized;
       } catch { /* Best effort. */ }
     };
     window.addEventListener('pagehide', flush);

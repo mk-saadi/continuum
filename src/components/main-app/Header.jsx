@@ -4,23 +4,35 @@ import { FiChevronDown } from "react-icons/fi";
 import { LuFolder, LuHouse } from "react-icons/lu";
 
 import { buildContextLabel, buildContextTooltip } from "../../lib/contextDisplay.mjs";
+import { useLeftSidebar, useModalActions, useRightSidebar } from "../../context/UIStateContext.jsx";
 import Tooltip from "../Tooltip";
 
 export default function Header({
-	isSidebarOpen,
-	onToggleSidebar,
-	isRightSidebarOpen,
-	onToggleRightSidebar,
+	isSidebarOpen: isSidebarOpenProp,
+	onToggleSidebar: onToggleSidebarProp,
+	isRightSidebarOpen: isRightSidebarOpenProp,
+	onToggleRightSidebar: onToggleRightSidebarProp,
 	modelName,
 	isCloud = false,
 	engineRunning,
 	contextStatus,
 	loadWarning = null,
-	onOpenModels,
+	onOpenModels: onOpenModelsProp,
 	palace,
-	onOpenSettings,
+	onOpenSettings: onOpenSettingsProp,
 	workspace = null,
 }) {
+	// Chrome state comes from context in the real app; the explicit props remain
+	// supported so Header can still be rendered standalone in tests.
+	const leftSidebar = useLeftSidebar();
+	const rightSidebar = useRightSidebar();
+	const modals = useModalActions();
+	const isSidebarOpen = isSidebarOpenProp ?? leftSidebar?.open ?? false;
+	const onToggleSidebar = onToggleSidebarProp ?? leftSidebar?.toggle;
+	const isRightSidebarOpen = isRightSidebarOpenProp ?? rightSidebar?.open ?? false;
+	const onToggleRightSidebar = onToggleRightSidebarProp ?? rightSidebar?.toggle;
+	const onOpenModels = onOpenModelsProp ?? modals?.openModelSelector;
+	const onOpenSettings = onOpenSettingsProp ?? modals?.openSettings;
 	// Primary figure: tokenizer-measured prepared prompt when available,
 	// otherwise the legacy DB estimate. Older palace stubs (tests) only
 	// provide totalTokens/pluginTokens, which keep working unchanged.

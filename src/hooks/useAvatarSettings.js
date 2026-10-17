@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'avatar-settings';
 export const DEFAULT_AVATAR_SETTINGS = { showAvatars: true, globalAvatarUrl: null, modelAvatars: {}, globalModelName: '', perModelNames: {} };
@@ -34,7 +34,11 @@ export default function useAvatarSettings() {
       localStorage.removeItem(STORAGE_KEY);
     }).catch(error => { setError(error.message); });
   }, []);
-  const update = patch => {
+  // Stable identity: only refs and state setters are used, so the callback can
+  // live for the hook's whole lifetime. Previously a fresh closure was produced
+  // on every render, which (via the returned object) invalidated every memoized
+  // consumer that only cares about the settings themselves.
+  const update = useCallback(patch => {
     const operation = pending.current.then(async () => {
       const next = { ...current.current, ...(typeof patch === 'function' ? patch(current.current) : patch) };
       if (window.api?.saveAvatarSettings) await window.api.saveAvatarSettings(next);
@@ -45,6 +49,8 @@ export default function useAvatarSettings() {
     });
     pending.current = operation.catch(() => {});
     return operation;
-  };
-  return { settings, update, error };
+  }, []);
+  // Return a referentially stable wrapper so unrelated AppContent renders do
+  // not hand every tab a "new" avatars object.
+  return useMemo(() => ({ settings, update, error }), [settings, update, error]);
 }

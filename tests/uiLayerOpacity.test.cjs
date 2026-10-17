@@ -76,3 +76,21 @@ test('partial documents fail safe', async () => {
   mod.clearUiLayer(null);
   mod.clearUiLayer({});
 });
+
+test('opacity-only updates never touch the image', async () => {
+  const mod = await loadModule();
+  const doc = makeDocument();
+  mod.applyUiLayer(doc, { imageUrl: 'media:///bg.png', opacity: 90 });
+  const imageBefore = doc.documentElement.style.getPropertyValue("background-image");
+  assert.equal(mod.applyUiOpacity(doc, 55), true);
+  assert.equal(doc.documentElement.style.getPropertyValue("--bg-ui-opacity"), "0.55");
+  assert.equal(doc.body.style.getPropertyValue("opacity"), "0.55");
+  // The image properties are left exactly as they were: no reload, no restyle.
+  assert.equal(doc.documentElement.style.getPropertyValue("background-image"), imageBefore);
+  assert.equal(doc.documentElement.style.getPropertyValue("background-size"), "cover");
+  // 100% removes the body group but keeps the image.
+  mod.applyUiOpacity(doc, 100);
+  assert.equal(doc.body.style.getPropertyValue("opacity"), "");
+  assert.equal(doc.documentElement.style.getPropertyValue("background-image"), imageBefore);
+  assert.equal(mod.applyUiOpacity(null, 55), false);
+});

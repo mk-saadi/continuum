@@ -37,16 +37,20 @@ const PNG = Buffer.from(
   'base64',
 );
 
+// Non-GIF backgrounds never get render/preview derivatives, and a still asset is
+// never reported as animated.
+const NO_ARTIFACTS = { renderPath: null, previewPath: null, animated: false };
+
 function writeSource(name, bytes) {
   const file = path.join(directory, name);
   fs.writeFileSync(file, bytes);
   return file;
 }
 
-test('background settings: defaults, opacity validation, and persistence', () => {
+test('background settings: defaults, opacity validation, and persistence', async () => {
   initDatabase(path.join(directory, 'db-default'));
   try {
-    assert.deepEqual(background.getBackgroundSettings(), { imagePath: null, opacity: 85 });
+    assert.deepEqual(await background.getBackgroundSettings(), { imagePath: null, ...NO_ARTIFACTS, opacity: 85 });
     assert.equal(background.normalizeOpacity(undefined), 85);
     assert.equal(background.normalizeOpacity(40), 40);
     assert.equal(background.normalizeOpacity(100), 100);
@@ -55,56 +59,63 @@ test('background settings: defaults, opacity validation, and persistence', () =>
     assert.throws(() => background.normalizeOpacity(101), /between 40 and 100/);
     assert.throws(() => background.normalizeOpacity(Number.NaN), /must be a number/);
     assert.throws(() => background.setBackgroundOpacity(10), /between 40 and 100/);
-    assert.deepEqual(background.setBackgroundOpacity(60), { imagePath: null, opacity: 60 });
-    assert.deepEqual(background.getBackgroundSettings(), { imagePath: null, opacity: 60 });
+    assert.deepEqual(background.setBackgroundOpacity(60), { imagePath: null, ...NO_ARTIFACTS, opacity: 60 });
+    assert.deepEqual(await background.getBackgroundSettings(), { imagePath: null, ...NO_ARTIFACTS, opacity: 60 });
   } finally {
     closeDatabase();
   }
 });
 
-test('background image: adopt, replace, remove, and missing-file fallback', () => {
+test('background image: adopt, replace, remove, and missing-file fallback', async () => {
   initDatabase(path.join(directory, 'db-image'));
   try {
     const first = writeSource('first.png', PNG);
-    const adopted = background.adoptBackgroundImage(first);
+    const adopted = await background.adoptBackgroundImage(first);
     assert.ok(adopted.imagePath.startsWith(background.backgroundsDirectory()));
     assert.ok(fs.existsSync(adopted.imagePath));
     assert.equal(adopted.opacity, 85);
+    assert.deepEqual(
+      { renderPath: adopted.renderPath, previewPath: adopted.previewPath, animated: adopted.animated },
+      NO_ARTIFACTS,
+    );
     // The stored record survives a fresh read and keeps the opacity.
     background.setBackgroundOpacity(70);
-    assert.deepEqual(background.getBackgroundSettings(), { imagePath: adopted.imagePath, opacity: 70 });
+    assert.deepEqual(await background.getBackgroundSettings(), {
+      imagePath: adopted.imagePath, ...NO_ARTIFACTS, opacity: 70,
+    });
     // Replacing removes the previous managed copy.
     const second = writeSource('second.jpg', PNG);
-    const replaced = background.adoptBackgroundImage(second);
+    const replaced = await background.adoptBackgroundImage(second);
     assert.ok(fs.existsSync(replaced.imagePath));
     assert.ok(!fs.existsSync(adopted.imagePath));
     assert.equal(replaced.opacity, 70);
     // A deleted file degrades to "no image" instead of a broken layer.
     fs.unlinkSync(replaced.imagePath);
-    assert.deepEqual(background.getBackgroundSettings(), { imagePath: null, opacity: 70 });
-    // Non-images and oversized files are rejected before adoption.
-    assert.throws(() => background.adoptBackgroundImage(writeSource('note.txt', 'hello')), /PNG, JPEG/);
-    assert.throws(
-      () => background.adoptBackgroundImage(writeSource('huge.png', Buffer.alloc(11 * 1024 * 1024))),
-      /smaller than 10 MB/,
+    assert.deepEqual(await background.getBackgroundSettings(), { imagePath: null, ...NO_ARTIFACTS, opacity: 70 });
+    // Non-images and oversized files are rejected before adoption. The limit and
+    // its message are the same value (40 MB), never a mismatched pair.
+    await assert.rejects(background.adoptBackgroundImage(writeSource('note.txt', 'hello')), /PNG, JPEG/);
+    await assert.rejects(
+      background.adoptBackgroundImage(writeSource('huge.png', Buffer.alloc(background.MAX_FILE_BYTES + 1))),
+      /smaller than 40 MB/,
     );
     // Removing clears the record and deletes the managed copy.
-    const third = background.adoptBackgroundImage(writeSource('third.png', PNG));
-    assert.deepEqual(background.removeBackgroundImage(), { imagePath: null, opacity: 70 });
+    const third = await background.adoptBackgroundImage(writeSource('third.png', PNG));
+    assert.deepEqual(background.removeBackgroundImage(), { imagePath: null, ...NO_ARTIFACTS, opacity: 70 });
     assert.ok(!fs.existsSync(third.imagePath));
   } finally {
     closeDatabase();
   }
 });
 
-test('background settings: paths outside the managed directory are never honored', () => {
+test('background settings: paths outside the managed directory are never honored', async () => {
   initDatabase(path.join(directory, 'db-untrusted'));
   try {
     const outside = writeSource('outside.png', PNG);
     require('../src/main/db').db
       .prepare("INSERT INTO app_settings(key, value_json) VALUES ('background-settings', ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
       .run(JSON.stringify({ imagePath: outside, opacity: 90 }));
-    assert.deepEqual(background.getBackgroundSettings(), { imagePath: null, opacity: 90 });
+    assert.deepEqual(await background.getBackgroundSettings(), { imagePath: null, ...NO_ARTIFACTS, opacity: 90 });
   } finally {
     closeDatabase();
   }
@@ -115,21 +126,20 @@ test('background IPC: pick adopts the file, cancel keeps the previous image', as
   const dispose = registerIpcHandlers({ isTrustedSender: () => true });
   try {
     const event = { sender: { isDestroyed: () => false } };
-    assert.deepEqual(await handlers.get('background:get')(event), { imagePath: null, opacity: 85 });
+    assert.deepEqual(await handlers.get('background:get')(event), { imagePath: null, ...NO_ARTIFACTS, opacity: 85 });
     assert.deepEqual(await handlers.get('background:set-opacity')(event, { opacity: 55 }), {
-      imagePath: null,
-      opacity: 55,
+      imagePath: null, ...NO_ARTIFACTS, opacity: 55,
     });
     await assert.rejects(handlers.get('background:set-opacity')(event, { opacity: 5 }), /between 40 and 100/);
     dialogResult = undefined;
     assert.equal(await handlers.get('background:pick')(event), null);
-    assert.deepEqual(await handlers.get('background:get')(event), { imagePath: null, opacity: 55 });
+    assert.deepEqual(await handlers.get('background:get')(event), { imagePath: null, ...NO_ARTIFACTS, opacity: 55 });
     dialogResult = [writeSource('picked.png', PNG)];
     const picked = await handlers.get('background:pick')(event);
     assert.ok(picked.imagePath.startsWith(background.backgroundsDirectory()));
     assert.equal(picked.opacity, 55);
     assert.deepEqual(await handlers.get('background:get')(event), picked);
-    assert.deepEqual(await handlers.get('background:remove')(event), { imagePath: null, opacity: 55 });
+    assert.deepEqual(await handlers.get('background:remove')(event), { imagePath: null, ...NO_ARTIFACTS, opacity: 55 });
     assert.ok(!fs.existsSync(picked.imagePath));
   } finally {
     dispose();

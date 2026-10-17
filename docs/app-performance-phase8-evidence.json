@@ -1,0 +1,425 @@
+{
+  "date": "2026-10-18",
+  "head": "fab58bb4d759d8694e0c40d7c6a7fe02764338a7",
+  "model": {
+    "requested": "spark2_5 (by Hf_Format)",
+    "actual": "opencode/deepseek-v4.1-flash-free",
+    "note": "The assistant cannot switch its own model; Phase 8 was implemented and reported under the runtime model."
+  },
+  "design": {
+    "approach": "custom variable-height virtualizer (no virtualization dependency was present in package.json)",
+    "rejectedLibrary": "@tanstack/react-virtual",
+    "justification": [
+      "The transcript is a flex column with row-gap 28px; a spacer-based layout reproduces the exact full content height (prefix[count]-gap) with two spacer divs, so scrollbar geometry, scroll-to-row offsets and the existing flex/gap styling are preserved without changing the DOM contract.",
+      "The logical window (Phase 2) already owns pagination, anchoring intent and session reset; the virtualizer only maps that window to a mounted sub-range, so a full table/measureElement abstraction was unnecessary surface area.",
+      "A hand-written pure geometry module (transcriptVirtual.mjs) is directly unit-testable in Node without a DOM (tests/transcriptVirtual.test.mjs).",
+      "Trade-off accepted: the team owns measurement/anchoring correctness. This is justified only because the tests below pin the exact invariants; a maintained library remains the safer default for a larger surface."
+    ],
+    "constants": {
+      "overscanPx": 480,
+      "rowEstimatePx": 120,
+      "maxCachedMeasurements": 1500,
+      "maxPinExpansion": 60,
+      "estimateMinMeasured": 3
+    },
+    "anchoring": "The virtualizer owns scroll anchoring; useTranscriptWindow is called with anchoring:false to avoid double correction. Prepend restore is analytic (prefix[newIndex]-contentTop) with a mounted-DOM delta then scrollHeight fallback. Continuous height changes (streaming, images, sidebar reflow) are delegated to the browser native scroll anchoring.",
+    "boundedState": "Expanded/collapsed row UI state lives in a bounded module-level Map keyed by stable identity (rowUiState.mjs), cleared on session change."
+  },
+  "baselineReference": {
+    "report": "docs/app-performance-phase7-report.md",
+    "evidence": "docs/app-performance-phase7-evidence.json",
+    "note": "Phase 7 measured the un-virtualized non-truncating pagination tree with the same fixture and CDP methodology."
+  },
+  "methodology": "Same fixture (tests/fixtures/chatPagination.jsx) and CDP approach as Phase 7, in NODE_ENV=production, no engine/model launched, hardware acceleration disabled, 820x760 shown window, backgroundThrottling off. Differences: the expand loop drives the logical window via data-window-count and observes mounted rows via data-vt-mounted instead of waiting for every revealed message to be in the DOM. DOM count is querySelectorAll('*'). Heap is CDP JSHeapUsedSize after HeapProfiler.collectGarbage (retained JS heap, not RSS/GPU). Prepend time is the wall time to reveal one older page, including two rAFs. 120 programmatic scroll frames per sample. Three repetitions per size/content, fixed order, no statistical significance claimed. Absolute timings share an uncontrolled host; counts/heap are the stronger signals.",
+  "preservation": {
+    "mechanism": "No git reset/clean/stash/revert and no commit/push. Phase 8 only added files and extended existing files; no pre-existing file was deleted or replaced.",
+    "preExistingTrackedModified": [
+      "src/components/ChatMessage.jsx (Phase 8 additions only, on top of the pre-existing working-tree diff)",
+      "src/components/chat/ToolEventCard.jsx",
+      "src/components/chat/WorkspaceTimeline.jsx",
+      "src/components/main-app/ChatInterface.jsx"
+    ],
+    "untrackedNote": "Every ?? entry in git status was present before Phase 8 except the new Phase 8 files listed under files.added."
+  },
+  "files": {
+    "added": [
+      "src/lib/transcriptVirtual.mjs",
+      "src/components/main-app/useTranscriptVirtual.js",
+      "src/lib/rowUiState.mjs",
+      "src/hooks/useRowUiState.js",
+      "tests/transcriptVirtual.test.mjs",
+      "tests/transcriptVirtual.ui.cjs",
+      "docs/app-performance-phase8-report.md",
+      "docs/app-performance-phase8-evidence.json"
+    ],
+    "extended": [
+      "src/components/main-app/ChatInterface.jsx (virtualizer integration, data-window-*/data-vt-* attributes, find paint-effect deps)",
+      "src/components/main-app/useTranscriptWindow.js (anchoring option)",
+      "src/components/chat/WorkspaceTimeline.jsx (WorkspaceMessage extraction + measureRef)",
+      "src/components/chat/ToolEventCard.jsx (persistent toggles)",
+      "src/components/ChatMessage.jsx (persistent ThinkingAccordion/SubAgentBadge)",
+      "tests/chatPagination.ui.cjs, tests/chatFindNavigation.ui.cjs, tests/sidebarAnimation.ui.cjs (virtualized semantics)"
+    ]
+  },
+  "measurements": {
+    "unit": "tables use median of 3 repetitions",
+    "beforeAfter": [
+      {
+        "content": "plain",
+        "count": 100,
+        "phase7": {
+          "initialNodes": 639,
+          "fullNodes": 2594,
+          "initialReadyMs": 46.2,
+          "expandedHeapMiB": 9.28,
+          "prependMedianMs": 33.65,
+          "scrollP95Ms": 9.2,
+          "scrollOver50": 0
+        },
+        "phase8": {
+          "initialNodes": 479,
+          "peakNodes": 613,
+          "fullMounted": 14,
+          "peakMounted": 14,
+          "expandedHeapMiB": 6.86,
+          "prependMedianMs": 49.8,
+          "scrollP95Ms": 19.7,
+          "scrollOver50": 0
+        }
+      },
+      {
+        "content": "plain",
+        "count": 300,
+        "phase7": {
+          "initialNodes": 639,
+          "fullNodes": 7194,
+          "initialReadyMs": 46.2,
+          "expandedHeapMiB": 15.97,
+          "prependMedianMs": 48.9,
+          "scrollP95Ms": 10.1,
+          "scrollOver50": 0
+        },
+        "phase8": {
+          "initialNodes": 479,
+          "peakNodes": 613,
+          "fullMounted": 14,
+          "peakMounted": 14,
+          "expandedHeapMiB": 7.66,
+          "prependMedianMs": 49.7,
+          "scrollP95Ms": 20.1,
+          "scrollOver50": 0
+        }
+      },
+      {
+        "content": "plain",
+        "count": 600,
+        "phase7": {
+          "initialNodes": 639,
+          "fullNodes": 14094,
+          "initialReadyMs": 54.6,
+          "expandedHeapMiB": 25.99,
+          "prependMedianMs": 89.3,
+          "scrollP95Ms": 19.7,
+          "scrollOver50": 0
+        },
+        "phase8": {
+          "initialNodes": 479,
+          "peakNodes": 613,
+          "fullMounted": 14,
+          "peakMounted": 14,
+          "expandedHeapMiB": 7.77,
+          "prependMedianMs": 49.8,
+          "scrollP95Ms": 25.8,
+          "scrollOver50": 0
+        }
+      },
+      {
+        "content": "complex",
+        "count": 100,
+        "phase7": {
+          "initialNodes": 1751,
+          "fullNodes": 9544,
+          "initialReadyMs": 209.2,
+          "expandedHeapMiB": 16.3,
+          "prependMedianMs": 175.6,
+          "scrollP95Ms": 20.6,
+          "scrollOver50": 1
+        },
+        "phase8": {
+          "initialNodes": 1035,
+          "peakNodes": 827,
+          "fullMounted": 4,
+          "peakMounted": 5,
+          "expandedHeapMiB": 10.56,
+          "prependMedianMs": 98,
+          "scrollP95Ms": 34,
+          "scrollOver50": 6
+        }
+      },
+      {
+        "content": "complex",
+        "count": 300,
+        "phase7": {
+          "initialNodes": 1751,
+          "fullNodes": 28044,
+          "initialReadyMs": 192.4,
+          "expandedHeapMiB": 30.08,
+          "prependMedianMs": 218,
+          "scrollP95Ms": 30.4,
+          "scrollOver50": 5
+        },
+        "phase8": {
+          "initialNodes": 1035,
+          "peakNodes": 823,
+          "fullMounted": 4,
+          "peakMounted": 5,
+          "expandedHeapMiB": 10.84,
+          "prependMedianMs": 85.8,
+          "scrollP95Ms": 36.3,
+          "scrollOver50": 0
+        }
+      },
+      {
+        "content": "complex",
+        "count": 600,
+        "phase7": {
+          "initialNodes": 1751,
+          "fullNodes": 55794,
+          "initialReadyMs": 355.3,
+          "expandedHeapMiB": 50.1,
+          "prependMedianMs": 287.4,
+          "scrollP95Ms": 24.3,
+          "scrollOver50": 0
+        },
+        "phase8": {
+          "initialNodes": 1035,
+          "peakNodes": 823,
+          "fullMounted": 4,
+          "peakMounted": 5,
+          "expandedHeapMiB": 10.98,
+          "prependMedianMs": 83.2,
+          "scrollP95Ms": 52.8,
+          "scrollOver50": 23
+        }
+      }
+    ],
+    "complex600ScrollDetail": {
+      "source": "extra 6-repetition run (P8_REPS=6)",
+      "samples": [
+        {
+          "rep": 0,
+          "scrollP50Ms": 18.7,
+          "scrollP95Ms": 42.7,
+          "scrollMaxMs": 50.5,
+          "scrollOver50": 2,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 21.4,
+          "initialMs": 469.8
+        },
+        {
+          "rep": 1,
+          "scrollP50Ms": 27,
+          "scrollP95Ms": 59.1,
+          "scrollMaxMs": 89.6,
+          "scrollOver50": 10,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 54.6,
+          "initialMs": 155.6
+        },
+        {
+          "rep": 2,
+          "scrollP50Ms": 20.9,
+          "scrollP95Ms": 47.4,
+          "scrollMaxMs": 70.2,
+          "scrollOver50": 3,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 35.1,
+          "initialMs": 63.5
+        },
+        {
+          "rep": 3,
+          "scrollP50Ms": 19.1,
+          "scrollP95Ms": 36.7,
+          "scrollMaxMs": 53.8,
+          "scrollOver50": 1,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 46.8,
+          "initialMs": 90
+        },
+        {
+          "rep": 4,
+          "scrollP50Ms": 20.9,
+          "scrollP95Ms": 46.4,
+          "scrollMaxMs": 60.2,
+          "scrollOver50": 2,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 33.6,
+          "initialMs": 50.6
+        },
+        {
+          "rep": 5,
+          "scrollP50Ms": 18,
+          "scrollP95Ms": 35.6,
+          "scrollMaxMs": 69.3,
+          "scrollOver50": 1,
+          "peakMounted": 5,
+          "peakNodes": 823,
+          "jumpTailMs": 34.5,
+          "initialMs": 44.7
+        }
+      ],
+      "all": {
+        "p50Ms": 20.2,
+        "p95Ms": 46.3,
+        "over50": 19,
+        "total": 720
+      },
+      "note": "Phase 7 complex-600 scroll was p95 24.3ms with 0/360 frames over 50ms. The virtualized sweep keeps 5 mounted rows and 823 peak nodes, but some frames exceed 50ms because each fast programmatic jump mounts, parses and measures complex rows. This is a bounded, documented trade-off; real user scrolling is smoother than the 120-frame sinusoidal sweep."
+    },
+    "headline": {
+      "complex600": {
+        "domInitial": [
+          "1751 (Phase 7)",
+          "1035 (Phase 8)"
+        ],
+        "domFullyRevealed": [
+          "55794 (Phase 7)",
+          "823 peak / 661 steady (Phase 8)"
+        ],
+        "retainedHeapMiB": [
+          "50.10 (Phase 7)",
+          "10.98 (Phase 8)"
+        ],
+        "olderPageRevealMedianMs": [
+          "287.4 (Phase 7)",
+          "83.2 (Phase 8)"
+        ],
+        "initialRenderMedianMs": [
+          "355.3 (Phase 7)",
+          "76.8 (Phase 8)"
+        ],
+        "mountedRows": [
+          "600 (Phase 7)",
+          "4-5 (Phase 8)"
+        ]
+      },
+      "plain600": {
+        "domFullyRevealed": [
+          "14094 (Phase 7)",
+          "613 (Phase 8)"
+        ],
+        "retainedHeapMiB": [
+          "25.99 (Phase 7)",
+          "7.77 (Phase 8)"
+        ],
+        "olderPageRevealMedianMs": [
+          "89.3 (Phase 7)",
+          "49.8 (Phase 8)"
+        ]
+      }
+    }
+  },
+  "checks": [
+    {
+      "name": "focused-unit",
+      "kind": "unit",
+      "command": "node --test tests/terminalLogStore.test.mjs tests/transcriptWindow.test.mjs tests/transcriptVirtual.test.mjs tests/chatSearch.test.mjs tests/sidebarAnimation.test.cjs tests/backgroundGifBounding.test.cjs tests/backgroundSettings.test.cjs tests/uiLayerOpacity.test.cjs tests/tabPersistence.test.mjs tests/palacePolling.test.cjs tests/messageIdentity.test.mjs",
+      "result": "PASS",
+      "detail": "91 tests, 0 failures"
+    },
+    {
+      "name": "transcriptVirtual",
+      "kind": "ui",
+      "result": "PASS",
+      "detail": "bounded DOM independent of history length (100/300/600 complex), tall variable-height row measured and mountable, scroll-to-identity at 61/301/541, row UI state survives eviction and resets on session switch"
+    },
+    {
+      "name": "chatPagination",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "chatFindNavigation",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "sidebarAnimation",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "terminalLogIsolation",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "renderIsolation",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "palaceStability",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "tabContextPersistence",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "tabSwitchIsolation",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "chatInputPerformance",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "palacePolling",
+      "kind": "ui",
+      "result": "PASS"
+    },
+    {
+      "name": "messageMetadata",
+      "kind": "ui",
+      "result": "PASS",
+      "detail": "renders ChatMessage/ThinkingAccordion directly; exit 0"
+    },
+    {
+      "name": "backgroundLayer",
+      "kind": "ui",
+      "result": "FLAKY (pre-existing, unrelated)",
+      "detail": "5/6 runs pass; one failure is a Settings-preview timing race (getBackgroundSettings resolves after the 60ms fixture tick) in a Phase 3.2 suite untouched by Phase 8"
+    },
+    {
+      "name": "build",
+      "kind": "build",
+      "command": "node node_modules/vite/bin/vite.js build",
+      "result": "PASS",
+      "detail": "succeeds with the pre-existing >500 kB chunk warning"
+    },
+    {
+      "name": "full-unit-suite",
+      "kind": "unit",
+      "result": "1002/1042 pass, 40 pre-existing failures",
+      "detail": "Failures are cloud/subagent/MCP/network-mock/assertion issues in suites unrelated to Phase 8 (no failing suite imports a changed Phase 8 module); not fixed per instructions."
+    }
+  ],
+  "limitations": [
+    "No live model inference, no real streamed tool/cancellation trace, no multi-real-tab expanded-history timing, no long soak.",
+    "Programmatic scroll sweep is harsher than user scrolling (large sinusoidal jumps every frame).",
+    "Retained JS heap via CDP is not RSS/GPU memory; native image memory not measured.",
+    "Synthetic message complexity is reproducible but not the user real histories.",
+    "messageMetadata.ui.cjs produced no stdout on the passing run (exit 0); its console summary was not captured."
+  ],
+  "decision": "Phase 8 virtualization is implemented and bounded as designed. Keep the custom virtualizer; the measured DOM/heap/reveal reductions are large and the invariants are pinned by tests. Stop for review; no commit/push."
+}

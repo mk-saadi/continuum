@@ -5,10 +5,13 @@ import "./index.css";
 import "./components/memoryPalace.css";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
+import { ToastProvider } from "react-toast-master";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>
-		<App />
+		<ToastProvider>
+			<App />
+		</ToastProvider>
 	</React.StrictMode>,
 );
 

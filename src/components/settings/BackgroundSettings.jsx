@@ -5,6 +5,7 @@ import {
 	MAX_BACKGROUND_OPACITY,
 	MIN_BACKGROUND_OPACITY,
 	notifyBackgroundChanged,
+	notifyBackgroundOpacityChanged,
 } from "../../hooks/useBackgroundSettings";
 import { mediaSource } from "../../lib/markdownMedia.mjs";
 
@@ -14,6 +15,7 @@ import { mediaSource } from "../../lib/markdownMedia.mjs";
 export default function BackgroundSettings() {
 	const [settings, setSettings] = useState({
 		imagePath: null,
+		previewPath: null,
 		opacity: DEFAULT_BACKGROUND_OPACITY,
 	});
 	const [previewUrl, setPreviewUrl] = useState("");
@@ -29,6 +31,7 @@ export default function BackgroundSettings() {
 				if (!active || !saved) return;
 				setSettings({
 					imagePath: saved.imagePath ?? null,
+					previewPath: saved.previewPath ?? null,
 					opacity: saved.opacity ?? DEFAULT_BACKGROUND_OPACITY,
 				});
 			})
@@ -42,8 +45,11 @@ export default function BackgroundSettings() {
 
 	useEffect(() => {
 		setPreviewBroken(false);
-		setPreviewUrl(settings.imagePath ? mediaSource(settings.imagePath) : "");
-	}, [settings.imagePath]);
+		// Prefer the static poster frame so an animated background never runs a
+		// second full-resolution animation inside the thumbnail.
+		const source = settings.previewPath || settings.imagePath;
+		setPreviewUrl(source ? mediaSource(source) : "");
+	}, [settings.imagePath, settings.previewPath]);
 
 	async function run(action) {
 		if (busy || !window.api?.getBackgroundSettings) return;
@@ -55,6 +61,7 @@ export default function BackgroundSettings() {
 			if (saved) {
 				setSettings({
 					imagePath: saved.imagePath ?? null,
+					previewPath: saved.previewPath ?? null,
 					opacity: saved.opacity ?? DEFAULT_BACKGROUND_OPACITY,
 				});
 				notifyBackgroundChanged();
@@ -79,9 +86,11 @@ export default function BackgroundSettings() {
 			const saved = await window.api.setBackgroundOpacity(opacity);
 			setSettings({
 				imagePath: saved.imagePath ?? null,
+				previewPath: saved.previewPath ?? null,
 				opacity: saved.opacity ?? opacity,
 			});
-			notifyBackgroundChanged();
+			// Visual-only update: never re-probe or re-process the image.
+			notifyBackgroundOpacityChanged(saved.opacity ?? opacity);
 		} catch (cause) {
 			setError(cause.message || "Could not save surface opacity.");
 		} finally {
