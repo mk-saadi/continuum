@@ -136,29 +136,48 @@ const agentTools = [
 	),
 	define(
 		"update_plan",
-		"Create, update, or read the durable task plan for this Workspace task. Use it for multi-step work: create the major steps once, then update only what changed as work progresses. Step ids are stable and scoped to this task. A plan records intended work and reported progress; it is not proof of completion — verify finished implementation (for example with run_tests) before marking a step completed.",
+		[
+			'Create, update, or read the durable task plan for this Workspace task.',
+			'',
+			'Action "create" (call ONCE, before starting the work). Exact arguments:',
+			'{"action":"create","objective":"<one-line goal>","steps":[{"description":"<first step>"},{"description":"<second step>","status":"in_progress"}]}',
+			'- "steps" must be a non-empty array; every step requires a "description". "status" is optional (default "pending"); "note" is optional.',
+			'- NEVER include "id" in a step when creating: ids are assigned by the tool and returned in the plan. Including one fails with UNEXPECTED_STEP_ID.',
+			'- Create only once. If a plan already exists, create fails with PLAN_EXISTS — call action "get" to read the plan, then use action "update".',
+			'',
+			'Action "update" (every change after create). Exact arguments:',
+			'{"action":"update","steps":[{"id":7,"status":"completed"},{"description":"A newly added step"}],"remove_step_ids":[3]}',
+			'- To change an existing step, pass its "id" plus only the fields to change (any of "description", "status", "note").',
+			'- To add a step, omit "id" and include "description". To delete steps, list their ids in "remove_step_ids".',
+			'- Provide at least one of "steps", "remove_step_ids", or "objective"; an empty update fails with EMPTY_UPDATE.',
+			'',
+			'Action "get" returns the current plan and its step ids. Call it when resuming, after a restart or context compaction, or whenever you are unsure of the plan or its ids — never re-create the plan and never guess ids.',
+			'',
+			'"status" is one of pending | in_progress | completed | blocked; a "blocked" step requires a "note" explaining the blocker. Step ids are stable and scoped to this task. "expected_revision" is an optional optimistic guard that fails with STALE_PLAN; recover by calling action "get", then retry.',
+			'If a call fails, read the returned "code" and correct the arguments before retrying; do not repeat the same failing call. A plan records intended work and reported progress, not proof of completion — verify finished implementation (for example with run_tests) before marking a step completed.',
+		].join("\n"),
 		{
 			action: {
 				type: "string",
 				enum: ["create", "update", "get"],
-				description: '"create" starts the initial plan, "update" applies incremental step changes, "get" returns the current plan (use when resuming).',
+				description: '"create" starts the plan (call it once, first); "update" applies incremental changes after create; "get" returns the current plan and its step ids.',
 			},
-			objective: string("Optional one-line goal for the task (create/update)"),
+			objective: string("Optional one-line goal for the task (used with create/update)"),
 			steps: {
 				type: "array",
-				description: 'Steps to create, or incremental changes when action is "update". Omit id to add a new step.',
+				description: 'On "create": the complete ordered step list, each {"description": ...} and no "id". On "update": only the steps to change or add — existing steps by "id", new steps by "description" with "id" omitted.',
 				items: {
 					type: "object",
 					properties: {
 						id: {
 							type: "integer",
-							description: "Stable step id from create/get. Omit to add a new step (update only).",
+							description: 'Existing step id from create/get (update only). NEVER include "id" when action is "create".',
 						},
-						description: string("Step description; required when adding or revising"),
+						description: string("Step text; required on create and when adding a new step on update"),
 						status: {
 							type: "string",
 							enum: ["pending", "in_progress", "completed", "blocked"],
-							description: "Current step status",
+							description: "Current step status (default pending)",
 						},
 						note: string("Optional concise context; required when status is blocked"),
 					},
@@ -169,12 +188,12 @@ const agentTools = [
 			remove_step_ids: {
 				type: "array",
 				items: { type: "integer" },
-				description: "Step ids to remove in the same update call",
+				description: "Step ids to delete in the same update call",
 			},
 			expected_revision: {
 				type: "integer",
 				minimum: 1,
-				description: "Optional optimistic guard: fail if the stored plan revision differs",
+				description: 'Optional optimistic guard: fails with STALE_PLAN if the stored revision differs; recover with action "get".',
 			},
 		},
 		["action"],
@@ -243,11 +262,11 @@ const agentTools = [
 	),
 	define(
 		"edit_project_files",
-		"Apply small surgical replacements to multiple project files atomically: every edit is validated first (contained path, unique match), then all are written; if any edit fails validation, nothing is written.",
+		"Apply small surgical replacements across one or more project files, all-or-nothing: every edit is validated first (contained path, unique match), then all are written together; if any edit fails validation, nothing is written. Multiple edits may target the same file — they are applied in the order given, so a later edit's old_str is matched against the result of the earlier ones. Use write_project_file for a whole-file rewrite and apply_patch for a unified diff.",
 		{
 			edits: {
 				type: "array",
-				description: "At most 20 surgical replacements applied together",
+				description: "1 to 20 surgical replacements, applied in order; several may target the same file",
 				items: {
 					type: "object",
 					properties: {
@@ -1825,9 +1844,13 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 	if (!Array.isArray(edits) || edits.length < 1 || edits.length > MAX_BATCH_EDITS) {
 		throw new Error(`edits must be an array of 1 to ${MAX_BATCH_EDITS} replacements.`);
 	}
-	// Phase 1 — validate everything before touching the filesystem.
-	const planned = [];
-	const seen = new Set();
+	// Phase 1 — validate everything before touching the filesystem. Several
+	// edits may target the same file: each is applied, in order, to that file's
+	// working copy, so a later edit's old_str is matched against the result of
+	// the earlier ones (this is what makes a multi-spot single-file batch work
+	// instead of silently clobbering). Every edit must still match exactly
+	// once, or the whole batch is rejected with nothing written.
+	const byTarget = new Map();
 	for (let index = 0; index < edits.length; index++) {
 		const edit = edits[index];
 		if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
@@ -1837,19 +1860,28 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 		requireText(relative_path, "relative_path");
 		requireText(new_str, "new_str", true);
 		const target = await resolveWriteTarget(root, relative_path, uncontained);
-		if (seen.has(target)) throw new Error(`Edit ${index} targets ${relative_path}, already edited in this batch.`);
-		seen.add(target);
-		let content;
-		try {
-			content = await fs.readFile(target, "utf8");
-		} catch (error) {
-			if (error.code === "ENOENT") throw new Error(`Edit ${index}: file does not exist: ${relative_path}.`);
-			throw error;
+		let entry = byTarget.get(target);
+		if (!entry) {
+			let content;
+			try {
+				content = await fs.readFile(target, "utf8");
+			} catch (error) {
+				if (error.code === "ENOENT") throw new Error(`Edit ${index}: file does not exist: ${relative_path}.`);
+				throw error;
+			}
+			if (content.includes("\0")) throw new Error(`Edit ${index}: refusing binary file: ${relative_path}.`);
+			entry = { target, relative_path, content };
+			byTarget.set(target, entry);
 		}
-		if (content.includes("\0")) throw new Error(`Edit ${index}: refusing binary file: ${relative_path}.`);
-		const { start, end } = locateReplacement(content, old_str);
-		planned.push({ target, relative_path, updated: content.slice(0, start) + new_str + content.slice(end) });
+		const { start, end } = locateReplacement(entry.content, old_str);
+		entry.content = entry.content.slice(0, start) + new_str + entry.content.slice(end);
 	}
+	// One entry per distinct file, in first-seen order.
+	const planned = [...byTarget.values()].map(({ target, relative_path, content }) => ({
+		target,
+		relative_path,
+		updated: content,
+	}));
 	// Phase 2 — all validated, write atomically per file. Before-images for
 	// every target are captured first: validation is not atomicity, and a
 	// disk error mid-sequence must still leave a complete recovery point

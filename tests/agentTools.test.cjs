@@ -481,7 +481,8 @@ const run = (
 		}
 		assert.ok(!fs.existsSync(path.join(workspace, " in.txt")));
 
-		// edit_project_files: atomic multi-file edits, all-or-nothing validation.
+		// edit_project_files: atomic multi-file (and multi-spot single-file)
+		// edits, all-or-nothing validation.
 		fs.writeFileSync(path.join(workspace, "a.txt"), "one\n");
 		fs.writeFileSync(path.join(workspace, "b.txt"), "two\n");
 		const batch = await run("edit_project_files", {
@@ -513,6 +514,37 @@ const run = (
 		]) {
 			assert.equal((await run("edit_project_files", { edits })).success, false, JSON.stringify(edits).slice(0, 80));
 		}
+
+		// A single file may appear more than once: its edits apply in order, so a
+		// later old_str matches against the earlier ones' result.
+		fs.writeFileSync(path.join(workspace, "multi.txt"), "alpha\nbeta\ngamma\n");
+		const sameFile = await run("edit_project_files", {
+			edits: [
+				{ relative_path: "multi.txt", old_str: "alpha", new_str: "ALPHA" },
+				{ relative_path: "multi.txt", old_str: "gamma", new_str: "GAMMA" },
+			],
+		});
+		assert.equal(sameFile.success, true);
+		assert.deepEqual(sameFile.edited, ["multi.txt"]);
+		assert.equal(fs.readFileSync(path.join(workspace, "multi.txt"), "utf8"), "ALPHA\nbeta\nGAMMA\n");
+		const chained = await run("edit_project_files", {
+			edits: [
+				{ relative_path: "multi.txt", old_str: "beta", new_str: "delta" },
+				{ relative_path: "multi.txt", old_str: "delta", new_str: "epsilon" },
+			],
+		});
+		assert.equal(chained.success, true);
+		assert.equal(fs.readFileSync(path.join(workspace, "multi.txt"), "utf8"), "ALPHA\nepsilon\nGAMMA\n");
+		// Still all-or-nothing: a later same-file edit whose old_str no longer
+		// matches rejects the batch and writes nothing.
+		const sameFileAtomic = await run("edit_project_files", {
+			edits: [
+				{ relative_path: "multi.txt", old_str: "ALPHA", new_str: "a" },
+				{ relative_path: "multi.txt", old_str: "does-not-exist", new_str: "x" },
+			],
+		});
+		assert.equal(sameFileAtomic.success, false);
+		assert.equal(fs.readFileSync(path.join(workspace, "multi.txt"), "utf8"), "ALPHA\nepsilon\nGAMMA\n");
 
 		// apply_patch: single file, multi-file, creation, and safe failures.
 		fs.writeFileSync(path.join(workspace, "p1.txt"), "alpha\nbeta\ngamma\n");

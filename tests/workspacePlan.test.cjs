@@ -465,6 +465,27 @@ test('update_plan is a workspace-only PLAN_WRITE tool and runs through the dispa
   assert.equal(plan.getPlan(id).steps[0].status, 'in_progress');
 });
 
+test('the update_plan schema tells the model exactly what to pass', () => {
+  const tool = agentTools.find((t) => t.function.name === 'update_plan').function;
+  const text = tool.description;
+  // The two failures a weaker model hit: an id on create, and a second create
+  // once a plan already exists. The schema must name both and the recovery.
+  assert.match(text, /NEVER include "id" in a step when creating/);
+  assert.match(text, /UNEXPECTED_STEP_ID/);
+  assert.match(text, /PLAN_EXISTS/);
+  assert.match(text, /action "update"/);
+  assert.match(text, /action "get"/);
+  // Concrete, copyable call shapes for both write actions.
+  assert.match(text, /\{"action":"create"/);
+  assert.match(text, /\{"action":"update"/);
+  // The per-field hints repeat the rules where the model actually fills them.
+  const step = tool.parameters.properties.steps.items.properties;
+  assert.match(step.id.description, /NEVER include "id" when action is "create"/);
+  assert.match(tool.parameters.properties.steps.description, /no "id"/);
+  assert.match(step.description.description, /required on create/i);
+  assert.match(step.note.description, /required when status is blocked/i);
+});
+
 test('casual sessions have no plan and the tool refuses with a clear error', () => {
   const id = casualSession();
   assert.equal(plan.getPlan(id), null);
