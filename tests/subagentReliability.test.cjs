@@ -126,14 +126,14 @@ test('length with tools executes once; provider ignores tool-free finalization w
 
 test('runtime and parent preserve partial outcome and bounded stop header', async () => {
   configure({ maxToolCalls: 1 });
-  const { executeSpawnSubagent } = require('../src/main/tools/subagent');
+  const { executeSpawnSubagent, PARENT_RESULT_LIMIT } = require('../src/main/tools/subagent');
   const original = scheduler.scheduleInference;
   const responses = [reply(null, [call('a')]), reply('Useful finding. '.repeat(400))];
   scheduler.scheduleInference = options => original({ ...options, fetchImpl: async () => responses.shift() });
   let childId;
   try {
     const output = await executeSpawnSubagent({ task: 'Inspect.', investigate: true, rootPath: directory, engine, onSpawn: id => { childId = id; } });
-    assert.match(output, /^\[Sub-agent partial: tool_limit\]/); assert.ok(output.length <= 1800);
+    assert.match(output, /^\[Sub-agent partial: tool_limit\]/); assert.ok(output.length <= PARENT_RESULT_LIMIT);
     const child = sessions.getSession(childId);
     assert.equal(child.status, 'partial'); assert.equal(child.stopReason, 'tool_limit');
     assert.equal(runtime.getChildTranscript(childId).stopReason, 'tool_limit');

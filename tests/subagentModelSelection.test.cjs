@@ -40,7 +40,7 @@ const { listExecutions } = require('../src/main/subagents/executionStore');
 const { CHILD_TOOL_NAMES } = require('../src/main/subagents/agentLoop');
 const modelSelection = require('../src/main/subagents/modelSelection');
 const cloudProviders = require('../src/main/cloudProviders');
-const { executeSpawnSubagent, PARENT_RESULT_LIMIT } = require('../src/main/tools/subagent');
+const { executeSpawnSubagent, PARENT_RESULT_LIMIT, boundResultForParent } = require('../src/main/tools/subagent');
 const { buildSessionSystemPrompt } = require('../src/main/promptBuilder');
 const { db } = require('../src/main/db');
 const mcpManager = require('../src/main/mcpManager');
@@ -624,12 +624,22 @@ test('10. mixed lanes run in parallel and a setting change only affects the next
   }
 });
 
-test('11. the parent-facing result stays bounded while the child keeps the full answer', async () => {
+test('11. the parent receives the child\'s whole bounded answer, not a fraction of it', async () => {
   clearSelection();
+  // The notice only ever applies to an answer larger than the limit; anything
+  // within it — including the child's own 6,000-character ceiling — passes
+  // through unchanged. This is the backstop, not the common path.
+  const oversized = boundResultForParent('x'.repeat(PARENT_RESULT_LIMIT + 500));
+  assert.equal(oversized.length, PARENT_RESULT_LIMIT);
+  assert.ok(oversized.endsWith('[Summary truncated]'));
+  assert.equal(boundResultForParent('a short review'), 'a short review');
+
   // Joined with single spaces: the agent loop trims the final answer, so the
   // stored child result is exactly this string (no trailing whitespace).
   const full = Array(80).fill('FINDING the cloud child retains everything it produced.').join(' ');
-  assert.ok(full.length > PARENT_RESULT_LIMIT * 2);
+  // The child's own answer ceiling equals the parent limit, so a legitimate
+  // answer is delivered intact instead of being re-truncated in transit.
+  assert.ok(full.length <= PARENT_RESULT_LIMIT);
   const cloud = script([jsonResponse(full, { prompt_tokens: 10, completion_tokens: 400, total_tokens: 410 })]);
   installCloud(cloud);
   try {
@@ -640,10 +650,9 @@ test('11. the parent-facing result stays bounded while the child keeps the full 
       engine: cloudParentEngine,
       parentSessionId: 'sel-parent-cap',
     });
-    // What the parent pays in context: one short, clearly-marked summary.
-    assert.equal(answer.length, PARENT_RESULT_LIMIT);
-    assert.ok(answer.endsWith('[Summary truncated]'));
-    assert.ok(answer.length < full.length);
+    // What the parent pays in context: the child's complete review, no notice.
+    assert.equal(answer, full);
+    assert.ok(!answer.includes('[Summary truncated]'));
     // What the child keeps: the complete findings, internally, intact.
     const session = childOf('sel-parent-cap');
     assert.equal(session.result, full, 'the full answer stays in the child session');

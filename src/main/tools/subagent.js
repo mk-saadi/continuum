@@ -38,15 +38,19 @@ const spawnSubagentTool = {
   },
 };
 
-// Parent-context protection, reviewed in Step 7 and kept on purpose: whatever a
-// child returns lands in the parent's conversation as one tool result, so the
-// parent context pays for every character — the result is bounded to a short
-// summary (~1,800 characters). The full answer is NOT discarded: the child
-// session keeps it (session.result plus the whole session.context), so the
-// complete findings stay available internally for continuation (sendMessage /
-// resume) and for inspection through the runtime. One helper, one limit, one
-// notice — instead of the same slice repeated per path.
-const PARENT_RESULT_LIMIT = 1800;
+// Parent-context protection, reviewed in Step 7: whatever a child returns lands
+// in the parent's conversation as one tool result, so the parent context pays
+// for every character. The limit mirrors the child's OWN answer ceiling
+// (MAX_FINAL_CHARACTERS / MAX_SUMMARY_CHARACTERS = 6,000 characters, see
+// subagents/agentLoop.js and subagents/executionManager.js) instead of
+// re-truncating a bounded answer: the parent receives the whole review a child
+// was allowed to produce, and this notice is a backstop for any path that
+// returns more. The full answer is NOT discarded either way — the child session
+// keeps it (session.result plus the whole session.context), so the complete
+// findings stay available internally for continuation (sendMessage / resume)
+// and for inspection through the runtime. One helper, one limit, one notice —
+// instead of the same slice repeated per path.
+const PARENT_RESULT_LIMIT = 6000;
 const TRUNCATED_NOTICE = '[Summary truncated]';
 function boundResultForParent(answer) {
   if (typeof answer !== 'string' || answer.length <= PARENT_RESULT_LIMIT) return answer;
@@ -129,4 +133,4 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
   return boundResultForParent(summary);
 }
 
-module.exports = { spawnSubagentTool, executeSpawnSubagent, PARENT_RESULT_LIMIT };
+module.exports = { spawnSubagentTool, executeSpawnSubagent, PARENT_RESULT_LIMIT, boundResultForParent };
