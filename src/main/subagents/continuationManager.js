@@ -54,7 +54,7 @@
 
 const {
   SESSION_STATUS, IS_TERMINAL, getSession, listSessions, deleteSession, noteEvictedChild, wasEvictedChild,
-  waitSession, resumeSession, interruptSession,
+  waitSession, resumeSession, interruptSession, prepareContinuation, rehydrateSession,
   completeSession, failSession, cancelSession,
 } = require('./sessionManager');
 const {
@@ -64,8 +64,11 @@ const {
 } = require('./executionStore');
 const backgroundStore = require('./backgroundStore');
 const { runInvestigationExecution } = require('./agentLoop');
+const { isEngineReady, engineNotReadyError } = require('./providers');
 const { resolveRuntimeLimits } = require('./budgets');
 const { getBudgetSettings } = require('./budgetSettings');
+const continuationState = require('./continuationState');
+const persistence = require('./persistence');
 const {
   armExecutionDeadline, releaseExecutionDeadline,
   isDeadlineError, isRequestTimeoutError,
@@ -78,9 +81,7 @@ const {
 // unanswered, so the driver must re-run that turn before touching the inbox.
 const records = new Map();
 
-const MAX_MESSAGE_CHARACTERS = 8000; // aligned with the task seed ceiling
-
-// Same stop-vs-failure classification the runtime applies to first turns: an
+const MAX_MESSAGE_CHARACTERS = 8000; // aligned with the task seed ceiling// Same stop-vs-failure classification the runtime applies to first turns: an
 // aborted signal or an AbortError bubbling out of fetch/fs is a stop, every
 // other error is a failure. A timeout is a clock event, not a user action, so
 // it is never classified as a cancellation.
@@ -159,6 +160,15 @@ function registerChild(session, options) {
     pendingContinuation: false,
   };
   records.set(session.id, record);
+  // Phase 1.3C: the delegated objective's routing identity is mirrored onto the
+  // session so persistence can store enough to rebuild the child after a
+  // restart. Only serializable routing data is kept (never the fetch seam).
+  session.continuationOptions = {
+    kind: options.kind,
+    engine: options.engine ? { ...options.engine } : null,
+    rootPath: options.rootPath ?? null,
+  };
+  session.pendingContinuation = false;
   return record;
 }
 
@@ -184,7 +194,11 @@ function scheduleWake(session) {
   const record = records.get(session.id);
   if (!record || record.driving || record.scheduled) return false;
   if (session.status === SESSION_STATUS.RUNNING) return false;
-  waitSession(session);
+  // Phase 1.3C: prepareContinuation is a superset of waitSession — it also
+  // wakes a budget-exhausted/timed-out/cancelled child, but it is only reached
+  // here through the authorized continuation control surface.
+  prepareContinuation(session);
+  if (session.status !== SESSION_STATUS.WAITING) return false;
   scheduleDriver(record);
   return true;
 }
@@ -209,6 +223,7 @@ async function drive(record) {
       let mode;
       if (record.pendingContinuation) {
         record.pendingContinuation = false;
+        session.pendingContinuation = false;
         mode = 'continue';
       } else if (session.inbox.length > 0) {
         mode = 'message';
@@ -279,6 +294,7 @@ function settleStoppedTurn(record, session, attempt, controller, error) {
     // The turn stopped with its instruction unanswered inside the context:
     // the next wake must re-drive it before touching the inbox.
     record.pendingContinuation = true;
+    session.pendingContinuation = true;
     backgroundStore.settle(attempt.id, 'interrupted');
   } else if (isCancellation(error, controller.signal)) {
     cancelExecution(attempt);
@@ -309,6 +325,7 @@ function settleStoppedTurn(record, session, attempt, controller, error) {
 function noteInterruptedTurn(session) {
   const record = records.get(session.id);
   if (record) record.pendingContinuation = true;
+  if (session && typeof session === 'object') session.pendingContinuation = true;
 }
 
 /**
@@ -422,6 +439,350 @@ function resume(childId, { parentSessionId = null } = {}) {
   return { childSessionId: session.id, status: session.status, resumed: true };
 }
 
+// ---- Phase 1.3C: durable, renewable continuation ------------------------------
+//
+// The audit's central gap: a child that stopped because a *configured
+// allowance* ran out could not be continued, and its in-memory state did not
+// survive a restart. The control surface below makes continuation explicit,
+// authorized, renewable and durable while reusing the existing driver, agent
+// loop, compaction and scheduler unchanged.
+
+const CONTINUATION_MESSAGE_LIMIT = MAX_MESSAGE_CHARACTERS;
+
+function describeAppliedRenewal(applied) {
+  if (!applied || !applied.renewals?.length) return null;
+  return applied.renewals
+    .map(record => `${record.field} ${record.previous}→${record.total === null ? 'unbounded' : record.total}`)
+    .join(', ');
+}
+
+function continuationInstruction(session, eligibility, applied) {
+  const reason = session.stopReason ?? eligibility.reason;
+  const granted = describeAppliedRenewal(applied);
+  return `[Continuation] The previous attempt stopped because: ${reason}.`
+    + (granted ? ` Additional budget was authorized: ${granted}.` : '')
+    + ' Continue the original objective from where it left off. Do not repeat tool calls whose results are already'
+    + ' present in this conversation; build on them. If the objective is complete, report the result.';
+}
+
+/**
+ * Read-only snapshot of a stopped child plus the machine-readable continuation
+ * decision and the full allowance breakdown (original / granted / current /
+ * consumed / remaining / aggregate). Never mutates anything, so it is safe to
+ * poll from the UI.
+ */
+function continuationStatus(childId, { parentSessionId = null } = {}) {
+  const session = requireSession(childId);
+  if (parentSessionId != null) authorize(session, parentSessionId);
+  const record = records.get(session.id) ?? null;
+  const eligibility = continuationState.evaluateContinuation(session, {
+    pendingContinuation: record?.pendingContinuation === true || session.pendingContinuation === true,
+  });
+  return {
+    childSessionId: session.id,
+    parentSessionId: session.parentSessionId,
+    status: session.status,
+    stopReason: session.stopReason ?? null,
+    model: session.model,
+    provider: session.provider,
+    kind: record?.options?.kind ?? session.continuationOptions?.kind ?? null,
+    continuable: Boolean(record),
+    eligibility,
+    allowance: continuationState.summarizeAllowance(session.budgetState),
+    usage: session.usage ?? null,
+    accounting: session.accounting ?? null,
+    attempts: listExecutions(session.id).length + (session.attemptBase ?? 0),
+    pendingMessages: Array.isArray(session.inbox) ? session.inbox.length : 0,
+    durableResumable: session.durableResumable === true,
+    durable: session.continuation ?? null,
+    result: session.result ?? null,
+    error: session.error ?? null,
+  };
+}
+
+/**
+ * Authorized, monotonic renewal of a stopped child's finite budgets. The
+ * caller must be the owning parent. Consumption is never reset; the shared
+ * parent aggregate is never modified (so a renewal can never bypass it).
+ * Returns the applied deltas and the new allowance summary.
+ */
+function renewChildBudget(childId, patch = {}, { parentSessionId = null, reason = null, source = 'user' } = {}) {
+  const session = requireSession(childId);
+  authorize(session, parentSessionId);
+  const record = records.get(session.id);
+  if (!record) {
+    throw new Error(`Child ${session.id} cannot be renewed; only agent-loop children support budget renewal.`);
+  }
+  if (session.status === SESSION_STATUS.RUNNING) {
+    throw new Error(`Child ${session.id} is running and cannot be renewed; stop or let it settle first.`);
+  }
+  if (session.status === SESSION_STATUS.COMPLETED && !record.pendingContinuation && session.inbox.length === 0) {
+    throw new Error(`Child ${session.id} is completed and does not need a renewal.`);
+  }
+  if (!session.budgetState) throw new Error(`Child ${session.id} has no budget state to renew.`);
+  const applied = require('./executionBudget').renewBudget(session.budgetState, patch, {
+    reason, source, parentSessionId: session.parentSessionId ?? null,
+  });
+  return {
+    childSessionId: session.id,
+    applied: applied.applied,
+    renewals: applied.renewals,
+    budgets: applied.budgets,
+    allowance: continuationState.summarizeAllowance(session.budgetState),
+  };
+}
+
+/**
+ * Continue a stopped child: renew (if required and authorized), enqueue the
+ * continuation work, and wake the existing per-child driver — the same driver,
+ * same context, same model, same permissions. Returns a structured result; it
+ * never throws for an ineligible child (authorization errors still throw).
+ *
+ * `renewal` is the same patch shape as renewChildBudget. `message` overrides the
+ * default continuation instruction. `allowCancelled`/`allowTimedOut` are the
+ * explicit user actions the eligibility rules require for those statuses.
+ */
+function continueChild(childId, {
+  parentSessionId = null, renewal = null, message = null,
+  allowCancelled = false, allowTimedOut = false,
+} = {}) {
+  const session = requireSession(childId);
+  authorize(session, parentSessionId);
+  if (message != null && (typeof message !== 'string' || !message.trim()
+      || message.includes('\0') || message.length > CONTINUATION_MESSAGE_LIMIT)) {
+    throw new Error(`message must be a non-empty string of at most ${CONTINUATION_MESSAGE_LIMIT} characters.`);
+  }
+  const record = records.get(session.id);
+  if (!record) {
+    return { childSessionId: session.id, continued: false, reason: 'not_continuable',
+      detail: 'Only agent-loop children can be continued.', eligibility: null };
+  }
+  const eligibility = continuationState.evaluateContinuation(session, {
+    pendingContinuation: record.pendingContinuation === true || session.pendingContinuation === true,
+  });
+  if (!eligibility.eligible) {
+    return { childSessionId: session.id, continued: false, reason: eligibility.reason,
+      detail: eligibility.detail, eligibility };
+  }
+  if (eligibility.requiresExplicitAction) {
+    if (session.status === SESSION_STATUS.CANCELLED && !allowCancelled) {
+      return { childSessionId: session.id, continued: false, reason: 'cancelled_requires_explicit_action',
+        detail: 'A cancelled child continues only after explicit user action and a safety review.', eligibility };
+    }
+    if (session.status === SESSION_STATUS.TIMED_OUT && !allowTimedOut) {
+      return { childSessionId: session.id, continued: false, reason: 'timed_out_requires_explicit_action',
+        detail: 'A timed-out child continues only on explicit action and with a new valid deadline.', eligibility };
+    }
+  }
+  let applied = null;
+  if (eligibility.requiresRenewal) {
+    if (!renewal || typeof renewal !== 'object' || Array.isArray(renewal)) {
+      return { childSessionId: session.id, continued: false, reason: 'renewal_required',
+        detail: 'This child stopped at a configured budget; an explicit renewal is required to continue.', eligibility };
+    }
+    const patch = { ...renewal };
+    const renewalReason = patch.reason ?? 'continuation';
+    const renewalSource = patch.source ?? 'user';
+    delete patch.reason; delete patch.source;
+    applied = renewChildBudget(session.id, patch, {
+      parentSessionId: session.parentSessionId, reason: renewalReason, source: renewalSource,
+    });
+    // Re-evaluate after renewal: the child is now eligible to run.
+  }
+  // Enqueue the work. An interrupted turn is re-driven from the context by the
+  // driver, so no message is invented for it; every other continuation gets one
+  // explicit instruction (never a replay of completed tool calls).
+  const explicit = typeof message === 'string' && message.trim();
+  if (explicit) {
+    session.inbox.push({ message, enqueuedAt: new Date().toISOString() });
+  } else if (!record.pendingContinuation) {
+    session.inbox.push({
+      message: continuationInstruction(session, eligibility, applied),
+      enqueuedAt: new Date().toISOString(), continuation: true,
+    });
+  }
+  prepareContinuation(session);
+  scheduleWake(session);
+  return {
+    childSessionId: session.id,
+    continued: true,
+    status: session.status,
+    renewal: applied,
+    eligibility,
+    allowance: continuationState.summarizeAllowance(session.budgetState),
+    pending: session.inbox.length,
+  };
+}
+
+// --- Restart recovery (Step 8) ------------------------------------------------
+//
+// Recovery only *makes durable work available*; it never executes anything.
+// After a restart the caller lists recoverable children, inspects them, and
+// explicitly continues one — a continuation that is the same authorized,
+// renewable path as the in-process one.
+
+function ownerSessionExists(parentSessionId) {
+  if (typeof parentSessionId !== 'string' || !parentSessionId) return false;
+  try {
+    return Boolean(require('../db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(parentSessionId));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Children whose durable state survived a restart and are not currently live
+ * in memory. This is a listing, not a resumption: nothing runs.
+ */
+function listRecoverableChildren({ parentSessionId = null } = {}) {
+  let rows = [];
+  try {
+    const statement = parentSessionId
+      ? require('../db').db.prepare('SELECT * FROM subagent_runs WHERE continuation_json IS NOT NULL AND parent_session_id = ? ORDER BY updated_at DESC')
+      : require('../db').db.prepare('SELECT * FROM subagent_runs WHERE continuation_json IS NOT NULL ORDER BY updated_at DESC');
+    rows = parentSessionId ? statement.all(parentSessionId) : statement.all();
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const row of rows) {
+    if (getSession(row.child_session_id)) continue; // still live: not a restart case
+    let continuation = null;
+    try { continuation = row.continuation_json ? JSON.parse(row.continuation_json) : null; } catch { continuation = null; }
+    if (!continuation) continue;
+    out.push({
+      childSessionId: row.child_session_id,
+      parentSessionId: row.parent_session_id,
+      status: row.status,
+      stopReason: row.stop_reason ?? null,
+      kind: row.kind,
+      model: row.model,
+      eligibility: {
+        eligibility: continuation.eligibility ?? 'not_eligible',
+        eligible: continuation.eligible === true,
+        requiresRenewal: continuation.requiresRenewal === true,
+        requiresExplicitAction: continuation.requiresExplicitAction === true,
+        recoveryRequired: continuation.recoveryRequired === true,
+        reason: continuation.reason ?? 'unknown',
+        detail: continuation.detail ?? null,
+      },
+      attemptCount: Number.isSafeInteger(row.attempt_count) ? row.attempt_count : continuation.attemptCount ?? 0,
+      updatedAt: row.updated_at,
+    });
+  }
+  return out;
+}
+
+// Phase 1.4 — the shared aggregate counter is per parent *invocation* and is
+// not itself durable. Recovery must NOT silently grant a fresh aggregate: the
+// persisted snapshot (ceiling + consumption at the last safe boundary) is
+// reattached so the child's original finite aggregate still governs. One
+// reconstructed scope is shared per scope id, so recovered siblings of the same
+// invocation keep competing for the same allowance instead of each getting a
+// copy. Rows written before Phase 1.4 carry no snapshot and fall back to the
+// configured aggregate (never "unlimited").
+const recoveredScopes = new Map();
+const MAX_RECOVERED_SCOPES = 256;
+
+function snapshotScope(scope) {
+  return {
+    id: typeof scope?.id === 'string' ? scope.id : null,
+    toolCalls: Number.isSafeInteger(scope?.toolCalls) && scope.toolCalls >= 0 ? scope.toolCalls : 0,
+    maxToolCalls: scope?.maxToolCalls === null || scope?.maxToolCalls === undefined ? null : scope.maxToolCalls,
+  };
+}
+
+function liveScopeById(id) {
+  if (!id) return null;
+  for (const session of listSessions()) {
+    if (session?.budgetState?.scope?.id === id) return session.budgetState.scope;
+  }
+  return null;
+}
+
+function acquireRecoveredScope(budgetData) {
+  const snapshot = budgetData?.scope;
+  const id = typeof snapshot?.id === 'string' && snapshot.id ? snapshot.id : null;
+  // A still-live sibling of the same parent invocation owns the authoritative
+  // counter; reattach to it rather than reconstructing a parallel one.
+  const live = liveScopeById(id);
+  if (live) return live;
+  if (id && recoveredScopes.has(id)) return recoveredScopes.get(id);
+  const scope = snapshot && typeof snapshot === 'object'
+    ? snapshotScope(snapshot)
+    : require('./executionBudget').createParentRunBudget();
+  if (id) {
+    recoveredScopes.set(id, scope);
+    if (recoveredScopes.size > MAX_RECOVERED_SCOPES) recoveredScopes.delete(recoveredScopes.keys().next().value);
+  }
+  return scope;
+}
+
+/**
+ * Rebuild a child from durable state into the in-memory runtime so it can be
+ * inspected and explicitly continued. Never starts execution. Refuses when the
+ * stored routing identity is missing or the (requested) owner no longer exists.
+ */
+function recoverChild(childId, {
+  parentSessionId = null, engine = null, rootPath = null, verifyOwner = false,
+} = {}) {
+  const live = getSession(childId);
+  if (live) {
+    return { childSessionId: childId, recovered: false, alreadyLive: true,
+      ...continuationStatus(childId, { parentSessionId }) };
+  }
+  const row = persistence.readPersistedContinuation(childId);
+  if (!row.found) throw new Error(`Unknown child session: ${String(childId)}.`);
+  if (parentSessionId != null && row.parentSessionId !== parentSessionId) {
+    throw new Error('Only the owning parent session may recover this child.');
+  }
+  if (verifyOwner && !ownerSessionExists(parentSessionId)) {
+    throw new Error(`The owner session ${String(parentSessionId)} no longer exists; this child cannot be recovered.`);
+  }
+  const continuation = row.continuation ?? {};
+  const options = continuation.options ?? {};
+  if (options.kind && options.kind !== 'investigation') {
+    throw new Error(`Child ${childId} is a ${options.kind} child and is not continuable.`);
+  }
+  const childEngine = engine ?? options.engine ?? null;
+  if (!childEngine) {
+    throw new Error(`Child ${childId} has no recorded model configuration and cannot be recovered without one.`);
+  }
+  if (!isEngineReady(childEngine)) throw engineNotReadyError(childEngine, 'continuing a recovered child');
+  const session = rehydrateSession({
+    id: row.childSessionId,
+    parentSessionId: row.parentSessionId,
+    model: row.model,
+    provider: row.provider,
+    status: row.status,
+    stopReason: row.stopReason,
+    context: row.context,
+    rawContext: row.rawContext,
+    compactionState: row.compactionState,
+    accounting: row.accounting,
+    budgetState: continuationState.deserializeBudgetState(row.budget, {
+      scope: acquireRecoveredScope(row.budget),
+    }),
+    continuation,
+    attemptBase: row.attemptCount,
+    continuationOptions: {
+      kind: options.kind ?? 'investigation',
+      engine: childEngine,
+      rootPath: rootPath ?? options.rootPath ?? null,
+    },
+    createdAt: row.createdAt,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+  });
+  registerChild(session, {
+    kind: 'investigation',
+    engine: childEngine,
+    rootPath: rootPath ?? options.rootPath ?? null,
+  });
+  return { childSessionId: session.id, recovered: true, alreadyLive: false,
+    ...continuationStatus(session.id, { parentSessionId }) };
+}
+
 // ---- Bounded retention (process-lifetime memory) ----
 //
 // The sessions/executions/records maps grow with every delegation and nothing
@@ -503,6 +864,9 @@ function pruneChildSessions({ now = Date.now(), ttlMs = COMPLETED_TTL_MS, maxCom
 module.exports = {
   registerChild, onTurnSettled, noteInterruptedTurn,
   sendMessage, interrupt, resume,
+  // Phase 1.3C control surface: inspect, renew, continue, recover.
+  continuationStatus, renewChildBudget, continueChild,
+  listRecoverableChildren, recoverChild, ownerSessionExists,
   pruneChildSessions, isSessionEvictable, COMPLETED_TTL_MS, MAX_COMPLETED_SESSIONS,
   // Test/diagnostic visibility into the driver state; not part of the control
   // surface, but useful to assert single-turn ownership from the outside.

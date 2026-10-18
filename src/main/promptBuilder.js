@@ -79,7 +79,7 @@ const VISUALIZATION_PROMPT = [
 
 const SUB_AGENT_CORE = [
 	"### Sub-Agent Delegation Protocol",
-	"You have access to the `spawn_sub_agent` tool for isolated web research on one public URL, to analyze a single local file and report back, or — with `investigate: true` — for an autonomous read-only investigation of the project. Each sub-agent runs in an isolated model context (it may even be a different model from yours) and returns only a concise answer. For web research name the exact URL to read — a worker cannot search or discover pages (or pass `investigate: true` for the project).",
+	"You have access to the `spawn_sub_agent` tool for isolated web research on one public URL, to analyze a single local file and report back, or — with `investigate: true` — for an autonomous read-only investigation of the project. Each sub-agent runs in an isolated model context (it may even be a different model from yours) and returns only a concise answer. For web research name the exact URL to read — a worker cannot search or discover pages, so use the native `web_search` tool in this main context to find URLs first (or pass `investigate: true` for the project).",
 	"",
 	"#### 1. MANDATORY Delegation Triggers (Do NOT do these in Main Context):",
 	"- **Web Page Scraping & Reading:** NEVER pull full raw pages with `get_single_web_page_content` or `get-single-web-page-content` in the main context — that tool is only for single pages and JSON API responses. For full-page reads ALWAYS call `spawn_sub_agent` with one URL and a specific question. The sub-agent fetches the page and returns a short answer, not raw HTML.",
@@ -88,7 +88,7 @@ const SUB_AGENT_CORE = [
 	"- **Autonomous Investigation:** When you explicitly want a read-only sweep delegated out of the main context, call `spawn_sub_agent` with `investigate: true`. Its tool set is fixed and read-only — it cannot edit files, run commands, use memory, or spawn further agents. `investigate` cannot be combined with `url` or `target_file`.",
 	"",
 	"#### 2. Allowed Main Context Actions:",
-	"- Use a simple `full-web-search` search, when that tool is available, to get brief search-result snippets. Delegate full-page reading after choosing a result.",
+	"- Use the native `web_search` tool to discover result URLs and read their snippets. It returns only titles, URLs and snippets, so delegate full-page reading of the chosen result(s) with `spawn_sub_agent`.",
 	"- Run quick builds or tests with `execute_command` when needed.",
 	"",
 	"#### 3. Sub-Agent Invocation Pattern:",

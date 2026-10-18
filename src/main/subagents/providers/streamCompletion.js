@@ -33,12 +33,18 @@ async function readCompletion(response, onProgress, { inactivityMs = null, timer
   let rawContent = '';
   let usage;
   let finishReason = null;
+  // Phase 1.5: the protocol end-of-stream marker. A stream that closes without
+  // either `[DONE]` or a finish reason is an interrupted generation, even if it
+  // emitted content — the flag travels on the message so the loop can classify
+  // it (and refuse to dispatch a tool call parsed from a half-received stream).
+  let sawDone = false;
   let buffer = '';
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
   function consume(frame) {
     const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-    if (!data || data === '[DONE]') return;
+    if (!data) return;
+    if (data === '[DONE]') { sawDone = true; return; }
     const chunk = JSON.parse(data);
     if (chunk.error) throw new Error(chunk.error.message || 'Sub-agent generation failed.');
     if (chunk.usage) usage = chunk.usage;
@@ -103,6 +109,13 @@ async function readCompletion(response, onProgress, { inactivityMs = null, timer
   const toolCalls = [...calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call).concat(xml.calls);
   if (toolCalls.length) message.tool_calls = toolCalls;
   if (!xml.calls.length && /<tool_call\b|<function\s*=/i.test(rawContent)) message.toolMarkupIncomplete = true;
+  // Interrupted stream: it produced output but the provider never signalled a
+  // terminal state (`[DONE]` or a finish reason). An empty stream stays a plain
+  // empty completion rather than being mislabelled as interrupted.
+  if (!sawDone && finishReason === null
+      && (rawContent || message.reasoning_content || toolCalls.length || message.toolMarkupIncomplete)) {
+    message.streamInterrupted = true;
+  }
   return { choices: [{ message, finish_reason: finishReason }], ...(usage ? { usage } : {}) };
 }
 

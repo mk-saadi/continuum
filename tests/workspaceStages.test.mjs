@@ -81,9 +81,25 @@ test('toolKind and verb map known tools and keep raw names for others', () => {
   assert.equal(toolKind({ toolName: 'execute_command' }), 'command');
   assert.equal(toolKind({ toolName: 'str_replace_editor' }), 'edit');
   assert.equal(toolKind({ toolName: 'write_project_file' }), 'write');
+  assert.equal(toolKind({ toolName: 'delete_project_file' }), 'delete');
   assert.equal(toolKind({ toolName: 'mystery_mcp_tool' }), 'other');
   assert.equal(toolVerb({ toolName: 'execute_command' }), 'Run');
+  assert.equal(toolVerb({ toolName: 'delete_project_file' }), 'Delete');
   assert.equal(toolVerb({ toolName: 'mystery_mcp_tool' }), 'mystery_mcp_tool');
+});
+
+test('a deletion stage summarizes by file, never as an exploration', () => {
+  const summary = summarizeStage(splitStages([
+    tool('delete_project_file', { path: 'old/notes.md' }),
+  ])[0]);
+  assert.equal(summary.title, 'Deleted 1 file');
+  assert.deepEqual(summary.files, ['old/notes.md']);
+  assert.equal(summary.counts.delete, 1);
+  const many = summarizeStage(splitStages([
+    tool('delete_project_file', { path: 'a.md' }),
+    tool('delete_project_file', { path: 'b.md' }),
+  ])[0]);
+  assert.equal(many.title, 'Deleted 2 files');
 });
 
 test('formatArgFields surfaces salient fields without full content', () => {
@@ -93,6 +109,8 @@ test('formatArgFields surfaces salient fields without full content', () => {
   assert.match(fields.find((f) => f.label === 'Content').value, /10 lines/);
   const cmd = formatArgFields(tool('execute_command', { command: 'grep -rn foo', cwd: '/p' }));
   assert.equal(cmd[0].value, 'grep -rn foo');
+  const del = formatArgFields(tool('delete_project_file', { path: 'old/notes.md' }));
+  assert.deepEqual(del, [{ label: 'Path', value: 'old/notes.md' }]);
 });
 
 test('isTestCommand only matches recorded test-runner commands', () => {

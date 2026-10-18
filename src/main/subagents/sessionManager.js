@@ -82,8 +82,25 @@ function createSession({ parentSessionId = null, agentId = null, model = null,
     usage: null,
     result: null,
     error: null,
+    stopReason: null,
+    accounting: null,
     inbox: [],
     context: null,
+    // Phase 1.3C durable-continuation state. `rawContext`/`compactionState` are
+    // owned by the agent loop's context adapter; they are declared here so a
+    // child has one stable shape, live or rehydrated. `continuationOptions`
+    // records the delegated objective's engine/root so a restart can rebuild
+    // the child; `pendingContinuation` mirrors the driver's unfinished-turn
+    // flag; `continuation`/`durableResumable` are the persisted eligibility.
+    rawContext: null,
+    compactionState: null,
+    budgetState: null,
+    inputSummary: null,
+    continuationOptions: null,
+    pendingContinuation: false,
+    attemptBase: 0,
+    continuation: null,
+    durableResumable: false,
     // Live activity feed for the observability modal: turn starts, captured
     // thinking, tool start/finish, and errors. Observational only — the loop
     // never reads it back, and it is never sent to the model. Bounded so a
@@ -166,6 +183,78 @@ function resumeSession(session) {
   return session;
 }
 
+// Phase 1.3C: wake a child into `waiting` for an *authorized continuation*. Unlike
+// waitSession this also accepts a budget-exhausted (`partial`), budget-failed,
+// `timed_out` or `cancelled` child — but only the continuation control surface
+// (continuationManager.continueChild) calls it, after eligibility has been
+// checked and any renewal applied. It never executes anything by itself.
+const CAN_CONTINUE = new Set([
+  SESSION_STATUS.CREATED, SESSION_STATUS.COMPLETED, SESSION_STATUS.INTERRUPTED,
+  SESSION_STATUS.PARTIAL, SESSION_STATUS.FAILED, SESSION_STATUS.TIMED_OUT,
+  SESSION_STATUS.CANCELLED,
+]);
+function prepareContinuation(session) {
+  if (session.status === SESSION_STATUS.RUNNING || session.status === SESSION_STATUS.WAITING) return session;
+  if (!CAN_CONTINUE.has(session.status)) return session;
+  session.status = SESSION_STATUS.WAITING;
+  session.completedAt = null;
+  session.durationMs = null;
+  return session;
+}
+
+// Rebuild a child from durable state after a restart (Phase 1.3C Step 8). The
+// child is inserted into the in-memory registry in a *stopped* state and is
+// never executed here: recovery only makes it available, and an explicit
+// continuation is required to run it. A session that was mid-flight when the
+// process died (`created`/`waiting`/`running`) is marked `interrupted` — the
+// truthful "unexpected termination" state — never silently resumed.
+function recoveryStatus(status) {
+  if (status === SESSION_STATUS.CREATED || status === SESSION_STATUS.WAITING || status === SESSION_STATUS.RUNNING) {
+    return SESSION_STATUS.INTERRUPTED;
+  }
+  return typeof status === 'string' && status ? status : SESSION_STATUS.INTERRUPTED;
+}
+
+function rehydrateSession(record) {
+  if (!record || typeof record.id !== 'string' || !record.id) {
+    throw new Error('rehydrateSession requires a child session id.');
+  }
+  if (sessions.has(record.id)) return sessions.get(record.id);
+  const now = new Date().toISOString();
+  const session = {
+    id: record.id,
+    parentSessionId: record.parentSessionId ?? null,
+    agentId: record.agentId ?? null,
+    model: record.model ?? null,
+    provider: record.provider ?? 'local',
+    providerId: record.providerId ?? null,
+    status: recoveryStatus(record.status),
+    createdAt: record.createdAt ?? now,
+    startedAt: record.startedAt ?? null,
+    completedAt: record.completedAt ?? null,
+    durationMs: record.durationMs ?? null,
+    usage: record.usage ?? null,
+    result: record.result ?? null,
+    error: record.error ?? null,
+    stopReason: record.stopReason ?? null,
+    accounting: record.accounting ?? null,
+    inbox: [],
+    context: record.context ?? null,
+    rawContext: record.rawContext ?? null,
+    compactionState: record.compactionState ?? null,
+    budgetState: record.budgetState ?? null,
+    inputSummary: record.inputSummary ?? null,
+    continuationOptions: record.continuationOptions ?? null,
+    pendingContinuation: false,
+    attemptBase: Number.isSafeInteger(record.attemptBase) ? record.attemptBase : 0,
+    continuation: record.continuation ?? null,
+    durableResumable: false,
+    activity: [],
+  };
+  sessions.set(session.id, session);
+  return session;
+}
+
 // Interrupt: stop the current work but keep the session and its context
 // continuable. Only a live child can be interrupted; terminal and already
 // completed children are untouched (there is no "current work" to stop).
@@ -242,7 +331,8 @@ function pushActivity(session, event) {
 module.exports = {
   SESSION_STATUS, IS_TERMINAL, createSession, startSession, getSession, listSessions, listChildren,
   deleteSession, noteEvictedChild, wasEvictedChild, MAX_EVICTED_CHILD_IDS,
-  waitSession, resumeSession, interruptSession,
+  waitSession, resumeSession, interruptSession, prepareContinuation, CAN_CONTINUE,
+  rehydrateSession, recoveryStatus,
   completeSession, failSession, cancelSession,
   pushActivity, ACTIVITY_LIMIT,
 };

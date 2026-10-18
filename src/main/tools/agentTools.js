@@ -92,6 +92,21 @@ const agentTools = [
 		["url", "query"],
 	),
 	define(
+		"web_search",
+		"Search the public web and return a short ranked list of results (title, URL, snippet). Discovery only: it never fetches a result page — read a chosen URL with get_single_web_page_content or delegate it to a sub-agent. Requires a search provider configured in Settings.",
+		{
+			query: string("The search query"),
+			max_results: {
+				type: "number",
+				minimum: 1,
+				maximum: 20,
+				default: 5,
+				description: "Number of results to return (1-20, default 5)",
+			},
+		},
+		["query"],
+	),
+	define(
 		"execute_command",
 		"Run a shell command with a 45-second timeout. Contained commands run inside the workspace sandbox and can write only inside the project root; commands that would affect the system outside the workspace request user approval first. Output preserves the beginning and error tail.",
 		{
@@ -212,6 +227,19 @@ const agentTools = [
 			destination_path: string("New project-relative path; parent directories are created"),
 		},
 		["source_path", "destination_path"],
+	),
+	define(
+		"delete_project_file",
+		"Permanently delete one project file (never a directory, never a symlink). The content is captured for recovery before deletion, so it can be restored. Always asks for confirmation except in Full Access. Fails in Read Only mode, for casual chats without a workspace, and if the file is larger than the recovery capture limit.",
+		{
+			path: string("Project-relative file path to delete"),
+			expected_hash: {
+				type: "string",
+				pattern: "^[a-f0-9]{64}$",
+				description: "Optional SHA-256 of the file's current content; delete only if the content still matches",
+			},
+		},
+		["path"],
 	),
 	define(
 		"edit_project_files",
@@ -1605,6 +1633,192 @@ async function executeMoveProjectFile(root, { source_path, destination_path }, u
 	}, move);
 }
 
+// ---------------------------------------------------------------------------
+// delete_project_file: durable, permission-gated single-file deletion.
+//
+// There is no new deletion framework: the before-image is captured through the
+// existing recovery store and the operation is gated by the existing
+// permission/approval flow (see toolPermissions guardTool). This module owns
+// only the mechanics: strict single-file validation, a content fingerprint
+// binding the approved bytes, fail-closed TOCTOU re-checks, the irreversible
+// unlink, and honest outcomes. Deletion is always workspace-contained — the
+// one escape hatch other writes have (an approved outside-workspace write) is
+// deliberately unavailable here.
+// ---------------------------------------------------------------------------
+
+// Outcome vocabulary returned to the model and UI. `deleted` is the only
+// success; a missing file is never reported as deleted.
+const DELETE_OUTCOMES = Object.freeze({
+	DELETED: 'deleted',
+	NOT_FOUND: 'not_found',
+	PERMISSION_DENIED: 'permission_denied',
+	APPROVAL_DENIED: 'approval_denied',
+	INVALID_PATH: 'invalid_path',
+	NOT_A_FILE: 'not_a_file',
+	CONFLICT: 'conflict',
+	RECOVERY_FAILED: 'recovery_failed',
+	CANCELLED: 'cancelled',
+	ERROR: 'error',
+});
+
+// Typed deletion failure: the `.deleteOutcome` marker lets the dispatcher
+// report a precise outcome while the message stays human-readable.
+function deleteFail(outcome, message) {
+	const error = new Error(message);
+	error.deleteOutcome = outcome;
+	return error;
+}
+
+// Streaming SHA-256 so a large file is hashed without buffering it whole in
+// memory (recovery capture, not this hash, is what caps deletion size).
+async function sha256File(abs) {
+	const hash = require("node:crypto").createHash("sha256");
+	let size = 0;
+	const stream = require("node:fs").createReadStream(abs);
+	for await (const chunk of stream) {
+		size += chunk.length;
+		hash.update(chunk);
+	}
+	return { hash: hash.digest("hex"), size };
+}
+
+// Fingerprint binds the exact path AND content bytes the user approves, so a
+// rename, content edit, or size change between approval and execution rejects.
+function deleteFingerprint(rel, hash, size) {
+	return require("node:crypto").createHash("sha256")
+		.update(rel).update("\0").update(hash).update("\0").update(String(size)).digest("hex");
+}
+
+/**
+ * Resolve and validate a single-file deletion target under `root`. Fails
+ * closed on every shape that is not an existing regular in-workspace file:
+ * absolute paths, `..` traversal, `.git` internals, symlinks (including
+ * in-workspace ones), directories, and the workspace root itself. Containment
+ * uses the same ancestor/symlink-aware resolver every other write tool uses —
+ * never a string-prefix comparison — and canonicalizes the parent so an
+ * intermediate symlink cannot redirect the unlink outside the workspace.
+ * Returns a snapshot { rel, abs, size, hash, mode, fingerprint }.
+ */
+async function prepareFileDelete(root, value, { signal } = {}) {
+	signal?.throwIfAborted();
+	if (typeof value !== "string" || !value.trim() || value.includes("\0"))
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Invalid path: provide a non-empty project-relative file path.");
+	if (path.isAbsolute(value) || path.win32.isAbsolute(value) || value.includes("\\"))
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Invalid path: use a project-relative file path.");
+	const normalized = value.replace(/\\/g, "/");
+	const segments = normalized.split("/");
+	if (segments.some((part) => part === ".."))
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Execution blocked: path escapes the project root.");
+	// Repository history is never a deletion target.
+	if (segments.some((part) => part === ".git"))
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Execution blocked: refusing to delete inside the .git directory.");
+	let target;
+	try {
+		target = await scopedPath(root, normalized, false);
+	} catch (error) {
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, `Execution blocked: ${error.message}`);
+	}
+	if (path.resolve(target) === path.resolve(root))
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Execution blocked: refusing to delete the project root.");
+	// A trailing slash asserts a directory (POSIX unlink would fail ENOTDIR);
+	// deletion is file-only, so refuse it as not-a-file rather than silently
+	// resolving to the file behind it.
+	if (normalized.endsWith("/"))
+		throw deleteFail(DELETE_OUTCOMES.NOT_A_FILE, `Not a regular file: ${normalized}.`);
+	let stat;
+	try {
+		stat = await fs.lstat(target);
+	} catch (error) {
+		if (error.code === "ENOENT")
+			throw deleteFail(DELETE_OUTCOMES.NOT_FOUND, `File does not exist: ${normalized}.`);
+		throw error;
+	}
+	// The final component must be a regular file: a symlink (even one that
+	// resolves inside the workspace) and a directory are both refused.
+	if (stat.isSymbolicLink())
+		throw deleteFail(DELETE_OUTCOMES.NOT_A_FILE, "Execution blocked: refusing to delete a symbolic link.");
+	if (!stat.isFile())
+		throw deleteFail(DELETE_OUTCOMES.NOT_A_FILE, `Not a regular file: ${normalized}.`);
+	const { hash, size } = await sha256File(target);
+	signal?.throwIfAborted();
+	return { rel: normalized, abs: target, size, hash, mode: stat.mode & 0o7777,
+		fingerprint: deleteFingerprint(normalized, hash, size) };
+}
+
+/**
+ * Delete one authorized project file. Callers must already have passed the
+ * permission/approval gate (guardTool): `approval.deleteFingerprint` is the
+ * approved bytes, absent only in Full Access. Steps, in order:
+ *   1. Re-validate the target and re-hash it (never trust the approval view).
+ *   2. Honor the optional expected_hash precondition.
+ *   3. Reject any change since approval (fingerprint mismatch).
+ *   4. Capture the before-image through the recovery store; a capture failure
+ *      blocks the deletion (never silent, never unprotected).
+ *   5. Honor cancellation before the irreversible step, then re-hash once more
+ *      and unlink only if the bytes are still exactly what was approved.
+ *   6. Record the post-state (best-effort) so a later restore can tell this
+ *      operation's own effect from later edits.
+ */
+async function executeDeleteProjectFile(root, args, { signal, recoveryCtx = {}, approval = null, fullAccess = false } = {}) {
+	signal?.throwIfAborted();
+	const snapshot = await prepareFileDelete(root, args?.path, { signal });
+
+	if (args?.expected_hash !== undefined) {
+		if (typeof args.expected_hash !== "string" || !/^[a-f0-9]{64}$/.test(args.expected_hash))
+			throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Invalid expected_hash: provide a lowercase SHA-256 hex digest.");
+		if (args.expected_hash !== snapshot.hash)
+			throw deleteFail(DELETE_OUTCOMES.CONFLICT,
+				`File content changed: expected ${args.expected_hash.slice(0, 12)}… but found ${snapshot.hash.slice(0, 12)}….`);
+	}
+
+	if (!fullAccess) {
+		if (!approval?.deleteFingerprint || approval.deleteFingerprint !== snapshot.fingerprint)
+			throw deleteFail(DELETE_OUTCOMES.CONFLICT,
+				"File content changed since approval. Review and approve the deletion again.");
+	}
+
+	let checkpoint;
+	try {
+		checkpoint = await recoveryStore.captureOperation({
+			root,
+			chatSessionId: recoveryCtx.chatSessionId ?? null,
+			toolName: "delete_project_file",
+			op: { kind: "delete", path: snapshot.rel, size: snapshot.size },
+			paths: [snapshot.rel],
+			// The file is about to disappear: any capture gap on it must block
+			// the deletion instead of leaving it unprotected.
+			required: [snapshot.rel],
+			uncontained: false,
+		});
+	} catch (error) {
+		throw deleteFail(DELETE_OUTCOMES.RECOVERY_FAILED,
+			`Recovery capture failed; refusing to delete ${snapshot.rel} to protect its content: ${error.message}`);
+	}
+
+	// Cancellation is honored only before the irreversible step; after the
+	// unlink the truthful outcome is `deleted`.
+	signal?.throwIfAborted();
+	const fresh = await prepareFileDelete(root, args?.path, { signal });
+	if (fresh.abs !== snapshot.abs || fresh.hash !== snapshot.hash || fresh.size !== snapshot.size)
+		throw deleteFail(DELETE_OUTCOMES.CONFLICT,
+			`File changed immediately before deletion (${snapshot.rel}); nothing was deleted.`);
+
+	await fs.unlink(snapshot.abs);
+	try {
+		await recoveryStore.recordOpPostState(checkpoint.checkpointId, { [snapshot.rel]: { k: "absent" } });
+	} catch {
+		/* Best-effort: a missing post-state only makes a later restore stricter. */
+	}
+	return {
+		success: true,
+		outcome: DELETE_OUTCOMES.DELETED,
+		path: snapshot.rel,
+		size: snapshot.size,
+		sha256: snapshot.hash,
+		recoveryCheckpointId: checkpoint.checkpointId,
+	};
+}
+
 const MAX_BATCH_EDITS = 20;
 
 async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx = {}) {
@@ -1821,6 +2035,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
+		if (name === "web_search") return await require("./webSearchProvider").searchWeb({ query: args.query, max_results: args.max_results, signal });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId, budgetScope });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
 		// Durable, session-owned task state: no filesystem or workspace access
@@ -1892,6 +2107,21 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			if (!(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 			return await executeGitTool(root, name, args, signal, uncontained, guardDecision, permissionMode === 'full_access');
 		}
+		if (name === "delete_project_file") {
+			// Deletion never uses the full-access / process.cwd fallback root:
+			// it must always have a real project workspace, and it stays
+			// workspace-contained even in full_access (there is deliberately no
+			// outside-workspace escape for deletion). `root` above already
+			// resolved from project.root_path.
+			if (!project?.root_path)
+				return { success: false, outcome: "permission_denied", error: "Execution blocked: File deletion requires a project workspace." };
+			return await executeDeleteProjectFile(root, args, {
+				signal,
+				recoveryCtx: { chatSessionId: sessionId ?? null },
+				approval: guardDecision,
+				fullAccess: permissionMode === "full_access",
+			});
+		}
 		const target = ["read_project_file", "list_directory"].includes(name)
 			? await readablePath(root, args.relative_path ?? ".")
 			: uncontained ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
@@ -1951,13 +2181,36 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			root, rel: args.relative_path, chatSessionId: sessionId ?? null, uncontained,
 		});
 	} catch (error) {
-		return { success: false, error: error.message };
+		const result = { success: false, error: error.message };
+		if (name === "delete_project_file") {
+			// A truthful outcome for every non-deleted end state, including
+			// failures raised by the permission guard (which runs inside this
+			// try, so its typed errors land here too).
+			result.outcome = error?.deleteOutcome
+				?? (error?.code === "APPROVAL_DENIED" ? "approval_denied"
+					: error?.code === "PERMISSION_DENIED" ? "permission_denied"
+						: error?.name === "AbortError" || error?.code === "ABORT_ERR" ? "cancelled"
+							: "error");
+		}
+		if (name === "web_search") {
+			// web_search classifies its own provider outcomes and only throws
+			// for guard denials, cancellation, or malformed input. Type those
+			// same three cases here so the tool result stays truthful.
+			result.outcome = error?.code === "APPROVAL_DENIED" || error?.code === "PERMISSION_DENIED"
+				? "permission_denied"
+				: error?.name === "AbortError" || error?.code === "ABORT_ERR" ? "cancelled"
+					: "error";
+		}
+		return result;
 	}
 }
 
 module.exports = {
 	prepareGitCommit,
 	prepareGitPush,
+	// Deletion permission gate + execution share this exact validation, so the
+	// approved snapshot and the executed snapshot can never diverge silently.
+	prepareFileDelete,
 	approvedMutations,
 	agentTools,
 	executeAgentTool,

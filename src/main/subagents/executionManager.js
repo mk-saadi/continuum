@@ -11,6 +11,7 @@ const { pushActivity } = require('./sessionManager');
 const { escalatedCeiling, estimatePromptTokens } = require('./budgets');
 const executionBudget = require('./executionBudget');
 const { combineSignals, isDeadlineError, isRequestTimeoutError } = require('./executionDeadline');
+const { COMPLETION, classifyCompletion, stopReasonFor } = require('./completion');
 
 // Electron's RUN_AS_NODE environment can break native (undici) fetch with
 // ERR_INVALID_IP_ADDRESS, so sub-agent web GETs go through the shared Node HTTP
@@ -280,10 +281,11 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
   const deadlineExpired = () => deadline?.signal.aborted === true;
   let ceiling = state.budgets.perRequestCeiling;
   const attempts = [];
-  const finish = (output, reason, detail = null) => executionBudget.outcome(state, {
+  const finish = (output, reason, detail = null, completionClass = null) => executionBudget.outcome(state, {
     output: output || (sourceEvidence ? `Source evidence (task incomplete):\n${sourceEvidence.slice(0, 1800)}` : ''),
     stopReason: reason, findings: !!output || !!sourceEvidence,
     detail: detail ?? (reason === 'empty_response' ? `Sub-agent returned no visible answer (generated no output tokens or reasoning-only output) after ${attempts.length} attempts. ${attemptDiagnostics(attempts)}` : null),
+    completionClass,
   });
   for (let attempt = 1; attempt <= EMPTY_ANSWER_ATTEMPTS; attempt++) {
     signal?.throwIfAborted();
@@ -301,14 +303,21 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
       if (state.overrun) return finish('', state.overrun);
       recordThinking(session, result?.choices?.[0]?.message);
       if (result?.choices?.[0]?.message?.tool_calls?.length || result?.choices?.[0]?.message?.toolMarkupIncomplete) return finish('', 'malformed_response');
+      // Phase 1.5: classify the completion instead of only the literal `length`
+      // reason — `max_tokens`, a filtered turn, or an interrupted stream is not
+      // a completed answer even when the provider returned visible text.
+      const completion = classifyCompletion({
+        finishReason: result?.choices?.[0]?.finish_reason,
+        streamInterrupted: result?.choices?.[0]?.message?.streamInterrupted === true,
+      });
       const summary = extractAnswerText(result);
       if (summary) {
         const output = summary.length > outputLimit ? `${summary.slice(0, outputLimit - 20)}\n[Summary truncated]` : summary;
-        return finish(output, initialReason ?? (result?.choices?.[0]?.finish_reason === 'length' ? 'incomplete_response' : 'completed'));
+        return finish(output, initialReason ?? stopReasonFor(completion), null, completion);
       }
       attempts.push(describeCompletion(result));
       if (attempt === EMPTY_ANSWER_ATTEMPTS || initialReason) return finish('', initialReason ?? 'empty_response');
-      if (result?.choices?.[0]?.finish_reason === 'length') {
+      if (completion === COMPLETION.TRUNCATED) {
         ceiling = escalatedCeiling(ceiling, state.budgets, state.ledger, estimatePromptTokens(messages)) ?? ceiling;
       }
     } catch (error) {

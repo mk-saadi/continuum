@@ -123,6 +123,9 @@ const SCHEMA = `
     raw_turns_json TEXT,
     context_json TEXT,
     compaction_json TEXT,
+    budget_json TEXT,
+    continuation_json TEXT,
+    attempt_count INTEGER,
     task_text TEXT,
     output_text TEXT,
     error_text TEXT,
@@ -349,10 +352,13 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
         DROP TRIGGER IF EXISTS messages_ad;
         DROP TRIGGER IF EXISTS messages_au;
         DROP TABLE IF EXISTS chat_fts;`);
-      for (const column of ['stop_reason', 'accounting_json', 'raw_turns_json', 'context_json', 'compaction_json']) {
+      for (const column of ['stop_reason', 'accounting_json', 'raw_turns_json', 'context_json', 'compaction_json', 'budget_json', 'continuation_json']) {
         if (!connection.pragma('table_info(subagent_runs)').some(entry => entry.name === column)) {
           connection.exec(`ALTER TABLE subagent_runs ADD COLUMN ${column} TEXT`);
         }
+      }
+      if (!connection.pragma('table_info(subagent_runs)').some(entry => entry.name === 'attempt_count')) {
+        connection.exec('ALTER TABLE subagent_runs ADD COLUMN attempt_count INTEGER');
       }
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
         connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");

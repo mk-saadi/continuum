@@ -492,6 +492,14 @@ module.exports = {
   resume: continuationManager.resume,
   cancelBackground: backgroundStore.cancelBackground,
   backgroundEvents: backgroundStore.backgroundEvents,
+  // Phase 1.3C durable, renewable continuation: explicit, authorized and
+  // restart-aware. `continueChild` renews (when required) and wakes the same
+  // child; `recoverChild` rebuilds durable work without ever executing it.
+  continuationStatus: continuationManager.continuationStatus,
+  renewChildBudget: continuationManager.renewChildBudget,
+  continueChild: continuationManager.continueChild,
+  listRecoverableChildren: continuationManager.listRecoverableChildren,
+  recoverChild: continuationManager.recoverChild,
   // Step 7: one read-only snapshot of a child's model and lifecycle.
   describeChild,
   // Observability: bounded read-only transcript for the activity modal.

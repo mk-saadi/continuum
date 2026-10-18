@@ -50,12 +50,104 @@ async function getExecutionBudget(session, { kind, engine, budgetScope, maxTurns
     // Phase 1.3B time limits, resolved once per child like every other budget:
     // all null under Automatic, finite integers under a Custom selection.
     runtime: policy.resolveRuntimeLimits(saved),
+    // Phase 1.3C renewal accounting: `original` is the allowance the child was
+    // created with; `renewals` is the append-only, auditable history of every
+    // authorized extension. `budgets` holds the current total, so "original",
+    // "granted", "current" and "consumed" are never conflated.
+    original: { maxTurns: budgets.maxTurns, maxToolCalls: budgets.maxToolCalls,
+      inputBudget: budgets.inputBudget, outputBudget: budgets.outputBudget },
+    renewals: [],
     finalizationAttempted: false, finalizationStopReason: null, overrun: null, seenCalls: new Map(), toolsUsed: new Map(), usage: null,
   };
   session.budgetState = state;
   return state;
 }
 function totals(state) { return policy.ledgerTotals(state.ledger); }
+
+// Phase 1.3C — authorized, monotonic budget renewal.
+//
+// `patch` carries **new absolute totals** per field (never additions the caller
+// must compute, never a silent reset):
+//   { maxTurns?, maxToolCalls?, inputBudget?, outputBudget? }
+// A finite value must be a safe integer >= the current total and within the
+// configured finite bounds; the UNBOUNDED sentinel is the only way a finite
+// budget becomes unbounded, and it must be requested explicitly. Consumption
+// counters are never touched. The shared parent aggregate is deliberately NOT
+// renewable here: `dispatchTool` enforces it independently, so no child renewal
+// can bypass it.
+const RENEWABLE_FIELDS = Object.freeze({
+  maxTurns: 'maxTurns',
+  maxToolCalls: 'maxToolCalls',
+  inputBudget: 'maxInputTokens',
+  outputBudget: 'maxOutputTokens',
+});
+
+function renewBudget(state, patch = {}, { reason = null, source = 'user', parentSessionId = null } = {}) {
+  if (!state || typeof state !== 'object' || !state.budgets) {
+    throw new Error('Cannot renew an unknown child budget state.');
+  }
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    throw new Error('A renewal patch must be an object of new budget totals.');
+  }
+  for (const key of Object.keys(patch)) {
+    if (!Object.prototype.hasOwnProperty.call(RENEWABLE_FIELDS, key)) {
+      throw new Error(`"${key}" is not a renewable sub-agent budget field.`);
+    }
+  }
+  const applied = {};
+  const entries = [];
+  for (const [field, limitKey] of Object.entries(RENEWABLE_FIELDS)) {
+    if (patch[field] === undefined || patch[field] === null) continue;
+    const current = state.budgets[field];
+    const requested = patch[field] === settings.UNBOUNDED ? null : patch[field];
+    if (requested !== null) {
+      const bounds = settings.LIMITS[limitKey];
+      if (!Number.isSafeInteger(requested) || requested < bounds.min || requested > bounds.max) {
+        throw new Error(`${field} must be an integer from ${bounds.min} to ${bounds.max}, or "${settings.UNBOUNDED}".`);
+      }
+    }
+    if (current === null) {
+      if (requested === null) continue; // already unbounded: no-op
+      throw new Error(`${field} is already unbounded and cannot be reduced to a finite total.`);
+    }
+    if (requested !== null && requested < current) {
+      throw new Error(`${field} cannot be renewed below its current total (${current}); a renewal only adds allowance.`);
+    }
+    if (requested === current) continue; // no-op, no spurious renewal record
+    // A renewal must not authorize more child tool work than the shared
+    // aggregate could ever fund: the parent cannot grant beyond its own
+    // remaining applicable allowance (or, for an exhausted/zero aggregate, at
+    // all). The aggregate itself is never modified.
+    if (field === 'maxToolCalls') {
+      const scope = state.scope;
+      if (scope && scope.maxToolCalls !== null) {
+        const aggregateLeft = scope.maxToolCalls - (scope.toolCalls ?? 0);
+        const granted = requested === null ? Infinity : requested - current;
+        if (granted > aggregateLeft) {
+          throw new Error(`Renewal exceeds the parent run's remaining aggregate tool allowance (${Math.max(0, aggregateLeft)}).`);
+        }
+      }
+    }
+    const previous = current;
+    state.budgets[field] = requested;
+    const record = {
+      at: new Date().toISOString(), field, previous,
+      // granted is a finite delta, or null when the field became unbounded.
+      granted: requested === null ? null : requested - previous,
+      total: requested, reason: reason ?? 'unspecified', source,
+      parentSessionId: parentSessionId ?? null,
+    };
+    state.renewals.push(record);
+    applied[field] = requested;
+    entries.push(record);
+  }
+  return { applied, renewals: entries, budgets: { ...state.budgets } };
+}
+
+// Human/accounting summary of the original-vs-current allowance for one child.
+// (Lives in ./continuationState so the control surface and persistence share
+// one implementation; re-exported below for convenience.)
+
 function stopBeforeRequest(state, payload, measuredInput, measuredWindow) {
   const t = totals(state);
   if (state.overrun) throw new ExecutionBudgetError(state.overrun);
@@ -180,18 +272,26 @@ function exhaustion(state) {
 // findings produced before the limit are still reported. `request_timeout` is
 // the single-request timeout; both map to the `timed_out` status.
 const TIMEOUT_STATUS_REASONS = new Set(['timed_out', 'request_timeout']);
-function outcome(state, { output = '', stopReason = 'completed', findings = false, detail = null } = {}) {
+function outcome(state, { output = '', stopReason = 'completed', findings = false, detail = null, completionClass = null } = {}) {
   const complete = stopReason === 'completed';
   const status = complete ? 'completed'
     : TIMEOUT_STATUS_REASONS.has(stopReason) ? 'timed_out'
     : findings ? 'partial' : 'failed';
   const header = status === 'timed_out' ? `[Sub-agent timed out: ${stopReason}]` : `[Sub-agent ${status}: ${stopReason}]`;
   return { output: complete ? output : `${header}\n${output || 'No usable findings were produced.'}${detail ? `\n${detail}` : ''}`,
-    outcome: status, stopReason, usage: state.usage, accounting: { ...totals(state),
+    outcome: status, stopReason, completionClass, usage: state.usage, accounting: { ...totals(state),
       toolCalls: state.toolCalls, blockedCalls: state.blockedCalls,
       aggregateToolCalls: state.scope.toolCalls, aggregateLimit: state.scope.maxToolCalls,
       parentRunId: state.scope.id, finalizationAttempted: state.finalizationAttempted,
-      finalizationStopReason: state.finalizationStopReason, effective: { ...state.budgets }, runtime: { ...state.runtime }, contextSource: state.contextSource } };
+      finalizationStopReason: state.finalizationStopReason, effective: { ...state.budgets }, runtime: { ...state.runtime }, contextSource: state.contextSource,
+      // Phase 1.5: the backend-aware completion verdict and whether the run
+      // carried usable evidence, so a parent and the transcript can distinguish
+      // "completed" from "stopped with evidence" without re-deriving it.
+      completionClass: completionClass ?? null, evidence: findings === true,
+      // Phase 1.3C: original vs current allowance, granted deltas, consumed and
+      // remaining. Renewal history is append-only; `renewalCount` is the count.
+      allowance: require('./continuationState').summarizeAllowance(state),
+      renewalCount: state.renewals.length } };
 }
 function resultError(result) {
   const error = new Error(result.output);
@@ -207,6 +307,7 @@ function reasonOf(error) {
 }
 module.exports = { ExecutionBudgetError, createParentRunBudget, getExecutionBudget, totals,
   stopBeforeRequest, budgetedFetch, settleResponse, dispatchTool, exhaustion, outcome, reasonOf, resultError,
+  renewBudget, RENEWABLE_FIELDS,
   // Unbounded-aware limit helpers, re-exported so the agent loop and child
   // context recovery share one definition of "limit reached"/"remaining".
   limitReached: policy.limitReached, remaining: policy.remaining };

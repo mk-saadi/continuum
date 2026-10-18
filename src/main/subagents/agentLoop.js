@@ -8,6 +8,7 @@ const { isEngineReady, engineNotReadyError } = require('./providers');
 const { pushActivity } = require('./sessionManager');
 const { escalatedCeiling, estimatePromptTokens } = require('./budgets');
 const { combineSignals, isDeadlineError, isRequestTimeoutError } = require('./executionDeadline');
+const { COMPLETION, classifyCompletion, stopReasonFor } = require('./completion');
 
 // The child agent loop: one foreground execution that turns a delegated task
 // into an investigate -> inspect -> reason -> report cycle instead of a single
@@ -224,9 +225,9 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   let finalizing = false;
   const findings = () => session.rawContext.filter(m => m.role === 'tool' && !/^Error:|^\[Tool skipped/.test(m.content ?? ''));
   const fallback = () => findings().slice(-6).map(m => `Tool evidence (${m.tool_call_id}): ${m.content.slice(0, 700)}`).join('\n\n');
-  const finish = (output, reason = 'completed', hasFindings = !!output?.trim(), detail = null) => {
+  const finish = (output, reason = 'completed', hasFindings = !!output?.trim(), detail = null, completionClass = null) => {
     const result = budget.outcome(state, { output: truncate(output || fallback(), MAX_FINAL_CHARACTERS),
-      stopReason: reason, findings: hasFindings || findings().length > 0, detail });
+      stopReason: reason, findings: hasFindings || findings().length > 0, detail, completionClass });
     context.append({ role: 'assistant', content: result.output }); context.persist();
     return result;
   };
@@ -310,13 +311,33 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     const message = result?.choices?.[0]?.message;
     const content = textContent(message?.content) || result?.choices?.[0]?.text || result?.output_text;
     const calls = normalizeToolCalls(message?.tool_calls);
+    // Phase 1.5: one backend-aware completion verdict for this turn. A provider
+    // that spells truncation differently (`max_tokens`), a filtered turn, or a
+    // stream that ended without a terminal marker must never be a success.
+    const finishReason = result?.choices?.[0]?.finish_reason;
+    const streamInterrupted = message?.streamInterrupted === true;
+    const completion = classifyCompletion({ finishReason, streamInterrupted });
     if (message?.toolMarkupIncomplete) {
       if (finalizing) state.finalizationStopReason = 'malformed_response';
-      return finish('', stopReason ?? 'malformed_response', false);
+      return finish('', stopReason ?? 'malformed_response', false, 'The model emitted incomplete tool markup.', completion);
     }
     const turn = budget.totals(state).turns;
     const thought = message?.reasoning_content ?? message?.reasoning;
     if (typeof thought === 'string' && thought.trim()) pushActivity(session, { type: 'thought', turn, text: thought });
+    // A stream that ended without [DONE] or a finish reason may have truncated
+    // the tool arguments. Never dispatch a call parsed from an incomplete
+    // stream: pair the batch with explicit skipped results (so the committed
+    // transcript stays protocol-valid) and report the turn as malformed.
+    if (streamInterrupted && calls.length) {
+      state.blockedCalls += calls.length;
+      context.append({ role: 'assistant', content: content || null, tool_calls: calls });
+      for (const call of calls) context.append({ role: 'tool', tool_call_id: call.id,
+        content: '[Tool skipped: interrupted stream] The tool call was not fully received; it was never executed.' });
+      context.persist();
+      if (finalizing) state.finalizationStopReason = 'malformed_response';
+      return finish('', stopReason ?? 'malformed_response', false,
+        'The model stream ended before the tool call finished; no tool was executed.', completion);
+    }
     if (finalizing) {
       // Some providers ignore tool_choice:none. Pair their calls with skipped
       // results, commit the batch, and never dispatch or retry finalization.
@@ -335,16 +356,19 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     }
     if (!calls.length) {
       const visible = typeof content === 'string' ? content.trim() : '';
-      if (visible) return finish(visible, result?.choices?.[0]?.finish_reason === 'length' ? 'incomplete_response' : 'completed');
-      const incomplete = result?.choices?.[0]?.finish_reason === 'length' || (typeof thought === 'string' && thought.trim());
-      if (incomplete && incompleteRetries++ < 1) {
-        if (result?.choices?.[0]?.finish_reason === 'length') {
+      if (visible) return finish(visible, stopReasonFor(completion), true, null, completion);
+      // No visible answer. The bounded continuation covers every no-content
+      // shape — a truncated, filtered or interrupted turn AND a clean-but-empty
+      // stop — at most once; a truly truncated turn escalates its ceiling first.
+      if (incompleteRetries++ < 1) {
+        if (completion === COMPLETION.TRUNCATED) {
           ceiling = escalatedCeiling(ceiling, state.budgets, state.ledger, estimatePromptTokens(messages, tools)) ?? ceiling;
         }
-        pushActivity(session, { type: 'note', turn, text: 'Incomplete generation; one bounded continuation without replaying tools.' });
+        pushActivity(session, { type: 'note', turn, text: `No visible answer (${completion}); one bounded continuation without replaying tools.` });
         continue;
       }
-      return finish('', 'empty_response', false);
+      return finish('', completion === COMPLETION.COMPLETE ? 'empty_response' : 'incomplete_response', false,
+        completion === COMPLETION.COMPLETE ? null : `The model stopped without a visible answer (completion=${completion}).`, completion);
     }
     const ids = calls.map(c => c.id);
     if (new Set(ids).size !== ids.length) return finish('', 'malformed_response', false);

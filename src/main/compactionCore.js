@@ -27,19 +27,72 @@ async function summarizeCandidates({ candidates, oldSummary, totalTokens, contex
   } while (remainingTokens > target && selectedCount < candidates.length && passes < maxPasses);
   return { newSummary, selectedCount, remainingTokens, oldSummaryTokens };
 }
+// Explicit, bounded marker recorded when retention has to consolidate entries
+// to stay within the checkpoint schema's caps. One stable string, deduped, so
+// it never grows the checkpoint itself.
+const CHECKPOINT_CONSOLIDATION_NOTE =
+  'Earlier checkpoint entries were consolidated to keep the checkpoint within its size caps; the full raw child history remains authoritative.';
+
+// When a cap forces consolidation, keep the entries that matter most: still-open
+// requirements, verified decisions and active work survive; already-completed
+// history is windowed to its most recent entries. Stable within a score.
+function retainedPriority(key, entry) {
+  if (key === 'outstandingRequirements') {
+    return entry?.status === 'open' ? 2 : entry?.status === 'unknown' ? 1 : 0;
+  }
+  if (key === 'decisions') return entry?.verified === true ? 1 : 0;
+  if (key === 'inProgress') return 1;
+  return 0;
+}
+function prioritizeRetained(key, entries) {
+  return entries
+    .map((entry, index) => ({ entry, index, score: retainedPriority(key, entry) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(item => item.entry);
+}
+
 async function generateCheckpoint({ input, draft, validationContext, version, signal, retainPrior = null }) {
   const checkpoints = require('./taskCheckpoints');
   signal?.throwIfAborted();
   let value = await draft(input);
   signal?.throwIfAborted();
   // Child continuity requires earlier decisions/actions to survive an omitted
-  // field in a later draft. Workspace's existing behavior is unchanged.
+  // or consolidated field in a later draft. Workspace's existing behavior is
+  // unchanged: it never passes `retainPrior`, so this whole block is skipped.
+  //
+  // Phase 1.4: retention is BOUNDED to the checkpoint schema's own per-array
+  // caps. The previous unbounded union grew with every compaction; once it
+  // passed a cap the validator trimmed it and the fail-closed check below
+  // turned that into a permanent `compaction_failed`, so a long-horizon child
+  // could not survive more than about a dozen compactions. Now:
+  //   * a prior checkpoint that already exceeds a cap is an anomaly and is
+  //     still refused (fail closed) — the only "would drop essential prior
+  //     entries" case;
+  //   * otherwise the merge keeps the fresh draft's entries first, fills the
+  //     remainder with the most recent prior entries, and records one explicit,
+  //     bounded consolidation note so nothing is lost silently (the raw child
+  //     history stays authoritative).
+  let consolidated = 0;
   if (retainPrior && value && typeof value === 'object' && !Array.isArray(value)) {
     value = structuredClone(value);
+    const caps = checkpoints.ARRAY_CAPS ?? {};
     for (const [key, entries] of Object.entries(retainPrior)) {
       if (!Array.isArray(entries) || (value[key] !== undefined && !Array.isArray(value[key]))) continue;
-      const union = [...entries, ...(value[key] ?? [])];
-      value[key] = [...new Map(union.map(entry => [JSON.stringify(entry), entry])).values()];
+      const cap = Number.isSafeInteger(caps[key]) ? caps[key] : Infinity;
+      if (entries.length > cap) return { ok: false, reason: 'checkpoint-preservation-too-large' };
+      const union = [...(value[key] ?? []), ...entries];
+      let merged = [...new Map(union.map(entry => [JSON.stringify(entry), entry])).values()];
+      if (merged.length > cap) {
+        consolidated += merged.length - cap;
+        merged = prioritizeRetained(key, merged).slice(0, cap);
+      }
+      value[key] = merged;
+    }
+    if (consolidated > 0) {
+      const cap = Number.isSafeInteger(caps.unknowns) ? caps.unknowns : Infinity;
+      const unknowns = Array.isArray(value.unknowns) ? value.unknowns : [];
+      value.unknowns = [...new Map([CHECKPOINT_CONSOLIDATION_NOTE, ...unknowns]
+        .map(entry => [JSON.stringify(entry), entry])).values()].slice(0, cap);
     }
   }
   const validated = checkpoints.validateCheckpoint(value, validationContext);

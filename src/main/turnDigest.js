@@ -111,6 +111,7 @@ const EDIT_TOOLS = new Set([
   'edit_project_files',
   'apply_patch',
   'move_project_file',
+  'delete_project_file',
   'git_stage',
   'git_unstage',
   'git_commit',
@@ -131,7 +132,7 @@ const READ_TOOLS = new Set([
   'get_recent_chat_history',
 ]);
 const DELEGATE_TOOLS = new Set(['spawn_sub_agent', 'delegate_task']);
-const WEB_TOOLS = new Set(['get_single_web_page_content', 'extract_web_page_data']);
+const WEB_TOOLS = new Set(['get_single_web_page_content', 'extract_web_page_data', 'web_search']);
 
 // Heuristic, documented: a shell command that IS a test-runner invocation.
 // Word-boundaried so `contest`, `testing`, or `jest.config` never match.
@@ -187,6 +188,7 @@ function extractPaths(toolName, args) {
   if (!args || typeof args !== 'object') return [];
   const paths = [];
   if (typeof args.relative_path === 'string') paths.push(args.relative_path);
+  if (typeof args.path === 'string') paths.push(args.path);
   for (const value of stringList(args.paths)) paths.push(value);
   if (typeof args.source_path === 'string') paths.push(args.source_path);
   if (typeof args.destination_path === 'string') paths.push(args.destination_path);
@@ -295,6 +297,7 @@ const EDIT_VERBS = {
   edit_project_files: 'edited',
   apply_patch: 'patched',
   move_project_file: 'moved',
+  delete_project_file: 'deleted',
   git_stage: 'staged',
   git_unstage: 'unstaged',
   git_commit: 'committed',
@@ -475,6 +478,19 @@ function summarizeWeb(args, result, status, errorText) {
   );
   const shownUrl = capText(url, 160);
   const shownQuery = query ? capText(redactSecrets(query), 60) : null;
+  // Web search carries no URL; report the query and the recorded outcome or
+  // result count instead of a fetch summary.
+  if (!url && query) {
+    if (status === 'error') {
+      return capText(`web search failed${shownQuery ? ` for '${shownQuery}'` : ''}${errorText ? ` — ${errorText}` : ''}`, SUMMARY_CAP);
+    }
+    const outcome = typeof result?.outcome === 'string' ? result.outcome : null;
+    const count = Array.isArray(result?.results) ? result.results.length : null;
+    if (outcome && outcome !== 'success' && outcome !== 'no_results') {
+      return capText(`searched '${shownQuery ?? ''}' → ${outcome}`, SUMMARY_CAP);
+    }
+    return capText(`searched '${shownQuery ?? ''}'${count !== null ? ` (${count} result${count === 1 ? '' : 's'})` : ''}`, SUMMARY_CAP);
+  }
   if (status === 'error') {
     return capText(`fetch failed${shownUrl ? `: ${shownUrl}` : ''}${errorText ? ` — ${errorText}` : ''}`, SUMMARY_CAP);
   }
@@ -676,7 +692,9 @@ function buildTurnDigest(steps, context = {}) {
       entry.taskText = redactSecrets(delegateTaskText(step.args));
     }
     if (entry.kind === 'web') {
-      entry.urlText = typeof step.args?.url === 'string' ? redactSecrets(step.args.url) : '';
+      entry.urlText = typeof step.args?.url === 'string'
+        ? redactSecrets(step.args.url)
+        : (typeof step.args?.query === 'string' ? `query:${redactSecrets(step.args.query)}` : '');
     }
     entries.push(entry);
   });

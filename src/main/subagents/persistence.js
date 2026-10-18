@@ -12,6 +12,7 @@
 // Persistence failures are swallowed (with one console error) so a database
 // problem can never break or alter an execution.
 const { listExecutions } = require('./executionStore');
+const continuationState = require('./continuationState');
 
 const TURNS_CAP = 60;
 const TURN_TEXT_CAP = 3000;
@@ -100,8 +101,25 @@ function resolveAgentName(parentSessionId) {
 }
 
 function persistChildRun(session) {
+  // Phase 1.3C: the durable continuation verdict is computed *before* the write
+  // and only advertised after it succeeds. A child is never reported resumable
+  // on the strength of a write that did not happen.
+  const clearDurableState = () => { if (session && typeof session === 'object') { session.durableResumable = false; } };
+  if (!session || typeof session.id !== 'string' || !session.id) return false;
+  const attemptCount = listExecutions(session.id).length + (session.attemptBase ?? 0);
+  let continuation;
   try {
-    if (!session || typeof session.id !== 'string' || !session.id) return false;
+    continuation = continuationState.buildContinuation(session, {
+      pendingContinuation: session.pendingContinuation === true, attemptCount,
+    });
+  } catch (error) {
+    console.error('[subagents] computing continuation state failed:', error?.message ?? error);
+    session.continuation = { persisted: false, resumable: false, reason: 'continuation_state_error' };
+    clearDurableState();
+    return false;
+  }
+  const budgetJson = continuationState.serializeBudgetState(session.budgetState);
+  try {
     const { db } = require('../db');
     const attempts = listExecutions(session.id);
     const latest = attempts[attempts.length - 1] ?? null;
@@ -121,20 +139,22 @@ function persistChildRun(session) {
     db.prepare(`
       INSERT INTO subagent_runs(child_session_id, parent_session_id, parent_tool_call_id, kind, agent_name,
         model, provider, status, task_text, output_text, error_text, thoughts_text, tools_json, turns_json,
-        total_tokens, duration_ms, created_at, started_at, completed_at, updated_at, stop_reason, accounting_json, raw_turns_json, context_json, compaction_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        total_tokens, duration_ms, created_at, started_at, completed_at, updated_at, stop_reason, accounting_json, raw_turns_json, context_json, compaction_json,
+        budget_json, continuation_json, attempt_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(child_session_id) DO UPDATE SET
         status = excluded.status, output_text = excluded.output_text, error_text = excluded.error_text,
         thoughts_text = excluded.thoughts_text,
         tools_json = excluded.tools_json, turns_json = excluded.turns_json, total_tokens = excluded.total_tokens,
         duration_ms = excluded.duration_ms, completed_at = excluded.completed_at, updated_at = excluded.updated_at,
         stop_reason = excluded.stop_reason, accounting_json = excluded.accounting_json, raw_turns_json = excluded.raw_turns_json,
-        context_json = excluded.context_json, compaction_json = excluded.compaction_json
+        context_json = excluded.context_json, compaction_json = excluded.compaction_json,
+        budget_json = excluded.budget_json, continuation_json = excluded.continuation_json, attempt_count = excluded.attempt_count
     `).run(
       session.id,
       typeof session.parentSessionId === 'string' ? session.parentSessionId : null,
       typeof session.parentToolCallId === 'string' ? session.parentToolCallId : null,
-      latest?.kind ?? null,
+      latest?.kind ?? continuation.options?.kind ?? null,
       resolveAgentName(session.parentSessionId),
       typeof session.model === 'string' ? session.model : null,
       typeof session.provider === 'string' ? session.provider : null,
@@ -154,15 +174,60 @@ function persistChildRun(session) {
       session.rawContext ? JSON.stringify(session.rawContext) : null,
       session.context ? JSON.stringify(session.context) : null,
       session.compactionState ? JSON.stringify(session.compactionState) : null,
+      budgetJson ? JSON.stringify(budgetJson) : null,
+      JSON.stringify(continuation),
+      Number.isSafeInteger(attemptCount) ? attemptCount : null,
     );
+    // Durable state is now on disk: advertise resumability truthfully.
+    session.continuation = { ...continuation, persisted: true, resumable: continuation.eligible };
+    session.durableResumable = continuation.eligible === true;
     return true;
   } catch (error) {
+    // A partial/failed write must never look resumable.
+    session.continuation = { persisted: false, resumable: false, reason: 'persistence_failed',
+      error: String(error?.message ?? error), ...continuation };
+    clearDurableState();
     // No initialized database (headless/test environments) means there is
     // nowhere to persist: skip silently. Genuine write failures are logged.
     if (String(error?.message ?? '').includes('Call initDatabase()')) return false;
     console.error('[subagents] persisting child run failed:', error?.message ?? error);
     return false;
   }
+}
+
+// Phase 1.3C Step 8: read the durable continuation record for a child that no
+// longer exists in memory (after a restart). This is inspection/recovery data,
+// never an execution trigger.
+function readPersistedContinuation(childSessionId) {
+  const { db } = require('../db');
+  const row = db.prepare('SELECT * FROM subagent_runs WHERE child_session_id = ?').get(childSessionId);
+  if (!row) return { found: false };
+  const parse = value => {
+    if (value == null) return null;
+    try { return JSON.parse(value); } catch { return null; }
+  };
+  return {
+    found: true,
+    childSessionId: row.child_session_id,
+    parentSessionId: row.parent_session_id,
+    kind: row.kind,
+    model: row.model,
+    provider: row.provider,
+    status: row.status,
+    stopReason: row.stop_reason,
+    task: row.task_text,
+    context: parse(row.context_json),
+    rawContext: parse(row.raw_turns_json),
+    compactionState: parse(row.compaction_json),
+    budget: parse(row.budget_json),
+    continuation: parse(row.continuation_json),
+    accounting: parse(row.accounting_json),
+    attemptCount: Number.isSafeInteger(row.attempt_count) ? row.attempt_count : 0,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function readPersistedTranscript(childSessionId) {
@@ -191,4 +256,4 @@ function readPersistedTranscript(childSessionId) {
   };
 }
 
-module.exports = { readPersistedTranscript, persistChildRun, summarizeRunInput, summarizeToolsUsed, mapContextTurns };
+module.exports = { readPersistedTranscript, readPersistedContinuation, persistChildRun, summarizeRunInput, summarizeToolsUsed, mapContextTurns };

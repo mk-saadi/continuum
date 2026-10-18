@@ -1,6 +1,7 @@
 'use strict';
 
-// Supported spawn_sub_agent inputs — there is no fourth mode and no web search:
+// Supported spawn_sub_agent inputs — there is no fourth mode and no child web
+// search:
 //   1. url (or exactly one URL inside `task`): ONE public page, fetched with
 //      the SSRF-protected getSingleWebPageContent (public-host validation,
 //      pinned DNS, GET-only, 1 MB / 12k-char caps) and answered in one shot.
@@ -9,12 +10,13 @@
 //      search_project_content / read_project_file / list_directory /
 //      git_status / git_diff / git_log / git_show / git_branch / git_blame /
 //      get_single_web_page_content — still fetch-a-known-URL only.
-// The application exposes no search/discovery facility anywhere (the only web
-// tool, in the main context or in a child, is the single-URL fetcher above;
-// `full-web-search` exists only as an optional user-provided MCP tool and MCP
-// tools are deliberately not part of the child allowlist). A research task
-// without a URL therefore cannot be serviced and must fail with actionable
-// guidance instead of a bare parameter complaint.
+// The application now has a native `web_search` tool (Phase 1.7), but it is
+// deliberately NOT in the child allowlist (CHILD_TOOL_NAMES): children stay
+// read-only and cannot spend a search provider's quota, so a child web task
+// still needs an exact URL. (`full-web-search` remains an optional
+// user-provided MCP tool; MCP tools are likewise excluded from the child
+// allowlist.) A child research task without a URL therefore cannot be serviced
+// and must fail with actionable guidance instead of a bare parameter complaint.
 const spawnSubagentTool = {
   type: 'function',
   function: {

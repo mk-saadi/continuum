@@ -70,6 +70,10 @@ contextBridge.exposeInMainWorld('api', {
   saveSamplingParams: (sessionId, modelId, params) => ipcRenderer.invoke('sampling:save', { sessionId, modelId, params }),
   getRagSettings: () => ipcRenderer.invoke('rag:get-settings'),
   saveRagSettings: settings => ipcRenderer.invoke('rag:save-settings', settings),
+  // Native web search provider settings. The renderer only ever receives the
+  // provider and whether a key is configured — never the key itself.
+  getSearchSettings: () => ipcRenderer.invoke('search:get-settings'),
+  saveSearchSettings: settings => ipcRenderer.invoke('search:save-settings', settings),
   indexDocuments: payload => ipcRenderer.invoke('rag:index', payload),
   getAppSettings: () => ipcRenderer.invoke('app:get-settings'),
   saveAppSettings: settings => ipcRenderer.invoke('app:save-settings', settings),
@@ -81,6 +85,20 @@ contextBridge.exposeInMainWorld('api', {
   getSubagentBudgets: () => ipcRenderer.invoke('subagent:get-budgets'),
   saveSubagentBudgets: patch => ipcRenderer.invoke('subagent:save-budgets', patch),
   getChildTranscript: childSessionId => ipcRenderer.invoke('subagent:get-transcript', { childSessionId }),
+  // Phase 1.3C continuation control. `describeChild`/`continuationStatus` are
+  // read-only; `renewChildBudget`/`continueChild` require the owning
+  // parentSessionId. `listRecoverableChildren`/`recoverChild` surface work that
+  // survived an application restart; recovery never auto-executes.
+  describeChild: childSessionId => ipcRenderer.invoke('subagent:describe', { childSessionId }),
+  // Phase 1.5 minimal child control: interrupt the active turn at a safe
+  // boundary (keeps the child resumable). Continue/renew use the Phase 1.3C
+  // calls below and require the owning parentSessionId.
+  interruptChild: (childSessionId, options = {}) => ipcRenderer.invoke('subagent:interrupt', { childSessionId, ...options }),
+  getContinuationStatus: (childSessionId, parentSessionId) => ipcRenderer.invoke('subagent:continuation-status', { childSessionId, parentSessionId }),
+  renewChildBudget: (childSessionId, renewal, options = {}) => ipcRenderer.invoke('subagent:renew-budget', { childSessionId, renewal, ...options }),
+  continueChild: (childSessionId, options = {}) => ipcRenderer.invoke('subagent:continue', { childSessionId, ...options }),
+  listRecoverableChildren: parentSessionId => ipcRenderer.invoke('subagent:list-recoverable', { parentSessionId }),
+  recoverChild: (childSessionId, options = {}) => ipcRenderer.invoke('subagent:recover', { childSessionId, ...options }),
   getRecoveryOverview: sessionId => ipcRenderer.invoke('recovery:overview', { sessionId }),
   getRecoveryHistory: (sessionId, limit) => ipcRenderer.invoke('recovery:history', { sessionId, limit }),
   getRecoveryDetail: (sessionId, checkpointId) => ipcRenderer.invoke('recovery:detail', { sessionId, checkpointId }),

@@ -38,6 +38,7 @@ const CAPABILITIES = Object.freeze({
 	MEMORY_WRITE: 'memory_write', // persists into assistant memory
 	PLAN_WRITE: 'plan_write', // updates the session-owned workspace task plan
 	AGENT_SPAWN: 'agent_spawn', // spawns a sub-agent (child runs read-only)
+	FILE_DELETE: 'file_delete', // deletes one in-workspace file; always confirms, workspace-contained
 });
 
 // Built-in tool -> capability mapping. `native` is true for main-process tools
@@ -53,6 +54,7 @@ const TOOL_CAPABILITIES = Object.freeze({
 	take_screenshot: CAPABILITIES.READ,
 	search_memory: CAPABILITIES.READ,
 	get_single_web_page_content: CAPABILITIES.READ,
+	web_search: CAPABILITIES.READ,
 	extract_web_page_data: CAPABILITIES.READ,
 	use_skill: CAPABILITIES.READ,
 	propose_skill: CAPABILITIES.READ,
@@ -86,6 +88,10 @@ const TOOL_CAPABILITIES = Object.freeze({
 	move_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	edit_file: CAPABILITIES.WORKSPACE_WRITE,
 	delete_file: CAPABILITIES.WORKSPACE_WRITE,
+	// Deletion is the most destructive in-workspace action: it is modeled as
+	// its own capability so it always confirms (except Full Access) and is
+	// denied without a workspace, while reusing the existing approval flow.
+	delete_project_file: CAPABILITIES.FILE_DELETE,
 	// LOCAL_EXECUTION
 	execute_command: CAPABILITIES.LOCAL_EXECUTION,
 	run_tests: CAPABILITIES.LOCAL_EXECUTION,
@@ -250,10 +256,17 @@ function inside(root, target) {
 function baseDecision({ capability, mode, hasWorkspace, native }) {
 	// Full access is unrestricted (the OS sandbox/bwrap boundary still applies).
 	// A plan, however, has no meaning without a Workspace session to own it; a
-	// casual chat stays casual even in full access.
+	// casual chat stays casual even in full access. File deletion is likewise
+	// meaningless without a workspace (there is nothing to delete into), so it
+	// stays denied rather than offering an outside-workspace escape.
 	if (mode === 'full_access') {
-		if (capability === CAPABILITIES.PLAN_WRITE && !hasWorkspace) {
-			return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
+		if (!hasWorkspace && (capability === CAPABILITIES.PLAN_WRITE || capability === CAPABILITIES.FILE_DELETE)) {
+			return {
+				decision: 'deny',
+				reason: capability === CAPABILITIES.FILE_DELETE
+					? 'Execution blocked: File deletion requires a project workspace.'
+					: 'Execution blocked: Task plans require a project workspace.',
+			};
 		}
 		return { decision: 'allow' };
 	}
@@ -283,6 +296,9 @@ function baseDecision({ capability, mode, hasWorkspace, native }) {
 	if (!hasWorkspace) {
 		if (capability === CAPABILITIES.WORKSPACE_WRITE) {
 			return { decision: 'deny', reason: 'Execution blocked: File writes require a project workspace.' };
+		}
+		if (capability === CAPABILITIES.FILE_DELETE) {
+			return { decision: 'deny', reason: 'Execution blocked: File deletion requires a project workspace.' };
 		}
 		if (capability === CAPABILITIES.PLAN_WRITE) {
 			return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
@@ -479,10 +495,14 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 	signal?.throwIfAborted();
 	if (mode === 'full_access') {
 		// Full access does not create a workspace: a task plan still needs the
-		// session to own a project. Keep this in step with baseDecision so
-		// visibility and execution never disagree.
-		if (capabilityOf(name, native) === CAPABILITIES.PLAN_WRITE && !root) {
-			const error = new Error('Execution blocked: Task plans require a project workspace.');
+		// session to own a project, and file deletion has nothing to target.
+		// Keep this in step with baseDecision so visibility and execution never
+		// disagree.
+		const fullAccessCapability = capabilityOf(name, native);
+		if (!root && (fullAccessCapability === CAPABILITIES.PLAN_WRITE || fullAccessCapability === CAPABILITIES.FILE_DELETE)) {
+			const error = new Error(fullAccessCapability === CAPABILITIES.FILE_DELETE
+				? 'Execution blocked: File deletion requires a project workspace.'
+				: 'Execution blocked: Task plans require a project workspace.');
 			error.code = 'PERMISSION_DENIED';
 			throw error;
 		}
@@ -522,6 +542,20 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		const error = new Error(reason);
 		error.code = 'PERMISSION_DENIED';
 		throw error;
+	}
+
+	if (capability === CAPABILITIES.FILE_DELETE) {
+		// baseDecision already denied casual chats (no workspace) and read-only
+		// chats; a root exists here. Deletion always confirms — even for a
+		// contained in-workspace file — mirroring git_commit. The approval
+		// payload names the exact file and size, and a content fingerprint is
+		// bound so any change between approval and execution is rejected. The
+		// deletion itself stays workspace-contained: there is deliberately no
+		// outside-workspace approval escape.
+		const snapshot = await require('./tools/agentTools').prepareFileDelete(root, args?.path, { signal });
+		const approved = await requestApproval('tool', name,
+			{ operation: 'delete', path: snapshot.rel, size: snapshot.size }, approvalHandlerFn, signal);
+		return { mode, approved, deleteFingerprint: snapshot.fingerprint };
 	}
 
 	if (capability === CAPABILITIES.READ) {

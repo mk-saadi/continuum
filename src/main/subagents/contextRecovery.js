@@ -80,6 +80,43 @@ function trimToolResult(content, { task = '', contextLength = 32768, maxCharacte
   return data ? JSON.stringify({ ...data, content: excerpt, context_trimmed: true, original_result_chars: content.length }) : excerpt;
 }
 
+// Stable identity signature for a transcript message, used ONLY to re-attach a
+// restored active projection to the raw records it was projected from after a
+// restart. Tool results key on their tool_call_id (their projected content is a
+// trimmed view of the raw result); assistant rounds key on their call ids and
+// content; system/user messages key on role + content. Signatures are not a
+// general-purpose message id — they never leave recovery.
+function rawSignature(message) {
+  if (!message || typeof message !== 'object') return null;
+  if (message.role === 'tool') return `tool:${message.tool_call_id ?? ''}`;
+  const calls = Array.isArray(message.tool_calls) && message.tool_calls.length
+    ? message.tool_calls.map(call => call?.id ?? '').join('|') : '';
+  return `${message.role}:${calls}:${String(message.content ?? '')}`;
+}
+
+function buildRawIdIndex(rawContext) {
+  const index = new Map();
+  for (const raw of Array.isArray(rawContext) ? rawContext : []) {
+    const signature = rawSignature(raw);
+    if (signature == null || !Number.isSafeInteger(raw?.id)) continue;
+    const bucket = index.get(signature) ?? [];
+    bucket.push(raw.id);
+    index.set(signature, bucket);
+  }
+  return index;
+}
+
+// Consume (shift) one raw id matching this message, in transcript order, so
+// repeated signatures pair up deterministically. Returns null when the message
+// has no recorded raw predecessor and must be recorded.
+function claimRawId(index, message) {
+  const signature = rawSignature(message);
+  const bucket = signature == null ? null : index.get(signature);
+  if (!bucket || !bucket.length) return null;
+  const id = bucket.shift();
+  return Number.isSafeInteger(id) ? id : null;
+}
+
 function createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal, commit }) {
   session.rawContext ??= [];
   session.compactionState ??= { owner: session.id ?? randomUUID(), version: 0, summary: null, checkpoint: null, events: [] };
@@ -96,7 +133,21 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
   };
   // Old in-memory sessions/fixtures can acquire raw identity lazily; no parent
   // history is reachable here. Already recorded rounds are never added twice.
-  for (const m of messages) if (!isDerived(m) && !session.rawMessageIds.has(m)) record(m);
+  //
+  // A *restored* (post-restart) session brings back `rawContext` and the active
+  // projection as brand-new objects with no WeakMap identity. Re-attach each
+  // active message to the raw record it was projected from before recording
+  // anything: otherwise recovery would duplicate the child's own raw history,
+  // double-count its evidence, and inflate the archive the next compaction
+  // computes. Genuinely new messages (a continuation instruction, a fresh
+  // round) have no raw match and are recorded normally.
+  const rawIndex = buildRawIdIndex(session.rawContext);
+  for (const m of messages) {
+    if (isDerived(m) || session.rawMessageIds.has(m)) continue;
+    const claimed = claimRawId(rawIndex, m);
+    if (claimed !== null) { session.rawMessageIds.set(m, claimed); continue; }
+    record(m);
+  }
   const persist = () => { commit(); require('./persistence').persistChildRun(session); };
   const append = (message, rawContent = message.content) => {
     record(message, rawContent); messages.push(message); return message;
@@ -228,8 +279,17 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
       adapter.lastMeasurement = result.after ?? result.before;
       if (result.compressed) return result.payload;
       if (result.reason?.startsWith('checkpoint-')) throw compactionError(result.reason);
+      // Forced (overflow recovery) and genuinely-oversized contexts must fail or
+      // surface as an honest context stop.
       if (force || (result.before?.tokens + result.before?.reserve > result.before?.limit)) throw new ContextBudgetError(result.reason);
-      if (result.reason !== 'below-threshold' && result.reason !== 'protected-context-too-large') throw compactionError(result.reason);
+      // Opportunistic (pressure-triggered) compaction that cannot help is a
+      // no-op, never a terminal failure: the request still fits. The loop keeps
+      // making progress, and an actual overflow is handled by the single
+      // bounded compact-and-retry. (Phase 1.4: this previously turned
+      // `no-material-reduction` — a still-fitting context — into a permanent
+      // `compaction_failed`, which capped a child's horizon.)
+      if (result.reason !== 'below-threshold' && result.reason !== 'protected-context-too-large'
+        && result.reason !== 'no-material-reduction') throw compactionError(result.reason);
       return payload;
     },
   };

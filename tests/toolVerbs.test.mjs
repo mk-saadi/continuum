@@ -9,6 +9,7 @@ test('no native tool renders as raw snake_case', () => {
     apply_patch: 'Edit',
     write_project_file: 'Write',
     move_project_file: 'Move',
+    delete_project_file: 'Delete',
     save_memory: 'Save',
     search_memory: 'Search',
     manage_mcp_servers: 'Servers',

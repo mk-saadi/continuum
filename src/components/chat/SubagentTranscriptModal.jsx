@@ -167,6 +167,64 @@ function TurnCard({ turn, index }) {
 	);
 }
 
+// Minimal Phase 1.5 child controls. Interrupt stops the active turn at a safe
+// boundary and keeps the child resumable; Continue re-drives an interrupted
+// child through the existing Phase 1.3C control surface. A continuation that
+// requires an authorized budget renewal is surfaced as a note here rather than
+// performed as a one-click action. Everything is feature-detected so a host
+// without the subagent control bridge simply renders nothing.
+function ChildControls({ childSessionId, transcript }) {
+	const api = typeof window !== "undefined" ? window.api : null;
+	const [busy, setBusy] = useState(false);
+	const [note, setNote] = useState("");
+	const status = transcript?.status;
+	const parentSessionId = transcript?.parentSessionId;
+	const canInterrupt = typeof api?.interruptChild === "function" && LIVE_STATUSES.has(status);
+	const canContinue =
+		status === "interrupted" &&
+		typeof api?.getContinuationStatus === "function" &&
+		typeof api?.continueChild === "function";
+	if (!canInterrupt && !canContinue) return null;
+	const run = async (action) => {
+		setBusy(true);
+		setNote("");
+		try {
+			const result = await action();
+			if (result && result.continued === false) setNote(result.detail ?? result.reason ?? "Not continued.");
+			else if (result && result.interrupted === false) setNote("There was no active work to interrupt.");
+			else setNote("Requested.");
+		} catch (cause) {
+			setNote(cause?.message ?? String(cause));
+		} finally {
+			setBusy(false);
+		}
+	};
+	const buttonClass =
+		"cursor-pointer rounded-md border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
+	return (
+		<section aria-label="Sub-agent controls" className="flex flex-wrap items-center gap-2 text-[11px]">
+			{canInterrupt && (
+				<button type="button" disabled={busy} className={buttonClass}
+					onClick={() => run(() => api.interruptChild(childSessionId, { parentSessionId }))}>
+					Interrupt
+				</button>
+			)}
+			{canContinue && (
+				<button type="button" disabled={busy} className={buttonClass} onClick={() => run(async () => {
+					const status = await api.getContinuationStatus(childSessionId, parentSessionId);
+					if (status?.eligibility?.requiresRenewal) {
+						return { continued: false, detail: "This child stopped at a configured budget; an authorized renewal is required before it can continue." };
+					}
+					return api.continueChild(childSessionId, { parentSessionId });
+				})}>
+					Continue
+				</button>
+			)}
+			{note && <span role="status" className="text-[var(--text-muted)]">{note}</span>}
+		</section>
+	);
+}
+
 // Read-only activity view for one spawned child: the prompt it was given,
 // every committed turn (tool calls with short args, truncated outputs), and
 // the final answer or error. Polls while open so running children update
@@ -329,6 +387,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 								)}
 								{subagentUsageLines(transcript).map(line => <p key={line}>{line}</p>)}
 							</section>
+							<ChildControls childSessionId={childSessionId} transcript={transcript} />
 							{live && (
 								<section
 									aria-label="Current activity"

@@ -13,6 +13,8 @@ const {
 	saveNotificationPrefs,
 	getRagSettings,
 	saveRagSettings,
+	getSearchSettings,
+	saveSearchSettings,
 } = require("./configManager");
 const { saveGlobalSamplingParams } = require("./samplingManager");
 const profiles = require("./profileSettings");
@@ -249,6 +251,11 @@ function registerIpcHandlers({
 				: { params: saveGlobalSamplingParams(params) },
 		"rag:get-settings": () => getRagSettings(),
 		"rag:save-settings": (settings) => saveRagSettings(settings),
+		// Native web search (Phase 1.7): the stored API key never crosses IPC —
+		// getSearchSettings returns presence/label only, and saveSearchSettings
+		// keeps the existing key when the renderer omits it.
+		"search:get-settings": () => getSearchSettings(),
+		"search:save-settings": (settings) => saveSearchSettings(settings),
 		"rag:index": async ({ requestId, attachments }, notify, sender) => {
 			if (typeof requestId !== "string" || !requestId || !Array.isArray(attachments))
 				throw new Error("Invalid indexing request.");
@@ -292,6 +299,27 @@ function registerIpcHandlers({
 		// instead of throwing; the UI renders that as "no longer available".
 		"subagent:get-transcript": ({ childSessionId } = {}) =>
 			require("./subagents").getChildTranscript(childSessionId),
+		// Phase 1.3C continuation control (minimal contract; Phase 1.5 will build
+		// the UI on top of exactly these calls). Authorization is the owning
+		// parentSessionId, enforced inside the runtime for every mutating call.
+		// `renew-budget` and `continue` reject/return structured results rather
+		// than silently doing nothing.
+		"subagent:describe": ({ childSessionId } = {}) =>
+			require("./subagents").describeChild(childSessionId),
+		// Phase 1.5 minimal child controls: interrupt stops the active turn at a
+		// safe boundary and keeps the child resumable (never a cancellation).
+		"subagent:interrupt": ({ childSessionId, parentSessionId } = {}) =>
+			require("./subagents").interrupt(childSessionId, { parentSessionId }),
+		"subagent:continuation-status": ({ childSessionId, parentSessionId } = {}) =>
+			require("./subagents").continuationStatus(childSessionId, { parentSessionId }),
+		"subagent:renew-budget": ({ childSessionId, parentSessionId, renewal, reason } = {}) =>
+			require("./subagents").renewChildBudget(childSessionId, renewal ?? {}, { parentSessionId, reason }),
+		"subagent:continue": ({ childSessionId, parentSessionId, renewal, message, allowCancelled, allowTimedOut } = {}) =>
+			require("./subagents").continueChild(childSessionId, { parentSessionId, renewal, message, allowCancelled, allowTimedOut }),
+		"subagent:list-recoverable": ({ parentSessionId } = {}) =>
+			require("./subagents").listRecoverableChildren({ parentSessionId }),
+		"subagent:recover": ({ childSessionId, parentSessionId, engine } = {}) =>
+			require("./subagents").recoverChild(childSessionId, { parentSessionId, engine, verifyOwner: true }),
 		// Workspace file recovery (Phase 3 UI). Every handler resolves the
 		// chat session to its project workspace first; checkpoint ids are
 		// then gated to that workspace root inside recoveryStore, so a

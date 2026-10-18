@@ -390,9 +390,10 @@ const COMMAND_TOOLS = new Set(['execute_command', 'run_tests']);
 const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content']);
 const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
 const GIT_WRITE_TOOLS = new Set(['git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
-const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history', 'search_memory']);
+const SEARCH_TOOLS = new Set(['search_project_content', 'get_recent_chat_history', 'search_memory', 'web_search']);
 const EDIT_TOOLS = new Set(['str_replace_editor', 'edit_project_files', 'apply_patch']);
 const MOVE_TOOLS = new Set(['move_project_file']);
+const DELETE_TOOLS = new Set(['delete_project_file']);
 const SAVE_TOOLS = new Set(['save_memory']);
 const MCP_TOOLS = new Set(['manage_mcp_servers', 'approve_mcp_mutation']);
 const WRITE_TOOLS = new Set(['write_project_file']);
@@ -415,6 +416,7 @@ export function toolKind(step) {
   if (SEARCH_TOOLS.has(name)) return 'search';
   if (EDIT_TOOLS.has(name)) return 'edit';
   if (MOVE_TOOLS.has(name)) return 'move';
+  if (DELETE_TOOLS.has(name)) return 'delete';
   if (SAVE_TOOLS.has(name)) return 'save';
   if (MCP_TOOLS.has(name)) return 'mcp';
   if (WRITE_TOOLS.has(name)) return 'write';
@@ -440,6 +442,7 @@ export function toolVerb(step) {
     case 'search': return 'Search';
     case 'edit': return 'Edit';
     case 'move': return 'Move';
+    case 'delete': return 'Delete';
     case 'save': return 'Save';
     case 'mcp': return step?.toolName === 'approve_mcp_mutation' ? 'Approve' : 'Servers';
     case 'write': return 'Write';
@@ -496,7 +499,7 @@ function distinctStagePaths(events) {
 // durationMs (tool steps carry no durations).
 export function summarizeStage(stage) {
   const events = stage?.events ?? [];
-  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, git: 0, plan: 0, other: 0 };
+  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, delete: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, git: 0, plan: 0, other: 0 };
   let done = 0;
   let failed = 0;
   let blocked = 0;
@@ -518,7 +521,7 @@ export function summarizeStage(stage) {
   const searches = byKind.search;
   const reads = byKind.read + byKind.list;
   const ops = events.length;
-  const onlyReads = ops > 0 && byKind.git === 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0 && byKind.plan === 0;
+  const onlyReads = ops > 0 && byKind.git === 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.delete === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0 && byKind.plan === 0;
   let title;
   if (ops === 0) {
     title = 'Thought';
@@ -537,6 +540,8 @@ export function summarizeStage(stage) {
     title = `Edited ${files.length || byKind.edit} file${(files.length || byKind.edit) === 1 ? '' : 's'}`;
   } else if (byKind.move > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.write === 0) {
     title = `Moved ${files.length || byKind.move} file${(files.length || byKind.move) === 1 ? '' : 's'}`;
+  } else if (byKind.delete > 0 && byKind.command === 0 && byKind.edit === 0 && byKind.write === 0 && byKind.move === 0) {
+    title = `Deleted ${files.length || byKind.delete} file${(files.length || byKind.delete) === 1 ? '' : 's'}`;
   } else if (byKind.write > 0 && byKind.command === 0 && byKind.edit === 0) {
     title = `Wrote ${byKind.write} file${byKind.write === 1 ? '' : 's'}`;
   } else {
@@ -611,6 +616,10 @@ export function formatArgFields(step) {
     case 'move': {
       push('From', str(args.source_path, 160));
       push('To', str(args.destination_path, 160));
+      break;
+    }
+    case 'delete': {
+      push('Path', str(args.path, 160));
       break;
     }
     case 'save': {
