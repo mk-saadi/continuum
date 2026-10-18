@@ -141,6 +141,13 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getCheckpoint: (sessionId) => ipcRenderer.invoke('session:get-checkpoint', { sessionId }),
   getCheckpointHistory: (sessionId, limit) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit }),
   getBriefs: (sessionId) => ipcRenderer.invoke('session:get-briefs', { sessionId }),
+  getPlan: (sessionId) => ipcRenderer.invoke('session:get-plan', { sessionId }),
+  onPlanUpdated: (callback) => {
+    if (typeof callback !== 'function') throw new TypeError('callback must be a function.');
+    const listener = (_event, result) => callback(result);
+    ipcRenderer.on('session:plan-updated', listener);
+    return () => ipcRenderer.removeListener('session:plan-updated', listener);
+  },
   getArchivedMessages: (sessionId, options) => ipcRenderer.invoke('session:get-archived-messages', { sessionId, ...(options ?? {}) }),
   onCompressionComplete: (callback) => {
     if (typeof callback !== 'function') throw new TypeError('callback must be a function.');

@@ -63,18 +63,18 @@ function resolveProjectionTools(sessionId, modelId, { tools } = {}) {
 
 // Projected full prompt for an idle candidate: same builders as a real
 // request (system, schemas, summary, briefs, checkpoint, retained messages)
-// plus explicit memory/worklog accounting the DB estimate omits. The retained
+// plus explicit memory/worklog/plan accounting the DB estimate omits. The retained
 // set is every message that would stay active after archival (unarchived
 // candidates plus the protected tail), so archiving more strictly shrinks the
 // projection and the extension loop below converges. Deliberately excludes
 // RAG excerpts (spliced after recovery) and output reserve (covered by the
 // headroom between the 60% target and the window). chars/4 throughout, like
 // the trigger math — see IDLE_ESTIMATOR_MARGIN_FRACTION.
-function projectIdlePrompt({ sessionId, modelId, summaryText, briefSection, checkpointSection, retainedMessages, tools, memoryTokens = 0, workLogTokens = 0 }) {
+function projectIdlePrompt({ sessionId, modelId, summaryText, briefSection, checkpointSection, retainedMessages, tools, memoryTokens = 0, workLogTokens = 0, planTokens = 0 }) {
   const breakdown = projectForcedFloor({ sessionId, modelId, summaryText, briefSection, checkpointSection, tailMessages: retainedMessages, tools });
   const total = breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens
-    + breakdown.checkpointTokens + breakdown.tailTokens + breakdown.toolTokens + memoryTokens + workLogTokens;
-  return { breakdown, memoryTokens, workLogTokens, total };
+    + breakdown.checkpointTokens + breakdown.tailTokens + breakdown.toolTokens + memoryTokens + workLogTokens + planTokens;
+  return { breakdown, memoryTokens, workLogTokens, planTokens, total };
 }
 
 // Effective idle target for a run: kind fraction minus estimator margin.
@@ -387,7 +387,7 @@ async function compressContext({
           sessionId, modelId, summaryText: null,
           briefSection: require('./taskBriefs').buildTaskBriefSection(sessionId),
           checkpointSection: null, retainedMessages: tailMessages, tools: projectionTools,
-          memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens,
+          memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens, planTokens: usageNow.planTokens,
         });
         if (dropped.total <= target) {
           db.transaction(() => {
@@ -458,7 +458,7 @@ async function compressContext({
     }
 
     // Idle path only: the DB targeted-total above omits the fixed prompt
-    // costs (system block, tool schemas, memories, worklog), which is why a
+    // costs (system block, tool schemas, memories, worklog, plan), which is why a
     // "successful" compaction can land within a few turns of the trigger.
     // Extend archival until the *projected* prompt fits the kind target
     // (40% workspace, 50% casual), stopping at an irreducible floor or the
@@ -479,7 +479,7 @@ async function compressContext({
         sessionId, modelId, summaryText,
         briefSection: idleBriefSection, checkpointSection: idleCheckpointSection,
         retainedMessages: [...candidates.slice(selected), ...tailMessages], tools: projectionTools,
-        memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens,
+        memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens, planTokens: usageNow.planTokens,
       });
       const extension = await extendSelectionForProjectedFit({
         candidates, selectedCount, newSummary, target,

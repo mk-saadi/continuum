@@ -218,11 +218,22 @@ function getContextUsage(sessionId, currentModelId) {
     } catch {
       workLogTokens = 0;
     }
+    // Durable plan contribution, estimated exactly like the prompt builder
+    // injects it (same bounded section text). Casual sessions and plan-free
+    // tasks stay 0, leaving the estimate byte-identical to before.
+    let planTokens = 0;
+    try {
+      const section = require('./workspacePlan').buildPlanSection(sessionId, {});
+      if (section) planTokens = estimateTokens(section.content);
+    } catch {
+      planTokens = 0;
+    }
 
     return {
-      totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens + workLogTokens,
+      totalTokens: coreTokens + (summary === null ? 0 : estimateTokens(summary)) + messageTokens + workLogTokens + planTokens,
       coreTokens,
       workLogTokens,
+      planTokens,
       messageCount,
       hasSummary: summary !== null,
       // Latest persisted per-turn server telemetry for this session only.

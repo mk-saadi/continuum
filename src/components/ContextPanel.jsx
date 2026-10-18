@@ -687,6 +687,14 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 								</dd>
 							</>
 						) : null}
+						{usage.planTokens > 0 ? (
+							<>
+								<dt className={bodyClass}>Plan (approx)</dt>
+								<dd className="text-right font-medium">
+									{usage.planTokens.toLocaleString()} tokens
+								</dd>
+							</>
+						) : null}
 						<dt className={bodyClass}>Last prompt</dt>
 						<dd className="text-right font-medium">
 							{usage.telemetry?.lastPromptTokens != null

@@ -36,6 +36,7 @@ const CAPABILITIES = Object.freeze({
 	LOCAL_EXECUTION: 'local_execution', // shell commands (sandboxed unless approved)
 	EXTERNAL_MUTATION: 'external_mutation', // generates or side-effects outside the workspace
 	MEMORY_WRITE: 'memory_write', // persists into assistant memory
+	PLAN_WRITE: 'plan_write', // updates the session-owned workspace task plan
 	AGENT_SPAWN: 'agent_spawn', // spawns a sub-agent (child runs read-only)
 });
 
@@ -87,12 +88,15 @@ const TOOL_CAPABILITIES = Object.freeze({
 	delete_file: CAPABILITIES.WORKSPACE_WRITE,
 	// LOCAL_EXECUTION
 	execute_command: CAPABILITIES.LOCAL_EXECUTION,
+	run_tests: CAPABILITIES.LOCAL_EXECUTION,
 	// EXTERNAL_MUTATION
 	generate_image: CAPABILITIES.EXTERNAL_MUTATION,
 	manage_mcp_servers: CAPABILITIES.EXTERNAL_MUTATION,
 	approve_mcp_mutation: CAPABILITIES.EXTERNAL_MUTATION,
 	// MEMORY_WRITE
 	save_memory: CAPABILITIES.MEMORY_WRITE,
+	// PLAN_WRITE
+	update_plan: CAPABILITIES.PLAN_WRITE,
 	// AGENT_SPAWN
 	spawn_sub_agent: CAPABILITIES.AGENT_SPAWN,
 	delegate_task: CAPABILITIES.AGENT_SPAWN,
@@ -245,7 +249,14 @@ function inside(root, target) {
 
 function baseDecision({ capability, mode, hasWorkspace, native }) {
 	// Full access is unrestricted (the OS sandbox/bwrap boundary still applies).
-	if (mode === 'full_access') return { decision: 'allow' };
+	// A plan, however, has no meaning without a Workspace session to own it; a
+	// casual chat stays casual even in full access.
+	if (mode === 'full_access') {
+		if (capability === CAPABILITIES.PLAN_WRITE && !hasWorkspace) {
+			return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
+		}
+		return { decision: 'allow' };
+	}
 
 	// Read only: reads and agent spawns (children are themselves read-only).
 	if (mode === 'read_only') {
@@ -273,6 +284,9 @@ function baseDecision({ capability, mode, hasWorkspace, native }) {
 		if (capability === CAPABILITIES.WORKSPACE_WRITE) {
 			return { decision: 'deny', reason: 'Execution blocked: File writes require a project workspace.' };
 		}
+		if (capability === CAPABILITIES.PLAN_WRITE) {
+			return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
+		}
 		// Shell commands and external mutations have no workspace to contain
 		// them in casual mode -> always prompt.
 		return { decision: 'approve' };
@@ -282,7 +296,8 @@ function baseDecision({ capability, mode, hasWorkspace, native }) {
 	// modes. guardTool refines these with async containment checks: anything
 	// outside the workspace or system-affecting is approved in ask_approval and
 	// denied in workspace_write.
-	if (capability === CAPABILITIES.WORKSPACE_WRITE || capability === CAPABILITIES.LOCAL_EXECUTION) {
+	if (capability === CAPABILITIES.WORKSPACE_WRITE || capability === CAPABILITIES.LOCAL_EXECUTION ||
+		capability === CAPABILITIES.PLAN_WRITE) {
 		return { decision: 'allow' };
 	}
 
@@ -462,7 +477,17 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
-	if (mode === 'full_access') return { mode, approved: false };
+	if (mode === 'full_access') {
+		// Full access does not create a workspace: a task plan still needs the
+		// session to own a project. Keep this in step with baseDecision so
+		// visibility and execution never disagree.
+		if (capabilityOf(name, native) === CAPABILITIES.PLAN_WRITE && !root) {
+			const error = new Error('Execution blocked: Task plans require a project workspace.');
+			error.code = 'PERMISSION_DENIED';
+			throw error;
+		}
+		return { mode, approved: false };
+	}
 	if (name === 'git_commit' && mode !== 'read_only') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		const snapshot = await require('./tools/agentTools').prepareGitCommit(root, signal);
@@ -507,7 +532,8 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		}
 		return { mode, approved: false };
 	}
-	if (capability === CAPABILITIES.AGENT_SPAWN || capability === CAPABILITIES.MEMORY_WRITE) {
+	if (capability === CAPABILITIES.AGENT_SPAWN || capability === CAPABILITIES.MEMORY_WRITE ||
+		capability === CAPABILITIES.PLAN_WRITE) {
 		return { mode, approved: false };
 	}
 

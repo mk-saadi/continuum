@@ -265,6 +265,32 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON workspace_checkpoints(session_id, status, id);
 
+  -- Workspace plans: one durable, session-owned plan per Workspace task, with
+  -- ordered steps whose ids stay stable for the life of the plan. The plan
+  -- records intended work and reported progress only; it is never evidence
+  -- that a step succeeded. Every step write is scoped by session_id, so two
+  -- tasks can never collide even if a model reuses a local step number.
+  -- Compaction reads this state but never writes it.
+  CREATE TABLE IF NOT EXISTS workspace_plans (
+    session_id TEXT PRIMARY KEY NOT NULL REFERENCES sessions(id),
+    objective TEXT NOT NULL DEFAULT '',
+    revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS workspace_plan_steps (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    position INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_plan_steps_session ON workspace_plan_steps(session_id, position, id);
+
   CREATE TABLE IF NOT EXISTS document_chunks (
     id INTEGER PRIMARY KEY,
     file_name TEXT NOT NULL,
@@ -425,6 +451,8 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
           DELETE FROM workspace_task_briefs WHERE session_id = OLD.id;
           DELETE FROM workspace_checkpoints WHERE session_id = OLD.id;
           DELETE FROM workspace_turn_digests WHERE session_id = OLD.id;
+          DELETE FROM workspace_plan_steps WHERE session_id = OLD.id;
+          DELETE FROM workspace_plans WHERE session_id = OLD.id;
         END;
         CREATE TRIGGER IF NOT EXISTS attachments_cascade BEFORE DELETE ON messages BEGIN
           DELETE FROM message_attachments WHERE message_id = OLD.id;

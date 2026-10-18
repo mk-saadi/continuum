@@ -30,6 +30,6 @@ const CASUAL_FILE_OPS_REMINDER = [
 const CASUAL_SUBAGENT_PATTERN_REMINDER = 'Sub-agent call shape: {"tool": "spawn_sub_agent", "arguments": {"task": "<single purpose>", "investigate": true, "expected_output": "<short summary format>"}} — exactly one of url, target_file, or investigate:true.';
 
 // Tool names whose first use in a turn triggers the file-ops reminder.
-const FILE_OPS_TOOL_NAMES = new Set(['execute_command', 'str_replace_editor', 'write_project_file', 'write_file', 'edit_file', 'delete_file']);
+const FILE_OPS_TOOL_NAMES = new Set(['execute_command', 'run_tests', 'str_replace_editor', 'write_project_file', 'write_file', 'edit_file', 'delete_file']);
 
 module.exports = { mergeSystemMessages, CASUAL_FILE_OPS_REMINDER, CASUAL_SUBAGENT_PATTERN_REMINDER, FILE_OPS_TOOL_NAMES };

@@ -183,6 +183,11 @@ export function summarizeStep(step) {
       );
     else if (toolName === 'git_log' && typeof args.limit === 'number') summary = `last ${args.limit}`;
     else if (toolName.startsWith('git_')) summary = Object.keys(args).length ? truncate(JSON.stringify(args), 120) : '';
+    else if (toolName === 'update_plan') {
+      const action = typeof args.action === 'string' ? args.action : 'update';
+      const count = Array.isArray(args.steps) ? args.steps.length : 0;
+      summary = truncate(count ? `${action} · ${count} step${count === 1 ? '' : 's'}` : action, 120);
+    }
     else summary = truncate(JSON.stringify(args), 120);
   } else if (typeof step.streamingArguments === 'string' && step.streamingArguments) {
     summary = truncate(step.streamingArguments, 120);
@@ -381,7 +386,7 @@ export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision
 // the recorded tool or its arguments.
 // ---------------------------------------------------------------------------
 
-const COMMAND_TOOLS = new Set(['execute_command']);
+const COMMAND_TOOLS = new Set(['execute_command', 'run_tests']);
 const READ_TOOLS = new Set(['read_project_file', 'get_single_web_page_content']);
 const GIT_TOOLS = new Set(['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
 const GIT_WRITE_TOOLS = new Set(['git_stage', 'git_unstage', 'git_stash', 'git_sync', 'git_commit', 'git_create_branch', 'git_switch']);
@@ -395,6 +400,7 @@ const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 const MEDIA_TOOLS = new Set(['generate_image', 'take_screenshot']);
 const SKILL_TOOLS = new Set(['propose_skill', 'use_skill']);
+const PLAN_TOOLS = new Set(['update_plan']);
 
 // Presentation category derived from the recorded tool name only.
 export function toolKind(step) {
@@ -402,6 +408,7 @@ export function toolKind(step) {
   if (typeof name !== 'string') return 'other';
   if (name === 'ask_user') return 'question';
   if (SKILL_TOOLS.has(name)) return 'skill';
+  if (PLAN_TOOLS.has(name)) return 'plan';
   if (COMMAND_TOOLS.has(name)) return 'command';
   if (READ_TOOLS.has(name)) return 'read';
   if (GIT_TOOLS.has(name) || GIT_WRITE_TOOLS.has(name)) return 'git';
@@ -441,6 +448,7 @@ export function toolVerb(step) {
     case 'media': return step?.toolName === 'take_screenshot' ? 'Screenshot' : 'Image';
     case 'question': return 'Question';
     case 'skill': return 'Skill';
+    case 'plan': return 'Plan';
     default: return step?.toolName || 'Tool';
   }
 }
@@ -488,7 +496,7 @@ function distinctStagePaths(events) {
 // durationMs (tool steps carry no durations).
 export function summarizeStage(stage) {
   const events = stage?.events ?? [];
-  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, git: 0, other: 0 };
+  const byKind = { command: 0, read: 0, search: 0, edit: 0, move: 0, save: 0, mcp: 0, write: 0, list: 0, subagent: 0, media: 0, git: 0, plan: 0, other: 0 };
   let done = 0;
   let failed = 0;
   let blocked = 0;
@@ -510,12 +518,14 @@ export function summarizeStage(stage) {
   const searches = byKind.search;
   const reads = byKind.read + byKind.list;
   const ops = events.length;
-  const onlyReads = ops > 0 && byKind.git === 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0;
+  const onlyReads = ops > 0 && byKind.git === 0 && byKind.command === 0 && byKind.edit === 0 && byKind.move === 0 && byKind.save === 0 && byKind.mcp === 0 && byKind.write === 0 && byKind.other === 0 && byKind.subagent === 0 && byKind.media === 0 && byKind.plan === 0;
   let title;
   if (ops === 0) {
     title = 'Thought';
   } else if (byKind.git === ops) {
     title = ops === 1 ? toolVerb(events[0]) : `${ops} git operations`;
+  } else if (byKind.plan === ops) {
+    title = ops === 1 ? 'Updated plan' : `Updated plan ${ops} times`;
   } else if (onlyReads) {
     const parts = [];
     if (files.length) parts.push(`${files.length} file${files.length === 1 ? '' : 's'}`);
@@ -628,6 +638,14 @@ export function formatArgFields(step) {
       push('Prompt', str(args.prompt));
       push('Display', str(args.display_id, 40));
       break;
+    case 'plan': {
+      push('Action', str(args.action, 40));
+      push('Objective', str(args.objective, 160));
+      if (Array.isArray(args.steps)) {
+        push('Steps', `${args.steps.length} step${args.steps.length === 1 ? '' : 's'}`);
+      }
+      break;
+    }
     default: {
       for (const [key, value] of Object.entries(args).slice(0, 4)) {
         if (typeof value === 'string') push(key, str(value));

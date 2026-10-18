@@ -719,6 +719,13 @@ function registerIpcHandlers({
 									});
 							if (spawnChildId) attachChildSession(spawnChildId);
 							const output = sanitizeWebToolResult(rawOutput, call.name);
+							// A durable plan change is pushed immediately so the
+							// sidebar card updates without polling. Other tabs
+							// receive the event but ignore a mismatched sessionId.
+							// Failed writes send nothing: the card keeps the last
+							// durable state while the agent sees the error.
+							if (isAgent && call.name === 'update_plan' && rawOutput?.success && !sender.isDestroyed())
+								sender.send('session:plan-updated', { sessionId, plan: rawOutput.plan ?? null });
 							if (isAgent && call.name === 'manage_mcp_servers') {
 								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
 								notify({ type: 'context', pluginTokens: refreshed.pluginTokens, toolTokens: refreshed.toolTokens });
@@ -915,7 +922,12 @@ function registerIpcHandlers({
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
 		"agent:get-tools": () => agentTools,
         "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
-            if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) return executeAgentTool({ name, arguments: args, sessionId, permissionMode });
+            if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) {
+                const result = await executeAgentTool({ name, arguments: args, sessionId, permissionMode });
+                if (name === 'update_plan' && result?.success && !sender.isDestroyed())
+                    sender.send('session:plan-updated', { sessionId, plan: result.plan ?? null });
+                return result;
+            }
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
             standaloneDelegation = true;
             const controller = new AbortController();
@@ -995,6 +1007,9 @@ function registerIpcHandlers({
 		"session:get-checkpoint": ({ sessionId }) => require('./contextInspection').getCheckpointForDisplay(sessionId),
 		"session:get-checkpoint-history": ({ sessionId, limit }) => require('./contextInspection').getCheckpointHistoryForDisplay(sessionId, limit),
 		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
+		// Read-only durable task plan for the workspace sidebar. Null for a
+		// casual session or a task that has not created a plan yet.
+		"session:get-plan": ({ sessionId }) => require('./workspacePlan').getPlan(sessionId),
 		"session:get-archived-messages": ({ sessionId, limit, offset }) => require('./contextInspection').getArchivedMessagesForDisplay(sessionId, { limit, offset }),
 		"session:trigger-compression": ({ sessionId, modelId, contextWindowLimit }, notify) => {
 			if (typeof llmSummarizeCallback !== "function") {

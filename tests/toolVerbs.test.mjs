@@ -21,6 +21,7 @@ test('no native tool renders as raw snake_case', () => {
     git_sync: 'Git sync',
     ask_user: 'Question',
     delegate_task: 'Subagent',
+    update_plan: 'Plan',
   };
   for (const [name, verb] of Object.entries(verbs)) {
     assert.equal(toolVerb({ toolName: name }), verb, name);

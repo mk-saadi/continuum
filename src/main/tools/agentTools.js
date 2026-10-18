@@ -105,6 +105,66 @@ const agentTools = [
 		["command"],
 	),
 	define(
+		"run_tests",
+		"Run a verification command (tests, lint, type-check, or build) and return a structured verdict instead of raw output. Use this before claiming work is complete. `status` is `passed` only when the command exits 0; a nonzero exit is `failed`, an exceeded timeout is `timed_out`, a user interruption is `cancelled`, and a command that never ran (missing tool, no exit status) is `error`. Runs with the same sandbox, approval, workspace, and timeout rules as execute_command.",
+		{
+			command: string("Verification shell command (for example `npm test`, `pytest`, `cargo test`, or a repository check script)"),
+			cwd: string("Working directory; defaults to the project root"),
+			timeout_ms: {
+				type: "number",
+				minimum: 1000,
+				maximum: 120000,
+				description: "Optional verification timeout in milliseconds (1000-120000); defaults to 45000 like execute_command",
+			},
+		},
+		["command"],
+	),
+	define(
+		"update_plan",
+		"Create, update, or read the durable task plan for this Workspace task. Use it for multi-step work: create the major steps once, then update only what changed as work progresses. Step ids are stable and scoped to this task. A plan records intended work and reported progress; it is not proof of completion — verify finished implementation (for example with run_tests) before marking a step completed.",
+		{
+			action: {
+				type: "string",
+				enum: ["create", "update", "get"],
+				description: '"create" starts the initial plan, "update" applies incremental step changes, "get" returns the current plan (use when resuming).',
+			},
+			objective: string("Optional one-line goal for the task (create/update)"),
+			steps: {
+				type: "array",
+				description: 'Steps to create, or incremental changes when action is "update". Omit id to add a new step.',
+				items: {
+					type: "object",
+					properties: {
+						id: {
+							type: "integer",
+							description: "Stable step id from create/get. Omit to add a new step (update only).",
+						},
+						description: string("Step description; required when adding or revising"),
+						status: {
+							type: "string",
+							enum: ["pending", "in_progress", "completed", "blocked"],
+							description: "Current step status",
+						},
+						note: string("Optional concise context; required when status is blocked"),
+					},
+					required: [],
+					additionalProperties: false,
+				},
+			},
+			remove_step_ids: {
+				type: "array",
+				items: { type: "integer" },
+				description: "Step ids to remove in the same update call",
+			},
+			expected_revision: {
+				type: "integer",
+				minimum: 1,
+				description: "Optional optimistic guard: fail if the stored plan revision differs",
+			},
+		},
+		["action"],
+	),
+	define(
 		"str_replace_editor",
 		"Replace exactly one contiguous block of complete lines in a project file, ignoring leading/trailing whitespace and carriage returns when matching. Include surrounding lines to make the match unique.",
 		{
@@ -480,7 +540,7 @@ function truncateOutput(stdout, stderr = "") {
 		]),
 	);
 }
-function executeCommand(args, cwd, signal, workspaceRoot) {
+function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 45000) {
 	requireText(args.command, "command");
 	return new Promise((resolve) => {
         const run = workspaceRoot
@@ -511,17 +571,186 @@ function executeCommand(args, cwd, signal, workspaceRoot) {
             : exec;
         run(
 			args.command,
-			{ cwd, timeout: 45000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8", signal },
+			{ cwd, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, encoding: "utf8", signal },
 			(error, stdout, stderr) => {
 				if (error && typeof error.code !== "number") stderr += `\nCommand failed: ${error.message}`;
+				// Distinguish how the process ended. Node reports a user abort as
+				// an AbortError, a timeout as a killed process with a signal, and
+				// a spawn failure (missing runner/executable) as a string code.
+				// Consumers of the raw shape (the model, the UI, the work digest)
+				// still read exitCode; these fields are additive evidence.
+				const cancelled = Boolean(error) && (error.name === "AbortError" || error.code === "ABORT_ERR");
+				const timedOut = Boolean(error) && !cancelled && error.killed === true && typeof error.signal === "string";
+				const spawnError = Boolean(error) && !cancelled && !timedOut && typeof error.code === "string" ? error.code : null;
 				resolve({
 					...truncateOutput(stdout, stderr),
 					exitCode: error ? (typeof error.code === "number" ? error.code : 1) : 0,
+					...(cancelled ? { cancelled: true } : {}),
+					...(timedOut ? { timedOut: true } : {}),
+					...(spawnError ? { spawnError } : {}),
 				});
 			},
 		);
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Structured verification (run_tests)
+//
+// A thin, evidence-only wrapper over executeCommand: it runs through the exact
+// same guard, sandbox, workspace scoping, recovery boundary, timeout and
+// cancellation path, then classifies the raw result into one of
+// passed | failed | timed_out | cancelled | error. Success is never inferred:
+// `passed` requires a real exit code of 0, and any unknown/absent exit status
+// is reported as `error`, never as a pass.
+// ---------------------------------------------------------------------------
+
+const VERIFICATION_TIMEOUT_MIN = 1000;
+const VERIFICATION_TIMEOUT_MAX = 120000;
+const VERIFICATION_TIMEOUT_DEFAULT = 45000;
+const VERIFICATION_STREAM_LIMIT = 4000; // per captured stream
+const VERIFICATION_EXCERPT_LIMIT = 1200; // failure excerpt
+// Shell conventions for "the command could not be run at all": 127 is the
+// POSIX "command not found", 126 "not executable / permission denied". Only
+// combined with a matching diagnostic so an ordinary failing test that happens
+// to exit 127 is still reported as a test failure.
+const COMMAND_UNAVAILABLE_RE = /(?:command not found|not found|no such file or directory|permission denied|not executable|is a directory)/i;
+
+function verificationTimeoutMs(args) {
+	if (args.timeout_ms === undefined) return VERIFICATION_TIMEOUT_DEFAULT;
+	if (
+		typeof args.timeout_ms !== "number" ||
+		!Number.isSafeInteger(args.timeout_ms) ||
+		args.timeout_ms < VERIFICATION_TIMEOUT_MIN ||
+		args.timeout_ms > VERIFICATION_TIMEOUT_MAX
+	) {
+		throw new Error(`timeout_ms must be an integer from ${VERIFICATION_TIMEOUT_MIN} to ${VERIFICATION_TIMEOUT_MAX}.`);
+	}
+	return args.timeout_ms;
+}
+
+// Keep the head and the tail: the tail usually holds the failure, the head the
+// command context. The marker makes the omission explicit and bounded.
+function boundVerificationStream(text, limit = VERIFICATION_STREAM_LIMIT) {
+	if (typeof text !== "string" || text.length <= limit) return text ?? "";
+	const keep = Math.floor((limit - 40) / 2);
+	return `${text.slice(0, keep)}\n[... ${text.length - 2 * keep} characters truncated ...]\n${text.slice(-keep)}`;
+}
+
+function verificationFailureExcerpt(stdout, stderr) {
+	const source = (stderr && stderr.trim() ? stderr : stdout) ?? "";
+	const trimmed = source.trim();
+	if (!trimmed) return "";
+	return trimmed.length <= VERIFICATION_EXCERPT_LIMIT
+		? trimmed
+		: `[...]\n${trimmed.slice(-VERIFICATION_EXCERPT_LIMIT)}`;
+}
+
+function verificationStatus(result, signal) {
+	if (result?.cancelled || signal?.aborted) return "cancelled";
+	if (result?.timedOut) return "timed_out";
+	if (result?.spawnError) return "error";
+	if (typeof result?.exitCode !== "number") return "error";
+	if (result.exitCode === 0) return "passed";
+	// A command that never started is an execution error, not a test failure.
+	if (
+		(result.exitCode === 126 || result.exitCode === 127) &&
+		COMMAND_UNAVAILABLE_RE.test(result.stderr ?? "")
+	) {
+		return "error";
+	}
+	return "failed";
+}
+
+function verificationReason(status, result, exitCode, timeoutMs) {
+	if (status === "timed_out") {
+		return `Verification timed out after ${timeoutMs} ms and was stopped without a pass/fail result.`;
+	}
+	if (status === "cancelled") {
+		return "Verification was cancelled before it completed.";
+	}
+	if (status === "failed") {
+		return `Verification failed: the command exited with status ${exitCode}.`;
+	}
+	if (result?.spawnError) {
+		return `Verification could not run: the command runner is unavailable (${result.spawnError}).`;
+	}
+	if (exitCode === 126 || exitCode === 127) {
+		return `Verification could not run: the command was not found or is not executable (exit ${exitCode}).`;
+	}
+	return "Verification could not run: no exit status was reported.";
+}
+
+// Map the raw executeCommand result into the structured verification verdict.
+function structureVerification(args, result, signal, timeoutMs, cwdLabel) {
+	const status = verificationStatus(result, signal);
+	const exitCode = typeof result?.exitCode === "number" ? result.exitCode : null;
+	const stdout = boundVerificationStream(result?.stdout);
+	const stderr = boundVerificationStream(result?.stderr);
+	const structured = {
+		// success mirrors the verdict so existing failure detection, the work
+		// digest, and the circuit breaker treat a failed check as a failure.
+		success: status === "passed",
+		status,
+		command: args.command,
+		cwd: cwdLabel,
+		exitCode,
+		stdout,
+		stderr,
+	};
+	// Carry the shell recovery boundary's evidence through, so a verification
+	// that touched the workspace is still restorable from the returned result.
+	for (const key of ["recoveryCheckpointId", "recoveryChangedTotal", "recoveryChanged", "recoveryComplete", "recoveryPostFailed"]) {
+		if (result && result[key] !== undefined) structured[key] = result[key];
+	}
+	if (status === "passed") {
+		structured.message = "Verification passed (exit 0).";
+		return structured;
+	}
+	structured.reason = verificationReason(status, result, exitCode, timeoutMs);
+	const excerpt = verificationFailureExcerpt(stdout, stderr);
+	if (excerpt) structured.failure_excerpt = excerpt;
+	return structured;
+}
+
+// The single execution path shared by execute_command and run_tests: resolve
+// the cwd under the same containment rules, run the command (sandboxed unless
+// the user granted an uncontained run), and wrap it in the shell recovery
+// boundary when the session has a project root.
+async function runScopedCommand(name, args, { root, signal, uncontained, sessionId, recoveryRoot, timeoutMs }) {
+	const cwd = uncontained
+		? path.resolve(root, args.cwd ?? ".")
+		: await scopedPath(root, args.cwd ?? ".", true);
+	const runCommand = () => executeCommand(args, cwd, signal, uncontained ? undefined : root, timeoutMs);
+	const projectRoot = recoveryRoot ? path.resolve(recoveryRoot) : null;
+	const result = projectRoot
+		? await require("../recoveryBoundary").withShellRecovery(
+				{
+					root: projectRoot,
+					chatSessionId: sessionId ?? null,
+					toolName: name,
+					opMeta: { command: typeof args.command === "string" ? args.command.slice(0, 500) : "" },
+				},
+				runCommand,
+			)
+		: await runCommand();
+	return { result, cwd };
+}
+
+async function runVerification(args, { root, signal, uncontained, sessionId, recoveryRoot }) {
+	const timeoutMs = verificationTimeoutMs(args);
+	const { result, cwd } = await runScopedCommand("run_tests", args, {
+		root,
+		signal,
+		uncontained,
+		sessionId,
+		recoveryRoot,
+		timeoutMs,
+	});
+	const cwdLabel = uncontained ? cwd : path.relative(root, cwd) || ".";
+	return structureVerification(args, result, signal, timeoutMs, cwdLabel);
+}
+
 async function screenshot({ display_id }, sessionId) {
 	const { desktopCapturer, screen, BrowserWindow } = require("electron");
 	if (display_id !== undefined) requireText(display_id, "display_id");
@@ -1594,6 +1823,14 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId, budgetScope });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
+		// Durable, session-owned task state: no filesystem or workspace access
+		// is needed, so this resolves before the root checks below. Permission,
+		// workspace scoping, and casual-session rejection are enforced by the
+		// PLAN_WRITE capability and by workspacePlan itself.
+		if (name === "update_plan") {
+			signal?.throwIfAborted();
+			return require("../workspacePlan").updatePlan(sessionId, args);
+		}
 		const readingFiles = ['spawn_sub_agent', 'delegate_task', 'read_project_file', 'list_directory', 'search_project_content', 'git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame'].includes(name);
 		// rootPath is an explicit root from the delegating caller (the child
 		// agent loop passes its execution's project root, since a child session
@@ -1623,15 +1860,28 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			// eligible workspace is captured before and diffed after. Guard and
 			// sandboxing above are unchanged; without a workspace there is
 			// nothing authorized to capture and the command runs as before.
-			const runCommand = async () => executeCommand(args,
-				uncontained ? path.resolve(root, args.cwd ?? ".") : await scopedPath(root, args.cwd ?? ".", true),
-				signal, uncontained ? undefined : root);
-			const projectRoot = project?.root_path ? path.resolve(project.root_path) : null;
-			if (!projectRoot) return runCommand();
-			return await require("../recoveryBoundary").withShellRecovery({
-				root: projectRoot, chatSessionId: sessionId ?? null,
-				opMeta: { command: typeof args.command === "string" ? args.command.slice(0, 500) : "" },
-			}, runCommand);
+			const { result } = await runScopedCommand("execute_command", args, {
+				root,
+				signal,
+				uncontained,
+				sessionId,
+				recoveryRoot: project?.root_path,
+				timeoutMs: 45000,
+			});
+			return result;
+		}
+		if (name === "run_tests") {
+			// Same execution path as execute_command; the raw result is then
+			// classified into a structured pass/fail verdict. Permission,
+			// sandbox, workspace, timeout, cancellation, and recovery behavior
+			// are inherited unchanged.
+			return await runVerification(args, {
+				root,
+				signal,
+				uncontained,
+				sessionId,
+				recoveryRoot: project?.root_path,
+			});
 		}
 		if (name === "search_project_content") return await searchContent(root, args, signal);
 		if (name.startsWith("git_")) {
@@ -1718,6 +1968,12 @@ module.exports = {
 	isPathAllowed,
 	screenshot,
 	atomicWriteFile,
+	// Verification primitive: raw command runner plus the pure classifier used
+	// by run_tests, exported so focused tests can assert outcome distinctions
+	// without a full model round trip.
+	executeCommand,
+	structureVerification,
+	verificationStatus,
 	// Reused by the recovery diff-review IPC for sandboxed read-only git
 	// inspection (status/numstat/diff). Same runner, same guarantees.
 	runGit,

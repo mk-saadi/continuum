@@ -267,7 +267,9 @@ The central config file is ${JSON.stringify(require("./mcpManager").configPath)}
 	prompt.content += `\n\n[AUTONOMY RULES]
 CRITICAL: Never output plain status text (e.g., 'Let me check...', 'I will now run...') without invoking a tool call in the same response. You must keep issuing tool calls until the requested objective is fully resolved or you require user clarification.${isCasualChat ? `` : `
 CRITICAL: When using \`str_replace_editor\`, do NOT rewrite the entire file. You must make small, surgical replacements. If adding tests, replace a specific anchor at the bottom of the file rather than replacing the whole document.
-Pick the file tool that fits the job: one surgical spot in one file → \`str_replace_editor\`; several spots across files in one atomic batch (up to 20) → \`edit_project_files\`; a whole new file or full rewrite → \`write_project_file\`; changes you already hold as a unified diff → \`apply_patch\`. Never retype a whole file through \`str_replace_editor\`.`}
+Pick the file tool that fits the job: one surgical spot in one file → \`str_replace_editor\`; several spots across files in one atomic batch (up to 20) → \`edit_project_files\`; a whole new file or full rewrite → \`write_project_file\`; changes you already hold as a unified diff → \`apply_patch\`. Never retype a whole file through \`str_replace_editor\`.
+CRITICAL: Before declaring a code task complete, verify it by running the repository's tests or checks with \`run_tests\` and report the structured result. Treat only a status of \`passed\` as success: a nonzero exit (\`failed\`), \`timed_out\`, \`cancelled\`, or \`error\` means the work is not verified — fix the cause or report the failure instead of claiming completion.
+CRITICAL: For a task with more than a couple of steps, call \`update_plan\` with action "create" to record the major steps before starting, then keep each step's status current as work progresses (\`in_progress\`, \`completed\`, \`blocked\`). Mark a step \`completed\` only when it is actually done; the plan records intent and reported progress, not proof of success. If you resume after a restart or context compaction and are unsure of the current plan, call \`update_plan\` with action "get".`}
 When the objective is fully resolved, provide your final response directly. When you need user clarification, end with a direct question and a question mark (?). Do not claim completion before the work is finished.`;
 	prompt.content += `\n\n[SAFETY RULES]
 CRITICAL: Never run bulk deletion queries (e.g. deleteMany, DELETE FROM ... WHERE) using loose property filters such as {"source": {"$ne": "manual"}} or "source != 'manual'" against any database collection. Filters using $ne/!= on optional fields also match documents where the field is entirely absent, and can silently delete unrelated production data.${isCasualChat ? `` : `
@@ -307,6 +309,12 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
     // full reuse on digest-only advances). Traceability to briefs is kept
     // inside the block via per-digest Brief #N tags.
     const workLog = require('./workLog').buildWorkLogSection(sessionId, { contextWindowLimit });
+    // Current durable plan (session-owned intended work). Injected last, after
+    // the work log, so a plan-only advance preserves the largest reusable
+    // prompt prefix; unlike the work log it is current state, not history.
+    // Compaction never writes it — the plan below is the single persisted
+    // source of truth for pending/in-progress/blocked/completed steps.
+    const plan = require('./workspacePlan').buildPlanSection(sessionId, { contextWindowLimit });
     const active = getActiveMessages(sessionId).filter(message => !(message.role === 'assistant' && excludeMessageIds.includes(message.id)) &&
       !(message.role === 'assistant' && message.status === 'interrupted' && !message.content));
     return prependBaseSystemPrompt([
@@ -316,6 +324,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
       buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
       ...active.map(messageForModel),
       ...(workLog ? [workLog] : []),
+      ...(plan ? [plan] : []),
     ], effective.memoryEnabled, null, richLevel);
   })();
 }
@@ -366,6 +375,10 @@ function prepareChatMessages({
 			// sessions with recorded turns only; null everywhere else. Same
 			// end placement as rebuildChatMessages (measured prefix reuse).
 			const workLog = require("./workLog").buildWorkLogSection(sessionId, { contextWindowLimit });
+			// Current durable plan, injected last like the work log. Same
+			// persisted source of truth as the rebuild path, so a compaction
+			// cannot leave the resumed prompt without the plan.
+			const plan = require("./workspacePlan").buildPlanSection(sessionId, { contextWindowLimit });
 			const activeSessionMessages = (
 				regenerateLast ? getActiveMessages(sessionId).slice(0, -1) : getActiveMessages(sessionId)
 			)
@@ -383,6 +396,7 @@ function prepareChatMessages({
 					systemPrompt,
 					...activeSessionMessages,
 					...(workLog ? [workLog] : []),
+					...(plan ? [plan] : []),
 				],
 				effective.memoryEnabled,
 				null,

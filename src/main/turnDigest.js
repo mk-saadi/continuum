@@ -141,7 +141,7 @@ const TEST_RUNNER_RE =
 function classifyTool(toolName) {
   if (EDIT_TOOLS.has(toolName)) return 'edit';
   if (READ_TOOLS.has(toolName)) return 'read';
-  if (toolName === 'execute_command') return 'command';
+  if (toolName === 'execute_command' || toolName === 'run_tests') return 'command';
   if (DELEGATE_TOOLS.has(toolName)) return 'delegate';
   if (WEB_TOOLS.has(toolName)) return 'web';
   return 'other';
@@ -275,6 +275,11 @@ function buildEntry(step, index, resolveChild) {
     summarizeDelegate(entry, args, result, status, errorText, step, resolveChild);
   } else if (entry.kind === 'web') {
     entry.summary = summarizeWeb(args, result, status, errorText);
+  } else if (tool === 'update_plan') {
+    entry.summary =
+      status === 'error'
+        ? capText(`update_plan failed${errorText ? `: ${errorText}` : ''}`, SUMMARY_CAP)
+        : 'updated the task plan';
   } else {
     entry.summary =
       status === 'error'
