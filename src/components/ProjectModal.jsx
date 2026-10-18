@@ -15,7 +15,7 @@ export default function ProjectModal({ onClose, onCreate }) {
   }
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await onCreate(fields); } catch (err) { setError(err.message); setBusy(false); }
+    try { await onCreate(fields); onClose(); } catch (err) { setError(err.message); setBusy(false); }
   }
   return createPortal(<dialog ref={ref} className="project-dialog" aria-labelledby="new-project-title" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
     <form onSubmit={submit}><div><h2 id="new-project-title" className="text-xl font-semibold">Create a project</h2><p className="projects-muted mt-2">Give your work a shared goal and a place to grow.</p></div>
