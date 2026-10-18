@@ -29,9 +29,14 @@ test('limit hits point to Custom hard limits with the effective default', () => 
   assert.equal(subagentLimitNotice({ stopReason: 'completed' }), null);
   assert.equal(subagentLimitNotice({}), null);
 });
+test('timeouts are surfaced distinctly from limits and cancellations', () => {
+  assert.match(subagentLimitNotice({ stopReason: 'timed_out' }), /execution deadline.*Custom hard limits/);
+  assert.match(subagentLimitNotice({ stopReason: 'request_timeout' }), /model request exceeded its timeout.*Custom hard limits/);
+});
 test('output labels preserve completed, partial, cancellation and failure distinctions', () => {
   assert.equal(subagentResultTitle('completed'), 'Final answer');
   assert.equal(subagentResultTitle('partial'), 'Partial findings');
+  assert.equal(subagentResultTitle('timed_out'), 'Timed-out findings');
   for (const status of ['failed', 'cancelled', 'interrupted']) assert.equal(subagentResultTitle(status), 'Returned output');
 });
 test('zero-request accounting is explicitly unavailable', () => {

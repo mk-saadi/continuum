@@ -39,10 +39,12 @@ test('legacy settings normalize safely and Custom fields resolve independently',
   const legacy = settings.normalizeBudgetSettings({ mode: 'auto', maxInputTokens: 200000, maxOutputTokens: 16000 });
   assert.equal(legacy.maxToolCalls, null);
   const auto = budgets.resolveTaskBudgets({ kind: 'investigation', engine, settings: legacy });
-  assert.equal(auto.maxToolCalls, 25); assert.equal(auto.maxTurns, 12); assert.equal(auto.maxAggregateToolCalls, 100);
+  assert.equal(auto.maxToolCalls, 400); assert.equal(auto.maxTurns, 200); assert.equal(auto.maxAggregateToolCalls, 2000);
   const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine, settings: { mode: 'custom', maxToolCalls: 50, maxTurns: 30 } });
   assert.equal(custom.maxToolCalls, 50); assert.equal(custom.maxTurns, 30); assert.equal(custom.outputBudget, 30 * 2048);
-  assert.equal(custom.inputBudget, 4 * 32768);
+  assert.equal(custom.inputBudget, 200 * 32768);
+  // Legacy finite values from before the cap increase remain valid and preserved.
+  assert.equal(settings.normalizeBudgetSettings({ mode: 'custom', maxToolCalls: 100, maxTurns: 100 }).maxToolCalls, 100);
   assert.throws(() => settings.normalizeBudgetSettings({ maxTurns: 0 }), /Turn/);
   configure({ maxToolCalls: 50 }); settings.saveBudgetSettings({ mode: 'auto' });
   assert.equal(settings.getBudgetSettings().maxToolCalls, 50);
@@ -139,7 +141,7 @@ test('runtime and parent preserve partial outcome and bounded stop header', asyn
     const { subagentUsageLines, subagentResultTitle } = await import('../src/lib/subagentDisplay.mjs');
     assert.equal(subagentResultTitle(transcript.status), 'Partial findings');
     assert.match(transcript.result.text, /Useful finding/);
-    assert.match(subagentUsageLines(transcript).join('\n'), /Child model requests: 2 \/ 12/);
+    assert.match(subagentUsageLines(transcript).join('\n'), /Child model requests: 2 \/ 200/);
     assert.match(subagentUsageLines(transcript).join('\n'), /Child tool calls: 1 \/ 1/);
     assert.equal(transcript.accounting.finalizationAttempted, true);
   } finally { scheduler.scheduleInference = original; }

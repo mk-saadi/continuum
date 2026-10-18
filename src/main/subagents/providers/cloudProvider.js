@@ -62,7 +62,7 @@ async function chatCompletion({ engine, payload, signal, allowTools = false, onP
     await response.body?.cancel();
     return { ok: false, status: response.status };
   }
-  const result = await readCompletion(response, onProgress);
+  const result = await readCompletion(response, onProgress, { inactivityMs: budgetState?.runtime?.requestInactivityMs ?? null });
   if (budgetState) require('../executionBudget').settleResponse(response, result?.usage);
   return { ok: true, result };
 }

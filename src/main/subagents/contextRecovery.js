@@ -136,8 +136,8 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
       // Two compaction generations must leave one request for resumed work or
       // the Phase 1 tool-free report. Never consume the last slot drafting a
       // checkpoint that the child cannot subsequently use.
-      if (budgets.totals(state).turns + 3 > state.budgets.maxTurns) throw new budgets.ExecutionBudgetError('turn_limit');
-      if (state.budgets.outputBudget - budgets.totals(state).outputTokens < 512 + 1024 + 256) throw new budgets.ExecutionBudgetError('output_budget');
+      if (budgets.remaining(state.budgets.maxTurns, budgets.totals(state).turns) < 3) throw new budgets.ExecutionBudgetError('turn_limit');
+      if (budgets.remaining(state.budgets.outputBudget, budgets.totals(state).outputTokens) < 512 + 1024 + 256) throw new budgets.ExecutionBudgetError('output_budget');
     },
     snapshot: payload => {
       validatePairs(messages);

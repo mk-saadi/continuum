@@ -370,11 +370,11 @@ test('10c. invalid loop limits are rejected before any model request', async () 
   const fetchImpl = async () => { requests += 1; return jsonResponse('x'); };
   await assert.rejects(
     runtime.runInvestigation({ task: 'x', rootPath: process.cwd(), engine, maxTurns: 0, fetchImpl }),
-    /maxTurns must be an integer from 1 to 100/,
+    /maxTurns must be an integer from 1 to 10000000/,
   );
   await assert.rejects(
     runtime.runInvestigation({ task: 'x', rootPath: process.cwd(), engine, maxToolCalls: 'ten', fetchImpl }),
-    /maxToolCalls must be an integer from 1 to 100/,
+    /maxToolCalls must be an integer from 1 to 10000000/,
   );
   await assert.rejects(
     runtime.runInvestigation({ task: '', rootPath: process.cwd(), engine, fetchImpl }),

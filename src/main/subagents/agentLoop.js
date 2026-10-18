@@ -7,6 +7,7 @@ const inferenceScheduler = require('./inferenceScheduler');
 const { isEngineReady, engineNotReadyError } = require('./providers');
 const { pushActivity } = require('./sessionManager');
 const { escalatedCeiling, estimatePromptTokens } = require('./budgets');
+const { combineSignals, isDeadlineError, isRequestTimeoutError } = require('./executionDeadline');
 
 // The child agent loop: one foreground execution that turns a delegated task
 // into an investigate -> inspect -> reason -> report cycle instead of a single
@@ -73,10 +74,12 @@ const CHILD_TOOL_NAMES = Object.freeze([
 ]);
 
 // Backward-compatible Automatic policy exports; actual limits resolve from
-// the saved budget settings once per child lifetime. A delegated investigation is
-// short by design; the parent chat loop allows far more, and a child must not
-// be able to spin forever on a model that keeps requesting tools. This bounds
-// the loop only — it is not a token/cost budget for the agent tree.
+// the saved budget settings once per child lifetime. Phase 1.3A raises the
+// default to a long-horizon envelope (see ./budgets.js) so a child can run for
+// hundreds of requests/tool calls; a child must still not spin forever on a
+// model that keeps requesting tools, and Custom can set a finite limit or the
+// explicit unbounded sentinel per field. This bounds the loop only — it is not
+// a token/cost budget for the agent tree.
 const DEFAULT_MAX_TURNS = require('./budgets').MAX_TURNS.investigation;
 const DEFAULT_MAX_TOOL_CALLS = require('./budgets').MAX_TOOL_CALLS.investigation;
 const MAX_TASK_CHARACTERS = 8000;
@@ -187,7 +190,7 @@ async function executeChildTool({ name, rawArguments, rootPath, signal }) {
  * history, tool results, and previous answers across any number of turns.
  */
 async function runInvestigationExecution({ session, task, rootPath, engine, signal, fetchImpl,
-  maxTurns, maxToolCalls, budgetScope }) {
+  maxTurns, maxToolCalls, budgetScope, deadline = null, timers }) {
   const budget = require('./executionBudget');
   const restored = Array.isArray(session?.context) && session.context.length > 0;
   if (!restored && (typeof task !== 'string' || !task.trim() || task.includes('\0') || task.length > MAX_TASK_CHARACTERS)) {
@@ -196,6 +199,16 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
   const state = await budget.getExecutionBudget(session, { kind: 'investigation', engine, budgetScope, maxTurns, maxToolCalls });
+  // The runtime arms the child's execution deadline and forwards it here (see
+  // ../index.js and ../continuationManager.js), so cleanup runs in the runtime's
+  // finally and a nested child inherits the parent's deadline. A direct call
+  // with no deadline has no wall-clock limit — cancellation stays available.
+  const executionDeadline = deadline ?? null;
+  // `signal` is the run's cancellation signal (user/parent action) and must stay
+  // distinguishable from the deadline. `activeSignal` carries both, so requests,
+  // tools and compaction abort on either, while classification uses the raw one.
+  const activeSignal = combineSignals(signal, executionDeadline?.signal) ?? signal;
+  const deadlineExpired = () => executionDeadline?.signal.aborted === true;
   const { agentTools } = require('../tools/agentTools');
   const tools = agentTools.filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name));
   const root = path.resolve(rootPath ?? process.cwd());
@@ -203,7 +216,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT }, { role: 'user', content: task },
   ];
   const commit = () => { session.context = messages.slice(); };
-  const context = require('./contextRecovery').createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal, commit });
+  const context = require('./contextRecovery').createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal: activeSignal, commit });
   context.persist();
   let ceiling = state.budgets.perRequestCeiling;
   let incompleteRetries = 0;
@@ -219,12 +232,15 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   };
   for (;;) {
     signal?.throwIfAborted();
+    // No new work once the deadline has elapsed: return a timeout result (never
+    // a throw, never a success), preserving any findings already gathered.
+    if (deadlineExpired()) return finish('', 'timed_out', findings().length > 0, 'The child execution deadline was exceeded.');
     stopReason ??= budget.exhaustion(state);
-    // Reserve the last configured request for reporting, rather than adding
-    // an invisible ninth request after an eight-request ceiling.
-    if (!stopReason && budget.totals(state).turns >= state.budgets.maxTurns - 1) stopReason = 'turn_limit';
+    // Reserve the last configured request for reporting rather than issuing an
+    // extra request after the ceiling. Unbounded turns never trigger this.
+    if (!stopReason && budget.limitReached(state.budgets.maxTurns, budget.totals(state).turns + 1)) stopReason = 'turn_limit';
     if (stopReason && !finalizing) {
-      if (state.finalizationAttempted || budget.totals(state).turns >= state.budgets.maxTurns ||
+      if (state.finalizationAttempted || budget.limitReached(state.budgets.maxTurns, budget.totals(state).turns) ||
           (!findings().length && stopReason !== 'turn_limit')) return finish('', stopReason, false);
       finalizing = true;
       state.finalizationAttempted = true;
@@ -238,7 +254,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       payload = await context.prepare(payload);
       // Summary/checkpoint requests can consume ordinary-turn capacity. Honor
       // the Phase 1 reporting slot after compaction as well as before it.
-      if (!finalizing && (budget.exhaustion(state) || budget.totals(state).turns >= state.budgets.maxTurns - 1)) {
+      if (!finalizing && (budget.exhaustion(state) || budget.limitReached(state.budgets.maxTurns, budget.totals(state).turns + 1))) {
         stopReason = budget.exhaustion(state) ?? 'turn_limit'; continue;
       }
       let recovered = false;
@@ -249,7 +265,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         pushActivity(session, { type: 'turn', turn: budget.totals(state).turns + 1 });
         try {
           reply = await inferenceScheduler.scheduleInference({ session, engine, payload,
-            signal, fetchImpl, allowTools: !finalizing, budgetState: state });
+            signal: activeSignal, fetchImpl, allowTools: !finalizing, budgetState: state, timers });
           break;
         } catch (error) {
           signal?.throwIfAborted();
@@ -265,7 +281,17 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         return finish('', stopReason ?? 'provider_error', false, `Child agent request failed (HTTP ${reply.status}).`);
       }
     } catch (error) {
+      // Raw cancellation (user/parent) always wins over a clock event.
       signal?.throwIfAborted();
+      if (deadlineExpired() || isDeadlineError(error)) {
+        return finish('', 'timed_out', findings().length > 0, 'The child execution deadline was exceeded.');
+      }
+      // A single model-request timeout is terminal (never retried) and maps to
+      // the explicit request_timeout stop reason; findings are preserved.
+      if (isRequestTimeoutError(error)) {
+        if (finalizing) state.finalizationStopReason = 'request_timeout';
+        return finish('', 'request_timeout', findings().length > 0, `The model request timed out (${error.timeoutKind ?? 'total'}).`);
+      }
       if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
       const reason = budget.reasonOf(error);
       if (finalizing) state.finalizationStopReason = reason;
@@ -275,6 +301,10 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       return finish('', stopReason ?? reason, false);
     }
     signal?.throwIfAborted();
+    // A deadline that elapsed while the request was in flight wins over a late
+    // response (or one from a transport that ignored the abort): the result is
+    // discarded and no further work is derived from it.
+    if (deadlineExpired()) return finish('', 'timed_out', findings().length > 0, 'The child execution deadline was exceeded.');
     const result = reply.result;
     if (state.overrun) return finish('', state.overrun, false);
     const message = result?.choices?.[0]?.message;
@@ -323,7 +353,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     for (const call of calls) {
       // Even cancellation leaves a truthful, paired committed transcript for
       // already executed tools. It never resumes by replaying a partial batch.
-      let skipped = signal?.aborted ? 'cancelled' : batchReason;
+      let skipped = signal?.aborted ? 'cancelled' : deadlineExpired() ? 'timed_out' : batchReason;
       // The first denied call is charged by dispatchTool; subsequent calls
       // inherit the batch stop without entering that gate, but are still
       // distinct blocked attempts for accounting and the transcript UI.
@@ -351,10 +381,10 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       } else {
         pushActivity(session, { type: 'tool', turn, name: call.function.name, arguments: call.function.arguments });
         try {
-          toolContent = await executeChildTool({ name: call.function.name, rawArguments: call.function.arguments, rootPath: root, signal });
+          toolContent = await executeChildTool({ name: call.function.name, rawArguments: call.function.arguments, rootPath: root, signal: activeSignal });
         } catch (error) {
           toolContent = 'Error: Tool execution was interrupted; its outcome is unknown and it will not be replayed.';
-          batchReason = signal?.aborted ? 'cancelled' : 'runtime_error';
+          batchReason = signal?.aborted ? 'cancelled' : deadlineExpired() ? 'timed_out' : 'runtime_error';
         }
         pushActivity(session, { type: 'tool-result', turn, name: call.function.name,
           ok: !toolContent.startsWith('Error:'), chars: toolContent.length });

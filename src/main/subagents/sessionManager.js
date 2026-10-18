@@ -16,6 +16,8 @@ const { persistChildRun } = require('./persistence');
 //              session and its context are preserved and resumable
 //   failed     the latest turn failed; terminal
 //   cancelled  the execution was cancelled; terminal (distinct from interrupted)
+//   timed_out  a wall-clock limit (execution deadline or model-request timeout)
+//              elapsed; terminal and never reported as success
 //
 // The transition table below is the single source of truth: anything not
 // listed is an invalid transition and becomes a no-op, so two overlapping
@@ -29,13 +31,14 @@ const SESSION_STATUS = Object.freeze({
   INTERRUPTED: 'interrupted',
   FAILED: 'failed',
   CANCELLED: 'cancelled',
+  TIMED_OUT: 'timed_out',
 });
 
 // Allowed predecessor states per transition (see the functions below).
 const CAN_WAIT = new Set([SESSION_STATUS.CREATED, SESSION_STATUS.COMPLETED, SESSION_STATUS.INTERRUPTED]);
 const CAN_INTERRUPT = new Set([SESSION_STATUS.CREATED, SESSION_STATUS.WAITING, SESSION_STATUS.RUNNING]);
 const CAN_RESUME = new Set([SESSION_STATUS.WAITING]);
-const IS_TERMINAL = new Set([SESSION_STATUS.FAILED, SESSION_STATUS.CANCELLED, SESSION_STATUS.PARTIAL]);
+const IS_TERMINAL = new Set([SESSION_STATUS.FAILED, SESSION_STATUS.CANCELLED, SESSION_STATUS.PARTIAL, SESSION_STATUS.TIMED_OUT]);
 
 // Ephemeral, in-memory records only: a subagent execution belongs to a distinct
 // child session. Persistence across application restarts is deliberately not

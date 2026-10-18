@@ -34,7 +34,21 @@ const EXECUTION_STATUS = Object.freeze({
   // Interrupted is deliberately its own status: the attempt stopped early on
   // purpose, while the child session behind it stays alive and resumable.
   INTERRUPTED: 'interrupted',
+  // A wall-clock limit elapsed (execution deadline or model-request timeout):
+  // terminal, and never reported as success.
+  TIMED_OUT: 'timed_out',
 });
+
+// Terminal attempts are final: a late settlement (a straggling response, a
+// second close, a race between timeout and cancellation) must never overwrite
+// the first authoritative outcome.
+const TERMINAL_EXECUTION_STATUSES = new Set([
+  EXECUTION_STATUS.COMPLETED, EXECUTION_STATUS.PARTIAL, EXECUTION_STATUS.FAILED,
+  EXECUTION_STATUS.CANCELLED, EXECUTION_STATUS.INTERRUPTED, EXECUTION_STATUS.TIMED_OUT,
+]);
+function isSettled(execution) {
+  return TERMINAL_EXECUTION_STATUSES.has(execution.status);
+}
 
 function createExecution({ sessionId, kind = null, background = false, controller = null }) {
   const execution = {
@@ -85,6 +99,7 @@ function deleteExecutionsForSession(sessionId) {
 }
 
 function completeExecution(execution, { usage = null, result = null, outcome = 'completed', stopReason = 'completed', accounting = null } = {}) {
+  if (isSettled(execution)) return execution;
   execution.status = outcome;
   execution.stopReason = stopReason;
   execution.accounting = accounting;
@@ -95,6 +110,7 @@ function completeExecution(execution, { usage = null, result = null, outcome = '
 }
 
 function failExecution(execution, error) {
+  if (isSettled(execution)) return execution;
   execution.status = EXECUTION_STATUS.FAILED;
   execution.completedAt = new Date().toISOString();
   execution.error = String(error?.message ?? error);
@@ -107,6 +123,7 @@ function failExecution(execution, error) {
 }
 
 function cancelExecution(execution) {
+  if (isSettled(execution)) return execution;
   execution.status = EXECUTION_STATUS.CANCELLED;
   execution.stopReason = 'cancelled';
   execution.completedAt = new Date().toISOString();
@@ -125,6 +142,7 @@ function flagInterrupt(execution) {
 }
 
 function interruptExecution(execution) {
+  if (isSettled(execution)) return execution;
   execution.status = EXECUTION_STATUS.INTERRUPTED;
   execution.stopReason = 'interrupted';
   execution.completedAt = new Date().toISOString();

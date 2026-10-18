@@ -29,25 +29,32 @@ const engine = (contextLength = 32768) => ({ provider: 'local', port: 9, modelId
 async function main() {
   await test('settings validate, persist, and round-trip', () => {
     assert.deepEqual(budgetSettings.normalizeBudgetSettings(null),
-      { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
+      { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null,
+        maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null });
     assert.throws(() => budgetSettings.normalizeBudgetSettings({ mode: 'turbo' }), /mode/);
     assert.throws(() => budgetSettings.normalizeBudgetSettings({ mode: 'custom', maxOutputTokens: 10 }), /Output budget/);
     assert.throws(() => budgetSettings.normalizeBudgetSettings({ mode: 'custom', maxInputTokens: 1.5 }), /Input budget/);
     const saved = budgetSettings.saveBudgetSettings({ mode: 'custom', maxInputTokens: 200000, maxOutputTokens: 16000, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
-    assert.deepEqual(saved, { mode: 'custom', maxInputTokens: 200000, maxOutputTokens: 16000, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
+    assert.deepEqual(saved, { mode: 'custom', maxInputTokens: 200000, maxOutputTokens: 16000, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null,
+      maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null });
     assert.deepEqual(budgetSettings.getBudgetSettings(), saved);
     const partial = budgetSettings.saveBudgetSettings({ mode: 'auto' });
-    assert.deepEqual(partial, { mode: 'auto', maxInputTokens: 200000, maxOutputTokens: 16000, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
+    assert.deepEqual(partial, { mode: 'auto', maxInputTokens: 200000, maxOutputTokens: 16000, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null,
+      maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null });
     budgetSettings.saveBudgetSettings({ mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
     assert.deepEqual(budgetSettings.getBudgetSettings(),
-      { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null });
+      { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null,
+        maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null });
   });
 
   await test('automatic policy scales per kind and context, custom overrides per field', () => {
+    // Phase 1.3A long-horizon envelope: investigation 200 requests / 400 tool
+    // calls / 2000 aggregate; input budget = max(4, turns) x the context window.
     const inv = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(102400), settings: auto() });
-    assert.deepEqual([inv.inputBudget, inv.outputBudget, inv.perRequestCeiling], [409600, 24576, 2048]);
+    assert.deepEqual([inv.inputBudget, inv.outputBudget, inv.perRequestCeiling], [200 * 102400, 200 * 2048, 2048]);
+    assert.deepEqual([inv.maxTurns, inv.maxToolCalls, inv.maxAggregateToolCalls], [200, 400, 2000]);
     const small = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(8192), settings: auto() });
-    assert.equal(small.inputBudget, 4 * 8192);
+    assert.equal(small.inputBudget, 200 * 8192);
     const file = budgets.resolveTaskBudgets({ kind: 'file-analysis', engine: engine(), settings: auto() });
     assert.deepEqual([file.outputBudget, file.perRequestCeiling], [6144, 3072]);
     const web = budgets.resolveTaskBudgets({ kind: 'web-extraction', engine: engine(), settings: auto() });
@@ -55,10 +62,28 @@ async function main() {
     const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(),
       settings: { mode: 'custom', maxInputTokens: 50000, maxOutputTokens: null } });
     assert.equal(custom.inputBudget, 50000);
-    assert.equal(custom.outputBudget, 24576);
-    assert.deepEqual(custom.sources, { input: 'custom', output: 'auto:12-turns' });
+    assert.equal(custom.outputBudget, 200 * 2048);
+    assert.deepEqual(custom.sources, { input: 'custom', output: 'auto:200-turns' });
     const unknown = budgets.resolveTaskBudgets({ kind: 'investigation', engine: {}, settings: auto() });
-    assert.equal(unknown.inputBudget, 4 * 32768);
+    assert.equal(unknown.inputBudget, 200 * 32768);
+  });
+
+  await test('unbounded custom fields resolve to null (no numeric ceiling), finite keep values', () => {
+    const settings = { mode: 'custom', maxInputTokens: 'unbounded', maxOutputTokens: 'unbounded',
+      maxToolCalls: 'unbounded', maxTurns: 'unbounded', maxAggregateToolCalls: 'unbounded' };
+    const resolved = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(), settings });
+    assert.equal(resolved.maxTurns, null);
+    assert.equal(resolved.maxToolCalls, null);
+    assert.equal(resolved.maxAggregateToolCalls, null);
+    assert.equal(resolved.inputBudget, null);
+    assert.equal(resolved.outputBudget, null);
+    assert.deepEqual(budgets.limitReached(null, 1e12), false);
+    assert.equal(budgets.remaining(null, 1e12), Infinity);
+    // Unbounded turns leave the *output* envelope finite unless output is explicit.
+    const turnsOnly = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(),
+      settings: { mode: 'custom', maxTurns: 'unbounded', maxToolCalls: null } });
+    assert.equal(turnsOnly.maxTurns, null);
+    assert.equal(turnsOnly.outputBudget, 200 * 2048);
   });
 
   await test('ledger records measured usage and falls back with coverage flags', () => {
@@ -94,7 +119,7 @@ async function main() {
     const ledger = budgets.createLedger();
     assert.equal(budgets.escalatedCeiling(2048, resolved, ledger, 1000), 4096);
     const spent = budgets.createLedger();
-    spent.outputMeasured = 24000; // 1576 left of 24576
+    spent.outputMeasured = resolved.outputBudget - 100; // only 100 left: no escalation fits
     assert.equal(budgets.escalatedCeiling(2048, resolved, spent, 1000), null);
     const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine: engine(),
       settings: { mode: 'custom', maxInputTokens: 100000, maxOutputTokens: 300 } });
@@ -301,7 +326,7 @@ async function main() {
     assert.deepEqual(await resolveEngineContextLength(null), { contextLength: 32768, source: 'fallback' });
     // A 1M cloud window scales the automatic budgets instead of tripping early.
     const resolved = budgets.resolveTaskBudgets({ kind: 'investigation', engine: cloud, settings: auto(), contextLength: 1000000 });
-    assert.equal(resolved.inputBudget, 4000000);
+    assert.equal(resolved.inputBudget, 200 * 1000000);
     assert.equal(resolved.contextLength, 1000000);
     // Custom user numbers always win over any resolution.
     const custom = budgets.resolveTaskBudgets({ kind: 'investigation', engine: cloud,

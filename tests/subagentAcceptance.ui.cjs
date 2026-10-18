@@ -96,7 +96,7 @@ app.whenReady().then(async () => {
       const text=()=>document.querySelector('dialog')?.textContent??'';
       for(const [name,id] of Object.entries(cases)) {
         window.stage='child '+name;window.openChild(id);await until(()=>text().includes(name==='unknown'||name==='unavailable'?'completed':name));
-        if(name==='completed') {check(text().includes('Final answer'),'completed title');check(text().includes('Child model requests: 1 / 8'),'completed request accounting');}
+        if(name==='completed') {check(text().includes('Final answer'),'completed title');check(text().includes('Child model requests: 1 / 200'),'completed request accounting');}
         if(name==='partial') {check(text().includes('partial · tool_limit'),'partial stop reason');check(text().includes('Partial findings'),'partial title');check(text().includes('blocked attempts: 2'),'blocked accounting');check(text().includes('remaining reads are incomplete'),'partial evidence');}
         if(name==='failed') check(text().includes('failed · provider_error'),'provider failure distinct');
         if(name==='cancelled') check(text().includes('cancelled · cancelled'),'cancellation distinct');

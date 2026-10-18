@@ -10,6 +10,7 @@ const { isEngineReady, engineNotReadyError } = require('./providers');
 const { pushActivity } = require('./sessionManager');
 const { escalatedCeiling, estimatePromptTokens } = require('./budgets');
 const executionBudget = require('./executionBudget');
+const { combineSignals, isDeadlineError, isRequestTimeoutError } = require('./executionDeadline');
 
 // Electron's RUN_AS_NODE environment can break native (undici) fetch with
 // ERR_INVALID_IP_ADDRESS, so sub-agent web GETs go through the shared Node HTTP
@@ -37,8 +38,6 @@ const MAX_TARGET_CHARACTERS = 128000;
 // Cloud models frequently report no contextLength; fall back to a conservative
 // default rather than assuming a large local window.
 const DEFAULT_TARGET_CHARACTERS = 64000;
-// Used only for the encoded-byte ceiling when a provider reports no window.
-const DEFAULT_CONTEXT_LENGTH = 32768;
 // Room for the system prompt, task description, and up to 32 [FILE:] markers, so
 // injected text can never push the encoded body past the byte guard. Measured
 // worst case per file is "\n\n[FILE: <name>]\n" + "\n[END FILE]".
@@ -276,7 +275,9 @@ function recordThinking(session, message) {
  * runtime bounds nothing — output is already truncated to the summary ceiling.
  */
 async function completeOneShot({ session, state, engine, signal, fetchImpl, messages,
-  temperature, retryTemperature, outputLimit, initialReason = null, sourceEvidence = '' }) {
+  temperature, retryTemperature, outputLimit, initialReason = null, sourceEvidence = '', deadline = null, timers }) {
+  const activeSignal = combineSignals(signal, deadline?.signal) ?? signal;
+  const deadlineExpired = () => deadline?.signal.aborted === true;
   let ceiling = state.budgets.perRequestCeiling;
   const attempts = [];
   const finish = (output, reason, detail = null) => executionBudget.outcome(state, {
@@ -286,14 +287,16 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
   });
   for (let attempt = 1; attempt <= EMPTY_ANSWER_ATTEMPTS; attempt++) {
     signal?.throwIfAborted();
+    if (deadlineExpired()) return finish('', 'timed_out');
     let payload;
     try {
       payload = executionBudget.stopBeforeRequest(state, { model: engine.modelId, messages,
         temperature: attempt === 1 ? temperature : retryTemperature, max_tokens: ceiling });
       pushActivity(session, { type: 'turn', turn: executionBudget.totals(state).turns + 1 });
-      const reply = await scheduleInference({ session, engine, payload, signal, fetchImpl, budgetState: state });
+      const reply = await scheduleInference({ session, engine, payload, signal: activeSignal, fetchImpl, budgetState: state, timers });
       if (!reply.ok) return finish('', 'provider_error', `Sub-agent request failed (HTTP ${reply.status}).`);
       signal?.throwIfAborted();
+      if (deadlineExpired()) return finish('', 'timed_out');
       const result = reply.result;
       if (state.overrun) return finish('', state.overrun);
       recordThinking(session, result?.choices?.[0]?.message);
@@ -310,13 +313,15 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
       }
     } catch (error) {
       signal?.throwIfAborted();
+      if (deadlineExpired() || isDeadlineError(error)) return finish('', 'timed_out');
+      if (isRequestTimeoutError(error)) return finish('', 'request_timeout');
       if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
       return finish('', executionBudget.reasonOf(error));
     }
   }
 }
 
-async function runFileAnalysisExecution({ session, task_description, target_files, rootPath, engine, signal, fetchImpl, budgetScope }) {
+async function runFileAnalysisExecution({ session, task_description, target_files, rootPath, engine, signal, fetchImpl, budgetScope, deadline = null, timers }) {
   if (typeof task_description !== 'string' || !task_description.trim() || task_description.includes('\0')) {
     throw new Error('task_description must be a non-empty string.');
   }
@@ -327,15 +332,22 @@ async function runFileAnalysisExecution({ session, task_description, target_file
   if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
   const state = await executionBudget.getExecutionBudget(session, { kind: 'file-analysis', engine, budgetScope });
+  // The deadline signal aborts reads and the model request; the raw signal stays
+  // the cancellation identity. A deadline that elapses outside a model request
+  // returns an explicit timed-out outcome from the checks below.
+  const activeSignal = combineSignals(signal, deadline?.signal) ?? signal;
+  const deadlineExpired = () => deadline?.signal.aborted === true;
   let inputStopReason = null;
-  // Keep an unknown window distinct from a known one: the character budget falls back
-  // to DEFAULT_TARGET_CHARACTERS, while the byte guard needs a concrete ceiling.
-  const reportedContextLength = engine.contextLength;
-  const contextLength = reportedContextLength ?? DEFAULT_CONTEXT_LENGTH;
-  if (!Number.isSafeInteger(reportedContextLength ?? DEFAULT_CONTEXT_LENGTH) ||
-      (reportedContextLength !== undefined && reportedContextLength < 2048)) {
+  // A local descriptor carries its own window; a cloud descriptor does not, so
+  // the effective window is the one already resolved for THIS child's model
+  // (provider metadata, or the documented fallback) — never the parent chat's
+  // window. A local server reporting a window below the delegation floor still
+  // fails loudly instead of silently assuming a bigger one.
+  const reportedContextLength = Number.isSafeInteger(engine?.contextLength) ? engine.contextLength : null;
+  if (reportedContextLength !== null && reportedContextLength < 2048) {
     throw new Error('The loaded context is too small for delegation.');
   }
+  const contextLength = state.budgets.contextLength;
   // Token budget left for the isolated request after reserving the summary.
   const reservedTokens = contextLength - MAX_SUMMARY_TOKENS - TASK_DESCRIPTION_TOKEN_RESERVE;
   // UTF-8 bytes are a conservative upper bound on encoded payload size. Scale by
@@ -346,9 +358,13 @@ async function runFileAnalysisExecution({ session, task_description, target_file
   if (task_description.length > TASK_DESCRIPTION_TOKEN_RESERVE * CHARS_PER_TOKEN) {
     throw new Error('Delegated input exceeds the sub-agent context budget. Request fewer or smaller target files.');
   }
-  // Aggregate character cap for injected file text, derived from the real window
-  // (or the conservative default when the provider reports none).
-  const targetFileBudgetChars = targetFileBudget(reportedContextLength);
+  // Aggregate character cap for injected file text. A confidently resolved
+  // child window (the descriptor, or provider metadata for a cloud child) uses
+  // that window's derived budget; a window that neither reports stays on the
+  // deliberate conservative default instead of assuming the fallback is real.
+  const targetFileBudgetChars = state.contextSource === 'fallback'
+    ? DEFAULT_TARGET_CHARACTERS
+    : targetFileBudget(contextLength);
   let targetFileCharacters = 0;
   let userText = task_description;
   let inputBytes = Buffer.byteLength(SUB_AGENT_SYSTEM_PROMPT) + Buffer.byteLength(userText);
@@ -356,8 +372,10 @@ async function runFileAnalysisExecution({ session, task_description, target_file
     if (inputBytes > inputBudget) throw new Error('Delegated input exceeds the sub-agent context budget. Request fewer or smaller target files.');
   };
   checkBudget();
-  for (const { targetPath, filePath } of await resolveTargetFiles(target_files, rootPath, signal)) {
+  const targets = await resolveTargetFiles(target_files, rootPath, activeSignal);
+  for (const { targetPath, filePath } of targets) {
     signal?.throwIfAborted();
+    if (deadlineExpired()) return executionBudget.outcome(state, { stopReason: 'timed_out' });
     const denied = executionBudget.dispatchTool(state, session, `read:${targetPath}`);
     if (denied) { inputStopReason = denied; break; }
     let file;
@@ -381,11 +399,11 @@ async function runFileAnalysisExecution({ session, task_description, target_file
       // exhaust memory and a multi-byte file cannot overflow the encoded body.
       const maxBytes = Math.min(remaining * MAX_UTF8_BYTES_PER_CHAR, byteAllowance, MAX_READ_BYTES);
       if (stat.size > maxBytes) {
-        bytes = await readFileBytes(file, Math.max(0, maxBytes), signal);
+        bytes = await readFileBytes(file, Math.max(0, maxBytes), activeSignal);
       } else {
-        try { bytes = await file.readFile({ signal }); }
+        try { bytes = await file.readFile({ signal: activeSignal }); }
         catch (error) {
-          if (signal?.aborted) throw error;
+          if (signal?.aborted || deadlineExpired()) throw error;
           throw fileNotFound(filePath);
         }
       }
@@ -413,7 +431,8 @@ async function runFileAnalysisExecution({ session, task_description, target_file
     checkBudget();
   }
   signal?.throwIfAborted();
-  return completeOneShot({ session, state, engine, signal, fetchImpl,
+  if (deadlineExpired()) return executionBudget.outcome(state, { stopReason: 'timed_out' });
+  return completeOneShot({ session, state, engine, signal, deadline, fetchImpl, timers,
     messages: [{ role: 'system', content: SUB_AGENT_SYSTEM_PROMPT }, { role: 'user', content: userText }],
     temperature: FILE_ANSWER_TEMPERATURE, retryTemperature: FILE_ANSWER_RETRY_TEMPERATURE,
     outputLimit: MAX_SUMMARY_CHARACTERS, initialReason: inputStopReason,
@@ -429,13 +448,16 @@ async function runFileAnalysisExecution({ session, task_description, target_file
  * readable-but-empty page, or empty model answer. Returns { output, usage }.
  * `session` is the owning child session recorded by the runtime.
  */
-async function runWebExtractionExecution({ session, url, query, engine, signal, pageFetchImpl = fetch, fetchImpl, budgetScope }) {
+async function runWebExtractionExecution({ session, url, query, engine, signal, pageFetchImpl = fetch, fetchImpl, budgetScope, deadline = null, timers }) {
   if (typeof query !== 'string' || !query.trim() || query.length > 5000 || query.includes('\0')) {
     throw new Error('query must be a non-empty question of at most 5,000 characters.');
   }
   if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'extracting web page data');
   signal?.throwIfAborted();
   const state = await executionBudget.getExecutionBudget(session, { kind: 'web-extraction', engine, budgetScope });
+  const activeSignal = combineSignals(signal, deadline?.signal) ?? signal ?? null;
+  const deadlineExpired = () => deadline?.signal.aborted === true;
+  if (deadlineExpired()) return executionBudget.outcome(state, { stopReason: 'timed_out' });
   const denied = executionBudget.dispatchTool(state, session, `fetch:${url}`);
   if (denied) return executionBudget.outcome(state, { stopReason: denied });
   // Stage 1 — fetch. The webSearch errors are already specific
@@ -445,13 +467,14 @@ async function runWebExtractionExecution({ session, url, query, engine, signal, 
   // error identity so it is still recorded as a cancellation, not a failure.
   let page;
   try {
-    page = await getSingleWebPageContent({ url, signal, fetchImpl: pageFetchImpl });
+    page = await getSingleWebPageContent({ url, signal: activeSignal, fetchImpl: pageFetchImpl });
   } catch (error) {
-    if (signal?.aborted || error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
+    if (signal?.aborted || deadlineExpired() || error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
     throw new Error(`Web page fetch failed for ${url}: ${error?.message ?? error}`);
   }
   pushActivity(session, { type: 'fetch', url, chars: typeof page === 'string' ? page.length : 0 });
   signal?.throwIfAborted();
+  if (deadlineExpired()) return executionBudget.outcome(state, { stopReason: 'timed_out' });
   // Stage 2 — page text. The fetch succeeded but nothing readable came out
   // (typically a client-rendered/script-only page). This is a page-content
   // failure, not a model failure, so it is reported as exactly that.
@@ -459,7 +482,7 @@ async function runWebExtractionExecution({ session, url, query, engine, signal, 
     throw new Error(`Web page extraction produced no readable text from ${url}. The fetch succeeded but the page `
       + 'yielded no extractable text (it may be client-rendered or script-only); the model was never called.');
   }
-  return completeOneShot({ session, state, engine, signal, fetchImpl,
+  return completeOneShot({ session, state, engine, signal, deadline, fetchImpl, timers,
     messages: [ { role: 'system', content: WEB_EXTRACTOR_PROMPT },
       { role: 'user', content: `URL: ${url}\nQuery: ${query}\n\n[WEB PAGE TEXT]\n${relevantPageText(page, query)}\n[END WEB PAGE TEXT]` } ],
     temperature: WEB_ANSWER_TEMPERATURE, retryTemperature: WEB_ANSWER_RETRY_TEMPERATURE,

@@ -1,8 +1,17 @@
 'use strict';
 
+const { requestTimeoutError, defaultTimers } = require('../executionDeadline');
+
 // Assemble the same completion shape the execution layer already consumes,
 // while publishing a bounded preview of the current generation.
-async function readCompletion(response, onProgress) {
+//
+// Phase 1.3B: `inactivityMs` arms a streaming-only watchdog. It is reset on
+// every chunk that arrives and fires only when the stream stops producing data,
+// so a large or slow-but-progressing local model is never cut off; a request
+// that returns a single JSON body is unaffected (the whole-request timeout in
+// the inference scheduler covers that case). The timers are injectable so tests
+// can drive expiry deterministically.
+async function readCompletion(response, onProgress, { inactivityMs = null, timers = defaultTimers } = {}) {
   // Share the parent parser: local Qwen can emit XML in content even when
   // tools are disabled. Such requests are never a visible final answer.
   const { createXmlToolCallInterceptor } = await import('../../../lib/memoryChat.mjs');
@@ -57,8 +66,24 @@ async function readCompletion(response, onProgress) {
       tools: [...calls.values(), ...xml.calls].map(call => call.function.name).filter(Boolean) });
   }
   try {
+    // Streaming inactivity watchdog: armed before each read, disarmed as soon
+    // as that read resolves, so it measures time between chunks — not total
+    // request duration.
+    let stalled = null;
+    let watchdog = null;
+    const disarm = () => { if (watchdog !== null) { timers.clearTimeout(watchdog); watchdog = null; } };
+    const arm = () => {
+      if (!Number.isFinite(inactivityMs) || inactivityMs <= 0) return;
+      watchdog = timers.setTimeout(() => {
+        stalled = requestTimeoutError('inactivity', `The model stream produced no data for ${inactivityMs} ms.`);
+        reader.cancel().catch(() => {});
+      }, inactivityMs);
+    };
     while (true) {
-      const { done, value } = await reader.read();
+      arm();
+      let chunk;
+      try { chunk = await reader.read(); } finally { disarm(); }
+      const { done, value } = chunk;
       buffer += decoder.decode(value, { stream: !done });
       // Keep CRLF boundaries intact even when network chunks split a CR/LF.
       let match;
@@ -68,6 +93,7 @@ async function readCompletion(response, onProgress) {
       }
       if (done) break;
     }
+    if (stalled) throw stalled;
     if (buffer.trim()) consume(buffer.replace(/\r\n/g, '\n'));
   } finally {
     await reader.cancel().catch(() => {});

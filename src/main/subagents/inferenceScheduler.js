@@ -1,6 +1,7 @@
 'use strict';
 
 const { resolveProvider } = require('./providers');
+const { createRequestTimeout } = require('./executionDeadline');
 
 // The inference scheduler is the single place that decides when a model
 // generation may run. It sits between an execution and its provider:
@@ -157,9 +158,17 @@ const defaultScheduler = createInferenceScheduler();
 // only gates when the generation may run. It is forwarded to the provider so
 // the default request shape stays tool-free (see the local provider), and only
 // the child agent loop — which must model tool calls across its turns — opts in.
-async function scheduleInference({ engine, payload, signal, fetchImpl, recoverContext, allowTools = false, session, budgetState }) {
+async function scheduleInference({ engine, payload, signal, fetchImpl, recoverContext, allowTools = false, session, budgetState, requestTimeoutMs, timers }) {
   const provider = resolveProvider(engine);
   const { pushActivity } = require('./sessionManager');
+  // The effective total-duration request timeout: an explicit argument wins,
+  // otherwise the child's resolved runtime limit (null under Automatic). The
+  // request signal always also carries the caller's signal — which for a child
+  // turn already includes the execution deadline — so the request can never
+  // outlive the remaining child deadline.
+  const totalTimeoutMs = Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0
+    ? requestTimeoutMs
+    : budgetState?.runtime?.requestTimeoutMs ?? null;
   if (session) pushActivity(session, { type: 'queued' });
   return defaultScheduler.submit({
     ...provider.capability(engine),
@@ -169,9 +178,30 @@ async function scheduleInference({ engine, payload, signal, fetchImpl, recoverCo
       const onProgress = session ? (progress) => {
         session.liveProgress = { ...progress, t: Date.now() };
       } : undefined;
+      // The guard is disabled (and allocates nothing) when no timeout is set,
+      // so the Automatic path is byte-for-byte the previous behavior.
+      const guard = createRequestTimeout({ signal, timeoutMs: totalTimeoutMs, timers });
       try {
-        return await provider.chatCompletion({ engine, payload, signal, fetchImpl, recoverContext, allowTools, onProgress, budgetState });
+        const generation = provider.chatCompletion({
+          engine, payload, signal: guard.signal, fetchImpl, recoverContext, allowTools, onProgress, budgetState,
+        });
+        if (!guard.enabled) return await generation;
+        // Race the generation against the timeout so a transport that ignores
+        // abort still settles the request deterministically; the loser is
+        // observed so a late rejection can never become unhandled.
+        Promise.resolve(generation).catch(() => {});
+        try {
+          return await Promise.race([generation, guard.timeout]);
+        } catch (error) {
+          // When the guard fired, the timeout is the authoritative cause even if
+          // the transport surfaced its own generic abort first. Re-throwing the
+          // guard's error keeps the request timeout distinguishable from a
+          // cancellation (its code and total/inactivity kind are preserved).
+          if (guard.fired) throw guard.error ?? error;
+          throw error;
+        }
       } finally {
+        guard.clear();
         if (session) session.liveProgress = null;
       }
     },

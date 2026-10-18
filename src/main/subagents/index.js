@@ -14,6 +14,12 @@ const { resolveChildEngine } = require('./modelSelection');
 const { summarizeRunInput, mapContextTurns } = require('./persistence');
 const backgroundStore = require('./backgroundStore');
 const continuationManager = require('./continuationManager');
+const { resolveRuntimeLimits } = require('./budgets');
+const { getBudgetSettings } = require('./budgetSettings');
+const {
+  armExecutionDeadline, releaseExecutionDeadline,
+  isDeadlineError, isRequestTimeoutError,
+} = require('./executionDeadline');
 
 // Subagent runtime: the boundary between the tool layer and subagent executions.
 // Each call opens a distinct child session, records one execution attempt inside
@@ -148,8 +154,31 @@ function executionFor(kind) {
 // foreground the original error is rethrown untouched so callers see the same
 // semantics as before; in background there is no caller, so the outcome is
 // recorded on the session/execution and announced on backgroundEvents instead.
+//
+// A timeout is deliberately NOT a cancellation even though the deadline error
+// rides the abort path (it is an AbortError so transports honor it): the code
+// exemption below keeps a clock event from being misreported as a user action.
 function isCancellation(error, signal) {
-  return Boolean(signal?.aborted) || error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+  if (Boolean(signal?.aborted)) return true;
+  if (isDeadlineError(error) || isRequestTimeoutError(error)) return false;
+  return error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+}
+
+// A timeout that reaches the runtime without being converted by the execution
+// layer (the safety net for one-shot kinds and any future execution): settle the
+// attempt and session as `timed_out` with an explicit reason, never as a
+// success, and announce the terminal event. Findings already recorded on the
+// session are left intact.
+function settleTimeout(session, attempt, error, { announce = null } = {}) {
+  const reason = isDeadlineError(error) ? 'timed_out' : 'request_timeout';
+  const output = `[Sub-agent timed out: ${reason}]\n${error?.message ?? 'The child execution deadline was exceeded.'}`;
+  const result = { output, outcome: 'timed_out', stopReason: reason,
+    usage: session.usage ?? null, accounting: session.accounting ?? null };
+  completeExecution(attempt, { ...result, result: result.output });
+  completeSession(session, { ...result, result: result.output });
+  attempt.usage = session.usage; attempt.accounting = session.accounting; attempt.stopReason = session.stopReason;
+  announce?.(reason === 'timed_out' ? 'timed_out' : 'request_timeout', error?.message ?? reason);
+  continuationManager.onTurnSettled(session);
 }
 
 // Identity first, work second: every run — either lifetime — is exactly one
@@ -219,6 +248,9 @@ function settleFirstTurn(session, attempt, controller, error, { announce = null 
     cancelExecution(attempt);
     cancelSession(session);
     announce?.('cancelled');
+  } else if (isDeadlineError(error) || isRequestTimeoutError(error)) {
+    // Precedence: explicit cancellation > clock timeout > failure.
+    settleTimeout(session, attempt, error, { announce });
   } else {
     failExecution(attempt, error);
     failSession(session, error);
@@ -260,8 +292,13 @@ async function runInSession({ parentSessionId = null, parentToolCallId = null, a
     try { onSpawn(session.id); } catch { /* Observability must never break execution. */ }
   }
   continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
+  // Arm the child's execution deadline from the saved runtime limits (null
+  // under Automatic). It is armed here — after the session exists, before any
+  // work — so cleanup always runs in the finally below, and a nested child can
+  // inherit this deadline through the parent session id.
+  const deadline = armExecutionDeadline(session, resolveRuntimeLimits(getBudgetSettings()));
   try {
-    const result = await execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
+    const result = await execution({ session, engine: childEngine, signal: controller.signal, deadline, ...executionOptions });
     if (result.outcome === 'failed') throw require('./executionBudget').resultError(result);
     completeExecution(attempt, { ...result, result: result.output });
     completeSession(session, { ...result, result: result.output });
@@ -269,8 +306,18 @@ async function runInSession({ parentSessionId = null, parentToolCallId = null, a
     return result.output;
   } catch (error) {
     settleFirstTurn(session, attempt, controller, error);
+    // A timeout that reached the runtime (rather than being converted by the
+    // execution layer) is reported as a normal sub-agent result carrying the
+    // timed-out findings — never as a bare abort, which the parent would read
+    // as its own cancellation.
+    if (isDeadlineError(error) || isRequestTimeoutError(error)) {
+      throw require('./executionBudget').resultError({
+        output: session.result, outcome: 'timed_out', stopReason: session.stopReason,
+      });
+    }
     throw error;
   } finally {
+    releaseExecutionDeadline(session.id);
     detach?.();
   }
 }
@@ -305,6 +352,9 @@ function startInBackground(options, kind) {
   }
   continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
   backgroundStore.track({ executionId: attempt.id, childSessionId: session.id, kind, controller, detach });
+  // Armed once for the detached run; released on settlement (both paths) so a
+  // background deadline never outlives its run.
+  const deadline = armExecutionDeadline(session, resolveRuntimeLimits(getBudgetSettings()));
 
   const handle = () => ({ childSessionId: session.id, executionId: attempt.id, status: attempt.status });
 
@@ -313,19 +363,29 @@ function startInBackground(options, kind) {
   // exactly once. A failure ends this child only: it is recorded, never
   // rethrown, so it can neither crash nor abort anything else.
   const succeeded = result => {
-    if (result.outcome === 'failed') { failed(require('./executionBudget').resultError(result)); return; }
-    completeExecution(attempt, { ...result, result: result.output });
-    completeSession(session, { ...result, result: result.output });
-    backgroundStore.settle(attempt.id, result.outcome ?? 'completed');
-    continuationManager.onTurnSettled(session);
+    try {
+      if (result.outcome === 'failed') { failed(require('./executionBudget').resultError(result)); return; }
+      completeExecution(attempt, { ...result, result: result.output });
+      completeSession(session, { ...result, result: result.output });
+      backgroundStore.settle(attempt.id, result.outcome ?? 'completed');
+      continuationManager.onTurnSettled(session);
+    } finally {
+      releaseExecutionDeadline(session.id);
+    }
   };
-  const failed = error => settleFirstTurn(session, attempt, controller, error, {
-    announce: (status, detail) => backgroundStore.settle(attempt.id, status, detail),
-  });
+  const failed = error => {
+    try {
+      settleFirstTurn(session, attempt, controller, error, {
+        announce: (status, detail) => backgroundStore.settle(attempt.id, status, detail),
+      });
+    } finally {
+      releaseExecutionDeadline(session.id);
+    }
+  };
 
   let running;
   try {
-    running = execution({ session, engine: childEngine, signal: controller.signal, ...executionOptions });
+    running = execution({ session, engine: childEngine, signal: controller.signal, deadline, ...executionOptions });
   } catch (error) {
     failed(error); // an execution that throws before its first await
     return handle();

@@ -22,13 +22,16 @@ const { EventEmitter } = require('node:events');
 // the tests themselves run against the (mostly real) cached modules.
 const handlers = new Map();
 const originalLoad = Module._load;
+// A real temp userData directory so db.js's legacy attachment repair (which
+// calls app.getPath('userData')) works under the mocked electron module below.
+const directory = require('node:fs').mkdtempSync(path.join(os.tmpdir(), 'subagent-model-'));
 let memoryEnabled = true;
 Module._load = function(name, ...args) {
   if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
   if (name === './promptBuilder') return { ...originalLoad.call(this, name, ...args), buildSessionSystemPrompt: () => ({ role: 'system', content: memoryEnabled ? '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' : '', memoryContext: true }) };
   if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled }, params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 } }) };
   if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
-  if (name === 'electron') return { app: { isReady: () => true }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
+  if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };
 const runtime = require('../src/main/subagents');
@@ -42,6 +45,9 @@ const { buildSessionSystemPrompt } = require('../src/main/promptBuilder');
 const { db } = require('../src/main/db');
 const mcpManager = require('../src/main/mcpManager');
 const { registerIpcHandlers } = require('../src/main/ipcHandlers');
+// db.js lazily requires this at initDatabase() time; cache it now, while the
+// electron mock (with app.getPath) is still installed.
+require('../src/main/legacyDataMigration');
 Module._load = originalLoad;
 
 // --- Constants -------------------------------------------------------------
@@ -173,12 +179,10 @@ const nextLifecycle = (type, executionId, ms = 2000) => new Promise((resolve, re
 });
 
 // --- Suite fixtures --------------------------------------------------------
-let directory;
 let originalInit;
 let originalReload;
 
 before(async () => {
-  directory = await fs.mkdtemp(path.join(os.tmpdir(), 'subagent-model-'));
   require('../src/main/db').initDatabase(directory);
   // The one saved cloud provider the selection validates against. Nothing in
   // the runtime hard-codes it: it comes from the same registry the chat uses.
@@ -516,7 +520,7 @@ test('8. a cloud model still gets the read-only child allowlist', async () => {
     assert.deepEqual(cloud.payloads[1].messages.map(message => message.role),
       ['system', 'user', 'assistant', 'tool']);
     assert.match(cloud.payloads[1].messages[3].content, /is not available to this agent/);
-    assert.ok(cloud.payloads[1].messages[3].content.includes(`Allowed tools: ${CHILD_TOOL_NAMES.join(', ')}.`));
+    assert.match(cloud.payloads[1].messages[3].content, /This call was not executed\./);
     await assert.rejects(fs.access(path.join(rootPath, 'pwned.txt')), 'no file was written');
 
     const session = childOf('sel-readonly');

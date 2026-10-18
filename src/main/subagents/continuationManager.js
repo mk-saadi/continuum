@@ -64,6 +64,12 @@ const {
 } = require('./executionStore');
 const backgroundStore = require('./backgroundStore');
 const { runInvestigationExecution } = require('./agentLoop');
+const { resolveRuntimeLimits } = require('./budgets');
+const { getBudgetSettings } = require('./budgetSettings');
+const {
+  armExecutionDeadline, releaseExecutionDeadline,
+  isDeadlineError, isRequestTimeoutError,
+} = require('./executionDeadline');
 
 // Per-child continuation state, keyed by child session id. Created when the
 // runtime opens an investigation child (registerChild) and consulted by every
@@ -76,9 +82,12 @@ const MAX_MESSAGE_CHARACTERS = 8000; // aligned with the task seed ceiling
 
 // Same stop-vs-failure classification the runtime applies to first turns: an
 // aborted signal or an AbortError bubbling out of fetch/fs is a stop, every
-// other error is a failure.
+// other error is a failure. A timeout is a clock event, not a user action, so
+// it is never classified as a cancellation.
 function isCancellation(error, signal) {
-  return Boolean(signal?.aborted) || error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+  if (Boolean(signal?.aborted)) return true;
+  if (isDeadlineError(error) || isRequestTimeoutError(error)) return false;
+  return error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
 }
 
 function mergeUsage(current, addition) {
@@ -228,6 +237,9 @@ async function drive(record) {
       backgroundStore.track({
         executionId: attempt.id, childSessionId: session.id, kind: record.options.kind, controller,
       });
+      // Each continuation turn is its own execution with its own deadline, armed
+      // from the saved runtime limits and released in the finally below.
+      const deadline = armExecutionDeadline(session, resolveRuntimeLimits(getBudgetSettings()));
       try {
         const result = await runInvestigationExecution({
           session,
@@ -237,6 +249,7 @@ async function drive(record) {
           maxTurns: record.options.maxTurns,
           maxToolCalls: record.options.maxToolCalls,
           signal: controller.signal,
+          deadline,
         });
         if (result.outcome === 'failed') throw require('./executionBudget').resultError(result);
         completeExecution(attempt, { ...result, result: result.output });
@@ -248,6 +261,8 @@ async function drive(record) {
       } catch (error) {
         settleStoppedTurn(record, session, attempt, controller, error);
         return; // any non-completed settlement ends this drive entirely
+      } finally {
+        releaseExecutionDeadline(session.id);
       }
     }
   } finally {
@@ -269,6 +284,14 @@ function settleStoppedTurn(record, session, attempt, controller, error) {
     cancelExecution(attempt);
     cancelSession(session);
     backgroundStore.settle(attempt.id, 'cancelled');
+  } else if (isDeadlineError(error) || isRequestTimeoutError(error)) {
+    // Precedence: explicit cancellation > clock timeout > failure.
+    const reason = isDeadlineError(error) ? 'timed_out' : 'request_timeout';
+    const output = `[Sub-agent timed out: ${reason}]\n${error?.message ?? 'The child execution deadline was exceeded.'}`;
+    completeExecution(attempt, { output, outcome: 'timed_out', stopReason: reason });
+    completeSession(session, { output, outcome: 'timed_out', stopReason: reason, result: output });
+    attempt.usage = session.usage; attempt.accounting = session.accounting; attempt.stopReason = session.stopReason;
+    backgroundStore.settle(attempt.id, 'timed_out', error?.message ?? reason);
   } else {
     failExecution(attempt, error);
     failSession(session, error);
@@ -425,7 +448,7 @@ const MAX_COMPLETED_SESSIONS = 500;
 // Liveness only, no age: true means "hands off regardless of retention".
 function isProtectedSession(session, runningIds = null) {
   if (!session || typeof session !== 'object') return true;
-  if (!['completed', 'interrupted', 'failed', 'cancelled', 'partial'].includes(session.status)) return true;
+  if (!['completed', 'interrupted', 'failed', 'cancelled', 'partial', 'timed_out'].includes(session.status)) return true;
   if (typeof session.completedAt !== 'string' || !session.completedAt
     || !Number.isFinite(Date.parse(session.completedAt))) return true;
   if (Array.isArray(session.inbox) && session.inbox.length > 0) return true;
