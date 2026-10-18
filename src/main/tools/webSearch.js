@@ -33,14 +33,29 @@ function isPublicAddress(address) {
   return false;
 }
 
-async function publicDispatcher(url) {
-  const addresses = await dns.lookup(url.hostname, { all: true });
+// Pin one validated address so DNS cannot change between validation and connect.
+// Two transport shapes consume this callback and they disagree on its contract:
+// Node's http.get (via nodeHttpFetch) asks for a single address and reads
+// `(error, address, family)`, while undici's connect asks for the whole list
+// (`all: true`) and reads `addresses[0]`. A callback that ignores `all` hands
+// undici a bare string, so `addresses[0]` is the first character and the
+// connection dies with ERR_INVALID_IP_ADDRESS ("Invalid IP address: undefined").
+function pinnedLookup(address, family) {
+  return (_hostname, options, callback) => options?.all
+    ? callback(null, [{ address, family }])
+    : callback(null, address, family);
+}
+
+async function publicDispatcher(url, { resolve = dns.lookup } = {}) {
+  const addresses = await resolve(url.hostname, { all: true });
   if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
     throw new Error('Web page host does not resolve to a public address.');
   }
-  const { address, family } = addresses[0];
-  // Pin the validated address so DNS cannot change between validation and connect.
-  const lookup = (_hostname, _options, callback) => callback(null, address, family);
+  // Prefer IPv4: nodeHttpFetch (the shared Node HTTP transport for sub-agent
+  // GETs) pins its connection to family 4, so an IPv6-first host would be
+  // rejected as a family mismatch before the request is ever sent.
+  const { address, family } = addresses.find(entry => entry.family === 4) ?? addresses[0];
+  const lookup = pinnedLookup(address, family);
   const dispatcher = new Agent({ connect: { lookup } });
   // The Node HTTP fetch replacement uses the same validated address.
   dispatcher.nodeLookup = lookup;
@@ -202,4 +217,4 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
   }
 }
 
-module.exports = { MAX_PAGE_CHARS, sanitizeWebPageContent, sanitizeWebToolResult, getSingleWebPageContent };
+module.exports = { MAX_PAGE_CHARS, sanitizeWebPageContent, sanitizeWebToolResult, getSingleWebPageContent, publicDispatcher, pinnedLookup };

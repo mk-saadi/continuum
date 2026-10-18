@@ -233,3 +233,66 @@ test('one-shot completions cannot report a truncated or filtered answer as compl
   assert.equal(ok.outcome, 'completed');
   assert.equal(ok.completionClass, COMPLETION.COMPLETE);
 });
+
+// ---- Forced-answer continuation for reasoning-only turns ---------------------
+//
+// docs/SESSION-HANDOFF.md: thinking saturates the ceiling -> finish_reason=length
+// -> futile identical retries. The bounded continuation must therefore be a
+// different request: an explicit forced-answer instruction, not a replay.
+
+test('a reasoning-only truncated one-shot retries with a forced-answer turn, not an identical request', async () => {
+  fs.writeFileSync(path.join(directory, 'forced.txt'), 'source evidence text');
+  const session = {};
+  const s = script([
+    json(null, 'length', { reasoning_content: 'thinking very hard' }),
+    json('Recovered answer.', 'stop'),
+  ]);
+  const result = await runFileAnalysisExecution({
+    session, task_description: 'Summarize the file.', target_files: ['forced.txt'],
+    rootPath: directory, engine, fetchImpl: s.fetchImpl,
+  });
+  assert.equal(s.requests.length, 2);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.output, 'Recovered answer.');
+  assert.equal(s.requests[0].messages.length, 2, 'the first attempt is the plain two-message request');
+  const retry = s.requests[1].messages;
+  assert.equal(retry.length, 3, 'the forced-answer turn is appended to the retry');
+  assert.equal(retry.at(-1).role, 'system');
+  assert.match(retry.at(-1).content, /hidden reasoning/i);
+  assert.match(retry.at(-1).content, /final answer/i);
+  // The retry is a genuinely different request, not a replay of the first.
+  assert.notDeepEqual(s.requests[1].messages, s.requests[0].messages);
+});
+
+test('a reasoning-only investigation continuation carries the forced-answer turn', async () => {
+  const session = {};
+  const s = script([
+    json(null, 'length', { reasoning_content: 'still thinking' }),
+    json('Recovered.', 'stop'),
+  ]);
+  const result = await run(session, s);
+  assert.equal(s.requests.length, 2);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.output, 'Recovered.');
+  const retry = s.requests[1].messages;
+  assert.equal(retry.at(-1).role, 'system');
+  assert.match(retry.at(-1).content, /final answer/i);
+});
+
+test('the forced-answer continuation still leaves room for a truncated retry (no forbidden reasoning params)', async () => {
+  fs.writeFileSync(path.join(directory, 'room.txt'), 'source evidence text');
+  const session = {};
+  const s = script([
+    json(null, 'length', { reasoning_content: 'thinking...' }),
+    json('Escalated answer.', 'stop'),
+  ]);
+  await runFileAnalysisExecution({
+    session, task_description: 'Summarize.', target_files: ['room.txt'],
+    rootPath: directory, engine, fetchImpl: s.fetchImpl,
+  });
+  // The retry escalated the ceiling above the base file-analysis value.
+  assert.ok(s.requests[1].max_tokens > s.requests[0].max_tokens, 'truncation escalates the ceiling before the retry');
+  for (const key of ['thinking_budget', 'reasoning_budget', 'max_thinking_tokens', 'reasoning_effort']) {
+    assert.ok(!(key in s.requests[1]), `${key} must not be sent (unsupported by the verified backend)`);
+  }
+});

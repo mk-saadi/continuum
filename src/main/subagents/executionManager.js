@@ -71,6 +71,20 @@ const FILE_ANSWER_RETRY_TEMPERATURE = 0.5;
 const WEB_ANSWER_TEMPERATURE = 0;
 const WEB_ANSWER_RETRY_TEMPERATURE = 0.4;
 const DIAGNOSTIC_TEXT_LIMIT = 120;
+// Documented failure mode (docs/SESSION-HANDOFF.md): a reasoning-heavy local
+// model can spend an entire generation ceiling on hidden reasoning and return no
+// visible content with finish_reason=length. The verified backend ignores
+// thinking-budget parameters (only max_tokens works), and an identical retry
+// just saturates the same ceiling again. The bounded continuation therefore
+// sends a different request — an explicit forced-answer instruction — so the
+// retry has a chance the first attempt did not.
+const FORCED_ANSWER_SYSTEM = 'Your previous response contained only hidden reasoning and no visible answer. '
+  + 'Do not deliberate further. Output only the final answer now, concisely and completely, in Markdown.';
+
+/** Append the forced-answer instruction for a bounded continuation. */
+function withForcedAnswer(messages) {
+  return [...messages, { role: 'system', content: FORCED_ANSWER_SYSTEM }];
+}
 
 /** Collapse provider-supplied text to one short diagnostic-safe line. */
 function diagnosticText(value) {
@@ -292,7 +306,8 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
     if (deadlineExpired()) return finish('', 'timed_out');
     let payload;
     try {
-      payload = executionBudget.stopBeforeRequest(state, { model: engine.modelId, messages,
+      payload = executionBudget.stopBeforeRequest(state, { model: engine.modelId,
+        messages: attempt === 1 ? messages : withForcedAnswer(messages),
         temperature: attempt === 1 ? temperature : retryTemperature, max_tokens: ceiling });
       pushActivity(session, { type: 'turn', turn: executionBudget.totals(state).turns + 1 });
       const reply = await scheduleInference({ session, engine, payload, signal: activeSignal, fetchImpl, budgetState: state, timers });
@@ -500,5 +515,5 @@ async function runWebExtractionExecution({ session, url, query, engine, signal, 
 
 module.exports = {
   runFileAnalysisExecution, runWebExtractionExecution, SUB_AGENT_SYSTEM_PROMPT, resolveTargetFiles, targetFileBudget,
-  extractAnswerText, describeCompletion, EMPTY_ANSWER_ATTEMPTS,
+  extractAnswerText, describeCompletion, EMPTY_ANSWER_ATTEMPTS, FORCED_ANSWER_SYSTEM, withForcedAnswer,
 };

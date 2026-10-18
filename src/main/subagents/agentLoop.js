@@ -364,6 +364,11 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         if (completion === COMPLETION.TRUNCATED) {
           ceiling = escalatedCeiling(ceiling, state.budgets, state.ledger, estimatePromptTokens(messages, tools)) ?? ceiling;
         }
+        // A repeated identical request would saturate the same ceiling again
+        // (docs/SESSION-HANDOFF.md). Append a forced-answer instruction so the
+        // bounded continuation is a different request, not a futile replay.
+        const { FORCED_ANSWER_SYSTEM } = require('./executionManager');
+        context.append({ role: 'system', content: FORCED_ANSWER_SYSTEM });
         pushActivity(session, { type: 'note', turn, text: `No visible answer (${completion}); one bounded continuation without replaying tools.` });
         continue;
       }
