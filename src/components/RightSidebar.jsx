@@ -883,18 +883,19 @@ export default function RightSidebar({
 							role="tab"
 							id={`controls-tab-${id}`}
 							aria-controls={`controls-${id}`}
+							aria-label={label}
+							title={label}
 							aria-selected={tab === id}
 							tabIndex={tab === id ? 0 : -1}
 							onClick={() => setTab(id)}
 							onKeyDown={(event) => handleTabKey(event, index)}
-							className={`flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 border-b-2 px-1 py-3 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${tab === id ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
+							className={`flex min-w-0 flex-1 cursor-pointer items-center justify-center border-b-2 px-1 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${tab === id ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
 						>
 							<Icon
-								size={15}
+								size={17}
 								aria-hidden="true"
 								className="shrink-0"
 							/>
-							<span className="truncate">{label}</span>
 						</button>
 					))}
 				</div>

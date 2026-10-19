@@ -4,12 +4,21 @@ function normalizeCapabilities(props = {}) {
   const modalities = props.modalities || {};
   const boolean = value => typeof value === 'boolean' ? value : null;
   const context = props.default_generation_settings?.n_ctx;
+  const templateCaps = props.chat_template_caps || props.default_generation_settings?.chat_template_caps || {};
   return {
     source: 'runtime', image: boolean(modalities.vision), audio: boolean(modalities.audio),
     video: boolean(modalities.video),
     contextLength: Number.isSafeInteger(context) && context > 0 ? context : null,
     build: typeof props.build_info === 'string' ? props.build_info : null,
     modelPath: typeof props.model_path === 'string' ? props.model_path : null,
+    // The server reports template-driven reasoning controls when available.
+    // Unknown values stay null; they are never guessed from the model name.
+    reasoning: {
+      supportsEffort: boolean(templateCaps.supports_reasoning_effort ?? templateCaps.supportsReasoningEffort),
+      supportsBudget: boolean(templateCaps.supports_reasoning_budget ?? templateCaps.supportsReasoningBudget),
+      supportsDisable: boolean(templateCaps.supports_enable_thinking ?? templateCaps.supportsDisableReasoning),
+      controlling: boolean(templateCaps.controlling_reasoning ?? templateCaps.controllingReasoning),
+    },
   };
 }
 async function queryCapabilities(port, fetchImpl = fetch, signal) {

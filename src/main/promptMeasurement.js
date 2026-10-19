@@ -50,10 +50,15 @@ function samplingCaps(sessionId, modelId) {
     const profiles = require('./profileSettings');
     const params = profiles.getSessionSettings(sessionId, modelId).params ?? {};
     const maxTokens = Number.isSafeInteger(params.max_tokens) && params.max_tokens > 0 ? params.max_tokens : null;
-    const thinkingBudget = Number.isSafeInteger(params.thinking_budget) ? params.thinking_budget : null;
-    return { maxTokens, thinkingBudget };
+    // Reserve only an explicit numeric budget. Effort is provider-managed and
+    // has no token count we may invent; Automatic/off reserve nothing extra.
+    const intent = require('../lib/reasoningControls.cjs').normalizeIntent({
+      thinkingBudget: params.thinking_budget, reasoningEffort: params.reasoning_effort,
+    });
+    const reasoningBudget = intent.mode === 'budget' ? intent.budget : null;
+    return { maxTokens, reasoningBudget };
   } catch {
-    return { maxTokens: null, thinkingBudget: null };
+    return { maxTokens: null, reasoningBudget: null };
   }
 }
 
@@ -95,10 +100,10 @@ async function measurePreparedContext({
   // Same builder the context-recovery path uses for the current history.
   const messages = rebuildChatMessages({ sessionId, modelId, userText:
     typeof userText === 'string' ? userText : '' });
-  const { maxTokens, thinkingBudget } = samplingCaps(sessionId, modelId);
+  const { maxTokens, reasoningBudget } = samplingCaps(sessionId, modelId);
   const payload = { model: modelId, messages, tools,
     ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
-    ...(thinkingBudget != null ? { thinking_budget: thinkingBudget } : {}) };
+    ...(reasoningBudget != null ? { reasoning_budget_tokens: reasoningBudget } : {}) };
 
   const backendId = cloud ? 'cloud' : engine && engine.port != null ? `${engine.port}::${engine.modelPath ?? ''}` : 'offline';
   const key = cacheKey({ sessionId, modelId, backendId });

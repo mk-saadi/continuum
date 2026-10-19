@@ -212,7 +212,8 @@ function resolveRuntimeLimits(settings) {
 }
 
 function createLedger() {
-  return { inputMeasured: 0, inputEstimated: 0, outputMeasured: 0, outputUnknownTurns: 0, outputReserved: 0, turns: 0 };
+  return { inputMeasured: 0, inputEstimated: 0, outputMeasured: 0, outputUnknownTurns: 0, outputReserved: 0,
+    reasoningMeasured: 0, reasoningUnknownTurns: 0, turns: 0 };
 }
 
 function estimatePromptTokens(messages, tools = []) {
@@ -231,22 +232,29 @@ function estimatePromptTokens(messages, tools = []) {
 // surfaced for diagnostics only and is never added twice (it is already part of
 // prompt_tokens in every supported shape).
 function normalizeUsage(usage) {
-  if (!usage || typeof usage !== 'object') return { input: null, output: null, cachedInput: null };
+  if (!usage || typeof usage !== 'object') return { input: null, output: null, cachedInput: null, reasoning: null };
   const int = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
   return {
     input: int(usage.prompt_tokens) ?? int(usage.input_tokens),
     output: int(usage.completion_tokens) ?? int(usage.output_tokens),
     cachedInput: int(usage.cached_tokens) ?? int(usage.cache_read_input_tokens) ?? int(usage.prompt_tokens_details?.cached_tokens),
+    // A subset of `output`, never an addition to it. Unreported stays null.
+    reasoning: int(usage.completion_tokens_details?.reasoning_tokens)
+      ?? int(usage.output_tokens_details?.reasoning_tokens)
+      ?? int(usage.reasoning_tokens)
+      ?? int(usage.thoughts_token_count),
   };
 }
 
 function recordTurn(ledger, { messages, tools = [], usage = null } = {}) {
   ledger.turns += 1;
-  const { input, output } = normalizeUsage(usage);
+  const { input, output, reasoning } = normalizeUsage(usage);
   if (input !== null) ledger.inputMeasured += input;
   else ledger.inputEstimated += estimatePromptTokens(messages, tools);
   if (output !== null) ledger.outputMeasured += output;
   else ledger.outputUnknownTurns += 1;
+  if (reasoning !== null) ledger.reasoningMeasured += reasoning;
+  else ledger.reasoningUnknownTurns += 1;
   return ledger;
 }
 
@@ -259,6 +267,12 @@ function ledgerTotals(ledger) {
     outputMeasured: ledger.outputMeasured, outputReserved: ledger.outputReserved ?? 0,
     outputCoverage: ledger.turns === 0 ? 'unavailable'
       : ledger.outputUnknownTurns === 0 ? 'measured' : ledger.outputReserved > 0 ? 'reserved' : 'partial',
+    // Reasoning is a measured subset of output when providers report it.
+    reasoningTokens: ledger.reasoningMeasured ?? 0,
+    reasoningMeasured: ledger.reasoningMeasured ?? 0,
+    reasoningCoverage: ledger.turns === 0 ? 'unavailable'
+      : (ledger.reasoningUnknownTurns ?? 0) === 0 ? 'measured' : (ledger.reasoningMeasured ?? 0) > 0 ? 'partial' : 'unreported',
+    visibleOutputTokens: Math.max(0, (ledger.outputMeasured ?? 0) - (ledger.reasoningMeasured ?? 0)),
     turns: ledger.turns,
   };
 }

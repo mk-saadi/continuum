@@ -173,14 +173,6 @@ export function ChatInterface({
 	const attachmentTarget = { modelId: selectedModel, activeChatProvider };
 
 	const currentModel = models.find((model) => model.id === selectedModel);
-	const supportedEfforts = currentModel?.reasoningEfforts ?? [];
-	const [effortByModel, setEffortByModel] = useState({});
-	const savedEffort = effortByModel[selectedModel];
-	const reasoningEffort = supportedEfforts.includes(savedEffort)
-		? savedEffort
-		: supportedEfforts.includes("medium")
-			? "medium"
-			: supportedEfforts[0];
 	const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
 	const activeModelName = formatModelName(currentModel?.name || selectedModel);
 	const [messages, setMessages] = useState([]);
@@ -1244,14 +1236,9 @@ export function ChatInterface({
 				const saved = await loadDisplaySession(palace.sessionId);
 				setMessages([...displayMessages(saved), assistantMsg]);
 				await refreshHistory();
-				const thinkingBudget =
-					(await window.api.getEffectiveSettings(palace.sessionId, selectedModel)).effective
-						.thinkingBudget ?? -1;
 				await runDesktopChat({
 					activeChatProvider,
 					permissionMode,
-					reasoningEffort,
-					thinkingBudget,
 					sessionId: palace.sessionId,
 					onIndexing: setIndexing,
 					modelId: selectedModel,
@@ -1407,7 +1394,6 @@ export function ChatInterface({
 			selectedModel,
 			permissionMode,
 			chatProjectId,
-			reasoningEffort,
 			activeChatProvider,
 			activeModelName,
 			currentModelPath,
@@ -1510,7 +1496,6 @@ export function ChatInterface({
 			const result = await runDesktopChat({
 				activeChatProvider,
 				permissionMode,
-				reasoningEffort,
 				regenerate: true,
 				sessionId: palace.sessionId,
 				modelId: selectedModel,
@@ -2255,12 +2240,7 @@ export function ChatInterface({
 						attachDisabled={!window.api?.processUploads}
 						attachmentTooltip={`${uploadPolicy.tooltip} You can also paste (Ctrl+V) or drag & drop files onto the composer.`}
 						sendTitle={chatAvailable ? "Send" : "Select a cloud model or load a local model"}
-						supportedEfforts={supportedEfforts}
-						reasoningEffort={reasoningEffort}
-						showEffort={activeChatProvider.type === "local" && engineRunning}
-						onEffortChange={(effort) =>
-							setEffortByModel((previous) => ({ ...previous, [selectedModel]: effort }))
-						}
+						activeChatProvider={activeChatProvider}
 					/>
 				</div>
 			</div>

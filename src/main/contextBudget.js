@@ -23,7 +23,10 @@ function isContextOverflow(error) {
 }
 function reserveTokens(payload, limit) {
   const output = payload.max_tokens > 0 ? payload.max_tokens : Math.min(1024, Math.floor(limit / 4));
-  const thinking = Math.max(0, payload.max_thinking_tokens ?? payload.thinking_budget ?? payload.reasoning_budget ?? 0);
+  // `reasoning_budget_tokens` is the installed local runtime's field; the
+  // others are legacy aliases that old callers/tests may still pass.
+  const thinking = Math.max(0, payload.reasoning_budget_tokens ?? payload.max_thinking_tokens
+    ?? payload.thinking_budget ?? payload.reasoning_budget ?? 0);
   // Thinking is part of generated output, not a second independent allowance.
   return Math.max(output, thinking) + Math.min(128, Math.ceil(limit / 100));
 }

@@ -17,6 +17,8 @@ const {
 	saveSearchSettings,
 } = require("./configManager");
 const { saveGlobalSamplingParams } = require("./samplingManager");
+const reasoningControls = require("../lib/reasoningControls.cjs");
+const reasoningRuntime = require("./reasoningRuntime");
 const profiles = require("./profileSettings");
 const agents = require("./agentManager");
 const projects = require("./projectManager");
@@ -103,6 +105,7 @@ function registerIpcHandlers({
 	beginEngineRequest,
 	onIdleTimeoutChanged,
 	getReasoningEfforts = () => [],
+	getLocalModelMetadata = () => null,
 	getEngineConfig,
 } = {}) {
 	if (typeof isTrustedSender !== "function") {
@@ -230,6 +233,21 @@ function registerIpcHandlers({
         "settings:save-profile": ({ modelPath, patch }) => profiles.saveProfileSettings(modelPath, patch),
         "settings:save-memory": ({ sessionId, modelId, patch }) => profiles.saveSessionMemorySettings(sessionId, modelId, patch),
         "settings:effective": ({ sessionId, modelPath }) => profiles.getSessionSettings(sessionId, modelPath),
+        // Capability view for the composer. It resolves the saved intent against
+        // the actual target so the UI only offers controls this model can honor;
+        // unsupported values come back as warnings, never as a coerced setting.
+        "reasoning:capabilities": async ({ sessionId, modelId, activeChatProvider } = {}) => {
+            const target = validateChatProvider(activeChatProvider);
+            const config = target.type === 'local' ? getEngineConfig?.() : null;
+            const resolution = await reasoningRuntime.resolveChatReasoning({
+                sessionId: sessionId ?? null,
+                modelId,
+                target,
+                localModel: target.type === 'local' ? getLocalModelMetadata(modelId) : null,
+                contextSize: target.type === 'local' ? config?.activeModelConfig?.contextLength ?? null : null,
+            });
+            return reasoningRuntime.describeResolution(resolution);
+        },
 		"agents:save-session-prompt": ({ sessionId, prompt, modelId }) =>
 			agents.saveSessionPrompt(sessionId, prompt, modelId),
 		"agents:list": () => agents.listAgents(),
@@ -408,16 +426,12 @@ function registerIpcHandlers({
 			const controller = activeStreams.get(sessionId);
 			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort();
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, reasoningEffort, thinkingBudget, permissionMode, messageId = requestId }, notify, sender) => {
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender) => {
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
             const cloud = target.type === "cloud";
             const fetchImpl = cloud ? createCloudFetch(target) : localEngineFetch;
-			if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || !getReasoningEfforts(modelId).includes(reasoningEffort)))
-				throw new Error('Unsupported reasoning effort for the active model.');
-            const { generationSamplingParams } = require('./engineManager');
-            generationSamplingParams({}, thinkingBudget);
 			let executionSteps = [];
             const childSessionsByToolCall = new Map();
             let content = "";
@@ -490,6 +504,15 @@ function registerIpcHandlers({
 				// ./subagents/modelSelection.js) without changing anything here.
 				const chatEngine = require("./subagents/modelSelection")
 					.buildChatEngine({ cloud, target, config, modelId });
+				// Reasoning is resolved against the actual target/model before any
+				// request is built. The renderer cannot inject wire parameters.
+				const localModel = cloud ? null : getLocalModelMetadata(modelId);
+				const resolveReasoningForRequest = ({ contextSize } = {}) =>
+					reasoningRuntime.resolveChatReasoning({
+						sessionId, modelId, target, localModel,
+						contextSize: cloud ? null : contextSize ?? config?.activeModelConfig?.contextLength ?? null,
+					});
+				const reasoning = await resolveReasoningForRequest({});
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
                 const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard, createToolFailureCircuitBreaker } = require('./engineManager');
                 const { maxConsecutiveToolFailures, maxTotalToolFailures } = getAppSettings();
@@ -590,14 +613,17 @@ function registerIpcHandlers({
                             const sampling = profiles.getSessionSettings(sessionId, modelId).params ?? {};
                             const maxTokens = Number.isSafeInteger(sampling.max_tokens) && sampling.max_tokens > 0
                                 ? sampling.max_tokens : null;
-                            const thinkingBudget = Number.isSafeInteger(sampling.thinking_budget)
-                                ? sampling.thinking_budget : null;
+                            // Re-resolve against the window recovery is working
+                            // toward; a saved budget may clamp to that ceiling.
+                            const currentReasoning = await resolveReasoningForRequest({ contextSize: contextWindowLimit });
+                            const effectiveBudget = currentReasoning.effective.mode === 'budget'
+                                ? currentReasoning.effective.budget : null;
                             let result;
                             try {
                                 result = await require('./compressionEngine').recoverContextOverflow({
                                 sessionId, modelId, contextWindowLimit, signal, tools: preTools,
                                 delegationAvailable, userText: currentUserText, excludeMessageIds,
-                                maxTokens, thinkingBudget,
+                                maxTokens, thinkingBudget: effectiveBudget,
                                 llmCheckpointCallback: typeof llmCheckpointCallback === 'function'
                                     ? (input) => llmCheckpointCallback(input, modelId, { signal, maxTokens: require('./taskCheckpoints').CHECKPOINT_LLM_MAX_TOKENS })
                                     : null,
@@ -611,7 +637,7 @@ function registerIpcHandlers({
                                     return measurer(`http://127.0.0.1:${config.port}/v1/chat/completions`,
                                         { model: modelId, messages, tools,
                                             ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
-                                            ...(thinkingBudget != null ? { thinking_budget: thinkingBudget } : {}) },
+                                            ...reasoningControls.localRequestFields(currentReasoning) },
                                         { signal: measureSignal, contextWindowLimit: limit });
                                 },
                                 llmSummarizeCallback: (old, batch) => llmSummarizeCallback(old, batch, modelId, { signal, maxTokens: 512 }),
@@ -640,7 +666,10 @@ function registerIpcHandlers({
                         } : undefined,
 					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
-					reasoningEffort,
+					reasoning,
+					getReasoning: resolveReasoningForRequest,
+					cloud,
+					localModel,
 					messages: prependBaseSystemPrompt(messages, memoryEnabled, null, profiles.resolveRichLevel(sessionId, modelId)),
 					guardToolContent: truncateToolOutput,
 					chatTools: tools,
@@ -651,8 +680,9 @@ function registerIpcHandlers({
                         return filterTools(context.tools);
                     },
 					signal: controller.signal,
-					getSamplingParams: () =>
-						generationSamplingParams(profiles.getSessionSettings(sessionId, modelId).params, thinkingBudget),
+					// Sampling only. Reasoning is resolved separately above, so no
+					// legacy budget alias leaks into the provider payload.
+					getSamplingParams: () => profiles.getSessionSettings(sessionId, modelId).params,
 					retrieveDocuments: sessionId
 						? (question) =>
 								retrieveContext(sessionId, question, {
@@ -687,12 +717,15 @@ function registerIpcHandlers({
 					// Live per-request prompt telemetry. Forward-only: never
 					// persisted here and never logged to token usage. The final
 					// onStats above remains the single persistence/logging path.
-					onPhase: ({ round, promptTokens, completionTokens, cachedTokens, cacheCreationTokens, telemetry }) => {
+					onPhase: ({ round, promptTokens, completionTokens, cachedTokens, cacheCreationTokens,
+						reasoningTokens, visibleCompletionTokens, telemetry }) => {
 						notify({ type: "phase", sessionId, round,
 							promptTokens: promptTokens ?? null,
 							completionTokens: completionTokens ?? null,
 							cachedTokens: cachedTokens ?? null,
 							cacheCreationTokens: cacheCreationTokens ?? null,
+							reasoningTokens: reasoningTokens ?? null,
+							visibleCompletionTokens: visibleCompletionTokens ?? null,
 							telemetry });
 					},
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),

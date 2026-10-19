@@ -95,5 +95,15 @@ try {
     profiles.saveProfileSettings('/thinking-model', { thinkingBudget });
     assert.equal(profiles.getSessionSettings(null, '/thinking-model').effective.thinkingBudget, thinkingBudget);
   }
+  // Reasoning effort is a separate intent from the numeric budget.
+  profiles.saveProfileSettings('/reasoning-model', { reasoningEffort: 'high' });
+  assert.equal(profiles.getSessionSettings(null, '/reasoning-model').effective.reasoningEffort, 'high');
+  assert.equal(profiles.getSessionSettings(null, '/reasoning-model').params.reasoning_effort, 'high');
+  sessions.saveSessionSamplingParams('reasoning-chat', '/reasoning-model', { reasoning_effort: 'low' });
+  assert.equal(profiles.getSessionSettings('reasoning-chat', '/reasoning-model').effective.reasoningEffort, 'low');
+  // null clears the chat override and inherits the model setting.
+  sessions.saveSessionSamplingParams('reasoning-chat', '/reasoning-model', { reasoning_effort: null });
+  assert.equal(profiles.getSessionSettings('reasoning-chat', '/reasoning-model').effective.reasoningEffort, 'high');
+  assert.throws(() => profiles.saveProfileSettings('/reasoning-model', { reasoningEffort: 'high effort' }), /Invalid sampling/);
   console.log('Three-tier resolution, zero/empty overrides, model switching, prompt assembly, reset, persistence, branching and validation passed.');
 } finally { closeDatabase(); Module._load = original; fs.rmSync(dir, { recursive: true, force: true }); }

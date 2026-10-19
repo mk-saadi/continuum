@@ -17,7 +17,7 @@ app.whenReady().then(async () => {
     await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><div id="root"></div><script src="fixture.js"></script>');
     await window.loadFile(path.join(directory, 'index.html'));
     await new Promise(resolve => setTimeout(resolve, 200));
-    await window.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find(el => el.textContent.includes('Generation')).click()`);
+    await window.webContents.executeJavaScript(`document.getElementById('controls-tab-generation').click()`);
     await new Promise(resolve => setTimeout(resolve, 200));
     const send = async event => { window.webContents.sendInputEvent(event); await new Promise(resolve => setTimeout(resolve, 40)); };
     for (const label of ['Temperature', 'Top-P', 'Repeat Penalty']) {

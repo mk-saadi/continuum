@@ -22,16 +22,20 @@ test('authoritative invoke stats reach the save callback even without a final st
   } finally { globalThis.window = oldWindow; }
 });
 
-test('chat IPC payload includes an exact thinking budget', async () => {
+test('chat IPC payload carries settings identity, never renderer reasoning wire fields', async () => {
   const oldWindow = globalThis.window;
   globalThis.window = { chatAPI: {
     onEvent: () => () => {},
     run: async payload => {
-      assert.equal(payload.thinkingBudget, 2500);
+      assert.equal(payload.sessionId, 'chat');
+      assert.equal(Object.hasOwn(payload, 'thinkingBudget'), false);
+      assert.equal(Object.hasOwn(payload, 'reasoningEffort'), false);
       return { text: 'Done' };
     },
   } };
-  try { await runDesktopChat({ modelId: 'test', messages: [], thinkingBudget: 2500 }); }
+  // Legacy callers may still pass them; the main process must resolve the
+  // persisted intent itself instead of trusting these values.
+  try { await runDesktopChat({ modelId: 'test', messages: [], sessionId: 'chat', thinkingBudget: 2500, reasoningEffort: 'low' }); }
   finally { globalThis.window = oldWindow; }
 });
 
@@ -165,17 +169,20 @@ test('failed chat clears indexing progress after flushing pending events', async
   } finally { globalThis.window = oldWindow; }
 });
 
-test('reasoning choice reaches normal and regenerated requests', async () => {
+test('normal and regenerated requests both rely on main-process reasoning resolution', async () => {
   const oldWindow = globalThis.window;
   const requests = [];
   const run = async payload => { requests.push(payload); return {}; };
   globalThis.window = { chatAPI: { onEvent: () => () => {}, run }, memoryPalace: { regenerateLast: run } };
   try {
-    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'low' });
-    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'high', regenerate: true });
-    await runDesktopChat({ modelId: 'other', messages: [] });
-    assert.deepEqual(requests.map(request => request.reasoningEffort), ['low', 'high', undefined]);
-    assert.equal(Object.hasOwn(requests[2], 'reasoningEffort'), false);
+    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'low', sessionId: 'chat' });
+    await runDesktopChat({ modelId: 'test', messages: [], reasoningEffort: 'high', regenerate: true, sessionId: 'chat' });
+    assert.equal(requests.length, 2);
+    for (const request of requests) {
+      assert.equal(Object.hasOwn(request, 'reasoningEffort'), false);
+      assert.equal(Object.hasOwn(request, 'thinkingBudget'), false);
+      assert.equal(request.sessionId, 'chat');
+    }
   } finally { globalThis.window = oldWindow; }
 });
 

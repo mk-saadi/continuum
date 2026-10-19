@@ -175,6 +175,7 @@ function reserveRequest(state, payload, measured) {
   state.ledger.inputEstimated += reservedInput;
   state.ledger.outputReserved += bounded.max_tokens;
   state.ledger.outputUnknownTurns++;
+  state.ledger.reasoningUnknownTurns = (state.ledger.reasoningUnknownTurns ?? 0) + 1;
   return { payload: bounded, input: reservedInput, output: bounded.max_tokens, settled: false };
 }
 function settleRequest(state, reservation, usage) {
@@ -184,7 +185,7 @@ function settleRequest(state, reservation, usage) {
   // cloud both report prompt_tokens/completion_tokens; Anthropic is normalized
   // to that shape by the cloud transport. Absent usage stays null and the
   // reservation remains counted as estimated/reserved rather than a fake zero.
-  const { input, output } = policy.normalizeUsage(usage);
+  const { input, output, reasoning } = policy.normalizeUsage(usage);
   if (input !== null) {
     state.ledger.inputEstimated -= reservation.input;
     state.ledger.inputMeasured += input;
@@ -194,10 +195,16 @@ function settleRequest(state, reservation, usage) {
     state.ledger.outputUnknownTurns--;
     state.ledger.outputMeasured += output;
   }
-  if (input !== null || output !== null) {
+  if (reasoning !== null) {
+    state.ledger.reasoningUnknownTurns = Math.max(0, (state.ledger.reasoningUnknownTurns ?? 0) - 1);
+    state.ledger.reasoningMeasured = (state.ledger.reasoningMeasured ?? 0) + reasoning;
+  }
+  if (input !== null || output !== null || reasoning !== null) {
     state.usage ??= {};
     if (input !== null) state.usage.prompt_tokens = (state.usage.prompt_tokens ?? 0) + input;
     if (output !== null) state.usage.completion_tokens = (state.usage.completion_tokens ?? 0) + output;
+    // Diagnostic subset of completion_tokens — never added to the total.
+    if (reasoning !== null) state.usage.reasoning_tokens = (state.usage.reasoning_tokens ?? 0) + reasoning;
     if (state.ledger.inputEstimated === 0 && state.ledger.outputUnknownTurns === 0) {
       state.usage.total_tokens = (state.usage.prompt_tokens ?? 0) + (state.usage.completion_tokens ?? 0);
     } else delete state.usage.total_tokens;

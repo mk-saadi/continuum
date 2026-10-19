@@ -40,6 +40,11 @@ function gguf(metadata) {
     assert.equal(result.hasReasoning, true);
     assert.equal(result.reasoningFormat, 'deepseek');
     assert.deepEqual(result.reasoningEfforts, ['low', 'medium', 'high']);
+    // Effort is template-reported. A numeric budget needs end tags the
+    // installed runtime can enforce, so this template does not advertise one.
+    assert.equal(result.supportsReasoningEffort, true);
+    assert.equal(result.supportsReasoningBudget, false);
+    assert.equal(result.supportsDisableReasoning, true);
     assert.equal(result.generalName, 'Example model');
     fs.writeFileSync(file, gguf({'general.architecture': 'llama', 'tokenizer.chat_template': '{{ messages }}'}));
     result = await parse();
@@ -48,6 +53,9 @@ function gguf(metadata) {
     assert.equal(result.hasReasoning, false);
     assert.equal(result.reasoningFormat, 'auto');
     assert.deepEqual(result.reasoningEfforts, []);
+    assert.equal(result.supportsReasoningEffort, false);
+    assert.equal(result.supportsReasoningBudget, false);
+    assert.equal(result.supportsDisableReasoning, false);
     fs.writeFileSync(file, gguf({'general.architecture': 'deepseek2', 'tokenizer.chat_template.tool_use': 'tool_calls'}));
     assert.equal((await parse()).hasReasoning, true);
     assert.equal((await parse()).hasTools, true);

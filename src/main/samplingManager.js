@@ -1,11 +1,26 @@
 'use strict';
 const { db } = require('./db');
 const DEFAULT_SAMPLING_PARAMS = Object.freeze({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1, thinking_budget: -1 });
+const SAMPLING_KEYS = new Set([...Object.keys(DEFAULT_SAMPLING_PARAMS), 'reasoning_effort']);
+const REASONING_EFFORT_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
 function validateSamplingParams(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid sampling parameters.');
   const output = {};
   for (const [key, value] of Object.entries(input)) {
-    if (!Object.hasOwn(DEFAULT_SAMPLING_PARAMS, key) || typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Invalid sampling parameter: ${key}.`);
+    if (!SAMPLING_KEYS.has(key)) throw new Error(`Invalid sampling parameter: ${key}.`);
+    // Reasoning effort is an enumerated string (or null to clear/auto); every
+    // other sampling parameter is numeric. The value is validated against the
+    // selected model only when a request is built, because capabilities belong
+    // to the target and may change when the user switches models.
+    if (key === 'reasoning_effort') {
+      if (value === null) { output[key] = null; continue; }
+      if (typeof value !== 'string' || !REASONING_EFFORT_PATTERN.test(value.trim().toLowerCase())) {
+        throw new Error(`Invalid sampling parameter: ${key}.`);
+      }
+      output[key] = value.trim().toLowerCase();
+      continue;
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Invalid sampling parameter: ${key}.`);
     const valid = key === 'temperature' ? value >= 0 && value <= 2
       : key === 'top_p' ? value >= 0 && value <= 1
       : key === 'top_k' ? Number.isInteger(value) && value >= 1 && value <= 100

@@ -51,6 +51,18 @@ export function extractCacheTokens(usage, timings) {
   return { cached, created };
 }
 
+// Reasoning tokens are a *subset* of the provider's output/completion tokens.
+// Every supported contract reports them separately when it reports them at all;
+// never infer a value from the configured budget.
+export function extractReasoningTokens(usage, timings) {
+  return count(usage?.completion_tokens_details?.reasoning_tokens) ??
+    count(usage?.output_tokens_details?.reasoning_tokens) ??
+    count(usage?.reasoning_tokens) ??
+    count(usage?.thoughts_token_count) ??
+    count(timings?.reasoning_n) ??
+    null;
+}
+
 export function phaseStats({ usage, timings, startTime, endTime }) {
   const processed = count(timings?.prompt_n);
   const cached = count(timings?.cache_n) ?? 0;
@@ -58,6 +70,12 @@ export function phaseStats({ usage, timings, startTime, endTime }) {
   const completionTokens = count(usage?.completion_tokens) ?? count(timings?.predicted_n);
   const totalTokens = count(usage?.total_tokens) ?? (promptTokens !== null && completionTokens !== null ? count(promptTokens + completionTokens) : null);
   const { cached: cachedTokens, created: cacheCreationTokens } = extractCacheTokens(usage, timings);
+  const reasoningTokens = extractReasoningTokens(usage, timings);
+  // Visible output is derived only when the provider separated reasoning from
+  // the same completion counter. Otherwise it stays unknown rather than
+  // mislabelling all output as visible.
+  const visibleCompletionTokens = completionTokens !== null && reasoningTokens !== null
+    ? count(completionTokens - reasoningTokens) : null;
   const time = Math.max(0, (endTime - startTime) / 1000);
   const milliseconds = number(timings?.predicted_ms);
   const reportedRate = number(timings?.predicted_per_second);
@@ -66,7 +84,8 @@ export function phaseStats({ usage, timings, startTime, endTime }) {
   const tokensPerSecond = generationTime > 0 && completionTokens !== null ? completionTokens / generationTime :
     reportedRate ?? (time > 0 && completionTokens !== null ? completionTokens / time : null);
   return { startTime, endTime, time, promptTokens, completionTokens, totalTokens, tokensPerSecond,
-    cachedTokens, cacheCreationTokens,
+    cachedTokens, cacheCreationTokens, reasoningTokens, visibleCompletionTokens,
+    reasoningCoverage: reasoningTokens === null ? 'unreported' : 'measured',
     ...(generationTime !== null ? { generationTime } : {}) };
 }
 
@@ -110,6 +129,10 @@ export function mergePhaseStats(phases, startTime) {
   // reported them, otherwise keep the last observed value for display.
   const cachedTokens = sum('cachedTokens') ?? count(final.cachedTokens);
   const cacheCreationTokens = sum('cacheCreationTokens') ?? count(final.cacheCreationTokens);
+  // Reasoning/visible counters follow the cache rule: sum only when every
+  // phase reported them, otherwise keep the last observed measured value.
+  const reasoningTokens = sum('reasoningTokens') ?? count(final.reasoningTokens);
+  const visibleCompletionTokens = sum('visibleCompletionTokens') ?? count(final.visibleCompletionTokens);
   const endTime = final.endTime;
   const time = Math.max(0, (endTime - startTime) / 1000);
   const generationTime = phases.every(phase => phase.generationTime != null)
@@ -117,6 +140,7 @@ export function mergePhaseStats(phases, startTime) {
   const tokensPerSecond = generationTime > 0 && completionTokens !== null ? completionTokens / generationTime :
     phases.length === 1 ? final.tokensPerSecond : time > 0 && completionTokens !== null ? completionTokens / time : null;
   return { startTime, endTime, time, promptTokens, completionTokens, totalTokens, tokensPerSecond, ...telemetry, scope: 'all',
-    cachedTokens, cacheCreationTokens,
+    cachedTokens, cacheCreationTokens, reasoningTokens, visibleCompletionTokens,
+    reasoningCoverage: reasoningTokens === null ? 'unreported' : 'measured',
     ...(generationTime !== null ? { generationTime } : {}) };
 }

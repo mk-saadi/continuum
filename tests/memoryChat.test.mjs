@@ -2,6 +2,18 @@ import { PNG_BASE64, JPEG_BASE64 } from './fixtures/visionImages.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runMemoryChat } from '../src/lib/memoryChat.mjs';
+import reasoningControls from '../src/lib/reasoningControls.cjs';
+
+const localReasoningModel = {
+  hasReasoning: true, supportsReasoningEffort: true, supportsReasoningBudget: true,
+  supportsDisableReasoning: true, reasoningEfforts: ['low', 'high'],
+};
+function localResolution(intent, contextSize = null) {
+  return reasoningControls.resolveReasoning({
+    intent, capabilities: reasoningControls.resolveCapabilities({ target: { type: 'local' }, localModel: localReasoningModel }),
+    contextSize,
+  });
+}
 
 const memoryTools = ['save_memory', 'search_memory'].map((name) => ({
   name, description: name, input_schema: { type: 'object' },
@@ -20,7 +32,7 @@ function stream(chunks) {
 test('fragmented save/search calls return matching tool results before the final reply', async () => {
   const requests = [], executed = [];
   let output = '';
-  const text = await runMemoryChat({ ...base, reasoningEffort: 'low',
+  const text = await runMemoryChat({ ...base,
     onText: (delta) => { output += delta; },
     executeTool: async (call) => {
       executed.push(call);
@@ -38,7 +50,9 @@ test('fragmented save/search calls return matching tool results before the final
     },
   });
   assert.equal(text, 'Got it — pnpm. [TASK COMPLETE]');
-  assert.ok(requests.every(request => request.chat_template_kwargs.reasoning_effort === 'low'));
+  // Automatic/unknown reasoning sends no control fields at all.
+  assert.ok(requests.every(request => !('reasoning_effort' in request) &&
+    !('reasoning_budget_tokens' in request) && !('chat_template_kwargs' in request)));
   assert.equal(output, text);
   assert.equal(executed.length, 2);
   assert.equal(JSON.parse(executed[0].arguments).always_inject, true);
@@ -174,7 +188,23 @@ test('usage-only final chunk supplies message stats and requests usage', async (
       return stream([chunk({ content: 'Hello' }, 'stop'), { choices: [], usage: { prompt_tokens: 10, completion_tokens: 20 } }]);
     },
   });
-  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', cachedTokens: null, cacheCreationTokens: null, lastCachedTokens: null, lastCacheCreationTokens: null, scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
+  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', cachedTokens: null, cacheCreationTokens: null, lastCachedTokens: null, lastCacheCreationTokens: null, reasoningTokens: null, visibleCompletionTokens: null, reasoningCoverage: 'unreported', scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
+});
+
+test('provider reasoning tokens are a measured subset of output, not a second total', async () => {
+  let stats;
+  await runMemoryChat({ ...base, onStats: (value) => { stats = value; },
+    fetchImpl: async () => stream([
+      chunk({ content: 'Answer' }, 'stop'),
+      { choices: [], usage: { prompt_tokens: 10, completion_tokens: 50,
+        completion_tokens_details: { reasoning_tokens: 32 } } },
+    ]),
+  });
+  assert.equal(stats.completionTokens, 50);
+  assert.equal(stats.reasoningTokens, 32);
+  assert.equal(stats.visibleCompletionTokens, 18);
+  assert.equal(stats.totalTokens, 60);
+  assert.equal(stats.reasoningCoverage, 'measured');
 });
 
 test('missing usage and zero elapsed time never produce fabricated counts or Infinity', async () => {
@@ -508,38 +538,55 @@ test('every tool round sends one leading system message without mutating session
   assert.equal(messages[0].content, 'Base instructions');
 });
 
-test('reasoning effort varies per request and is omitted when unsupported', async () => {
+test('resolved reasoning drives local fields; Automatic sends no control', async () => {
   const bodies = [];
-  for (const reasoningEffort of ['low', 'high', undefined]) {
-    await runMemoryChat({ ...base, reasoningEffort, fetchImpl: async (_url, request) => {
+  for (const intent of [
+    { mode: 'auto' }, { mode: 'effort', effort: 'low' }, { mode: 'effort', effort: 'high' },
+    { mode: 'off' }, { mode: 'budget', budget: 2500 },
+  ]) {
+    await runMemoryChat({ ...base, reasoning: localResolution(intent), fetchImpl: async (_url, request) => {
       bodies.push(JSON.parse(request.body));
       return stream([chunk({ content: 'Answer [TASK COMPLETE]' }), chunk({}, 'stop')]);
     } });
   }
-  assert.deepEqual(bodies.map(body => body.chat_template_kwargs), [
-    { reasoning_effort: 'low' }, { reasoning_effort: 'high' }, undefined,
+  assert.deepEqual(bodies.map(body => ({
+    effort: body.reasoning_effort, budget: body.reasoning_budget_tokens,
+  })), [
+    { effort: undefined, budget: undefined },
+    { effort: 'low', budget: undefined },
+    { effort: 'high', budget: undefined },
+    // Off is a real disable signal, not a zero-token budget request.
+    { effort: 'none', budget: 0 },
+    { effort: undefined, budget: 2500 },
   ]);
+  assert.ok(bodies.every(body => !('thinking_budget' in body) && !('reasoning_budget' in body) &&
+    !('max_thinking_tokens' in body) && !('chat_template_kwargs' in body)));
 });
 
-
-test('thinking budget aliases use resolved limits and omit max_thinking_tokens for unlimited', async () => {
-  for (const [budget, context, expected] of [[-1, 8192, -1], [0, 8192, 0], [2500, 8192, 2500], [4096, 8192, 4096], [32768, 8192, 6144], [4096, 4353, 2304]]) {
+test('numeric budgets clamp to the loaded context and reject when unsupported', async () => {
+  for (const [budget, context, expected] of [[2500, 8192, 2500], [4096, 8192, 4096], [32768, 8192, 6144], [4096, 4353, 2304]]) {
     let payload;
     await runMemoryChat({ ...base, loadedContextSize: context,
-      samplingParams: { thinking_budget: 256 }, getSamplingParams: async () => ({ thinking_budget: budget }),
+      reasoning: localResolution({ mode: 'budget', budget }, context),
       fetchImpl: async (_url, request) => {
         payload = JSON.parse(request.body);
         return stream([chunk({ content: 'OK' }), chunk({}, 'stop')]);
       },
     });
-    assert.equal(payload.thinking_budget, expected);
-    assert.equal(payload.reasoning_budget, expected);
-    if (expected > 0) assert.equal(payload.max_thinking_tokens, expected);
-    else assert.equal(Object.hasOwn(payload, 'max_thinking_tokens'), false);
+    assert.equal(payload.reasoning_budget_tokens, expected);
   }
-  await assert.rejects(runMemoryChat({ ...base, loadedContextSize: 2048,
-    samplingParams: { thinking_budget: 256 }, fetchImpl: () => assert.fail('Must reject before fetch'),
-  }), /context is too small/);
+  // An unsupported target receives no numeric budget field at all.
+  const unsupported = reasoningControls.resolveReasoning({
+    intent: { mode: 'budget', budget: 2500 },
+    capabilities: reasoningControls.resolveCapabilities({ target: { type: 'local' }, localModel: { hasReasoning: false } }),
+  });
+  assert.equal(unsupported.unsupported, true);
+  let payload;
+  await runMemoryChat({ ...base, reasoning: unsupported, fetchImpl: async (_url, request) => {
+    payload = JSON.parse(request.body);
+    return stream([chunk({ content: 'OK' }), chunk({}, 'stop')]);
+  } });
+  assert.equal(Object.hasOwn(payload, 'reasoning_budget_tokens'), false);
 });
 
 test('screenshot tools in user compatibility mode send image content after all tool replies', async () => {

@@ -200,6 +200,10 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   if (!isEngineReady(engine)) throw engineNotReadyError(engine, 'delegating a task');
   signal?.throwIfAborted();
   const state = await budget.getExecutionBudget(session, { kind: 'investigation', engine, budgetScope, maxTurns, maxToolCalls });
+  // The child resolves reasoning from its OWN effective model settings, never
+  // the parent chat's session overrides or wire parameters.
+  const childReasoning = await require('../reasoningRuntime').resolveChildReasoning({ engine });
+  const reasoningFields = require('../reasoningRuntime').requestFieldsForEngine(engine, childReasoning);
   // The runtime arms the child's execution deadline and forwards it here (see
   // ../index.js and ../continuationManager.js), so cleanup runs in the runtime's
   // finally and a nested child inherits the parent's deadline. A direct call
@@ -251,7 +255,8 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     let reply;
     try {
       let payload = { model: engine.modelId, messages, temperature: TURN_TEMPERATURE,
-        max_tokens: finalizing ? Math.min(ceiling, 1024) : ceiling, tools: requestTools, tool_choice: finalizing ? 'none' : 'auto' };
+        max_tokens: finalizing ? Math.min(ceiling, 1024) : ceiling, tools: requestTools, tool_choice: finalizing ? 'none' : 'auto',
+        ...reasoningFields };
       payload = await context.prepare(payload);
       // Summary/checkpoint requests can consume ordinary-turn capacity. Honor
       // the Phase 1 reporting slot after compaction as well as before it.

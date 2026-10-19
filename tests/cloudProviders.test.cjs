@@ -79,7 +79,7 @@ for (const provider of ["kimi", "groq", "local-server"])
 		assert.equal(await response.text(), "data: [DONE]\n\n");
 	});
 
-test("OpenAI-compatible cloud requests carry an explicit reasoning budget", async () => {
+test("OpenAI-compatible cloud requests map only metadata-advertised reasoning controls", async () => {
 	saveCloudProvider({
 		id: "budget",
 		name: "Budget API",
@@ -87,18 +87,35 @@ test("OpenAI-compatible cloud requests carry an explicit reasoning budget", asyn
 		modelId: "reasoner",
 		apiKey: "test-key",
 	});
+	const descriptor = (effective, supportedParameters) => ({
+		effective,
+		capabilities: { family: "compatible", metadata: { supportedParameters } },
+	});
+	const bodies = [];
 	const adapter = createCloudFetch(
 		{ type: "cloud", provider: "budget", model: "reasoner" },
 		{
+			getMetadata: async () => [{ providerId: "budget", modelId: "reasoner",
+				reasoning: { supported: true, supports_max_tokens: true },
+				supportedParameters: ["reasoning", "reasoning_effort"] }],
 			fetchImpl: async (_url, options) => {
-				assert.equal(JSON.parse(options.body).reasoning_budget, 2500);
+				bodies.push(JSON.parse(options.body));
 				return new Response("data: [DONE]\n\n", { headers: { "content-type": "text/event-stream" } });
 			},
 		},
 	);
-	await adapter("", {
-		body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }], reasoning_budget: 2500 }),
-	});
+	await adapter("", { body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }],
+		reasoning: descriptor({ mode: "budget", effort: null, budget: 2500 }, ["reasoning"]) }) });
+	await adapter("", { body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }],
+		reasoning: descriptor({ mode: "effort", effort: "high", budget: null }, ["reasoning_effort"]) }) });
+	// A provider that advertises nothing never receives an invented field.
+	await adapter("", { body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }],
+		reasoning: descriptor({ mode: "off", effort: null, budget: null }, []) }) });
+	assert.deepEqual(bodies[0].reasoning, { max_tokens: 2500 });
+	assert.equal(bodies[1].reasoning_effort, "high");
+	assert.equal(Object.hasOwn(bodies[2], "reasoning"), false);
+	assert.equal(Object.hasOwn(bodies[2], "reasoning_effort"), false);
+	assert.equal(Object.hasOwn(bodies[0], "reasoning_budget"), false);
 });
 
 test("Anthropic translates system, tools, multiple tool results and images", () => {
@@ -143,11 +160,30 @@ test("Anthropic translates system, tools, multiple tool results and images", () 
 	assert.equal(payload.messages[2].content[0].content[0].source.media_type, "image/png");
 	assert.deepEqual(payload.tools[0].input_schema, { type: "object" });
 	const withThinking = anthropicPayload(
-		{ messages: [{ role: "user", content: "Hi" }], thinking_budget: 2500 },
+		{ messages: [{ role: "user", content: "Hi" }],
+			reasoning: { effective: { mode: "budget", effort: null, budget: 2500 },
+				capabilities: { family: "anthropic", metadata: { supportedParameters: [] } } } },
 		"claude-test",
 	);
 	assert.deepEqual(withThinking.thinking, { type: "enabled", budget_tokens: 2500 });
 	assert.ok(withThinking.max_tokens > 2500);
+	// Adaptive models require thinking.type=adaptive plus output_config.effort.
+	const adaptive = anthropicPayload(
+		{ messages: [{ role: "user", content: "Hi" }],
+			reasoning: { effective: { mode: "effort", effort: "high", budget: null },
+				capabilities: { family: "anthropic", metadata: { supportedParameters: [] } } } },
+		"claude-opus-4-7",
+	);
+	assert.deepEqual(adaptive.thinking, { type: "adaptive" });
+	assert.deepEqual(adaptive.output_config, { effort: "high" });
+	// Off is explicit only where the API accepts a disabled thinking block.
+	const adaptiveOff = anthropicPayload(
+		{ messages: [{ role: "user", content: "Hi" }],
+			reasoning: { effective: { mode: "off", effort: null, budget: null },
+				capabilities: { family: "anthropic", metadata: { supportedParameters: [] } } } },
+		"claude-opus-4-7",
+	);
+	assert.deepEqual(adaptiveOff.thinking, { type: "disabled" });
 });
 
 test("Anthropic normalizes replies and usage for the existing tool loop", async () => {

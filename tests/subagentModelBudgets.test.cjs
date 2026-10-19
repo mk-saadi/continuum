@@ -205,22 +205,26 @@ test('a child budget state is independent of the parent engine and other childre
 test('usage is normalized across local and cloud provider shapes', () => {
   // local llama.cpp / OpenAI-compatible cloud
   assert.deepEqual(budgets.normalizeUsage({ prompt_tokens: 100, completion_tokens: 50 }),
-    { input: 100, output: 50, cachedInput: null });
+    { input: 100, output: 50, cachedInput: null, reasoning: null });
   // alias fields some providers emit
   assert.deepEqual(budgets.normalizeUsage({ input_tokens: 7, output_tokens: 3 }),
-    { input: 7, output: 3, cachedInput: null });
+    { input: 7, output: 3, cachedInput: null, reasoning: null });
+  // Provider reasoning tokens are a measured subset of output, never added.
+  assert.deepEqual(budgets.normalizeUsage({
+    prompt_tokens: 100, completion_tokens: 50, completion_tokens_details: { reasoning_tokens: 20 },
+  }), { input: 100, output: 50, cachedInput: null, reasoning: 20 });
   // Anthropic-normalized cloud response folds cache into prompt_tokens; the
   // cached portion is surfaced but never added twice.
   assert.deepEqual(budgets.normalizeUsage({
     prompt_tokens: 1000, completion_tokens: 20, cache_read_input_tokens: 400, cache_creation_input_tokens: 100,
-  }), { input: 1000, output: 20, cachedInput: 400 });
+  }), { input: 1000, output: 20, cachedInput: 400, reasoning: null });
   // OpenAI prompt_tokens_details.cached_tokens
   assert.deepEqual(budgets.normalizeUsage({ prompt_tokens: 64, prompt_tokens_details: { cached_tokens: 32 } }),
-    { input: 64, output: null, cachedInput: 32 });
+    { input: 64, output: null, cachedInput: 32, reasoning: null });
   // missing / malformed usage stays null so accounting labels it estimated
-  assert.deepEqual(budgets.normalizeUsage(undefined), { input: null, output: null, cachedInput: null });
+  assert.deepEqual(budgets.normalizeUsage(undefined), { input: null, output: null, cachedInput: null, reasoning: null });
   assert.deepEqual(budgets.normalizeUsage({ prompt_tokens: 1.5, completion_tokens: -1 }),
-    { input: null, output: null, cachedInput: null });
+    { input: null, output: null, cachedInput: null, reasoning: null });
 });
 
 test('missing usage is accounted as estimated, never as a measured zero', () => {

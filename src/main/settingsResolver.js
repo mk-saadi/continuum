@@ -1,6 +1,6 @@
 'use strict';
-const KEYS = ['memoryEnabled', 'compactionEnabled', 'allowMidRunQuestions', 'systemPrompt', 'temperature', 'topP', 'topK', 'repeatPenalty', 'maxTokens', 'thinkingBudget', 'richBlocks'];
-const SAMPLING_KEYS = { temperature: 'temperature', topP: 'top_p', topK: 'top_k', repeatPenalty: 'repeat_penalty', maxTokens: 'max_tokens', thinkingBudget: 'thinking_budget' };
+const KEYS = ['memoryEnabled', 'compactionEnabled', 'allowMidRunQuestions', 'systemPrompt', 'temperature', 'topP', 'topK', 'repeatPenalty', 'maxTokens', 'thinkingBudget', 'reasoningEffort', 'richBlocks'];
+const SAMPLING_KEYS = { temperature: 'temperature', topP: 'top_p', topK: 'top_k', repeatPenalty: 'repeat_penalty', maxTokens: 'max_tokens', thinkingBudget: 'thinking_budget', reasoningEffort: 'reasoning_effort' };
 function getEffectiveSettings(session, modelPath, globalSettings) {
   const model = Object.hasOwn(globalSettings.perModelConfigs || {}, modelPath) ? globalSettings.perModelConfigs[modelPath] : {};
   const overrides = session?.overrides || {};

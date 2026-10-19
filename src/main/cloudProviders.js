@@ -4,6 +4,7 @@
 // sub-agent module overrides it with a GET-only transport. Bind this module's
 // default to the shared Node HTTP transport directly instead.
 const { nodeHttpFetch } = require("./nodeHttpFetch");
+const reasoningControls = require("../lib/reasoningControls.cjs");
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_MEDIA_SETTINGS = Object.freeze({ default_image_provider_id: "", default_video_provider_id: "" });
@@ -299,6 +300,11 @@ function anthropicBlocks(content) {
 	});
 }
 function anthropicPayload(payload, model) {
+	// The transport owns the Anthropic wire shape: the shared resolver decides
+	// which documented control (adaptive effort vs. legacy budget) applies.
+	const mapped = reasoningControls.cloudRequestFields(payload.reasoning, {
+		modelId: model, maxTokens: payload.max_tokens,
+	});
 	const messages = [],
 		system = [];
 	for (const message of payload.messages) {
@@ -333,13 +339,8 @@ function anthropicPayload(payload, model) {
 		system,
 		messages,
 		stream: false,
-		max_tokens: Math.max(
-			payload.max_tokens > 0 ? payload.max_tokens : 4096,
-			payload.thinking_budget >= 1024 ? payload.thinking_budget + 1 : 0,
-		),
-		...(payload.thinking_budget >= 1024
-			? { thinking: { type: "enabled", budget_tokens: payload.thinking_budget } }
-			: {}),
+		max_tokens: mapped.maxTokens ?? 4096,
+		...mapped.fields,
 		...(payload.tools?.length
 			? {
 					tools: payload.tools.map(({ function: tool }) => ({
@@ -376,6 +377,9 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
         }
 		const anthropic = provider.apiType === "anthropic";
 		// Whitelist portable fields: llama.cpp sampling/cache parameters are not cloud API fields.
+		const mapped = anthropic ? null : reasoningControls.cloudRequestFields(original.reasoning, {
+			modelId: target.model, maxTokens: original.max_tokens,
+		});
 		const body = anthropic
 			? anthropicPayload(original, target.model)
 			: {
@@ -383,10 +387,8 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 					messages: original.messages.map(message => ({ ...message, content: Array.isArray(message.content) ? message.content.map(part => part.type === 'input_video' ? { type: 'video_url', video_url: { url: `data:${part.input_video.format === 'video/quicktime' ? 'video/mov' : part.input_video.format};base64,${part.input_video.data}` } } : part) : message.content })),
 					...(stream ? { stream: true, stream_options: { include_usage: true } } : { stream: false }),
 					...(original.tools?.length ? { tools: original.tools, tool_choice: "auto" } : {}),
-					...(original.max_tokens > 0 ? { max_tokens: original.max_tokens } : {}),
-					...(original.reasoning_budget >= 0
-						? { reasoning_budget: original.reasoning_budget }
-						: {}),
+					...(mapped.maxTokens > 0 ? { max_tokens: mapped.maxTokens } : {}),
+					...mapped.fields,
 				};
 		const response = await fetchImpl(
 			`${normalizeBaseUrl(provider.baseUrl)}/${anthropic ? "messages" : "chat/completions"}`,

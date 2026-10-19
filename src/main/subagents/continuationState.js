@@ -166,6 +166,9 @@ function ledgerTotals(ledger) {
     outputTokens: (l.outputMeasured ?? 0) + outputReserved,
     outputMeasured: l.outputMeasured ?? 0,
     outputReserved,
+    reasoningTokens: l.reasoningMeasured ?? 0,
+    reasoningMeasured: l.reasoningMeasured ?? 0,
+    visibleOutputTokens: Math.max(0, (l.outputMeasured ?? 0) - (l.reasoningMeasured ?? 0)),
   };
 }
 
@@ -280,7 +283,8 @@ function deserializeBudgetState(data, { scope = null } = {}) {
     budgets,
     contextSource: data.contextSource ?? 'fallback',
     ledger: {
-      inputMeasured: 0, inputEstimated: 0, outputMeasured: 0, outputUnknownTurns: 0, outputReserved: 0, turns: 0,
+      inputMeasured: 0, inputEstimated: 0, outputMeasured: 0, outputUnknownTurns: 0, outputReserved: 0,
+      reasoningMeasured: 0, reasoningUnknownTurns: 0, turns: 0,
       ...(data.ledger ?? {}),
     },
     toolCalls: data.toolCalls ?? 0,

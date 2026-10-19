@@ -294,6 +294,10 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
   const activeSignal = combineSignals(signal, deadline?.signal) ?? signal;
   const deadlineExpired = () => deadline?.signal.aborted === true;
   let ceiling = state.budgets.perRequestCeiling;
+  // One-shot requests (including the forced-answer retry) use the CHILD's own
+  // effective model settings, resolved before any payload is built.
+  const childReasoning = await require('../reasoningRuntime').resolveChildReasoning({ engine });
+  const reasoningFields = require('../reasoningRuntime').requestFieldsForEngine(engine, childReasoning);
   const attempts = [];
   const finish = (output, reason, detail = null, completionClass = null) => executionBudget.outcome(state, {
     output: output || (sourceEvidence ? `Source evidence (task incomplete):\n${sourceEvidence.slice(0, 1800)}` : ''),
@@ -308,7 +312,8 @@ async function completeOneShot({ session, state, engine, signal, fetchImpl, mess
     try {
       payload = executionBudget.stopBeforeRequest(state, { model: engine.modelId,
         messages: attempt === 1 ? messages : withForcedAnswer(messages),
-        temperature: attempt === 1 ? temperature : retryTemperature, max_tokens: ceiling });
+        temperature: attempt === 1 ? temperature : retryTemperature, max_tokens: ceiling,
+        ...reasoningFields });
       pushActivity(session, { type: 'turn', turn: executionBudget.totals(state).turns + 1 });
       const reply = await scheduleInference({ session, engine, payload, signal: activeSignal, fetchImpl, budgetState: state, timers });
       if (!reply.ok) return finish('', 'provider_error', `Sub-agent request failed (HTTP ${reply.status}).`);

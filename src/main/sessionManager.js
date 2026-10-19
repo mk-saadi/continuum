@@ -183,11 +183,13 @@ function getLastTurnTelemetry(sessionId) {
   const { lastPromptTokens = null, peakPromptTokens = null, peakRequestIndex = null,
     promptRequests = null, promptCoverage = null, completionTokens = null,
     totalTokens = null, scope = null, cachedTokens = null, cacheCreationTokens = null,
-    lastCachedTokens = null, lastCacheCreationTokens = null } = stats;
+    lastCachedTokens = null, lastCacheCreationTokens = null,
+    reasoningTokens = null, visibleCompletionTokens = null, reasoningCoverage = null } = stats;
   if (lastPromptTokens === null && peakPromptTokens === null) return null;
   return { messageId: row.id, lastPromptTokens, peakPromptTokens, peakRequestIndex,
     promptRequests, promptCoverage, completionTokens, totalTokens, scope,
-    cachedTokens, cacheCreationTokens, lastCachedTokens, lastCacheCreationTokens };
+    cachedTokens, cacheCreationTokens, lastCachedTokens, lastCacheCreationTokens,
+    reasoningTokens, visibleCompletionTokens, reasoningCoverage };
 }
 
 function getContextUsage(sessionId, currentModelId) {
@@ -465,7 +467,8 @@ function normalizeStats(stats) {
   if (typeof stats !== 'object' || Array.isArray(stats)) throw new TypeError('Invalid generation stats.');
   if (Object.keys(stats).length === 0) return null;
   const result = {};
-  for (const key of ['startTime', 'endTime', 'time', 'promptTokens', 'completionTokens', 'totalTokens', 'tokensPerSecond']) {
+  for (const key of ['startTime', 'endTime', 'time', 'promptTokens', 'completionTokens', 'totalTokens',
+    'tokensPerSecond', 'reasoningTokens', 'visibleCompletionTokens']) {
     const value = stats[key] ?? null;
     if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 ||
       (key.endsWith('Tokens') && !Number.isSafeInteger(value)))) throw new TypeError(`Invalid generation stat: ${key}.`);
@@ -484,6 +487,12 @@ function normalizeStats(stats) {
   if (stats.promptCoverage != null) {
     if (!['complete', 'partial', 'none'].includes(stats.promptCoverage)) throw new TypeError('Invalid generation stat: promptCoverage.');
     result.promptCoverage = stats.promptCoverage;
+  }
+  if (stats.reasoningCoverage != null) {
+    if (!['measured', 'partial', 'unreported', 'unavailable'].includes(stats.reasoningCoverage)) {
+      throw new TypeError('Invalid generation stat: reasoningCoverage.');
+    }
+    result.reasoningCoverage = stats.reasoningCoverage;
   }
   if (stats.generationTime != null) {
     if (typeof stats.generationTime !== 'number' || !Number.isFinite(stats.generationTime) || stats.generationTime < 0) throw new TypeError('Invalid generation time.');
@@ -623,7 +632,10 @@ function saveSessionSamplingParams(sessionId, modelId, patch) {
     // New drafts have no session row until the first message or tuning edit.
     if (!db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) getOrCreateSession(sessionId, modelId);
     const overrides = valid === null ? null : { ...getSessionSamplingParams(sessionId).overrides, ...valid };
-    db.prepare('UPDATE sessions SET sampling_params = ? WHERE id = ?').run(overrides === null ? null : JSON.stringify(overrides), sessionId);
+    // A null reasoning effort means "clear this override and inherit the
+    // model/global setting", so it must not remain as a stored null.
+    if (overrides) for (const key of Object.keys(overrides)) if (overrides[key] === null) delete overrides[key];
+    db.prepare('UPDATE sessions SET sampling_params = ? WHERE id = ?').run(overrides === null || !Object.keys(overrides).length ? null : JSON.stringify(overrides), sessionId);
     return getSessionSamplingParams(sessionId, modelId);
   }).immediate();
 }

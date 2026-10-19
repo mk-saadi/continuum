@@ -215,14 +215,16 @@ assert.ok(
 assert.ok(!source.includes('rootDirectory'), 'no workspace-wide project config in sidebar');
 assert.ok(!source.includes('updateProject'), 'no project mutation controls in sidebar');
 
-// 9. Tab overflow: short labels that fit w-80, shrinkable buttons, truncated text.
+// 9. Icon-only tabs: labels remain as accessible names + hover tooltips.
 for (const label of ['Persona', 'Generation', 'Memory', 'Activity', 'Agents', 'Controls']) {
-	assert.ok(source.includes(`label: "${label}"`), `short tab label "${label}" fits the sidebar`);
+	assert.ok(source.includes(`label: "${label}"`), `tab "${label}" keeps its label for aria-label/title`);
 }
 assert.ok(!source.includes('Agent & Persona'), 'long overflowing casual label removed');
 assert.ok(!source.includes('Memory & Context'), 'long overflowing casual label removed');
+assert.ok(source.includes('aria-label={label}'), 'icon-only tabs expose the label to assistive tech');
+assert.ok(source.includes('title={label}'), 'icon-only tabs expose a hover tooltip');
+assert.ok(!source.includes('<span className="truncate">{label}</span>'), 'visible tab text removed');
 assert.ok(source.includes('min-w-0 flex-1'), 'tab buttons can shrink into the available width');
-assert.ok(source.includes('className="truncate"'), 'tab labels truncate instead of overflowing');
 assert.ok(source.includes('overflow-hidden'), 'tab bar clips nothing outside the sidebar');
 assert.ok(
 	!source.match(/whitespace-nowrap border-b-2 px-2 py-3/),

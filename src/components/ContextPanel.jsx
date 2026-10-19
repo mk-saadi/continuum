@@ -722,6 +722,11 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 							{usage.telemetry?.completionTokens != null
 								? usage.telemetry.completionTokens.toLocaleString()
 								: "—"}
+							{usage.telemetry?.reasoningTokens != null && (
+								<span className="ml-1 text-[10px] font-normal text-[var(--text-muted)]">
+									({usage.telemetry.reasoningTokens.toLocaleString()} reasoning)
+								</span>
+							)}
 						</dd>
 					</dl>
 				)}

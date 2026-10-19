@@ -202,7 +202,8 @@ function checkForcedFloor({ breakdown, contextWindowLimit, maxTokens = null, thi
   // keeps this a sound refuse-only gate.
   const reserve = reserveTokens({
     max_tokens: Number.isSafeInteger(maxTokens) && maxTokens > 0 ? maxTokens : -1,
-    thinking_budget: Number.isSafeInteger(thinkingBudget) ? thinkingBudget : -1,
+    ...(Number.isSafeInteger(thinkingBudget) && thinkingBudget > 0
+      ? { reasoning_budget_tokens: thinkingBudget } : {}),
   }, contextWindowLimit);
   const budget = contextWindowLimit - reserve;
   const floor = breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens

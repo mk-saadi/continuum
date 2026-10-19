@@ -1,5 +1,8 @@
 // Keep Electron events scoped to this request and remove listeners on every exit.
-export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, reasoningEffort, thinkingBudget, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onPhase, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
+// Reasoning is not a renderer-supplied wire parameter. The selected intent is
+// persisted through the settings APIs, and the main process resolves it against
+// the actual model/provider when it builds each request.
+export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onPhase, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -72,7 +75,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await (branchMessageId ? api.branchAndExecute : regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: branchMessageId ?? messageId ?? requestId, ...(branchMessageId ? { newContent } : {}), modelId, modelName, displayName, messages, permissionMode, memoryEnabled, ...(reasoningEffort !== undefined ? { reasoningEffort } : {}), ...(thinkingBudget !== undefined ? { thinkingBudget } : {}), ...(sessionId ? { sessionId } : {}) });
+    const result = await (branchMessageId ? api.branchAndExecute : regenerate ? window.memoryPalace.regenerateLast : api.run)({ requestId, activeChatProvider, messageId: branchMessageId ?? messageId ?? requestId, ...(branchMessageId ? { newContent } : {}), modelId, modelName, displayName, messages, permissionMode, memoryEnabled, ...(sessionId ? { sessionId } : {}) });
     if (!regenerate && Number.isSafeInteger(result.message?.id)) onMessageCreated?.(result.message.id);
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;

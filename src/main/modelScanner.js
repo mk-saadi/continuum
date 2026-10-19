@@ -38,6 +38,9 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		fileIdentity: { size: stats.size, mtimeMs: stats.mtimeMs ?? null },
 		reasoningFormat: 'auto',
 		reasoningEfforts: [],
+		supportsReasoningEffort: null,
+		supportsReasoningBudget: null,
+		supportsDisableReasoning: null,
 		architecture: null,
 		expertCount: null,
         activeExpertCount: null, contextLength: null, layerCount: null, embeddingLength: null, attentionHeads: null, kvHeads: null, expertLayers: null, metadataStatus: 'unknown', metadataError: null,
@@ -65,6 +68,16 @@ async function parseModelMetadata(filePath, fileName, stats, projectors) {
 		result.hasReasoning ||= result.reasoningEfforts.length > 0;
 		result.reasoningFormat = chatTemplate.includes('<think>') ? 'deepseek' : 'auto';
 		result.hasReasoning ||= /deepseek|qwq|think|reasoning/i.test(result.generalName || '');
+		// The installed llama-server only enforces a numeric budget when the
+		// chat template exposes reasoning end tags. This is model/template
+		// dependent, never a universal local capability.
+		const REASONING_END_TAG = /<\/think>|\[\/THINK\]|<\/mm:think>|<channel\|>|<\|close\|>think<\|sep\|>|<\|END_THINKING\|>/i;
+		result.supportsReasoningBudget = REASONING_END_TAG.test(chatTemplate);
+		result.supportsReasoningEffort = result.reasoningEfforts.length > 0
+			|| /reasoning_effort/.test(chatTemplate);
+		result.supportsDisableReasoning = result.supportsReasoningEffort
+			|| result.supportsReasoningBudget
+			|| /enable_thinking|thinking\s*==/i.test(chatTemplate);
 		const arch = typeof metadata['general.architecture'] === 'string' ? metadata['general.architecture'] : '';
 		result.architecture = arch || null;
 		// Expert metadata is only present for MoE GGUFs; reuse the header already parsed here.

@@ -853,9 +853,14 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 		stats.lastPromptTokens != null && stats.scope === "all"
 			? `\n• Last Request Prompt: ${stats.lastPromptTokens.toLocaleString()}`
 			: "";
+	// Reasoning is a measured subset of generated output when the provider
+	// reports it; the configured budget is never shown as consumed.
+	const reasoningLine = stats.reasoningTokens != null
+		? `\n• Reasoning (measured): ${stats.reasoningTokens.toLocaleString()}${stats.visibleCompletionTokens != null ? `\n• Visible answer: ${stats.visibleCompletionTokens.toLocaleString()}` : ""}`
+		: "";
 	const tokenTooltip = isMultiPass
-		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}${lastLine}${peakLine}`
-		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}`;
+		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}${reasoningLine}${lastLine}${peakLine}`
+		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}${reasoningLine}`;
 
 	const speedTooltip = isMultiPass
 		? "Average generation speed across all tool execution rounds"

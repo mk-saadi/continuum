@@ -707,8 +707,11 @@ app.whenReady().then(() => {
 		},
 		getReasoningEfforts: (modelId) =>
 			modelId === currentlyLoadedModelPath ? (scannedModels.get(modelId)?.reasoningEfforts ?? []) : [],
+		getLocalModelMetadata: (modelId) =>
+			modelId === currentlyLoadedModelPath ? (scannedModels.get(modelId) ?? null) : null,
 		getEngineConfig: () =>
-			childProcess ? { ...engineConfig, modelPath: currentlyLoadedModelPath } : null,
+			childProcess ? { ...engineConfig, modelPath: currentlyLoadedModelPath,
+				modelMetadata: currentlyLoadedModelPath ? scannedModels.get(currentlyLoadedModelPath) ?? null : null } : null,
 		isTrustedSender: (event) => {
 			if (!mainWindow || mainWindow.isDestroyed()) return false;
 			if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame)

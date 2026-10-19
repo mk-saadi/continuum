@@ -8,7 +8,8 @@ let memoryEnabled = true;
 Module._load = function(name, ...args) {
   if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
   if (name === './promptBuilder') return { ...originalLoad.call(this, name, ...args), buildSessionSystemPrompt: () => ({ role: 'system', content: memoryEnabled ? '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' : '', memoryContext: true }) };
-  if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled }, params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 } }) };
+  if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled, thinkingBudget: -1, reasoningEffort: 'low' },
+    params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1, thinking_budget: -1, reasoning_effort: 'low' } }) };
   if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
   if (name === 'electron') return { app: { isReady: () => true }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
@@ -37,7 +38,9 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
   sender.isDestroyed = () => false;
   sender.send = (channel, event) => events.push({ channel, ...event });
   const event = { sender };
-  const dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }), getReasoningEfforts: () => ['low', 'high'] });
+  const dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }),
+    getLocalModelMetadata: () => ({ hasReasoning: true, supportsReasoningEffort: true,
+      supportsDisableReasoning: true, reasoningEfforts: ['low', 'high'] }) });
   const originalFetch = global.fetch;
   const requests = [];
   const name = manager.getTools()[0].function.name;
@@ -52,9 +55,11 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
   try {
     const context = await handlers.get('mcp:get-tools')(event);
     assert.equal(context.pluginTokens, Math.ceil(JSON.stringify(manager.getTools()).length / 4));
-    await assert.rejects(handlers.get('engine:chat')(event, { reasoningEffort: 'unsupported' }), /Unsupported reasoning effort/);
-    const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', reasoningEffort: 'low', messages: [{ role: 'system', content: 'test' }] });
-    assert.ok(requests.every(request => request.chat_template_kwargs.reasoning_effort === 'low'));
+    // Renderer-supplied reasoning fields are ignored: the persisted intent is
+    // resolved in main against this model's reported capabilities.
+    const result = await handlers.get('engine:chat')(event, { requestId: 'request1', modelId: 'model', reasoningEffort: 'unsupported', messages: [{ role: 'system', content: 'test' }] });
+    assert.ok(requests.every(request => request.reasoning_effort === 'low'));
+    assert.ok(requests.every(request => !('chat_template_kwargs' in request) && !('thinking_budget' in request)));
     assert.equal(result.text, 'Final answer [TASK COMPLETE]');
     const usage = database.db.prepare('SELECT * FROM token_usage').all();
     assert.equal(usage.length, 1);

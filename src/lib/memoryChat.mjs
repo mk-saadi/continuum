@@ -12,10 +12,10 @@ function limitToolArguments(call) {
   return call;
 }
 import { createRepetitionDetector } from './repetitionDetector.mjs';
+import reasoningControls from './reasoningControls.cjs';
 
 export const REASONING_LOOP_NOTICE = '[System: Reasoning loop detected and terminated. Output may be incomplete.]';
 import { formatToolResult, hasToolImages, moveToolImagesToUser, rejectsToolImages, redactToolMedia } from './toolResultFormatter.mjs';
-import { resolveThinkingBudget } from './thinkingBudget.mjs';
 import { mergeMetrics, phaseStats, mergePhaseStats, turnPromptTelemetry } from './completionStats.mjs';
 import { createThinkingStream } from './thinkingStream.mjs';
 
@@ -396,8 +396,51 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
 // keeps its strictly sequential execution.
 const SUB_AGENT_TOOL_NAMES = new Set(['spawn_sub_agent', 'delegate_task', 'extract_web_page_data']);
 
+// Build a local resolution for direct callers that still pass the legacy
+// `reasoningEffort` / `samplingParams.thinking_budget` pair. Production callers
+// pass a resolution resolved by src/main/reasoningRuntime.js against the actual
+// loaded model; this fallback keeps standalone tests and tooling honest without
+// reintroducing the old request aliases.
+function legacyLocalReasoning({ reasoningEffort, thinkingBudget, localModel, contextSize }) {
+  const effort = typeof reasoningEffort === 'string' && reasoningEffort.trim()
+    ? reasoningEffort.trim().toLowerCase() : null;
+  const intent = effort
+    ? { mode: 'effort', effort, budget: null }
+    : reasoningControls.normalizeIntent({ thinkingBudget });
+  const capabilities = reasoningControls.resolveCapabilities({ target: { type: 'local' }, localModel });
+  return reasoningControls.resolveReasoning({ intent, capabilities, contextSize });
+}
+
+function localReasoningFields(resolution) {
+  return reasoningControls.localRequestFields(resolution);
+}
+
+// Cloud transports own their wire shape. Carry exactly the resolution they
+// need (effective mode plus family/parameter evidence), not local fields.
+function cloudReasoningDescriptor(resolution) {
+  if (!resolution?.effective) return undefined;
+  return {
+    effective: resolution.effective,
+    capabilities: {
+      family: resolution.capabilities?.family ?? 'unknown',
+      metadata: {
+        supportedParameters: Array.isArray(resolution.capabilities?.metadata?.supportedParameters)
+          ? resolution.capabilities.metadata.supportedParameters : [],
+      },
+    },
+  };
+}
+
+function reasoningRequestFields(resolution, cloud) {
+  if (!resolution) return {};
+  return cloud
+    ? { reasoning: cloudReasoningDescriptor(resolution) }
+    : localReasoningFields(resolution);
+}
+
 export async function runMemoryChat({
-  baseUrl, modelId, messages, loadedContextSize, recoverContext, reasoningEffort, memoryTools = [], chatTools, getChatTools, executeTool, retrieveDocuments, samplingParams = {}, getSamplingParams,
+  baseUrl, modelId, messages, loadedContextSize, recoverContext, reasoning = null, getReasoning = null,
+  reasoningEffort, cloud = false, localModel = null, memoryTools = [], chatTools, getChatTools, executeTool, retrieveDocuments, samplingParams = {}, getSamplingParams,
   onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }), guardToolContent = content => content,
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
   casualMode = false, onToolLimit = async () => false,
@@ -476,6 +519,8 @@ export async function runMemoryChat({
     turnCount = 0; toolRounds = 0; executionState = 'running';
     return true;
   };
+  let activeReasoning = reasoning;
+  let activeReasoningContext = loadedContextSize;
   try {
   while (executionState === 'running') {
     turnCount++;
@@ -491,15 +536,18 @@ export async function runMemoryChat({
       temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1,
       ...samplingParams, ...(getSamplingParams ? await getSamplingParams() : {}),
     };
-    const thinkingBudget = resolveThinkingBudget(params.thinking_budget ?? -1, loadedContextSize);
+    if (getReasoning) {
+      activeReasoning = await getReasoning({ contextSize: activeReasoningContext });
+    } else if (!activeReasoning) {
+      activeReasoning = legacyLocalReasoning({ reasoningEffort, thinkingBudget: params.thinking_budget,
+        localModel, contextSize: activeReasoningContext });
+    }
     if (finalResponseOnly) tools = [];
     const requestPayload = {
-      thinking_budget: thinkingBudget, reasoning_budget: thinkingBudget,
-      ...(thinkingBudget > 0 ? { max_thinking_tokens: thinkingBudget } : {}),
       model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage)) : sanitizeChatMessages(history, decodeImage), tools,
       tool_choice: finalResponseOnly ? 'none' : 'auto',
       cache_prompt: true,
-      ...(reasoningEffort !== undefined ? { chat_template_kwargs: { reasoning_effort: reasoningEffort } } : {}),
+      ...reasoningRequestFields(activeReasoning, cloud),
       stream: true, stream_options: { include_usage: true },
       temperature: params.temperature, top_p: params.top_p, top_k: params.top_k,
       repeat_penalty: params.repeat_penalty, max_tokens: params.max_tokens,
@@ -527,13 +575,17 @@ export async function runMemoryChat({
         if (finalResponseOnly) tools = [];
         allowedNames = new Set(tools.map(tool => tool.function.name));
         const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
-        const thinking = resolveThinkingBudget(updated.thinking_budget ?? -1, contextWindowLimit);
+        activeReasoningContext = contextWindowLimit;
+        if (getReasoning) activeReasoning = await getReasoning({ contextSize: contextWindowLimit });
+        else if (!reasoning) activeReasoning = legacyLocalReasoning({ reasoningEffort, thinkingBudget: updated.thinking_budget,
+          localModel, contextSize: contextWindowLimit });
+        delete requestPayload.reasoning_effort;
+        delete requestPayload.reasoning_budget_tokens;
+        delete requestPayload.reasoning;
         Object.assign(requestPayload, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage)) : sanitizeChatMessages(history, decodeImage), tools,
           temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
-          repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens,
-          thinking_budget: thinking, reasoning_budget: thinking });
-        delete requestPayload.max_thinking_tokens;
-        if (thinking > 0) requestPayload.max_thinking_tokens = thinking;
+          repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens },
+          reasoningRequestFields(activeReasoning, cloud));
         return requestPayload;
       } : undefined,
     });
@@ -634,6 +686,8 @@ export async function runMemoryChat({
         completionTokens: phases[phases.length - 1].completionTokens ?? null,
         cachedTokens: phases[phases.length - 1].cachedTokens ?? null,
         cacheCreationTokens: phases[phases.length - 1].cacheCreationTokens ?? null,
+        reasoningTokens: phases[phases.length - 1].reasoningTokens ?? null,
+        visibleCompletionTokens: phases[phases.length - 1].visibleCompletionTokens ?? null,
         phase: phases[phases.length - 1], telemetry: turnPromptTelemetry(phases) });
     } catch { /* Telemetry listeners must not break the tool loop. */ }
     // A provider that ignores tool_choice:none must not create an endless loop.

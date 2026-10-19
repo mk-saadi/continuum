@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('api', {
     sessionId && typeof sessionId === 'object' ? sessionId : { sessionId, agentId, modelId }),
   getSamplingParams: (sessionId, modelId) => ipcRenderer.invoke('sampling:get', { sessionId, modelId }),
   saveSamplingParams: (sessionId, modelId, params) => ipcRenderer.invoke('sampling:save', { sessionId, modelId, params }),
+  // Capability-resolved reasoning view for the composer. The renderer shows
+  // only controls this model/provider can honor; saved-but-unsupported intents
+  // come back as warnings instead of a coerced value.
+  getReasoningCapabilities: payload => ipcRenderer.invoke('reasoning:capabilities', payload),
   getRagSettings: () => ipcRenderer.invoke('rag:get-settings'),
   saveRagSettings: settings => ipcRenderer.invoke('rag:save-settings', settings),
   // Native web search provider settings. The renderer only ever receives the

@@ -1,24 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { LuSlidersHorizontal, LuMessageSquare, LuBrain } from "react-icons/lu";
+import { LuSlidersHorizontal, LuBrain } from "react-icons/lu";
 import { CheckboxField, SelectField } from "./FormControls";
-import { FaBalanceScale, FaBolt, FaBrain, FaBullseye, FaCog, FaInfinity, FaMicroscope } from "react-icons/fa";
+import { FaBolt, FaBrain, FaCog, FaInfinity } from "react-icons/fa";
 
-const BUDGET_PRESETS = [
-	{ value: 0, label: "Off / Fast", icon: FaBolt, description: "0 tokens" },
-	{ value: 1024, label: "Light", icon: FaBullseye, description: "1,024 tokens" },
-	{ value: 4096, label: "Balanced", icon: FaBalanceScale, description: "4,096 tokens" },
-	{ value: 8192, label: "Deep", icon: FaMicroscope, description: "8,192 tokens" },
-	{ value: -1, label: "Unlimited", icon: FaInfinity, description: "Model default" },
-];
-
-export function ThinkingBudgetSelector({ sessionId, modelId, disabled }) {
-	const [budget, setBudget] = useState(-1);
+// One capability-driven reasoning control. The main process resolves the saved
+// intent against the actual model/provider, so this component never offers a
+// control the target cannot honor and never guesses a wire field.
+export function ReasoningSelector({ sessionId, modelId, activeChatProvider, disabled }) {
+	const [capabilities, setCapabilities] = useState(null);
+	const [effective, setEffective] = useState({ mode: "auto", effort: null, budget: null });
+	const [warnings, setWarnings] = useState([]);
 	const [customValue, setCustomValue] = useState("");
 	const [ready, setReady] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+	const [unknown, setUnknown] = useState(false);
 	const revision = useRef(0);
+	const provider = activeChatProvider?.type === "cloud" ? activeChatProvider : { type: "local" };
 
 	useEffect(() => {
 		let alive = true;
@@ -26,16 +25,31 @@ export function ThinkingBudgetSelector({ sessionId, modelId, disabled }) {
 			const request = ++revision.current;
 			setReady(false);
 			try {
-				const result = await window.api.getEffectiveSettings(sessionId, modelId);
+				if (!window.api?.getReasoningCapabilities) {
+					if (alive && request === revision.current) {
+						setUnknown(true);
+						setCapabilities(null);
+						setReady(true);
+					}
+					return;
+				}
+				const result = await window.api.getReasoningCapabilities({
+					sessionId, modelId, activeChatProvider: provider,
+				});
+				if (!alive || request !== revision.current) return;
+				const next = result?.effective ?? { mode: "auto", effort: null, budget: null };
+				setCapabilities(result ?? null);
+				setEffective(next);
+				setWarnings(Array.isArray(result?.warnings) ? result.warnings : []);
+				setUnknown(false);
+				if (next.mode === "budget") setCustomValue(String(next.budget));
+				setError("");
+				setReady(true);
+			} catch (cause) {
 				if (alive && request === revision.current) {
-					const next = result.effective.thinkingBudget ?? -1;
-					setBudget(next);
-					setCustomValue(next >= 0 ? String(next) : "");
-					setError("");
+					setError(cause.message || "Could not read reasoning capabilities.");
 					setReady(true);
 				}
-			} catch (cause) {
-				if (alive && request === revision.current) setError(cause.message);
 			}
 		};
 		if (modelId) void refresh();
@@ -45,66 +59,115 @@ export function ThinkingBudgetSelector({ sessionId, modelId, disabled }) {
 			revision.current++;
 			window.removeEventListener("generation-settings-changed", refresh);
 		};
-	}, [sessionId, modelId]);
+		// Primitive deps: the provider object is recreated by the renderer.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [sessionId, modelId, provider.type, provider.provider, provider.model]);
 
-	// We accept `closeMenu` so the SelectField dropdown closes when they hit 'Set'
-	async function save(next, closeMenu) {
-		const previous = budget;
+	async function save({ thinkingBudget, reasoningEffort }) {
 		const request = ++revision.current;
-		setBudget(next);
-		setCustomValue(String(next));
 		setSaving(true);
 		setError("");
 		try {
-			if (sessionId) await window.api.saveSamplingParams(sessionId, modelId, { thinking_budget: next });
-			else await window.api.saveProfileSettings(modelId, { thinkingBudget: next });
-
+			if (sessionId) {
+				await window.api.saveSamplingParams(sessionId, modelId, {
+					thinking_budget: thinkingBudget, reasoning_effort: reasoningEffort,
+				});
+			} else {
+				await window.api.saveProfileSettings(modelId, { thinkingBudget, reasoningEffort });
+			}
 			if (request === revision.current) {
 				setSaving(false);
-				if (closeMenu) closeMenu();
 				window.dispatchEvent(new Event("generation-settings-changed"));
 			}
 		} catch (cause) {
 			if (request === revision.current) {
-				setBudget(previous);
-				setError(cause.message);
+				setError(cause.message || "Could not save reasoning settings.");
 				setSaving(false);
 			}
 		}
 	}
 
-	const preset = BUDGET_PRESETS.find((item) => item.value === budget);
-	const badge = preset ? preset.label.replace(" / Fast", "") : `${budget.toLocaleString("en-US")} t`;
-	const customNumber = Number(customValue);
-	const customValid =
-		customValue.trim() !== "" &&
-		Number.isSafeInteger(customNumber) &&
-		customNumber >= 0 &&
-		customNumber <= 65536;
+	const canDisable = capabilities?.canDisable === true;
+	const efforts = Array.isArray(capabilities?.efforts) ? capabilities.efforts : [];
+	const budget = capabilities?.budget ?? { supported: null, min: null, max: null };
+	const budgetSupported = budget.supported === true;
+	const noControl = capabilities && capabilities.reasoning === false;
+	const controlsKnown = canDisable || efforts.length > 0 || budgetSupported;
+	if (!modelId || unknown || (!controlsKnown && !noControl && ready && !capabilities?.reasoning)) {
+		const label = noControl ? "Unavailable" : "Unknown";
+		return (
+			<div className="w-full rounded-lg border border-[var(--subtle-border)] bg-[var(--input)] px-2.5 py-2">
+				<div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)]">
+					<FaBrain /> Reasoning: {label}
+				</div>
+				<p className="mt-1 text-[10px] leading-snug text-[var(--text-muted)]">
+					{noControl
+						? "This model does not expose reasoning controls."
+						: "This model does not report reasoning controls; the provider default is used."}
+				</p>
+			</div>
+		);
+	}
 
-	// Custom Form rendered inside SelectField's dropdownFooter
+	const items = [{ value: "auto", label: "Automatic", description: "Model default", icon: <FaInfinity /> }];
+	if (canDisable) items.push({ value: "off", label: "Off", description: "No hidden reasoning", icon: <FaBolt /> });
+	for (const effort of efforts) {
+		items.push({ value: `effort:${effort}`, label: effort[0].toUpperCase() + effort.slice(1),
+			description: "effort", icon: <FaBrain /> });
+	}
+	if (budgetSupported) {
+		items.push({ value: "budget", label: "Custom budget", description: "token cap", icon: <FaCog /> });
+	}
+
+	const selected = effective.mode === "off" ? "off"
+		: effective.mode === "effort" ? `effort:${effective.effort}`
+			: effective.mode === "budget" ? "budget" : "auto";
+	const badge = effective.mode === "auto" ? "Automatic"
+		: effective.mode === "off" ? "Off"
+			: effective.mode === "effort" ? effective.effort
+				: `${effective.budget.toLocaleString("en-US")} tokens`;
+
+	const customNumber = Number(customValue);
+	const customMin = Number.isSafeInteger(budget.min) ? budget.min : 0;
+	const customMax = Number.isSafeInteger(budget.max) ? budget.max : 65536;
+	const customValid = customValue.trim() !== "" && Number.isSafeInteger(customNumber)
+		&& customNumber >= customMin && customNumber <= customMax;
+
+	const choose = (value) => {
+		if (value === "auto") return void save({ thinkingBudget: -1, reasoningEffort: null });
+		if (value === "off") return void save({ thinkingBudget: 0, reasoningEffort: null });
+		if (value.startsWith("effort:")) {
+			return void save({ thinkingBudget: -1, reasoningEffort: value.slice("effort:".length) });
+		}
+		// "budget" applies the value typed in the footer (or the current one).
+		const next = customValid ? customNumber : effective.mode === "budget" ? effective.budget : (customMin > 0 ? customMin : 4096);
+		setCustomValue(String(next));
+		return void save({ thinkingBudget: next, reasoningEffort: null });
+	};
+
 	const customFooter = ({ close }) => (
 		<form
 			noValidate
 			className="px-2 pb-1 pt-2"
 			onSubmit={(event) => {
 				event.preventDefault();
-				if (customValid) void save(customNumber, close);
+				if (customValid) {
+					setCustomValue(String(customNumber));
+					void save({ thinkingBudget: customNumber, reasoningEffort: null });
+					close();
+				}
 			}}
 		>
-			<label
-				htmlFor="thinking-budget-custom"
-				className="flex cursor-pointer items-center gap-1.5 pb-2 text-xs"
-			>
-				<FaCog /> Custom token budget
+			<label htmlFor="reasoning-budget-custom" className="flex cursor-pointer items-center gap-1.5 pb-2 text-xs">
+				<FaCog /> Custom thinking-token budget
 			</label>
 			<div className="flex gap-1">
 				<input
-					id="thinking-budget-custom"
+					id="reasoning-budget-custom"
 					aria-label="Custom thinking tokens"
 					type="number"
-					min="0"
-					max="65536"
+					min={customMin}
+					max={customMax}
 					step="256"
 					value={customValue}
 					onChange={(event) => setCustomValue(event.target.value)}
@@ -119,40 +182,40 @@ export function ThinkingBudgetSelector({ sessionId, modelId, disabled }) {
 				</button>
 			</div>
 			<p className="mt-2 text-[10px] text-[var(--text-muted)]">
-				0–65,536 tokens. Exact integers are accepted.
+				{customMin.toLocaleString("en-US")}–{customMax.toLocaleString("en-US")} tokens.
+				{budget.max == null ? " The loaded context is the effective ceiling." : ""}
 			</p>
 		</form>
 	);
 
 	return (
-		<div className="w-full">
+		<div className="w-full space-y-1.5">
 			<SelectField
-				aria-label={`Thinking Budget: ${badge}`}
-				value={budget}
-				onChange={(event) => void save(Number(event.target.value))}
-				disabled={disabled || !ready}
+				aria-label="Reasoning"
+				value={selected}
+				onChange={(event) => choose(event.target.value)}
+				disabled={disabled || !ready || saving}
 				icon={<FaBrain />}
 				openTop={true}
-				items={BUDGET_PRESETS.map((item) => ({
-					value: item.value,
-					label: item.label,
-					description: item.description,
-					icon: <item.icon />,
-				}))}
-				dropdownFooter={customFooter}
-				triggerLabel={`Thinking: ${badge}`}
+				items={items}
+				dropdownFooter={budgetSupported ? customFooter : undefined}
+				triggerLabel={`Reasoning: ${badge}`}
 			/>
-			{error && (
-				<p
-					role="alert"
-					className="absolute bottom-full right-0 mb-1 w-max rounded bg-[var(--error)] px-2 py-1 text-xs text-white shadow"
-				>
-					{error}
+			{warnings.map((warning) => (
+				<p key={warning} role="status" className="text-[10px] leading-snug text-[var(--text-muted)]">
+					{warning}
 				</p>
+			))}
+			{error && (
+				<p role="alert" className="text-[10px] leading-snug text-[var(--error)]">{error}</p>
 			)}
 		</div>
 	);
 }
+
+// Backwards-compatible alias for older imports; the control is now a single
+// capability-driven reasoning selector, not a standalone budget picker.
+export const ThinkingBudgetSelector = ReasoningSelector;
 
 export function AgentSettingsPopover({
 	sessionId,
@@ -162,10 +225,7 @@ export function AgentSettingsPopover({
 	onMidRunQuestionsChange,
 	midRunQuestionsBusy,
 	midRunQuestionsLocked = false,
-	showEffort,
-	supportedEfforts = [],
-	reasoningEffort,
-	onEffortChange,
+	activeChatProvider = { type: "local" },
 }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const triggerRef = useRef(null);
@@ -262,44 +322,21 @@ export function AgentSettingsPopover({
 							onChange={(e) => onMidRunQuestionsChange?.(e.target.checked)}
 						/>
 
-						{/* 2. Token Thinking Budget */}
+						{/* 2. Reasoning: one capability-driven control. Automatic,
+						    Off, efforts, and a numeric budget are offered only when
+						    the selected model/provider supports them. */}
 						<div className="border-t border-[var(--subtle-border)] pt-2.5">
 							<div className="mb-1.5 flex items-center gap-2 text-[var(--text-secondary)] font-medium">
 								<LuBrain className="size-3.5 text-[var(--text-muted)]" />
-								<span>Thinking Token Budget</span>
+								<span>Reasoning</span>
 							</div>
-							<ThinkingBudgetSelector
+							<ReasoningSelector
 								sessionId={sessionId}
 								modelId={modelId}
+								activeChatProvider={activeChatProvider}
 								disabled={disabled}
 							/>
 						</div>
-
-						{/* 3. Reasoning Effort (if supported by model) */}
-						{showEffort && supportedEfforts.length > 0 && (
-							<div className="border-t border-[var(--subtle-border)] pt-2.5">
-								<div className="mb-1.5 flex items-center gap-2 text-[var(--text-secondary)] font-medium">
-									<LuBrain className="size-3.5 text-[var(--text-muted)]" />
-									<span>Reasoning Effort</span>
-								</div>
-								<div className="grid grid-cols-3 gap-1">
-									{supportedEfforts.map((effort) => (
-										<button
-											key={effort}
-											type="button"
-											onClick={() => onEffortChange?.(effort)}
-											className={`rounded-lg border px-2 py-1 text-center text-[11px] capitalize transition-colors ${
-												reasoningEffort === effort
-													? "border-[var(--accent)] bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
-													: "border-[var(--control-border)] bg-[var(--input)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-											}`}
-										>
-											{effort}
-										</button>
-									))}
-								</div>
-							</div>
-						)}
 					</div>,
 					triggerRef.current?.closest("dialog") ?? document.body,
 				)}
