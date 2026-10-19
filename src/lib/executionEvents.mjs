@@ -188,6 +188,12 @@ export function summarizeStep(step) {
       const count = Array.isArray(args.steps) ? args.steps.length : 0;
       summary = truncate(count ? `${action} · ${count} step${count === 1 ? '' : 's'}` : action, 120);
     }
+    else if (toolName === 'get_project_plans') {
+      const action = typeof args.action === 'string' ? args.action : 'list';
+      const target = typeof args.plan_id === 'string' ? args.plan_id
+        : typeof args.session_id === 'string' ? args.session_id : '';
+      summary = truncate(target ? `${action} · ${target}` : action, 120);
+    }
     else summary = truncate(JSON.stringify(args), 120);
   } else if (typeof step.streamingArguments === 'string' && step.streamingArguments) {
     summary = truncate(step.streamingArguments, 120);
@@ -401,7 +407,7 @@ const LIST_TOOLS = new Set(['list_directory', 'list_directory_with_size']);
 const SUBAGENT_TOOLS = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 const MEDIA_TOOLS = new Set(['generate_image', 'take_screenshot']);
 const SKILL_TOOLS = new Set(['propose_skill', 'use_skill']);
-const PLAN_TOOLS = new Set(['update_plan']);
+const PLAN_TOOLS = new Set(['update_plan', 'get_project_plans']);
 
 // Presentation category derived from the recorded tool name only.
 export function toolKind(step) {
@@ -528,7 +534,10 @@ export function summarizeStage(stage) {
   } else if (byKind.git === ops) {
     title = ops === 1 ? toolVerb(events[0]) : `${ops} git operations`;
   } else if (byKind.plan === ops) {
-    title = ops === 1 ? 'Updated plan' : `Updated plan ${ops} times`;
+    const updates = events.filter((event) => event.toolName === 'update_plan').length;
+    if (updates === 0) title = ops === 1 ? 'Read plan' : `Read ${ops} project plans`;
+    else if (updates === ops) title = ops === 1 ? 'Updated plan' : `Updated plan ${ops} times`;
+    else title = `${ops} plan operations`;
   } else if (onlyReads) {
     const parts = [];
     if (files.length) parts.push(`${files.length} file${files.length === 1 ? '' : 's'}`);
@@ -650,6 +659,7 @@ export function formatArgFields(step) {
     case 'plan': {
       push('Action', str(args.action, 40));
       push('Objective', str(args.objective, 160));
+      push('Plan', str(args.plan_id ?? args.session_id, 80));
       if (Array.isArray(args.steps)) {
         push('Steps', `${args.steps.length} step${args.steps.length === 1 ? '' : 's'}`);
       }

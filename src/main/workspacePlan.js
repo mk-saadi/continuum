@@ -38,6 +38,16 @@ const MAX_OBJECTIVE = 500;
 // shortened, so pending/in-progress/blocked state is never lost.
 const PLAN_CHAR_CAP = 4000;
 
+// Cross-session project reads (get_project_plans). Listing is deliberately
+// bounded: the summary list never returns steps, and a page is capped so a
+// project with many chats cannot flood the model's context.
+const DEFAULT_LIST_LIMIT = 20;
+const MAX_LIST_LIMIT = 50;
+// Derived aggregate plan status, most-attention-needed first. A plan has no
+// stored status column; this is computed from its step statuses so the list can
+// summarize without loading every step.
+const PLAN_AGGREGATE_STATUSES = Object.freeze(['empty', 'blocked', 'in_progress', 'pending', 'completed']);
+
 class PlanError extends Error {
   constructor(message, code = 'INVALID_PLAN') {
     super(message);
@@ -104,6 +114,35 @@ function normalizeExpectedRevision(value) {
   if (value === undefined || value === null) return null;
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new PlanError('expected_revision must be a positive integer from a previous create/get.', 'INVALID_REVISION');
+  }
+  return value;
+}
+
+// Cross-session read arguments (get_project_plans). These are validated
+// loudly, like every other plan argument, so a bad request never silently
+// widens a listing.
+function normalizeListLimit(value) {
+  if (value === undefined || value === null) return DEFAULT_LIST_LIMIT;
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_LIST_LIMIT) {
+    throw new PlanError(`limit must be an integer from 1 to ${MAX_LIST_LIMIT}.`, 'INVALID_LIMIT');
+  }
+  return value;
+}
+
+function normalizeListOffset(value) {
+  if (value === undefined || value === null) return 0;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new PlanError('offset must be a non-negative integer.', 'INVALID_OFFSET');
+  }
+  return value;
+}
+
+// The stable plan identity is the owning session id (the plan row is keyed by
+// it). A caller may name either `plan_id` or `session_id`; both must be a
+// non-empty string and are checked against the current project before use.
+function normalizeTargetId(value) {
+  if (typeof value !== 'string' || !value.trim() || value.includes('\0')) {
+    throw new PlanError('plan_id (or session_id) must be a non-empty string from action "list".', 'INVALID_TARGET');
   }
   return value;
 }
@@ -200,6 +239,149 @@ function readPlan(sessionId) {
       updatedAt: row.updated_at,
       steps,
     };
+  })();
+}
+
+// The trusted project identity for a session, resolved server-side. Never
+// supplied by the model. `undefined` means the session does not exist; `null`
+// means it exists but is a Casual Chat (no project).
+function projectIdOfSession(sessionId) {
+  const row = db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId);
+  return row ? row.project_id : undefined;
+}
+
+// One derived aggregate status for a plan, most-attention-needed first, so a
+// listing can summarize without shipping steps.
+function planAggregateStatus(counts, total) {
+  if (!total) return 'empty';
+  if (counts.blocked > 0) return 'blocked';
+  if (counts.in_progress > 0) return 'in_progress';
+  if (counts.pending > 0) return 'pending';
+  return 'completed';
+}
+
+// Bounded list row: metadata and counts only, never step text.
+function summarizePlanRow(row) {
+  const counts = {
+    pending: row.pending_steps ?? 0,
+    in_progress: row.in_progress_steps ?? 0,
+    completed: row.completed_steps ?? 0,
+    blocked: row.blocked_steps ?? 0,
+  };
+  const total = row.total_steps ?? 0;
+  return {
+    plan_id: row.session_id,
+    session_id: row.session_id,
+    session_title: row.session_title ?? null,
+    objective: row.objective ?? '',
+    status: planAggregateStatus(counts, total),
+    revision: row.revision,
+    total_steps: total,
+    completed_steps: counts.completed,
+    blocked_steps: counts.blocked,
+    in_progress_steps: counts.in_progress,
+    pending_steps: counts.pending,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    last_active_at: row.last_active_at ?? null,
+  };
+}
+
+// Full selected plan, same authoritative records update_plan reads, plus the
+// owning-session reference and derived completion information. Read-only.
+function planDetail(sessionId, owner, plan) {
+  const counts = statusCounts(plan);
+  return {
+    plan_id: sessionId,
+    session_id: sessionId,
+    session_title: owner?.session_title ?? owner?.title ?? null,
+    objective: plan.objective,
+    status: planAggregateStatus(counts, plan.steps.length),
+    revision: plan.revision,
+    total_steps: plan.steps.length,
+    completed_steps: counts.completed,
+    blocked_steps: counts.blocked,
+    in_progress_steps: counts.in_progress,
+    pending_steps: counts.pending,
+    created_at: plan.createdAt,
+    updated_at: plan.updatedAt,
+    steps: plan.steps.map((step) => ({
+      id: step.id,
+      position: step.position,
+      description: step.description,
+      status: step.status,
+      note: step.note,
+    })),
+  };
+}
+
+// Project-scoped listing. Only plans whose owning session still belongs to the
+// current project are ever returned (the JOIN is the authorization boundary):
+// a plan from another project, a detached session (project deleted), or a
+// Casual Chat session can never appear. Bounded page + total for pagination.
+function listProjectPlans(sessionId, { limit, offset } = {}) {
+  requireSessionId(sessionId);
+  const projectId = projectIdOfSession(sessionId);
+  if (projectId == null) {
+    throw new PlanError('Plans are only available in a Workspace session.', 'PLAN_REQUIRES_WORKSPACE');
+  }
+  const lim = normalizeListLimit(limit);
+  const off = normalizeListOffset(offset);
+  return db.transaction(() => {
+    const total = db
+      .prepare(`SELECT COUNT(*) AS n FROM workspace_plans p JOIN sessions s ON s.id = p.session_id
+        WHERE s.project_id = ?`)
+      .get(projectId).n;
+    const rows = db
+      .prepare(`SELECT p.session_id, p.objective, p.revision, p.created_at, p.updated_at,
+          s.title AS session_title, s.last_active_at,
+          COUNT(st.id) AS total_steps,
+          SUM(CASE WHEN st.status = 'pending' THEN 1 ELSE 0 END) AS pending_steps,
+          SUM(CASE WHEN st.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_steps,
+          SUM(CASE WHEN st.status = 'completed' THEN 1 ELSE 0 END) AS completed_steps,
+          SUM(CASE WHEN st.status = 'blocked' THEN 1 ELSE 0 END) AS blocked_steps
+        FROM workspace_plans p
+        JOIN sessions s ON s.id = p.session_id
+        LEFT JOIN workspace_plan_steps st ON st.session_id = p.session_id
+        WHERE s.project_id = ?
+        GROUP BY p.session_id
+        ORDER BY p.updated_at DESC, s.last_active_at DESC, s.id ASC
+        LIMIT ? OFFSET ?`)
+      .all(projectId, lim, off);
+    return {
+      plans: rows.map(summarizePlanRow),
+      total,
+      limit: lim,
+      offset: off,
+      has_more: off + rows.length < total,
+    };
+  })();
+}
+
+// Project-scoped single plan. The target session must exist and belong to the
+// caller's project; anything else (unknown id, Casual Chat, another project)
+// yields the identical non-accessible result, so a guessed id cannot confirm
+// or reach a plan outside the project.
+function getProjectPlan(sessionId, { target } = {}) {
+  requireSessionId(sessionId);
+  const projectId = projectIdOfSession(sessionId);
+  if (projectId == null) {
+    throw new PlanError('Plans are only available in a Workspace session.', 'PLAN_REQUIRES_WORKSPACE');
+  }
+  const targetId = normalizeTargetId(target);
+  return db.transaction(() => {
+    const owner = db
+      .prepare('SELECT id, title, project_id FROM sessions WHERE id = ?')
+      .get(targetId);
+    if (!owner || owner.project_id == null || owner.project_id !== projectId) {
+      return { accessible: false, exists: false, owner: null, plan: null };
+    }
+    const ownerRef = { session_id: owner.id, session_title: owner.title ?? null };
+    const plan = readPlan(targetId);
+    if (!plan || !plan.steps.length) {
+      return { accessible: true, exists: false, owner: ownerRef, plan: null };
+    }
+    return { accessible: true, exists: true, owner: ownerRef, plan: planDetail(targetId, ownerRef, plan) };
   })();
 }
 
@@ -396,6 +578,64 @@ function updatePlan(sessionId, args) {
   }
 }
 
+// Public read-only cross-session entry point. Preserves update_plan semantics
+// and is strictly non-mutating: it only reads the same authoritative tables.
+function getProjectPlans(sessionId, args) {
+  try {
+    requireSessionId(sessionId);
+    if (!isWorkspaceSession(sessionId)) {
+      throw new PlanError('Plans are only available in a Workspace session.', 'PLAN_REQUIRES_WORKSPACE');
+    }
+    if (!args || typeof args !== 'object' || Array.isArray(args)) {
+      throw new PlanError('Tool arguments must be an object.', 'INVALID_ARGUMENTS');
+    }
+    const action = args.action;
+    if (action !== 'list' && action !== 'get') {
+      throw new PlanError('action must be "list" or "get".', 'INVALID_ACTION');
+    }
+    if (action === 'list') {
+      const listing = listProjectPlans(sessionId, { limit: args.limit, offset: args.offset });
+      return { success: true, action, ...listing };
+    }
+    const target = args.plan_id ?? args.session_id;
+    if (target === undefined || target === null) {
+      throw new PlanError('plan_id (or session_id) is required for action "get".', 'MISSING_FIELD');
+    }
+    const found = getProjectPlan(sessionId, { target });
+    if (!found.accessible) {
+      // Neutral: a guessed id from another project is indistinguishable from
+      // an unknown one, so this cannot confirm that a plan exists elsewhere.
+      return {
+        success: true,
+        action,
+        exists: false,
+        plan: null,
+        message: 'No plan found for that id in this project.',
+      };
+    }
+    if (!found.exists) {
+      return {
+        success: true,
+        action,
+        exists: false,
+        owner: found.owner,
+        plan: null,
+        message: 'That session has no plan yet.',
+      };
+    }
+    return { success: true, action, exists: true, owner: found.owner, plan: found.plan };
+  } catch (error) {
+    if (error instanceof PlanError) {
+      return { success: false, error: error.message, code: error.code };
+    }
+    return {
+      success: false,
+      error: `Project plan read failed: ${error?.message ?? error}`,
+      code: 'PLAN_READ_FAILED',
+    };
+  }
+}
+
 function statusCounts(plan) {
   const counts = { pending: 0, in_progress: 0, completed: 0, blocked: 0 };
   for (const step of plan.steps) counts[step.status] = (counts[step.status] ?? 0) + 1;
@@ -523,10 +763,14 @@ module.exports = {
   MAX_NOTE,
   MAX_OBJECTIVE,
   PLAN_CHAR_CAP,
+  DEFAULT_LIST_LIMIT,
+  MAX_LIST_LIMIT,
+  PLAN_AGGREGATE_STATUSES,
   PlanError,
   isWorkspaceSession,
   getPlan,
   updatePlan,
+  getProjectPlans,
   buildPlanSection,
   renderPlanSection,
 };

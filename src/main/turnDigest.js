@@ -282,6 +282,11 @@ function buildEntry(step, index, resolveChild) {
       status === 'error'
         ? capText(`update_plan failed${errorText ? `: ${errorText}` : ''}`, SUMMARY_CAP)
         : 'updated the task plan';
+  } else if (tool === 'get_project_plans') {
+    entry.summary =
+      status === 'error'
+        ? capText(`get_project_plans failed${errorText ? `: ${errorText}` : ''}`, SUMMARY_CAP)
+        : 'reviewed project task plans';
   } else {
     entry.summary =
       status === 'error'

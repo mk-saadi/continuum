@@ -37,6 +37,7 @@ const CAPABILITIES = Object.freeze({
 	EXTERNAL_MUTATION: 'external_mutation', // generates or side-effects outside the workspace
 	MEMORY_WRITE: 'memory_write', // persists into assistant memory
 	PLAN_WRITE: 'plan_write', // updates the session-owned workspace task plan
+	PLAN_READ: 'plan_read', // reads same-project workspace task plans (read-only)
 	AGENT_SPAWN: 'agent_spawn', // spawns a sub-agent (child runs read-only)
 	FILE_DELETE: 'file_delete', // deletes one in-workspace file; always confirms, workspace-contained
 });
@@ -103,6 +104,8 @@ const TOOL_CAPABILITIES = Object.freeze({
 	save_memory: CAPABILITIES.MEMORY_WRITE,
 	// PLAN_WRITE
 	update_plan: CAPABILITIES.PLAN_WRITE,
+	// PLAN_READ (read-only, same-project)
+	get_project_plans: CAPABILITIES.PLAN_READ,
 	// AGENT_SPAWN
 	spawn_sub_agent: CAPABILITIES.AGENT_SPAWN,
 	delegate_task: CAPABILITIES.AGENT_SPAWN,
@@ -254,6 +257,14 @@ function inside(root, target) {
 // ---------------------------------------------------------------------------
 
 function baseDecision({ capability, mode, hasWorkspace, native }) {
+	// Plan reads (like plan writes) are meaningless without a Workspace session
+	// to scope them to: a Casual Chat must never reach another chat's plan, in
+	// any mode. Checked before the per-mode branches so visibility and
+	// execution agree everywhere (including read_only and full_access).
+	if (!hasWorkspace && capability === CAPABILITIES.PLAN_READ) {
+		return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
+	}
+
 	// Full access is unrestricted (the OS sandbox/bwrap boundary still applies).
 	// A plan, however, has no meaning without a Workspace session to own it; a
 	// casual chat stays casual even in full access. File deletion is likewise
@@ -271,9 +282,11 @@ function baseDecision({ capability, mode, hasWorkspace, native }) {
 		return { decision: 'allow' };
 	}
 
-	// Read only: reads and agent spawns (children are themselves read-only).
+	// Read only: reads, agent spawns (children are read-only), and same-project
+	// plan reads (a workspace exists at this point).
 	if (mode === 'read_only') {
-		if (capability === CAPABILITIES.READ || capability === CAPABILITIES.AGENT_SPAWN) return { decision: 'allow' };
+		if (capability === CAPABILITIES.READ || capability === CAPABILITIES.AGENT_SPAWN ||
+			capability === CAPABILITIES.PLAN_READ) return { decision: 'allow' };
 		return { decision: 'deny', reason: 'Execution blocked: Chat is in Read Only mode.' };
 	}
 
@@ -313,7 +326,7 @@ function baseDecision({ capability, mode, hasWorkspace, native }) {
 	// outside the workspace or system-affecting is approved in ask_approval and
 	// denied in workspace_write.
 	if (capability === CAPABILITIES.WORKSPACE_WRITE || capability === CAPABILITIES.LOCAL_EXECUTION ||
-		capability === CAPABILITIES.PLAN_WRITE) {
+		capability === CAPABILITIES.PLAN_WRITE || capability === CAPABILITIES.PLAN_READ) {
 		return { decision: 'allow' };
 	}
 
@@ -499,7 +512,8 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		// Keep this in step with baseDecision so visibility and execution never
 		// disagree.
 		const fullAccessCapability = capabilityOf(name, native);
-		if (!root && (fullAccessCapability === CAPABILITIES.PLAN_WRITE || fullAccessCapability === CAPABILITIES.FILE_DELETE)) {
+		if (!root && (fullAccessCapability === CAPABILITIES.PLAN_WRITE || fullAccessCapability === CAPABILITIES.FILE_DELETE ||
+			fullAccessCapability === CAPABILITIES.PLAN_READ)) {
 			const error = new Error(fullAccessCapability === CAPABILITIES.FILE_DELETE
 				? 'Execution blocked: File deletion requires a project workspace.'
 				: 'Execution blocked: Task plans require a project workspace.');
@@ -567,7 +581,7 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		return { mode, approved: false };
 	}
 	if (capability === CAPABILITIES.AGENT_SPAWN || capability === CAPABILITIES.MEMORY_WRITE ||
-		capability === CAPABILITIES.PLAN_WRITE) {
+		capability === CAPABILITIES.PLAN_WRITE || capability === CAPABILITIES.PLAN_READ) {
 		return { mode, approved: false };
 	}
 
