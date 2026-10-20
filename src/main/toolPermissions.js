@@ -31,6 +31,7 @@ const MODES = Object.freeze([...modes]);
 // ---------------------------------------------------------------------------
 
 const CAPABILITIES = Object.freeze({
+	LSP: 'lsp', // trusted bundled JS/TS process; exact feature-specific mode policy
 	READ: 'read', // reads files, searches, history, screenshots
 	WORKSPACE_WRITE: 'workspace_write', // create/edit/delete files in the workspace
 	LOCAL_EXECUTION: 'local_execution', // shell commands (sandboxed unless approved)
@@ -45,6 +46,8 @@ const CAPABILITIES = Object.freeze({
 // Built-in tool -> capability mapping. `native` is true for main-process tools
 // and false for MCP-hosted tools, which resolve dynamically in capabilityOf.
 const TOOL_CAPABILITIES = Object.freeze({
+	// LSP
+	...Object.fromEntries(['lsp_definition', 'lsp_references', 'lsp_document_symbols', 'lsp_workspace_symbols', 'lsp_hover', 'lsp_diagnostics'].map(name => [name, CAPABILITIES.LSP])),
 	// READ
 	get_recent_chat_history: CAPABILITIES.READ,
 	search_project_content: CAPABILITIES.READ,
@@ -257,6 +260,8 @@ function inside(root, target) {
 // ---------------------------------------------------------------------------
 
 function baseDecision({ capability, mode, hasWorkspace, native }) {
+	if (capability === CAPABILITIES.LSP) return hasWorkspace && ['workspace_write', 'full_access'].includes(mode)
+		? { decision: 'allow' } : { decision: 'deny', reason: 'Execution blocked: LSP requires a workspace and Workspace Write or Full Access.' };
 	// Plan reads (like plan writes) are meaningless without a Workspace session
 	// to scope them to: a Casual Chat must never reach another chat's plan, in
 	// any mode. Checked before the per-mode branches so visibility and
@@ -512,6 +517,7 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		// Keep this in step with baseDecision so visibility and execution never
 		// disagree.
 		const fullAccessCapability = capabilityOf(name, native);
+		if (fullAccessCapability === CAPABILITIES.LSP && !root) { const error = new Error('LSP requires a project workspace.'); error.code = 'PERMISSION_DENIED'; throw error; }
 		if (!root && (fullAccessCapability === CAPABILITIES.PLAN_WRITE || fullAccessCapability === CAPABILITIES.FILE_DELETE ||
 			fullAccessCapability === CAPABILITIES.PLAN_READ)) {
 			const error = new Error(fullAccessCapability === CAPABILITIES.FILE_DELETE

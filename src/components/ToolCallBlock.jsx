@@ -7,6 +7,8 @@ import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
 import SubagentTranscriptModal from './chat/SubagentTranscriptModal.jsx';
 import SubagentLimitBadge from './chat/SubagentLimitBadge.jsx';
 
+import lspLabels from '../lib/lspToolLabels.json';
+
 const SUBAGENT_TOOL_NAMES = new Set(['delegate_task', 'spawn_sub_agent', 'extract_web_page_data']);
 
 const codeTheme = {
@@ -57,6 +59,10 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
   // Follow execution status until the user explicitly chooses a view.
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const showTranscript = SUBAGENT_TOOL_NAMES.has(step.toolName) && typeof step.childSessionId === "string" && !!step.childSessionId;
+  const lspLabel = lspLabels[step.toolName];
+  let lspResult = step.result;
+  if (lspLabel && typeof lspResult === 'string') { try { lspResult = JSON.parse(lspResult); } catch {} }
+  const lspSummary = lspLabel ? [step.args?.path ?? step.args?.query, lspResult?.state ?? lspResult?.error?.code, lspResult?.returnedCount != null ? `${lspResult.returnedCount} results` : null, step.durationMs != null ? `${Math.round(step.durationMs)} ms` : null].filter(Boolean).join(' · ') : null;
   const directory = step.status === 'complete' && !step.error && isDirectoryTool(step.toolName);
   const expanded = userExpanded ?? running;
   const listing = expanded && directory ? parseDirectoryListing(step.result, step.args) : null;
@@ -73,7 +79,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
         <FiChevronRight aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         <FiTool aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
-        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{step.toolName || 'Tool'}</strong>
+        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{lspLabel ? `${lspLabel} (${step.toolName})` : step.toolName || 'Tool'}</strong>
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
           {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>
@@ -81,7 +87,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
       </button>
       {!expanded && <div className="flex min-w-0 gap-3 px-3 pb-2 pl-9 text-[var(--text-muted)]">
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Arguments:</span> {preview(step.args)}</span>
-        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {preview(step.result ?? step.error)}</span>
+        <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {lspLabel ? lspSummary : preview(step.result ?? step.error)}</span>
       </div>}
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
         {expanded && preparing && <section aria-label="Streaming arguments">

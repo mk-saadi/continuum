@@ -176,7 +176,7 @@ test('production authorization uses canonical modes without changing shell polic
   assert.equal(modes.length, 4); project = null;
   await assert.rejects(loaded.exports.authorizeContext({ sessionId: 'trusted', permissionMode: 'workspace_write' }), { code: 'WORKSPACE_UNAUTHORIZED' });
 });
-test('flat symbol containers, hover forms, exact protocol coordinates, symlink exclusion and no registrations', async () => {
+test('flat symbol containers, hover forms, exact protocol coordinates, symlink exclusion and constrained native registrations', async () => {
   let hoverResult = { contents: { kind: 'plaintext', value: 'plain documentation' } };
   const f = await fixture({ hover: p => { assert.deepEqual(p.position, { line: 0, character: 25 }); return hoverResult; } });
   try {
@@ -187,7 +187,7 @@ test('flat symbol containers, hover forms, exact protocol coordinates, symlink e
     const e = await f.manager.acquire(f.context);
     assert.equal(await f.api.location(e, { uri: pathToFileURL(path.join(f.root, 'escape/private.ts')).href, range: r }), null);
     const toolSource = await fs.readFile(path.join(__dirname, '../src/main/tools/agentTools.js'), 'utf8');
-    for (const name of ['lsp_definition', 'lsp_references', 'lsp_document_symbols', 'lsp_workspace_symbols', 'lsp_hover', 'lsp_diagnostics']) assert.equal(toolSource.includes(name), false);
+    for (const name of ['lsp_definition', 'lsp_references', 'lsp_document_symbols', 'lsp_workspace_symbols', 'lsp_hover', 'lsp_diagnostics']) assert.ok(require('../src/main/tools/lspTools').LSP_TOOL_NAMES.includes(name));
   } finally { await f.close(); }
   const flat = await fixture();
   try {

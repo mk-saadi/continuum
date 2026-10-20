@@ -24,16 +24,18 @@ class LspCodeIntelligence {
     } catch (e) { if (e.code === 'WORKSPACE_UNAUTHORIZED' || e.code === 'ENOENT') return null; throw e; }
   }
   page(s, offset, size, key) {
-    const results = s.results.slice(offset, offset + size); const more = offset + results.length < s.results.length;
+    let results = s.results.slice(offset, offset + size);
+    if (s.outputLimit) { let used = 0; results = results.filter((item, index) => { used += JSON.stringify(item).length; return index === 0 || used <= s.outputLimit; }); }
+    const more = offset + results.length < s.results.length;
     let nextCursor;
     if (more) { nextCursor = randomUUID(); s.cursors.set(nextCursor, offset + results.length); }
     return { success: true, ...s.meta, results, returnedCount: results.length, totalCount: s.results.length, hasMore: more, ...(nextCursor ? { nextCursor } : {}), truncated: s.truncated, applicationTruncated: s.truncated, serverTruncated: 'unknown', incomplete: s.truncated ? true : 'unknown', snapshotId: key, provenance: 'immutable-query-snapshot', observedAt: s.observedAt };
   }
-  store(entry, op, results, meta, size, truncated = false) {
+  store(entry, op, results, meta, size, truncated = false, outputLimit = null) {
     this.prune(); const key = randomUUID();
     const bounded = []; let bytes = 0;
     for (const item of results) { const n = Buffer.byteLength(JSON.stringify(item)); if (bounded.length >= this.maxResults || bytes + n > this.maxBytes / 2) { truncated = true; break; } bounded.push(item); bytes += n; }
-    const s = { entry, op, results: bounded, meta, bytes, cursors: new Map(), expires: this.now() + this.ttl, observedAt: new Date(this.now()).toISOString(), truncated };
+    const s = { entry, op, outputLimit, results: bounded, meta, bytes, cursors: new Map(), expires: this.now() + this.ttl, observedAt: new Date(this.now()).toISOString(), truncated };
     while (this.snapshots.size && (this.snapshots.size >= this.maxSnapshots || this.snapshotBytes + bytes > this.maxBytes)) this.snapshots.delete(this.snapshots.keys().next().value);
     this.snapshots.set(key, s); return this.page(s, 0, size, key);
   }
@@ -42,6 +44,7 @@ class LspCodeIntelligence {
       if (!input || typeof input !== 'object') throw error('INVALID_REQUEST');
       const { executionContext: context, signal } = input;
       const size = input.pageSize ?? 25;
+      if (input.outputLimit !== undefined && (!Number.isInteger(input.outputLimit) || input.outputLimit < 1000 || input.outputLimit > 20000)) throw error('INVALID_REQUEST');
       if (!Number.isInteger(size) || size < 1 || size > 100) throw error('INVALID_REQUEST');
       if (signal?.aborted) throw error('REQUEST_CANCELLED');
       if (input.timeout !== undefined && (!Number.isInteger(input.timeout) || input.timeout < 1 || input.timeout > 30000)) throw error('INVALID_REQUEST');
@@ -94,7 +97,7 @@ class LspCodeIntelligence {
             await add(op === 'workspaceSymbols' ? s.location : s, op === 'workspaceSymbols' ? { name: String(s.name).slice(0, 512), kind: s.kind, ...(s.containerName ? { container: String(s.containerName).slice(0, 512) } : {}) } : {});
           }
           const unique = op === 'documentSymbols' ? results : [...new Map(results.map(v => [JSON.stringify(v), v])).values()].sort((a, b) => a.path.localeCompare(b.path, 'en') || a.startLine - b.startLine || a.startColumn - b.startColumn || JSON.stringify(a).localeCompare(JSON.stringify(b), 'en'));
-          return this.store(entry, op, unique, { ...meta, excludedCount, serverCompleteness: 'final-response-no-partial-results-requested' }, size, normalizationTruncated);
+          return this.store(entry, op, unique, { ...meta, excludedCount, serverCompleteness: 'final-response-no-partial-results-requested' }, size, normalizationTruncated, input.outputLimit);
         }
       });
     } catch (e) { return { success: false, ...(op === 'diagnostics' && ['SERVER_UNAVAILABLE', 'SERVER_TERMINATED', 'INITIALIZATION_FAILED', 'UNSUPPORTED_CAPABILITY'].includes(e.code) ? { state: 'unavailable' } : {}), error: { code: `LSP_${codes[e.code] ?? (typeof e.code === 'string' ? e.code : 'SERVER_UNAVAILABLE')}` } }; }
@@ -116,7 +119,7 @@ class LspCodeIntelligence {
       }
       await this.manager.check(input.executionContext, e);
       if (input.signal?.aborted) throw error('REQUEST_CANCELLED');
-      return this.store(e, 'diagnostics', [...new Map(results.map(d => [JSON.stringify(d), d])).values()], { state, file: input.filePath, sourceVersion: doc.hash, diagnosticVersion: publication?.version ?? null, excludedCount, positionEncoding: 'utf-16' }, size, (publication?.total ?? 0) > (publication?.diagnostics.length ?? 0));
+      return this.store(e, 'diagnostics', [...new Map(results.map(d => [JSON.stringify(d), d])).values()], { state, file: input.filePath, sourceVersion: doc.hash, diagnosticVersion: publication?.version ?? null, excludedCount, positionEncoding: 'utf-16' }, size, (publication?.total ?? 0) > (publication?.diagnostics.length ?? 0), input.outputLimit);
     });
   }
   definition(input) { return this.run('definition', input); }

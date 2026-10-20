@@ -480,7 +480,14 @@ function registerIpcHandlers({
 		// Phase 2.1 live steering. Every mutation resolves the executing run from
 		// trusted in-memory state and requires the calling sender to own it; the
 		// renderer cannot steer a run by guessing a session or steering id.
-		"steering:submit": ({ sessionId, runId, content, idempotencyKey }, _notify, sender) => {
+		"engine:set-permission-mode": async ({ sessionId, permissionMode }, _notify, sender) => {
+            if (typeof sessionId !== 'string' || !sessionId) throw new Error('Invalid session.');
+            const controller = activeStreams.get(sessionId);
+            if (controller && ![...(requests.get(sender)?.values() ?? [])].includes(controller)) throw new Error('This sender does not own the run.');
+            await require('./lspExecutionContext').setMode(sessionId, permissionMode);
+            return { success: true };
+        },
+        "steering:submit": ({ sessionId, runId, content, idempotencyKey }, _notify, sender) => {
 			resolveSteeringRun({ runId, sessionId, sender });
 			const result = runSteering.submitSteering({ sessionId, runId, content, idempotencyKey });
 			emitSteeringUpdates(sender, [result.record], { includeContent: true });
@@ -548,6 +555,7 @@ function registerIpcHandlers({
 			// generating status event.
 			const runId = require('node:crypto').randomUUID();
 			controller.runId = runId;
+            const lspExecutionContext = require('./lspExecutionContext').createContext(sessionId, permissionMode, runId);
 			const active = requests.get(sender) ?? new Map();
 			active.set(requestId, controller);
 			requests.set(sender, active);
@@ -891,7 +899,7 @@ function registerIpcHandlers({
 							const args = JSON.parse(call.arguments || "{}");
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
 							let approval;
-							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode, project,
+							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: require('./tools/lspTools').LSP_TOOL_NAMES.includes(call.name) ? lspExecutionContext?.permissionMode : permissionMode, project,
                                 native: isAgent || isMemory, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
 							// Sub-agent observability: link the parent step to the child
@@ -920,7 +928,7 @@ function registerIpcHandlers({
 									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
 								})
 								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, approval, signal: controller.signal,
-                                    engine: chatEngine, budgetScope: childBudgetScope,
+                                    engine: chatEngine, budgetScope: childBudgetScope, executionContext: lspExecutionContext,
                                     onChildSession: (childSessionId) => { spawnChildId = attachChildSession(childSessionId); } })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
@@ -1150,12 +1158,14 @@ function registerIpcHandlers({
 		},
 		"session:move-to-folder": ({ sessionId, folderName }) =>
 			updateSession(sessionId, "folder_name", folderName),
-		"session:delete": ({ sessionId }) => deleteSession(sessionId),
+		"session:delete": ({ sessionId }) => { require('./lspExecutionContext').forget(sessionId); return deleteSession(sessionId); },
 		"session:delete-message": ({ sessionId, messageId }) => deleteMessage(sessionId, messageId),
 		"session:branch-chat": ({ sourceSessionId, targetMessageId }) =>
 			branchChat(sourceSessionId, targetMessageId),
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
-		"agent:get-tools": () => agentTools,
+		"agent:get-tools": ({ sessionId = null, permissionMode } = {}) => agentTools.filter(tool =>
+            !require('./tools/lspTools').LSP_TOOL_NAMES.includes(tool.function.name) || require('./tools/lspTools').available(sessionProject(sessionId)) && require('./toolPermissions').isToolVisible(tool.function.name, { project: sessionProject(sessionId),
+                permissionMode: require('./tools/lspTools').LSP_TOOL_NAMES.includes(tool.function.name) ? require('./lspExecutionContext').currentMode(sessionId, permissionMode) : permissionMode })),
         "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
             if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) {
                 const result = await executeAgentTool({ name, arguments: args, sessionId, permissionMode });
@@ -1313,7 +1323,7 @@ function registerIpcHandlers({
 				// Steering handlers read/write only main-process state but need the
 				// sender identity to prove run ownership. No stream dispatcher is
 				// involved: status updates are compact direct events.
-				if (channel.startsWith("steering:")) return handler(payload, () => {}, event.sender);
+				if (channel.startsWith("steering:") || channel === "engine:set-permission-mode") return handler(payload, () => {}, event.sender);
 				return handler(payload);
                 });
 			});

@@ -57,6 +57,17 @@ function trimToolResult(content, { task = '', contextLength = 32768, maxCharacte
   };
   const cap = maxCharacters ?? Math.min(12000, Math.max(1200, Math.floor(contextLength * .12 * 3)));
   if (typeof content !== 'string' || content.length <= cap) return content;
+  // LSP projections must retain cursor, source version and diagnostic freshness as valid JSON.
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed?.untrusted === true && parsed.provenance === 'immutable-query-snapshot' && Array.isArray(parsed.results)) {
+      parsed.context_trimmed = true; parsed.incomplete = true;
+      const count = parsed.results.length;
+      while (parsed.results.length && JSON.stringify(parsed).length > cap - 50) parsed.results.pop();
+      parsed.contextOmittedCount = count - parsed.results.length;
+      return JSON.stringify(parsed);
+    }
+  } catch {}
   let data = null;
   try { const parsed = JSON.parse(content); if (parsed && !Array.isArray(parsed) && typeof parsed.content === 'string') data = parsed; } catch {}
   const text = data ? data.content : content;

@@ -575,6 +575,7 @@ export function ChatInterface({
 		[messages, skillDecisionVersion],
 	);
 	const changePermissionMode = (mode) => {
+        window.memoryPalace?.setPermissionMode?.(palace.sessionId, mode).catch(error => console.error('Permission update failed', error));
 		setPermissionBySession((current) => ({ ...current, [palace.sessionId]: mode }));
 		onTabUpdate?.({ permissionMode: mode });
 	};

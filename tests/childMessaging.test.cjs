@@ -397,7 +397,7 @@ test('8. continuation keeps prior tool results, offers only the allowlist, and n
       'the prior tool result survives into the next turn');
     assert.equal(payloads[2].messages[5].content, 'keep digging');
     // Same read-only allowlist on resumed turns, offered through the payload.
-    assert.deepEqual(toolNamesIn(payloads[2]), [...CHILD_TOOL_NAMES].sort());
+    assert.deepEqual(toolNamesIn(payloads[2]), CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
     assert.equal(payloads[2].tool_choice, 'auto');
     assert.deepEqual(rolesOf(payloads[3]),
       ['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool']);

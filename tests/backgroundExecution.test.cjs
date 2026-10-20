@@ -499,7 +499,7 @@ test('10. background children keep the Step 4 context isolation and tool allowli
     // and the same tool-free-by-default provider rules still apply.
     for (const payload of [...payloadsA, ...payloadsB]) {
       assert.deepEqual(payload.tools.map(tool => tool.function.name).sort(),
-        [...CHILD_TOOL_NAMES].sort());
+        CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
       assert.equal(payload.tool_choice, 'auto');
       assert.equal(payload.stream, false);
     }

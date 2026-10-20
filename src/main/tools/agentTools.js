@@ -19,7 +19,9 @@ const define = (name, description, properties, required = []) => ({
 		parameters: { type: "object", properties, required, additionalProperties: false },
 	},
 });
+const { lspTools, LSP_TOOL_NAMES, executeLspTool } = require('./lspTools');
 const agentTools = [
+	...lspTools,
 	define('use_skill', 'Load the full instructions of a skill enabled for this project when its purpose matches the current task.', {
 		name: string('Skill ID from the available project skills index'),
 		file: string('Optional relative path to a supporting text file inside the skill folder'),
@@ -2206,9 +2208,15 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 	}, writeAll);
 }
 
-async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope }) {	try {
+async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null }) {	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
+		if (LSP_TOOL_NAMES.includes(name)) {
+          let args; try { args = typeof rawArguments === 'string' ? JSON.parse(rawArguments) : rawArguments; } catch { return { success: false, error: { code: 'LSP_INVALID_REQUEST' } }; }
+          const contexts = require('../lspExecutionContext');
+          const context = executionContext ?? contexts.forTool(sessionId, permissionMode);
+          return await executeLspTool(name, args, context, signal);
+        }
 		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : rawArguments;
 		if (!args || typeof args !== "object" || Array.isArray(args))
 			throw new Error("Tool arguments must be an object.");
@@ -2290,6 +2298,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
 		if (name === "spawn_sub_agent")
 			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId,
+                executionContext: executionContext ?? require('../lspExecutionContext').forTool(sessionId, permissionMode),
 				budgetScope, parentToolCallId: typeof id === 'string' ? id : null,
 				...(typeof onChildSession === 'function' ? { onSpawn: onChildSession } : {}) });
 		if (name === "delegate_task")

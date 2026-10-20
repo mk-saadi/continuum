@@ -860,6 +860,7 @@ export async function runMemoryChat({
         entry.step.status = 'error';
         entry.step.error = output.error;
       } finally {
+        if (entry.lspStarted != null) entry.step.durationMs = now() - entry.lspStarted;
         publishSteps(true);
       }
       signal?.throwIfAborted();
@@ -920,6 +921,7 @@ export async function runMemoryChat({
         if (casualMode) casualToolCount++;
         toolsExecuted = true;
         step.status = 'running';
+        if (call.function.name.startsWith('lsp_')) entry.lspStarted = now();
         publishSteps(true);
         const dispatched = executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id });
         if (SUB_AGENT_TOOL_NAMES.has(call.function.name)) {

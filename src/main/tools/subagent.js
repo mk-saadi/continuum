@@ -55,7 +55,7 @@ function boundResultForParent(answer) {
 }
 
 async function executeSpawnSubagent({ task, constraint = '', expected_output = '', url, target_file, investigate,
-  engine, signal, parentSessionId = null, parentToolCallId = null, rootPath, onSpawn = null, budgetScope }) {
+  engine, signal, parentSessionId = null, parentToolCallId = null, rootPath, onSpawn = null, budgetScope, executionContext = null }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 2000 || task.includes('\0')) {
     throw new Error('Task must be a non-empty instruction of at most 2,000 characters.');
   }
@@ -80,7 +80,11 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     const instruction = [task, expected_output && `Expected output: ${expected_output}`,
       constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
     const runtime = require('../subagents');
-    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope });
+    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId, parentToolCallId, onSpawn: id => {
+      const child = require('../subagents/sessionManager').getSession(id);
+      require('../lspExecutionContext').authorizeChild(child, executionContext);
+      onSpawn?.(id);
+    }, budgetScope });
     return boundResultForParent(answer);
   }
 

@@ -54,7 +54,7 @@ test('1. a child finishes after one model response when no tools are needed', as
   assert.equal(payload.messages[1].role, 'user');
   assert.equal(payload.messages[1].content, 'How does authentication work?');
   assert.equal(payload.tool_choice, 'auto');
-  assert.deepEqual(toolNamesIn(payload), [...CHILD_TOOL_NAMES].sort(), 'the allowlisted schemas are offered');
+  assert.deepEqual(toolNamesIn(payload), CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort(), 'the allowlisted schemas are offered');
   const [session] = sessionManager.listChildren('loop-single');
   assert.equal(session.status, sessionManager.SESSION_STATUS.COMPLETED);
   assert.equal(session.result, 'Auth uses signed JWTs.');
@@ -486,7 +486,7 @@ test('spawn_sub_agent with investigate=true runs the loop end to end through the
     for (const payload of requests) {
       assert.equal(payload.stream, false);
       assert.equal(payload.tool_choice, 'auto');
-      assert.deepEqual(toolNamesIn(payload), [...CHILD_TOOL_NAMES].sort());
+      assert.deepEqual(toolNamesIn(payload), CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
     }
     // The joined instruction carries the spawn-level formatting.
     assert.match(requests[0].messages[1].content, /Expected output: A markdown summary\./);

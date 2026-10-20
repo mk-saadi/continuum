@@ -1,0 +1,8 @@
+{
+  "lsp_definition": "Find definition",
+  "lsp_references": "Find references",
+  "lsp_document_symbols": "Document symbols",
+  "lsp_workspace_symbols": "Search workspace symbols",
+  "lsp_hover": "Inspect type information",
+  "lsp_diagnostics": "Check diagnostics"
+}

@@ -512,7 +512,7 @@ test('8. a cloud model still gets the read-only child allowlist', async () => {
     assert.equal(output, 'No write capability is available.');
 
     // The model only ever sees the read-only allowlist — cloud or not.
-    assert.deepEqual(toolNamesIn(cloud.payloads[0]), [...CHILD_TOOL_NAMES].sort());
+    assert.deepEqual(toolNamesIn(cloud.payloads[0]), CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
     assert.ok(!toolNamesIn(cloud.payloads[0]).includes('spawn_sub_agent'));
     assert.ok(!toolNamesIn(cloud.payloads[0]).includes('write_project_file'),
       'a forbidden tool is never advertised');

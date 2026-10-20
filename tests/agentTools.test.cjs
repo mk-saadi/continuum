@@ -432,7 +432,7 @@ const run = (
 			isTrustedSender: (event) => event.trusted,
 		});
 		await assert.rejects(handlers.get("agent:execute-tool")({ trusted: false }, {}), /Unauthorized/);
-		assert.equal((await handlers.get("agent:get-tools")({ trusted: true })).length, agentTools.length);
+		assert.equal((await handlers.get("agent:get-tools")({ trusted: true })).length, agentTools.filter(tool => !tool.function.name.startsWith("lsp_")).length);
 		assert.equal(
 			(
 				await handlers.get("agent:execute-tool")(

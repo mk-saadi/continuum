@@ -1,3 +1,4 @@
+import lspLabels from '../../lib/lspToolLabels.json';
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FiArrowDown, FiChevronDown, FiX } from "react-icons/fi";
 import { RiRobot2Line } from "react-icons/ri";
@@ -95,9 +96,9 @@ function activityText(event) {
 		case "thought":
 			return `Thinking: ${(event.text ?? "").slice(0, 140)}`;
 		case "tool":
-			return `Calling ${event.name}`;
+			return `Calling ${lspLabels[event.name] ?? event.name}`;
 		case "tool-result":
-			return `${event.name} ${event.ok ? "finished" : "failed"}`;
+			return `${lspLabels[event.name] ?? event.name} ${event.ok ? "finished" : "failed"}${event.state ? ` · ${event.state}` : ""}${event.returnedCount != null ? ` · ${event.returnedCount} results` : ""}${event.durationMs != null ? ` · ${Math.round(event.durationMs)} ms` : ""}`;
 		case "file":
 			return `Reading ${event.path ?? "file"}${event.chars != null ? ` (${event.chars.toLocaleString()} chars)` : ""}`;
 		case "fetch":

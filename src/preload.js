@@ -61,7 +61,7 @@ contextBridge.exposeInMainWorld('api', {
   addProjectFile: (projectId, file) => ipcRenderer.invoke('project:add_file', { ...file, project_id: projectId }),
   removeProjectFile: id => ipcRenderer.invoke('project:remove_file', { id }),
   setProjectPinned: (id, isPinned) => ipcRenderer.invoke('project:set_pinned', { id, is_pinned: isPinned }),
-  getAgentTools: () => ipcRenderer.invoke('agent:get-tools'),
+  getAgentTools: (sessionId = null, permissionMode) => ipcRenderer.invoke('agent:get-tools', { sessionId, permissionMode }),
   executeAgentTool: data => ipcRenderer.invoke('agent:execute-tool', data),
   listAgents: () => ipcRenderer.invoke('agents:list'),
   createAgent: agent => ipcRenderer.invoke('agents:create', agent),
@@ -235,6 +235,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     return () => ipcRenderer.removeListener('stream:step-update', listener);
   },
   run: payload => ipcRenderer.invoke('engine:chat', payload),
+  setPermissionMode: (sessionId, permissionMode) => ipcRenderer.invoke('engine:set-permission-mode', { sessionId, permissionMode }),
   branchAndExecute: payload => ipcRenderer.invoke('engine:branch-and-execute', payload),
   cancel: requestId => ipcRenderer.invoke('engine:cancel-chat', { requestId }),
   cancelSession: sessionId => ipcRenderer.invoke('engine:cancel-session', { sessionId }),
