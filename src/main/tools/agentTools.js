@@ -150,6 +150,7 @@ const agentTools = [
 			'- To change an existing step, pass its "id" plus only the fields to change (any of "description", "status", "note").',
 			'- To add a step, omit "id" and include "description". To delete steps, list their ids in "remove_step_ids".',
 			'- Provide at least one of "steps", "remove_step_ids", or "objective"; an empty update fails with EMPTY_UPDATE.',
+			'- An update returns only changed_steps, removed_step_ids, the new revision, and whole-plan progress — unchanged steps are not echoed. Call action "get" when you need the complete plan.',
 			'',
 			'Action "get" returns the current plan and its step ids. Call it when resuming, after a restart or context compaction, or whenever you are unsure of the plan or its ids — never re-create the plan and never guess ids.',
 			'',

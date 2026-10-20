@@ -61,6 +61,7 @@ const {
 const { scheduleIdleCompression } = require("./compressionEngine");
 const mcpManager = require("./mcpManager");
 const { prepareChatMessages, memoryTools, getToolContext, buildSessionSystemPrompt, rebuildChatMessages } = require("./promptBuilder");
+const { getPlan: getWorkspacePlan } = require("./workspacePlan");
 const { indexDocuments, retrieveContext } = require("./ragManager");
 const { processUploads } = require("./fileUploads");
 const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
@@ -73,6 +74,18 @@ const displayValue = value => {
 	if (value == null) return value;
 	const text = typeof value === 'string' ? value : JSON.stringify(value);
 	return text.length <= 10_000 ? value : `${text.slice(0, 10_000)}\n… [output truncated in chat; full result saved in session]`;
+};
+// The compact tool result no longer carries the plan. Re-read the complete
+// authoritative state for the Activity-tab push; a read failure must not turn
+// an already-committed mutation into a reported tool failure, so it degrades to
+// no push (the card can still refresh via session:get-plan).
+const planForPush = (sessionId) => {
+	try {
+		return getWorkspacePlan(sessionId);
+	} catch (error) {
+		console.error('[workspacePlan] could not read plan for Activity push:', error?.message ?? error);
+		return null;
+	}
 };
 // Truncate only display-oriented text. `args` must stay structured: the
 // renderer's SkillProposalCard and normalizeExecutionSteps/finishMessage read
@@ -828,10 +841,15 @@ function registerIpcHandlers({
 							// A durable plan change is pushed immediately so the
 							// sidebar card updates without polling. Other tabs
 							// receive the event but ignore a mismatched sessionId.
+							// The tool result is compact, so the card's complete
+							// state is re-read from SQLite — the same authoritative
+							// rows, never reconstructed from mutation fragments.
 							// Failed writes send nothing: the card keeps the last
 							// durable state while the agent sees the error.
-							if (isAgent && call.name === 'update_plan' && rawOutput?.success && !sender.isDestroyed())
-								sender.send('session:plan-updated', { sessionId, plan: rawOutput.plan ?? null });
+							if (isAgent && call.name === 'update_plan' && rawOutput?.success && !sender.isDestroyed()) {
+								const latestPlan = planForPush(sessionId);
+								if (latestPlan) sender.send('session:plan-updated', { sessionId, plan: latestPlan });
+							}
 							if (isAgent && call.name === 'manage_mcp_servers') {
 								const refreshed = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
 								notify({ type: 'context', pluginTokens: refreshed.pluginTokens, toolTokens: refreshed.toolTokens });
@@ -1030,8 +1048,10 @@ function registerIpcHandlers({
         "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
             if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) {
                 const result = await executeAgentTool({ name, arguments: args, sessionId, permissionMode });
-                if (name === 'update_plan' && result?.success && !sender.isDestroyed())
-                    sender.send('session:plan-updated', { sessionId, plan: result.plan ?? null });
+                if (name === 'update_plan' && result?.success && !sender.isDestroyed()) {
+                    const latestPlan = planForPush(sessionId);
+                    if (latestPlan) sender.send('session:plan-updated', { sessionId, plan: latestPlan });
+                }
                 return result;
             }
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');

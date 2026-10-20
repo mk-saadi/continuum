@@ -418,7 +418,7 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
   }
   return db
     .transaction(() => {
-      const planRow = db.prepare('SELECT revision FROM workspace_plans WHERE session_id = ?').get(sessionId);
+      const planRow = db.prepare('SELECT revision, objective FROM workspace_plans WHERE session_id = ?').get(sessionId);
       if (!planRow) {
         throw new PlanError('No plan exists for this task. Call update_plan with action "create" first.', 'PLAN_NOT_FOUND');
       }
@@ -450,6 +450,10 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
       const insert = db.prepare(
         'INSERT INTO workspace_plan_steps(session_id, position, description, status, note) VALUES (?, ?, ?, ?, ?)',
       );
+      // Only these steps are reported in the compact mutation result. They are
+      // resolved from the committed rows below, never from requested values.
+      const touchedIds = new Set();
+      const addedIds = new Set();
       let position = existing.length ? existing[existing.length - 1].position : 0;
       let added = 0;
       for (const entry of entries) {
@@ -477,6 +481,7 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
             );
           }
           update.run(description, status, note, entry.id, sessionId);
+          touchedIds.add(entry.id);
           continue;
         }
         if (existing.length - removeSet.size + added >= MAX_STEPS) {
@@ -491,7 +496,10 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
           );
         }
         position += 1;
-        insert.run(sessionId, position, entry.description, status, note);
+        const inserted = insert.run(sessionId, position, entry.description, status, note);
+        const newId = Number(inserted.lastInsertRowid);
+        touchedIds.add(newId);
+        addedIds.add(newId);
         added += 1;
       }
       for (const id of removeSet) {
@@ -512,7 +520,13 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
       db.prepare(
         'UPDATE workspace_plans SET revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?',
       ).run(sessionId);
-      return readPlan(sessionId);
+      return {
+        plan: readPlan(sessionId),
+        touchedIds,
+        addedIds,
+        removedIds: [...removeSet].sort((a, b) => a - b),
+        objectiveChanged: objective !== undefined && objective !== (planRow.objective ?? ''),
+      };
     })
     .immediate();
 }
@@ -522,6 +536,43 @@ function getPlan(sessionId) {
   requireSessionId(sessionId);
   if (!isWorkspaceSession(sessionId)) return null;
   return readPlan(sessionId);
+}
+
+// Compact mutation response. An update reports only the authoritative
+// post-commit revision, the steps the call actually touched, removals, and
+// whole-plan progress — never the unchanged steps. Planned work is echoed from
+// the committed rows (not the request) so a response can never describe state
+// that was not saved. `changed_steps` follows plan order; removals are sorted by
+// id, making the response byte-stable for an identical mutation.
+function compactMutationResult(sessionId, { plan, touchedIds, addedIds, removedIds, objectiveChanged }) {
+  const counts = statusCounts(plan);
+  const result = {
+    success: true,
+    action: 'update',
+    exists: true,
+    plan_id: sessionId,
+    revision: plan.revision,
+    changed_steps: plan.steps
+      .filter((step) => touchedIds.has(step.id))
+      .map((step) => ({
+        id: step.id,
+        position: step.position,
+        description: step.description,
+        status: step.status,
+        note: step.note,
+        change: addedIds.has(step.id) ? 'added' : 'updated',
+      })),
+    progress: {
+      total: plan.steps.length,
+      completed: counts.completed,
+      in_progress: counts.in_progress,
+      pending: counts.pending,
+      blocked: counts.blocked,
+    },
+  };
+  if (removedIds.length) result.removed_step_ids = removedIds;
+  if (objectiveChanged) result.objective = plan.objective;
+  return result;
 }
 
 // Tool entry point. Validation failures and persistence failures are returned
@@ -559,13 +610,13 @@ function updatePlan(sessionId, args) {
       const plan = createPlan(sessionId, { objective: objective ?? '', steps: args.steps });
       return { success: true, action, exists: true, plan };
     }
-    const plan = updateSteps(sessionId, {
+    const mutation = updateSteps(sessionId, {
       objective,
       steps: args.steps,
       removeIds: args.remove_step_ids,
       expectedRevision: normalizeExpectedRevision(args.expected_revision),
     });
-    return { success: true, action, exists: true, plan };
+    return compactMutationResult(sessionId, mutation);
   } catch (error) {
     if (error instanceof PlanError) {
       return { success: false, error: error.message, code: error.code };

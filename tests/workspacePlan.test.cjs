@@ -112,15 +112,24 @@ test('incremental updates revise only the requested step fields and bump the rev
   });
 
   assert.equal(result.success, true);
-  assert.equal(result.plan.revision, created.revision + 1);
-  const byId = new Map(result.plan.steps.map((step) => [step.id, step]));
+  assert.equal(result.revision, created.revision + 1);
+  // Compact mutation result: only the two touched steps, in plan order.
+  assert.deepEqual(result.changed_steps.map((step) => step.id), [a.id, c.id]);
+  assert.deepEqual(result.changed_steps.map((step) => step.change), ['updated', 'updated']);
+  assert.equal(result.changed_steps[0].status, 'completed');
+  assert.equal(result.changed_steps[1].description, 'C revised');
+  assert.equal(result.changed_steps[1].note, 'context retained');
+  assert.deepEqual(result.progress, { total: 3, completed: 1, in_progress: 0, pending: 2, blocked: 0 });
+
+  const after = plan.getPlan(id);
+  const byId = new Map(after.steps.map((step) => [step.id, step]));
   assert.equal(byId.get(a.id).status, 'completed');
   assert.equal(byId.get(b.id).description, 'B');
   assert.equal(byId.get(b.id).status, 'pending');
   assert.equal(byId.get(c.id).description, 'C revised');
   assert.equal(byId.get(c.id).note, 'context retained');
-  assert.deepEqual(result.plan.steps.map((step) => step.id), [a.id, b.id, c.id]);
-  assert.deepEqual(result.plan.steps.map((step) => step.position), [1, 2, 3]);
+  assert.deepEqual(after.steps.map((step) => step.id), [a.id, b.id, c.id]);
+  assert.deepEqual(after.steps.map((step) => step.position), [1, 2, 3]);
 });
 
 test('invalid updates fail loudly and never partially mutate the plan', () => {
@@ -165,7 +174,7 @@ test('invalid updates fail loudly and never partially mutate the plan', () => {
   // The plan still accepts a valid update after every rejected attempt.
   const recovered = plan.updatePlan(id, { action: 'update', steps: [{ id: a.id, status: 'completed' }] });
   assert.equal(recovered.success, true);
-  assert.equal(recovered.plan.revision, before.revision + 1);
+  assert.equal(recovered.revision, before.revision + 1);
 });
 
 test('step ids are task-scoped: one task cannot update another task by id', () => {
@@ -214,16 +223,19 @@ test('blocked then resumed keeps the explanation and reports the current status'
     steps: [{ id: stepId, status: 'blocked', note: 'Waiting for credentials' }],
   });
   assert.equal(blocked.success, true);
-  assert.equal(blocked.plan.steps[0].status, 'blocked');
-  assert.equal(blocked.plan.steps[0].note, 'Waiting for credentials');
+  assert.equal(blocked.changed_steps[0].status, 'blocked');
+  assert.equal(blocked.changed_steps[0].note, 'Waiting for credentials');
+  assert.deepEqual(blocked.progress, { total: 1, completed: 0, in_progress: 0, pending: 0, blocked: 1 });
 
   const resumed = plan.updatePlan(id, {
     action: 'update',
     steps: [{ id: stepId, status: 'in_progress' }],
   });
   assert.equal(resumed.success, true);
-  assert.equal(resumed.plan.steps[0].status, 'in_progress');
-  assert.equal(resumed.plan.steps[0].note, 'Waiting for credentials');
+  assert.equal(resumed.changed_steps[0].status, 'in_progress');
+  // The blocker note survives a status change and stays visible in the result.
+  assert.equal(resumed.changed_steps[0].note, 'Waiting for credentials');
+  assert.deepEqual(resumed.progress, { total: 1, completed: 0, in_progress: 1, pending: 0, blocked: 0 });
 
   const section = plan.buildPlanSection(id);
   assert.match(section.content, /\[in_progress\] \(id \d+\) Deploy — Waiting for credentials/);
@@ -245,17 +257,27 @@ test('new steps append and removals compact positions without renumbering ids', 
   });
   assert.equal(result.success, true);
 
-  const four = result.plan.steps.find((step) => step.description === 'Four');
+  // Only the revised and added steps are echoed, with stable ids and the new
+  // positions they received after the removal compacted the list.
+  const four = result.changed_steps.find((step) => step.description === 'Four');
   assert.ok(four);
+  assert.equal(four.change, 'added');
+  assert.deepEqual(result.changed_steps.map((step) => [step.id, step.position, step.change]), [
+    [three.id, 2, 'updated'],
+    [four.id, 3, 'added'],
+  ]);
+  assert.deepEqual(result.removed_step_ids, [two.id]);
+
+  const after = plan.getPlan(id);
   assert.deepEqual(
-    result.plan.steps.map((step) => [step.id, step.position, step.description]),
+    after.steps.map((step) => [step.id, step.position, step.description]),
     [
       [one.id, 1, 'One'],
       [three.id, 2, 'Three revised'],
       [four.id, 3, 'Four'],
     ],
   );
-  assert.ok(!result.plan.steps.some((step) => step.id === two.id));
+  assert.ok(!after.steps.some((step) => step.id === two.id));
 });
 
 test('the plan is injected as a bounded suffix and survives compaction unchanged', async () => {
@@ -422,7 +444,9 @@ test('update_plan is a workspace-only PLAN_WRITE tool and runs through the dispa
     permissionMode: 'workspace_write',
   });
   assert.equal(updated.success, true);
-  assert.equal(updated.plan.steps[0].status, 'in_progress');
+  assert.equal(updated.changed_steps[0].status, 'in_progress');
+  assert.equal(updated.revision, 2);
+  assert.equal(updated.progress.total, 1);
 
   const readOnly = await executeAgentTool({
     name: 'update_plan',

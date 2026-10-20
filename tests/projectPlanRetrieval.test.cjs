@@ -151,7 +151,8 @@ test('a fully completed 38-step plan is discoverable and returned in full', asyn
   const done = plan.updatePlan(owner, {
     action: 'update',
     steps: created.steps.map((step) => ({ id: step.id, status: 'completed' })),
-  }).plan;
+  });
+  assert.equal(done.changed_steps.length, 38);
 
   const reviewer = workspaceSession(project.id, undefined, 'Chat B');
   const row = plan.getProjectPlans(reviewer, { action: 'list' }).plans.find((item) => item.plan_id === owner);
@@ -511,7 +512,7 @@ test('revision and timestamp bookkeeping stays accurate across retrieval', async
   assert.equal(detail.revision, rowBefore.revision);
   assert.equal(detail.updated_at, rowBefore.updated_at);
 
-  const updated = plan.updatePlan(owner, { action: 'update', steps: [{ id: created.steps[0].id, status: 'completed' }] }).plan;
+  const updated = plan.updatePlan(owner, { action: 'update', steps: [{ id: created.steps[0].id, status: 'completed' }] });
   assert.equal(updated.revision, rowBefore.revision + 1);
   const listedAfter = plan.getProjectPlans(reader, { action: 'list' }).plans.find((item) => item.plan_id === owner);
   assert.equal(listedAfter.revision, updated.revision);
@@ -596,7 +597,8 @@ test('existing workspace plan tools are unchanged by the read path', async () =>
     permissionMode: 'workspace_write',
   });
   assert.equal(updated.success, true);
-  assert.equal(updated.plan.steps[0].status, 'in_progress');
+  assert.equal(updated.changed_steps[0].status, 'in_progress');
+  assert.equal(updated.revision, 2);
 
   // Writing still requires a workspace and write permission; reading a plan
   // never upgrades a write-only tool's visibility.
