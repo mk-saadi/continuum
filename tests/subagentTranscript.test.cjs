@@ -19,7 +19,13 @@ Module._load = function (name, ...args) {
     ipcMain: { handle: () => {}, removeHandler: () => {} },
   };
   if (name === './localEngineFetch' || name.endsWith('/localEngineFetch')) {
-    return { localEngineFetch: async () => turns.shift() ?? Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Done.' } }], usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 } }) };
+    return { localEngineFetch: async (url) => {
+      // Context measurement probes the local server's native endpoints. This
+      // mock serves only inference turns, so answer probes as an older server
+      // would (404) and let measurement fall back instead of consuming a turn.
+      if (/\/(props|apply-template|tokenize)$/.test(String(url))) return Response.json({}, { status: 404 });
+      return turns.shift() ?? Response.json({ choices: [{ finish_reason: 'stop', message: { content: 'Done.' } }], usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 } });
+    } };
   }
   return originalLoad.call(this, name, ...args);
 };

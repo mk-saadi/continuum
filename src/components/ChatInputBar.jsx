@@ -19,6 +19,7 @@ const ChatInputBar = memo(
 			sessionId,
 			onSubmit,
 			onQueue,
+			onSteer,
 			onStop,
 			onAttach,
 			onPasteFiles,
@@ -27,6 +28,8 @@ const ChatInputBar = memo(
 			hasQuote = false,
 			streaming,
 			loading,
+			steeringEnabled = false,
+			steeringBusy = false,
 			attachDisabled,
             attachmentTooltip = "Attach text files, PDF, or Excel (.xlsx)",
 			sendTitle,
@@ -70,8 +73,15 @@ const ChatInputBar = memo(
 		}, [draftText]);
 
 		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments || hasQuote);
+		// Steering is a separate action from Stop: it needs text and an active
+		// run, and never clears the draft on its own (the parent clears it only
+		// after the main process accepted the instruction).
+		const canSteer =
+			streaming && steeringEnabled && !loading && !steeringBusy && Boolean(draftText.trim());
 		const submit = () => {
-			if (ready) onSubmit(draftText);
+			if (streaming) {
+				if (canSteer) onSteer?.(draftText);
+			} else if (ready) onSubmit(draftText);
 		};
 
 	function collectPastedFiles(event) {
@@ -117,7 +127,7 @@ const ChatInputBar = memo(
 							if (!event.repeat) submit();
 						}
 					}}
-					placeholder="Type a message..."
+					placeholder={streaming ? "Steer the running agent..." : "Type a message..."}
 					rows={1}
 				/>
 
@@ -157,16 +167,46 @@ const ChatInputBar = memo(
 							activeChatProvider={activeChatProvider}
 						/>
 
-						<button
-							type="button"
-							title={streaming ? "Stop" : sendTitle}
-							aria-label={streaming ? "Stop" : "Send"}
-							onClick={streaming ? onStop : submit}
-							disabled={!streaming && !ready}
-							className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 bg-[var(--accent)] text-[var(--on-accent)] transition-all duration-200 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							{streaming ? <FaStop className="size-3" /> : <IoSend className="size-3" />}
-						</button>
+						{streaming ? (
+							<>
+								<button
+									type="button"
+									title={
+										steeringBusy
+											? "Sending steering instruction..."
+											: canSteer
+												? "Steer this run (Enter)"
+												: "Type an instruction to steer the run"
+									}
+									aria-label="Steer running agent"
+									onClick={submit}
+									disabled={!canSteer}
+									className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--accent)] bg-transparent text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent)] hover:text-[var(--on-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+								>
+									<IoSend className="size-3" />
+								</button>
+								<button
+									type="button"
+									title="Stop"
+									aria-label="Stop"
+									onClick={onStop}
+									className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] transition-all duration-200 hover:bg-[var(--surface-raised)]"
+								>
+									<FaStop className="size-3" />
+								</button>
+							</>
+						) : (
+							<button
+								type="button"
+								title={sendTitle}
+								aria-label="Send"
+								onClick={submit}
+								disabled={!ready}
+								className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 bg-[var(--accent)] text-[var(--on-accent)] transition-all duration-200 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+							>
+								<IoSend className="size-3" />
+							</button>
+						)}
 					</div>
 				</div>
 				{midRunQuestionsError && (

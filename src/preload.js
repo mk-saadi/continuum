@@ -79,10 +79,6 @@ contextBridge.exposeInMainWorld('api', {
   getReasoningCapabilities: payload => ipcRenderer.invoke('reasoning:capabilities', payload),
   getRagSettings: () => ipcRenderer.invoke('rag:get-settings'),
   saveRagSettings: settings => ipcRenderer.invoke('rag:save-settings', settings),
-  // Native web search provider settings. The renderer only ever receives the
-  // provider and whether a key is configured — never the key itself.
-  getSearchSettings: () => ipcRenderer.invoke('search:get-settings'),
-  saveSearchSettings: settings => ipcRenderer.invoke('search:save-settings', settings),
   indexDocuments: payload => ipcRenderer.invoke('rag:index', payload),
   getAppSettings: () => ipcRenderer.invoke('app:get-settings'),
   saveAppSettings: settings => ipcRenderer.invoke('app:save-settings', settings),
@@ -242,6 +238,19 @@ contextBridge.exposeInMainWorld('chatAPI', {
   branchAndExecute: payload => ipcRenderer.invoke('engine:branch-and-execute', payload),
   cancel: requestId => ipcRenderer.invoke('engine:cancel-chat', { requestId }),
   cancelSession: sessionId => ipcRenderer.invoke('engine:cancel-session', { sessionId }),
+  // Phase 2.1 live steering. `runId` always comes from the main-process
+  // generating status event; it is never invented by the renderer.
+  steer: ({ sessionId, runId, content, idempotencyKey }) =>
+    ipcRenderer.invoke('steering:submit', { sessionId, runId, content, idempotencyKey }),
+  getActiveRun: sessionId => ipcRenderer.invoke('steering:active', { sessionId }),
+  getSteeringHistory: (sessionId, limit) => ipcRenderer.invoke('steering:history', { sessionId, limit }),
+  cancelSteering: ({ sessionId, runId, steeringId }) =>
+    ipcRenderer.invoke('steering:cancel', { sessionId, runId, steeringId }),
+  onSteering: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('steering:updated', listener);
+    return () => ipcRenderer.removeListener('steering:updated', listener);
+  },
   onEvent: callback => {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('engine:chat-event', listener);

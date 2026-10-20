@@ -385,6 +385,9 @@ function summarizeRead(tool, args, paths, result, status, errorText) {
     );
   }
   if (tool === 'read_project_file') {
+    if (result && typeof result === 'object' && result.not_modified === true) {
+      return capText(`verified${scope} unchanged`, SUMMARY_CAP);
+    }
     if (result && typeof result === 'object' && (result.type === 'image_url' || result.image_url)) {
       return capText(`read${scope} (image content)`, SUMMARY_CAP);
     }
@@ -483,10 +486,10 @@ function summarizeWeb(args, result, status, errorText) {
   );
   const shownUrl = capText(url, 160);
   const shownQuery = query ? capText(redactSecrets(query), 60) : null;
-  // Web search carries no URL; report the query and the recorded outcome or
+  // Web search carries no URL: report the query and the recorded outcome or
   // result count instead of a fetch summary.
   if (!url && query) {
-    if (status === 'error') {
+    if (status === 'error' || result?.success === false) {
       return capText(`web search failed${shownQuery ? ` for '${shownQuery}'` : ''}${errorText ? ` — ${errorText}` : ''}`, SUMMARY_CAP);
     }
     const outcome = typeof result?.outcome === 'string' ? result.outcome : null;

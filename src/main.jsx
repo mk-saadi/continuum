@@ -6,6 +6,7 @@ import "./components/memoryPalace.css";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { ToastProvider } from "react-toast-master";
+import "react-toast-master/dist/style.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>

@@ -3,11 +3,12 @@ import { getSidebarMode } from "../../lib/sidebarControls.mjs";
 import AssistantAvatar from "../AssistantAvatar";
 import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
+import AdditionalPrompts from "../AdditionalPrompts.jsx";
 import Sidebar from "../Sidebar.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { attachmentPolicy, assertAttachmentNames } from "../../lib/attachmentPolicy.mjs";
 import { BsRobot } from "react-icons/bs";
-import { FiArrowDown, FiMessageSquare } from "react-icons/fi";
+import { FiArrowDown, FiChevronDown, FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { optimizeImage } from "../../utils/imageUtils.mjs";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
@@ -25,7 +26,7 @@ import TextSelectionMenu from "../chat/TextSelectionMenu.jsx";
 import ChatFindBar from "../chat/ChatFindBar.jsx";
 import PendingInteractions, { readSkillDecision } from "../chat/PendingInteractions.jsx";
 import AttachmentPreview from "../chat/AttachmentPreview.jsx";
-import { pendingSkillProposals } from "../../lib/executionEvents.mjs";
+import { activeStepsOf, getTurnInteractions, pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
 import { useLeftSidebar, useRightSidebar } from "../../context/UIStateContext.jsx";
 import { useStreamBuffer } from "./useStreamBuffer.js";
@@ -97,6 +98,16 @@ function RightSidebarState({ isRightSidebarOpen, onClose, children }) {
 	const close = onClose ?? (() => sidebar?.setOpen(false));
 	return children(open, close);
 }
+
+// Phase 2.1 steering status helpers live in a small tested module.
+import {
+	STEERING_STATE_LABELS,
+	mergeSteeringHistory,
+	mergeSteeringItem,
+	steeringPromptsForRun,
+	steeringRunIdForMessage,
+	visibleSteeringForRun,
+} from "../../lib/steeringDisplay.mjs";
 
 export function ChatInterface({
 	view = "chat",
@@ -252,6 +263,14 @@ export function ChatInterface({
 		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
+	// Phase 2.1 live steering state. `activeRunId` is minted by the main process
+	// and arrives with the generating status event; it is never guessed here.
+	const [activeRunId, setActiveRunId] = useState(null);
+	const activeRunIdRef = useRef(null);
+	const [steeringItems, setSteeringItems] = useState([]);
+	const [steeringBusy, setSteeringBusy] = useState(false);
+	const [steeringError, setSteeringError] = useState("");
+	const [steeringExpanded, setSteeringExpanded] = useState(true);
 	const [allowMidRunQuestions, setAllowMidRunQuestions] = useState(false);
 	const [midRunQuestionsBusy, setMidRunQuestionsBusy] = useState(true);
 	const [midRunQuestionsError, setMidRunQuestionsError] = useState("");
@@ -341,6 +360,152 @@ export function ChatInterface({
 			setToolLimit(null);
 		}
 	}, [streaming]);
+	// Phase 2.1: the main process mints the run id and announces it on the
+	// generating status event. Everything steering-related targets this id.
+	useEffect(() => {
+		const off = window.chatAPI?.onStreamStatus?.(({ sessionId, status, runId }) => {
+			if (sessionId !== sessionIdRef.current) return;
+			const next = status === "generating" ? runId ?? null : null;
+			activeRunIdRef.current = next;
+			setActiveRunId(next);
+		});
+		return off;
+	}, []);
+	useEffect(() => {
+		let current = true;
+		setSteeringItems([]);
+		setSteeringError("");
+		setSteeringBusy(false);
+		setActiveRunId(null);
+		activeRunIdRef.current = null;
+		const sessionId = palace.sessionId;
+		if (!sessionId) return undefined;
+		window.chatAPI
+			?.getSteeringHistory?.(sessionId, 200)
+			.then((items) => {
+				if (current) {
+					setSteeringItems((previous) =>
+						mergeSteeringHistory(previous, Array.isArray(items) ? items : []),
+					);
+				}
+			})
+			.catch(() => {});
+		// A tab can be reopened while its run is still executing.
+		window.chatAPI
+			?.getActiveRun?.(sessionId)
+			.then((run) => {
+				if (current && run?.runId) {
+					activeRunIdRef.current = run.runId;
+					setActiveRunId(run.runId);
+				}
+			})
+			.catch(() => {});
+		return () => {
+			current = false;
+		};
+	}, [palace.sessionId]);
+	useEffect(() => {
+		const off = window.chatAPI?.onSteering?.((event) => {
+			if (!event?.id || event.sessionId !== sessionIdRef.current) return;
+			setSteeringItems((previous) => mergeSteeringItem(previous, event));
+		});
+		return off;
+	}, []);
+	const submitSteering = useCallback(async (content) => {
+		const text = typeof content === "string" ? content : "";
+		if (!text.trim()) return false;
+		const sessionId = sessionIdRef.current;
+		let runId = activeRunIdRef.current;
+		if (!runId && sessionId) {
+			try {
+				const run = await window.chatAPI?.getActiveRun?.(sessionId);
+				runId = run?.runId ?? null;
+			} catch {
+				/* reported below as no active run */
+			}
+		}
+		if (!sessionId || !runId) {
+			setSteeringError(
+				"The run has already ended. Your instruction was kept in the composer.",
+			);
+			return false;
+		}
+		setSteeringError("");
+		setSteeringBusy(true);
+		try {
+			const result = await window.chatAPI.steer({
+				sessionId,
+				runId,
+				content: text.trim(),
+				idempotencyKey: crypto.randomUUID(),
+			});
+			if (result?.record) {
+				activeRunIdRef.current = runId;
+				setActiveRunId(runId);
+				setSteeringItems((previous) => mergeSteeringItem(previous, result.record));
+			}
+			// Clear only when the draft still matches, so text typed while the
+			// submission was in flight is never discarded.
+			composerRef.current?.clearSubmitted(text, sessionId);
+			return true;
+		} catch (error) {
+			setSteeringError(
+				error?.message ||
+					"Could not send the steering instruction. Your text was kept.",
+			);
+			return false;
+		} finally {
+			setSteeringBusy(false);
+		}
+	}, []);
+	const withdrawSteering = useCallback(async (item) => {
+		const sessionId = sessionIdRef.current;
+		const runId = item?.runId ?? activeRunIdRef.current;
+		if (!sessionId || !runId || !item?.id) return;
+		setSteeringError("");
+		try {
+			const record = await window.chatAPI.cancelSteering({
+				sessionId,
+				runId,
+				steeringId: item.id,
+			});
+			if (record) {
+				setSteeringItems((previous) => mergeSteeringItem(previous, record));
+			}
+		} catch (error) {
+			setSteeringError(
+				error?.message || "Could not withdraw that instruction.",
+			);
+		}
+	}, []);
+	const steeringForRun = useMemo(
+		() => visibleSteeringForRun(steeringItems, activeRunId),
+		[activeRunId, steeringItems],
+	);
+	// Delivered instructions are attached to the reply's persisted run id, not
+	// to the live panel. This keeps the footer accurate after a reload and while
+	// later turns are running.
+	const additionalPromptsFor = useCallback(
+		(message) =>
+			message?.role === "assistant"
+				? steeringPromptsForRun(steeringItems, steeringRunIdForMessage(message))
+				: [],
+		[steeringItems],
+	);
+	// Questions the agent asked and skill-registration decisions the user made
+	// while this reply's run executed. They are resolved from the recorded steps
+	// only, and they move into the reply footer so the completed task keeps one
+	// record of everything the user contributed mid-run.
+	const turnInteractionsFor = useCallback(
+		(message) =>
+			message?.role === "assistant"
+				? getTurnInteractions(activeStepsOf(message), {
+						pendingQuestions,
+						getSkillDecision: readSkillDecision,
+					})
+				: [],
+		[pendingQuestions],
+	);
 	// Restore the transcript for a tab rehydrated from persisted state. Only
 	// committed chats exist in the database; a never-sent tab has no row yet,
 	// so its empty history is correct and must not raise an error.
@@ -1236,7 +1401,7 @@ export function ChatInterface({
 				const saved = await loadDisplaySession(palace.sessionId);
 				setMessages([...displayMessages(saved), assistantMsg]);
 				await refreshHistory();
-				await runDesktopChat({
+				const result = await runDesktopChat({
 					activeChatProvider,
 					permissionMode,
 					sessionId: palace.sessionId,
@@ -1282,6 +1447,15 @@ export function ChatInterface({
 						streamBuffer.push(delta);
 					},
 				});
+				if (result?.runId) {
+					setMessages((prev) =>
+						prev.map((message) =>
+							message.id === assistantMsg.id
+								? { ...message, run_id: result.runId }
+								: message,
+						),
+					);
+				}
 			} catch (err) {
 				failed = true;
 				if (err.name !== "AbortError") setHistoryError(err.message);
@@ -1360,6 +1534,8 @@ export function ChatInterface({
 				}
 				setStreaming(false);
 				activeStreamMessageIdRef.current = null;
+				activeRunIdRef.current = null;
+				setActiveRunId(null);
 				setIndexing(null);
 				busyRef.current = false;
 				// The first prompt's AI title: requested now that the engine is
@@ -1847,6 +2023,8 @@ export function ChatInterface({
 										onCancelEdit={() => setEditing(null)}
 										onSubmitEdit={(messageToEdit) => sendMessage(messageToEdit)}
 										registerRow={virtual.getMeasureRef}
+										steeringPrompts={additionalPromptsFor(msg)}
+										steeringInteractions={turnInteractionsFor(msg)}
 									/>
 								))}
 								{virtual.bottomSpacer > 0 && (
@@ -1989,6 +2167,10 @@ export function ChatInterface({
 															onSelectReplyVariant={selectReplyVariant}
 															mode="casual"
 															interactive={false}
+															// Resolved questions/skills render inside the reply's
+															// Additional prompts footer, so the inline footer is
+															// suppressed here.
+															showTurnOutcomes={false}
 														/>
 													) : (
 														msg.content ||
@@ -2026,6 +2208,13 @@ export function ChatInterface({
 															setEditText(messageToEdit.content);
 														}}
 														onError={setHistoryError}
+													/>
+												)}
+												{/** Steering instructions and resolved interactions from this run. **/}
+												{msg.role === "assistant" && !msg.streaming && (
+													<AdditionalPrompts
+														prompts={additionalPromptsFor(msg)}
+														interactions={turnInteractionsFor(msg)}
 													/>
 												)}
 											</>
@@ -2098,6 +2287,92 @@ export function ChatInterface({
 					<p className="mx-auto w-[calc(100%-2rem)] max-w-[980px] px-1 pb-1 text-[11px] leading-relaxed text-[var(--text-muted)] max-[450px]:w-[calc(100%-1.5rem)]">
 						{summarizeNotice}
 					</p>
+				)}
+
+				{(steeringForRun.length > 0 || steeringError) && (
+					<div
+						aria-label="Steering instructions"
+						className="mx-auto mb-2 w-[calc(100%-2rem)] max-w-[980px] max-[450px]:w-[calc(100%-1.5rem)]"
+					>
+						<div className="flex items-center justify-between gap-2 px-1 pb-1 text-[11px] text-[var(--text-muted)]">
+							<button
+								type="button"
+								aria-expanded={steeringExpanded}
+								onClick={() => setSteeringExpanded((value) => !value)}
+								className="inline-flex cursor-pointer items-center gap-1 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+							>
+								<FiMessageSquare aria-hidden="true" />
+								Steering
+								{steeringForRun.some((item) => item.state === "queued") && (
+									<span>
+										(
+										{steeringForRun.filter((item) => item.state === "queued").length}{" "}
+										queued)
+									</span>
+								)}
+								<FiChevronDown
+									aria-hidden="true"
+									className={`size-3 transition-transform duration-200 ${
+										steeringExpanded ? "" : "-rotate-90"
+									}`}
+								/>
+							</button>
+							{activeRunId && (
+								<span>Delivered at the next safe model-request boundary</span>
+							)}
+						</div>
+						{steeringExpanded && steeringForRun.length > 0 && (
+							<ul className="flex flex-col gap-1">
+								{steeringForRun.map((item) => {
+									const label = STEERING_STATE_LABELS[item.state] ?? item.state;
+									const terminal = ["delivered", "undelivered", "cancelled"].includes(
+										item.state,
+									);
+									return (
+										<li
+											key={item.id}
+											className="flex items-start gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 text-xs text-[var(--text-secondary)]"
+										>
+											<span
+												title={item.failureReason || undefined}
+												className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+													item.state === "delivered"
+														? "bg-[var(--accent)]/15 text-[var(--accent)]"
+														: item.state === "undelivered"
+															? "bg-[var(--error)]/15 text-[var(--error)]"
+															: "bg-[var(--surface-hover)] text-[var(--text-muted)]"
+												}`}
+											>
+												{label}
+											</span>
+											<span className="min-w-0 flex-1 whitespace-pre-wrap break-words line-clamp-3">
+												{item.content}
+											</span>
+											{item.state === "queued" && activeRunId && (
+												<button
+													type="button"
+													onClick={() => withdrawSteering(item)}
+													className="shrink-0 cursor-pointer text-[11px] text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
+												>
+													Withdraw
+												</button>
+											)}
+											{terminal && item.state === "undelivered" && item.failureReason && (
+												<span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+													{item.failureReason}
+												</span>
+											)}
+										</li>
+									);
+								})}
+							</ul>
+						)}
+						{steeringError && (
+							<p role="alert" className="px-1 pt-1 text-[11px] text-[var(--error)]">
+								{steeringError}
+							</p>
+						)}
+					</div>
 				)}
 
 				<div
@@ -2230,6 +2505,9 @@ export function ChatInterface({
 							setQuotedSelection("");
 						}}
 						onSubmit={(text) => sendMessage(null, false, text)}
+						onSteer={submitSteering}
+						steeringEnabled={streaming}
+						steeringBusy={steeringBusy}
 						onStop={handleStop}
 						onAttach={() => fileInputRef.current?.click()}
 						onPasteFiles={(files) => addAttachments(files)}

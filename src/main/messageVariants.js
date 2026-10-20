@@ -17,6 +17,7 @@ function variantFromRow(row) {
     model_name: row.model_name ?? null,
     model_id: row.model_id ?? null,
     agent_name: row.agent_name ?? null,
+    run_id: row.run_id ?? null,
     stats: stats ? { ...stats, tokens_per_sec: stats.tokens_per_sec ?? stats.tokensPerSecond ?? null,
       total_tokens: stats.total_tokens ?? stats.totalTokens ?? null, duration: stats.duration ?? stats.time ?? null } : null,
     created_at: row.created_at ?? null,

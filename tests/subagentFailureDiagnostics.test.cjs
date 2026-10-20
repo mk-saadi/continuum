@@ -13,7 +13,7 @@ const { executeSpawnSubagent, spawnSubagentTool } = require('../src/main/tools/s
 //   2. an empty provider completion fails with distinguishable diagnostics
 //      after exactly one bounded retry,
 //   3. a web-research task without url/target_file fails with actionable
-//      guidance (the tool is fetch-only; there is no web search),
+//      guidance (a url call is one-page fetch; discovery needs investigate),
 //   4. a direct URL extraction success path,
 //   5. URL extraction with no content reports WHICH stage failed.
 const engine = { port: 4321, modelId: 'local-model', contextLength: 32768 };
@@ -133,15 +133,16 @@ test('3. a web-research task without url or target_file fails with actionable gu
       + 'at Q4 quantization.',
     engine,
   }), 'url-less web research task');
-  // The parameter guidance stays (existing callers match on it) and now states
-  // WHY the shape is invalid: the tool is fetch-only, not search-capable.
+  // The parameter guidance stays (existing callers match on it) and explains
+  // the shape: a url call fetches one page, while discovery needs investigate.
   assert.match(error.message, /Provide a url or target_file parameter/);
-  assert.match(error.message, /cannot search or discover pages/);
-  assert.match(error.message, /investigate/);
+  assert.match(error.message, /A url call fetches exactly one page/);
+  assert.match(error.message, /investigate: true/);
+  assert.match(error.message, /web_search in the main context/);
   // The supported web behavior is documented on the tool itself.
   assert.match(spawnSubagentTool.function.description, /isolated web research/);
-  assert.match(spawnSubagentTool.function.description, /cannot search or discover pages/);
-  assert.match(spawnSubagentTool.function.parameters.properties.url.description, /no web search/i);
+  assert.match(spawnSubagentTool.function.description, /web_search tool/);
+  assert.match(spawnSubagentTool.function.parameters.properties.url.description, /investigate: true/);
 });
 
 test('4. a direct URL extraction returns the answer from the fetched page', async () => {

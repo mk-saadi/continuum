@@ -1,0 +1,179 @@
+{
+  "phase": "2.0F",
+  "baseCommit": "23cbd71",
+  "branch": "main",
+  "changedFiles": [
+    "src/main/tools/agentTools.js",
+    "src/main/turnDigest.js",
+    "tests/fileVersion.test.cjs (new)",
+    "scripts/file-tool-benchmark.cjs (new)",
+    "docs/file-write-conditional-read-report.md (new)",
+    "docs/file-write-conditional-read-evidence.json (new)"
+  ],
+  "preservedWorkingTreeChanges": true,
+  "committed": false,
+  "pushed": false,
+  "environment": {
+    "node": "v22.23.2",
+    "electron": "44.7.0",
+    "runner": "node --test tests/*.test.cjs tests/*.test.mjs"
+  },
+  "contract": {
+    "hash": "sha256 over actual file bytes",
+    "wireFormat": "sha256:<64 lowercase hex>",
+    "readConditionalArgument": "if_content_hash",
+    "writeExpectedArgument": "expected_content_hash",
+    "writeOptionalDiffArgument": "include_diff",
+    "readLimitCharacters": 20000
+  },
+  "focused": {
+    "fileVersion": {
+      "command": "node --test tests/fileVersion.test.cjs",
+      "tests": 20,
+      "pass": 20,
+      "fail": 0
+    },
+    "regressionBatch": {
+      "tests": 213,
+      "pass": 212,
+      "fail": 1
+    },
+    "regressionFailure": "tests/filesystemToolLimits.test.cjs MCP execution applies the cap before serialization (pre-existing: database not initialized in that test)",
+    "uiSuites": [
+      "fileBrowser",
+      "toolErrorDetail",
+      "workLogPanel",
+      "recoveryCard",
+      "recoveryDiffReview"
+    ],
+    "uiResult": "all exited 0"
+  },
+  "fullSuite": {
+    "baseline": {
+      "tests": 1381,
+      "pass": 1354,
+      "fail": 27,
+      "skipped": 0
+    },
+    "after": {
+      "tests": 1401,
+      "pass": 1374,
+      "fail": 27,
+      "skipped": 0
+    },
+    "newTests": 20,
+    "failingIdentitiesIdentical": true,
+    "npmTestHarnessNote": "npm test (node --test tests/) fails before discovery on Node 22; explicit globs were used",
+    "newInputIdentities": false,
+    "note": "Final sequential post-change run reproduced all 27 baseline failing identities exactly (sorted-diff empty). Intermediate runs showed known subagentModelSelection flakiness under load, including a parallel build+suite run; no new stable identities were introduced."
+  },
+  "build": {
+    "command": "npm run build",
+    "status": "passed",
+    "modulesTransformed": 1819,
+    "durationSeconds": 29.49,
+    "existingChunkSizeWarning": true,
+    "durationNote": "Final run 29.49 s; a prior run took 9.47 s. Duration varies with host load."
+  },
+  "benchmark": {
+    "command": "node scripts/file-tool-benchmark.cjs",
+    "method": "real dispatcher over temporary SQLite DB/workspace; previous response shapes reconstructed for identical calls; chars/4 token approximation; no model/provider/network/paid inference",
+    "perCase": [
+      {
+        "case": "tiny",
+        "contentBytes": 8,
+        "previousWriteChars": 41,
+        "newWriteChars": 228,
+        "writeMetadataOverheadChars": 187,
+        "previousFullRereadChars": 35,
+        "newConditionalUnchangedChars": 162,
+        "conditionalUnchangedReductionPercent": -362.86,
+        "conditionalChangedDeltaChars": -162,
+        "workflowReductionPercent": -183.33
+      },
+      {
+        "case": "small",
+        "contentBytes": 200,
+        "previousWriteChars": 41,
+        "newWriteChars": 230,
+        "writeMetadataOverheadChars": 189,
+        "previousFullRereadChars": 213,
+        "newConditionalUnchangedChars": 164,
+        "conditionalUnchangedReductionPercent": 23,
+        "conditionalChangedDeltaChars": -164,
+        "workflowReductionPercent": -50.45
+      },
+      {
+        "case": "medium",
+        "contentBytes": 10000,
+        "previousWriteChars": 41,
+        "newWriteChars": 232,
+        "writeMetadataOverheadChars": 191,
+        "previousFullRereadChars": 10157,
+        "newConditionalUnchangedChars": 166,
+        "conditionalUnchangedReductionPercent": 98.37,
+        "conditionalChangedDeltaChars": -167,
+        "workflowReductionPercent": 30.88
+      },
+      {
+        "case": "near_read_limit",
+        "contentBytes": 19500,
+        "previousWriteChars": 41,
+        "newWriteChars": 242,
+        "writeMetadataOverheadChars": 201,
+        "previousFullRereadChars": 19797,
+        "newConditionalUnchangedChars": 176,
+        "conditionalUnchangedReductionPercent": 99.11,
+        "conditionalChangedDeltaChars": -176,
+        "workflowReductionPercent": 32.01
+      },
+      {
+        "case": "over_read_limit",
+        "contentBytes": 25000,
+        "previousWriteChars": 42,
+        "newWriteChars": 243,
+        "writeMetadataOverheadChars": 201,
+        "previousFullRereadChars": 25378,
+        "newConditionalUnchangedChars": 176,
+        "conditionalUnchangedReductionPercent": 99.31,
+        "conditionalChangedDeltaChars": 4880,
+        "workflowReductionPercent": 41.65
+      }
+    ],
+    "allCasesWorkflow": {
+      "previousChars": 162908,
+      "newChars": 105686,
+      "savingsChars": 57222,
+      "reductionPercent": 35.13,
+      "previousTokensApprox": 40727,
+      "newTokensApprox": 26422,
+      "tokenSavingsApprox": 14305
+    },
+    "repeatedMediumCycles": {
+      "cycles": 10,
+      "previousChars": 112971,
+      "newChars": 14359,
+      "savingsChars": 98612,
+      "reductionPercent": 87.29,
+      "previousTokensApprox": 28243,
+      "newTokensApprox": 3590,
+      "tokenSavingsApprox": 24653
+    },
+    "negativeCasesIncluded": [
+      "tiny",
+      "small",
+      "changed-content reads"
+    ],
+    "characterReductionIsNot": "measured cloud-token savings"
+  },
+  "limitations": [
+    "conditional writes are best-effort preflight plus pre-rename check, not atomic compare-and-swap",
+    "expected_content_hash is only implemented for write_project_file",
+    "conditional reads are opt-in and never suppress explicit full reads",
+    "hash matching proves observed byte equality, not code correctness",
+    "include_diff is write-only, bounded, and reuses the recovery prefix/suffix diff",
+    "no line-range read mode exists",
+    "very large files are still fully read before truncation, as before"
+  ],
+  "noPaidInference": true
+}

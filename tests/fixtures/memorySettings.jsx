@@ -20,8 +20,6 @@ window.api = {
   listProjects: async () => [],
   getTokenHistory: async options => ({ ...options, retentionMonths: 12, data: [] }),
   setTokenRetention: async months => { window.retained = months; },
-  getSearchSettings: async () => ({ provider: 'duckduckgo', configured: false, providerLabel: 'DuckDuckGo' }),
-  saveSearchSettings: async () => ({ provider: 'duckduckgo', configured: false, providerLabel: 'DuckDuckGo' }),
   getSubagentBudgets: async () => ({
     settings: { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null, maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null },
     policy: { maxTurns: { investigation: 200 }, perRequestCeiling: { investigation: 2048 }, maxToolCalls: { investigation: 400 }, maxAggregateToolCalls: 2000, minInputReplays: 4, inputRule: 'bounded child context', outputRule: 'bounded output', unbounded: 'unbounded', runtime: {}, limits: { maxToolCalls: { min: 1, max: 10000000 }, maxTurns: { min: 1, max: 10000000 }, maxAggregateToolCalls: { min: 1, max: 100000000 }, maxInputTokens: { min: 512, max: 1000000000 }, maxOutputTokens: { min: 256, max: 1000000000 }, maxRuntimeMs: { min: 1000, max: 604800000 }, requestTimeoutMs: { min: 1000, max: 86400000 }, requestInactivityMs: { min: 1000, max: 3600000 } } },

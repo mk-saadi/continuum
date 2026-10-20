@@ -262,7 +262,7 @@ export function fileEditStats(step) {
   return null;
 }
 
-function activeStepsOf(message) {
+export function activeStepsOf(message) {
   if (!message || message.role !== 'assistant') return [];
   const index = message.active_variant_index ?? 0;
   const variant = Array.isArray(message.variants) ? message.variants[index] : null;
@@ -319,33 +319,40 @@ function shortenOutcome(text, limit) {
   return single.length > limit ? `${single.slice(0, limit)}…` : single;
 }
 
-// Compact per-turn outcome entries for resolved agent interactions, derived
-// ONLY from recorded steps plus already-stored resolutions. Returns entries
-// in chronological step order; steps that are still pending (live request
-// above the composer), undecided, or from dead non-terminal runs produce no
-// entry — a resolved interaction must exist before it is reported, and
-// approval is reported only for a stored registration decision.
-export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision = () => '' } = {}) {
-  const outcomes = [];
+// Structured per-turn interactions: the agent's questions and skill proposals,
+// each with the recorded detail the compact label omits. Derived ONLY from
+// recorded steps plus already-stored resolutions, in chronological step order.
+// A live/pending request, an undecided proposal, or a dead non-terminal step
+// produces no entry: a resolved interaction must exist before it is reported.
+export function getTurnInteractions(steps, { pendingQuestions = {}, getSkillDecision = () => '' } = {}) {
+  const interactions = [];
   for (const step of steps ?? []) {
     if (!step || step.type !== 'tool_call') continue;
     if (step.toolName === 'ask_user') {
       if (pendingQuestions?.[step.id]) continue;
+      const question = typeof step.args?.question === 'string' && step.args.question.trim()
+        ? step.args.question.trim() : 'Agent asked a question';
       if (step.status === 'complete') {
         const result = typeof step.result === 'string' ? step.result.trim() : '';
         const options = Array.isArray(step.args?.options) ? step.args.options : [];
         const detail = result && options.includes(result) ? result : 'Custom response';
-        outcomes.push({
+        interactions.push({
           key: `question:${step.id}`,
           kind: 'question',
           status: 'answered',
+          question,
+          answer: result || 'Custom response',
+          options,
           label: `Question answered · ${shortenOutcome(detail, 80)}`,
         });
       } else if (step.status === 'error') {
-        outcomes.push({
+        interactions.push({
           key: `question:${step.id}`,
           kind: 'question',
           status: 'cancelled',
+          question,
+          answer: '',
+          options: Array.isArray(step.args?.options) ? step.args.options : [],
           label: 'Question cancelled',
         });
       }
@@ -362,25 +369,39 @@ export function getTurnOutcomes(steps, { pendingQuestions = {}, getSkillDecision
         ? step.args.name.trim()
         : '';
       const name = shortenOutcome(rawName || 'Unnamed', 60);
+      const description = step.args && typeof step.args === 'object' && typeof step.args.description === 'string'
+        ? step.args.description.trim() : '';
       if (decision === 'registered') {
-        outcomes.push({
+        interactions.push({
           key: `skill:${step.id}`,
           kind: 'skill',
           status: 'approved',
+          name,
+          description,
           label: `Skill registration approved · ${name}`,
         });
       } else if (decision === 'declined') {
-        outcomes.push({
+        interactions.push({
           key: `skill:${step.id}`,
           kind: 'skill',
           status: 'declined',
+          name,
+          description,
           label: `Skill registration declined · ${name}`,
         });
       }
       continue;
     }
   }
-  return outcomes;
+  return interactions;
+}
+
+// Compact per-turn outcome labels for resolved agent interactions. Kept as the
+// label projection of getTurnInteractions so both views always agree.
+export function getTurnOutcomes(steps, options = {}) {
+  return getTurnInteractions(steps, options).map(({ key, kind, status, label }) => ({
+    key, kind, status, label,
+  }));
 }
 
 // ---------------------------------------------------------------------------

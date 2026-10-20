@@ -192,6 +192,10 @@ const SCHEMA = `
     model_name TEXT,
     model_id TEXT,
     agent_name TEXT,
+    -- Phase 2.1: the main-agent run that produced this reply. Steering rows
+    -- share this id, so delivered instructions can be shown with the reply
+    -- without ever inserting them into the conversation transcript.
+    run_id TEXT,
     archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
     is_summarized BOOLEAN NOT NULL DEFAULT 0 CHECK (is_summarized IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -209,6 +213,30 @@ const SCHEMA = `
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_context_rewinds_session ON context_rewinds(session_id, id);
+
+  -- Phase 2.1 live agent steering: one row per instruction targeting one
+  -- active main-agent run. Deliberately separate from the messages table so a
+  -- steering instruction can never be mistaken for a new conversation turn,
+  -- inserted into the active branch, or replayed by ordinary prompt construction.
+  -- claimed is an additive state: the row was selected for a request whose
+  -- transport has not confirmed acceptance yet. Startup reconciliation turns
+  -- any surviving queued/claimed row into undelivered (ambiguous, never lost).
+  CREATE TABLE IF NOT EXISTS run_steering_messages (
+    id TEXT PRIMARY KEY NOT NULL,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    run_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('queued', 'claimed', 'delivered', 'undelivered', 'cancelled')),
+    idempotency_key TEXT,
+    created_at TEXT NOT NULL,
+    claimed_at TEXT,
+    delivered_at TEXT,
+    delivery_request_id TEXT,
+    failure_reason TEXT,
+    UNIQUE(session_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_steering_session ON run_steering_messages(session_id);
+  CREATE INDEX IF NOT EXISTS idx_steering_run_state ON run_steering_messages(session_id, run_id, state);
 
   CREATE TABLE IF NOT EXISTS message_attachments (
     id INTEGER PRIMARY KEY,
@@ -480,9 +508,21 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       }
       // A process interruption must not leave a durable background-work lock.
       connection.exec('UPDATE sessions SET is_compressing = 0 WHERE is_compressing = 1');
+      // Phase 2.1: no main-agent run survives a process restart. Pending
+      // steering is retained for inspection but can never be attached to a
+      // later, unrelated run, and an in-flight request is reported as
+      // undelivered rather than falsely applied. The reason is intentionally
+      // explicit about the ambiguity.
+      connection.exec(`UPDATE run_steering_messages
+        SET state = 'undelivered',
+            failure_reason = 'The application closed before delivery could be confirmed.'
+        WHERE state IN ('queued', 'claimed')`);
       for (const [name, type] of Object.entries({ execution_steps: 'TEXT', stats: 'TEXT', tool_calls: 'TEXT', thinking_text: 'TEXT', thinking_duration: 'REAL' })) {
         if (!messageColumns.has(name)) connection.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
       }
+      // Additive association for Phase 2.1 follow-up: old replies simply have no
+      // run id and therefore no additional-prompts footer.
+      if (!messageColumns.has('run_id')) connection.exec('ALTER TABLE messages ADD COLUMN run_id TEXT');
       if (!messageColumns.has('variants')) connection.exec('ALTER TABLE messages ADD COLUMN variants TEXT');
       if (!messageColumns.has('active_variant_index')) connection.exec('ALTER TABLE messages ADD COLUMN active_variant_index INTEGER DEFAULT 0');
       // Legacy origins are unknown; never backfill them from the current model/agent.
@@ -531,6 +571,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
           DELETE FROM workspace_turn_digests WHERE session_id = OLD.id;
           DELETE FROM workspace_plan_steps WHERE session_id = OLD.id;
           DELETE FROM workspace_plans WHERE session_id = OLD.id;
+          DELETE FROM run_steering_messages WHERE session_id = OLD.id;
         END;
         CREATE TRIGGER IF NOT EXISTS attachments_cascade BEFORE DELETE ON messages BEGIN
           DELETE FROM message_attachments WHERE message_id = OLD.id;

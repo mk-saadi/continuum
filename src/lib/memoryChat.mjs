@@ -450,11 +450,20 @@ export async function runMemoryChat({
   projectId = null, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
   toolFailureCircuitBreaker = null, onCircuitBreak = () => {}, onPhase = () => {},
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
+  // Phase 2.1 live steering hooks. The caller (engine:chat) owns the run-scoped
+  // queue and passes bound callbacks; this loop only asks at model-request
+  // boundaries. With no hooks (standalone tests, child runs) every path below
+  // is byte-identical to before.
+  takeSteeringInstructions = null, markSteeringDelivered = null, markSteeringUndelivered = null,
+  maxSteeringContinuations = 8,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
     throw new TypeError('maxToolRounds must be between 1 and 1000.');
   }
   if (!Number.isInteger(maxAutoTurns) || maxAutoTurns < 1 || maxAutoTurns > 1000) throw new TypeError('maxAutoTurns must be between 1 and 1000.');
+  if (!Number.isInteger(maxSteeringContinuations) || maxSteeringContinuations < 1 || maxSteeringContinuations > 100) {
+    throw new TypeError('maxSteeringContinuations must be between 1 and 100.');
+  }
   if (!messages.some(message => message.role === 'system')) throw new Error('The first message must be the system prompt.');
   if (!['auto', 'tool', 'user'].includes(toolImageMode)) throw new TypeError('Invalid toolImageMode.');
   let imagesInUserRole = toolImageMode === 'user';
@@ -500,6 +509,58 @@ export async function runMemoryChat({
   // the counters below only gate execution there.
   const enforceTurnBudget = casualMode;
   let failedToolStreak = 0, failedRangeStart = null;
+  // Phase 2.1: at most one steering batch is in flight at a time. A batch is
+  // injected only at a model-request boundary and is confirmed after the
+  // transport has accepted that request; it is cleared before the next request
+  // so the same instruction is never injected twice.
+  let steeringBatch = [];
+  let steeringContinuations = 0;
+  const steeringText = content => `User steering instruction received during this run:\n${content}`;
+  const readSteering = async () => {
+    if (typeof takeSteeringInstructions !== 'function') return [];
+    try {
+      const instructions = await takeSteeringInstructions();
+      return Array.isArray(instructions) ? instructions.filter(instruction =>
+        instruction && typeof instruction.id === 'string' && instruction.id &&
+        typeof instruction.content === 'string' && instruction.content.trim()) : [];
+    } catch (error) {
+      // Steering infrastructure must never break an otherwise healthy run.
+      console.error('[steering] could not read the queue:', error?.message ?? error);
+      return [];
+    }
+  };
+  const injectSteering = instructions => {
+    for (const instruction of instructions) {
+      // A genuine user instruction, never a tool result or an assistant
+      // summary. The framing is the minimum needed to distinguish it from the
+      // original request that opened the run.
+      history.push({ role: 'user', content: steeringText(instruction.content.trim()) });
+    }
+  };
+  const confirmSteering = async () => {
+    const batch = steeringBatch;
+    steeringBatch = [];
+    if (!batch.length || typeof markSteeringDelivered !== 'function') return;
+    // Every row of a batch was claimed under the same transport request id.
+    const requestId = batch[0]?.deliveryRequestId ?? null;
+    try {
+      await markSteeringDelivered(batch.map(instruction => instruction.id), requestId);
+    } catch (error) {
+      // The request is already in flight; the durable row stays claimed and
+      // recovery reports the ambiguity instead of claiming delivery.
+      console.error('[steering] could not record delivery:', error?.message ?? error);
+    }
+  };
+  const failSteering = async reason => {
+    const batch = steeringBatch;
+    steeringBatch = [];
+    if (!batch.length || typeof markSteeringUndelivered !== 'function') return;
+    try {
+      await markSteeringUndelivered(batch.map(instruction => instruction.id), reason);
+    } catch (error) {
+      console.error('[steering] could not record an undelivered batch:', error?.message ?? error);
+    }
+  };
   const applyContextRewind = () => {
     if (!projectId || failedRangeStart === null || !rewindFailedTurnRange) return;
     const endTurnIndex = history.length;
@@ -529,6 +590,18 @@ export async function runMemoryChat({
     turnCount++;
     round++;
     signal?.throwIfAborted();
+    // Phase 2.1: claim instructions submitted since the previous request. This
+    // is the only place steering enters the transcript, and it happens before
+    // the payload snapshot below, so exactly one model request carries it. A
+    // batch left over from the final-answer race is already injected and must
+    // not be read a second time.
+    if (!steeringBatch.length) {
+      const pendingSteering = await readSteering();
+      if (pendingSteering.length) {
+        steeringBatch = pendingSteering;
+        injectSteering(pendingSteering);
+      }
+    }
     const phaseStart = round === 1 ? startTime : now();
     if (getChatTools && !finalResponseOnly) {
       tools = await getChatTools();
@@ -592,27 +665,38 @@ export async function runMemoryChat({
         return requestPayload;
       } : undefined,
     });
-    let response = await send();
-    if (!response.ok) {
-      let responseBody = await response.text();
-      if (toolImageMode === 'auto' && !imagesInUserRole && hasToolImages(requestPayload.messages) &&
-          rejectsToolImages(response.status, responseBody)) {
-        // Retry inference only, never re-execute a tool or append duplicate results.
-        imagesInUserRole = true;
-        requestPayload.messages = moveToolImagesToUser(requestPayload.messages);
-        signal?.throwIfAborted();
-        response = await send();
-        if (!response.ok) responseBody = await response.text();
-      }
+    let response;
+    try {
+      response = await send();
       if (!response.ok) {
-        console.error(`Model request failed: HTTP ${response.status}`, redactToolMedia(responseBody));
-        console.error('Model request payload:', JSON.stringify(redactToolMedia(requestPayload), null, 2));
-        const error = new Error(`Model request failed: HTTP ${response.status}`);
-        error.status = response.status;
-        error.responseBody = responseBody;
-        throw error;
+        let responseBody = await response.text();
+        if (toolImageMode === 'auto' && !imagesInUserRole && hasToolImages(requestPayload.messages) &&
+            rejectsToolImages(response.status, responseBody)) {
+          // Retry inference only, never re-execute a tool or append duplicate results.
+          imagesInUserRole = true;
+          requestPayload.messages = moveToolImagesToUser(requestPayload.messages);
+          signal?.throwIfAborted();
+          response = await send();
+          if (!response.ok) responseBody = await response.text();
+        }
+        if (!response.ok) {
+          console.error(`Model request failed: HTTP ${response.status}`, redactToolMedia(responseBody));
+          console.error('Model request payload:', JSON.stringify(redactToolMedia(requestPayload), null, 2));
+          const error = new Error(`Model request failed: HTTP ${response.status}`);
+          error.status = response.status;
+          error.responseBody = responseBody;
+          throw error;
+        }
       }
+    } catch (error) {
+      // No response was accepted, so nothing in this batch was delivered. The
+      // rows are marked undelivered rather than left queued for a run that may
+      // already be over.
+      await failSteering(`The model request failed before this instruction could be delivered: ${error?.message ?? 'unknown error'}`);
+      throw error;
     }
+    // The transport accepted the request; delivery is now provable.
+    await confirmSteering();
     const priorThinking = thinkingText;
     const priorDuration = thinkingDuration;
     let visibleContent = '';
@@ -704,6 +788,21 @@ export async function runMemoryChat({
     }
     if (!result.toolCalls.length) {
       signal?.throwIfAborted();
+      // A steer submitted while this response was streaming arrived after the
+      // request snapshot, so it cannot be part of that request. Deliver it with
+      // one bounded continuation rather than ending the run with the
+      // instruction silently stranded. Once the cap is reached the remaining
+      // rows stay queued and are reported undelivered when the run closes.
+      if (steeringContinuations < maxSteeringContinuations) {
+        const lateSteering = await readSteering();
+        if (lateSteering.length) {
+          steeringContinuations++;
+          history.push({ role: 'assistant', content: result.content || null });
+          steeringBatch = lateSteering;
+          injectSteering(lateSteering);
+          continue;
+        }
+      }
       onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
       return text;
     }

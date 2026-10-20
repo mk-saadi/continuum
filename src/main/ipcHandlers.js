@@ -13,8 +13,6 @@ const {
 	saveNotificationPrefs,
 	getRagSettings,
 	saveRagSettings,
-	getSearchSettings,
-	saveSearchSettings,
 } = require("./configManager");
 const { saveGlobalSamplingParams } = require("./samplingManager");
 const reasoningControls = require("../lib/reasoningControls.cjs");
@@ -69,6 +67,7 @@ const { executeMemoryTool } = require("./memoryToolExecutor");
 const { activeStreams, truncateToolOutput } = require('./engineManager');
 const { sanitizeWebToolResult } = require('./tools/webSearch');
 const { createStreamDispatcher } = require('./streamDispatcher');
+const runSteering = require('./runSteering');
 
 const displayValue = value => {
 	if (value == null) return value;
@@ -133,6 +132,31 @@ function registerIpcHandlers({
 
 	const requests = new Map();
     let standaloneDelegation = false;
+	// Phase 2.1: trusted in-memory registry of executing main-agent runs. A run
+	// id is generated here, never supplied by the renderer. Steering IPC resolves
+	// the run from this map and additionally requires the requesting sender to be
+	// the one that started it, so supplying another session's id is not enough.
+	const steeringRuns = new Map();
+	const emitSteeringUpdates = (sender, records, options = {}) => {
+		if (!sender || sender.isDestroyed()) return;
+		for (const record of records ?? []) {
+			if (!record) continue;
+			try {
+				sender.send('steering:updated', runSteering.toEvent(record, options));
+			} catch (error) {
+				// A renderer teardown race must not fail an accepted instruction.
+				console.error('[steering] could not emit a status update:', error?.message ?? error);
+			}
+		}
+	};
+	const resolveSteeringRun = ({ runId, sessionId, sender }) => {
+		const entry = steeringRuns.get(runId);
+		if (!entry || entry.sessionId !== sessionId || entry.sender !== sender ||
+			entry.controller.signal.aborted || activeStreams.get(sessionId) !== entry.controller) {
+			throw new Error('No active run matches this steering request.');
+		}
+		return entry;
+	};
 	const subscribers = new Set();
 	const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools(null)) });
 	const broadcast = () => {
@@ -290,11 +314,6 @@ function registerIpcHandlers({
 				: { params: saveGlobalSamplingParams(params) },
 		"rag:get-settings": () => getRagSettings(),
 		"rag:save-settings": (settings) => saveRagSettings(settings),
-		// Native web search (Phase 1.7): the stored API key never crosses IPC —
-		// getSearchSettings returns presence/label only, and saveSearchSettings
-		// keeps the existing key when the renderer omits it.
-		"search:get-settings": () => getSearchSettings(),
-		"search:save-settings": (settings) => saveSearchSettings(settings),
 		"rag:index": async ({ requestId, attachments }, notify, sender) => {
 			if (typeof requestId !== "string" || !requestId || !Array.isArray(attachments))
 				throw new Error("Invalid indexing request.");
@@ -447,6 +466,38 @@ function registerIpcHandlers({
 			const controller = activeStreams.get(sessionId);
 			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort();
 		},
+		// Phase 2.1 live steering. Every mutation resolves the executing run from
+		// trusted in-memory state and requires the calling sender to own it; the
+		// renderer cannot steer a run by guessing a session or steering id.
+		"steering:submit": ({ sessionId, runId, content, idempotencyKey }, _notify, sender) => {
+			resolveSteeringRun({ runId, sessionId, sender });
+			const result = runSteering.submitSteering({ sessionId, runId, content, idempotencyKey });
+			emitSteeringUpdates(sender, [result.record], { includeContent: true });
+			return result;
+		},
+		"steering:active": ({ sessionId } = {}, _notify, sender) => {
+			if (typeof sessionId !== 'string' || !sessionId) throw new Error('Invalid session.');
+			const controller = activeStreams.get(sessionId);
+			if (!controller) return null;
+			const entry = controller.runId ? steeringRuns.get(controller.runId) : null;
+			if (!entry || entry.sender !== sender) return null;
+			return { sessionId, runId: entry.runId };
+		},
+		"steering:history": ({ sessionId, limit } = {}) => {
+			if (typeof sessionId !== 'string' || !sessionId) throw new Error('Invalid session.');
+			if (!require('./db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) {
+				throw new Error('Session not found.');
+			}
+			return runSteering.getSteeringHistory(sessionId, limit);
+		},
+		"steering:cancel": ({ sessionId, runId, steeringId }, _notify, sender) => {
+			resolveSteeringRun({ runId, sessionId, sender });
+			const existing = runSteering.getSteering(sessionId, steeringId);
+			if (!existing || existing.runId !== runId) throw new Error('Steering instruction not found.');
+			const record = runSteering.cancelSteering({ sessionId, steeringId });
+			emitSteeringUpdates(sender, [record]);
+			return record;
+		},
 		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender) => {
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
@@ -481,11 +532,19 @@ function registerIpcHandlers({
 			if (standaloneDelegation || activeStreams.has(streamKey) || requests.get(sender)?.has(requestId))
 				throw new Error('This session is already running.');
 			const controller = new AbortController();
+			// The run id is minted in the main process. It is the only handle a
+			// steering submission may target; the renderer learns it from the
+			// generating status event.
+			const runId = require('node:crypto').randomUUID();
+			controller.runId = runId;
 			const active = requests.get(sender) ?? new Map();
 			active.set(requestId, controller);
 			requests.set(sender, active);
 			activeStreams.set(streamKey, controller);
-			if (sessionId) sender.send('engine:stream-status', { sessionId, status: 'generating' });
+			if (sessionId) {
+				steeringRuns.set(runId, { runId, sessionId, sender, controller });
+				sender.send('engine:stream-status', { sessionId, status: 'generating', runId });
+			}
 			const abort = () => controller.abort();
 			sender.once("destroyed", abort);
             let persistence;
@@ -495,7 +554,7 @@ function registerIpcHandlers({
                 // assistant row on every attempt. Existing real output persists.
                 if (!persistence && sessionId && (materializeContent() || executionSteps.length || currentStats)) {
                     persistence = require('./engineManager').createMessagePersistence({ sessionId, modelId, modelName,
-                        displayName: capturedDisplayName, agentName: agents.getSessionAgent(sessionId)?.name });
+                        displayName: capturedDisplayName, agentName: agents.getSessionAgent(sessionId)?.name, runId });
                     notify({ type: 'message-created', messageId: persistence.messageId });
                 }
 
@@ -578,6 +637,25 @@ function registerIpcHandlers({
 				const text = await runMemoryChat({
                         projectId: usageProjectId,
                         projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
+                        // Phase 2.1: the loop asks for steering only at a model-request
+                        // boundary. These callbacks claim/confirm rows for this exact
+                        // run id and push compact status events to the owning sender.
+                        takeSteeringInstructions: sessionId ? () => {
+                            const requestId = require('node:crypto').randomUUID();
+                            const batch = runSteering.takeSteering({ sessionId, runId, requestId });
+                            emitSteeringUpdates(sender, batch);
+                            return batch;
+                        } : null,
+                        markSteeringDelivered: sessionId ? (ids, requestId) => {
+                            const records = runSteering.markDelivered({ sessionId, runId, ids, requestId });
+                            emitSteeringUpdates(sender, records);
+                            return records;
+                        } : null,
+                        markSteeringUndelivered: sessionId ? (ids, reason) => {
+                            const records = runSteering.markUndelivered({ sessionId, runId, ids, reason });
+                            emitSteeringUpdates(sender, records);
+                            return records;
+                        } : null,
                         rewindFailedTurnRange,
                         failedToolReason,
                         toolFailureCircuitBreaker: createToolFailureCircuitBreaker({ maxConsecutiveToolFailures, maxTotalToolFailures }),
@@ -900,7 +978,7 @@ function registerIpcHandlers({
 				}
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
 					interrupted: stoppedByLimit, aborted: controller.signal.aborted });
-				return { text, stats: currentStats, executionSteps, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
+				return { text, stats: currentStats, executionSteps, runId, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
 				if (sessionId && persistence) {
@@ -920,7 +998,25 @@ function registerIpcHandlers({
 				active.delete(requestId);
 				if (!active.size) requests.delete(sender);
 				if (activeStreams.get(streamKey) === controller) activeStreams.delete(streamKey);
-				if (sessionId && !sender.isDestroyed()) sender.send('engine:stream-status', { sessionId, status: 'idle' });
+				steeringRuns.delete(runId);
+				// Close the steering queue only after the run is no longer
+				// discoverable, so a late submission cannot slip in after this
+				// reconciliation. Anything not delivered is reported, never applied.
+				if (sessionId) {
+					try {
+						const remaining = runSteering.finalizeRun({
+							sessionId, runId,
+							reason: controller.signal.aborted
+								? 'The run was stopped before this instruction could be delivered.'
+								: undefined,
+						});
+						emitSteeringUpdates(sender, remaining);
+					} catch (error) {
+						// Run teardown must never mask the model result or the abort.
+						console.error('[steering] could not finalize the run:', error?.message ?? error);
+					}
+				}
+				if (sessionId && !sender.isDestroyed()) sender.send('engine:stream-status', { sessionId, status: 'idle', runId });
 			}
 		},
 		"session:regenerate-last": async (data, notify, sender) => {
@@ -932,6 +1028,7 @@ function registerIpcHandlers({
                 content: result.text, status: result.message.status, executionSteps: result.executionSteps, displayName: result.message.displayName,
                 model_name: typeof data.modelName === 'string' && data.modelName.trim() ? data.modelName : data.modelId,
                 model_id: data.modelId, agent_name: agent?.name ?? null,
+                run_id: result.runId ?? null,
                 stats: result.stats ? { ...result.stats, tokens_per_sec: result.stats.tokensPerSecond,
                     total_tokens: result.stats.totalTokens, duration: result.stats.time } : null,
                 created_at: new Date().toISOString(),
@@ -949,6 +1046,9 @@ function registerIpcHandlers({
                     console.error('[workLog] regenerate digest rekey failed (turn unaffected):', error?.message ?? error);
                 }
                 if (result.message.id !== target.id) db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
+                // The surviving reply row now represents this run, so its
+                // additional-prompts footer follows the regenerated answer.
+                if (result.runId) db.prepare('UPDATE messages SET run_id = ? WHERE id = ? AND session_id = ?').run(result.runId, target.id, data.sessionId);
                 db.prepare('UPDATE sessions SET active_leaf_id = ? WHERE id = ?').run(target.id, data.sessionId);
                 return { ...result, message: appendReplyVariant(data.sessionId, target, variant) };
             })();
@@ -1199,6 +1299,10 @@ function registerIpcHandlers({
 						}
 					});
 				}
+				// Steering handlers read/write only main-process state but need the
+				// sender identity to prove run ownership. No stream dispatcher is
+				// involved: status updates are compact direct events.
+				if (channel.startsWith("steering:")) return handler(payload, () => {}, event.sender);
 				return handler(payload);
                 });
 			});

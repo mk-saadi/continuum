@@ -1,11 +1,11 @@
 import React from "react";
 import { useRowUiState } from "../../hooks/useRowUiState.js";
 import ChatMessage from "../ChatMessage.jsx";
+import AdditionalPrompts from "../AdditionalPrompts.jsx";
 import AssistantAvatar from "../AssistantAvatar.jsx";
 import MessageActions from "../MessageActions.jsx";
 import Tooltip from "../Tooltip.jsx";
 import ToolEventCard from "./ToolEventCard.jsx";
-import TurnOutcomes from "./TurnOutcomes.jsx";
 import { splitStages, summarizeStage } from "../../lib/executionEvents.mjs";
 import AttachmentPreview from "./AttachmentPreview.jsx";
 import { assistantLabel, formatModelName } from "../../lib/messageIdentity.mjs";
@@ -51,6 +51,8 @@ export function WorkspaceMessage({
 	onCancelEdit,
 	onSubmitEdit,
 	registerRow = null,
+	steeringPrompts = [],
+	steeringInteractions = [],
 }) {
 	if (!message || typeof message !== "object") return null;
 	const rowKey = message.id != null ? String(message.id) : `ws-${index}`;
@@ -96,6 +98,8 @@ export function WorkspaceMessage({
 			onRegenerate={onRegenerate}
 			onError={onError}
 			isLast={isLast}
+			steeringPrompts={steeringPrompts}
+			steeringInteractions={steeringInteractions}
 		/>
 	);
 }
@@ -357,6 +361,8 @@ function RunSection({
 	onRegenerate,
 	onError,
 	isLast,
+	steeringPrompts = [],
+	steeringInteractions = [],
 }) {
 	const steps = stepsOf(message);
 	const text = assistantTextOf(message);
@@ -432,10 +438,11 @@ function RunSection({
 							onError={onError ?? (() => {})}
 						/>
 					)}
+					{/** Steering instructions and resolved interactions from this run. **/}
 					{!message.streaming && (
-						<TurnOutcomes
-							steps={steps}
-							pendingQuestions={pendingQuestions}
+						<AdditionalPrompts
+							prompts={steeringPrompts}
+							interactions={steeringInteractions}
 						/>
 					)}
 				</div>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getTurnOutcomes } from '../src/lib/executionEvents.mjs';
+import { getTurnInteractions, getTurnOutcomes } from '../src/lib/executionEvents.mjs';
 
 const askStep = (id, args = {}, extra = {}) => ({
   id,
@@ -114,4 +114,54 @@ test('long values are truncated without breaking the label', () => {
   assert.equal(outcomes.length, 1);
   assert.ok(outcomes[0].label.startsWith('Question answered · '));
   assert.ok(outcomes[0].label.length < 120);
+});
+
+test('structured interactions carry the question, answer, and skill detail', () => {
+  const interactions = getTurnInteractions(
+    [askStep('q1', {}, { result: 'Line charts' }), skillStep('s1')],
+    { getSkillDecision: decisions({ s1: 'registered' }) },
+  );
+  assert.deepEqual(interactions, [
+    {
+      key: 'question:q1',
+      kind: 'question',
+      status: 'answered',
+      question: 'Which style?',
+      answer: 'Line charts',
+      options: ['Line charts', 'Bar charts'],
+      label: 'Question answered · Line charts',
+    },
+    {
+      key: 'skill:s1',
+      kind: 'skill',
+      status: 'approved',
+      name: 'render-generated-media-as-png',
+      description: 'd',
+      label: 'Skill registration approved · render-generated-media-as-png',
+    },
+  ]);
+});
+
+test('structured interactions keep free-text answers and cancellations', () => {
+  const interactions = getTurnInteractions(
+    [askStep('q1', {}, { result: 'Surprise me' }), askStep('q2', {}, { status: 'error' })],
+    { getSkillDecision: decisions({}) },
+  );
+  assert.equal(interactions[0].answer, 'Surprise me');
+  assert.equal(interactions[0].label, 'Question answered · Custom response');
+  assert.equal(interactions[1].status, 'cancelled');
+  assert.equal(interactions[1].question, 'Which style?');
+  assert.equal(interactions[1].answer, '');
+});
+
+test('labels are the projection of the structured interactions', () => {
+  const steps = [
+    askStep('q1', {}, { result: 'Line charts' }),
+    skillStep('s1'),
+  ];
+  const options = { getSkillDecision: decisions({ s1: 'declined' }) };
+  assert.deepEqual(
+    getTurnOutcomes(steps, options).map((outcome) => outcome.label),
+    getTurnInteractions(steps, options).map((entry) => entry.label),
+  );
 });

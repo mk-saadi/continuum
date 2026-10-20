@@ -368,7 +368,7 @@ module.exports.notifyChatOutcome = notifyChatOutcome;
 module.exports.isContextLimitError = isContextLimitError;
 
 // Synchronous commits ensure each published snapshot survives process termination.
-function createMessagePersistence({ sessionId, modelId, modelName, displayName, agentName }) {
+function createMessagePersistence({ sessionId, modelId, modelName, displayName, agentName, runId = null }) {
 	const { db } = require("./db");
 	const { variantFromRow } = require("./messageVariants");
 	const parentId =
@@ -377,10 +377,10 @@ function createMessagePersistence({ sessionId, modelId, modelName, displayName, 
 		db
 			.prepare(
 				`INSERT INTO messages
-    (session_id, parent_id, role, content, status, model_id, model_name, display_name, agent_name)
-    VALUES (?, ?, 'assistant', '', 'in_progress', ?, ?, ?, ?)`,
+    (session_id, parent_id, role, content, status, model_id, model_name, display_name, agent_name, run_id)
+    VALUES (?, ?, 'assistant', '', 'in_progress', ?, ?, ?, ?, ?)`,
 			)
-			.run(sessionId, parentId, modelId, modelName ?? modelId, displayName, agentName ?? null)
+			.run(sessionId, parentId, modelId, modelName ?? modelId, displayName, agentName ?? null, runId)
 			.lastInsertRowid,
 	);
 	db.prepare("UPDATE sessions SET active_leaf_id = ? WHERE id = ?").run(messageId, sessionId);

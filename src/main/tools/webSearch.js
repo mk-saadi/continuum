@@ -217,4 +217,4 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
   }
 }
 
-module.exports = { MAX_PAGE_CHARS, sanitizeWebPageContent, sanitizeWebToolResult, getSingleWebPageContent, publicDispatcher, pinnedLookup };
+module.exports = { MAX_PAGE_CHARS, sanitizeWebPageContent, sanitizeWebToolResult, getSingleWebPageContent, publicDispatcher, pinnedLookup, decodeEntities, isPublicAddress };

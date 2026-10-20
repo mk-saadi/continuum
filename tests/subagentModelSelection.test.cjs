@@ -40,6 +40,8 @@ const { listExecutions } = require('../src/main/subagents/executionStore');
 const { CHILD_TOOL_NAMES } = require('../src/main/subagents/agentLoop');
 const modelSelection = require('../src/main/subagents/modelSelection');
 const cloudProviders = require('../src/main/cloudProviders');
+const nodeHttp = require('../src/main/nodeHttpFetch');
+const webSearchTools = require('../src/main/tools/webSearch');
 const { executeSpawnSubagent, PARENT_RESULT_LIMIT, boundResultForParent } = require('../src/main/tools/subagent');
 const { buildSessionSystemPrompt } = require('../src/main/promptBuilder');
 const { db } = require('../src/main/db');
@@ -531,6 +533,50 @@ test('8. a cloud model still gets the read-only child allowlist', async () => {
     uninstallCloud();
     clearSelection();
     await fs.rm(rootPath, { recursive: true, force: true });
+  }
+});
+
+test('8b. a cloud child can use the native web_search with no API key or MCP configuration', async () => {
+  setSelection(CLOUD_SELECTION);
+  const cloud = script([
+    toolResponse([toolCall('s1', 'web_search', { query: 'React documentation', max_results: 2 })],
+      { prompt_tokens: 12, completion_tokens: 6, total_tokens: 18 }),
+    jsonResponse('React docs are at https://react.dev/.', { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 }),
+  ]);
+  installCloud(cloud);
+  const originalFetch = nodeHttp.nodeHttpFetch;
+  const originalDispatcher = webSearchTools.publicDispatcher;
+  let searchRequests = 0;
+  nodeHttp.nodeHttpFetch = async () => {
+    searchRequests += 1;
+    return new Response('<html><body><div class="result results_links web-result ">'
+      + '<a class="result__a" href="https://react.dev/">React</a>'
+      + '<a class="result__snippet">Official React documentation.</a></div></body></html>',
+    { status: 200, headers: { 'content-type': 'text/html' } });
+  };
+  webSearchTools.publicDispatcher = async () => ({ close: async () => {} });
+  try {
+    const output = await runtime.runInvestigation({
+      task: 'Find the React documentation URL.', rootPath: process.cwd(), engine,
+      parentSessionId: 'sel-cloud-search', fetchImpl: forbiddenFetch('local').fetchImpl,
+    });
+    assert.equal(output, 'React docs are at https://react.dev/.');
+    assert.equal(searchRequests, 1, 'the cloud child used the first-party search backend exactly once');
+    assert.ok(toolNamesIn(cloud.payloads[0]).includes('web_search'));
+    assert.ok(!toolNamesIn(cloud.payloads[0]).some(name => name.startsWith('browser_')));
+    const toolMessage = cloud.payloads[1].messages.find(message => message.role === 'tool');
+    assert.match(toolMessage.content, /https:\/\/react\.dev\//);
+    assert.match(toolMessage.content, /Official React documentation/);
+    assert.ok(!JSON.stringify(cloud.payloads).includes('X-Subscription-Token'));
+    const session = childOf('sel-cloud-search');
+    assert.equal(session.status, sessionManager.SESSION_STATUS.COMPLETED);
+    assert.equal(session.provider, 'cloud');
+    assert.equal(session.model, 'cloud-child');
+  } finally {
+    nodeHttp.nodeHttpFetch = originalFetch;
+    webSearchTools.publicDispatcher = originalDispatcher;
+    uninstallCloud();
+    clearSelection();
   }
 });
 

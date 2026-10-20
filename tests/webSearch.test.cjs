@@ -150,12 +150,12 @@ test('oversized tool text is guarded before the next model request', async () =>
   const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
   const requests = [];
   await runMemoryChat({ baseUrl: 'http://local', modelId: 'model', messages: [{ role: 'system', content: 'Be concise.' }],
-    chatTools: [{ type: 'function', function: { name: 'web_search', parameters: { type: 'object' } } }],
+    chatTools: [{ type: 'function', function: { name: 'read_project_file', parameters: { type: 'object' } } }],
     executeTool: async () => 'x'.repeat(40000), guardToolContent: truncateToolOutput,
     fetchImpl: async (_url, options) => {
       const body = JSON.parse(options.body); requests.push(body);
       return Response.json({ choices: [{ message: requests.length === 1
-        ? { role: 'assistant', tool_calls: [{ id: 'web1', type: 'function', function: { name: 'web_search', arguments: '{}' } }] }
+        ? { role: 'assistant', tool_calls: [{ id: 'web1', type: 'function', function: { name: 'read_project_file', arguments: '{}' } }] }
         : { role: 'assistant', content: 'Done. [TASK COMPLETE]' }, finish_reason: requests.length === 1 ? 'tool_calls' : 'stop' }] });
     },
   });

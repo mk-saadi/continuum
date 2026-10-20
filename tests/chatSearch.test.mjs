@@ -53,7 +53,7 @@ test('searchable text covers content, thinking, tool calls, steps, and attachmen
     content: 'body-text',
     thinkingText: 'reasoning-text',
     attachments: [{ name: 'report.pdf' }],
-    toolCalls: [{ toolName: 'web_search', arguments: { query: 'needle-query' }, result: { text: 'result-text' } }],
+    toolCalls: [{ toolName: 'read_project_file', arguments: { query: 'needle-query' }, result: { text: 'result-text' } }],
     executionSteps: [{ type: 'thought', content: 'step-content' }],
   };
   const text = messageSearchText(message);
@@ -61,7 +61,7 @@ test('searchable text covers content, thinking, tool calls, steps, and attachmen
     'body-text',
     'reasoning-text',
     'report.pdf',
-    'web_search',
+    'read_project_file',
     'needle-query',
     'result-text',
     'step-content',

@@ -1,7 +1,8 @@
 # Compact Task-Plan Results (Phase 2.0E)
 
-Status: implemented, tested, benchmarked, and stopped for review. No commit or
-push was performed. The unrelated working-tree changes present before this phase
+Status: implemented, tested, benchmarked, and stopped for review. The
+implementation is present in the current checkout; this verification run made
+no commit or push. The unrelated working-tree changes present before this phase
 (`future-plans.md`, `src/components/main-app/MemorySettings.jsx`,
 `src/index.css`) were left untouched.
 
@@ -341,6 +342,30 @@ plus the RAG model test timing out (reported as one cancelled test with the
 60-second harness timeout). The same identities fail at `HEAD`; the new
 compact-plan suite, existing `workspacePlan` suite, cross-session suite, and
 related plan/compaction/work-log suites all pass.
+
+### Independent re-verification
+
+The same commands were re-run against the current checkout and a fresh
+`git archive HEAD^` baseline in `/tmp` (no stash, reset, or working-tree
+mutation). The absolute counts differ slightly from the earlier run because the
+known Electron/subagent tests are flaky in this environment; the identities are
+what matter.
+
+| Run | Tests | Passed | Failed | Cancelled | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Pre-change `HEAD^` (`dc00270`) | 1,394 | 1,366 | 27 | 0 | 1 |
+| Current `HEAD` (`23cbd71`) | 1,418 | 1,392 | 25 | 0 | 1 |
+| Delta | +24 | +26 | −2 | 0 | 0 |
+
+After normalizing the baseline archive paths, **every one of the 25 current
+failures also fails in the baseline**. No new failing identity was introduced.
+Two baseline-only subagent failures
+(`7. interrupt and resume keep the child on the model it started with`,
+`8. a cloud model still gets the read-only child allowlist`) passed in the
+current run; that flakiness explains why the current failure count is two lower
+than the baseline. The focused plan suites passed 60/60, the Electron
+`WorkspacePlanCard` UI suite passed, and the production build output matched
+the earlier run byte-for-byte by chunk name and size.
 
 ## 14. Production build result
 

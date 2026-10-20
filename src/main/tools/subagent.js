@@ -1,7 +1,6 @@
 'use strict';
 
-// Supported spawn_sub_agent inputs — there is no fourth mode and no child web
-// search:
+// Supported spawn_sub_agent inputs:
 //   1. url (or exactly one URL inside `task`): ONE public page, fetched with
 //      the SSRF-protected getSingleWebPageContent (public-host validation,
 //      pinned DNS, GET-only, 1 MB / 12k-char caps) and answered in one shot.
@@ -9,26 +8,24 @@
 //   3. investigate: true: a multi-turn read-only child loop over
 //      search_project_content / read_project_file / list_directory /
 //      git_status / git_diff / git_log / git_show / git_branch / git_blame /
-//      get_single_web_page_content — still fetch-a-known-URL only.
-// The application now has a native `web_search` tool (Phase 1.7), but it is
-// deliberately NOT in the child allowlist (CHILD_TOOL_NAMES): children stay
-// read-only and cannot spend a search provider's quota, so a child web task
-// still needs an exact URL. (`full-web-search` remains an optional
-// user-provided MCP tool; MCP tools are likewise excluded from the child
-// allowlist.) A child research task without a URL therefore cannot be serviced
-// and must fail with actionable guidance instead of a bare parameter complaint.
+//      web_search / get_single_web_page_content. The worker can now discover
+//      public URLs itself with the same zero-configuration native search tool
+//      the main agent uses; it still cannot use MCP or unrestricted Playwright.
+// A URL-only call stays a single-page fetch. A discovery-style task with no
+// URL must use investigate: true (or the parent can call web_search first and
+// pass the chosen URL), and otherwise still fails with actionable guidance.
 const spawnSubagentTool = {
   type: 'function',
   function: {
     name: 'spawn_sub_agent',
-    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project. Returns a concise answer from the fetched page, file contents, or its own investigation. WEB CAPABILITY IS FETCH-ONLY: the worker cannot search or discover pages, so web research requires the exact URL to read.`,
+    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project or the public web. Returns a concise answer from the fetched page, file contents, or its own investigation. WEB CAPABILITY: a url call fetches exactly that page; an investigating worker can also discover pages itself with the native web_search tool.`,
     parameters: {
       type: 'object',
       properties: {
         task: { type: 'string', description: 'Concrete bounded question, paths or sources, exclusions, and acceptance criterion. Avoid overlap with other children.' },
         constraint: { type: 'string', description: 'Optional length and omission rules, such as no raw HTML or boilerplate.' },
         expected_output: { type: 'string', description: 'Concise findings with file/line or URL evidence first, followed by uncertainties and unfinished work.' },
-        url: { type: 'string', description: 'Public HTTP or HTTPS URL for web research (one per call). The worker fetches only this page — there is no web search, so discovery-style tasks need the exact URL supplied.' },
+        url: { type: 'string', description: 'Public HTTP or HTTPS URL for one-page web research (one per call). The worker fetches exactly this page; for discovery, use investigate: true or call web_search in the main context first.' },
         target_file: { type: 'string', description: 'Absolute path to a single local file to analyze.' },
         investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
       },
@@ -116,13 +113,14 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
   }
   const sourceUrl = resolvedUrl;
   // No URL, no target_file, no investigate: the remaining shape is a research
-  // task that expects search/discovery, which this interface does not have —
-  // it fetches one URL, reads one file, or investigates the project. Fail with
+  // task that expects search/discovery. A URL-only call fetches one page; a
+  // worker that should discover URLs itself must run in investigate mode (its
+  // read-only allowlist includes the native web_search tool). Fail with
   // guidance the caller can act on instead of a bare parameter complaint.
   if (!sourceUrl) {
     throw new Error('Provide a url or target_file parameter (or set investigate: true). '
-      + 'Web research through spawn_sub_agent is fetch-only: the sub-agent cannot search or discover pages, '
-      + 'so pass the exact public URL to read.');
+      + 'A url call fetches exactly one page; to let the worker discover public sources itself, '
+      + 'set investigate: true, or call web_search in the main context and pass the chosen URL.');
   }
 
   const instruction = [task, expected_output && `Expected output: ${expected_output}`,
