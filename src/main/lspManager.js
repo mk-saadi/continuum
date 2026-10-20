@@ -4,6 +4,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
+const { EventEmitter } = require('node:events');
 const { createHash } = require('node:crypto');
 const { spawn, execFile } = require('node:child_process');
 const rpc = require('vscode-jsonrpc/node');
@@ -89,19 +90,19 @@ class LspManager {
     let entry = this.instances.get(root);
     if (!entry) {
       if (this.instances.size >= this.maxInstances) throw fail('INSTANCE_LIMIT');
-      entry = { root, state: 'starting', documents: new Map(), diagnostics: new Map(), queue: Promise.resolve(), timings: {} };
+      entry = { root, state: 'starting', documents: new Map(), diagnostics: new Map(), queue: Promise.resolve(), timings: {}, nextVersion: 0, events: new EventEmitter() };
       this.instances.set(root, entry);
       entry.start = this.start(entry);
     }
     // Cancellation belongs to the caller, not to a shared workspace startup.
-    if (!signal) { await entry.start; if (entry.closing) throw fail('SERVER_UNAVAILABLE'); return entry; }
+    if (!signal) { await entry.start; await this.check(context, entry); return entry; }
     await new Promise((resolve, reject) => {
       const abort = () => { signal.removeEventListener('abort', abort); reject(fail('REQUEST_CANCELLED')); };
       signal.addEventListener('abort', abort, { once: true });
       entry.start.then(() => { signal.removeEventListener('abort', abort); resolve(); }, e => { signal.removeEventListener('abort', abort); reject(e); });
       if (signal.aborted) abort();
     });
-    if (entry.closing) throw fail('SERVER_UNAVAILABLE');
+    await this.check(context, entry);
     return entry;
   }
   async start(e) {
@@ -111,9 +112,16 @@ class LspManager {
       child.once('exit', () => { if (e.state !== 'stopping') { e.state = 'failed'; if (child.lspOwnedGroup) forceKill(child); } e.diagnostics.clear(); });
       e.client.connection.onNotification('textDocument/publishDiagnostics', p => {
         const doc = e.documents.get(p?.uri);
-        if (!doc || !Array.isArray(p.diagnostics)) return;
+        if (e.closing || e.client.dead || !doc || !Array.isArray(p.diagnostics)) return;
         // Unversioned publications cannot prove freshness: retain as explicitly unverified.
-        e.diagnostics.set(p.uri, { diagnostics: p.diagnostics.slice(0, 1000), version: p.version ?? null, contentHash: doc.hash, stale: p.version == null || p.version !== doc.version });
+        const bounded = []; let bytes = 0;
+        for (const item of p.diagnostics.slice(0, 1000)) {
+          if (!item || typeof item !== 'object') continue;
+          const diagnostic = { ...item, message: String(item.message ?? '').slice(0, 16000), messageTruncated: String(item.message ?? '').length > 16000, relatedInformation: (Array.isArray(item.relatedInformation) ? item.relatedInformation : []).filter(info => info && typeof info === 'object').slice(0, 10).map(info => ({ ...info, message: String(info.message ?? '').slice(0, 1000) })) };
+          const size = Buffer.byteLength(JSON.stringify(diagnostic)); if (bytes + size > 1024 * 1024) break; bytes += size; bounded.push(diagnostic);
+        }
+        e.diagnostics.set(p.uri, { total: p.diagnostics.length, diagnostics: bounded, version: p.version ?? null, contentHash: doc.hash, stale: p.version == null || p.version !== doc.version });
+        e.events.emit('diagnostics', p.uri);
       });
       e.state = 'initializing';
       const result = await e.client.request('initialize', {
@@ -153,7 +161,7 @@ class LspManager {
     const previous = e.documents.get(uri);
     if (previous?.hash === hash) return previous;
     if (!previous && e.documents.size >= 128) throw fail('DOCUMENT_LIMIT');
-    const doc = { uri, text: bytes.toString('utf8'), hash, version: (previous?.version ?? 0) + 1 };
+    const doc = { uri, text: bytes.toString('utf8'), hash, version: ++e.nextVersion };
     if (previous) {
       e.diagnostics.delete(uri);
       // A full-range replacement is valid incremental synchronization too.
@@ -164,12 +172,13 @@ class LspManager {
     e.documents.set(uri, doc); e.timings.syncMs = performance.now() - began; return doc;
   }
   async closeDocument(e, uri) { if (e.documents.delete(uri)) await e.client.notify('textDocument/didClose', { textDocument: { uri } }); e.diagnostics.delete(uri); }
-  async refresh(context, relative, options = {}) { const e = await this.acquire(context, options.signal); return this.serialized(e, () => this.sync(e, relative)); }
+  async refresh(context, relative, options = {}) { const e = await this.acquire(context, options.signal); return this.serialized(e, async () => { await this.check(context, e); const doc = await this.sync(e, relative); await this.check(context, e); return doc; }); }
   async request(context, method, input = {}, options = {}) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw fail('INVALID_REQUEST');
     if (!Object.hasOwn(methods, method)) throw fail('UNSUPPORTED_METHOD');
     const e = await this.acquire(context, options.signal);
     return this.serialized(e, async () => {
+      await this.check(context, e);
       if (options.signal?.aborted) throw fail('REQUEST_CANCELLED');
       if (e.state !== 'ready') throw fail('SERVER_UNAVAILABLE');
       if (!e.capabilities[methods[method]]) throw fail('UNSUPPORTED_CAPABILITY');
@@ -186,35 +195,57 @@ class LspManager {
         }
         if (method === 'textDocument/references') params.context = { includeDeclaration: input.includeDeclaration === true };
       }
-      const began = performance.now(); const result = await e.client.request(method, params, options);
+      const began = performance.now();
+      const controller = new AbortController();
+      const abort = () => controller.abort(); options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted) controller.abort();
+      let accessError = null;
+      const timer = setInterval(() => { this.check(context, e).catch(error => { accessError = error; controller.abort(); }); }, 25);
+      let result;
+      try { result = await e.client.request(method, params, { ...options, signal: controller.signal }); }
+      catch (error) { if (accessError) throw accessError; throw error; }
+      finally { clearInterval(timer); options.signal?.removeEventListener('abort', abort); }
+      await this.check(context, e);
       if (result !== null && (typeof result !== 'object' || result === undefined)) throw fail('INVALID_RESPONSE');
       if (['textDocument/references', 'textDocument/documentSymbol', 'workspace/symbol'].includes(method) && result !== null && !Array.isArray(result)) throw fail('INVALID_RESPONSE');
       // Preserve native shapes, but reject external result locations (including related links).
       const validate = async value => { if (!value || typeof value !== 'object') return; for (const [k, v] of Object.entries(value)) { if ((k === 'uri' || k === 'targetUri') && typeof v === 'string') { if (!v.startsWith('file:')) throw fail('WORKSPACE_UNAUTHORIZED'); await this.file(e, v); } else if (typeof v === 'object') await validate(v); } };
-      await validate(result);
+      if (!options.transform) await validate(result);
       const observed = [...e.documents.values()].map(d => ({ uri: d.uri, hash: d.hash }));
       for (const doc of observed) {
         try { if ((await this.sync(e, doc.uri)).hash !== doc.hash) throw fail('STALE_DOCUMENT'); }
         catch (err) { if (err.code === 'ENOENT') throw fail('STALE_DOCUMENT'); throw err; }
       }
-      e.timings.requestMs = performance.now() - began; return result;
+      e.timings.requestMs = performance.now() - began; const output = options.transform ? await options.transform(result, e, params) : result;
+      await this.check(context, e); return output;
     });
+  }
+  async check(context, entry) {
+    try { if (await this.identity(context) !== entry.root) throw fail('WORKSPACE_UNAUTHORIZED'); }
+    catch (err) { void this.closeRoot(entry.root).catch(() => {}); throw err; }
+    if (entry.state !== 'ready' || entry.closing) throw fail('SERVER_UNAVAILABLE');
+  }
+  // Trusted main-process owners call this when a live context's mode changes.
+  // Revocation closes the shared server; eligible peers may reacquire on demand.
+  async permissionChanged(context, previousRoot) {
+    try { if (await this.identity(context) === previousRoot) return; } catch {}
+    if (previousRoot) await this.closeRoot(previousRoot);
   }
   async closeFile(context, relative) {
     const root = await this.identity(context); const e = this.instances.get(root); if (!e) return;
-    await e.start; return this.serialized(e, async () => this.closeDocument(e, (await this.file(e, relative)).uri));
+    await e.start; return this.serialized(e, async () => { await this.check(context, e); return this.closeDocument(e, (await this.file(e, relative)).uri); });
   }
   async saved(context, relative, options = {}) {
     const e = await this.acquire(context, options.signal);
     return this.serialized(e, async () => {
-      const doc = await this.sync(e, relative); const save = e.capabilities.textDocumentSync?.save;
+      await this.check(context, e); const doc = await this.sync(e, relative); const save = e.capabilities.textDocumentSync?.save;
       if (save) await e.client.notify('textDocument/didSave', { textDocument: { uri: doc.uri }, ...(save.includeText ? { text: doc.text } : {}) });
-      return doc;
+      await this.check(context, e); return doc;
     });
   }
   async diagnostics(context, relative) {
     const e = await this.acquire(context);
-    return this.serialized(e, async () => { const doc = await this.sync(e, relative); return e.diagnostics.get(doc.uri) ?? null; });
+    return this.serialized(e, async () => { await this.check(context, e); const doc = await this.sync(e, relative); await this.check(context, e); return e.diagnostics.get(doc.uri) ?? null; });
   }
   async closeRoot(root) {
     this.epoch++;
@@ -237,13 +268,12 @@ class LspManager {
   async close() { this.closed = true; this.epoch++; await Promise.all([...this.instances.keys()].map(root => this.closeRoot(root))); }
 }
 
-// Fail closed: workspace_write normally executes commands inside bwrap. LSP has no
-// sandbox, so only full_access may implicitly launch it. Phase 2 can wire explicit
-// execution approval without weakening that boundary.
-const manager = new LspManager({ authorize: async context => {
+// LSP-specific execution eligibility; unrelated shell policy remains unchanged.
+async function authorizeContext(context) {
   const permissions = require('./toolPermissions');
   const project = permissions.sessionProject(context?.sessionId);
-  if (!project?.root_path || permissions.effectiveMode(context?.permissionMode, project) !== 'full_access') throw fail('WORKSPACE_UNAUTHORIZED');
+  if (!project?.root_path || !['workspace_write', 'full_access'].includes(permissions.effectiveMode(context?.permissionMode, project))) throw fail('WORKSPACE_UNAUTHORIZED');
   return project.root_path;
-} });
-module.exports = { LspManager, Client, manager, languages, runtimePath };
+}
+const manager = new LspManager({ authorize: authorizeContext });
+module.exports = { LspManager, Client, manager, languages, runtimePath, authorizeContext };

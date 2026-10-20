@@ -1,0 +1,491 @@
+{
+  "baselineCommit": "52e234984b2e69aeec1a839bea0a2671814127dd",
+  "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+  "baseline": {
+    "counts": {
+      "tests": 1464,
+      "suites": 8,
+      "pass": 1439,
+      "fail": 25,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failures": [
+      "tests/attachments.test.cjs",
+      "10. background children keep the Step 4 context isolation and tool allowlist",
+      "1. a child finishes after one model response when no tools are needed",
+      "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/compactionBadge.test.cjs",
+      "real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds",
+      "mandatory overflow fails without dispatch or accumulation of blank interrupted replies",
+      "scheduled compression is explicitly run; pending background compaction is awaited before forced work",
+      "regeneration recovery excludes the replaced assistant and preserves its original variant",
+      "forced compaction includes expanded older attachment text and preserves its managed file",
+      "tests/contextPanel.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "native tool guard prevents writes and model self-approval, full access can write outside root",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "workspace normal send retains the brief in the dispatched payload",
+      "casual forced recovery creates no briefs and dispatches no brief section"
+    ]
+  },
+  "final": {
+    "counts": {
+      "tests": 1473,
+      "suites": 8,
+      "pass": 1448,
+      "fail": 25,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failures": [
+      "tests/attachments.test.cjs",
+      "10. background children keep the Step 4 context isolation and tool allowlist",
+      "1. a child finishes after one model response when no tools are needed",
+      "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/compactionBadge.test.cjs",
+      "real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds",
+      "mandatory overflow fails without dispatch or accumulation of blank interrupted replies",
+      "scheduled compression is explicitly run; pending background compaction is awaited before forced work",
+      "regeneration recovery excludes the replaced assistant and preserves its original variant",
+      "forced compaction includes expanded older attachment text and preserves its managed file",
+      "tests/contextPanel.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "native tool guard prevents writes and model self-approval, full access can write outside root",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "workspace normal send retains the brief in the dispatched payload",
+      "casual forced recovery creates no briefs and dispatches no brief section"
+    ]
+  },
+  "newFailures": [],
+  "resolvedFailures": [],
+  "focused": {
+    "counts": {
+      "tests": 19,
+      "suites": 0,
+      "pass": 19,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failures": []
+  },
+  "realServer": {
+    "serverVersion": "4.3.4",
+    "typescriptVersion": "5.7.3",
+    "operations": {
+      "definition": {
+        "ms": 1789.048932,
+        "bytes": 598,
+        "output": {
+          "success": true,
+          "file": "b.ts",
+          "sourceVersion": "sha256:7d4239a4ef1dcdf513cf7a2656974de37ea9a20f15bcae9f883ee59cc4978b4b",
+          "positionEncoding": "utf-16",
+          "excludedCount": 0,
+          "serverCompleteness": "final-response-no-partial-results-requested",
+          "results": [
+            {
+              "path": "a.ts",
+              "startLine": 1,
+              "startColumn": 17,
+              "endLine": 1,
+              "endColumn": 23
+            }
+          ],
+          "returnedCount": 1,
+          "totalCount": 1,
+          "hasMore": false,
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "7d3113b6-961f-4bf6-972f-42d6c65d1d9b",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:45.213Z",
+          "exampleResultsOnly": true
+        }
+      },
+      "warmDefinition": {
+        "ms": 10.122905999999602,
+        "bytes": 598,
+        "output": {
+          "success": true,
+          "file": "b.ts",
+          "sourceVersion": "sha256:7d4239a4ef1dcdf513cf7a2656974de37ea9a20f15bcae9f883ee59cc4978b4b",
+          "positionEncoding": "utf-16",
+          "excludedCount": 0,
+          "serverCompleteness": "final-response-no-partial-results-requested",
+          "results": [
+            {
+              "path": "a.ts",
+              "startLine": 1,
+              "startColumn": 17,
+              "endLine": 1,
+              "endColumn": 23
+            }
+          ],
+          "returnedCount": 1,
+          "totalCount": 1,
+          "hasMore": false,
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "2ac32c00-eede-438f-a078-cb36fec045da",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:45.223Z",
+          "exampleResultsOnly": true
+        }
+      },
+      "references": {
+        "ms": 76.18943499999978,
+        "bytes": 1317,
+        "output": {
+          "success": true,
+          "file": "b.ts",
+          "sourceVersion": "sha256:7d4239a4ef1dcdf513cf7a2656974de37ea9a20f15bcae9f883ee59cc4978b4b",
+          "positionEncoding": "utf-16",
+          "excludedCount": 0,
+          "serverCompleteness": "final-response-no-partial-results-requested",
+          "results": [
+            {
+              "path": "a.ts",
+              "startLine": 1,
+              "startColumn": 17,
+              "endLine": 1,
+              "endColumn": 23
+            },
+            {
+              "path": "a.ts",
+              "startLine": 2,
+              "startColumn": 42,
+              "endLine": 2,
+              "endColumn": 48
+            },
+            {
+              "path": "b.ts",
+              "startLine": 1,
+              "startColumn": 10,
+              "endLine": 1,
+              "endColumn": 16
+            }
+          ],
+          "returnedCount": 10,
+          "totalCount": 64,
+          "hasMore": true,
+          "nextCursor": "916d9a18-102e-4c0d-bc97-f11ed2eae5ab",
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "40fb2951-f1f3-4ce5-8fa2-1961e0e47ef2",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:45.299Z",
+          "exampleResultsOnly": true
+        }
+      },
+      "documentSymbols": {
+        "ms": 61.678135999999995,
+        "bytes": 1081,
+        "output": {
+          "success": true,
+          "file": "a.ts",
+          "sourceVersion": "sha256:2b4962006baece89b616cde09ab9017b3be0e3d1b556861769fef57d2c71473f",
+          "positionEncoding": "utf-16",
+          "excludedCount": 0,
+          "serverCompleteness": "final-response-no-partial-results-requested",
+          "results": [
+            {
+              "path": "a.ts",
+              "startLine": 1,
+              "startColumn": 1,
+              "endLine": 1,
+              "endColumn": 48,
+              "id": "0",
+              "parentId": null,
+              "depth": 0,
+              "name": "answer",
+              "kind": 12
+            },
+            {
+              "path": "a.ts",
+              "startLine": 3,
+              "startColumn": 14,
+              "endLine": 3,
+              "endColumn": 38,
+              "id": "1",
+              "parentId": null,
+              "depth": 0,
+              "name": "list",
+              "kind": 14
+            },
+            {
+              "path": "a.ts",
+              "startLine": 2,
+              "startColumn": 1,
+              "endLine": 2,
+              "endColumn": 55,
+              "id": "2",
+              "parentId": null,
+              "depth": 0,
+              "name": "Service",
+              "kind": 5
+            }
+          ],
+          "returnedCount": 4,
+          "totalCount": 4,
+          "hasMore": false,
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "aa44cee6-0e80-45b5-bff7-3ae1cf84eb20",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:45.361Z",
+          "exampleResultsOnly": true
+        }
+      },
+      "workspaceSymbols": {
+        "ms": 411.004179,
+        "bytes": 519,
+        "output": {
+          "success": true,
+          "positionEncoding": "utf-16",
+          "excludedCount": 0,
+          "serverCompleteness": "final-response-no-partial-results-requested",
+          "results": [
+            {
+              "path": "a.ts",
+              "startLine": 1,
+              "startColumn": 1,
+              "endLine": 1,
+              "endColumn": 48,
+              "name": "answer",
+              "kind": 12
+            }
+          ],
+          "returnedCount": 1,
+          "totalCount": 1,
+          "hasMore": false,
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "9a9e7b77-b028-41a6-b689-48f2b47a747f",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:45.772Z",
+          "exampleResultsOnly": true
+        }
+      },
+      "hover": {
+        "ms": 45.248623999999836,
+        "bytes": 347,
+        "output": {
+          "success": true,
+          "file": "b.ts",
+          "sourceVersion": "sha256:7d4239a4ef1dcdf513cf7a2656974de37ea9a20f15bcae9f883ee59cc4978b4b",
+          "positionEncoding": "utf-16",
+          "content": "\n```typescript\n(alias) answer(): number\nimport answer\n```\n",
+          "format": "markdown",
+          "untrusted": true,
+          "truncated": false,
+          "range": {
+            "startLine": 2,
+            "startColumn": 23,
+            "endLine": 2,
+            "endColumn": 29
+          }
+        }
+      },
+      "diagnostics": {
+        "ms": 222.55763499999966,
+        "bytes": 5443,
+        "output": {
+          "success": true,
+          "state": "stale",
+          "file": "b.ts",
+          "sourceVersion": "sha256:7d4239a4ef1dcdf513cf7a2656974de37ea9a20f15bcae9f883ee59cc4978b4b",
+          "diagnosticVersion": null,
+          "excludedCount": 0,
+          "positionEncoding": "utf-16",
+          "results": [
+            {
+              "startLine": 2,
+              "startColumn": 7,
+              "endLine": 2,
+              "endColumn": 12,
+              "severity": 1,
+              "code": 2322,
+              "source": "typescript",
+              "message": "Type 'number' is not assignable to type 'string'.",
+              "messageTruncated": false
+            },
+            {
+              "startLine": 2,
+              "startColumn": 7,
+              "endLine": 2,
+              "endColumn": 12,
+              "severity": 4,
+              "code": 6133,
+              "source": "typescript",
+              "message": "'value' is declared but its value is never read.",
+              "messageTruncated": false
+            },
+            {
+              "startLine": 3,
+              "startColumn": 7,
+              "endLine": 3,
+              "endColumn": 14,
+              "severity": 4,
+              "code": 6133,
+              "source": "typescript",
+              "message": "'result0' is declared but its value is never read.",
+              "messageTruncated": false
+            }
+          ],
+          "returnedCount": 25,
+          "totalCount": 62,
+          "hasMore": true,
+          "nextCursor": "9f04643b-cd48-4cf6-8365-b60dceb556c6",
+          "truncated": false,
+          "applicationTruncated": false,
+          "serverTruncated": "unknown",
+          "incomplete": "unknown",
+          "snapshotId": "11f034f7-bb34-4a57-a61c-eb46b45562ff",
+          "provenance": "immutable-query-snapshot",
+          "observedAt": "2026-10-20T16:44:46.062Z",
+          "exampleResultsOnly": true
+        }
+      }
+    },
+    "startupMs": 226.211636,
+    "externalLocations": {
+      "success": true,
+      "file": "a.ts",
+      "sourceVersion": "sha256:2b4962006baece89b616cde09ab9017b3be0e3d1b556861769fef57d2c71473f",
+      "positionEncoding": "utf-16",
+      "excludedCount": 2,
+      "serverCompleteness": "final-response-no-partial-results-requested",
+      "results": [],
+      "returnedCount": 0,
+      "totalCount": 0,
+      "hasMore": false,
+      "truncated": false,
+      "applicationTruncated": false,
+      "serverTruncated": "unknown",
+      "incomplete": "unknown",
+      "snapshotId": "0e709902-3642-4d4b-9ba8-ad6109139ed2",
+      "provenance": "immutable-query-snapshot",
+      "observedAt": "2026-10-20T16:44:45.839Z"
+    },
+    "diagnosticRefreshMs": 402.9294970000001,
+    "cleared": {
+      "success": true,
+      "state": "stale",
+      "file": "b.ts",
+      "sourceVersion": "sha256:21b69b4fa4010f9870470c0a832c455bcd9fedd843911efc305325a4ac491552",
+      "diagnosticVersion": null,
+      "excludedCount": 0,
+      "positionEncoding": "utf-16",
+      "results": [
+        {
+          "startLine": 2,
+          "startColumn": 7,
+          "endLine": 2,
+          "endColumn": 12,
+          "severity": 4,
+          "code": 6133,
+          "source": "typescript",
+          "message": "'value' is declared but its value is never read.",
+          "messageTruncated": false
+        }
+      ],
+      "returnedCount": 25,
+      "totalCount": 61,
+      "hasMore": true,
+      "nextCursor": "ff1a4a18-89b8-4ac7-ad0c-f02c8d1d86eb",
+      "truncated": false,
+      "applicationTruncated": false,
+      "serverTruncated": "unknown",
+      "incomplete": "unknown",
+      "snapshotId": "185acd0f-b8af-42f0-9476-b51b5d5bf646",
+      "provenance": "immutable-query-snapshot",
+      "observedAt": "2026-10-20T16:44:46.465Z",
+      "exampleResultsOnly": true
+    },
+    "paginationBytes": 30241,
+    "snapshotCount": 16,
+    "shutdown": "stopped"
+  },
+  "productionBuild": "passed; existing >500kB chunk warning",
+  "ui": {
+    "permissionMode": {
+      "baseline": "passed",
+      "final": "passed on repeat; first run passed assertions but ENOTEMPTY in temp cleanup"
+    },
+    "fileBrowser": "passed"
+  },
+  "restrictedBaseline": {
+    "counts": {
+      "tests": 198,
+      "suites": 0,
+      "pass": 166,
+      "fail": 32,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failures": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/compactionBadge.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/contextPanel.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs",
+      "tests/workspaceBriefBudget.test.cjs"
+    ]
+  }
+}
