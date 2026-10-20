@@ -125,6 +125,7 @@ app.whenReady().then(async () => {
       // Without architecture metadata the expert count cannot be forwarded, so it is disabled.
       window.renderLoad({ id: 'dense', name: 'Dense' }); await tick();
       check(numberField('MoE Expert Count').disabled === true, 'Unknown architecture disables the expert count input');
+      check(![...document.querySelectorAll('label')].some(node => node.textContent.includes('Offload vision projector')), 'Projector offload control is hidden without a projector');
     })()`);
     await window.webContents.executeJavaScript(`(async () => {
       const tick = () => new Promise(resolve => setTimeout(resolve, 80));
@@ -144,8 +145,48 @@ app.whenReady().then(async () => {
       check(window.launched.mmprojPath === '/models/vision.gguf', 'Selected projector launches without warning');
       await render(model);
       check([...document.querySelectorAll('select')].find(select => [...select.options].some(option => option.value === '/models/vision.gguf')).value === '/models/vision.gguf', 'Last projector restored on reopen');
+      const offloadToggle = () => [...document.querySelectorAll('label')].find(node => node.textContent.includes('Offload vision projector'))?.querySelector('input');
+      check(offloadToggle(), 'Projector offload control exists with a projector');
+      check(offloadToggle().checked === true, 'Projector offload defaults to on (GPU)');
+      offloadToggle().click(); await tick();
+      window.launched = null; document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await tick();
+      check(window.launched.mmprojOffload === false, 'CPU projector placement reaches the launch payload');
+      await render(model);
+      check(offloadToggle().checked === false, 'Projector offload choice is remembered');
+      check([...document.querySelectorAll('select')].find(select => [...select.options].some(option => option.value === '/models/vision.gguf')).value === '/models/vision.gguf', 'Selected projector still restored after offload change');
       await render({ ...model, projectorCandidates: [{ path: '/models/replacement.gguf', name: 'Replacement' }] });
       check(document.querySelector('[role=alert]').textContent.includes('no longer'), 'Missing saved projector explained');
+
+      // Live memory estimate reacts to projector selection and device placement.
+      window.savedConfig = {};
+      const richModel = { id: 'rich', name: 'Rich', architecture: 'qwen3', layerCount: 64, attentionHeads: 32, kvHeads: 8, embeddingLength: 4096,
+        fileIdentity: { size: 10 * 1024 * 1024 * 1024 },
+        mmprojPath: '/models/vision.gguf',
+        projectorCandidates: [{ path: '/models/vision.gguf', name: 'mmproj-vision.gguf', fileIdentity: { size: 900 * 1024 * 1024 } }] };
+      const memoryValue = label => {
+        const span = [...document.querySelectorAll('span')].find(node => node.textContent.includes(label) && node.querySelector('strong'));
+        return span?.querySelector('strong')?.textContent ?? null;
+      };
+      await render(richModel);
+      const vramWithProjector = memoryValue('GPU VRAM');
+      check(vramWithProjector && !vramWithProjector.includes('unknown'), 'Memory estimate renders a numeric VRAM total');
+      check(memoryValue('System RAM') && !memoryValue('System RAM').includes('unknown'), 'Memory estimate renders a numeric RAM total');
+      check(offloadToggle().checked === true, 'A preselected projector defaults to GPU placement');
+      // Removing the projector drops its ~900 MiB out of the VRAM estimate.
+      await render({ ...richModel, mmprojPath: null });
+      check(memoryValue('GPU VRAM') !== vramWithProjector, 'VRAM estimate reflects the projector selection');
+      // Keeping the projector on the CPU moves its size into the RAM estimate.
+      await render(richModel);
+      const ramOnGpu = memoryValue('System RAM');
+      offloadToggle().click(); await tick();
+      check(memoryValue('System RAM') !== ramOnGpu, 'RAM estimate updates when the projector moves to CPU');
+      // Moving the KV cache to the CPU lowers VRAM and raises RAM.
+      const vramBeforeKv = memoryValue('GPU VRAM');
+      const ramBeforeKv = memoryValue('System RAM');
+      const kvOffloadSelect = [...document.querySelectorAll('select')].find(select => [...select.options].some(option => option.value === 'cpu') && [...select.options].some(option => option.value === 'gpu'));
+      kvOffloadSelect.value = 'cpu'; kvOffloadSelect.dispatchEvent(new Event('change', { bubbles: true })); await tick();
+      check(memoryValue('GPU VRAM') !== vramBeforeKv, 'VRAM estimate updates when the KV cache moves to CPU');
+      check(memoryValue('System RAM') !== ramBeforeKv, 'RAM estimate updates when the KV cache moves to CPU');
     })()`);
     await window.webContents.executeJavaScript(`window.renderEmpty()`);
     await new Promise(resolve => setTimeout(resolve, 80));

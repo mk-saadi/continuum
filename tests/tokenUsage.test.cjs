@@ -9,9 +9,10 @@ Module._load = function(name, ...args) {
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory } };
   return originalLoad.call(this, name, ...args);
 };
+// The stub above intentionally supplies getPath for legacy attachment repair,
+// which initDatabase runs on every open.
 const { db, initDatabase, closeDatabase } = require('../src/main/db');
 const { logTokenUsage, getTokenHistory, setRetention } = require('../src/main/tokenUsage');
-Module._load = originalLoad;
 const now = new Date('2026-03-31T12:00:00Z');
 const log = (turnId, timestamp, projectId, promptTokens = 10, completionTokens = 5) => logTokenUsage({ turnId, chatId: 'chat', projectId, timestamp, promptTokens, completionTokens }, now);
 try {
@@ -40,4 +41,8 @@ try {
   assert.equal(getTokenHistory({ months: 12 }, now).retentionMonths, 1, 'retention survives restart');
   assert.equal(getTokenHistory({ projectId: 'missing' }, now).data.reduce((sum, row) => sum + row.turns, 0), 0);
   console.log('Token logging, deduplication, project filters, UTC buckets, retention and reopen checks passed.');
-} finally { closeDatabase(); fs.rmSync(directory, { recursive: true, force: true }); }
+} finally {
+  Module._load = originalLoad;
+  closeDatabase();
+  fs.rmSync(directory, { recursive: true, force: true });
+}

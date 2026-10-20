@@ -213,7 +213,11 @@ function resolveRuntimeLimits(settings) {
 
 function createLedger() {
   return { inputMeasured: 0, inputEstimated: 0, outputMeasured: 0, outputUnknownTurns: 0, outputReserved: 0,
-    reasoningMeasured: 0, reasoningUnknownTurns: 0, turns: 0 };
+    reasoningMeasured: 0, reasoningUnknownTurns: 0,
+    // Cache reads are a measured subset of input. They are recorded for
+    // diagnostics and persistence but never discounted from the input ledger:
+    // budgets continue to enforce the full provider-reported prompt.
+    cachedInputMeasured: 0, cachedInputUnknownTurns: 0, turns: 0 };
 }
 
 function estimatePromptTokens(messages, tools = []) {
@@ -237,28 +241,58 @@ function normalizeUsage(usage) {
   return {
     input: int(usage.prompt_tokens) ?? int(usage.input_tokens),
     output: int(usage.completion_tokens) ?? int(usage.output_tokens),
-    cachedInput: int(usage.cached_tokens) ?? int(usage.cache_read_input_tokens) ?? int(usage.prompt_tokens_details?.cached_tokens),
+    cachedInput: int(usage.cached_tokens)
+      ?? int(usage.cache_read_input_tokens)
+      ?? int(usage.prompt_cache_hit_tokens)
+      ?? int(usage.prompt_tokens_details?.cached_tokens)
+      // Gemini's native/compatibility usage metadata names the cached prompt
+      // portion separately; it is part of the gross prompt, never additive.
+      ?? int(usage.usageMetadata?.cachedContentTokenCount)
+      ?? int(usage.cachedContentTokenCount),
     // A subset of `output`, never an addition to it. Unreported stays null.
     reasoning: int(usage.completion_tokens_details?.reasoning_tokens)
       ?? int(usage.output_tokens_details?.reasoning_tokens)
       ?? int(usage.reasoning_tokens)
-      ?? int(usage.thoughts_token_count),
+      ?? int(usage.thoughts_token_count)
+      ?? int(usage.usageMetadata?.thoughtsTokenCount)
+      ?? int(usage.thoughtsTokenCount),
+  };
+}
+
+// Phase 2.0C-3 billing evidence, kept separate from the budget counters above.
+// Cache writes are a billed portion of the gross prompt (already inside
+// prompt_tokens), and some gateways return the authoritative charge as
+// `usage.cost`. Neither affects admission or enforcement, so they are surfaced
+// here rather than in normalizeUsage — the budget contract stays unchanged.
+function extractBillingUsage(usage) {
+  if (!usage || typeof usage !== 'object') return { cacheWritten: null, providerCost: null };
+  const int = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+  const cost = typeof usage.cost === 'number' && Number.isFinite(usage.cost) && usage.cost >= 0 ? usage.cost : null;
+  return {
+    cacheWritten: int(usage.cache_creation_input_tokens) ?? int(usage.cache_write_tokens)
+      ?? int(usage.prompt_tokens_details?.cache_creation_tokens) ?? int(usage.prompt_tokens_details?.cache_write_tokens),
+    providerCost: cost,
   };
 }
 
 function recordTurn(ledger, { messages, tools = [], usage = null } = {}) {
   ledger.turns += 1;
-  const { input, output, reasoning } = normalizeUsage(usage);
+  const { input, output, reasoning, cachedInput } = normalizeUsage(usage);
   if (input !== null) ledger.inputMeasured += input;
   else ledger.inputEstimated += estimatePromptTokens(messages, tools);
   if (output !== null) ledger.outputMeasured += output;
   else ledger.outputUnknownTurns += 1;
   if (reasoning !== null) ledger.reasoningMeasured += reasoning;
   else ledger.reasoningUnknownTurns += 1;
+  if (cachedInput !== null) ledger.cachedInputMeasured += cachedInput;
+  else ledger.cachedInputUnknownTurns += 1;
   return ledger;
 }
 
 function ledgerTotals(ledger) {
+  const cacheCoverage = ledger.turns === 0 ? 'unavailable'
+    : (ledger.cachedInputUnknownTurns ?? 0) === 0 ? 'measured'
+      : (ledger.cachedInputMeasured ?? 0) > 0 ? 'partially_measured' : 'unavailable';
   return {
     inputTokens: ledger.inputMeasured + ledger.inputEstimated,
     inputCoverage: ledger.turns === 0 ? 'unavailable'
@@ -272,6 +306,12 @@ function ledgerTotals(ledger) {
     reasoningMeasured: ledger.reasoningMeasured ?? 0,
     reasoningCoverage: ledger.turns === 0 ? 'unavailable'
       : (ledger.reasoningUnknownTurns ?? 0) === 0 ? 'measured' : (ledger.reasoningMeasured ?? 0) > 0 ? 'partial' : 'unreported',
+    // Cache reads are a measured subset of input. A provider that never
+    // reports them leaves the value unknown rather than zero.
+    cacheReadTokens: cacheCoverage === 'measured' ? (ledger.cachedInputMeasured ?? 0)
+      : cacheCoverage === 'partially_measured' ? (ledger.cachedInputMeasured ?? 0) : null,
+    cachedInputMeasured: ledger.cachedInputMeasured ?? 0,
+    cacheReadCoverage: cacheCoverage,
     visibleOutputTokens: Math.max(0, (ledger.outputMeasured ?? 0) - (ledger.reasoningMeasured ?? 0)),
     turns: ledger.turns,
   };
@@ -332,5 +372,5 @@ module.exports = {
   MIN_COMPLETION_RESERVE, ESCALATION_FACTOR, UNBOUNDED, LIMITS, RUNTIME_DEFAULTS, RUNTIME_FIELDS,
   ceilingFor, turnsFor, contextLengthOf, resolveEngineContextLength, autoBudgets, resolveTaskBudgets, resolveRuntimeLimits,
   describeAutoPolicy,
-  createLedger, estimatePromptTokens, normalizeUsage, recordTurn, ledgerTotals, canAffordNext, escalatedCeiling, limitReached, remaining,
+  createLedger, estimatePromptTokens, normalizeUsage, extractBillingUsage, recordTurn, ledgerTotals, canAffordNext, escalatedCeiling, limitReached, remaining,
 };

@@ -186,6 +186,9 @@ function buildLlamaServerArgs(model, input, port) {
 		if (typeof model.mmprojPath !== "string" || model.mmprojPath.includes("\0"))
 			throw new Error("Invalid projector path.");
 		args.push("--mmproj", model.mmprojPath);
+		// The projector is offloaded to the GPU by default; the disabling flag is
+		// only emitted when the user opts to keep it on the CPU.
+		if (config.mmprojOffload === false) args.push("--no-mmproj-offload");
 	}
 	return args;
 }

@@ -284,7 +284,10 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     const xmlInterceptor = createXmlToolCallInterceptor(onToolStream);
     const visibleContent = typeof rawContent === 'string' ? xmlInterceptor.push(rawContent) + xmlInterceptor.finish() : rawContent;
     const acceptedContent = intercept(visibleContent, contentDetector, onText);
-    return { content: acceptedContent, toolCalls: loopDetected ? [] : [...toolCalls, ...xmlInterceptor.calls], loopDetected, usage: mergeMetrics(null, result.usage), timings: mergeMetrics(null, result.timings), endTime: now() };
+    return { content: acceptedContent, toolCalls: loopDetected ? [] : [...toolCalls, ...xmlInterceptor.calls], loopDetected,
+      // Some compatible endpoints expose native Gemini-style count fields.
+      usage: mergeMetrics(null, result.usage ?? result.usageMetadata),
+      timings: mergeMetrics(null, result.timings), endTime: now() };
   }
   if (!response.body) throw new Error('The model returned no response stream.');
   const reader = response.body.getReader();
@@ -300,7 +303,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     if (data.trim() === '[DONE]') { endTime ??= now(); done = true; return; }
     const chunk = JSON.parse(data);
     if (chunk.error) throw new Error(chunk.error.message || 'Model streaming error.');
-    usage = mergeMetrics(usage, chunk.usage);
+    usage = mergeMetrics(usage, chunk.usage ?? chunk.usageMetadata);
     timings = mergeMetrics(timings, chunk.timings);
     const choice = chunk.choices?.find((entry) => entry.index === 0) ?? chunk.choices?.[0];
     if (!choice) return;
@@ -682,13 +685,17 @@ export async function runMemoryChat({
     // This never touches cumulative accounting; onStats stays the single
     // writer of persisted turn stats (no double counting).
     try {
-      onPhase({ round, promptTokens: phases[phases.length - 1].promptTokens ?? null,
-        completionTokens: phases[phases.length - 1].completionTokens ?? null,
-        cachedTokens: phases[phases.length - 1].cachedTokens ?? null,
-        cacheCreationTokens: phases[phases.length - 1].cacheCreationTokens ?? null,
-        reasoningTokens: phases[phases.length - 1].reasoningTokens ?? null,
-        visibleCompletionTokens: phases[phases.length - 1].visibleCompletionTokens ?? null,
-        phase: phases[phases.length - 1], telemetry: turnPromptTelemetry(phases) });
+      const latest = phases[phases.length - 1];
+      onPhase({ round, promptTokens: latest.promptTokens ?? null,
+        completionTokens: latest.completionTokens ?? null,
+        cachedTokens: latest.cachedTokens ?? null,
+        cacheCreationTokens: latest.cacheCreationTokens ?? null,
+        uncachedInputTokens: latest.uncachedInputTokens ?? null,
+        reasoningTokens: latest.reasoningTokens ?? null,
+        visibleCompletionTokens: latest.visibleCompletionTokens ?? null,
+        cacheReadCoverage: latest.cacheReadCoverage ?? null,
+        cacheWriteCoverage: latest.cacheWriteCoverage ?? null,
+        phase: latest, telemetry: turnPromptTelemetry(phases) });
     } catch { /* Telemetry listeners must not break the tool loop. */ }
     // A provider that ignores tool_choice:none must not create an endless loop.
     if (finalResponseOnly && result.toolCalls.length) {

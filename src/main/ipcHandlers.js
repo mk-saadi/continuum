@@ -148,6 +148,14 @@ function registerIpcHandlers({
         },
         "tokens:history": input => require('./tokenUsage').getTokenHistory(input),
         "tokens:retention": ({ months }) => require('./tokenUsage').setRetention(months),
+        // Phase 2.0D spending dashboard. Read-only aggregates over the cost
+        // evidence persisted by Phase 2.0C-3; these handlers never estimate a
+        // new price and never trigger inference.
+        "usage:dashboard": input => require('./spendingDashboard').getDashboard(input),
+        "usage:attribution": input => require('./spendingDashboard').getAttribution(input),
+        "usage:records": input => require('./spendingDashboard').getRecords(input),
+        "usage:pricing-history": input => require('./spendingDashboard').getPricingHistory(input),
+        "usage:model-detail": input => require('./spendingDashboard').getModelDetail(input),
         "project:create": input => projects.createProject(input),
         "project:update": ({ id, ...patch }) => projects.updateProject(id, patch),
         "project:delete": ({ id }) => projects.deleteProject(id),
@@ -516,10 +524,20 @@ function registerIpcHandlers({
 				const { runMemoryChat } = await import("../lib/memoryChat.mjs");
                 const { rewindFailedTurnRange, failedToolReason, createProjectToolLoopGuard, createToolFailureCircuitBreaker } = require('./engineManager');
                 const { maxConsecutiveToolFailures, maxTotalToolFailures } = getAppSettings();
-                const { phaseStats } = await import('../lib/completionStats.mjs');
                 const usageTurnId = require('node:crypto').randomUUID();
                 const childBudgetScope = require('./subagents/executionBudget').createParentRunBudget();
                 const usageTimestamp = new Date().toISOString();
+                // Cost evidence is resolved once per turn. For cloud turns the
+                // async path refreshes the read-only metadata cache; the
+                // synchronous settlement below reads only what is already
+                // materialized, so no cost path adds a network call to a turn.
+                const costEstimator = require('./costEstimator');
+                let turnPricing = null;
+                if (cloud) {
+                    costEstimator.resolveTurnPricingAsync({ providerId: target.provider, modelId })
+                        .then(value => { turnPricing = value; })
+                        .catch(() => { /* provider-reported cost still applies */ });
+                }
                 const usageProjectId = sessionId ? require('./db').db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id ?? null : null;
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
 					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
@@ -703,16 +721,43 @@ function registerIpcHandlers({
                         notify({ type: "step-update", messageId, executionSteps: displaySteps(executionSteps) });
                     },
 					onStats: (stats) => {
-						currentStats = stats;
-                        persist();
-                        const reported = stats.raw?.length ? stats.raw.map(phase => phaseStats({ ...phase, startTime: 0, endTime: 0 })) : [stats];
-                        if (reported.some(phase => phase.promptTokens != null || phase.completionTokens != null)) {
+                        const estimate = costEstimator.estimateFromStats({ stats, resolvedPricing: turnPricing,
+                            isLocal: !cloud, providerId: cloud ? target.provider : null, modelId });
+                        // The renderer shows a compact per-turn cost chip from
+                        // this summary; the full evidence (breakdown, rates,
+                        // version) is persisted to token history below.
+                        currentStats = { ...stats, cost: {
+                            total: estimate.totalCost ?? null, currency: estimate.currency,
+                            completeness: estimate.completeness, savings: estimate.cacheSavings ?? null,
+                            providerReported: estimate.providerReportedCost ?? null, source: estimate.source } };
+						persist();
+                        // Persist the same normalized turn aggregate the UI sees.
+                        // Unknown sides are never replaced with zero: the existing
+                        // row schema requires gross prompt/completion counts, so a
+                        // turn missing either side is not written as a false total.
+                        // Cache fields stay nullable and carry their coverage label.
+                        if (Number.isSafeInteger(stats.promptTokens) && Number.isSafeInteger(stats.completionTokens)) {
                             require('./tokenUsage').logTokenUsage({ turnId: usageTurnId, chatId: sessionId ?? null, projectId: usageProjectId,
                                 timestamp: usageTimestamp,
-                                promptTokens: reported.reduce((sum, phase) => sum + (phase.promptTokens ?? 0), 0),
-                                completionTokens: reported.reduce((sum, phase) => sum + (phase.completionTokens ?? 0), 0) });
+                                promptTokens: stats.promptTokens,
+                                completionTokens: stats.completionTokens,
+                                uncachedInputTokens: stats.uncachedInputTokens ?? null,
+                                cacheReadTokens: stats.cachedTokens ?? null,
+                                cacheCreationTokens: stats.cacheCreationTokens ?? null,
+                                reasoningTokens: stats.reasoningTokens ?? null,
+                                visibleOutputTokens: stats.visibleCompletionTokens ?? null,
+                                inputSource: stats.inputSource ?? null,
+                                cacheReadSource: stats.cacheReadSource ?? null,
+                                cacheWriteSource: stats.cacheWriteSource ?? null,
+                                cacheReadCoverage: stats.cacheReadCoverage ?? null,
+                                cacheWriteCoverage: stats.cacheWriteCoverage ?? null,
+                                usageCoverage: stats.inputCoverage === 'measured' && stats.outputCoverage === 'measured'
+                                    ? 'measured' : 'partially_measured',
+                                modelId: modelId ?? null,
+                                provider: cloud ? (target.provider ?? null) : 'local',
+                                cost: costEstimator.costColumns(estimate) });
                         }
-						notify({ type: "stats", stats });
+						notify({ type: "stats", stats: currentStats });
 					},
 					// Live per-request prompt telemetry. Forward-only: never
 					// persisted here and never logged to token usage. The final

@@ -1,6 +1,7 @@
 import CloudProviderSettings from "../CloudProviderSettings";
 import React, { useEffect, useRef, useState } from "react";
 import TokenHistory from "../settings/TokenHistory";
+import UsageCostsDashboard from "../settings/usage/UsageCostsDashboard";
 import TerminalLog from "../TerminalLog";
 import RagSettings from "../RagSettings";
 import LocalApiSettings from "../LocalApiSettings";
@@ -26,6 +27,7 @@ import {
 	LuServer,
 	LuHardDrive,
 	LuChartNoAxesCombined,
+	LuWallet,
 	LuX,
 } from "react-icons/lu";
 import { GiStarSwirl } from "react-icons/gi";
@@ -93,6 +95,13 @@ const tabs = [
 		label: "Usage & Logs",
 		icon: LuChartNoAxesCombined,
 		description: "Token consumption and engine diagnostics.",
+	},
+	{
+		id: "usage-costs",
+		group: "System",
+		label: "Usage & Costs",
+		icon: LuWallet,
+		description: "Cloud spending, provider charges, and pricing evidence.",
 	},
 ];
 
@@ -680,6 +689,17 @@ export default function MemorySettings({
 								serverPort={serverPort}
 								serverError={serverError}
 							/>
+						</section>
+
+						<section
+							id="settings-panel-usage-costs"
+							role="tabpanel"
+							aria-labelledby="settings-tab-usage-costs"
+							hidden={tab !== "usage-costs"}
+							tabIndex={0}
+							className={panelClass}
+						>
+							{tab === "usage-costs" && <UsageCostsDashboard />}
 						</section>
 					</div>
 				</div>

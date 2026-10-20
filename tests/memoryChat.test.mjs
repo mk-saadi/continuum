@@ -188,7 +188,16 @@ test('usage-only final chunk supplies message stats and requests usage', async (
       return stream([chunk({ content: 'Hello' }, 'stop'), { choices: [], usage: { prompt_tokens: 10, completion_tokens: 20 } }]);
     },
   });
-  assert.deepEqual(stats, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', cachedTokens: null, cacheCreationTokens: null, lastCachedTokens: null, lastCacheCreationTokens: null, reasoningTokens: null, visibleCompletionTokens: null, reasoningCoverage: 'unreported', scope: 'all', raw: [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }] });
+  assert.deepEqual({ ...stats, raw: undefined }, { startTime: 1000, endTime: 3000, time: 2, promptTokens: 10, completionTokens: 20, totalTokens: 30, tokensPerSecond: 10, lastPromptTokens: 10, peakPromptTokens: 10, peakRequestIndex: 1, promptRequests: 1, promptCoverage: 'complete', cachedTokens: null, cacheCreationTokens: null, lastCachedTokens: null, lastCacheCreationTokens: null, reasoningTokens: null, visibleCompletionTokens: null, reasoningCoverage: 'unreported', scope: 'all', raw: undefined,
+    grossInputTokens: 10, uncachedInputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, outputTokens: 20,
+    inputSource: 'provider', outputSource: 'provider', cacheReadSource: 'unavailable', cacheWriteSource: 'unavailable',
+    inputCoverage: 'measured', outputCoverage: 'measured', totalCoverage: 'measured',
+    uncachedInputCoverage: 'unavailable', cacheReadCoverage: 'unavailable', cacheWriteCoverage: 'unavailable',
+    // Provider-reported charge (Phase 2.0C-3): absent here, so it stays null
+    // rather than a fabricated zero. Coverage says no request reported one.
+    providerCost: null, providerCostCoverage: 'unavailable', lastProviderCost: null,
+    usageSemantics: 'per-request' });
+  assert.deepEqual(stats.raw, [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }]);
 });
 
 test('provider reasoning tokens are a measured subset of output, not a second total', async () => {

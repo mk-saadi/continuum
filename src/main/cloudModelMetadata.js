@@ -39,6 +39,10 @@ function normalizeCloudModel(model, baseUrl, apiType) {
       maxBudget: nonNegative(reasoningInfo.max_tokens ?? reasoningInfo.maxBudget),
     },
     pricing: { input: price(model.pricing?.prompt), output: price(model.pricing?.completion) },
+    // Raw provider price metadata, preserved untouched so the cost estimator
+    // can normalize cache rates, conditional overrides and units once, in one
+    // place. Never used as a display value directly.
+    pricingRaw: model.pricing && typeof model.pricing === 'object' ? model.pricing : null,
   };
 }
 module.exports = { normalizeCloudModel, providerName };

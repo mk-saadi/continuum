@@ -20,32 +20,16 @@
 
 const MIB = 1024 * 1024;
 
+// Shared estimator: the preflight wraps it below, and the renderer's live
+// VRAM/RAM readout in the load modal calls the same function directly.
+const { kvElementBytes, estimateMemoryUsage } = require("../lib/memoryEstimate.mjs");
+
 // Reserved free VRAM after a load before we consider the fit "comfortable".
 // This deliberately mirrors llama.cpp's own reserve: the server's auto-fit
 // (`-ngl auto`) reduces offload when it cannot leave this much free, so using
 // the same number keeps the preflight prediction aligned with what the runtime
 // will actually decide.
 const DEFAULT_SAFETY_MARGIN_MIB = 1024;
-
-// Bytes per KV-cache element. Half-precision types are 2 bytes; quantized
-// types store 32 weights per block (q8_0 = 34 bytes, q4_0 = 18 bytes, ...).
-// Unknown types fall back to f16 so an unrecognized value never looks cheaper
-// than it is.
-const KV_BYTES_PER_ELEMENT = Object.freeze({
-	f32: 4,
-	f16: 2,
-	bf16: 2,
-	q8_0: 34 / 32,
-	q5_1: 24 / 32,
-	q5_0: 22 / 32,
-	q4_1: 20 / 32,
-	q4_0: 18 / 32,
-	iq4_nl: 18 / 32,
-});
-
-function kvElementBytes(type) {
-	return KV_BYTES_PER_ELEMENT[type] ?? 2;
-}
 
 // `nvidia-smi --query-gpu=index,name,memory.total,memory.free --format=csv,noheader,nounits`
 function parseGpuQueryOutput(text) {
@@ -93,98 +77,26 @@ async function queryGpuMemory({ execFileImpl } = {}) {
 	}
 }
 
-function positiveInteger(value) {
-	return Number.isSafeInteger(value) && value > 0 ? value : null;
-}
-
 // Estimate the GPU memory a load is expected to consume. Returns
 // `totalMiB: null` only when the weights themselves are unknown; otherwise it
 // sums whichever components it can and reports its confidence separately.
+//
+// The full VRAM/RAM split lives in the shared estimator; this wrapper keeps the
+// GPU-view shape that the preflight, IPC payloads, and tests already consume.
 function estimateOffloadRequirements({ model = {}, config = {}, projectorBytes = null } = {}) {
-	const notes = [];
-	const layerCount = positiveInteger(model.layerCount);
-	const weightBytes =
-		Number.isFinite(model.fileIdentity?.size) && model.fileIdentity.size > 0
-			? model.fileIdentity.size
-			: null;
-	if (!weightBytes) notes.push("model-size-unknown");
-	if (!layerCount) notes.push("layer-count-unknown");
-
-	// `-ngl` semantics: "auto" (or absent) asks for as many layers as fit;
-	// a number requests exactly that many repeating layers, with the output
-	// layer on top.
-	const requested = config.gpuOffload;
-	const fullRequest = requested === "auto" || requested === undefined || requested === null;
-	let offloadFraction = 1;
-	if (!fullRequest) {
-		const requestedLayers = Number(requested);
-		if (!Number.isFinite(requestedLayers) || requestedLayers < 0) {
-			notes.push("gpu-offload-invalid");
-			offloadFraction = 0;
-		} else if (layerCount) {
-			offloadFraction = Math.min(1, requestedLayers / (layerCount + 1));
-		} else {
-			offloadFraction = requestedLayers > 0 ? 1 : 0;
-		}
-	}
-	const expectedFullOffload = fullRequest || offloadFraction === 1;
-
-	const weightsMiB = weightBytes === null ? null : (weightBytes * offloadFraction) / MIB;
-
-	// KV cache holds one K and one V value per (attention layer, kv head,
-	// context token). Hybrid models (SSM + attention, or periodic full
-	// attention) only keep KV for their attention layers, and some
-	// architectures store explicit key/value head dimensions instead of
-	// deriving them from the embedding size — both are honored when present.
-	const kvOffloaded = config.kvCacheOffload !== "cpu";
-	const headCount = positiveInteger(model.attentionHeads);
-	const kvHeads = positiveInteger(model.kvHeads) ?? headCount;
-	const embeddingLength = positiveInteger(model.embeddingLength);
-	const derivedHeadDim = headCount && embeddingLength ? embeddingLength / headCount : null;
-	const keyLength = positiveInteger(model.keyLength) ?? derivedHeadDim;
-	const valueLength = positiveInteger(model.valueLength) ?? derivedHeadDim;
-	const interval = positiveInteger(model.fullAttentionInterval);
-	const kvLayers = layerCount && interval && interval > 1 ? Math.ceil(layerCount / interval) : layerCount;
-	const contextLength = positiveInteger(config.contextLength);
-	let kvMiB = null;
-	if (!kvOffloaded) {
-		kvMiB = 0;
-	} else if (kvLayers && kvHeads && keyLength && valueLength && contextLength) {
-		const perToken = kvHeads * (keyLength * kvElementBytes(config.cacheTypeK) + valueLength * kvElementBytes(config.cacheTypeV));
-		kvMiB = (kvLayers * perToken * contextLength) / MIB;
-	} else {
-		notes.push("kv-shape-unknown");
-	}
-
-	// Compute/graph buffers are not derivable from metadata; treat a bounded
-	// fraction of the weights as an empirical heuristic.
-	const computeMiB =
-		weightsMiB === null ? null : Math.min(4096, Math.max(256, Math.round(weightsMiB * 0.07)));
-
-	const projectorMiB = Number.isFinite(projectorBytes) && projectorBytes > 0 ? projectorBytes / MIB : null;
-	if (model.mmprojPath && projectorMiB === null) notes.push("projector-size-unknown");
-
-	const totalMiB =
-		weightsMiB === null
-			? null
-			: Math.round((weightsMiB || 0) + (kvMiB || 0) + (computeMiB || 0) + (projectorMiB || 0));
-
-	// Confidence describes how complete the estimate is, not how precise it is:
-	// even a "high" estimate is still a heuristic.
-	const confidence =
-		weightsMiB === null
-			? "low"
-			: kvMiB === null || (model.mmprojPath && projectorMiB === null)
-				? "medium"
-				: "high";
-
+	const estimate = estimateMemoryUsage({ model, config, projectorBytes });
 	return {
-		expectedFullOffload,
-		requestedLayers: fullRequest ? "all" : Number(requested),
-		totalMiB,
-		confidence,
-		notes,
-		components: { weightsMiB, kvMiB, computeMiB, projectorMiB },
+		expectedFullOffload: estimate.expectedFullOffload,
+		requestedLayers: estimate.requestedLayers,
+		totalMiB: estimate.vramMiB,
+		confidence: estimate.confidence,
+		notes: estimate.notes,
+		components: {
+			weightsMiB: estimate.components.weightsVramMiB,
+			kvMiB: estimate.components.kvVramMiB,
+			computeMiB: estimate.components.computeMiB,
+			projectorMiB: estimate.components.projectorVramMiB,
+		},
 	};
 }
 

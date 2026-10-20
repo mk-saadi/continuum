@@ -104,6 +104,21 @@ test('a multimodal projector adds its file size to the estimate', () => {
   assert.ok(missingSize.notes.includes('projector-size-unknown'));
 });
 
+test('a CPU-placed projector is excluded from the estimate', () => {
+  const estimate = estimateOffloadRequirements({
+    model: { ...model(), mmprojPath: '/models/mmproj.gguf' },
+    config: config({ mmprojOffload: false }),
+    projectorBytes: 900 * 1024 * 1024,
+  });
+  assert.equal(estimate.components.projectorMiB, 0);
+  assert.equal(estimate.confidence, 'high');
+  assert.equal(estimate.notes.includes('projector-size-unknown'), false);
+  // An unknown projector size also stops mattering once it is off the GPU.
+  const unknown = estimateOffloadRequirements({ model: { ...model(), mmprojPath: '/models/mmproj.gguf' }, config: config({ mmprojOffload: false }) });
+  assert.equal(unknown.confidence, 'high');
+  assert.equal(unknown.notes.includes('projector-size-unknown'), false);
+});
+
 test('manual partial offload scales weights and is not treated as expecting full offload', () => {
   const estimate = estimateOffloadRequirements({ model: model(), config: config({ gpuOffload: 32 }) });
   assert.equal(estimate.expectedFullOffload, false);

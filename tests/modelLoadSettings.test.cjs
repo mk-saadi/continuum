@@ -42,6 +42,7 @@ try {
   assert.equal(defaults.loadMode, 'auto');
   assert.equal(defaults.kvCacheOffload, 'gpu');
   assert.equal(defaults.moeExpertCount, null);
+  assert.equal(defaults.mmprojOffload, true);
   assert.deepEqual(buildLlamaServerArgs(model, { seed: 42 }, 12345), [
     '-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048',
     '-ub', '512', '-np', '1', '-fa', 'auto', '--cache-type-k', 'f16', '--cache-type-v', 'f16',
@@ -118,10 +119,26 @@ try {
   assert.equal(flagValue(experts, '--override-kv'), 'gemma4.expert_count=int:128');
   assert.equal(buildLlamaServerArgs(model, { moeExpertCount: 128, gpuOffload: 0 }, 8080).includes('--no-kv-offload'), false);
 
+  // 8b. Multimodal projector offload: GPU placement is the default and emits
+  // nothing; opting out emits the supported disable flag for a projector only.
+  const visionModel = { ...model, mmprojPath: '/models/mmproj-vision.gguf' };
+  const gpuProjector = buildLlamaServerArgs(visionModel, {}, 8080);
+  assert.equal(flagValue(gpuProjector, '--mmproj'), '/models/mmproj-vision.gguf');
+  assert.equal(gpuProjector.includes('--no-mmproj-offload'), false);
+  assert.equal(buildLlamaServerArgs(visionModel, { mmprojOffload: true }, 8080).includes('--no-mmproj-offload'), false);
+  const cpuProjector = buildLlamaServerArgs(visionModel, { mmprojOffload: false }, 8080);
+  assert.ok(cpuProjector.includes('--no-mmproj-offload'));
+  // Standalone disable flag: it consumes no value argument.
+  assert.equal(cpuProjector.at(-1), '--no-mmproj-offload');
+  // The setting is inert without a projector.
+  assert.equal(buildLlamaServerArgs(model, { mmprojOffload: false }, 8080).includes('--no-mmproj-offload'), false);
+
   // 9. Invalid values are rejected, empty values normalize to auto.
   assert.throws(() => normalizeLoadConfig({ loadMode: 'fast' }), /load mode/i);
   assert.throws(() => normalizeLoadConfig({ loadMode: '--no-mmap' }), /load mode/i);
   assert.throws(() => normalizeLoadConfig({ kvCacheOffload: 'ram' }), /KV cache offload/i);
+  assert.throws(() => normalizeLoadConfig({ mmprojOffload: 'cpu' }), /projector offload/i);
+  assert.throws(() => normalizeLoadConfig({ mmprojOffload: 0 }), /projector offload/i);
   for (const value of [0, -1, 1.5, '8', NaN, 2147483648, Number.MAX_SAFE_INTEGER]) {
     assert.throws(() => normalizeLoadConfig({ moeExpertCount: value }), /MoE expert count/, `reject ${String(value)}`);
   }
@@ -146,13 +163,14 @@ try {
   assert.equal(normalizeLoadConfig({ useFp16KvCache: 'off' }).cacheTypeK, 'f16');
 
   // Settings persist across reload: save, reopen the database, rebuild the command line.
-  saveLoadConfig('gemma4-a4b', { loadMode: 'none', kvCacheOffload: 'cpu', moeExpertCount: 120, cacheTypeK: 'q8_0', cacheTypeV: 'q4_0' });
+  saveLoadConfig('gemma4-a4b', { loadMode: 'none', kvCacheOffload: 'cpu', moeExpertCount: 120, cacheTypeK: 'q8_0', cacheTypeV: 'q4_0', mmprojOffload: false });
   closeDatabase(); initDatabase();
   const reloaded = getLoadConfig('gemma4-a4b');
   assert.equal(reloaded.remembered, true);
   assert.equal(reloaded.config.loadMode, 'none');
   assert.equal(reloaded.config.kvCacheOffload, 'cpu');
   assert.equal(reloaded.config.moeExpertCount, 120);
+  assert.equal(reloaded.config.mmprojOffload, false);
   assert.equal(reloaded.config.mlock, false);
   const reloadedArgs = buildLlamaServerArgs(model, reloaded.config, 8080);
   assert.equal(flagValue(reloadedArgs, '--load-mode'), 'none');
@@ -192,6 +210,7 @@ try {
   } else {
     assert.match(helpText, /--load-mode MODE/);
     assert.match(helpText, /--no-kv-offload/);
+    assert.match(helpText, /--no-mmproj-offload/);
     assert.match(helpText, /--override-kv KEY=TYPE:VALUE/);
     assert.doesNotMatch(helpText, /--expert-count|--n-experts|--num-experts/);
     assert.match(helpText, /- mlock: force system to keep model in RAM/);

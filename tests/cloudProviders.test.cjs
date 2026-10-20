@@ -222,6 +222,32 @@ test("Anthropic normalizes replies and usage for the existing tool loop", async 
 	assert.deepEqual(data.usage, { prompt_tokens: 12, completion_tokens: 3 });
 });
 
+test("Anthropic cache reads and writes survive normalization without double counting", async () => {
+	saveCloudProvider({
+		id: "anthropic", name: "Claude", modelId: "claude-test", apiKey: "test-key",
+		baseUrl: "https://api.anthropic.com/v1", apiType: "anthropic",
+	});
+	const adapter = createCloudFetch(
+		{ type: "cloud", provider: "anthropic", model: "claude-test" },
+		{ apiKey: "test-key", fetchImpl: async () => Response.json({
+			content: [{ type: "text", text: "Cached answer" }],
+			usage: { input_tokens: 500, output_tokens: 20,
+				cache_read_input_tokens: 400, cache_creation_input_tokens: 100 },
+		}) },
+	);
+	const data = await (await adapter("", { body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }) })).json();
+	assert.equal(data.usage.prompt_tokens, 1000, 'gross = uncached + read + created');
+	assert.equal(data.usage.completion_tokens, 20);
+	assert.equal(data.usage.cache_read_input_tokens, 400);
+	assert.equal(data.usage.cache_creation_input_tokens, 100);
+	const { phaseStats } = require('../src/lib/completionStats.mjs');
+	const normalized = phaseStats({ usage: data.usage, startTime: 0, endTime: 1 });
+	assert.equal(normalized.cachedTokens, 400);
+	assert.equal(normalized.cacheCreationTokens, 100);
+	assert.equal(normalized.uncachedInputTokens, 500);
+	assert.equal(normalized.totalTokens, 1020);
+});
+
 test("invalid providers fail closed and remote errors never expose credentials", async () => {
 	assert.throws(() => validateChatProvider({ type: "cloud", provider: "evil", model: "x" }), /Invalid/);
 	assert.deepEqual(validateChatProvider(), { type: "local" });
@@ -440,4 +466,16 @@ test('OpenRouter media is capability-gated and videos use the correct request fo
  assert.equal(body.messages[0].content[0].video_url.url,'data:video/mp4;base64,AAAA');
  assert.equal(body.messages[0].content[1].type,'input_audio');
  allowed=false;await assert.rejects(adapter('https://unused',{body:JSON.stringify({messages})}),/does not support video/);assert.equal(requests,1);
+});
+
+test('optional cost rates round-trip and malformed rates are refused', () => {
+  saveCloudProvider({ id: 'priced', name: 'Priced', baseUrl: 'https://api.openai.com/v1', modelId: 'gpt-5', apiKey: 'secret', pricing: { input: 1.5, output: 6, cacheRead: 0.15 } });
+  const row = getCloudProviders('text').find(entry => entry.id === 'priced');
+  assert.deepEqual(row.pricing, { input: 1.5, output: 6, cacheRead: 0.15, cacheWrite: null });
+  assert.equal(JSON.stringify(row).includes('secret'), false, 'rates never leak the key');
+  assert.throws(() => saveCloudProvider({ id: 'priced-bad', name: 'Bad', baseUrl: 'https://api.openai.com/v1', modelId: 'gpt-5', apiKey: 'k', pricing: { input: -1, output: 2 } }), /non-negative/);
+  assert.throws(() => saveCloudProvider({ id: 'priced-bad2', name: 'Bad', baseUrl: 'https://api.openai.com/v1', modelId: 'gpt-5', apiKey: 'k', pricing: { input: 1 } }), /both an input and an output/);
+  // Blank rates clear an override back to catalog/provider evidence.
+  saveCloudProvider({ id: 'priced', name: 'Priced', baseUrl: 'https://api.openai.com/v1', modelId: 'gpt-5', pricing: { input: '', output: '' } });
+  assert.equal(getCloudProviders('text').find(entry => entry.id === 'priced').pricing, null);
 });

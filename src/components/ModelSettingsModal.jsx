@@ -2,6 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSlidersHorizontal, LuSparkles, LuTriangleAlert, LuX } from "react-icons/lu";
 import { NumberField as BaseNumberField, SelectField as BaseSelectField } from "./FormControls";
 import Tooltip from "./Tooltip";
+import { estimateMemoryUsage } from "../lib/memoryEstimate.mjs";
+
+// Compact MiB/GiB readout for the live memory estimate. `null` means a required
+// size could not be read from metadata, so it is shown as unknown rather than 0.
+function formatMemory(mib) {
+	if (mib === null || mib === undefined || !Number.isFinite(mib)) return "unknown";
+	if (mib < 1) return "~0 MiB";
+	if (mib >= 1024) return `~${(mib / 1024).toFixed(1)} GiB`;
+	return `~${Math.round(mib)} MiB`;
+}
+
 
 const integerFields = [
 	["contextLength", "Context length", "Total context tokens shared across concurrent predictions."],
@@ -110,6 +121,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						kvCacheOffload: "gpu",
 						loadMode: "auto",
 						moeExpertCount: null,
+						mmprojOffload: true,
 						...savedConfig,
 						reasoningFormat: remembered
 							? (savedConfig.reasoningFormat ?? "auto")
@@ -153,6 +165,21 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		: model.isMoe && model.expertCount
 			? `Total experts for MoE models only; this model reports ${model.expertCount}. Leave empty to keep the GGUF value.`
 			: "Total experts for MoE models only — not active experts per layer. Leave empty (auto) for dense models.";
+
+	// Live VRAM/RAM split. Rough by design: it follows the selected projector and
+	// the device placement of KV cache and projector as the user changes them.
+	const projectorBytes = projectorPath
+		? (model.projectorCandidates?.find((candidate) => candidate.path === projectorPath)?.fileIdentity?.size ?? null)
+		: null;
+	const memory = config
+		? estimateMemoryUsage({ model: { ...model, mmprojPath: projectorPath || null }, config, projectorBytes })
+		: null;
+	const memoryTitle = memory
+		? `GPU VRAM — weights ${formatMemory(memory.components.weightsVramMiB)}, KV cache ${formatMemory(memory.components.kvVramMiB)}, ` +
+			`compute ${formatMemory(memory.components.computeMiB)}, projector ${formatMemory(memory.components.projectorVramMiB)}. ` +
+			`System RAM — weights ${formatMemory(memory.components.weightsRamMiB)}, KV cache ${formatMemory(memory.components.kvRamMiB)}, ` +
+			`projector ${formatMemory(memory.components.projectorRamMiB)}.`
+		: undefined;
 
 	const runLaunch = async (allowPartialOffload) => {
 		if (busy || !config) return;
@@ -511,6 +538,14 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 										disabled={mlockControlled}
 										onChange={(event) => update("mlock", event.target.checked)}
 									/>
+									{(!!model.projectorCandidates?.length || !!projectorPath) && (
+										<CheckboxField
+											label="Offload vision projector to GPU"
+											hint="Uncheck to keep the multimodal projector on the CPU (llama-server --no-mmproj-offload). This frees the projector's VRAM at the cost of slower image encoding; text generation is unaffected."
+											checked={config.mmprojOffload}
+											onChange={(event) => update("mmprojOffload", event.target.checked)}
+										/>
+									)}
 									<NumberField
 										label="MoE Expert Count"
 										hint={expertHint}
@@ -582,6 +617,36 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
                     {projectorNotice && <p>{projectorNotice}</p>}
                     {confirmTextOnly && <p>A multimodal projector is available, but none is selected. Multimodal input will be unavailable. Choose a projector above, or click <strong>Load text only</strong> to continue.</p>}
                 </div>}
+
+				{config && memory && (
+					<div
+						className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[11px]"
+						title={memoryTitle}
+					>
+						<span className="inline-flex items-center gap-1.5">
+							<LuCpu
+								size={13}
+								className="text-[var(--accent)]"
+								aria-hidden="true"
+							/>
+							<span className="text-[var(--text-muted)]">GPU VRAM</span>
+							<strong className="tabular-nums">{formatMemory(memory.vramMiB)}</strong>
+						</span>
+						<span className="inline-flex items-center gap-1.5">
+							<LuHardDrive
+								size={13}
+								className="text-[var(--accent)]"
+								aria-hidden="true"
+							/>
+							<span className="text-[var(--text-muted)]">System RAM</span>
+							<strong className="tabular-nums">{formatMemory(memory.ramMiB)}</strong>
+						</span>
+						<span className="text-[10px] text-[var(--text-muted)]">
+							rough estimate · excludes OS/driver overhead
+							{memory.confidence !== "high" || memory.ramIncomplete ? " · some sizes unknown" : ""}
+						</span>
+					</div>
+				)}
 
 				<footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3">
 					<div className="mr-auto">

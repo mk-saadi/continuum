@@ -184,11 +184,15 @@ function getLastTurnTelemetry(sessionId) {
     promptRequests = null, promptCoverage = null, completionTokens = null,
     totalTokens = null, scope = null, cachedTokens = null, cacheCreationTokens = null,
     lastCachedTokens = null, lastCacheCreationTokens = null,
+    uncachedInputTokens = null, cacheReadCoverage = null, cacheWriteCoverage = null,
+    usageCoverage = null, inputSource = null, cacheReadSource = null, cacheWriteSource = null,
     reasoningTokens = null, visibleCompletionTokens = null, reasoningCoverage = null } = stats;
   if (lastPromptTokens === null && peakPromptTokens === null) return null;
   return { messageId: row.id, lastPromptTokens, peakPromptTokens, peakRequestIndex,
     promptRequests, promptCoverage, completionTokens, totalTokens, scope,
     cachedTokens, cacheCreationTokens, lastCachedTokens, lastCacheCreationTokens,
+    uncachedInputTokens, cacheReadCoverage, cacheWriteCoverage, usageCoverage,
+    inputSource, cacheReadSource, cacheWriteSource,
     reasoningTokens, visibleCompletionTokens, reasoningCoverage };
 }
 
@@ -468,21 +472,47 @@ function normalizeStats(stats) {
   if (Object.keys(stats).length === 0) return null;
   const result = {};
   for (const key of ['startTime', 'endTime', 'time', 'promptTokens', 'completionTokens', 'totalTokens',
-    'tokensPerSecond', 'reasoningTokens', 'visibleCompletionTokens']) {
+    'tokensPerSecond']) {
     const value = stats[key] ?? null;
     if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 ||
       (key.endsWith('Tokens') && !Number.isSafeInteger(value)))) throw new TypeError(`Invalid generation stat: ${key}.`);
     result[key] = value;
   }
+  // Reasoning and visible output are optional extensions. Keep an explicitly
+  // reported null (the provider did not separate them), but do not invent the
+  // keys for older callers that never tracked reasoning at all.
+  for (const key of ['reasoningTokens', 'visibleCompletionTokens']) {
+    const value = stats[key] ?? null;
+    if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
+      throw new TypeError(`Invalid generation stat: ${key}.`);
+    }
+    if (value !== null || key in stats) result[key] = value;
+  }
   // Per-turn server telemetry: actual backend-reported prompt sizes.
   // lastPromptTokens is the most recent request; peakPromptTokens is the
   // maximum single request (never the sum). promptCoverage tracks whether
   // every request in the turn reported prompt tokens.
-  for (const key of ['lastPromptTokens', 'peakPromptTokens', 'promptRequests', 'peakRequestIndex', 'cachedTokens', 'cacheCreationTokens', 'lastCachedTokens', 'lastCacheCreationTokens']) {
+  for (const key of ['lastPromptTokens', 'peakPromptTokens', 'promptRequests', 'peakRequestIndex',
+    'cachedTokens', 'cacheCreationTokens', 'lastCachedTokens', 'lastCacheCreationTokens',
+    'uncachedInputTokens']) {
     const value = stats[key] ?? null;
     if (value !== null && (!Number.isSafeInteger(value) || value < 0)) throw new TypeError(`Invalid generation stat: ${key}.`);
     if (value !== null) result[key] = value;
     else if (key in stats && stats[key] === null) result[key] = null;
+  }
+  for (const key of ['cacheReadCoverage', 'cacheWriteCoverage', 'usageCoverage']) {
+    const value = stats[key] ?? null;
+    if (value !== null && !['measured', 'estimated', 'partially_measured', 'unavailable'].includes(value)) {
+      throw new TypeError(`Invalid generation stat: ${key}.`);
+    }
+    if (value !== null) result[key] = value;
+  }
+  for (const key of ['inputSource', 'cacheReadSource', 'cacheWriteSource']) {
+    const value = stats[key] ?? null;
+    if (value !== null && !['provider', 'server-timings', 'derived', 'unavailable'].includes(value)) {
+      throw new TypeError(`Invalid generation stat: ${key}.`);
+    }
+    if (value !== null) result[key] = value;
   }
   if (stats.promptCoverage != null) {
     if (!['complete', 'partial', 'none'].includes(stats.promptCoverage)) throw new TypeError('Invalid generation stat: promptCoverage.');

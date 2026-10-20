@@ -25,7 +25,7 @@ app.whenReady().then(async () => {
       const button = (root, text) => [...root.querySelectorAll('button')].find(b => b.textContent === text);
       for (let i = 0; i < 100 && !document.querySelector('dialog[open]'); i++) await tick();
       await tick();
-      check(document.querySelectorAll('nav [role=tab]').length === 9, 'Expected nine tabs');
+      check(document.querySelectorAll('nav [role=tab]').length === 10, 'Expected ten tabs');
       check(!panel('appearance').hidden && panel('integrations').hidden, 'Appearance initially visible');
       tab('memory').click(); await tick();
       tab('memory').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await tick();
@@ -78,7 +78,7 @@ app.whenReady().then(async () => {
       check(panel('usage').textContent.includes('Clear logs'), 'Logs in usage');
       for (const item of document.querySelectorAll('nav [role=tab]')) {
         item.click(); await tick();
-        check([...document.querySelectorAll('[role=tabpanel]')].filter(p => !p.hidden).length === 1, 'One visible panel');
+        check([...document.querySelectorAll('[role=tabpanel]')].filter(p => !p.hidden && !p.parentElement.closest('[role=tabpanel]')).length === 1, 'One visible panel');
         check(item.querySelector('svg'), 'Tab icon present');
       }
       return true;

@@ -95,7 +95,15 @@ export default function CloudProviderSettings() {
       id: crypto.randomUUID(), category, ...(category === 'media' ? { mediaType } : {}),
       name: '', baseUrl: category === 'text' ? 'https://api.openai.com/v1' : 'https://openrouter.ai/api/v1',
       apiKey: '', modelId: '', apiType: category === 'text' ? 'openai' : 'openrouter', configured: false,
+      ...(category === 'text' ? { pricing: { input: '', output: '', cacheRead: '', cacheWrite: '' } } : {}),
     }]);
+  }
+  // Optional per-provider cost rates (USD per million tokens). Blank fields are
+  // simply absent evidence; entering both input and output enables an estimate
+  // for models the catalog does not know. Nothing here spends or fetches.
+  function updatePricing(id, field, value) {
+    setProviders(previous => previous.map(row => row.id === id
+      ? { ...row, pricing: { ...(row.pricing ?? {}), [field]: value } } : row));
   }
 
   return <div className="space-y-4">
@@ -163,6 +171,16 @@ export default function CloudProviderSettings() {
           {modelLists[row.id].models.length ? `${modelLists[row.id].models.length} models fetched.` : 'Connection succeeded. Enter a model ID manually.'}
         </p>}
       </div>
+      {row.category === 'text' && <fieldset className="rounded-lg border border-[var(--border)] p-3">
+        <legend className="px-1 text-xs text-[var(--text-muted)]">Cost rates (optional, USD per million tokens)</legend>
+        <div className="grid gap-2 sm:grid-cols-4">
+          <label className="block text-xs">Input<input type="number" min="0" step="any" value={row.pricing?.input ?? ''} disabled={busy} placeholder="e.g. 2" onChange={event => updatePricing(row.id, 'input', event.target.value)} className={inputClass} /></label>
+          <label className="block text-xs">Output<input type="number" min="0" step="any" value={row.pricing?.output ?? ''} disabled={busy} placeholder="e.g. 10" onChange={event => updatePricing(row.id, 'output', event.target.value)} className={inputClass} /></label>
+          <label className="block text-xs">Cache read<input type="number" min="0" step="any" value={row.pricing?.cacheRead ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheRead', event.target.value)} className={inputClass} /></label>
+          <label className="block text-xs">Cache write<input type="number" min="0" step="any" value={row.pricing?.cacheWrite ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheWrite', event.target.value)} className={inputClass} /></label>
+        </div>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">Used for cost estimates only. Enter both input and output to enable them; leave blank to rely on known provider pricing or a provider-reported charge.</p>
+      </fieldset>}
       <div className="flex gap-3">
         <button disabled={busy} className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-[var(--on-accent)] disabled:opacity-50">Save</button>
         <button type="button" disabled={busy} onClick={() => persist(row, true)} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">Delete</button>

@@ -5,6 +5,7 @@
 // default to the shared Node HTTP transport directly instead.
 const { nodeHttpFetch } = require("./nodeHttpFetch");
 const reasoningControls = require("../lib/reasoningControls.cjs");
+const promptCaching = require("../lib/promptCaching.cjs");
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_MEDIA_SETTINGS = Object.freeze({ default_image_provider_id: "", default_video_provider_id: "" });
@@ -67,6 +68,29 @@ function getCloudProviders(category) {
 	return readSettings().filter(row => !category || row.category === category)
 		.map(({ apiKey, ...row }) => ({ ...row, apiKey: "", configured: !!apiKey?.trim() || !providerNeedsKey({ ...row, apiKey }) }));
 }
+// Optional user-configured rates for a provider, in USD per million tokens.
+// Only input and output are required for the override to be usable; the cache
+// rates are optional and fall back to the ordinary input rate when absent.
+// Raw saved provider row for internal (main-process) callers that need the
+// transport identity — apiType, base URL, configured rates. Never crosses IPC.
+function getStoredProvider(id) {
+	if (typeof id !== 'string' || !id) return null;
+	return readSettings().find(row => row.id === id) ?? null;
+}
+function normalizeProviderPricing(input) {
+	if (input == null) return null;
+	if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid provider pricing.');
+	const rate = value => {
+		if (value == null || value === '') return null;
+		const number = typeof value === 'number' ? value : Number(value);
+		if (!Number.isFinite(number) || number < 0 || number > 1_000_000) throw new Error('Enter non-negative USD rates per million tokens.');
+		return number;
+	};
+	const pricing = { input: rate(input.input), output: rate(input.output), cacheRead: rate(input.cacheRead), cacheWrite: rate(input.cacheWrite1h ?? input.cacheWrite) };
+	if (pricing.input === null && pricing.output === null && pricing.cacheRead === null && pricing.cacheWrite === null) return null;
+	if (pricing.input === null || pricing.output === null) throw new Error('Enter both an input and an output rate (or leave them blank).');
+	return { input: pricing.input, output: pricing.output, cacheRead: pricing.cacheRead, cacheWrite: pricing.cacheWrite };
+}
 function normalizeBaseUrl(value = DEFAULT_BASE_URL) {
 	const url = new URL(value.trim());
 	if (
@@ -90,7 +114,7 @@ function writeSettings(settings) {
 		.run(JSON.stringify(settings));
 	return getCloudProviders();
 }
-function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiKey, apiType = "openai", category = "text", mediaType = "image" }) {
+function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiKey, apiType = "openai", category = "text", mediaType = "image", pricing }) {
 	if (typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(id)) throw new Error("Invalid provider ID.");
 	if (typeof name !== "string" || !name.trim() || name.length > 200)
 		throw new Error("Enter a provider name.");
@@ -116,6 +140,10 @@ function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiK
 		modelId: modelId.trim(),
 		apiType,
 		...(category === "media" ? { mediaType } : {}),
+		// Rates are optional cost evidence, never a requirement to save a
+		// provider. `undefined` keeps whatever was saved; an explicit value
+		// (including null/blank) replaces it, so clearing is possible.
+		pricing: pricing === undefined ? (settings[index]?.pricing ?? null) : normalizeProviderPricing(pricing),
 		apiKey: apiKey?.trim() || settings[index]?.apiKey || "",
 	};
 	if (!row.apiKey.trim() && providerNeedsKey(row)) throw new Error("Enter an API key.");
@@ -252,6 +280,15 @@ async function fetchCloudModels({ id, baseUrl, apiKey, apiType, includeMetadata 
 	}
 }
 const metadataCache = new Map();
+// Last successfully resolved metadata per provider/model, readable
+// synchronously by the cost estimator when a turn settles. Populated as a side
+// effect of the normal metadata read; never fetched on its own, so no cost path
+// can introduce a network call.
+const knownMetadata = new Map();
+function knownKey(providerId, modelId) { return `${providerId}\u0000${modelId}`; }
+function getKnownModelMetadata(providerId, modelId) {
+    return knownMetadata.get(knownKey(providerId, modelId)) ?? null;
+}
 async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = false } = {}) {
     const providers = readSettings().filter(row => row.category === 'text' && row.modelId?.trim() && (row.apiKey?.trim() || !providerNeedsKey(row)));
     return Promise.all(providers.map(async row => {
@@ -267,7 +304,9 @@ async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = fals
         if (result.error) metadataCache.delete(cacheKey);
         const model = result.metadata?.find(model => model.id === row.modelId);
         const overrides = require('./capabilityOverrides').getOverrides({ type: 'cloud', provider: row.id, model: row.modelId });
-        return { providerId: row.id, modelId: row.modelId, ...(model || {}), ...(overrides.contextLength ? { contextLength: overrides.contextLength, contextSource: 'user' } : {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
+        const row_ = { providerId: row.id, modelId: row.modelId, ...(model || {}), ...(overrides.contextLength ? { contextLength: overrides.contextLength, contextSource: 'user' } : {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
+        if (!result.error && model) knownMetadata.set(knownKey(row.id, row.modelId), row_);
+        return row_;
     }));
 }
 
@@ -376,12 +415,23 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
             assertCapabilities(policy.enabled, required);
         }
 		const anthropic = provider.apiType === "anthropic";
+		// Provider-aware prompt caching. Resolved from the *actual* target so a
+		// child agent never inherits another provider's cache parameters.
+		//
+		// Direct Anthropic uses an explicit breakpoint on the stable base system
+		// block: a top-level automatic field would land on the changing final
+		// message and never be read back. OpenRouter Anthropic keeps the
+		// top-level ephemeral field; every other OpenRouter family caches
+		// automatically server-side and receives no cache field.
+		const cacheFields = promptCaching.cacheRequestFields({
+			apiType: provider.apiType, baseUrl: provider.baseUrl, modelId: target.model,
+		});
 		// Whitelist portable fields: llama.cpp sampling/cache parameters are not cloud API fields.
 		const mapped = anthropic ? null : reasoningControls.cloudRequestFields(original.reasoning, {
 			modelId: target.model, maxTokens: original.max_tokens,
 		});
 		const body = anthropic
-			? anthropicPayload(original, target.model)
+			? promptCaching.applyAnthropicCaching(anthropicPayload(original, target.model), { modelId: target.model })
 			: {
 					model: target.model,
 					messages: original.messages.map(message => ({ ...message, content: Array.isArray(message.content) ? message.content.map(part => part.type === 'input_video' ? { type: 'video_url', video_url: { url: `data:${part.input_video.format === 'video/quicktime' ? 'video/mov' : part.input_video.format};base64,${part.input_video.data}` } } : part) : message.content })),
@@ -389,6 +439,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 					...(original.tools?.length ? { tools: original.tools, tool_choice: "auto" } : {}),
 					...(mapped.maxTokens > 0 ? { max_tokens: mapped.maxTokens } : {}),
 					...mapped.fields,
+					...cacheFields,
 				};
 		const response = await fetchImpl(
 			`${normalizeBaseUrl(provider.baseUrl)}/${anthropic ? "messages" : "chat/completions"}`,
@@ -451,13 +502,19 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 					},
 				],
 				usage: {
+					// Anthropic reports uncached input separately from cache reads and
+					// writes. The existing tool loop consumes the OpenAI-shaped gross
+					// prompt, so add all three exactly once. Cache counters stay absent
+					// when the provider did not report them (never a measured zero).
 					prompt_tokens:
 						(data.usage?.input_tokens || 0) +
 						(data.usage?.cache_read_input_tokens || 0) +
 						(data.usage?.cache_creation_input_tokens || 0),
 					completion_tokens: data.usage?.output_tokens || 0,
-					cache_read_input_tokens: data.usage?.cache_read_input_tokens || 0,
-					cache_creation_input_tokens: data.usage?.cache_creation_input_tokens || 0,
+					...(Number.isSafeInteger(data.usage?.cache_read_input_tokens)
+						? { cache_read_input_tokens: data.usage.cache_read_input_tokens } : {}),
+					...(Number.isSafeInteger(data.usage?.cache_creation_input_tokens)
+						? { cache_creation_input_tokens: data.usage.cache_creation_input_tokens } : {}),
 				},
 			}),
 			{ headers: { "Content-Type": "application/json" } },
@@ -467,6 +524,8 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 module.exports = {
 	fetchCloudModels,
     getCloudModelMetadata,
+    getKnownModelMetadata,
+    getStoredProvider,
 	getCloudProviders,
 	getCloudProviderDefaults,
 	saveCloudProviderDefaults,

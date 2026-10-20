@@ -136,12 +136,23 @@ function persistChildRun(session) {
       && usage && Number.isFinite(usage.prompt_tokens) && Number.isFinite(usage.completion_tokens)
       ? usage.prompt_tokens + usage.completion_tokens : null;
     const now = new Date().toISOString();
+    // Phase 2.0C-3: the child's own cost evidence. Local children resolve to
+    // "not applicable"; cloud children use saved/verified/metadata rates or the
+    // provider's reported charge. The row is upserted per child, so a resumed
+    // or recovered run updates the same cost instead of adding a second entry.
+    const costEstimator = require('../costEstimator');
+    const estimate = costEstimator.estimateFromChild({ usage,
+      isLocal: session.provider !== 'cloud', providerId: session.providerId ?? null, modelId: session.model ?? null });
+    const cost = costEstimator.costColumns(estimate);
     db.prepare(`
       INSERT INTO subagent_runs(child_session_id, parent_session_id, parent_tool_call_id, kind, agent_name,
-        model, provider, status, task_text, output_text, error_text, thoughts_text, tools_json, turns_json,
+        model, provider, provider_id, status, task_text, output_text, error_text, thoughts_text, tools_json, turns_json,
         total_tokens, duration_ms, created_at, started_at, completed_at, updated_at, stop_reason, accounting_json, raw_turns_json, context_json, compaction_json,
-        budget_json, continuation_json, attempt_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        budget_json, continuation_json, attempt_count,
+        cost_total, cost_currency, cost_status, cost_completeness, cost_source, cost_version,
+        cost_timestamp, cost_uncached_input, cost_cache_read, cost_cache_write, cost_cache_write_1h,
+        cost_output, cost_reasoning, cost_cache_savings, cost_provider_reported, cost_breakdown)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(child_session_id) DO UPDATE SET
         status = excluded.status, output_text = excluded.output_text, error_text = excluded.error_text,
         thoughts_text = excluded.thoughts_text,
@@ -149,7 +160,25 @@ function persistChildRun(session) {
         duration_ms = excluded.duration_ms, completed_at = excluded.completed_at, updated_at = excluded.updated_at,
         stop_reason = excluded.stop_reason, accounting_json = excluded.accounting_json, raw_turns_json = excluded.raw_turns_json,
         context_json = excluded.context_json, compaction_json = excluded.compaction_json,
-        budget_json = excluded.budget_json, continuation_json = excluded.continuation_json, attempt_count = excluded.attempt_count
+        budget_json = excluded.budget_json, continuation_json = excluded.continuation_json, attempt_count = excluded.attempt_count,
+        provider_id = COALESCE(excluded.provider_id, subagent_runs.provider_id),
+        -- A later settlement without cost evidence never erases an earlier one.
+        cost_total = COALESCE(excluded.cost_total, subagent_runs.cost_total),
+        cost_currency = COALESCE(excluded.cost_currency, subagent_runs.cost_currency),
+        cost_status = COALESCE(excluded.cost_status, subagent_runs.cost_status),
+        cost_completeness = COALESCE(excluded.cost_completeness, subagent_runs.cost_completeness),
+        cost_source = COALESCE(excluded.cost_source, subagent_runs.cost_source),
+        cost_version = COALESCE(excluded.cost_version, subagent_runs.cost_version),
+        cost_timestamp = COALESCE(excluded.cost_timestamp, subagent_runs.cost_timestamp),
+        cost_uncached_input = COALESCE(excluded.cost_uncached_input, subagent_runs.cost_uncached_input),
+        cost_cache_read = COALESCE(excluded.cost_cache_read, subagent_runs.cost_cache_read),
+        cost_cache_write = COALESCE(excluded.cost_cache_write, subagent_runs.cost_cache_write),
+        cost_cache_write_1h = COALESCE(excluded.cost_cache_write_1h, subagent_runs.cost_cache_write_1h),
+        cost_output = COALESCE(excluded.cost_output, subagent_runs.cost_output),
+        cost_reasoning = COALESCE(excluded.cost_reasoning, subagent_runs.cost_reasoning),
+        cost_cache_savings = COALESCE(excluded.cost_cache_savings, subagent_runs.cost_cache_savings),
+        cost_provider_reported = COALESCE(excluded.cost_provider_reported, subagent_runs.cost_provider_reported),
+        cost_breakdown = COALESCE(excluded.cost_breakdown, subagent_runs.cost_breakdown)
     `).run(
       session.id,
       typeof session.parentSessionId === 'string' ? session.parentSessionId : null,
@@ -158,6 +187,7 @@ function persistChildRun(session) {
       resolveAgentName(session.parentSessionId),
       typeof session.model === 'string' ? session.model : null,
       typeof session.provider === 'string' ? session.provider : null,
+      typeof session.providerId === 'string' ? session.providerId : null,
       typeof session.status === 'string' ? session.status : 'unknown',
       taskText,
       typeof session.result === 'string' ? session.result : null,
@@ -177,6 +207,10 @@ function persistChildRun(session) {
       budgetJson ? JSON.stringify(budgetJson) : null,
       JSON.stringify(continuation),
       Number.isSafeInteger(attemptCount) ? attemptCount : null,
+      cost.costTotal, cost.costCurrency, cost.costStatus, cost.costCompleteness, cost.costSource,
+      cost.costVersion, cost.costTimestamp, cost.costUncachedInput, cost.costCacheRead,
+      cost.costCacheWrite, cost.costCacheWrite1h, cost.costOutput, cost.costReasoning,
+      cost.costCacheSavings, cost.costProviderReported, cost.costBreakdown,
     );
     // Durable state is now on disk: advertise resumability truthfully.
     session.continuation = { ...continuation, persisted: true, resumable: continuation.eligible };

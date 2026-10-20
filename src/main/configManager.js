@@ -16,6 +16,7 @@ const DEFAULT_LOAD_CONFIG = Object.freeze({
 	kvCacheOffload: "gpu",
 	loadMode: "auto",
 	moeExpertCount: null,
+	mmprojOffload: true,
 });
 const LOAD_MODES = ["auto", "none", "mmap", "mlock", "mmap+mlock", "dio"];
 const KV_CACHE_OFFLOAD = ["gpu", "cpu"];
@@ -57,6 +58,8 @@ function normalizeLoadConfig(input = {}) {
 	)
 		throw new Error("GPU offload must be auto or a non-negative integer.");
 	if (typeof config.mlock !== "boolean") throw new Error("Invalid mlock setting.");
+	if (typeof config.mmprojOffload !== "boolean")
+		throw new Error("Invalid multimodal projector offload setting.");
 	if (!["on", "off", "auto"].includes(config.flashAttention))
 		throw new Error("Invalid flash attention setting.");
 	for (const [key, values] of Object.entries({

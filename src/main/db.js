@@ -100,7 +100,31 @@ const SCHEMA = `
     project_id TEXT,
     timestamp TEXT NOT NULL,
     prompt_tokens INTEGER NOT NULL CHECK(prompt_tokens >= 0),
-    completion_tokens INTEGER NOT NULL CHECK(completion_tokens >= 0)
+    completion_tokens INTEGER NOT NULL CHECK(completion_tokens >= 0),
+    -- Nullable cache/derived counters: NULL means the provider did not report
+    -- the field. A measured zero is stored as 0 and is distinct from NULL.
+    uncached_input_tokens INTEGER CHECK(uncached_input_tokens IS NULL OR uncached_input_tokens >= 0),
+    cache_read_tokens INTEGER CHECK(cache_read_tokens IS NULL OR cache_read_tokens >= 0),
+    cache_creation_tokens INTEGER CHECK(cache_creation_tokens IS NULL OR cache_creation_tokens >= 0),
+    reasoning_tokens INTEGER CHECK(reasoning_tokens IS NULL OR reasoning_tokens >= 0),
+    visible_output_tokens INTEGER CHECK(visible_output_tokens IS NULL OR visible_output_tokens >= 0),
+    input_source TEXT,
+    cache_read_source TEXT,
+    cache_write_source TEXT,
+    cache_read_coverage TEXT,
+    cache_write_coverage TEXT,
+    usage_coverage TEXT,
+    model_id TEXT,
+    provider TEXT,
+    -- Phase 2.0C-3 cost evidence. Every column is nullable: NULL means the
+    -- turn's cost is unknown, never a fabricated zero. cost_completeness
+    -- distinguishes a fully measured estimate from a subtotal, an unknown
+    -- price, and a local model's "not applicable" (no cloud charge exists).
+    cost_total REAL, cost_currency TEXT, cost_status TEXT, cost_completeness TEXT,
+    cost_source TEXT, cost_version TEXT, cost_timestamp TEXT,
+    cost_uncached_input REAL, cost_cache_read REAL, cost_cache_write REAL,
+    cost_cache_write_1h REAL, cost_output REAL, cost_reasoning REAL,
+    cost_cache_savings REAL, cost_provider_reported REAL, cost_breakdown TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_token_usage_time ON token_usage(timestamp);
   CREATE INDEX IF NOT EXISTS idx_token_usage_project_time ON token_usage(project_id, timestamp);
@@ -117,8 +141,14 @@ const SCHEMA = `
     agent_name TEXT,
     model TEXT,
     provider TEXT,
+    provider_id TEXT,
     status TEXT NOT NULL,
     stop_reason TEXT,
+    cost_total REAL, cost_currency TEXT, cost_status TEXT, cost_completeness TEXT,
+    cost_source TEXT, cost_version TEXT, cost_timestamp TEXT,
+    cost_uncached_input REAL, cost_cache_read REAL, cost_cache_write REAL,
+    cost_cache_write_1h REAL, cost_output REAL, cost_reasoning REAL,
+    cost_cache_savings REAL, cost_provider_reported REAL, cost_breakdown TEXT,
     accounting_json TEXT,
     raw_turns_json TEXT,
     context_json TEXT,
@@ -360,6 +390,48 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       if (!connection.pragma('table_info(subagent_runs)').some(entry => entry.name === 'attempt_count')) {
         connection.exec('ALTER TABLE subagent_runs ADD COLUMN attempt_count INTEGER');
       }
+      // Cache-aware token history (Phase 2.0C-1). Additive only: legacy rows
+      // keep NULL cache fields, which the history query labels unavailable
+      // instead of backfilling a measured zero. No table rebuild or rewrite.
+      const tokenUsageColumns = new Set(connection.pragma('table_info(token_usage)').map(column => column.name));
+      for (const [name, type] of Object.entries({
+        uncached_input_tokens: 'INTEGER', cache_read_tokens: 'INTEGER', cache_creation_tokens: 'INTEGER',
+        reasoning_tokens: 'INTEGER', visible_output_tokens: 'INTEGER',
+        input_source: 'TEXT', cache_read_source: 'TEXT', cache_write_source: 'TEXT',
+        cache_read_coverage: 'TEXT', cache_write_coverage: 'TEXT', usage_coverage: 'TEXT',
+        model_id: 'TEXT', provider: 'TEXT',
+      })) {
+        if (!tokenUsageColumns.has(name)) connection.exec(`ALTER TABLE token_usage ADD COLUMN ${name} ${type}`);
+      }
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_token_usage_model_time ON token_usage(model_id, timestamp)');
+      // Phase 2.0D dashboard filters: provider/workspace filters are additive
+      // read paths over the same table. Indexes only; no rows are rewritten.
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_token_usage_provider_time ON token_usage(provider, timestamp)');
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_token_usage_chat_time ON token_usage(chat_id, timestamp)');
+      // Phase 2.0C-3 cloud cost evidence. Additive only: legacy rows keep NULL
+      // cost columns, which the history labels unknown/unavailable instead of a
+      // fabricated zero. Existing rows are never rewritten or recalculated.
+      for (const [name, type] of Object.entries({
+        cost_total: 'REAL', cost_currency: 'TEXT', cost_status: 'TEXT', cost_completeness: 'TEXT',
+        cost_source: 'TEXT', cost_version: 'TEXT', cost_timestamp: 'TEXT',
+        cost_uncached_input: 'REAL', cost_cache_read: 'REAL', cost_cache_write: 'REAL',
+        cost_cache_write_1h: 'REAL', cost_output: 'REAL', cost_reasoning: 'REAL',
+        cost_cache_savings: 'REAL', cost_provider_reported: 'REAL', cost_breakdown: 'TEXT',
+      })) {
+        if (!tokenUsageColumns.has(name)) connection.exec(`ALTER TABLE token_usage ADD COLUMN ${name} ${type}`);
+      }
+      const subagentColumns = new Set(connection.pragma('table_info(subagent_runs)').map(column => column.name));
+      for (const [name, type] of Object.entries({
+        provider_id: 'TEXT', cost_total: 'REAL', cost_currency: 'TEXT', cost_status: 'TEXT',
+        cost_completeness: 'TEXT', cost_source: 'TEXT', cost_version: 'TEXT', cost_timestamp: 'TEXT',
+        cost_uncached_input: 'REAL', cost_cache_read: 'REAL', cost_cache_write: 'REAL',
+        cost_cache_write_1h: 'REAL', cost_output: 'REAL', cost_reasoning: 'REAL',
+        cost_cache_savings: 'REAL', cost_provider_reported: 'REAL', cost_breakdown: 'TEXT',
+      })) {
+        if (!subagentColumns.has(name)) connection.exec(`ALTER TABLE subagent_runs ADD COLUMN ${name} ${type}`);
+      }
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_parent_time ON subagent_runs(parent_session_id, completed_at)');
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_completed_at ON subagent_runs(completed_at)');
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
         connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");
       }

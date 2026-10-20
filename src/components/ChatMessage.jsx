@@ -9,6 +9,7 @@ import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
+import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
@@ -42,7 +43,7 @@ function videoMimeType(source) {
 	}
 }
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-import { FiCheck, FiChevronDown, FiClock, FiCopy, FiFileText, FiTool, FiZap } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiClock, FiCopy, FiDollarSign, FiFileText, FiTool, FiZap } from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
 import { PiWarning } from "react-icons/pi";
 import { RiRobot2Line } from "react-icons/ri";
@@ -830,6 +831,25 @@ export function MessageContextStatus({ message, inline = false }) {
 	);
 }
 
+// Explain the cost chip without implying a precision the estimate lacks. Local
+// turns say so explicitly; a provider-reported charge is named as such.
+function costTooltip(cost) {
+	if (!cost) return "Cloud cost unavailable";
+	if (cost.completeness === "not_applicable") {
+		return "Cloud cost: not applicable\nThis turn ran on a local model, so there is no cloud provider charge. It is not a $0.00 API cost — no API was billed.";
+	}
+	const lines = [];
+	lines.push(cost.providerReported != null
+		? `Provider-reported charge: ${formatUsd(cost.providerReported)}`
+		: `Estimated cloud cost: ${formatUsd(cost.total)}`);
+	if (cost.completeness === "partial") lines.push("Partial: at least one token counter or rate was unreported.");
+	if (cost.completeness === "unavailable") lines.push("No price evidence and no provider-reported charge for this turn.");
+	if (cost.savings != null) lines.push(`Cache savings vs. no cache: ${formatSignedUsd(cost.savings)}`);
+	if (cost.source) lines.push(`Price source: ${cost.source}`);
+	if (cost.currency) lines.push(`Currency: ${cost.currency}`);
+	return lines.join("\n");
+}
+
 export function StatsFooter({ stats, mode = "casual", inline = false }) {
 	stats = {
 		...stats,
@@ -909,6 +929,20 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 					<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
 				</span>
 			</Tooltip>
+
+			{/* Cloud cost chip. A local turn has no cloud charge at all, which is
+			    a different statement from a measured $0.00 — it is labelled n/a. */}
+			{costChipText(stats.cost) != null && (
+				<Tooltip
+					content={<span className="whitespace-pre-line">{costTooltip(stats.cost)}</span>}
+					placement="top"
+					delay={350}
+				>
+					<span className="inline-flex cursor-help items-center gap-1">
+						<FiDollarSign aria-hidden="true" /> {costChipText(stats.cost)}
+					</span>
+				</Tooltip>
+			)}
 
 			{/* Tool Loop Indicator Badge (workspace only; hidden in casual chat) */}
 			{mode !== "casual" &&

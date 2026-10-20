@@ -176,6 +176,7 @@ function reserveRequest(state, payload, measured) {
   state.ledger.outputReserved += bounded.max_tokens;
   state.ledger.outputUnknownTurns++;
   state.ledger.reasoningUnknownTurns = (state.ledger.reasoningUnknownTurns ?? 0) + 1;
+  state.ledger.cachedInputUnknownTurns = (state.ledger.cachedInputUnknownTurns ?? 0) + 1;
   return { payload: bounded, input: reservedInput, output: bounded.max_tokens, settled: false };
 }
 function settleRequest(state, reservation, usage) {
@@ -185,7 +186,8 @@ function settleRequest(state, reservation, usage) {
   // cloud both report prompt_tokens/completion_tokens; Anthropic is normalized
   // to that shape by the cloud transport. Absent usage stays null and the
   // reservation remains counted as estimated/reserved rather than a fake zero.
-  const { input, output, reasoning } = policy.normalizeUsage(usage);
+  const { input, output, reasoning, cachedInput } = policy.normalizeUsage(usage);
+  const { cacheWritten, providerCost } = policy.extractBillingUsage(usage);
   if (input !== null) {
     state.ledger.inputEstimated -= reservation.input;
     state.ledger.inputMeasured += input;
@@ -199,12 +201,31 @@ function settleRequest(state, reservation, usage) {
     state.ledger.reasoningUnknownTurns = Math.max(0, (state.ledger.reasoningUnknownTurns ?? 0) - 1);
     state.ledger.reasoningMeasured = (state.ledger.reasoningMeasured ?? 0) + reasoning;
   }
-  if (input !== null || output !== null || reasoning !== null) {
+  if (cachedInput !== null) {
+    state.ledger.cachedInputUnknownTurns = Math.max(0, (state.ledger.cachedInputUnknownTurns ?? 0) - 1);
+    state.ledger.cachedInputMeasured = (state.ledger.cachedInputMeasured ?? 0) + cachedInput;
+  }
+  if (input !== null || output !== null || reasoning !== null || cachedInput !== null || cacheWritten !== null || providerCost !== null) {
     state.usage ??= {};
     if (input !== null) state.usage.prompt_tokens = (state.usage.prompt_tokens ?? 0) + input;
     if (output !== null) state.usage.completion_tokens = (state.usage.completion_tokens ?? 0) + output;
-    // Diagnostic subset of completion_tokens — never added to the total.
+    // Diagnostic subsets of the gross counters — never additions to them.
     if (reasoning !== null) state.usage.reasoning_tokens = (state.usage.reasoning_tokens ?? 0) + reasoning;
+    // Cache writes are a billed portion of the gross prompt, kept separate so
+    // cost estimation can apply the write premium without touching budgets.
+    if (cacheWritten !== null) state.usage.cache_write_input_tokens = (state.usage.cache_write_input_tokens ?? 0) + cacheWritten;
+    // Provider-reported charge: authoritative billing evidence, accumulated
+    // across turns exactly like the token counters.
+    if (providerCost !== null) state.usage.provider_reported_cost = (state.usage.provider_reported_cost ?? 0) + providerCost;
+    if (cachedInput !== null) {
+      state.usage.cache_read_input_tokens = (state.usage.cache_read_input_tokens ?? 0) + cachedInput;
+      // The uncached portion is derivable only when the same request reported
+      // both sides; it is an analytics value, not a budget discount.
+      if (input !== null) {
+        state.usage.uncached_input_tokens = (state.usage.uncached_input_tokens ?? 0)
+          + Math.max(0, input - cachedInput);
+      }
+    }
     if (state.ledger.inputEstimated === 0 && state.ledger.outputUnknownTurns === 0) {
       state.usage.total_tokens = (state.usage.prompt_tokens ?? 0) + (state.usage.completion_tokens ?? 0);
     } else delete state.usage.total_tokens;
