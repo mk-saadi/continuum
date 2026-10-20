@@ -194,8 +194,19 @@ function registerIpcHandlers({
         "usage:pricing-history": input => require('./spendingDashboard').getPricingHistory(input),
         "usage:model-detail": input => require('./spendingDashboard').getModelDetail(input),
         "project:create": input => projects.createProject(input),
-        "project:update": ({ id, ...patch }) => projects.updateProject(id, patch),
-        "project:delete": ({ id }) => projects.deleteProject(id),
+        "project:update": async ({ id, ...patch }) => {
+            const previous = projects.getProject(id);
+            const updated = projects.updateProject(id, patch);
+            if (previous.root_path && previous.root_path !== updated.root_path)
+                await require("./lspManager").manager.closeRoot(previous.root_path).catch(() => {});
+            return updated;
+        },
+        "project:delete": async ({ id }) => {
+            const previous = projects.getProject(id);
+            const result = projects.deleteProject(id);
+            if (previous.root_path) await require("./lspManager").manager.closeRoot(previous.root_path).catch(() => {});
+            return result;
+        },
         "project:list": () => projects.listProjects(),
         "project:get_by_id": ({ id }) => projects.getProject(id),
         "project:import_files": ({ project_id, file_paths }) => projects.importProjectFiles(project_id, file_paths),

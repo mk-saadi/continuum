@@ -831,7 +831,7 @@ app.on("before-quit", (event) => {
 	idleService?.dispose();
 	if (!mcpClosed) {
 		event.preventDefault();
-		mcpManager.close().finally(() => {
+		Promise.allSettled([mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});

@@ -1,0 +1,151 @@
+{
+  "baselineCommit": "185b9bc",
+  "baseline": {
+    "counts": {
+      "tests": 1454,
+      "suites": 8,
+      "pass": 1429,
+      "fail": 25,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failures": [
+      "tests/attachments.test.cjs",
+      "10. background children keep the Step 4 context isolation and tool allowlist",
+      "1. a child finishes after one model response when no tools are needed",
+      "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/compactionBadge.test.cjs",
+      "real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds",
+      "mandatory overflow fails without dispatch or accumulation of blank interrupted replies",
+      "scheduled compression is explicitly run; pending background compaction is awaited before forced work",
+      "regeneration recovery excludes the replaced assistant and preserves its original variant",
+      "forced compaction includes expanded older attachment text and preserves its managed file",
+      "tests/contextPanel.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "native tool guard prevents writes and model self-approval, full access can write outside root",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "workspace normal send retains the brief in the dispatched payload",
+      "casual forced recovery creates no briefs and dispatches no brief section"
+    ]
+  },
+  "final": {
+    "counts": {
+      "tests": 1464,
+      "suites": 8,
+      "pass": 1439,
+      "fail": 25,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failures": [
+      "tests/attachments.test.cjs",
+      "10. background children keep the Step 4 context isolation and tool allowlist",
+      "1. a child finishes after one model response when no tools are needed",
+      "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/compactionBadge.test.cjs",
+      "real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds",
+      "mandatory overflow fails without dispatch or accumulation of blank interrupted replies",
+      "scheduled compression is explicitly run; pending background compaction is awaited before forced work",
+      "regeneration recovery excludes the replaced assistant and preserves its original variant",
+      "forced compaction includes expanded older attachment text and preserves its managed file",
+      "tests/contextPanel.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "native tool guard prevents writes and model self-approval, full access can write outside root",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "workspace normal send retains the brief in the dispatched payload",
+      "casual forced recovery creates no briefs and dispatches no brief section"
+    ]
+  },
+  "newFailures": [],
+  "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+  "runtime": "Node 22.23.2",
+  "focusedTests": 10,
+  "focusedPass": 10,
+  "benchmarks": [
+    {
+      "startupMs": 156.424631,
+      "syncMs": 0.5446839999999611,
+      "requestMs": 12.517135000000053,
+      "shutdownMs": 14.378049999999803,
+      "diagnosticsMs": 2774.088835
+    }
+  ],
+  "productionBuild": "passed",
+  "buildWarning": "chunk size >500 kB",
+  "ui": {
+    "files": 60,
+    "passed": 56,
+    "failed": 3,
+    "timedOut": 1,
+    "failures": [
+      {
+        "file": "tests/contextPanel.ui.cjs",
+        "current": {
+          "exit": 1,
+          "tail": "[299825:1020/221849.902432:ERROR:gpu/command_buffer/service/gpu_persistent_cache.cc:137] Persistent cache error: 1\nWorkspace Context panel UI test failed: Error: no token-savings claims in status\n"
+        },
+        "baseline": {
+          "exit": 1,
+          "tail": "[300071:1020/221851.293174:ERROR:gpu/command_buffer/service/gpu_persistent_cache.cc:137] Persistent cache error: 1\nWorkspace Context panel UI test failed: Error: no token-savings claims in status\n"
+        }
+      },
+      {
+        "file": "tests/skillProposalProjectId.ui.cjs",
+        "current": {
+          "exit": 1,
+          "tail": "Skill proposal project id test failed: Error: skill proposal card never rendered: rebound-skill\n"
+        },
+        "baseline": {
+          "exit": 1,
+          "tail": "Skill proposal project id test failed: Error: skill proposal card never rendered: rebound-skill\n"
+        }
+      },
+      {
+        "file": "tests/sliderField.ui.cjs",
+        "current": {
+          "exit": 1,
+          "tail": "[303664:1020/221918.741481:ERROR:gpu/command_buffer/service/gpu_persistent_cache.cc:137] Persistent cache error: 1\nError: Script failed to execute, this normally means an error was thrown. Check the renderer console for the error.\n    at node:electron/js2c/sandbox_bundle:2:98605\n    at IpcRendererInternal.<anonymous> (node:electron/js2c/sandbox_bundle:2:93432)\n    at IpcRendererInternal.emit (node:electron/js2c/sandbox_bundle:2:35958)\n    at Object.onMessage (node:electron/js2c/sandbox_bundle:2:92646)\n"
+        },
+        "baseline": {
+          "exit": 1,
+          "tail": "[313243:1020/222109.097177:ERROR:gpu/command_buffer/service/gpu_persistent_cache.cc:137] Persistent cache error: 1\nError: Script failed to execute, this normally means an error was thrown. Check the renderer console for the error.\n    at node:electron/js2c/sandbox_bundle:2:98605\n    at IpcRendererInternal.<anonymous> (node:electron/js2c/sandbox_bundle:2:93432)\n    at IpcRendererInternal.emit (node:electron/js2c/sandbox_bundle:2:35958)\n    at Object.onMessage (node:electron/js2c/sandbox_bundle:2:92646)\n",
+          "note": "Rechecked after building isolated baseline; same renderer script failure."
+        }
+      },
+      {
+        "file": "tests/transcriptVirtual.ui.cjs",
+        "current": {
+          "exit": "timeout",
+          "tail": "[313979:1020/222156.789975:ERROR:gpu/command_buffer/service/gpu_persistent_cache.cc:137] Persistent cache error: 1\n"
+        },
+        "baseline": {
+          "exit": "timeout",
+          "tail": ""
+        }
+      }
+    ],
+    "newFailureFiles": [],
+    "timeoutSeconds": 60,
+    "command": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/<file>.ui.cjs"
+  }
+}

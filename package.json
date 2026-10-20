@@ -61,7 +61,9 @@
 		],
 		"asarUnpack": [
 			"node_modules/@playwright/**/*",
-			"node_modules/playwright*/**/*"
+			"node_modules/playwright*/**/*",
+			"node_modules/typescript-language-server/**/*",
+			"node_modules/typescript/**/*"
 		],
 		"linux": {
 			"target": [
@@ -123,7 +125,10 @@
 		"remark-gfm": "^4.0.1",
 		"remark-parse": "^11.0.0",
 		"sharp": "^0.32.6",
+		"typescript": "5.7.3",
+		"typescript-language-server": "4.3.4",
 		"undici": "^6.28.1",
-		"unified": "^11.0.5"
+		"unified": "^11.0.5",
+		"vscode-jsonrpc": "8.2.1"
 	}
 }
