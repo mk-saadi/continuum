@@ -49,6 +49,7 @@ This is the roadmap we agreed to complete first.
 * Avoid restrictive hidden execution ceilings.
 
 * Keep all execution within the running desktop application.
+* Support user mid-run interjections — send a short prompt during an active run without terminating it, so the agent can adjust behavior (e.g., skip unnecessary steps or tool calls). See 6.2 for design details; fits Phase 1.5 scope (child controls).
 
 Important: The subagent audit confirmed that mid-run compaction already works in deterministic tests. Phase 1.4 is therefore primarily about hardening and recovery, not building compaction from scratch.
 
@@ -436,6 +437,21 @@ Additional UI/UX opportunities:
 * Accessible controls for viewing/editing memory.
 
 * Preserve custom avatars, agent names, personas, backgrounds, and branding.
+
+### 6.2 User mid-run interjections
+
+Allow the user to send a short prompt while an agent is actively running — for example, noticing unnecessary steps or tool calls and steering the run instead of terminating it. The agent sees the prompt at the next safe boundary and acts accordingly.
+
+Current state: Input is locked during streaming (`ChatInputBar` disables sending; only Stop is available). The existing mid-run questions mechanism is one-directional (agent → user) via `ask_user`; there is no path to push text into a running agent.
+
+Proposed design:
+
+* Interjection queue: Text submitted while streaming is enqueued as a *user interjection*, distinct from normal turns and from `ask_user` answers.
+* Boundary injection: At the top of each loop iteration — after tool results are appended, before the next LLM request is built — flush queued interjections into context with a tag (e.g., `[USER INTERJECTION] ...`). The model sees them on its very next turn.
+* Persistence: Interjections are stored in the transcript as visually distinct messages and included in token accounting.
+* Edge cases: A long-running tool call delays effect until that tool completes; multiple interjections queued before one boundary flush in order; if the run is stopped, queued interjections are discarded (or persisted as unprocessed — decide during implementation).
+
+Scope note: Fits Phase 1.5 ("Completion reporting, streaming reliability, child controls"). Applies to top-level runs and subagent runs alike.
 
 The design goal remains simple on the surface, capable underneath.
 
