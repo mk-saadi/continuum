@@ -518,7 +518,10 @@ export function ChatInterface({
 		loadDisplaySession(sessionId)
 			.then((session) => {
 				if (!current) return;
-				setMessages(displayMessages(session));
+				// `null` means the row no longer exists; the tab is about to be
+				// dropped by the tab-state validation, so show nothing rather
+				// than treating it as a load failure.
+				setMessages(session ? displayMessages(session) : []);
 				loadedSessionRef.current = sessionId;
 			})
 			.catch((error) => {
@@ -615,6 +618,10 @@ export function ChatInterface({
 			title: "New chat",
 			status: "idle",
 			permissionMode: defaultPermissionMode(activeProject),
+			// This tab now points at a freshly minted session that has no row
+			// until the first message is sent. Keeping the old `saved` value
+			// would make the next launch try to load a missing session.
+			saved: false,
 		});
 		pendingAgent.current = null;
 		pendingSend.current = null;
@@ -644,6 +651,7 @@ export function ChatInterface({
 			pendingSend.current = null;
 			setPromptQueue([]);
 			palace.setSessionId(id);
+			onTabSaved?.(id);
 			onTabUpdate?.({
 				title: "New chat",
 				status: "idle",
@@ -672,6 +680,13 @@ export function ChatInterface({
 		setHistoryError("");
 		try {
 			const session = await loadDisplaySession(id);
+			// The row disappeared between the history listing and this click (for
+			// example another tab deleted it). Refresh the list instead of binding
+			// the tab to a dead session.
+			if (!session) {
+				await refreshHistory().catch(() => {});
+				throw new Error("This chat no longer exists.");
+			}
 			pendingAgent.current = null;
 			pendingSend.current = null;
 			setPromptQueue([]);
@@ -689,6 +704,9 @@ export function ChatInterface({
 				project: targetProject,
 			});
 			palace.setSessionId(id);
+			// The row was just loaded, so the restored tab may safely rehydrate it
+			// on the next launch even if this tab started as a blank draft.
+			onTabSaved?.(id);
 			onTabUpdate?.({
 				title: session.title || "Untitled chat",
 				modelId: session.model_id || selectedModel,
@@ -728,6 +746,7 @@ export function ChatInterface({
 			pendingSend.current = { edit: null, retry: false, submittedText: text, draftSessionId: id };
 			setAgentLoading(true);
 			palace.setSessionId(id);
+			onTabSaved?.(id);
 			onTabUpdate?.({
 				projectId,
 				title: "New chat",
@@ -761,10 +780,12 @@ export function ChatInterface({
 			} else {
 				const { sessionId } = await palace.api.branchChat(palace.sessionId, messageId);
 				const session = await loadDisplaySession(sessionId);
+				if (!session) throw new Error("The branched chat could not be loaded.");
 				pendingAgent.current = null;
 				pendingSend.current = null;
 				setPromptQueue([]);
 				palace.setSessionId(sessionId);
+				onTabSaved?.(sessionId);
 				setMessages(displayMessages(session));
 				clearFiles();
 				setEditing(null);
@@ -1304,9 +1325,6 @@ export function ChatInterface({
 			setIndexing(null);
 			setHistoryError("");
 			setSummarizeNotice("");
-			// The session row is created from here on, so the tab becomes a
-			// restorable chat rather than a blank one.
-			onTabSaved?.(palace.sessionId);
 			const identity = Object.freeze({
 				displayName: resolveDisplayName(
 					avatarSettings,
@@ -1357,6 +1375,11 @@ export function ChatInterface({
 				// resolves the same project context (and therefore permission
 				// normalization) as the selector shown in the composer.
 				await palace.api.getOrCreateSession(palace.sessionId, selectedModel, chatProjectId);
+				// Only now does the row exist, so the tab is a restorable chat.
+				// Flagging it before creation left a `saved` tab with no row if
+				// the turn failed early, which surfaced as "Session not found."
+				// on the next launch.
+				onTabSaved?.(palace.sessionId);
 				if (edit) setEditing(null);
 				let attachments = [];
 				if (!queued && !edit && !retry && selectedFiles.length) {
@@ -1400,7 +1423,7 @@ export function ChatInterface({
 					setQuotedSelection("");
 				}
 				const saved = await loadDisplaySession(palace.sessionId);
-				setMessages([...displayMessages(saved), assistantMsg]);
+				setMessages([...(saved ? displayMessages(saved) : []), assistantMsg]);
 				await refreshHistory();
 				const result = await runDesktopChat({
 					activeChatProvider,
@@ -1528,7 +1551,8 @@ export function ChatInterface({
 				await refreshHistory().catch((err) => setHistoryError(err.message));
 				if (edit) {
 					try {
-						setMessages(displayMessages(await loadDisplaySession(palace.sessionId)));
+						const session = await loadDisplaySession(palace.sessionId);
+						if (session) setMessages(displayMessages(session));
 					} catch (error) {
 						setHistoryError(error.message);
 					}
@@ -1896,6 +1920,8 @@ export function ChatInterface({
 											title: "New chat",
 											status: "idle",
 											permissionMode: defaultPermissionMode(activeProject),
+											// The replacement session has no row yet.
+											saved: false,
 										});
 										pendingAgent.current = null;
 										pendingSend.current = null;

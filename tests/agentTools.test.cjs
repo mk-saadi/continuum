@@ -111,7 +111,7 @@ const run = (
 				sessionId: "chat",
 				modelId: "model",
 			}).content;
-			assert.match(prompt, /Available dynamic tools \(MCP servers\): "terminal", "browser"/);
+			assert.match(prompt, /Optional MCP integrations[\s\S]*"terminal"[\s\S]*"browser"/);
 			assert.doesNotMatch(prompt, /heavy/);
 		} finally {
 			mcpManager.manageServers = originalManage;
@@ -121,7 +121,7 @@ const run = (
 		assert.equal(require("../src/main/tools/agentTools").approvedMutations, approvedMutations);
 		const hash = "0123456789abcdef";
 		assert.deepEqual(await run("approve_mcp_mutation", { hash }, null), { success: true, hash });
-		assert.ok(approvedMutations.delete(hash), "Approval is available without a project");
+		assert.ok(approvedMutations.delete(require('../src/main/safetyGuards').mutationApprovalKey(null, hash)), "Approval is available without a project");
 		for (const hash of ["", "not-a-hash", 42, null]) {
 			assert.equal((await run("approve_mcp_mutation", { hash }, null)).success, false);
 		}
@@ -432,7 +432,7 @@ const run = (
 			isTrustedSender: (event) => event.trusted,
 		});
 		await assert.rejects(handlers.get("agent:execute-tool")({ trusted: false }, {}), /Unauthorized/);
-		assert.equal((await handlers.get("agent:get-tools")({ trusted: true })).length, agentTools.filter(tool => !tool.function.name.startsWith("lsp_")).length);
+		assert.equal((await handlers.get("agent:get-tools")({ trusted: true })).length, agentTools.filter(tool => require('../src/main/toolPermissions').isToolVisible(tool.function.name)).length);
 		assert.equal(
 			(
 				await handlers.get("agent:execute-tool")(

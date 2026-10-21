@@ -45,7 +45,7 @@ Model weight size is only part of the memory budget:
 
 `required memory ≈ resident weights + KV cache + compute buffers + embedding/browser/app overhead`
 
-Default load settings are context length **8192**, GPU offload **auto**, **4** threads, evaluation batch **2048**, physical batch **512**, **1** parallel slot, automatic flash attention and **f16** K/V caches. Reduce context/batches or offloaded layers if allocation fails. `mlock` is optional and may require adequate OS locked-memory limits. Switching to cloud inference does not itself unload a local model; unload it or configure the idle timeout to release its resources.
+Default load settings are context length **8192**, GPU offload **auto**, **4** threads, evaluation batch **2048**, physical batch **512**, **1** parallel slot, automatic flash attention, **f16** K/V caches, and multi-token prediction **on** for GGUFs that ship MTP/nextn layers (emitted as `--spec-type draft-mtp`; files without those layers are unaffected). Reduce context/batches or offloaded layers if allocation fails. `mlock` is optional and may require adequate OS locked-memory limits. Switching to cloud inference does not itself unload a local model; unload it or configure the idle timeout to release its resources.
 
 ### 2.2 GPU drivers and toolkits
 

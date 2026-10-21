@@ -1,0 +1,656 @@
+{
+  "date": "2026-10-21",
+  "timezone": "Asia/Dhaka",
+  "node": "22.23.2",
+  "scope": "Permission and subagent-isolation audit only",
+  "baseline": {
+    "tests": 204,
+    "suites": 0,
+    "pass": 172,
+    "fail": 32,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/baseline.log",
+    "durationMs": 36551.654993,
+    "failingIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ]
+  },
+  "finalRestricted": {
+    "tests": 205,
+    "suites": 0,
+    "pass": 175,
+    "fail": 30,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/final-restricted.log",
+    "durationMs": 68406.656001,
+    "failingIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ]
+  },
+  "finalEnabled": {
+    "tests": 1566,
+    "suites": 8,
+    "pass": 1554,
+    "fail": 12,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/final-unrestricted.log",
+    "durationMs": 70357.000943,
+    "failingIdentities": [
+      "tests/attachments.test.cjs",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs"
+    ]
+  },
+  "newFailingFileIdentities": [],
+  "resolvedFailingFileIdentities": [
+    "tests/backgroundExecution.test.cjs",
+    "tests/nativePermissions.test.cjs"
+  ],
+  "focused": {
+    "tests": 155,
+    "suites": 0,
+    "pass": 155,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/focused-final.log",
+    "durationMs": 14802.062878,
+    "failingIdentities": []
+  },
+  "reliability": {
+    "tests": 13,
+    "suites": 0,
+    "pass": 13,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/final-reliability.log",
+    "durationMs": 682.893592,
+    "failingIdentities": []
+  },
+  "initialReliabilityReproducer": {
+    "tests": 6,
+    "suites": 0,
+    "pass": 1,
+    "fail": 5,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/repro.log",
+    "durationMs": 133.88517,
+    "failingIdentities": [
+      "stale native grants and schemas cannot override current session permissions",
+      "approval cannot outlive a permission change, even after downgrade then upgrade",
+      "shared LSP revokes one caller without closing an authorized peer server",
+      "MCP mutation grants cannot cross sessions or tool identities",
+      "recovery preserves a restricted child ceiling and invalidates old references"
+    ]
+  },
+  "cursorReproducer": {
+    "tests": 7,
+    "suites": 0,
+    "pass": 6,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/cursor-repro.log",
+    "durationMs": 158.223712,
+    "failingIdentities": [
+      "LSP cursors cannot cross same-workspace callers or policy generations"
+    ]
+  },
+  "commandReproducer": {
+    "tests": 13,
+    "suites": 0,
+    "pass": 12,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/command-repro.log",
+    "durationMs": 692.350205,
+    "failingIdentities": [
+      "a command awaiting recovery preparation cannot start after permission revocation"
+    ]
+  },
+  "lifecycleParallel": {
+    "tests": 9,
+    "suites": 0,
+    "pass": 8,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/lifecycle-final.log",
+    "durationMs": 3993.308231,
+    "failingIdentities": [
+      "tests/subagentDispatchConcurrency.test.mjs"
+    ]
+  },
+  "lifecycleSerial": {
+    "tests": 9,
+    "suites": 0,
+    "pass": 9,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/lifecycle-serial.log",
+    "durationMs": 4615.351647,
+    "failingIdentities": []
+  },
+  "dispatchDirect": {
+    "tests": 11,
+    "suites": 0,
+    "pass": 11,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "log": "/tmp/continuum-permission-audit/dispatch-direct.log",
+    "durationMs": 2277.189054,
+    "failingIdentities": []
+  },
+  "classifications": [
+    {
+      "file": "tests/apiServerPort.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "listen EPERM 127.0.0.1; no failure in enabled final run.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-apiServerPort.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/attachments.test.cjs",
+      "classification": "Confirmed outdated expectation",
+      "evidence": "Fixture requests image upload without a selected/verified image-capable model; current attachment policy refuses it. Unchanged.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-attachments.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/backgroundExecution.test.cjs",
+      "classification": "Confirmed outdated expectation",
+      "evidence": "Test 10 background children keep context isolation and tool allowlist, line 504: stream false versus true. Progress observer intentionally enables streaming. Isolation assertions retained; corrected fixture passes 14/14.",
+      "diagnosticFailingAssertions": [
+        "10. background children keep the Step 4 context isolation and tool allowlist"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-backgroundExecution.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/childAgentLoop.test.cjs",
+      "classification": "Confirmed test-harness defect / outdated expectation / environment restriction",
+      "evidence": "Test 1 expects stream:false; actual runtime progress observer requests true. HTTP test parses tokenizer GET as empty JSON and also expects false. Corrected transport expectations and POST route; 16/16 enabled; restricted loopback still fails.",
+      "diagnosticFailingAssertions": [
+        "1. a child finishes after one model response when no tools are needed",
+        "spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-childAgentLoop.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/cloudIpc.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "Database initialization: captured Electron mock has no app.getPath in legacyDataMigration. Chat authorization is not reached.",
+      "diagnosticFailingAssertions": [
+        "cloud settings persist privately and cloud chat works without a local engine"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-cloudIpc.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/cloudProviders.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "cloud chat POST survives a GET-only global.fetch override: listen EPERM. Enabled final suite explicitly passes it.",
+      "diagnosticFailingAssertions": [
+        "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-cloudProviders.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/deleteProjectFile.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Tracked deletion / untracked and non-Git tests: spawnSync git EPERM. Enabled final suite passes deletion coverage.",
+      "diagnosticFailingAssertions": [
+        "tracked deletion surfaces in git status/diff with no auto stage or commit",
+        "untracked files and non-Git workspaces delete through recovery"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-deleteProjectFile.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/engineSettings.test.cjs",
+      "classification": "Confirmed outdated expectation",
+      "evidence": "Exact settings object at line 30 omits established recoveryRetentionDays=30 and recoveryStorageCapMB=512. Unchanged.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-engineSettings.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/filesystemToolLimits.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "MCP execution applies cap before serialization: singleton getMcpMode calls getAppSettings with no initialized database. Not an authorization rejection; unchanged.",
+      "diagnosticFailingAssertions": [
+        "MCP execution applies the cap before serialization"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-filesystemToolLimits.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/gitTools.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Real repository fixture creation fails at spawnSync git EPERM. Enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "status shows untracked files, then a clean tree after commit",
+        "diff shows unstaged work, staged flag, and stat summary",
+        "log lists commits newest-first and validates its limit",
+        "show renders one commit and rejects shell-injection refs",
+        "branch lists main; blame attributes lines and rejects escapes",
+        "non-repositories fail closed and casual chats cannot reach the app repo",
+        "stage takes explicit paths only and rejects escapes",
+        "unstage round-trips staged files and keeps worktree content",
+        "unstage rejects the same hostile paths as stage",
+        "unstage fails closed outside a repository",
+        "stash push stores tracked mods and leaves a clean tree",
+        "stash pop restores the entry and drops it",
+        "stash pop conflict surfaces git output without data loss",
+        "stash rejects hostile actions, messages, and indexes",
+        "stash fails closed outside a repository",
+        "sync fetch discovers new branches from a file remote",
+        "sync fetch reaches the network through its sandbox profile",
+        "sync pull fast-forwards, and refuses dirty or diverged trees",
+        "sync push publishes with fingerprint approval",
+        "sync push rejects stale approval and diverged remotes",
+        "sync auth failure names gh without leaking secrets",
+        "sync fails closed outside a repository",
+        "commit needs a message, stages nothing itself, and reports its hash",
+        "create_branch creates on HEAD and auto-switches",
+        "create_branch starts from a tag or older ref without switching",
+        "switch moves HEAD on a clean tree and refuses a dirty one",
+        "hostile branch names are rejected and create nothing",
+        "branch tools fail closed outside a repository",
+        "commit always prompts outside full_access; stage stays contained",
+        "hostile diff, textconv and fsmonitor helpers are disabled for inspection",
+        "staging filters cannot write outside the workspace",
+        "commit approval contains staged diff and rejects subsequent staged changes",
+        "blame start-only ranges extend to the actual end of the file",
+        "missing sandbox fails closed without running Git directly"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-gitTools.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/localEngineFetch.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "local completion / production local transport tests fail listen EPERM on fixture server. Enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "local completion waits for headers and first data, and remains cancellable",
+        "production local transport counts formatted requests and permits only one reduced overflow retry"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-localEngineFetch.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/lspAgentIntegration.test.cjs",
+      "classification": "Environment restriction plus corrected fixture assumption",
+      "evidence": "Real bundled server fails to initialize under restriction; ensuing matrix/catalog assertions cascade. Enabled focused final passes. Revocation fixture previously relied on destroying the shared server to remove its request stub; now explicitly restores stub and asserts server reuse.",
+      "diagnosticFailingAssertions": [
+        "six schemas, native registration, model conversions and strict argument validation",
+        "visibility and execution matrix, trusted identity, live transitions and child ceilings",
+        "real main IPC: six tools, paging, diagnostic fix, transcript, activity and steering",
+        "real subagent dispatcher: isolated child transcript and shared server reuse",
+        "live IPC mode changes are sender-owned and revoke pending LSP without a new run",
+        "real cloud agent path: OpenRouter streaming and Anthropic non-streaming conversion",
+        "active cancellation, timeout, revocation and independent shared-server callers",
+        "concurrent children keep private transcripts and one child cancellation preserves its peer",
+        "second workspace and cursor isolation; context projection retains structured freshness",
+        "independently denied children hide LSP and reject forged calls under an eligible parent"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-lspAgentIntegration.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/lspCodeIntelligence.test.cjs",
+      "classification": "Environment restriction; one observed timing-sensitive assertion",
+      "evidence": "Real bundled server INITIALIZATION_FAILED/SERVER_TERMINATED restricted. One intermediate enabled full run lacked answer in workspace symbol results; later final full and focused pass. No result-completeness assertion weakened. Shared-server fixture now asserts process retention.",
+      "diagnosticFailingAssertions": [
+        "real bundled server: all six operations, pagination, JS/JSX/TS/TSX, fix and evidence"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-lspCodeIntelligence.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/lspFoundation.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Real bundled-server and JS-only tests fail INITIALIZATION_FAILED/SERVER_TERMINATED restricted; enabled focused final passes.",
+      "diagnosticFailingAssertions": [
+        "real bundled server: diagnostics, fix, definitions, references, hover, TSX, JS and cleanup",
+        "real JS-only project without configuration provides hover"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-lspFoundation.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/lspProduction.test.cjs",
+      "classification": "Environment restriction plus repaired identity fixture",
+      "evidence": "Original direct 32/35: native permission matrix and real extension/stress requests return LSP_SERVER_UNAVAILABLE restricted. Enabled focused final passes all 35. After cursor scoping, three fixtures needed one stable caller object across pages; expiration and cross-workspace assertions unchanged.",
+      "diagnosticFailingAssertions": [
+        "the permission matrix is enforced at the tool, adapter and manager layers",
+        "every supported extension is accepted and answered by the real server",
+        "long-running stress: 300+ mixed operations stay bounded and consistent"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-lspProduction.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/lspProductionAgent.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Real six-tool main/child requests return unavailable when bundled process cannot initialize. Enabled focused final passes all 9 including recovery.",
+      "diagnosticFailingAssertions": [
+        "the real main agent runs all six tools in one run and delivers every result",
+        "a main-agent permission downgrade cancels the pending call and denies the rest",
+        "an authorized child receives the LSP tools and returns real results to its parent",
+        "cancelling one child leaves its peer and the shared server working",
+        "a recovered child is re-authorized at the default ceiling, never Full Access"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-lspProductionAgent.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/mcpIpc.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "IPC executes MCP tools: Electron mock missing app.getPath. preload config methods: sender mock missing once. Both remain failing; no production approval bypass added.",
+      "diagnosticFailingAssertions": [
+        "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "preload config methods invoke trusted config handlers"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-mcpIpc.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/mcpManager.test.cjs",
+      "classification": "Environment restriction; security gap separately reproduced",
+      "evidence": "Real stdio discovery returns connection closed under restriction. Enabled focused final passes all five tests. Prior global payload-only mutation grants were accepted by old tests; new cross-session/method reproducer proves defect.",
+      "diagnosticFailingAssertions": [
+        "real stdio discovery, pagination, namespacing, execution and disable"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-mcpManager.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/mcpSse.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "SSE and fallback fixture servers fail listen EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "SSE sends configured headers on GET and POST, discovers tools, executes and reloads",
+        "untyped URLs fall back after SSE GET 405; explicit SSE does not POST to that URL"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-mcpSse.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/messageActions.test.cjs",
+      "classification": "Unresolved",
+      "evidence": "Line 54 expects two variants, observes zero. Outside permission repair; unchanged and still failing.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-messageActions.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/messageStats.test.cjs",
+      "classification": "Unresolved",
+      "evidence": "Line 80 exact legacy message object differs in siblings field. Outside permission repair; unchanged and still failing.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-messageStats.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/nativePermissions.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "Line 33 Full Access external write returned false because fake db lacks transaction(): Recovery capture failed; refusing write_project_file to protect existing content. Replaced fake project-row database with real temporary SQLite/project/session and Electron path fixture. Production authorization did not need widening; 1/1 passes.",
+      "diagnosticFailingAssertions": [
+        "native tool guard prevents writes and model self-approval, full access can write outside root"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-nativePermissions.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/nodeHttpFetchCancel.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "All local HTTP fixtures fail listen EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "webpage tool reads a JSON response without a process-level exception",
+        "explicit body cancellation followed by stream close does not throw",
+        "cancelling a redirect or error response does not throw",
+        "normal HTML responses are still consumed end to end",
+        "cancellation scenarios pass under the embedded Electron Node runtime"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-nodeHttpFetchCancel.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/rag.test.cjs",
+      "classification": "Unresolved",
+      "evidence": "Mock lacks Notification.isSupported and real context-count transport fails fetch. Harness drift suspected but not established for all assertions; unchanged.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-rag.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/recoveryBoundary.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Git index/branches/history fixture spawnSync git EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "15. git index, branches, history untouched by boundaries"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-recoveryBoundary.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/recoveryIpc.test.cjs",
+      "classification": "Unresolved / environment restriction",
+      "evidence": "Restricted diff review IPC registration test reports bwrap loopback NETLINK_ROUTE EPERM. Enabled final suite passes; original source-inspection assertion not independently certified beyond observed result.",
+      "diagnosticFailingAssertions": [
+        "diff review IPC channels are registered"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-recoveryIpc.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/recoveryStore.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Real uncommitted/index/history fixtures fail spawnSync git EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "5. uncommitted modifications and untracked files survive the round trip",
+        "12. real git index, branches, and history are unchanged by capture/restore"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-recoveryStore.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/skillImportIpc.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "Electron mock lacks app.getPath during legacyDataMigration database initialization; unchanged.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-skillImportIpc.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/skillProposalIpc.test.cjs",
+      "classification": "Confirmed test-harness defect",
+      "evidence": "Electron mock lacks app.getPath during legacyDataMigration database initialization; unchanged.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-skillProposalIpc.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/subAgentRunner.test.cjs",
+      "classification": "Confirmed outdated expectation; remaining budget assertion out of scope",
+      "evidence": "Line 73 expects stream:false with an active progress observer; runtime requests true. Supplemental probe correcting that exposes file-analysis output default 3072 versus old 1024, then input-budget derivation 9389 versus old 22268. Original test left unchanged; no production budget changes.",
+      "diagnosticFailingAssertions": [],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-subAgentRunner.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/subagentOutOfProcessRecovery.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Cross-process recovery fixture listen EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "a child persisted by another OS process is recovered and continued here"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-subagentOutOfProcessRecovery.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    },
+    {
+      "file": "tests/subagentSession.test.cjs",
+      "classification": "Environment restriction",
+      "evidence": "Each spawn opens own session real-provider test listen EPERM; enabled final suite passes.",
+      "diagnosticFailingAssertions": [
+        "each spawn_sub_agent call opens its own completed child session end to end"
+      ],
+      "diagnosticLog": "/tmp/continuum-permission-audit/direct-subagentSession.test.cjs.log",
+      "diagnosticStage": "Independent diagnostic reruns, mostly after initial production fixes; not an untouched baseline assertion inventory."
+    }
+  ],
+  "filesChangedByThisPhase": [
+    "src/main/ipcHandlers.js",
+    "src/main/lspCodeIntelligence.js",
+    "src/main/lspExecutionContext.js",
+    "src/main/lspManager.js",
+    "src/main/mcpManager.js",
+    "src/main/promptBuilder.js",
+    "src/main/safetyGuards.js",
+    "src/main/subagents/continuationManager.js",
+    "src/main/subagents/continuationState.js",
+    "src/main/toolPermissions.js",
+    "src/main/tools/agentTools.js",
+    "tests/agentTools.test.cjs",
+    "tests/backgroundExecution.test.cjs",
+    "tests/childAgentLoop.test.cjs",
+    "tests/lspAgentIntegration.test.cjs",
+    "tests/lspCodeIntelligence.test.cjs",
+    "tests/lspProduction.test.cjs",
+    "tests/mcpDynamicActivation.test.cjs",
+    "tests/mcpManager.test.cjs",
+    "tests/nativePermissions.test.cjs",
+    "tests/permissionIsolationReliability.test.cjs",
+    "docs/permission-subagent-isolation-reliability-report.md",
+    "docs/permission-subagent-isolation-evidence.json"
+  ],
+  "build": {
+    "command": "npm run build",
+    "passed": true,
+    "viteSeconds": 41.52,
+    "warning": "Existing large chunk warning",
+    "log": "/tmp/continuum-permission-audit/build.log"
+  },
+  "ui": [
+    {
+      "fixture": "permissionMode.ui.cjs",
+      "passed": true,
+      "log": "/tmp/continuum-permission-audit/ui-permission-unrestricted.log"
+    },
+    {
+      "fixture": "liveSteering.ui.cjs",
+      "passed": true,
+      "log": "/tmp/continuum-permission-audit/ui-steering.log"
+    },
+    {
+      "fixture": "subagentAcceptance.ui.cjs",
+      "passed": true,
+      "log": "/tmp/continuum-permission-audit/ui-subagent.log"
+    },
+    {
+      "fixture": "lspActivity.ui.cjs",
+      "passed": true,
+      "log": "/tmp/continuum-permission-audit/ui-lsp.log"
+    }
+  ],
+  "limitations": [
+    "Current investigation child engine supports read-only native tools plus independently authorized LSP, not generic Workspace Write children.",
+    "Native reads intentionally allow accessible external paths; configured MCP processes are not a generic filesystem sandbox.",
+    "No instant rollback/revocation of native filesystem mutation or shell/MCP side effects already executing.",
+    "Twelve enabled full-suite failures remain; parallel lifecycle run had one transient dispatch test failure, direct and serial reruns pass.",
+    "No live paid inference, packaged desktop session or exhaustive permission-transition/compaction/steering cross-product certification."
+  ]
+}

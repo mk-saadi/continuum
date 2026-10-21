@@ -485,6 +485,7 @@ function registerIpcHandlers({
             const controller = activeStreams.get(sessionId);
             if (controller && ![...(requests.get(sender)?.values() ?? [])].includes(controller)) throw new Error('This sender does not own the run.');
             await require('./lspExecutionContext').setMode(sessionId, permissionMode);
+            for (const finish of [...(controller?.toolApprovals?.values() ?? [])]) finish(false);
             return { success: true };
         },
         "steering:submit": ({ sessionId, runId, content, idempotencyKey }, _notify, sender) => {
@@ -503,9 +504,13 @@ function registerIpcHandlers({
 		},
 		"steering:history": ({ sessionId, limit } = {}) => {
 			if (typeof sessionId !== 'string' || !sessionId) throw new Error('Invalid session.');
-			if (!require('./db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) {
-				throw new Error('Session not found.');
-			}
+			// A session id is minted in the renderer when a tab opens, but the
+			// row is only persisted once the first message is sent. Asking for
+			// the steering history of a not-yet-persisted session is therefore a
+			// normal startup condition, not an error: the steering table is
+			// keyed by session id and cannot hold rows for a session that does
+			// not exist, so the correct answer is an empty history. Throwing
+			// here only produced a spurious unhandled-rejection log at startup.
 			return runSteering.getSteeringHistory(sessionId, limit);
 		},
 		"steering:cancel": ({ sessionId, runId, steeringId }, _notify, sender) => {
@@ -556,6 +561,13 @@ function registerIpcHandlers({
 			const runId = require('node:crypto').randomUUID();
 			controller.runId = runId;
             const lspExecutionContext = require('./lspExecutionContext').createContext(sessionId, permissionMode, runId);
+            const backgroundProject = require('./toolPermissions').sessionProject(sessionId);
+            const backgroundContext = backgroundProject?.root_path ? { runId, sessionId, workspace: require('node:fs').realpathSync(backgroundProject.root_path) } : null;
+            if (backgroundContext) require('./backgroundCommands').openRun({ ...backgroundContext, signal: controller.signal });
+            const backgroundUpdate = record => {
+                if (record.session_id === sessionId && record.workspace === backgroundContext?.workspace && !sender.isDestroyed()) sender.send('session:background-command', { sessionId, record });
+            };
+            if (backgroundContext) require('./backgroundCommands').events.on('change', backgroundUpdate);
 			const active = requests.get(sender) ?? new Map();
 			active.set(requestId, controller);
 			requests.set(sender, active);
@@ -655,6 +667,8 @@ function registerIpcHandlers({
 				notify({ type: "context", pluginTokens, toolTokens });
 				const text = await runMemoryChat({
                         projectId: usageProjectId,
+                        takeCommandCompletions: backgroundContext ? () => require('./backgroundCommands').take(backgroundContext) : null,
+                        markCommandCompletions: backgroundContext ? (ids, accepted) => require('./backgroundCommands').acknowledge(backgroundContext, ids, accepted) : null,
                         projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
                         // Phase 2.1: the loop asks for steering only at a model-request
                         // boundary. These callbacks claim/confirm rows for this exact
@@ -899,7 +913,7 @@ function registerIpcHandlers({
 							const args = JSON.parse(call.arguments || "{}");
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
 							let approval;
-							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: require('./tools/lspTools').LSP_TOOL_NAMES.includes(call.name) ? lspExecutionContext?.permissionMode : permissionMode, project,
+							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, sessionId, project,
                                 native: isAgent || isMemory, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
 							// Sub-agent observability: link the parent step to the child
@@ -927,11 +941,11 @@ function registerIpcHandlers({
 									controller, sender, requestId, sessionId, stepId: call.id, ...args,
 									enabled: profiles.getSessionSettings(sessionId, modelId).effective.allowMidRunQuestions,
 								})
-								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode, permissionGranted: true, approval, signal: controller.signal,
-                                    engine: chatEngine, budgetScope: childBudgetScope, executionContext: lspExecutionContext,
+								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, permissionGranted: true, approval, signal: controller.signal,
+                                    engine: chatEngine, budgetScope: childBudgetScope, executionContext: lspExecutionContext, backgroundContext,
                                     onChildSession: (childSessionId) => { spawnChildId = attachChildSession(childSessionId); } })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
-										signal: controller.signal, sessionId, permissionMode, permissionGranted: true,
+										signal: controller.signal, sessionId, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, permissionGranted: true, approval,
 									});
 							if (spawnChildId) attachChildSession(spawnChildId);
 							const output = sanitizeWebToolResult(rawOutput, call.name);
@@ -1017,6 +1031,10 @@ function registerIpcHandlers({
 				active.delete(requestId);
 				if (!active.size) requests.delete(sender);
 				if (activeStreams.get(streamKey) === controller) activeStreams.delete(streamKey);
+				if (backgroundContext) {
+                    await require('./backgroundCommands').closeRun(backgroundContext);
+                    require('./backgroundCommands').events.removeListener('change', backgroundUpdate);
+                }
 				steeringRuns.delete(runId);
 				// Close the steering queue only after the run is no longer
 				// discoverable, so a late submission cannot slip in after this
@@ -1105,7 +1123,18 @@ function registerIpcHandlers({
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),
 		"session:load-display": async ({ sessionId }) => {
-			const session = loadSession(sessionId);
+			// A restored tab can outlive its session row: the chat was deleted in
+			// another tab, or the tab was flagged saved for a session whose first
+			// message never reached the database. The renderer renders that as an
+			// empty chat, so report the absence as `null` instead of throwing a
+			// main-process handler error on every launch.
+			let session;
+			try {
+				session = loadSession(sessionId);
+			} catch (error) {
+				if (error?.message === 'Session not found.') return null;
+				throw error;
+			}
 			const { compactMessageForDisplay } = await import('../lib/toolDisplay.mjs');
 			return { ...session, messages: session.messages.map(compactMessageForDisplay) };
 		},
@@ -1164,8 +1193,8 @@ function registerIpcHandlers({
 			branchChat(sourceSessionId, targetMessageId),
 		"session:edit-message": ({ messageId, newContent }) => editMessage(messageId, newContent),
 		"agent:get-tools": ({ sessionId = null, permissionMode } = {}) => agentTools.filter(tool =>
-            !require('./tools/lspTools').LSP_TOOL_NAMES.includes(tool.function.name) || require('./tools/lspTools').available(sessionProject(sessionId)) && require('./toolPermissions').isToolVisible(tool.function.name, { project: sessionProject(sessionId),
-                permissionMode: require('./tools/lspTools').LSP_TOOL_NAMES.includes(tool.function.name) ? require('./lspExecutionContext').currentMode(sessionId, permissionMode) : permissionMode })),
+            (!require('./tools/lspTools').LSP_TOOL_NAMES.includes(tool.function.name) || require('./tools/lspTools').available(sessionProject(sessionId))) && require('./toolPermissions').isToolVisible(tool.function.name, { project: sessionProject(sessionId),
+                permissionMode: require('./lspExecutionContext').currentMode(sessionId, permissionMode) })),
         "agent:execute-tool": async ({ name, arguments: args, sessionId, permissionMode }, _notify, sender) => {
             if (!['delegate_task', 'extract_web_page_data', 'spawn_sub_agent'].includes(name)) {
                 const result = await executeAgentTool({ name, arguments: args, sessionId, permissionMode });
@@ -1192,7 +1221,7 @@ function registerIpcHandlers({
         },
         "memory:get-tools": () => memoryTools,
 		"memory:execute-tool": async (data) => {
-            await guardTool({ name: data.name, args: typeof data.arguments === "string" ? JSON.parse(data.arguments) : data.arguments, permissionMode: data.permissionMode, project: sessionProject(data.sessionId) });
+            await guardTool({ name: data.name, args: typeof data.arguments === "string" ? JSON.parse(data.arguments) : data.arguments, permissionMode: data.permissionMode, sessionId: data.sessionId, project: sessionProject(data.sessionId) });
             return executeMemoryTool(data);
         },
 		"session:prepare-messages": (data) => prepareChatMessages(data),
@@ -1256,7 +1285,11 @@ function registerIpcHandlers({
 		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
 		// Read-only durable task plan for the workspace sidebar. Null for a
 		// casual session or a task that has not created a plan yet.
-		"session:get-plan": ({ sessionId }) => require('./workspacePlan').getPlan(sessionId),
+		"session:get-background-commands": async ({ sessionId }) => {
+            const project = require('./toolPermissions').sessionProject(sessionId);
+            return project?.root_path ? require('./backgroundCommands').list(sessionId, await require('node:fs/promises').realpath(project.root_path)) : [];
+        },
+        "session:get-plan": ({ sessionId }) => require('./workspacePlan').getPlan(sessionId),
 		"session:get-archived-messages": ({ sessionId, limit, offset }) => require('./contextInspection').getArchivedMessagesForDisplay(sessionId, { limit, offset }),
 		"session:trigger-compression": ({ sessionId, modelId, contextWindowLimit }, notify) => {
 			if (typeof llmSummarizeCallback !== "function") {

@@ -1,6 +1,8 @@
 'use strict';
 // Trusted runtime state only. No model arguments, persisted grants, or executable configuration.
 const sessions = new Map();
+let policyRevision = 0;
+const revision = sessionId => sessions.get(sessionId)?.revision ?? null;
 const trusted = new WeakSet();
 const children = new WeakMap();
 const eligible = mode => mode === 'workspace_write' || mode === 'full_access';
@@ -11,7 +13,7 @@ function currentMode(sessionId, fallback) {
 function createContext(sessionId, permissionMode, runId = null) {
   if (!sessionId) return null;
   const mode = require('./toolPermissions').effectiveMode(permissionMode, require('./toolPermissions').sessionProject(sessionId));
-  sessions.delete(sessionId); sessions.set(sessionId, { mode });
+  sessions.delete(sessionId); sessions.set(sessionId, { mode, revision: ++policyRevision });
   // Bounded live policy cache; eviction revokes old contexts instead of retaining a grant.
   while (sessions.size > 256) sessions.delete(sessions.keys().next().value);
   const context = Object.freeze({ sessionId, runId, get permissionMode() {
@@ -24,8 +26,8 @@ async function setMode(sessionId, mode) {
   if (!require('../lib/permissionModes.json').modes.includes(mode)) throw new Error('Invalid permission mode.');
   const project = p.sessionProject(sessionId);
   const previous = sessions.get(sessionId);
-  if (previous) previous.mode = p.effectiveMode(mode, project);
-  else sessions.set(sessionId, { mode: p.effectiveMode(mode, project) });
+  if (previous) { previous.mode = p.effectiveMode(mode, project); previous.revision = ++policyRevision; }
+  else sessions.set(sessionId, { mode: p.effectiveMode(mode, project), revision: ++policyRevision });
   while (sessions.size > 256) sessions.delete(sessions.keys().next().value);
   const context = Object.freeze({ sessionId, get permissionMode() { return currentMode(sessionId, mode); } });
   if (project?.root_path) {
@@ -37,16 +39,33 @@ function authorizeChild(session, parent, mode = 'workspace_write') {
   if (!session || !parent || !trusted.has(parent) || session.parentSessionId !== parent.sessionId) return null;
   if (!require('../lib/permissionModes.json').modes.includes(mode)) throw new Error('Invalid child permission mode.');
   // Independent child ceiling: Full Access is never implicitly inherited.
-  const state = { mode };
+  const previous = children.get(session);
+  if (previous) previous.state.mode = 'read_only';
+  const state = { mode, revision: ++policyRevision };
   const context = Object.freeze({ sessionId: parent.sessionId, childSessionId: session.id,
     get runId() { return session.activeExecutionId ?? null; },
-    get permissionMode() { return eligible(parent.permissionMode) ? state.mode : 'read_only'; } });
+    get childRevision() { return state.revision; },
+    get permissionMode() { return session.status !== 'cancelled' && eligible(parent.permissionMode) ? state.mode : 'read_only'; } });
   trusted.add(context); children.set(session, { context, state }); return context;
 }
+function childMode(session) { return children.get(session)?.state.mode ?? 'read_only'; }
 function childContext(session) { return children.get(session)?.context ?? null; }
+// Revoke a child's LSP authorization when its live record disappears. The
+// context object is demoted as well, so a reference that outlives the session
+// can no longer act with the child's former ceiling.
+function forgetChild(session) {
+  const record = children.get(session);
+  if (record) { record.state.mode = 'read_only'; record.state.revision = ++policyRevision; }
+  children.delete(session);
+}
 function setChildMode(session, mode) {
   if (!require('../lib/permissionModes.json').modes.includes(mode)) throw new Error('Invalid child permission mode.');
-  const record = children.get(session); if (record) record.state.mode = mode;
+  const record = children.get(session);
+  if (record) {
+    record.state.mode = mode; record.state.revision = ++policyRevision;
+    // Mode changes to stopped children must also survive recovery.
+    if (session.continuationOptions) require('./subagents/persistence').persistChildRun(session);
+  }
 }
 function forTool(sessionId, fallback) {
   if (!sessionId) return null;
@@ -56,4 +75,4 @@ function forTool(sessionId, fallback) {
 }
 function forget(sessionId) { sessions.delete(sessionId); }
 function isTrusted(context) { return context != null && trusted.has(context); }
-module.exports = { eligible, createContext, forTool, currentMode, setMode, authorizeChild, childContext, setChildMode, forget, isTrusted };
+module.exports = { revision, childMode, eligible, createContext, forTool, currentMode, setMode, authorizeChild, childContext, forgetChild, setChildMode, forget, isTrusted };

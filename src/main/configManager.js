@@ -17,6 +17,7 @@ const DEFAULT_LOAD_CONFIG = Object.freeze({
 	loadMode: "auto",
 	moeExpertCount: null,
 	mmprojOffload: true,
+	mtp: true,
 });
 const LOAD_MODES = ["auto", "none", "mmap", "mlock", "mmap+mlock", "dio"];
 const KV_CACHE_OFFLOAD = ["gpu", "cpu"];
@@ -60,6 +61,7 @@ function normalizeLoadConfig(input = {}) {
 	if (typeof config.mlock !== "boolean") throw new Error("Invalid mlock setting.");
 	if (typeof config.mmprojOffload !== "boolean")
 		throw new Error("Invalid multimodal projector offload setting.");
+	if (typeof config.mtp !== "boolean") throw new Error("Invalid multi-token prediction setting.");
 	if (!["on", "off", "auto"].includes(config.flashAttention))
 		throw new Error("Invalid flash attention setting.");
 	for (const [key, values] of Object.entries({

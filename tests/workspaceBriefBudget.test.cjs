@@ -52,7 +52,7 @@ function briefSections(prompt) {
 
 const dispose = require('../src/main/ipcHandlers').registerIpcHandlers({
   isTrustedSender: () => true,
-  getEngineConfig: () => ({ modelPath: 'model', port: 9999, activeModelConfig: { contextLength: LIMIT } }),
+  getEngineConfig: () => ({ modelPath: 'model', port: 9999, activeModelConfig: { contextLength: 32768 } }),
   llmSummarizeCallback: async (_old, batch) => { assert.ok(batch.length); return 'Earlier conversation retained in this summary.'; },
 });
 const sender = Object.assign(new EventEmitter(), { send: () => {}, isDestroyed: () => false });
@@ -142,7 +142,7 @@ test('forced recovery refuses after summarization when the grown summary breaks 
 test('workspace normal send retains the brief in the dispatched payload', async () => {
   const id = workspaceSession(crypto.randomUUID());
   for (let i = 0; i < 6; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `Send${i} `.padEnd(100, 'x'));
-  transport = backend({ tokens: text => Math.ceil(text.length / 4),
+  transport = backend({ context: 32768, tokens: text => Math.ceil(text.length / 4),
     infer: () => Response.json({ choices: [{ message: { content: 'Done [TASK COMPLETE]' }, finish_reason: 'stop' }] }) });
   const messages = prepareChatMessages({ sessionId: id, modelId: MODEL, userText: 'Final workspace instruction.', regenerate: false });
   const result = await registered.get('engine:chat')(event, { requestId: id, messageId: id, sessionId: id,
@@ -174,9 +174,9 @@ test('casual forced recovery creates no briefs and dispatches no brief section',
   const id = crypto.randomUUID();
   sessions.getOrCreateSession(id, MODEL);
   for (let i = 0; i < 20; i++) sessions.saveMessage(id, i % 2 ? 'user' : 'assistant', String(i).padEnd(100, 'x'));
-  transport = backend({ tokens: text => Math.ceil(text.length / 4),
+  transport = backend({ context: 32768, tokens: text => Math.ceil(text.length / 4),
     infer: (_payload, count) => count === 1
-      ? new Response(JSON.stringify({ error: { type: 'exceed_context_size_error', n_prompt_tokens: 8619, n_ctx: LIMIT } }), { status: 400 })
+      ? new Response(JSON.stringify({ error: { type: 'exceed_context_size_error', n_prompt_tokens: 32769, n_ctx: 32768 } }), { status: 400 })
       : Response.json({ choices: [{ message: { content: 'Casual done [TASK COMPLETE]' }, finish_reason: 'stop' }] }) });
   const messages = prepareChatMessages({ sessionId: id, modelId: MODEL, userText: 'retry', regenerate: true });
   const result = await registered.get('engine:chat')(event, { requestId: id, messageId: id, sessionId: id,

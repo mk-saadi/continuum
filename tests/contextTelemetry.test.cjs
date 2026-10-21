@@ -219,7 +219,7 @@ async function main() {
         seen.template++;
         const payload = JSON.parse(options.body);
         seen.prompts.push(payload);
-        return { ok: true, json: async () => ({ prompt: `TOOLS:${payload.tools.map(tool => `${tool.function.name}:${tool.function.description}`).join('|')}\nMSGS:${JSON.stringify(payload.messages)}` }) };
+        return { ok: true, json: async () => ({ prompt: `TOOLS:${payload.tools.map(tool => `${tool.function.name}:${tool.function.description}:${JSON.stringify(tool.function.parameters)}`).join('|')}\nMSGS:${JSON.stringify(payload.messages)}` }) };
       }
       if (url.endsWith('/tokenize')) {
         seen.tokenize++;

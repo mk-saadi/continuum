@@ -53,7 +53,7 @@ async function main() {
       sessions.getOrCreateSession(id, MODEL);
       const content = buildSessionSystemPrompt({ sessionId: id, modelId: MODEL, userText: '' }).content;
       assert.match(content, /"on"/);
-      assert.doesNotMatch(content, /"off"/);
+      assert.match(content, /"off"[^\n]*Status: inactive/);
       // A server enabled for this session counts even when config-disabled.
       mcpManager.sessionServers.set(id, new Set(['off']));
       try {
@@ -62,10 +62,10 @@ async function main() {
       } finally {
         mcpManager.sessionServers.delete(id);
       }
-      // All disabled: the paragraph is omitted entirely.
+      // Disabled integrations remain discoverable as inactive.
       fs.writeFileSync(configPath, JSON.stringify({ mcpServers: { off: { command: 'off', disabled: true } } }));
       const none = buildSessionSystemPrompt({ sessionId: id, modelId: MODEL, userText: '' }).content;
-      assert.doesNotMatch(none, /Available dynamic tools/);
+      assert.match(none, /Optional MCP integrations[\s\S]*"off"[^\n]*Status: inactive/);
     } finally {
       mcpManager.configPath = originalPath;
       saveAppSettings({ mcpMode: 'manual' });

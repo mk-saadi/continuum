@@ -20,7 +20,7 @@ assert.ok(
 assert.ok(sidebar.includes('LuHistory'), 'Context tab has an icon');
 assert.ok(sidebar.includes('id="controls-context"'), 'context panel mounted with a stable id');
 assert.ok(
-  sidebar.includes('<ContextPanel sessionId={sessionId} active={tab === "context"} />'),
+   /<ContextPanel\s+sessionId=\{sessionId\}\s+modelId=\{modelId\}\s+active=\{tab === "context"\}\s*\/>/.test(sidebar),
   'context panel receives the session and visibility for refresh',
 );
 assert.ok(
@@ -85,6 +85,6 @@ assert.ok(inspection.includes('MAX_ARCHIVED_LIMIT'), 'archived pages bounded');
 assert.ok(inspection.includes('MAX_HISTORY_LIMIT'), 'checkpoint history bounded');
 assert.ok(inspection.includes('MAX_STEP_RESULT_CHARS'), 'tool output truncated with flags');
 assert.ok(inspection.includes('{ found: false }'), 'unresolvable evidence is explicit, never invented');
-assert.ok(inspection.includes('Session not found.'), 'unknown sessions rejected like session:load');
+assert.ok(inspection.includes('findSessionForDisplay(sessionId)') && inspection.includes('{ found: false }'), 'unknown sessions return the read-only not-found state');
 
 console.log('Context panel wiring: workspace-only tab, six inspection areas, preload APIs, failure notifications, and read-only bounded inspection passed.');

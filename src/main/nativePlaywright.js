@@ -61,4 +61,16 @@ async function prepareNativePlaywright(name, definition) {
   }
 }
 
-module.exports = { nativePlaywrightConfig, resolveNativePlaywright, prepareNativePlaywright };
+// Trust only the exact bundled launch configuration. Names, descriptions and
+// user-controlled flags cannot grant executable trust.
+function isTrustedNativePlaywright(name, definition) {
+  if (name !== 'playwright-native' || !definition) return false;
+  try {
+    const expected = nativePlaywrightConfig(definition.cwd);
+    const launch = value => ({ command: value.command, args: value.args,
+      env: value.env, cwd: value.cwd, url: value.url, transport: value.transport });
+    return require('node:util').isDeepStrictEqual(launch(definition), launch(expected));
+  } catch { return false; }
+}
+
+module.exports = { isTrustedNativePlaywright, nativePlaywrightConfig, resolveNativePlaywright, prepareNativePlaywright };

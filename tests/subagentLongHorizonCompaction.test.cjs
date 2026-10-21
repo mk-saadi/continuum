@@ -8,7 +8,7 @@
 // not a claim about live-model summary fidelity.
 //
 // Requirements exercised together (Phase 1.4 Step 8):
-//   * >= 150 tool calls and >= 150 model requests;
+//   * >= 200 tool calls and >= 200 model requests in a 32K window;
 //   * > 2,000,000 simulated cumulative tokens;
 //   * >= 3 mid-run context compactions;
 //   * a budget-exhausted suspension at a finite tool-call limit;
@@ -39,7 +39,7 @@ const continuationState = require('../src/main/subagents/continuationState');
 const { validatePairs } = require('../src/main/subagents/contextRecovery');
 const { runInvestigationExecution } = require('../src/main/subagents/agentLoop');
 
-const engine = { provider: 'local', port: 9, modelId: 'bench-child', contextLength: 131072 };
+const engine = { provider: 'local', port: 9, modelId: 'bench-child', contextLength: 32768 };
 const { ELIGIBILITY } = continuationState;
 // Every request reports a large synthetic prompt, so cumulative input crosses
 // 2M well before the workload ends without touching a real backend.
@@ -50,7 +50,7 @@ const response = (content, calls = [], finish_reason = 'stop') => Response.json(
 const toolCall = id => ({ id, type: 'function',
   function: { name: 'read_project_file', arguments: JSON.stringify({ relative_path: `src/${id}.js` }) } });
 
-test('long-horizon benchmark: 150+ tool calls, 3+ compactions, suspension, renewal and accurate completion',
+test('long-horizon benchmark: 220 tool calls in 32K, 3+ compactions, suspension, renewal and accurate completion',
   { timeout: 180000 }, async () => {
     settings.saveBudgetSettings({ mode: 'custom', maxTurns: 4000, maxToolCalls: 150,
       maxAggregateToolCalls: 300, maxInputTokens: 8000000, maxOutputTokens: 8000000 });
@@ -103,6 +103,7 @@ test('long-horizon benchmark: 150+ tool calls, 3+ compactions, suspension, renew
     try {
       session = { id: `bench-${randomUUID()}`, inputSummary: { task: 'Read every listed path and confirm EARLY_VALUE=17. Constraint: read-only.' } };
       const task = session.inputSummary.task;
+      const originalRunId = session.id;
       // ---- Phase 1: exhaustive work up to the finite tool-call limit -------
       const first = await runInvestigationExecution({ session, task, engine, rootPath: directory, fetchImpl });
       assert.equal(first.outcome, 'partial', 'a finite tool-call budget suspends with partial work');
@@ -118,25 +119,25 @@ test('long-horizon benchmark: 150+ tool calls, 3+ compactions, suspension, renew
       assert.equal(decision.eligibility, ELIGIBILITY.NEEDS_RENEWAL);
 
       // ---- Authorized renewal (monotonic; consumption untouched) ----------
-      const renewed = budget.renewBudget(session.budgetState, { maxToolCalls: 200 }, { reason: 'long-horizon benchmark', source: 'user' });
-      assert.equal(renewed.applied.maxToolCalls, 200);
+      const renewed = budget.renewBudget(session.budgetState, { maxToolCalls: 250 }, { reason: 'long-horizon benchmark', source: 'user' });
+      assert.equal(renewed.applied.maxToolCalls, 250);
       assert.equal(session.budgetState.toolCalls, 150, 'renewal never resets consumption');
       assert.equal(budget.totals(session.budgetState).inputTokens, tokensDuringFirst, 'renewal never resets usage');
       assert.equal(session.budgetState.renewals.length, 1);
-      assert.equal(session.budgetState.renewals[0].granted, 50);
+      assert.equal(session.budgetState.renewals[0].granted, 100);
 
       // ---- Phase 2: continue the same child to an accurate completion ------
-      phaseTarget = 176;
+      phaseTarget = 220;
       const second = await runInvestigationExecution({ session, task, engine, rootPath: directory, fetchImpl });
       assert.equal(second.outcome, 'completed', 'the renewed child reaches a truthful completion');
       assert.equal(second.stopReason, 'completed');
-      assert.equal(session.budgetState.toolCalls, 176, 'additional work ran only after the renewal');
-      assert.equal(session.budgetState.scope.toolCalls, 176);
-      assert.equal(executed, 176, 'each tool call executed exactly once across both phases');
-      assert.equal(new Set(executedIds).size, 176, 'no tool call was repeated');
+      assert.equal(session.budgetState.toolCalls, 220, 'additional work ran only after the renewal');
+      assert.equal(session.budgetState.scope.toolCalls, 220);
+      assert.equal(executed, 220, 'each tool call executed exactly once across both phases');
+      assert.equal(new Set(executedIds).size, 220, 'no tool call was repeated');
 
       // ---- Benchmark budgets: all thresholds met --------------------------
-      assert.ok(executed >= 150, `>=150 tool calls (${executed})`);
+      assert.ok(executed >= 200, `>=200 tool calls (${executed})`);
       assert.ok(requests.length >= 150, `>=150 model requests (${requests.length})`);
       assert.ok(session.compactionState.version >= 3, `>=3 compactions (${session.compactionState.version})`);
       const totals = budget.totals(session.budgetState);
@@ -146,24 +147,37 @@ test('long-horizon benchmark: 150+ tool calls, 3+ compactions, suspension, renew
 
       // ---- Information preservation and accounting ------------------------
       const active = JSON.stringify(session.context);
+      assert.equal(session.id, originalRunId);
       assert.match(active, /EARLY_VALUE=17/, 'the original finding survives every compaction and the renewal');
       assert.match(active, /read-only|never edit/, 'the read-only constraint is still present');
-      assert.equal(session.rawContext.filter(m => m.role === 'tool').length, 176, 'raw evidence is fully retained');
+      assert.equal(session.rawContext.filter(m => m.role === 'tool').length, 220, 'raw evidence is fully retained');
       validatePairs(session.context);
 
       const allowance = continuationState.summarizeAllowance(session.budgetState);
       assert.equal(allowance.original.maxToolCalls, 150, 'original allowance is preserved');
-      assert.equal(allowance.current.maxToolCalls, 200, 'current allowance reflects the renewal');
-      assert.equal(allowance.consumed.toolCalls, 176, 'consumption is cumulative across the renewal');
-      assert.equal(allowance.consumed.aggregateToolCalls, 176);
+      assert.equal(allowance.current.maxToolCalls, 250, 'current allowance reflects the renewal');
+      assert.equal(allowance.consumed.toolCalls, 220, 'consumption is cumulative across the renewal');
+      assert.equal(allowance.consumed.aggregateToolCalls, 220);
       assert.equal(allowance.aggregate.limit, 300);
-      assert.equal(allowance.remaining.maxToolCalls, 24);
+      assert.equal(allowance.remaining.maxToolCalls, 30);
       assert.equal(allowance.renewals.length, 1);
 
+      const { approximateTokens, reserveTokens } = require('../src/main/contextBudget');
+      for (const request of requests) {
+        assert.ok(approximateTokens(request) + reserveTokens(request, 32768) <= 32768,
+          'every dispatched request including summary/checkpoint fits its estimated budget');
+      }
+      assert.ok(session.compactionState.summary.length < 512, 'replacement summary stays bounded');
+      console.error('[context measurements] ' + JSON.stringify(session.compactionState.events.map(event => ({
+        version: event.version, before: event.before.tokens, after: event.after.tokens,
+        reserve: event.after.reserve, limit: event.after.limit,
+      }))));
       // Every compaction event is observable and internally consistent.
       for (const event of session.compactionState.events) {
         assert.ok(['pressure', 'overflow'].includes(event.reason));
         assert.ok(event.after.tokens < event.before.tokens, 'each compaction reduced the active context');
+        assert.ok(event.after.tokens + event.after.reserve <= event.after.limit);
+        assert.equal(event.after.limit, 32768);
       }
     } finally { tools.executeAgentTool = execute; }
   });

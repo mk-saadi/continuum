@@ -320,7 +320,7 @@ function buildContinuation(session, { pendingContinuation = false, attemptCount 
     pendingContinuation: pendingContinuation === true,
     attemptCount: Number.isSafeInteger(attemptCount) && attemptCount >= 0 ? attemptCount : 0,
     renewalCount: session?.budgetState?.renewals?.length ?? 0,
-    options: session?.continuationOptions ? { ...session.continuationOptions } : null,
+    options: session?.continuationOptions ? { ...session.continuationOptions, lspPermissionMode: require('../lspExecutionContext').childMode(session) } : null,
   };
 }
 

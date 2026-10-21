@@ -201,6 +201,8 @@ test('active cancellation, timeout, revocation and independent shared-server cal
   started = new Promise(r => { waiting = r; });
   const revoked = dispatch(id, 'workspace_write', 'lsp_hover', args, { executionContext: ctx }); await started;
   await contexts.setMode(id, 'read_only'); assert.equal((await revoked).error.code, 'LSP_PERMISSION_DENIED');
+  assert.equal(manager.instances.values().next().value, entry, 'revocation keeps the peer server');
+  entry.client.request = originalRequest;
   await contexts.setMode(id, 'full_access');
   const peerId = session('peer');
   const [a, b] = await Promise.all([dispatch(id, 'read_only', 'lsp_definition', args, { executionContext: ctx }), dispatch(peerId, 'workspace_write', 'lsp_hover', args)]);

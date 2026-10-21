@@ -406,7 +406,7 @@ async function compressContext({
     }
 
     // Forced recovery archives every candidate, so the post-recovery floor is
-    // already known: brief + checkpoint + old summary + system block +
+    // already known: brief + checkpoint + system block +
     // protected tail + tools + reserve. If that floor exceeds the usable
     // budget, no summary can make the request fit: refuse before the model
     // call and without archiving, instead of eroding history across repeated
@@ -425,7 +425,10 @@ async function compressContext({
       currentCheckpointSection = snapshot.isWorkspace
         ? require('./taskCheckpoints').buildCheckpointSection(sessionId) : null;
       const breakdown = projectForcedFloor({ sessionId, modelId,
-        summaryText: snapshot.oldSummary, briefSection, checkpointSection: currentCheckpointSection,
+        // The previous summary is replaced by summarization. Counting it in
+        // the immutable floor rejects recoverable summary-heavy sessions.
+        // The generated replacement is checked by the post-generation gate.
+        summaryText: null, briefSection, checkpointSection: currentCheckpointSection,
         tailMessages, tools });
       const { fits, budget, reserve } = checkForcedFloor({ breakdown, contextWindowLimit, maxTokens, thinkingBudget });
       if (!fits) return refuse(breakdown, budget, reserve);

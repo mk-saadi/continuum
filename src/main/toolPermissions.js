@@ -50,6 +50,8 @@ const TOOL_CAPABILITIES = Object.freeze({
 	...Object.fromEntries(['lsp_definition', 'lsp_references', 'lsp_document_symbols', 'lsp_workspace_symbols', 'lsp_hover', 'lsp_diagnostics'].map(name => [name, CAPABILITIES.LSP])),
 	// READ
 	get_recent_chat_history: CAPABILITIES.READ,
+    get_command_status: CAPABILITIES.READ,
+    stop_background_command: CAPABILITIES.READ,
 	search_project_content: CAPABILITIES.READ,
 	search_code: CAPABILITIES.READ,
 	read_project_file: CAPABILITIES.READ,
@@ -507,7 +509,7 @@ async function requestApproval(kind, name, args, requestApprovalHandler, signal)
 // sandbox / outside workspace path scoping). Throws on deny.
 // ---------------------------------------------------------------------------
 
-async function guardTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true }) {
+async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true }) {
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
@@ -556,6 +558,12 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		throw new Error('action must be one of "fetch", "pull", or "push".');
 	}
 
+	// Narrow launch exception: stored, exact bundled Playwright configuration
+	// only. Registration/configuration edits still use the normal policy.
+	if (native && name === 'manage_mcp_servers' && mode === 'workspace_write' && root &&
+		require('./mcpManager').isTrustedActivation(args.action, args.server_names)) {
+		return { mode, approved: false, trustedMcpActivation: true };
+	}
 	const capability = capabilityOf(name, native);
 	const { decision, reason } = baseDecision({ capability, mode, hasWorkspace: Boolean(root), native });
 	if (decision === 'deny') {
@@ -648,6 +656,22 @@ async function guardTool({ name, args = {}, permissionMode, project, requestAppr
 		return { mode, approved: await requestApproval(kind, name, args, approvalHandlerFn, signal) };
 	}
 	return { mode, approved: false };
+}
+
+// Policy is re-read for every call; a pending approval is invalid after any
+// transition, including a downgrade followed by an upgrade to the same mode.
+async function guardTool(options) {
+ const contexts = require('./lspExecutionContext');
+ const { sessionId } = options;
+ const revision = contexts.revision(sessionId);
+ const permissionMode = sessionId ? contexts.currentMode(sessionId, options.permissionMode) : options.permissionMode;
+ const result = await evaluateTool({ ...options, permissionMode });
+ options.signal?.throwIfAborted();
+ if (sessionId && contexts.revision(sessionId) !== revision) {
+  const error = new Error('Execution blocked: Permission changed while authorizing this operation.');
+  error.code = 'PERMISSION_REVOKED'; throw error;
+ }
+ return { ...result, ...(sessionId ? { policyRevision: revision } : {}) };
 }
 
 module.exports = {

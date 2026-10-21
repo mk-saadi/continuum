@@ -10,8 +10,8 @@ const range = r => {
 };
 const codes = { WORKSPACE_UNAUTHORIZED: 'PERMISSION_DENIED', ENOENT: 'FILE_NOT_FOUND', UNSUPPORTED_FILE_TYPE: 'UNSUPPORTED_LANGUAGE', UNSUPPORTED_CAPABILITY: 'CAPABILITY_UNAVAILABLE', REQUEST_TIMEOUT: 'TIMEOUT', REQUEST_CANCELLED: 'CANCELLED', STALE_DOCUMENT: 'STALE_RESULT', SERVER_TERMINATED: 'SERVER_UNAVAILABLE', INITIALIZATION_FAILED: 'SERVER_UNAVAILABLE' };
 class LspCodeIntelligence {
-  constructor(manager = defaultManager, { ttl = 60000, maxSnapshots = 16, maxResults = 2000, maxBytes = 4 * 1024 * 1024, now = Date.now } = {}) {
-    Object.assign(this, { manager, ttl, maxSnapshots, maxResults, maxBytes, now }); this.snapshots = new Map();
+  constructor(manager = defaultManager, { ttl = 60000, maxSnapshots = 16, maxResults = 2000, maxBytes = 4 * 1024 * 1024, diagnosticWait = 1500, now = Date.now } = {}) {
+    Object.assign(this, { manager, ttl, maxSnapshots, maxResults, maxBytes, diagnosticWait, now }); this.snapshots = new Map();
   }
   prune() { for (const [key, s] of this.snapshots) if (s.expires <= this.now() || s.entry.state !== 'ready') this.snapshots.delete(key); }
   get snapshotBytes() { return [...this.snapshots.values()].reduce((n, s) => n + s.bytes, 0); }
@@ -31,11 +31,16 @@ class LspCodeIntelligence {
     if (more) { nextCursor = randomUUID(); s.cursors.set(nextCursor, offset + results.length); }
     return { success: true, ...s.meta, results, returnedCount: results.length, totalCount: s.results.length, hasMore: more, ...(nextCursor ? { nextCursor } : {}), truncated: s.truncated, applicationTruncated: s.truncated, serverTruncated: 'unknown', incomplete: s.truncated ? true : 'unknown', snapshotId: key, provenance: 'immutable-query-snapshot', observedAt: s.observedAt };
   }
-  store(entry, op, results, meta, size, truncated = false, outputLimit = null) {
+  callerScope(context) {
+    const contexts = require('./lspExecutionContext');
+    return contexts.isTrusted(context) ? JSON.stringify([context.sessionId, context.childSessionId ?? null,
+      context.runId ?? null, contexts.revision(context.sessionId), context.childRevision ?? null]) : context;
+  }
+  store(entry, op, results, meta, size, truncated = false, outputLimit = null, context = null) {
     this.prune(); const key = randomUUID();
     const bounded = []; let bytes = 0;
     for (const item of results) { const n = Buffer.byteLength(JSON.stringify(item)); if (bounded.length >= this.maxResults || bytes + n > this.maxBytes / 2) { truncated = true; break; } bounded.push(item); bytes += n; }
-    const s = { entry, op, outputLimit, results: bounded, meta, bytes, cursors: new Map(), expires: this.now() + this.ttl, observedAt: new Date(this.now()).toISOString(), truncated };
+    const s = { entry, op, caller: this.callerScope(context), outputLimit, results: bounded, meta, bytes, cursors: new Map(), expires: this.now() + this.ttl, observedAt: new Date(this.now()).toISOString(), truncated };
     while (this.snapshots.size && (this.snapshots.size >= this.maxSnapshots || this.snapshotBytes + bytes > this.maxBytes)) this.snapshots.delete(this.snapshots.keys().next().value);
     this.snapshots.set(key, s); return this.page(s, 0, size, key);
   }
@@ -53,7 +58,7 @@ class LspCodeIntelligence {
         // Check expiry separately so expired opaque cursors have a useful category.
         for (const [key, s] of this.snapshots) {
           if (!s.cursors.has(input.cursor)) continue;
-          if (s.entry.root !== root || s.op !== op) throw error('INVALID_CURSOR');
+          if (s.entry.root !== root || s.op !== op || s.caller !== this.callerScope(context)) throw error('INVALID_CURSOR');
           if (s.expires <= this.now() || this.manager.instances.get(root) !== s.entry || s.entry.state !== 'ready') { this.snapshots.delete(key); throw error('STALE_CURSOR'); }
           await this.manager.check(context, s.entry);
           // One-use cursor bounds cursor memory as well as snapshot memory.
@@ -97,19 +102,30 @@ class LspCodeIntelligence {
             await add(op === 'workspaceSymbols' ? s.location : s, op === 'workspaceSymbols' ? { name: String(s.name).slice(0, 512), kind: s.kind, ...(s.containerName ? { container: String(s.containerName).slice(0, 512) } : {}) } : {});
           }
           const unique = op === 'documentSymbols' ? results : [...new Map(results.map(v => [JSON.stringify(v), v])).values()].sort((a, b) => a.path.localeCompare(b.path, 'en') || a.startLine - b.startLine || a.startColumn - b.startColumn || JSON.stringify(a).localeCompare(JSON.stringify(b), 'en'));
-          return this.store(entry, op, unique, { ...meta, excludedCount, serverCompleteness: 'final-response-no-partial-results-requested' }, size, normalizationTruncated, input.outputLimit);
+          return this.store(entry, op, unique, { ...meta, excludedCount, serverCompleteness: 'final-response-no-partial-results-requested' }, size, normalizationTruncated, input.outputLimit, context);
         }
       });
     } catch (e) { return { success: false, ...(op === 'diagnostics' && ['SERVER_UNAVAILABLE', 'SERVER_TERMINATED', 'INITIALIZATION_FAILED', 'UNSUPPORTED_CAPABILITY'].includes(e.code) ? { state: 'unavailable' } : {}), error: { code: `LSP_${codes[e.code] ?? (typeof e.code === 'string' ? e.code : 'SERVER_UNAVAILABLE')}` } }; }
   }
   async diagnosticResult(input, root, size) {
+    if (input.severities !== undefined && (!Array.isArray(input.severities) || input.severities.some(v => ![1, 2, 3, 4].includes(v)))) throw error('INVALID_REQUEST');
     const e = await this.manager.acquire(input.executionContext, input.signal);
+    const doc = await this.manager.serialized(e, async () => {
+      await this.manager.check(input.executionContext, e);
+      return this.manager.sync(e, input.filePath);
+    });
+    // Bounded, event-driven wait for the first publication of this document.
+    // The server publishes asynchronously after didOpen/didChange, so a query
+    // issued immediately after an edit would otherwise always read "pending".
+    // The wait never polls and never sleeps: it ends on the manager's
+    // per-document publication event, on cancellation, or at the deadline.
+    if (!e.diagnostics.get(doc.uri)) await this.manager.awaitDiagnostics(e, doc.uri, { timeout: this.diagnosticWait, signal: input.signal });
     return this.manager.serialized(e, async () => {
       await this.manager.check(input.executionContext, e);
-      const doc = await this.manager.sync(e, input.filePath); const publication = e.diagnostics.get(doc.uri);
+      const current = e.documents.get(doc.uri) ?? doc;
+      const publication = e.diagnostics.get(doc.uri);
       let state = !publication ? 'pending' : publication.stale ? 'stale' : 'ready';
       if (e.state !== 'ready') state = 'unavailable';
-      if (input.severities !== undefined && (!Array.isArray(input.severities) || input.severities.some(v => ![1, 2, 3, 4].includes(v)))) throw error('INVALID_REQUEST');
       const results = []; let excludedCount = 0;
       for (const d of publication?.diagnostics ?? []) {
         if (input.severities && !input.severities.includes(d.severity)) continue;
@@ -119,7 +135,7 @@ class LspCodeIntelligence {
       }
       await this.manager.check(input.executionContext, e);
       if (input.signal?.aborted) throw error('REQUEST_CANCELLED');
-      return this.store(e, 'diagnostics', [...new Map(results.map(d => [JSON.stringify(d), d])).values()], { state, file: input.filePath, sourceVersion: doc.hash, diagnosticVersion: publication?.version ?? null, excludedCount, positionEncoding: 'utf-16' }, size, (publication?.total ?? 0) > (publication?.diagnostics.length ?? 0), input.outputLimit);
+      return this.store(e, 'diagnostics', [...new Map(results.map(d => [JSON.stringify(d), d])).values()], { state, file: input.filePath, sourceVersion: current.hash, diagnosticVersion: publication?.version ?? null, excludedCount, positionEncoding: 'utf-16' }, size, (publication?.total ?? 0) > (publication?.diagnostics.length ?? 0), input.outputLimit, input.executionContext);
     });
   }
   definition(input) { return this.run('definition', input); }

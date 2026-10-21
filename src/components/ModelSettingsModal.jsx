@@ -122,6 +122,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						loadMode: "auto",
 						moeExpertCount: null,
 						mmprojOffload: true,
+						mtp: true,
 						...savedConfig,
 						reasoningFormat: remembered
 							? (savedConfig.reasoningFormat ?? "auto")
@@ -291,6 +292,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 									["Embedding size", model.embeddingLength],
 									["Attention heads", model.attentionHeads],
 									["KV heads", model.kvHeads],
+									["MTP layers", model.mtpLayers ?? 0],
 									["Expert layer indices", model.expertLayers?.join(", ")],
 								].map(([label, value]) => (
 									<div key={label}>
@@ -561,6 +563,17 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 												event.target.value === "" ? null : Number(event.target.value),
 											)
 										}
+									/>
+									<CheckboxField
+										label="Multi-token prediction (MTP)"
+										hint={
+											model.mtpLayers > 0
+												? `Use the ${model.mtpLayers} built-in nextn layer(s) as a speculative draft head (llama-server --spec-type draft-mtp). This can speed up generation with no separate draft model. The MTP layer costs a little extra KV cache.`
+												: "This GGUF has no MTP/nextn layers, so the setting has no effect."
+										}
+										checked={!!config.mtp}
+										disabled={!model.mtpLayers}
+										onChange={(event) => update("mtp", event.target.checked)}
 									/>
 								</div>
 							</div>

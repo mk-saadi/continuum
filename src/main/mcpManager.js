@@ -287,6 +287,36 @@ class McpManager extends EventEmitter {
   toolName(serverName, toolName) {
     return `mcp_${toolName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)}_${createHash('sha256').update(JSON.stringify([serverName, toolName])).digest('hex').slice(0, 32)}`;
   }
+  isTrustedActivation(action, names) {
+    return this.getMcpMode() !== 'manual' && ['enable', 'restart', 'disable'].includes(action) &&
+      Array.isArray(names) && names.length > 0 && names.length <= 20 &&
+      names.every(name => require('./nativePlaywright').isTrustedNativePlaywright(name, this.servers.get(name)?.definition));
+  }
+  getDiscoveryCatalog(sessionId) {
+    const compact = value => String(value || '').replace(/\s+/g, ' ').slice(0, 180);
+    let servers = [...this.servers.values()];
+    // Prompt construction can precede manager initialization. Read metadata
+    // without starting any disabled executable.
+    if (!servers.length) {
+      try {
+        const config = JSON.parse(require('node:fs').readFileSync(this.configPath, 'utf8'));
+        servers = Object.entries(config.mcpServers || {}).map(([name, definition]) => ({
+          name, definition, tools: [], disabledTools: new Set(definition.disabledTools || []),
+          uiEnabled: this.isUiEnabled(definition), status: 'inactive',
+        }));
+      } catch { /* Configuration errors are reported by the manager. */ }
+    }
+    return servers.map(server => {
+      const trusted = require('./nativePlaywright').isTrustedNativePlaywright(server.name, server.definition);
+      const capabilities = server.tools.filter(t => !server.disabledTools.has(t.name)).slice(0, 6)
+        .map(t => compact(`${t.name}: ${t.description || ''}`)).join('; ');
+      const purpose = trusted ? 'Browser automation: navigation, page/DOM inspection and page screenshots.'
+        : compact(server.definition.description) || capabilities || 'Capabilities unknown until activation.';
+      const status = this.isVisibleInSession(server, sessionId) ? server.status :
+        (['error', 'disconnected', 'connecting'].includes(server.status) ? server.status : 'inactive');
+      return `${JSON.stringify(server.name)} — ${purpose} Status: ${status}. ${trusted ? 'Trusted bundled configuration.' : 'Activation subject to approval; not trusted.'}`;
+    }).join('\n');
+  }
   getTools(sessionId) {
     const manual = this.getMcpMode() === 'manual';
     return [...this.servers.values()].filter(s => s.enabled && s.status === 'connected' &&
@@ -305,16 +335,23 @@ class McpManager extends EventEmitter {
     }
     throw new Error('MCP tool is unavailable or disabled.');
   }
-  async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false } = {}) {
+  async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false, approval } = {}) {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
     if (this.getMcpMode() === 'manual' ? server.uiEnabled !== true : this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId)) throw new Error('MCP server is not enabled for this chat.');
     if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be a JSON object.');
+    const contexts = require('./lspExecutionContext');
+    const revision = contexts.revision(sessionId);
+    if (sessionId) {
+      permissionMode = contexts.currentMode(sessionId, permissionMode);
+      if (approval && (approval.mode !== permissionMode || (Object.hasOwn(approval, 'policyRevision') && approval.policyRevision !== revision))) throw new Error('Execution blocked: Permission revoked since authorization.');
+      if (!permissionGranted || permissionMode === 'read_only') await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal });
+    }
     const payload = JSON.stringify(args);
     if (!(permissionGranted && ['ask_approval', 'full_access'].includes(permissionMode)) && requiresConfirmation(payload)) {
-      const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
+      const hash = require('./safetyGuards').mutationHash(sessionId, serverName, toolName, payload);
       // Delete synchronously before dispatch so concurrent calls cannot reuse approval.
-      if (!approvedMutations.delete(hash)) {
+      if (!approvedMutations.delete(require('./safetyGuards').mutationApprovalKey(sessionId, hash))) {
         throw new Error(`SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`);
       }
     }
@@ -325,7 +362,13 @@ class McpManager extends EventEmitter {
     // covering only the actual dispatch. Read-only and non-workspace calls
     // run exactly as before. The string result shape is unchanged (the
     // checkpoint is discoverable via listCheckpoints, not the payload).
-    const dispatch = () => server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
+    const dispatch = () => {
+      signal?.throwIfAborted();
+      if (sessionId && contexts.revision(sessionId) !== revision) throw new Error('Execution blocked: Permission revoked before MCP dispatch.');
+      if (this.servers.get(serverName) !== server || !server.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) ||
+          (this.getMcpMode() === 'manual' ? server.uiEnabled !== true : this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId))) throw new Error('MCP tool is unavailable or disabled.');
+      return server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
+    };
     const { shouldScanMcpCall, withMcpRecovery } = require('./recoveryBoundary');
     const project = sessionId ? require('./toolPermissions').sessionProject(sessionId) : null;
     const root = project?.root_path ?? null;
@@ -366,7 +409,8 @@ class McpManager extends EventEmitter {
       return config;
     });
   }
-  async manageServers(action, serverNames, sessionId) {
+  async manageServers(action, serverNames, sessionId, { signal, trustedOnly = false } = {}) {
+    signal?.throwIfAborted();
     if (this.getMcpMode() === 'manual') throw new Error('MCP server management is disabled in Manual Mode.');
     if (!['enable', 'disable', 'restart'].includes(action)) throw new TypeError('Invalid MCP server action.');
     if (!Array.isArray(serverNames) || !serverNames.length || serverNames.length > 20 ||
@@ -374,8 +418,13 @@ class McpManager extends EventEmitter {
     if (!text(sessionId) || !sessionId.trim()) throw new TypeError('A chat session is required.');
     await this.init();
     return this.queueChange(async () => {
+      if (this.getMcpMode() === 'manual') throw new Error('MCP server management is disabled in Manual Mode.');
       const config = await this.getConfig();
+      signal?.throwIfAborted();
       const names = [...new Set(serverNames)];
+      if (trustedOnly && !names.every(name => require('./nativePlaywright').isTrustedNativePlaywright(name, config.mcpServers[name]))) {
+        throw new Error('MCP configuration changed or is not trusted; activation requires approval.');
+      }
       for (const name of names) if (!Object.hasOwn(config.mcpServers, name)) throw new Error(`Unknown MCP server: ${name}`);
       const active = this.sessionServers.get(sessionId) || new Set();
       const disabled = this.sessionDisabled.get(sessionId) || new Set();
@@ -383,6 +432,7 @@ class McpManager extends EventEmitter {
       this.sessionDisabled.set(sessionId, disabled);
       const results = [];
       for (const name of names) {
+        signal?.throwIfAborted();
         const definition = config.mcpServers[name];
         const previous = this.servers.get(name);
         if (action === 'disable') { active.delete(name); disabled.add(name); }
@@ -396,10 +446,11 @@ class McpManager extends EventEmitter {
           }
           await this.connectServer(name, definition, previous?.tools || []);
         }
+        signal?.throwIfAborted();
         const server = this.servers.get(name);
         const success = action === 'disable' || server?.status === 'connected';
         results.push({ name, action, success, message: success
-          ? `Server '${name}' ${action === 'enable' ? 'enabled' : action === 'restart' ? 'restarted' : 'disabled'} successfully.${action === 'disable' ? ' Its tools are no longer available in this chat.' : ' Its tools are now available in your schema.'}`
+          ? `Server '${name}' ${action === 'enable' ? 'enabled' : action === 'restart' ? 'restarted' : 'disabled'} successfully.${action === 'disable' ? ' Its tools are no longer available in this chat.' : ' Its tools are now available for the next inference request in this same run; continue without restarting.'}`
           : `Server '${name}' could not be ${action === 'restart' ? 'restarted' : 'enabled'}: ${server?.error || 'connection failed'}` });
       }
       if (!active.size) this.sessionServers.delete(sessionId);

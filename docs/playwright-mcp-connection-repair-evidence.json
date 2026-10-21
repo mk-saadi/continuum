@@ -1,0 +1,267 @@
+{
+  "date": "2026-10-21",
+  "classification": "Environment child-stdio limitation; desktop behavior unresolved",
+  "runtimeProbes": {
+    "node": {
+      "runtime": {
+        "execPath": "/home/mk_saadi/.nvm/versions/node/v22.23.2/bin/node",
+        "node": "22.23.2"
+      },
+      "events": [
+        {
+          "stage": "configuration loaded / executable resolved",
+          "ms": 536,
+          "command": "/home/mk_saadi/.nvm/versions/node/v22.23.2/bin/node",
+          "args": [
+            "/home/mk_saadi/projects/persona-projects/llm-electron/node_modules/@playwright/mcp/cli.js",
+            "--headless",
+            "--executable-path",
+            "/home/mk_saadi/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome"
+          ],
+          "cwd": "/tmp",
+          "environmentNames": [
+            "ELECTRON_RUN_AS_NODE"
+          ]
+        },
+        {
+          "stage": "process spawn attempted",
+          "ms": 541
+        },
+        {
+          "stage": "process started / stdio transport initialized",
+          "ms": 545,
+          "pid": 11
+        },
+        {
+          "stage": "initialize",
+          "ms": 546,
+          "id": 0
+        },
+        {
+          "stage": "transport closed",
+          "ms": 1050
+        },
+        {
+          "stage": "manager result",
+          "ms": 1051,
+          "status": [
+            {
+              "name": "playwright-native",
+              "enabled": true,
+              "status": "error",
+              "error": "MCP error -32000: Connection closed",
+              "tools": []
+            }
+          ]
+        },
+        {
+          "stage": "manager shutdown",
+          "ms": 1051
+        }
+      ]
+    },
+    "electron": {
+      "runtime": {
+        "execPath": "/home/mk_saadi/projects/persona-projects/llm-electron/node_modules/electron/dist/electron",
+        "node": "24.21.0",
+        "electron": "44.7.0"
+      },
+      "events": [
+        {
+          "stage": "configuration loaded / executable resolved",
+          "ms": 501,
+          "command": "/home/mk_saadi/projects/persona-projects/llm-electron/node_modules/electron/dist/electron",
+          "args": [
+            "/home/mk_saadi/projects/persona-projects/llm-electron/node_modules/@playwright/mcp/cli.js",
+            "--headless",
+            "--executable-path",
+            "/home/mk_saadi/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome"
+          ],
+          "cwd": "/tmp",
+          "environmentNames": [
+            "ELECTRON_RUN_AS_NODE"
+          ]
+        },
+        {
+          "stage": "process spawn attempted",
+          "ms": 508
+        },
+        {
+          "stage": "process started / stdio transport initialized",
+          "ms": 513,
+          "pid": 12
+        },
+        {
+          "stage": "initialize",
+          "ms": 514,
+          "id": 0
+        },
+        {
+          "stage": "transport closed",
+          "ms": 959
+        },
+        {
+          "stage": "manager result",
+          "ms": 959,
+          "status": [
+            {
+              "name": "playwright-native",
+              "enabled": true,
+              "status": "error",
+              "error": "MCP error -32000: Connection closed",
+              "tools": []
+            }
+          ]
+        },
+        {
+          "stage": "manager shutdown",
+          "ms": 959
+        }
+      ]
+    },
+    "packaged": {
+      "runtime": {
+        "execPath": "/home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/continuum",
+        "node": "24.21.0",
+        "electron": "44.7.0"
+      },
+      "events": [
+        {
+          "stage": "configuration loaded / executable resolved",
+          "ms": 373,
+          "command": "/home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/continuum",
+          "args": [
+            "/home/mk_saadi/projects/persona-projects/llm-electron/node_modules/@playwright/mcp/cli.js",
+            "--headless",
+            "--executable-path",
+            "/home/mk_saadi/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome"
+          ],
+          "cwd": "/tmp",
+          "environmentNames": [
+            "ELECTRON_RUN_AS_NODE"
+          ]
+        },
+        {
+          "stage": "process spawn attempted",
+          "ms": 378
+        },
+        {
+          "stage": "process started / stdio transport initialized",
+          "ms": 385,
+          "pid": 12
+        },
+        {
+          "stage": "initialize",
+          "ms": 386,
+          "id": 0
+        },
+        {
+          "stage": "transport closed",
+          "ms": 858
+        },
+        {
+          "stage": "manager result",
+          "ms": 858,
+          "status": [
+            {
+              "name": "playwright-native",
+              "enabled": true,
+              "status": "error",
+              "error": "MCP error -32000: Connection closed",
+              "tools": []
+            }
+          ]
+        },
+        {
+          "stage": "manager shutdown",
+          "ms": 859
+        }
+      ]
+    }
+  },
+  "standaloneControl": {
+    "spawned": true,
+    "exitCode": 0,
+    "signal": null,
+    "childStartMarker": "started",
+    "childStdinEndMarker": "ended",
+    "childDataMarkerPresent": false,
+    "parentProbe": "continuum-probe\\n",
+    "parentReceivedStdout": false,
+    "independentExit23Control": {
+      "exitCode": 23,
+      "signal": null,
+      "stdoutReceived": false,
+      "stderrReceived": false
+    }
+  },
+  "fullSuite": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "entries": 203,
+    "pass": 167,
+    "fail": 36,
+    "failures": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/compactionBadge.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/contextPanel.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs",
+      "tests/workspaceBriefBudget.test.cjs"
+    ],
+    "addedVersusPreviousReport": [],
+    "resolvedVersusPreviousReport": []
+  },
+  "focused": {
+    "files": 8,
+    "pass": 5,
+    "fail": 3,
+    "failures": [
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs"
+    ],
+    "dynamicActivationAssertions": {
+      "pass": 7,
+      "fail": 0
+    }
+  },
+  "build": {
+    "command": "npm run build",
+    "passed": true,
+    "seconds": 24.73,
+    "warning": "Existing large chunk warning"
+  },
+  "productionChanges": [],
+  "realBrowserVerification": "blocked before initialize response",
+  "desktopGuiVerification": "not exercised"
+}

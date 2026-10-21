@@ -86,3 +86,18 @@ test('multimodal requests retain images and use the documented approximate allow
   assert.ok(!b.probes.includes('/tokenize'));
   assert.deepEqual(b.calls[0].messages[0].content[1], image);
 });
+
+test('a template that omits parameter schemas cannot claim exact measurement after MCP growth', async () => {
+  let sends = 0;
+  const guarded = createContextGuardedFetch(async (url, options) => {
+    const route = new URL(url).pathname;
+    if (route === '/props') return Response.json({ default_generation_settings: { n_ctx: 8192 } });
+    if (route === '/apply-template') return Response.json({ prompt: 'read tool schema' });
+    if (route === '/tokenize') return Response.json({ tokens: [1] });
+    sends++; return Response.json({});
+  });
+  const hugeSchema = { type: 'object', properties: { activated_server_options: { type: 'string', enum: ['MCP_SCHEMA_DATA'.repeat(3000)] } } };
+  await assert.rejects(guarded('http://localhost/v1/chat/completions', { method: 'POST', contextWindowLimit: 8192,
+    body: JSON.stringify({ ...payload, tools: [{ type: 'function', function: { name: 'read', description: 'tool schema', parameters: hugeSchema } }] }) }), /approximate-full-request/);
+  assert.equal(sends, 0);
+});

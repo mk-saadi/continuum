@@ -70,10 +70,13 @@ class Client {
 }
 
 class LspManager {
-  constructor({ authorize, spawnServer = launch, maxInstances = 3, requestTimeout = 15000, initializationTimeout = 20000, shutdownTimeout = 1500 } = {}) {
+  constructor({ authorize, spawnServer = launch, maxInstances = 3, requestTimeout = 15000, initializationTimeout = 20000, shutdownTimeout = 1500, maxDocuments = 128, maxRestarts = 3, maxAliases = 64 } = {}) {
     if (typeof authorize !== 'function') throw new TypeError('Main-process authorization callback required');
-    Object.assign(this, { authorize, spawnServer, maxInstances, requestTimeout, initializationTimeout, shutdownTimeout });
+    Object.assign(this, { authorize, spawnServer, maxInstances, requestTimeout, initializationTimeout, shutdownTimeout, maxDocuments, maxRestarts, maxAliases });
     this.instances = new Map(); this.closed = false; this.epoch = 0;
+    // Bounded restart budget per workspace root and a bounded alias index that
+    // maps the configured project root to the canonical root the server uses.
+    this.restarts = new Map(); this.aliases = new Map();
   }
   async identity(context) {
     if (this.closed) throw fail('SERVER_UNAVAILABLE');
@@ -81,6 +84,7 @@ class LspManager {
     if (!root || typeof root !== 'string') throw fail('WORKSPACE_UNAUTHORIZED');
     const real = await fs.realpath(root);
     if (!(await fs.stat(real)).isDirectory()) throw fail('WORKSPACE_UNAUTHORIZED');
+    if (!this.aliases.has(root)) { this.aliases.set(root, real); if (this.aliases.size > this.maxAliases) this.aliases.delete(this.aliases.keys().next().value); }
     return real;
   }
   async acquire(context, signal) {
@@ -88,9 +92,20 @@ class LspManager {
     if (epoch !== this.epoch || this.closed) throw fail('SERVER_UNAVAILABLE');
     if (signal?.aborted) throw fail('REQUEST_CANCELLED');
     let entry = this.instances.get(root);
+    // A server that died after it became ready is restarted on demand, within a
+    // strictly bounded budget. The replacement is a fresh entry, so no document
+    // state survives: every file is re-opened with didOpen instead of being
+    // "changed" into a server that never saw it.
+    if (entry && entry.state === 'failed' && entry.crashed) {
+      const used = this.restarts.get(root) ?? 0;
+      if (used < this.maxRestarts) {
+        if (!this.restarts.has(root) && this.restarts.size >= this.maxAliases) this.restarts.delete(this.restarts.keys().next().value);
+        this.restarts.set(root, used + 1); this.instances.delete(root); entry = null;
+      }
+    }
     if (!entry) {
       if (this.instances.size >= this.maxInstances) throw fail('INSTANCE_LIMIT');
-      entry = { root, state: 'starting', documents: new Map(), diagnostics: new Map(), queue: Promise.resolve(), timings: {}, nextVersion: 0, events: new EventEmitter() };
+      entry = { root, state: 'starting', documents: new Map(), diagnostics: new Map(), queue: Promise.resolve(), timings: {}, nextVersion: 0, useCounter: 0, events: new EventEmitter() };
       this.instances.set(root, entry);
       entry.start = this.start(entry);
     }
@@ -109,7 +124,13 @@ class LspManager {
     const began = performance.now();
     try {
       const child = this.spawnServer(e.root); e.client = new Client(child, { timeout: this.requestTimeout });
-      child.once('exit', () => { if (e.state !== 'stopping') { e.state = 'failed'; if (child.lspOwnedGroup) forceKill(child); } e.diagnostics.clear(); });
+      child.once('exit', () => {
+        // An exit that nobody asked for is a crash. A server that already
+        // reached "ready" may be restarted on demand (bounded budget); one that
+        // died while initializing cannot and stays failed until it is closed.
+        if (!e.closing && e.state !== 'stopping') { e.state = 'failed'; if (e.reachedReady) e.crashed = true; if (child.lspOwnedGroup) forceKill(child); }
+        e.diagnostics.clear();
+      });
       e.client.connection.onNotification('textDocument/publishDiagnostics', p => {
         const doc = e.documents.get(p?.uri);
         if (e.closing || e.client.dead || !doc || !Array.isArray(p.diagnostics)) return;
@@ -134,7 +155,7 @@ class LspManager {
       const sync = result.capabilities.textDocumentSync;
       if (![1, 2].includes(typeof sync === 'number' ? sync : sync?.change)) throw fail('INITIALIZATION_FAILED', 'Document synchronization unavailable');
       e.capabilities = result.capabilities;
-      await e.client.notify('initialized', {}); e.state = e.closing ? 'stopping' : 'ready'; e.timings.startupMs = performance.now() - began;
+      await e.client.notify('initialized', {}); e.state = e.closing ? 'stopping' : 'ready'; e.reachedReady = e.state === 'ready'; e.timings.startupMs = performance.now() - began;
     } catch (error) { e.state = 'failed'; e.client?.terminate(); forceKill(e.client?.child); throw fail('INITIALIZATION_FAILED', error.message); }
   }
   async file(e, relative) {
@@ -150,7 +171,31 @@ class LspManager {
     return { target: canonical, uri: pathToFileURL(canonical).href };
   }
   serialized(e, work) { const next = e.queue.then(work); e.queue = next.catch(() => {}); return next; }
-  async sync(e, relative) {
+  // Bounded wait for the first diagnostics publication of one document. The
+  // manager emits a per-URI event when the server publishes, so this is an
+  // event wait with a deadline: no polling loop, no fixed sleep.
+  awaitDiagnostics(e, uri, { timeout = 1500, signal } = {}) {
+    return new Promise(resolve => {
+      const current = () => e.diagnostics.get(uri) ?? null;
+      if (e.closing || e.client?.dead || timeout <= 0) return resolve(current());
+      const existing = current(); if (existing) return resolve(existing);
+      let timer;
+      const cleanup = () => { clearTimeout(timer); e.events.removeListener('diagnostics', onPublish); signal?.removeEventListener('abort', onAbort); };
+      const onPublish = published => { if (published !== uri) return; cleanup(); resolve(current()); };
+      const onAbort = () => { cleanup(); resolve(current()); };
+      e.events.on('diagnostics', onPublish);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      timer = setTimeout(() => { cleanup(); resolve(current()); }, timeout);
+    });
+  }
+  // Least recently queried open document. Only targeted queries touch a
+  // document, so the bulk refresh pass never changes the eviction order.
+  leastRecentlyUsed(e, excludeUri) {
+    let victim = null;
+    for (const doc of e.documents.values()) { if (doc.uri === excludeUri) continue; if (!victim || (doc.used ?? 0) < (victim.used ?? 0)) victim = doc; }
+    return victim?.uri ?? null;
+  }
+  async sync(e, relative, { touch = true } = {}) {
     const began = performance.now(); const { target, uri } = await this.file(e, relative);
     const languageId = languages[path.extname(target).toLowerCase()];
     if (!languageId) throw fail('UNSUPPORTED_FILE_TYPE');
@@ -159,9 +204,15 @@ class LspManager {
     catch (err) { if (err.code === 'ENOENT') await this.closeDocument(e, uri); throw err; }
     const hash = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
     const previous = e.documents.get(uri);
-    if (previous?.hash === hash) return previous;
-    if (!previous && e.documents.size >= 128) throw fail('DOCUMENT_LIMIT');
-    const doc = { uri, text: bytes.toString('utf8'), hash, version: ++e.nextVersion };
+    if (previous?.hash === hash) { if (touch) previous.used = ++e.useCounter; return previous; }
+    if (!previous && e.documents.size >= this.maxDocuments) {
+      // Evict the least recently queried document instead of failing the query:
+      // a long session must stay able to open new files.
+      const victim = this.leastRecentlyUsed(e, uri);
+      if (!victim) throw fail('DOCUMENT_LIMIT');
+      await this.closeDocument(e, victim);
+    }
+    const doc = { uri, text: bytes.toString('utf8'), hash, version: ++e.nextVersion, used: touch ? ++e.useCounter : 0 };
     if (previous) {
       e.diagnostics.delete(uri);
       // A full-range replacement is valid incremental synchronization too.
@@ -183,7 +234,7 @@ class LspManager {
       if (e.state !== 'ready') throw fail('SERVER_UNAVAILABLE');
       if (!e.capabilities[methods[method]]) throw fail('UNSUPPORTED_CAPABILITY');
       // Refresh every open document so imported files cannot remain stale after external edits.
-      for (const uri of [...e.documents.keys()]) { try { await this.sync(e, uri); } catch (err) { if (err.code !== 'ENOENT') throw err; } }
+      for (const uri of [...e.documents.keys()]) { try { await this.sync(e, uri, { touch: false }); } catch (err) { if (err.code !== 'ENOENT') throw err; } }
       let params;
       if (method === 'workspace/symbol') { if (typeof input.query !== 'string' || input.query.length > 512) throw fail('INVALID_QUERY'); params = { query: input.query }; }
       else {
@@ -199,8 +250,14 @@ class LspManager {
       const controller = new AbortController();
       const abort = () => controller.abort(); options.signal?.addEventListener('abort', abort, { once: true });
       if (options.signal?.aborted) controller.abort();
-      let accessError = null;
-      const timer = setInterval(() => { this.check(context, e).catch(error => { accessError = error; controller.abort(); }); }, 25);
+      let accessError = null; let checking = false;
+      const timer = setInterval(() => {
+        // One authorization re-check at a time: a slow check must never queue
+        // up behind the next tick.
+        if (checking || accessError) return;
+        checking = true;
+        this.check(context, e).catch(error => { accessError = error; controller.abort(); }).finally(() => { checking = false; });
+      }, 25);
       let result;
       try { result = await e.client.request(method, params, { ...options, signal: controller.signal }); }
       catch (error) { if (accessError) throw accessError; throw error; }
@@ -213,7 +270,7 @@ class LspManager {
       if (!options.transform) await validate(result);
       const observed = [...e.documents.values()].map(d => ({ uri: d.uri, hash: d.hash }));
       for (const doc of observed) {
-        try { if ((await this.sync(e, doc.uri)).hash !== doc.hash) throw fail('STALE_DOCUMENT'); }
+        try { if ((await this.sync(e, doc.uri, { touch: false })).hash !== doc.hash) throw fail('STALE_DOCUMENT'); }
         catch (err) { if (err.code === 'ENOENT') throw fail('STALE_DOCUMENT'); throw err; }
       }
       e.timings.requestMs = performance.now() - began; const output = options.transform ? await options.transform(result, e, params) : result;
@@ -221,15 +278,13 @@ class LspManager {
     });
   }
   async check(context, entry) {
-    try { if (await this.identity(context) !== entry.root) throw fail('WORKSPACE_UNAUTHORIZED'); }
-    catch (err) { void this.closeRoot(entry.root).catch(() => {}); throw err; }
+    if (await this.identity(context) !== entry.root) throw fail('WORKSPACE_UNAUTHORIZED');
     if (entry.state !== 'ready' || entry.closing) throw fail('SERVER_UNAVAILABLE');
   }
-  // Trusted main-process owners call this when a live context's mode changes.
-  // Revocation closes the shared server; eligible peers may reacquire on demand.
+  // Per-request checks (including the 25ms active-call monitor) revoke the
+  // caller. Keeping the shared process alive preserves authorized peers.
   async permissionChanged(context, previousRoot) {
-    try { if (await this.identity(context) === previousRoot) return; } catch {}
-    if (previousRoot) await this.closeRoot(previousRoot);
+    try { return await this.identity(context) === previousRoot; } catch { return false; }
   }
   async closeFile(context, relative) {
     const root = await this.identity(context); const e = this.instances.get(root); if (!e) return;
@@ -256,6 +311,10 @@ class LspManager {
     e.stop = (async () => {
       const began = performance.now();
       e.state = 'stopping';
+      // A server that never became ready still has a pending initialize
+      // request. Terminating the client aborts it, so shutdown never waits
+      // for the (much longer) initialization timeout.
+      if (!e.reachedReady) e.client?.terminate();
       try { await e.start; e.state = 'stopping'; await e.client.request('shutdown', null, { timeout: this.shutdownTimeout }); await e.client.notify('exit'); } catch {}
       e.client?.terminate();
       const child = e.client?.child;
@@ -266,6 +325,11 @@ class LspManager {
     })(); return e.stop;
   }
   async close() { this.closed = true; this.epoch++; await Promise.all([...this.instances.keys()].map(root => this.closeRoot(root))); }
+  // Observable runtime state for verification and benchmarks.
+  stats() {
+    const instances = [...this.instances.values()].map(e => ({ root: e.root, state: e.state, documents: e.documents.size, diagnostics: e.diagnostics.size, pending: e.client?.pending.size ?? 0, wirePending: e.client?.wirePending ?? 0, crashed: e.crashed === true, reachedReady: e.reachedReady === true, timings: { ...e.timings } }));
+    return { instances, count: instances.length, restarts: Object.fromEntries(this.restarts), closed: this.closed };
+  }
 }
 
 // LSP-specific execution eligibility; unrelated shell policy remains unchanged.

@@ -1,0 +1,685 @@
+{
+  "date": "2026-10-21",
+  "scope": "Context budgeting and recovery only; deterministic fixtures; no inference spend",
+  "baseline": {
+    "tests": 203,
+    "pass": 167,
+    "fail": 36,
+    "failures": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/compactionBadge.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/contextPanel.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs",
+      "tests/workspaceBriefBudget.test.cjs"
+    ]
+  },
+  "final": {
+    "tests": 204,
+    "pass": 172,
+    "fail": 32,
+    "failures": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "log": "/tmp/context-evidence/full-final-fixed.log"
+  },
+  "resolvedFailures": [
+    "tests/compactionBadge.test.cjs",
+    "tests/contextOverflowRecovery.test.cjs",
+    "tests/contextPanel.test.cjs",
+    "tests/workspaceBriefBudget.test.cjs"
+  ],
+  "newFailures": [],
+  "focused": [
+    {
+      "file": "tests/contextBudget.test.cjs",
+      "exit": 0,
+      "pass": 14,
+      "fail": 0
+    },
+    {
+      "file": "tests/contextMeasure.test.cjs",
+      "exit": 0,
+      "pass": 6,
+      "fail": 0
+    },
+    {
+      "file": "tests/contextRecoveryReliability.test.cjs",
+      "exit": 0,
+      "pass": 14,
+      "fail": 0
+    },
+    {
+      "file": "tests/contextOverflowRecovery.test.cjs",
+      "exit": 0,
+      "pass": 10,
+      "fail": 0
+    },
+    {
+      "file": "tests/workspaceBriefBudget.test.cjs",
+      "exit": 0,
+      "pass": 6,
+      "fail": 0
+    },
+    {
+      "file": "tests/compactionBadge.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/contextPanel.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/contextCompaction.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/contextInspection.test.cjs",
+      "exit": 0,
+      "pass": 11,
+      "fail": 0
+    },
+    {
+      "file": "tests/contextTelemetry.test.cjs",
+      "exit": 0,
+      "pass": 12,
+      "fail": 0
+    },
+    {
+      "file": "tests/contextDispatch.test.mjs",
+      "exit": 0,
+      "pass": 5,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentCompaction.test.cjs",
+      "exit": 0,
+      "pass": 26,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentCompactionHardening.test.cjs",
+      "exit": 0,
+      "pass": 15,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentModelBudgets.test.cjs",
+      "exit": 0,
+      "pass": 12,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentContinuation.test.cjs",
+      "exit": 0,
+      "pass": 34,
+      "fail": 0
+    },
+    {
+      "file": "tests/liveSteering.test.cjs",
+      "exit": 0,
+      "pass": 9,
+      "fail": 0
+    },
+    {
+      "file": "tests/liveSteeringIpc.test.cjs",
+      "exit": 0,
+      "pass": 1,
+      "fail": 0
+    },
+    {
+      "file": "tests/liveSteeringLoop.test.mjs",
+      "exit": 0,
+      "pass": 7,
+      "fail": 0
+    },
+    {
+      "file": "tests/mcpDynamicActivation.test.cjs",
+      "exit": 0,
+      "pass": 7,
+      "fail": 0
+    },
+    {
+      "file": "tests/memoryChat.test.mjs",
+      "exit": 0,
+      "pass": 48,
+      "fail": 0
+    },
+    {
+      "file": "tests/cloudPromptCaching.test.cjs",
+      "exit": 0,
+      "pass": 23,
+      "fail": 0
+    },
+    {
+      "file": "tests/workspaceTaskBriefs.test.cjs",
+      "exit": 0,
+      "pass": 10,
+      "fail": 0
+    },
+    {
+      "file": "tests/workspaceCheckpoints.test.cjs",
+      "exit": 0,
+      "pass": 10,
+      "fail": 0
+    },
+    {
+      "file": "tests/workspacePlan.test.cjs",
+      "exit": 0,
+      "pass": 15,
+      "fail": 0
+    },
+    {
+      "file": "tests/workLog.test.cjs",
+      "exit": 0,
+      "pass": 18,
+      "fail": 0
+    },
+    {
+      "file": "tests/idleCompactionProjection.test.cjs",
+      "exit": 0,
+      "pass": 16,
+      "fail": 0
+    },
+    {
+      "file": "tests/projectPlanRetrieval.test.cjs",
+      "exit": 0,
+      "pass": 21,
+      "fail": 0
+    },
+    {
+      "file": "tests/compactPlanResults.test.cjs",
+      "exit": 0,
+      "pass": 24,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentTranscript.test.cjs",
+      "exit": 0,
+      "pass": 14,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentTimeouts.test.cjs",
+      "exit": 0,
+      "pass": 22,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentReliability.test.cjs",
+      "exit": 0,
+      "pass": 23,
+      "fail": 0
+    },
+    {
+      "file": "tests/incrementalPersistence.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/cloudCostEstimation.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/cloudSpendingDashboard.test.cjs",
+      "exit": 0,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/subagentLongHorizonCompaction.test.cjs",
+      "exit": 0,
+      "loopback": false,
+      "pass": 2,
+      "fail": 0
+    },
+    {
+      "file": "tests/replyVariants.test.cjs",
+      "exit": 0,
+      "loopback": false,
+      "pass": null,
+      "fail": null
+    },
+    {
+      "file": "tests/localEngineFetch.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 3,
+      "fail": 0
+    },
+    {
+      "file": "tests/cloudProviders.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 19,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentSession.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 8,
+      "fail": 0
+    },
+    {
+      "file": "tests/subagentOutOfProcessRecovery.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 1,
+      "fail": 0
+    },
+    {
+      "file": "tests/lspProduction.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 35,
+      "fail": 0
+    },
+    {
+      "file": "tests/lspProductionAgent.test.cjs",
+      "exit": 0,
+      "loopback": true,
+      "pass": 9,
+      "fail": 0
+    }
+  ],
+  "electron": {
+    "contextBudget": {
+      "pass": 14,
+      "fail": 0
+    },
+    "contextOverflowRecovery": {
+      "pass": 10,
+      "fail": 0
+    },
+    "mode": "ELECTRON_RUN_AS_NODE=1; mocked Electron IPC; no GUI"
+  },
+  "childSimulation": {
+    "window": 32768,
+    "toolCalls": 220,
+    "requests": 294,
+    "compactions": 36,
+    "simulatedCumulativeInputTokens": 6468000,
+    "outcome": "completed",
+    "measurements": [
+      {
+        "version": 1,
+        "before": 22441,
+        "after": 7910,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 2,
+        "before": 22755,
+        "after": 7934,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 3,
+        "before": 22780,
+        "after": 7955,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 4,
+        "before": 22801,
+        "after": 7977,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 5,
+        "before": 22823,
+        "after": 7999,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 6,
+        "before": 22845,
+        "after": 8021,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 7,
+        "before": 22867,
+        "after": 8043,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 8,
+        "before": 22889,
+        "after": 8065,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 9,
+        "before": 22911,
+        "after": 8087,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 10,
+        "before": 22933,
+        "after": 8110,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 11,
+        "before": 22956,
+        "after": 8132,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 12,
+        "before": 22978,
+        "after": 8154,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 13,
+        "before": 23000,
+        "after": 8209,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 14,
+        "before": 23055,
+        "after": 8215,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 15,
+        "before": 23061,
+        "after": 8222,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 16,
+        "before": 23068,
+        "after": 8222,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 17,
+        "before": 23075,
+        "after": 8225,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 18,
+        "before": 23079,
+        "after": 8226,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 19,
+        "before": 23080,
+        "after": 8226,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 20,
+        "before": 23080,
+        "after": 8227,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 21,
+        "before": 23081,
+        "after": 8228,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 22,
+        "before": 23082,
+        "after": 8228,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 23,
+        "before": 23082,
+        "after": 8229,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 24,
+        "before": 23083,
+        "after": 8230,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 25,
+        "before": 23260,
+        "after": 8333,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 26,
+        "before": 23187,
+        "after": 8334,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 27,
+        "before": 23188,
+        "after": 8335,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 28,
+        "before": 23189,
+        "after": 8335,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 29,
+        "before": 23189,
+        "after": 8336,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 30,
+        "before": 23190,
+        "after": 8337,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 31,
+        "before": 23191,
+        "after": 8337,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 32,
+        "before": 23191,
+        "after": 8337,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 33,
+        "before": 23191,
+        "after": 8338,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 34,
+        "before": 23192,
+        "after": 8338,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 35,
+        "before": 23192,
+        "after": 8338,
+        "reserve": 2176,
+        "limit": 32768
+      },
+      {
+        "version": 36,
+        "before": 23192,
+        "after": 8338,
+        "reserve": 2176,
+        "limit": 32768
+      }
+    ]
+  },
+  "workspaceCoreSimulation": {
+    "toolCalls": 660,
+    "writes": 220,
+    "requests": 221,
+    "generations": 144,
+    "compactions": 72,
+    "first": {
+      "runId": "deterministic-workspace-run",
+      "before": 2961,
+      "after": 1536,
+      "reserve": 297,
+      "limit": 4096
+    },
+    "last": {
+      "runId": "deterministic-workspace-run",
+      "before": 3321,
+      "after": 1610,
+      "reserve": 297,
+      "limit": 4096
+    },
+    "outcome": "completed"
+  },
+  "build": {
+    "command": "npm run build",
+    "passed": true,
+    "seconds": 13.36,
+    "warning": "Existing chunks over 500 kB"
+  },
+  "workspaceReadOnlySnapshot": {
+    "name": "pagoda test 2",
+    "sessions": 1,
+    "messages": 8,
+    "storedMessageEstimate": 4968,
+    "summaryPresent": false,
+    "isCompressing": false,
+    "note": "Stored estimate excludes complete prompt/tool and live run overhead; no incident reproduction or real inference."
+  },
+  "productionFilesChanged": [
+    "src/lib/memoryChat.mjs",
+    "src/main/contextBudget.js",
+    "src/main/compressionEngine.js"
+  ],
+  "remainingLimitations": [
+    "Main cloud chat has no local-style context guard/recovery callback; child cloud recovery is covered.",
+    "Main chat protects the current run tail; sufficiently large protected state fails rather than being summarized.",
+    "Provider-specific fallback counts are estimates; no real model tokenizer equality or live model summary fidelity test.",
+    "No packaged GUI test; baseline unrelated failures remain."
+  ],
+  "logs": "/tmp/context-evidence",
+  "focusedSummary": {
+    "files": 42,
+    "tapAssertionsPassed": 510,
+    "scriptChecksPassed": 7,
+    "failedFiles": []
+  }
+}

@@ -10,6 +10,7 @@ const { searchMemoryDatabase } = require('./memorySearchCore');
 let database = null;
 
 const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS background_commands (command_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, workspace TEXT NOT NULL, record TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS project_rules (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -590,6 +591,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
     })();
     require('./legacyDataMigration').repairLegacyAttachmentPaths(connection, directory);
     database = connection;
+    require('./backgroundCommands').restore(connection);
     return database;
   } catch (error) {
     connection.close();

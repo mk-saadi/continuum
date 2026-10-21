@@ -4,12 +4,10 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const Module = require('node:module');
-let project;
+let dataDirectory;
 const originalLoad = Module._load;
 Module._load = function(name, ...args) {
-  if ((name === '../db' || name === './db') && args[0]?.filename.includes(`${path.sep}src${path.sep}main${path.sep}`)) {
-    return { db: { prepare: () => ({ get: () => project }) } };
-  }
+  if (name === 'electron') return { app: { isReady: () => true, getPath: () => dataDirectory } };
   return originalLoad.call(this, name, ...args);
 };
 const { executeAgentTool } = require('../src/main/tools/agentTools');
@@ -19,7 +17,10 @@ test('native tool guard prevents writes and model self-approval, full access can
   try {
     const root = path.join(temp, 'project');
     await fs.mkdir(root);
-    project = { root_path: root };
+    dataDirectory = temp;
+    require('../src/main/db').initDatabase(temp);
+    const project = require('../src/main/projectManager').createProject({ name: 'Native permissions', root_path: root });
+    require('../src/main/sessionManager').getOrCreateSession('test', 'model', project.id);
     const run = (name, args, mode) => executeAgentTool({ name, arguments: args, sessionId: 'test', permissionMode: mode });
     const blocked = await run('write_project_file', { relative_path: 'blocked.txt', content: 'no' }, 'read_only');
     assert.equal(blocked.error, 'Execution blocked: Chat is in Read Only mode.');
@@ -64,5 +65,5 @@ test('native tool guard prevents writes and model self-approval, full access can
     // sandbox's writable /tmp overlay, which is workspace-local on the host.
     await run('execute_command', { command: 'printf escaped > ../escaped.txt' }, 'workspace_write');
     await assert.rejects(fs.stat(path.join(temp, 'escaped.txt')));
-  } finally { await fs.rm(temp, { recursive: true, force: true }); Module._load = originalLoad; }
+  } finally { require('../src/main/db').closeDatabase(); await fs.rm(temp, { recursive: true, force: true }); Module._load = originalLoad; }
 });

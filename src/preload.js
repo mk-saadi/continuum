@@ -164,6 +164,12 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getCheckpoint: (sessionId) => ipcRenderer.invoke('session:get-checkpoint', { sessionId }),
   getCheckpointHistory: (sessionId, limit) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit }),
   getBriefs: (sessionId) => ipcRenderer.invoke('session:get-briefs', { sessionId }),
+  getBackgroundCommands: sessionId => ipcRenderer.invoke('session:get-background-commands', { sessionId }),
+  onBackgroundCommand: callback => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('session:background-command', listener);
+    return () => ipcRenderer.removeListener('session:background-command', listener);
+  },
   getPlan: (sessionId) => ipcRenderer.invoke('session:get-plan', { sessionId }),
   onPlanUpdated: (callback) => {
     if (typeof callback !== 'function') throw new TypeError('callback must be a function.');

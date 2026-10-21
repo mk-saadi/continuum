@@ -220,3 +220,29 @@ test('steering IPC is scoped to the owning sender and delivers at the final-answ
     /No active run matches/i,
   );
 });
+
+// Regression: the renderer mints a session id for a tab when it opens, but
+// the `sessions` row is only persisted once the first message is sent. The
+// renderer asks for the steering history of that not-yet-persisted session on
+// every startup, so the handler must answer with an empty history instead of
+// throwing "Session not found." — which used to surface as an unhandled
+// rejection in the main process at every launch.
+test('steering history for a not-yet-persisted session is empty, not an error', async () => {
+  const history = await handlers.get('steering:history')({ sender: senderFixture() }, {
+    sessionId: 'session-that-was-never-saved',
+  });
+  assert.deepEqual(history, [], 'an unsaved session has no steering history');
+});
+
+// The handler still rejects a malformed session id outright, and a session
+// that does exist still returns its real history.
+test('steering history validates the session id and returns real rows', async () => {
+  await assert.rejects(
+    handlers.get('steering:history')({ sender: senderFixture() }, { sessionId: '' }),
+    /Invalid session/i,
+  );
+  const history = await handlers.get('steering:history')({ sender: senderFixture() }, {
+    sessionId: 'steering-ipc',
+  });
+  assert.ok(Array.isArray(history), 'history must be an array');
+});

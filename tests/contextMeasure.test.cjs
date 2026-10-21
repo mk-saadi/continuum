@@ -32,7 +32,7 @@ function strictBackend({ promptTokens = 100 } = {}) {
       const systems = payload.messages.filter(m => m.role === 'system');
       if (systems.length !== 1) return new Response(`{"error":{"message":"System message must be at the beginning"}}`, { status: 500 });
       if (!payload.messages.some(m => m.role === 'user')) return new Response(`{"error":{"message":"No user query found in messages."}}`, { status: 500 });
-      return Response.json({ prompt: `RENDERED:${payload.tools.map(t => `${t.function.name}:${t.function.description}`).join('|')}:${JSON.stringify(payload.messages)}` });
+      return Response.json({ prompt: `RENDERED:${payload.tools.map(t => `${t.function.name}:${t.function.description}:${JSON.stringify(t.function.parameters)}`).join('|')}:${JSON.stringify(payload.messages)}` });
     }
     if (url.endsWith('/tokenize')) {
       const { content } = JSON.parse(options.body);

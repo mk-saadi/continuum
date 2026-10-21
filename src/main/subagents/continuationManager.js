@@ -779,6 +779,19 @@ function recoverChild(childId, {
     engine: childEngine,
     rootPath: rootPath ?? options.rootPath ?? null,
   });
+  // A recovered child gets the same LSP authorization a fresh spawn would:
+  // the default child ceiling (Workspace Write), never Full Access, and only
+  // while the owning parent is still eligible. Nothing is restored because a
+  // previous run had it; a parent that was downgraded keeps its children
+  // denied, and an owner that no longer exists grants nothing.
+  try {
+    const contexts = require('../lspExecutionContext');
+    const parentMode = contexts.currentMode(row.parentSessionId, 'read_only');
+    if (contexts.eligible(parentMode)) {
+      const parentContext = contexts.forTool(row.parentSessionId, parentMode);
+      if (parentContext) contexts.authorizeChild(session, parentContext, ['read_only', 'ask_approval', 'workspace_write'].includes(options.lspPermissionMode) ? options.lspPermissionMode : 'read_only');
+    }
+  } catch { /* recovery must never fail because of LSP authorization */ }
   return { childSessionId: session.id, recovered: true, alreadyLive: false,
     ...continuationStatus(session.id, { parentSessionId }) };
 }

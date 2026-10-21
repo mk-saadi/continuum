@@ -41,6 +41,17 @@ function approximateTokens(payload) {
   // still required; this number is deliberately never labeled exact.
   return Math.ceil(Buffer.byteLength(text, 'utf8') / 3) + (payload.messages?.length ?? 0) * 32 + images * 4096;
 }
+// Templates may reformat JSON, so check schema keys/string values rather than
+// byte-for-byte JSON. Missing schema material invalidates the exact-count claim;
+// the full-request estimate and bounded backend recovery remain the fallback.
+function templateIncludesSchema(prompt, schema) {
+  const contains = value => prompt.includes(value) || prompt.includes(JSON.stringify(value).slice(1, -1));
+  if (typeof schema === 'string') return contains(schema);
+  if (Array.isArray(schema)) return schema.every(value => templateIncludesSchema(prompt, value));
+  if (schema && typeof schema === 'object') return Object.entries(schema).every(([key, value]) =>
+    contains(key) && templateIncludesSchema(prompt, value));
+  return schema == null || prompt.includes(String(schema));
+}
 // Standalone measurer over the same server-template/tokenizer path the guard
 // uses: /props capability check, /apply-template rendering, /tokenize count,
 // SHA-256 cache keyed on model/template/context/payload, and the documented
@@ -93,7 +104,8 @@ function createPromptMeasurer(fetchImpl) {
         // Old servers may ignore tools in /apply-template. Never claim their
         // message-only template measures a tool-bearing request.
         if ((payload.tools ?? []).some(tool => !rendered.prompt.includes(tool.function?.name) || (tool.function?.description &&
-          !rendered.prompt.includes(tool.function.description) && !rendered.prompt.includes(JSON.stringify(tool.function.description).slice(1, -1))))) throw new Error('Tools absent from template');
+          !rendered.prompt.includes(tool.function.description) && !rendered.prompt.includes(JSON.stringify(tool.function.description).slice(1, -1))) ||
+          !templateIncludesSchema(rendered.prompt, tool.function?.parameters))) throw new Error('Tools absent from template');
         const counted = await probe('/tokenize', { content: rendered.prompt, add_special: true, parse_special: true });
         if (!Array.isArray(counted.tokens)) throw new Error('Missing token count');
         tokens = counted.tokens.length; method = 'server-template-tokenizer';

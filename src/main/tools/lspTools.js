@@ -64,6 +64,11 @@ async function executeLspTool(name, args, context, signal) {
 function available(project) {
   if (!project?.root_path) return false;
   const manager = require('../lspManager').manager;
-  return !manager.closed && manager.instances.get(project.root_path)?.state !== 'failed';
+  if (manager.closed) return false;
+  // The registry is keyed by the canonical (realpath) root; the configured
+  // project root may be an alias of it. Resolve through the manager's bounded
+  // alias index so a failed server is actually hidden.
+  const canonical = manager.aliases.get(project.root_path) ?? project.root_path;
+  return manager.instances.get(canonical)?.state !== 'failed';
 }
 module.exports = { available, LSP_TOOL_NAMES, lspTools, executeLspTool, validate };

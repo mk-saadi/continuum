@@ -244,24 +244,14 @@ function buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable = tr
 		}
 	}
 	const mcpManager = require('./mcpManager');
-	let serverNames = [];
-	try {
-		const config = JSON.parse(fs.readFileSync(mcpManager.configPath, 'utf8'));
-		// Name only servers that are actually available: an explicitly disabled
-		// server is not an active capability, so listing it misleads the
-		// model (and the token counter) about what can be enabled. Servers
-		// enabled for this session count even when config-disabled.
-		serverNames = Object.entries(config.mcpServers || {})
-			.filter(([name, definition]) => definition?.disabled !== true || mcpManager.isSessionEnabled(name, sessionId))
-			.map(([name]) => name);
-	} catch { /* MCP manager reports malformed or unavailable configuration separately. */ }
-	if (!manualMcp && serverNames.length) prompt.content += `\n\nAvailable dynamic tools (MCP servers): ${serverNames.map(name => JSON.stringify(name)).join(', ')}. MCP servers are off by default to save context; enable one with \`manage_mcp_servers\` (action \`enable\` plus its server name) when you need it. You can also disable or restart a server if needed. Its tools appear in your schema on the next turn.`;
+	const catalog = mcpManager.getDiscoveryCatalog?.(sessionId) || '';
+	if (!manualMcp && catalog) prompt.content += `\n\nOptional MCP integrations (compact capabilities, not tool schemas):\n${catalog}\nPrefer native tools when they directly satisfy the task. Native desktop screenshots capture the desktop; browser automation inspects and interacts with web pages; native web search finds public information. When a needed browser or other capability is inactive, call manage_mcp_servers with action "enable" and server_names containing the configured identifier. Successful activation supplies tools before the next inference request in this same run. Continue and call those tools; no restart or user message is needed. Do not activate unrelated servers speculatively. Status here is a startup snapshot; activation results and current tool schemas are authoritative.`;
 	prompt.content +=
 		"\n\nCROSS-SESSION MEMORY: You have access to the `get_recent_chat_history` tool. If the user asks about previous topics, past chats, or what you were just talking about in another/global session, use `get_recent_chat_history` to pull recent messages before answering. When using search queries, provide short, broad 1-2 word keywords.";
 	prompt.content += "\n\nSKILL PROPOSALS: After a complex task, if you found a reusable workflow, call `propose_skill` with a concise name, description, and complete instructions. The user decides whether to register it.";
 	prompt.content += manualMcp
 		? `\n\nBROWSER AUTOMATION: The Playwright MCP server provides browser tools only when enabled in Settings. Use browser_snapshot to read the accessibility tree if navigation returns a snapshot file link. If the integration is unavailable, report that limitation instead of claiming browser access.`
-		: `\n\nBROWSER AUTOMATION: The Playwright MCP server provides browser tools when enabled. In a project, start local development servers with execute_command, then enable \`playwright-native\` using \`manage_mcp_servers\` if browser testing is needed. Use browser_snapshot to read the accessibility tree if navigation returns a snapshot file link. If the integration reports a setup error, report that limitation instead of claiming browser access.`;
+		: `\n\nBROWSER AUTOMATION: The Playwright MCP server provides browser tools when enabled. Foreground execute_command calls terminate their processes at completion or timeout; use background:true for a development server with an explicit bounded background_lifetime_ms. It remains owned by this run and stops when the run ends. For an already running project server, enable \`playwright-native\` using \`manage_mcp_servers\` if browser testing is needed. Use browser_snapshot to read the accessibility tree if navigation returns a snapshot file link. If the integration reports a setup error, report that limitation instead of claiming browser access.`;
 	if (!manualMcp) prompt.content += `\n\nAGENTIC EXTENSIBILITY: When asked to create an MCP server, build it inside the \`mcp-plugins/\` directory. Once the code is written, you MUST automatically edit \`mcp_config.json\` to register the new server's execution command, then call \`manage_mcp_servers\` to enable it for this chat.
 The central config file is ${JSON.stringify(require("./mcpManager").configPath)}. Read and merge its existing entries; preserve unrelated servers and options. Use the existing JSON format: {"mcpServers":{"server-name":{"command":"python","args":["/absolute/project/path/mcp-plugins/server-name/server.py"],"cwd":"/absolute/project/path","enabled":true}}}. Use absolute script paths with an explicit cwd, and install required dependencies before enabling the server.`;
 	prompt.content += `\n\n[AUTONOMY RULES]
@@ -445,8 +435,7 @@ function getToolContext(mcpTools = [], memoryEnabled = true, sessionId = null, p
 	// One policy decides both visibility and executability: the model is only
 	// offered tools the permission mode would actually let it run.
 	const project = sessionId ? sessionProject(sessionId) : null;
-	const visible = (name, native = true) => isToolVisible(name, { permissionMode: native && require('./tools/lspTools').LSP_TOOL_NAMES.includes(name)
-      ? require('./lspExecutionContext').currentMode(sessionId, permissionMode) : permissionMode, project, native });
+	const visible = (name, native = true) => isToolVisible(name, { permissionMode: require('./lspExecutionContext').currentMode(sessionId, permissionMode), project, native });
 	const imageGenerationConfigured = !!require('./cloudProviders').getActiveMediaModel('image');
 	// ask_user is genuinely unavailable when Mid-Run Questions is off for
 	// the chat (calls soft-return a proceed notice), so it is hidden then

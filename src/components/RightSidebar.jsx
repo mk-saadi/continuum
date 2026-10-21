@@ -17,6 +17,7 @@ import {
 import { CheckboxField, SelectField, TextAreaField } from "./FormControls";
 import SubagentModelSelect from "./SubagentModelSelect";
 import ContextPanel from "./ContextPanel";
+import BackgroundCommandCard from "./chat/BackgroundCommandCard";
 import WorkspacePlanCard from "./chat/WorkspacePlanCard";
 import RecoveryCard from "./chat/RecoveryCard";
 import RecoveryHistoryModal from "./chat/RecoveryHistoryModal";
@@ -599,6 +600,7 @@ export default function RightSidebar({
 	const renderActivity = () => (
 		<>
 			{isWorkspace && <WorkspacePlanCard sessionId={sessionId} />}
+            {isWorkspace && <BackgroundCommandCard sessionId={sessionId} />}
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
 				<div className="flex items-center gap-2">
 					<span

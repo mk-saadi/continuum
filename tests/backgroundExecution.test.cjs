@@ -501,7 +501,7 @@ test('10. background children keep the Step 4 context isolation and tool allowli
       assert.deepEqual(payload.tools.map(tool => tool.function.name).sort(),
         CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
       assert.equal(payload.tool_choice, 'auto');
-      assert.equal(payload.stream, false);
+      assert.equal(payload.stream, true, 'runtime progress observation enables streaming');
     }
     assert.equal(sessionManager.getSession(childB.childSessionId).result, 'B findings.');
   } finally {

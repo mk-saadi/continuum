@@ -101,7 +101,7 @@ async function main() {
     assert.match(prompt, /human confirmation before proceeding/);
     assert.match(prompt, /BROWSER AUTOMATION/);
     assert.match(prompt, /playwright-native/);
-    assert.match(prompt, /Available dynamic tools \(MCP servers\):/);
+    assert.match(prompt, /Optional MCP integrations/);
     // Workspace chats force mid-run questions on (see workspaceMidRunQuestions):
     // the prompt advertises the ENABLED clarification flow, never DISABLED.
     assert.match(prompt, /MID-RUN CLARIFICATIONS \(ENABLED\)/);

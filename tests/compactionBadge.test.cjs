@@ -16,7 +16,7 @@ const esbuild = require('esbuild');
     const html = render({ ...flags, created_at: '2026-09-28 12:00:00' });
     assert.match(html, /<time/);
     assert.match(html, /⚡ Summarized/);
-    assert.match(html, /title="This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing."/);
+    assert.match(html, /aria-label="Summarized. This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing."/);
   }
   assert.doesNotMatch(render({ is_summarized: 0, archived: 0 }), /Summarized/);
   console.log('Compaction badge and tooltip rendering checks passed.');

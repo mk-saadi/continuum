@@ -178,6 +178,12 @@ function buildLlamaServerArgs(model, input, port) {
 	) {
 		args.push("--override-kv", `${model.architecture}.expert_count=int:${config.moeExpertCount}`);
 	}
+	// Multi-token prediction is a speculative decoder baked into compatible model
+	// files (GGUF `*.nextn_predict_layers`). Without this flag the loader treats
+	// the nextn tensors as unused and generation runs with no speculation at all.
+	// Files without those layers keep the non-speculative path.
+	const mtpLayers = Number.isSafeInteger(model.mtpLayers) && model.mtpLayers > 0 ? model.mtpLayers : 0;
+	if (config.mtp && mtpLayers > 0) args.push("--spec-type", "draft-mtp");
 	if (config.chatTemplate !== "auto") args.push("--chat-template", config.chatTemplate);
 	args.push("--reasoning-format", config.reasoningFormat);
 	if (config.seed !== undefined) args.push("-s", String(config.seed));

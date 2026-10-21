@@ -140,6 +140,8 @@ function wasEvictedChild(id) {
 // drops the live record only. Durable history stays in subagent_runs, and the
 // id is remembered so later control calls report expiry truthfully.
 function deleteSession(id) {
+  const session = sessions.get(id);
+  if (session) { try { require('../lspExecutionContext').forgetChild(session); } catch {} }
   return sessions.delete(id);
 }
 

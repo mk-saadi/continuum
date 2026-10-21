@@ -135,12 +135,12 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
       assert.ok(variant.created_at);
       closeDatabase(); initDatabase();
       assert.deepEqual(sessions.loadSession('chat').messages.at(-1).variants.at(-1), variant);
+      const beforeFailure = sessions.loadSession('chat').messages;
       global.fetch = async () => { throw new Error('Connection failed'); };
       await assert.rejects(handlers.get('session:regenerate-last')({ sender }, { sessionId: 'chat', modelId: 'model', requestId: 'fail' }), /Connection failed/);
       const recovered = sessions.loadSession('chat').messages;
-      assert.deepEqual(recovered.at(-2).variants, result.message.variants);
-      assert.equal(recovered.at(-1).status, 'interrupted');
-      assert.equal(recovered.at(-1).content, '');
+      assert.deepEqual(recovered, beforeFailure, 'a rejected request with no generated data leaves the original reply and variants intact');
+      assert.deepEqual(recovered.at(-1).variants, result.message.variants);
     } finally {
       dispose(); manager.init = originalInit; manager.reload = originalReload; global.fetch = originalFetch;
     }

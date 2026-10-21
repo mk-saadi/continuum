@@ -238,15 +238,16 @@ test('11. coverage honesty: too_large, unreadable, volatile, excluded', async ()
   assert.ok(scan2.coverage.volatile.includes('fresh.txt'), JSON.stringify(scan2.coverage.volatile));
 });
 
-test('12. detached writer lands after post-scan; next boundary sees it', async () => {
+test('12. external writer lands after post-scan; next boundary sees it', async () => {
   const root = makeWorkspace({ 'base.txt': 'b\n' });
-  // Fully detached (setsid + stdio to /dev/null): the shell exits at once
-  // while the writer lands later. (A merely backgrounded `&` job holding the
-  // stdio pipe open would delay exec's own return instead.)
-  const r = await shellCall(root, `setsid nohup sh -c 'sleep 2; echo late > late.txt' >/dev/null 2>&1 < /dev/null & echo go`);
+  // Foreground tools now clean up their children. A separate workspace actor
+  // can still change files after a post-scan; preserve that recovery coverage
+  // without depending on an orphaned shell job escaping the command lifetime.
+  const r = await shellCall(root, 'echo go');
   assert.equal(r.exitCode, 0);
   assert.ok(!r.recoveryChanged.some((e) => e.startsWith('late.txt')), 'scan-time state honestly reported');
-  await new Promise((resolve) => setTimeout(resolve, 3500));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  fs.writeFileSync(path.join(root, 'late.txt'), 'late\n');
   assert.equal(fs.readFileSync(path.join(root, 'late.txt'), 'utf8').trim(), 'late');
   const scan = await recovery.scanWorkspaceState(root);
   const diff = recovery.diffStates(recovery.getCheckpoint(r.recoveryCheckpointId).manifest.paths,

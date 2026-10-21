@@ -1,0 +1,233 @@
+{
+  "phase": "2.6A-4",
+  "title": "LSP production hardening, packaging, stability and performance",
+  "baselineCommit": "f426392",
+  "branch": "main",
+  "workingTreeAtEntry": "clean",
+  "commits": 0,
+  "environment": {
+    "os": "Linux 6.17.9-76061709-generic",
+    "arch": "x64",
+    "node": "v22.23.2",
+    "npm": "10.9.8",
+    "electron": "44.7.0",
+    "electronNode": "24.21.0",
+    "cpus": 8,
+    "totalMemoryBytes": 16583036928,
+    "loadAverage": [2.48, 3.04, 3.33],
+    "display": "Xvfb (xvfb-run -a)",
+    "measuredAt": "2026-10-20T18:42:16.060Z"
+  },
+  "dependencies": {
+    "typescript-language-server": "4.3.4",
+    "typescript": "5.7.3",
+    "vscode-jsonrpc": "8.2.1",
+    "installedFootprintMiB": 24.6,
+    "changed": false
+  },
+  "baseline": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "counts": { "tests": 1483, "pass": 1458, "fail": 25, "skipped": 0, "cancelled": 0 },
+    "secondRunCounts": { "tests": 1483, "pass": 1456, "fail": 27 },
+    "flakyIdentitiesUnderParallelLoad": [
+      "7. interrupt and resume keep the child on the model it started with",
+      "8. a cloud model still gets the read-only child allowlist"
+    ],
+    "failures": [
+      "tests/attachments.test.cjs",
+      "10. background children keep the Step 4 context isolation and tool allowlist",
+      "1. a child finishes after one model response when no tools are needed",
+      "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "cloud settings persist privately and cloud chat works without a local engine",
+      "tests/compactionBadge.test.cjs",
+      "real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds",
+      "mandatory overflow fails without dispatch or accumulation of blank interrupted replies",
+      "scheduled compression is explicitly run; pending background compaction is awaited before forced work",
+      "regeneration recovery excludes the replaced assistant and preserves its original variant",
+      "forced compaction includes expanded older attachment text and preserves its managed file",
+      "tests/contextPanel.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "MCP execution applies the cap before serialization",
+      "IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+      "preload config methods invoke trusted config handlers",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "native tool guard prevents writes and model self-approval, full access can write outside root",
+      "tests/rag.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "workspace normal send retains the brief in the dispatched payload",
+      "casual forced recovery creates no briefs and dispatches no brief section"
+    ]
+  },
+  "final": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "counts": { "tests": 1527, "pass": 1502, "fail": 25, "skipped": 0, "cancelled": 0 },
+    "newFailureIdentities": [],
+    "resolvedFailureIdentities": [],
+    "testsAdded": 44
+  },
+  "focused": {
+    "command": "node --test tests/lspFoundation.test.cjs tests/lspCodeIntelligence.test.cjs tests/lspAgentIntegration.test.cjs tests/lspProduction.test.cjs tests/lspProductionAgent.test.cjs",
+    "counts": { "tests": 73, "pass": 73, "fail": 0 }
+  },
+  "electronUi": {
+    "harness": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/<file>.ui.cjs",
+    "results": [
+      { "file": "tests/lspActivity.ui.cjs", "status": "passed", "note": "six labels, locations, count, freshness, duration, expansion and inert content" },
+      { "file": "tests/permissionMode.ui.cjs", "status": "passed" },
+      { "file": "tests/liveSteering.ui.cjs", "status": "passed" }
+    ]
+  },
+  "build": {
+    "viteProduction": "passed",
+    "electronBuilderLinuxDir": "passed",
+    "viteWarning": "existing >500 kB chunk warning only"
+  },
+  "packaging": {
+    "config": {
+      "files": ["dist/**/*", "assets/continuum-notification.png", "main.js", "src/main/**/*.js", "src/preload.js", "preload.js", "src/lib/**/*.mjs", "src/lib/**/*.cjs", "src/lib/**/*.json"],
+      "asarUnpack": ["node_modules/@playwright/**/*", "node_modules/playwright*/**/*", "node_modules/typescript-language-server/**/*", "node_modules/typescript/**/*"]
+    },
+    "verified": {
+      "typescriptLanguageServerUnpacked": true,
+      "typescriptRuntimeUnpacked": true,
+      "vscodeJsonrpcInAsar": true,
+      "runAsNodeFuseEnabled": true,
+      "resolvedCli": "…/resources/app.asar.unpacked/node_modules/typescript-language-server/lib/cli.mjs",
+      "resolvedTsserver": "…/resources/app.asar.unpacked/node_modules/typescript/lib/tsserver.js",
+      "noGlobalNpmDependency": true,
+      "noDownloadAtRuntime": true,
+      "asarlessPathsSupported": true,
+      "pathsWithSpacesSupported": true
+    }
+  },
+  "packagedRuntime": {
+    "harness": "scripts/lsp-packaged-smoke.cjs executed by the packaged Electron binary (ELECTRON_RUN_AS_NODE=1)",
+    "ok": true,
+    "startupMs": 106,
+    "serverState": "ready",
+    "spawnArgs": ["<packaged binary>", "<app.asar.unpacked>/node_modules/typescript-language-server/lib/cli.mjs", "--stdio"],
+    "operations": {
+      "definition": { "ms": 283.45, "bytes": 598 },
+      "references": { "ms": 33.2, "bytes": 1317 },
+      "referencesPage2": { "ms": 0.15, "bytes": 1335 },
+      "hover": { "ms": 19.86, "bytes": 347 },
+      "documentSymbols": { "ms": 11.9, "bytes": 948 },
+      "workspaceSymbols": { "ms": 4.54, "bytes": 519 },
+      "diagnostics": { "ms": 297.22, "bytes": 4801 },
+      "jsDocumentSymbols": { "ms": 7.34, "bytes": 666 },
+      "tsxDocumentSymbols": { "ms": 6.55, "bytes": 667 }
+    },
+    "diagnosticsState": "stale",
+    "diagnosticCount": 22,
+    "shutdownMs": 7,
+    "instancesAfterClose": 0,
+    "serverAliveAfterShutdown": false,
+    "noOrphan": true
+  },
+  "platformVerification": {
+    "linuxDevelopment": "verified",
+    "linuxPackagedRuntime": "verified",
+    "windowsPackagedRuntime": "not tested",
+    "macosPackagedRuntime": "not tested"
+  },
+  "benchmarks": {
+    "harness": "scripts/lsp-benchmark.cjs",
+    "A_idle": { "startupMs": 108.49, "serverProcessCount": 1, "treeRssBytes": 419434496, "processes": 3 },
+    "B_repeated": {
+      "operations": 360,
+      "totalMs": 1507.69,
+      "treeRssBeforeBytes": 419434496,
+      "treeRssAfterBytes": 442478592,
+      "perOperation": {
+        "definition": { "p50Ms": 2.24, "p95Ms": 3.55, "maxMs": 22.89, "resultBytesMean": 598 },
+        "references": { "p50Ms": 8.21, "p95Ms": 12.09, "maxMs": 38.94, "resultBytesMean": 2455 },
+        "hover": { "p50Ms": 2.42, "p95Ms": 3.34, "maxMs": 3.7, "resultBytesMean": 333 },
+        "documentSymbols": { "p50Ms": 1.68, "p95Ms": 2.53, "maxMs": 14.63, "resultBytesMean": 948 },
+        "workspaceSymbols": { "p50Ms": 1.95, "p95Ms": 3.22, "maxMs": 4.91, "resultBytesMean": 519 },
+        "diagnostics": { "p50Ms": 0.55, "p95Ms": 0.89, "maxMs": 359.54, "resultBytesMean": 5278 }
+      }
+    },
+    "C_concurrent": { "callers": 4, "operations": 48, "serverProcessCount": 2, "instances": 2, "perCallerP95Ms": [8.02, 8.52, 10.23, 934.16] },
+    "D_workspaceSwitch": { "instancesBeforeRelease": 2, "instancesAfterRelease": 1, "instancesAfterSwitch": 1, "switchedRoot": true, "serverProcessCount": 1 },
+    "E_shutdown": { "shutdownMs": 6.89, "instancesAfterClose": 0, "survivors": [], "serverProcessCountAfterSettle": 0, "tsserverProcessCountAfterSettle": 0 },
+    "resultSizes": {
+      "toolSchemaBytes": 3775,
+      "definition": { "rawProtocolBytes": 123, "modelFacingBytes": 615, "approxModelTokens": 154 },
+      "references": { "rawProtocolBytes": 7912, "modelFacingBytes": 689, "approxModelTokens": 173 },
+      "hover": { "rawProtocolBytes": 168, "modelFacingBytes": 333, "approxModelTokens": 84 },
+      "documentSymbols": { "rawProtocolBytes": 507, "modelFacingBytes": 965, "approxModelTokens": 242 },
+      "workspaceSymbols": { "rawProtocolBytes": 161, "modelFacingBytes": 536, "approxModelTokens": 134 },
+      "diagnostics": { "modelFacingBytes": 5460, "approxModelTokens": 1365, "state": "stale" },
+      "note": "Tokens are a characters/4 estimate, not a tokenizer measurement."
+    }
+  },
+  "stress": {
+    "harness": "tests/lspProduction.test.cjs — long-running stress",
+    "operations": 340,
+    "success": 340,
+    "errors": 0,
+    "workspaces": 2,
+    "callers": 3,
+    "p50Ms": 135.02,
+    "p95Ms": 390.43,
+    "maxMs": 4570.87,
+    "serverRestarts": 0,
+    "pendingAfterCompletion": 0,
+    "note": "Requests are serialized per workspace, so concurrent callers queue; measured latency includes queue wait."
+  },
+  "agentPath": {
+    "main": {
+      "toolsExercised": 6,
+      "modelRequests": 7,
+      "executionSteps": 6,
+      "activityEvents": 31,
+      "persistedExecution": true,
+      "steeringObserved": true,
+      "singleRunId": true,
+      "resultBytes": { "definition": 615, "references": 963, "hover": 321, "documentSymbols": 965, "workspaceSymbols": 536, "diagnostics": 516 }
+    },
+    "child": {
+      "modelRequests": 3,
+      "tools": ["lsp_definition", "lsp_references", "lsp_diagnostics"],
+      "sharedServer": true,
+      "cancelledPeerSurvived": true
+    },
+    "recoveredChild": { "mode": "workspace_write", "usable": true, "neverFullAccess": true, "downgradedParentKeepsChildDenied": true },
+    "cleanShutdown": true,
+    "orphanSurvivors": []
+  },
+  "defectsFoundAndFixed": [
+    { "id": "D1", "severity": "high", "area": "document lifecycle", "symptom": "After 128 distinct files the open-document budget had no eviction, so every new file query failed with DOCUMENT_LIMIT for the rest of the session.", "evidence": "probe: refresh failed at file 128 code=DOCUMENT_LIMIT, documents.size=128", "fix": "Bounded least-recently-queried eviction with a didClose to the server.", "files": ["src/main/lspManager.js"] },
+    { "id": "D2", "severity": "high", "area": "shutdown", "symptom": "closeRoot/close awaited the pending initialize request, so quitting while a server was initializing blocked for the full 20 s initialization timeout.", "evidence": "probe: closeRoot took 19961.6 ms", "fix": "Terminate the client first when the entry never reached ready, aborting the pending initialize request.", "files": ["src/main/lspManager.js"] },
+    { "id": "D3", "severity": "high", "area": "crash recovery", "symptom": "After an unexpected server exit the workspace was poisoned permanently: every later acquire failed with SERVER_UNAVAILABLE and no restart existed.", "evidence": "probe: reacquire FAILED code = SERVER_UNAVAILABLE, spawned servers = 1", "fix": "Bounded automatic restart (max 3 per root) that replaces the entry so documents are re-opened with didOpen instead of didChange.", "files": ["src/main/lspManager.js"] },
+    { "id": "D4", "severity": "medium-high", "area": "diagnostics", "symptom": "lsp_diagnostics read the publication map immediately after opening the document, so it almost always answered pending with zero findings even for a file with a known type error.", "evidence": "packaged smoke before the fix: diagnosticState=pending, diagnosticCount=0; after the fix: diagnosticState=stale, diagnosticCount=22", "fix": "Bounded, event-driven wait on the manager's per-document publication event (no polling loop, no fixed sleep).", "files": ["src/main/lspManager.js", "src/main/lspCodeIntelligence.js"] },
+    { "id": "D5", "severity": "medium", "area": "shared server lifecycle", "symptom": "check() closed the whole shared workspace server for any identity error, including transient filesystem or database failures, interrupting other authorized callers.", "evidence": "code inspection of LspManager.check", "fix": "Only a definite WORKSPACE_UNAUTHORIZED retires the shared server.", "files": ["src/main/lspManager.js"] },
+    { "id": "D6", "severity": "low", "area": "performance", "symptom": "The 25 ms authorization re-check during a request could pile up overlapping realpath and database lookups.", "evidence": "code inspection of LspManager.request", "fix": "One re-check at a time.", "files": ["src/main/lspManager.js"] },
+    { "id": "D7", "severity": "low", "area": "tool advertisement", "symptom": "The failed-server filter looked up the registry by the configured project root while the registry is keyed by the canonical realpath, so a failed server stayed advertised for aliased roots.", "evidence": "code inspection of lspTools.available", "fix": "Bounded alias index in the manager resolves the canonical root.", "files": ["src/main/lspManager.js", "src/main/tools/lspTools.js"] },
+    { "id": "D8", "severity": "low", "area": "child authorization", "symptom": "A child session removed from the live registry kept its LSP authorization in the weak map.", "evidence": "code inspection of subagents/sessionManager.deleteSession", "fix": "forgetChild demotes and drops the authorization.", "files": ["src/main/lspExecutionContext.js", "src/main/subagents/sessionManager.js"] },
+    { "id": "D9", "severity": "medium", "area": "recovered children", "symptom": "A recovered child could never use LSP again, even though a fresh spawn would have been authorized.", "evidence": "code inspection of continuationManager.recoverChild", "fix": "Recovery re-authorizes the child at the default child ceiling (Workspace Write), never Full Access, and only while the owning parent is currently eligible.", "files": ["src/main/subagents/continuationManager.js"] }
+  ],
+  "filesChanged": [
+    "src/main/lspManager.js",
+    "src/main/lspCodeIntelligence.js",
+    "src/main/lspExecutionContext.js",
+    "src/main/tools/lspTools.js",
+    "src/main/subagents/continuationManager.js",
+    "src/main/subagents/sessionManager.js",
+    "scripts/lsp-packaged-smoke.cjs",
+    "scripts/lsp-benchmark.cjs",
+    "tests/lspProduction.test.cjs",
+    "tests/lspProductionAgent.test.cjs"
+  ],
+  "notVerified": [
+    "Windows packaged runtime (no Windows host available)",
+    "macOS packaged runtime (no macOS host available)",
+    "Installed AppImage/deb launch with an interactive workspace (only the unpacked Linux directory was built and exercised)",
+    "Real interactive TaskFlow manual session with a live model",
+    "Windows drive-letter and UNC URI behaviour at runtime",
+    "macOS Electron run-as-node fuse behaviour (the fuse is only enabled by default; the Linux binary was verified)"
+  ]
+}

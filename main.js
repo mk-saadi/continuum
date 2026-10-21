@@ -698,6 +698,10 @@ app.whenReady().then(() => {
 	mcpManager.init().catch((error) => console.error("MCP initialization failed:", error));
 	const db = initDatabase();
 	syncSystemDate(db);
+	// Build the recovery blob reference index in the background. Until it is
+	// built the storage panel falls back to a conservative reading of the
+	// recovery store; the build itself never blocks the main thread.
+	require("./src/main/recoveryReferenceIndex").startBuild();
 	registerIpcHandlers({
 		launchEngine: launchModel,
 		beginEngineRequest: () => idleService?.beginRequest(),
@@ -831,7 +835,7 @@ app.on("before-quit", (event) => {
 	idleService?.dispose();
 	if (!mcpClosed) {
 		event.preventDefault();
-		Promise.allSettled([mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
+		Promise.allSettled([require("./src/main/backgroundCommands").shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});

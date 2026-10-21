@@ -47,4 +47,11 @@ function requiresConfirmation(dbCommand) {
 // Shared main-process state; approvals are consumed before MCP dispatch.
 const approvedMutations = new Set();
 
-module.exports = { requiresConfirmation, approvedMutations };
+// Scoped opaque challenge binds the server, method, arguments and current
+// live policy generation. A session's grant cannot release another caller.
+function mutationHash(sessionId, serverName, toolName, payload) {
+ const revision = require('./lspExecutionContext').revision(sessionId);
+ return require('node:crypto').createHash('sha256').update(JSON.stringify([sessionId ?? null, revision, serverName, toolName, payload])).digest('hex').slice(0, 16);
+}
+function mutationApprovalKey(sessionId, hash) { return JSON.stringify([sessionId ?? null, hash]); }
+module.exports = { requiresConfirmation, approvedMutations, mutationHash, mutationApprovalKey };

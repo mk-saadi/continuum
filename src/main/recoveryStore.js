@@ -18,6 +18,14 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const {
+  checkpointBlobHashes,
+  parseManifest,
+  applyRefcountDelta,
+  markIndexed,
+  isIndexed,
+  isReady: referenceIndexReady,
+} = require('./recoveryReferenceIndex');
 
 const RECOVERY_MAX_FILE_BYTES = 2 * 1024 * 1024; // per-file capture cap (OpenCode parity)
 const RECOVERY_MAX_OP_FILES = 1000; // per-operation file cap (targeted captures)
@@ -123,6 +131,9 @@ function ensureRecoverySchema() {
       connection().prepare('ALTER TABLE recovery_workspace_index ADD COLUMN ctime_ms INTEGER').run();
     }
   })();
+  // The blob reference index owns the refcount column and the build state
+  // that says whether those counts can be trusted.
+  require('./recoveryReferenceIndex').ensureReferenceSchema();
 }
 
 // Checkpoints with in-flight restores. GC unions their blobs into the
@@ -136,6 +147,25 @@ function trackRestoreEnd(checkpointId) {
   if (left <= 0) activeRestores.delete(checkpointId);
   else activeRestores.set(checkpointId, left);
 }
+
+// ---------------------------------------------------------------------------
+// Blob reference index
+//
+// `recovery_blobs.refcount` counts how many checkpoints reference a blob.
+// It replaces the old "parse every manifest to find the referenced set" scan,
+// which was O(all history) — 632 MB of manifest JSON and 2.8M path records on
+// a real install — and ran on the Electron main thread, freezing the app for
+// seconds every time the storage panel asked for stats.
+//
+// Invariant: a checkpoint's set of referenced blobs is fixed at creation.
+// `finalizeBoundaryCheckpoint` only appends `absent` records and
+// `recordOpPostState` only rewrites op_json, so neither can add or remove a
+// file record. The refcount therefore only changes when a checkpoint is
+// created or deleted.
+//
+// The index itself lives in src/main/recoveryReferenceIndex.js, which also
+// owns building it from the existing manifests.
+// ---------------------------------------------------------------------------
 
 function sha256Hex(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -476,11 +506,17 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
   const sessionId = await getOrCreateRecoverySession(realRoot);
   const checkpointId = connection().transaction(() => {
     insertBlobRows(budget.blobs);
-    return Number(connection().prepare(
+    const id = Number(connection().prepare(
       `INSERT INTO recovery_checkpoints(session_id, chat_session_id, tool_name, kind, op_json, manifest_json, coverage_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(sessionId, chatSessionId, toolName, kind, op ? JSON.stringify(op) : null,
       JSON.stringify(manifest), JSON.stringify(coverage)).lastInsertRowid);
+    // Register the blobs this checkpoint references. Inside the same
+    // transaction as the checkpoint row, so a checkpoint can never exist
+    // without its references (or the reverse).
+    applyRefcountDelta(checkpointBlobHashes(manifest), 1);
+    markIndexed(id);
+    return id;
   })();
   return { checkpointId, sessionId, manifest, coverage };
 }
@@ -624,11 +660,14 @@ async function commitScanResult({ root, chatSessionId = null, toolName = null, k
   const coverage = scan.coverage;
   const checkpointId = connection().transaction(() => {
     insertBlobRows(scan.newBlobs);
-    return Number(connection().prepare(
+    const id = Number(connection().prepare(
       `INSERT INTO recovery_checkpoints(session_id, chat_session_id, tool_name, kind, op_json, manifest_json, coverage_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(sessionId, chatSessionId, toolName, kind, op ? JSON.stringify(op) : null,
       JSON.stringify(scan.manifest), JSON.stringify(coverage)).lastInsertRowid);
+    applyRefcountDelta(checkpointBlobHashes(scan.manifest), 1);
+    markIndexed(id);
+    return id;
   })();
   return { checkpointId, sessionId, manifest: scan.manifest, coverage };
 }
@@ -1186,55 +1225,20 @@ async function tryMoveBack(root, op, manifest, uncontained = false) {
 }
 
 // Mark-and-sweep: delete blob rows + files referenced by no retained
-// checkpoint, plus blob files with no row at all. Retention policy itself
-// (which checkpoints to retain) is a later phase; this takes an explicit set.
+// checkpoint, plus blob files with no row at all.
+//
+// The mark phase reads the manifests, exactly as it always has. The blob
+// refcount (see src/main/recoveryReferenceIndex.js) is deliberately NOT used
+// here: this is the one operation that destroys bytes, and it must not depend
+// on an incrementally maintained counter being right. The refcount exists to
+// answer the storage panel's questions quickly, and that is all it is trusted
+// with.
+//
+// The scan is chunked and yields to the event loop between chunks, so
+// cleaning up a large history stays responsive instead of freezing the app.
 async function gcRecoveryBlobs(retainCheckpointIds = null) {
   ensureRecoverySchema();
-  let rows;
-  if (retainCheckpointIds === null) {
-    rows = connection().prepare('SELECT manifest_json FROM recovery_checkpoints').all();
-  } else {
-    const ids = [...retainCheckpointIds];
-    if (!ids.length) {
-      rows = [];
-    } else {
-      rows = connection().prepare(
-        `SELECT manifest_json FROM recovery_checkpoints WHERE id IN (${ids.map(() => '?').join(',')})`,
-      ).all(...ids);
-    }
-  }
-  return gcRecoveryBlobsForRows(rows);
-}
-
-async function gcRecoveryBlobsForRows(rows) {
-  const referenced = new Set();
-  for (const row of rows) {
-    let manifest;
-    try {
-      manifest = JSON.parse(row.manifest_json);
-    } catch {
-      continue;
-    }
-    for (const rec of Object.values(manifest.paths ?? {})) {
-      if (rec && rec.kind === 'file' && typeof rec.hash === 'string') referenced.add(rec.hash);
-    }
-  }
-  // In-flight restores hold their blobs: union active checkpoint manifests so
-  // cleanup can never delete bytes a restore is currently reading.
-  if (activeRestores.size) {
-    const active = connection().prepare(
-      `SELECT manifest_json FROM recovery_checkpoints WHERE id IN (${[...activeRestores.keys()].map(() => '?').join(',')})`,
-    ).all(...activeRestores.keys());
-    for (const row of active) {
-      try {
-        for (const rec of Object.values(JSON.parse(row.manifest_json).paths ?? {})) {
-          if (rec && rec.kind === 'file' && typeof rec.hash === 'string') referenced.add(rec.hash);
-        }
-      } catch {
-        /* Corrupt row: GC must not fail because of it. */
-      }
-    }
-  }
+  const referenced = await collectReferencedHashes(retainCheckpointIds);
   const stale = connection().prepare('SELECT hash FROM recovery_blobs').all()
     .map((row) => row.hash).filter((hash) => !referenced.has(hash));
   let deletedFiles = 0;
@@ -1248,7 +1252,37 @@ async function gcRecoveryBlobsForRows(rows) {
       for (const hash of stale) del.run(hash);
     })();
   }
-  // Sweep blob files that have no row (orphans from interrupted captures).
+  const orphans = await gcOrphanBlobFiles();
+  return { deletedBlobs: stale.length, orphanFiles: orphans.orphanFiles, kept: orphans.kept };
+}
+
+// The hashes referenced by the checkpoints that are being retained.
+//
+// In-flight restores hold their blobs: their checkpoint is unioned in so
+// cleanup can never delete bytes a restore is currently reading.
+async function collectReferencedHashes(retainCheckpointIds = null) {
+  const ids = retainCheckpointIds === null
+    ? connection().prepare('SELECT id FROM recovery_checkpoints').all().map((row) => row.id)
+    : [...retainCheckpointIds];
+  const referenced = new Set();
+  const add = (id) => {
+    const row = connection().prepare('SELECT manifest_json FROM recovery_checkpoints WHERE id = ?').get(id);
+    if (!row) return;
+    for (const hash of checkpointBlobHashes(parseManifest(row.manifest_json))) referenced.add(hash);
+  };
+  for (const id of activeRestores.keys()) ids.push(id);
+  const CHUNK = 20;
+  for (let start = 0; start < ids.length; start += CHUNK) {
+    for (const id of ids.slice(start, start + CHUNK)) add(id);
+    // Yield to the event loop between chunks: a manifest is the whole
+    // workspace state of a capture and can be a megabyte of JSON.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return referenced;
+}
+
+// Sweep blob files that have no row (orphans from interrupted captures).
+async function gcOrphanBlobFiles() {
   let orphanFiles = 0;
   const shardDir = path.join(recoveryBaseDir(), 'blobs');
   const shards = await fs.readdir(shardDir).catch(() => []);
@@ -1268,12 +1302,7 @@ async function gcRecoveryBlobsForRows(rows) {
       }
     }
   }
-  return { deletedBlobs: stale.length, orphanFiles, kept: known.size };
-}
-
-async function countBlobs() {
-  ensureRecoverySchema();
-  return connection().prepare('SELECT COUNT(*) AS n FROM recovery_blobs').get().n;
+  return { orphanFiles, kept: known.size };
 }
 
 async function countBlobs() {
@@ -1292,51 +1321,81 @@ async function setCheckpointPinned(checkpointId, pinned) {
 }
 
 // Physical vs logical storage accounting. Physical = deduplicated bytes on
-// disk; logical = content bytes referenced by checkpoints (higher when blobs
-// are shared). Both are exposed so the UI can show real disk cost and the
-// amount of history that cost buys.
+// disk; logical = content bytes referenced by checkpoints. Both are exposed so
+// the UI can show real disk cost and the amount of history that cost buys.
+//
+// This runs on the Electron main thread every time the storage panel opens,
+// so it must never touch the checkpoint manifests: they hold the full
+// workspace state of every capture (632 MB and 2.8M path records on a real
+// install), and parsing them froze the app for ~5s per call. The reference
+// index answers the same questions in O(blobs).
 async function getRecoveryStats() {
   ensureRecoverySchema();
+  const { physicalBytes, blobFiles } = await measureBlobStore();
+  const totals = connection().prepare(
+    `SELECT COUNT(*) AS n,
+            SUM(size) AS bytes,
+            SUM(CASE WHEN refcount > 0 THEN 1 ELSE 0 END) AS referenced,
+            SUM(CASE WHEN refcount > 0 THEN size ELSE 0 END) AS referencedBytes
+     FROM recovery_blobs`,
+  ).get();
+  // Until the reference index is built the refcounts do not say which blobs
+  // are still referenced. Fall back to the conservative reading — every known
+  // blob is referenced — which is what the panel showed before and never
+  // understates the amount of data at risk.
+  const ready = referenceIndexReady();
+  const referencedBlobs = ready ? (totals.referenced ?? 0) : (totals.n ?? 0);
+  const logicalBytes = ready ? (totals.referencedBytes ?? 0) : (totals.bytes ?? 0);
+  return {
+    physicalBytes,
+    logicalBytes,
+    blobFiles,
+    referencedBlobs,
+    checkpointCount: connection().prepare('SELECT COUNT(*) AS n FROM recovery_checkpoints').get().n,
+    sessionCount: connection().prepare('SELECT COUNT(*) AS n FROM recovery_sessions').get().n,
+  };
+}
+
+// Bytes actually held by the blob store. This is the number the storage cap
+// is enforced against, so it is measured from disk rather than from the
+// database: an orphan file left by an interrupted capture still occupies
+// space. The walk is async, so it never blocks the event loop, and the stats
+// are read from SQLite concurrently while it runs.
+async function measureBlobStore() {
   const shardDir = path.join(recoveryBaseDir(), 'blobs');
-  let physicalBytes = 0;
-  let blobFiles = 0;
   const shards = await fs.readdir(shardDir).catch(() => []);
+  const paths = [];
   for (const shard of shards) {
     if (shard.startsWith('.')) continue;
     const files = await fs.readdir(path.join(shardDir, shard)).catch(() => []);
     for (const file of files) {
       if (file.includes('.tmp-')) continue;
+      paths.push(path.join(shardDir, shard, file));
+    }
+  }
+  let physicalBytes = 0;
+  let blobFiles = 0;
+  // Bounded concurrency: one stat per blob file, but not 10k at once.
+  const CONCURRENCY = 64;
+  let index = 0;
+  await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
+    while (index < paths.length) {
+      const target = paths[index++];
+      let size = null;
       try {
-        physicalBytes += (await fs.stat(path.join(shardDir, shard, file))).size;
-        blobFiles += 1;
+        size = (await fs.stat(target)).size;
       } catch {
         /* Raced deletion: skip. */
       }
+      // Read-modify-write after the await. Folding the await into the
+      // expression would read the accumulator before yielding, so parallel
+      // workers would clobber each other's totals.
+      if (size === null) continue;
+      physicalBytes += size;
+      blobFiles += 1;
     }
-  }
-  const rows = connection().prepare('SELECT manifest_json FROM recovery_checkpoints').all();
-  const seen = new Map();
-  for (const row of rows) {
-    try {
-      for (const rec of Object.values(JSON.parse(row.manifest_json).paths ?? {})) {
-        if (rec && rec.kind === 'file' && typeof rec.hash === 'string' && !seen.has(rec.hash)) {
-          seen.set(rec.hash, rec.size ?? 0);
-        }
-      }
-    } catch {
-      /* Corrupt row: reported via counts, never fatal. */
-    }
-  }
-  let logicalBytes = 0;
-  for (const size of seen.values()) logicalBytes += size;
-  return {
-    physicalBytes,
-    logicalBytes,
-    blobFiles,
-    referencedBlobs: seen.size,
-    checkpointCount: connection().prepare('SELECT COUNT(*) AS n FROM recovery_checkpoints').get().n,
-    sessionCount: connection().prepare('SELECT COUNT(*) AS n FROM recovery_sessions').get().n,
-  };
+  }));
+  return { physicalBytes, blobFiles };
 }
 
 // Retention pruning with explicit guarantees. Keeps, per recovery session:
@@ -1380,12 +1439,7 @@ async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPer
   // Active restores pin their checkpoints for this run.
   for (const id of activeRestores.keys()) keep.add(id);
   const pruned = rows.filter((row) => !keep.has(row.id)).map((row) => row.id);
-  if (pruned.length) {
-    connection().transaction(() => {
-      const del = connection().prepare('DELETE FROM recovery_checkpoints WHERE id = ?');
-      for (const id of pruned) del.run(id);
-    })();
-  }
+  await deleteCheckpoints(pruned);
   // Storage cap: evict oldest-first among non-pinned, non-latest, non-recent.
   const capBytes = storageCapMB * 1024 * 1024;
   const recentCutoff = now - recentHours * 3600000;
@@ -1403,18 +1457,15 @@ async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPer
     const candidates = rows
       .filter((row) => keep.has(row.id) && !row.pinned && !latestIds.has(row.id) && createdMs(row.created_at) < recentCutoff)
       .sort((a, b) => a.id - b.id);
-    connection().transaction(() => {
-      const del = connection().prepare('DELETE FROM recovery_checkpoints WHERE id = ?');
-      for (const row of candidates) {
-        del.run(row.id);
-        keep.delete(row.id);
-        capEvicted.push(row.id);
-      }
-    })();
-    // Re-check after eviction instead of tracking incrementally.
-    stats = await getRecoveryStats();
+    await deleteCheckpoints(candidates.map((row) => row.id));
+    for (const row of candidates) {
+      keep.delete(row.id);
+      capEvicted.push(row.id);
+    }
   }
-  const gc = await gcRecoveryBlobs(keep);
+  // Every checkpoint that is not retained has already been deleted, so the
+  // checkpoints that are left are exactly the ones to keep.
+  const gc = await gcRecoveryBlobs();
   stats = await getRecoveryStats();
   return {
     pruned,
@@ -1425,6 +1476,57 @@ async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPer
       : 0,
     storage: stats,
   };
+}
+
+// Delete checkpoints and keep the blob refcounts in step.
+//
+// The refcount is what the storage panel reports, so it has to follow the
+// checkpoints exactly: every removed checkpoint gives back the references it
+// held. The decrement is derived from the manifest of the checkpoint being
+// removed, which is read before the row is deleted. A prune can remove many
+// checkpoints at once, and reading a manifest is milliseconds of work, so the
+// reading happens in time-boxed batches that yield to the event loop:
+// pruning a large history stays responsive instead of freezing the app.
+const DELETE_BATCH_MS = 25;
+async function deleteCheckpoints(ids) {
+  const list = [...new Set(ids)].filter((id) => Number.isSafeInteger(id));
+  if (!list.length) return;
+  const del = connection().prepare('DELETE FROM recovery_checkpoints WHERE id = ?');
+  const readManifest = connection().prepare('SELECT manifest_json FROM recovery_checkpoints WHERE id = ?');
+  const dropIndex = connection().prepare('DELETE FROM recovery_indexed_checkpoints WHERE checkpoint_id = ?');
+  let pending = [];
+  let batchStarted = Date.now();
+  const flush = () => {
+    if (!pending.length) return;
+    connection().transaction(() => {
+      for (const entry of pending) {
+        // Only a checkpoint whose references were counted can be decremented.
+        // A checkpoint that is not in the index yet contributes nothing to
+        // the refcounts, so decrementing for it would under-count a blob that
+        // another checkpoint still references.
+        if (entry.hashes) applyRefcountDelta(entry.hashes, -1);
+        dropIndex.run(entry.id);
+        del.run(entry.id);
+      }
+    })();
+    pending = [];
+    batchStarted = Date.now();
+  };
+  for (const id of list) {
+    const row = readManifest.get(id);
+    // The manifest is read and parsed here, outside the transaction, so the
+    // transaction itself stays short and the batch can be time-boxed.
+    const hashes = row && isIndexed(id) ? checkpointBlobHashes(parseManifest(row.manifest_json)) : null;
+    pending.push({ id, hashes });
+    if (Date.now() - batchStarted >= DELETE_BATCH_MS) {
+      flush();
+      // A timer, not setImmediate: a setImmediate that schedules another
+      // setImmediate runs in the same check phase, so the loop never reaches
+      // its timer phase and the app's own timers starve for the whole prune.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+  flush();
 }
 
 // Small bounded line diff for the compare view: common prefix/suffix trim,
@@ -1710,6 +1812,7 @@ module.exports = {
   setCheckpointPinned,
   getRecoveryStats,
   pruneRecovery,
+  deleteCheckpoints,
   diffTextLines,
   getWorkspaceRecoveryOverview,
   getRecoveryHistory,

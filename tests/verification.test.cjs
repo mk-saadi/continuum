@@ -174,13 +174,13 @@ test('existing tool registration and command execution keep working', async () =
   assert.ok(advertised.includes('run_tests'));
   assert.ok(advertised.includes('execute_command'));
 
-  // execute_command keeps its exact legacy response shape: the enrichment is
-  // additive and must not introduce a structured verdict where none existed.
+  // execute_command preserves legacy streams and exitCode alongside its additive
+  // execution status; run_tests retains its separate verification verdict.
   const legacy = await executeAgentTool({
     name: 'execute_command', arguments: JSON.stringify({ command: 'printf legacy; exit 4' }),
     sessionId: 'chat', permissionMode: 'full_access',
   });
   assert.equal(legacy.exitCode, 4);
   assert.match(legacy.stdout, /legacy/);
-  assert.equal(legacy.status, undefined);
+  assert.equal(legacy.status, 'nonzero_exit');
 });

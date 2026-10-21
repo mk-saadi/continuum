@@ -456,6 +456,7 @@ export async function runMemoryChat({
   // is byte-identical to before.
   takeSteeringInstructions = null, markSteeringDelivered = null, markSteeringUndelivered = null,
   maxSteeringContinuations = 8,
+  takeCommandCompletions = null, markCommandCompletions = null,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
     throw new TypeError('maxToolRounds must be between 1 and 1000.');
@@ -513,6 +514,39 @@ export async function runMemoryChat({
   // injected only at a model-request boundary and is confirmed after the
   // transport has accepted that request; it is cleared before the next request
   // so the same instruction is never injected twice.
+  let completionBatch = [];
+  let completionContinuations = 0;
+  const readCompletions = async () => {
+    if (!takeCommandCompletions) return [];
+    return (await takeCommandCompletions()).slice(0, 4);
+  };
+  const injectCompletions = batch => {
+    // Refresh activity/work-log evidence, without rewriting the original
+    // startup tool result in the model transcript.
+    for (const event of batch) {
+      const step = executionSteps.find(step => step.toolName === 'execute_command' && step.result?.command_id === event.id);
+      if (step && event.result) {
+        step.result = formatToolResult(event.result, 'execute_command').displayResult;
+        step.status = event.result.status === 'completed' ? 'complete' : 'error';
+      }
+    }
+    publishSteps(true);
+    // Runtime event framing lives in the ordinary conversation budget. Never
+    // promote command output to system instructions or forge a tool result.
+    history.push({ role: 'user', content: '[Runtime background command events; no new user instruction]\n' + batch.map(event => event.content).join('\n') });
+  };
+  const confirmCompletions = async accepted => {
+    const batch = completionBatch; completionBatch = [];
+    if (batch.length) {
+      try { await markCommandCompletions?.(batch.map(event => event.id), accepted); }
+      catch (error) { console.error('[background commands] delivery acknowledgment persistence failed:', error?.message ?? error); }
+      for (const event of batch) {
+        const step = executionSteps.find(step => step.result?.command_id === event.id);
+        if (step?.result) step.result.notification_state = accepted ? 'delivered' : 'undelivered';
+      }
+      publishSteps(true);
+    }
+  };
   let steeringBatch = [];
   let steeringContinuations = 0;
   const steeringText = content => `User steering instruction received during this run:\n${content}`;
@@ -602,6 +636,10 @@ export async function runMemoryChat({
         injectSteering(pendingSteering);
       }
     }
+    if (!completionBatch.length) {
+      completionBatch = await readCompletions();
+    }
+    if (completionBatch.length) injectCompletions(completionBatch);
     const phaseStart = round === 1 ? startTime : now();
     if (getChatTools && !finalResponseOnly) {
       tools = await getChatTools();
@@ -692,11 +730,13 @@ export async function runMemoryChat({
       // No response was accepted, so nothing in this batch was delivered. The
       // rows are marked undelivered rather than left queued for a run that may
       // already be over.
+      await confirmCompletions(false);
       await failSteering(`The model request failed before this instruction could be delivered: ${error?.message ?? 'unknown error'}`);
       throw error;
     }
     // The transport accepted the request; delivery is now provable.
     await confirmSteering();
+    await confirmCompletions(true);
     const priorThinking = thinkingText;
     const priorDuration = thinkingDuration;
     let visibleContent = '';
@@ -788,6 +828,15 @@ export async function runMemoryChat({
     }
     if (!result.toolCalls.length) {
       signal?.throwIfAborted();
+      if (completionContinuations < 4) {
+        const late = await readCompletions();
+        if (late.length) {
+          completionContinuations++;
+          history.push({ role: 'assistant', content: result.content || null });
+          completionBatch = late;
+          continue;
+        }
+      }
       // A steer submitted while this response was streaming arrived after the
       // request snapshot, so it cannot be part of that request. Deliver it with
       // one bounded continuation rather than ending the run with the
@@ -995,9 +1044,12 @@ export async function runMemoryChat({
   }
   } catch (error) {
     const endTime = now();
-    const stats = phases.length ? mergePhaseStats(phases, startTime)
-      : phaseStats({ startTime, endTime });
-    onStats({ ...stats, endTime, time: Math.max(0, (endTime - startTime) / 1000), raw: phases.map(phase => phase.raw) });
+    // Preflight/transport rejection before any accepted phase has no usage.
+    // Emitting empty statistics materializes a blank interrupted DB reply.
+    if (phases.length) {
+      const stats = mergePhaseStats(phases, startTime);
+      onStats({ ...stats, endTime, time: Math.max(0, (endTime - startTime) / 1000), raw: phases.map(phase => phase.raw) });
+    }
     throw error;
   }
 }

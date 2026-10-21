@@ -68,10 +68,24 @@ function SettingsModalSlot({ active, palace, avatars, models, engineRunning, ser
 	const actions = useModalActions();
 	const modals = useModalState();
 	const themeState = useTheme();
+	// The palace publishes a new object on every 2-second context poll. The
+	// settings modal only reads a few fields from it, so it is narrowed here:
+	// passing the whole object made every poll rebuild the entire settings
+	// tree, which is what made opening and scrolling the modal feel heavy.
+	const palaceView = useMemo(
+		() => ({
+			api: palace?.api,
+			enabled: palace?.enabled,
+			toggle: palace?.toggle,
+			mcpStatus: palace?.mcpStatus,
+			refresh: palace?.refresh,
+		}),
+		[palace?.api, palace?.enabled, palace?.toggle, palace?.mcpStatus, palace?.refresh],
+	);
 	if (!modals?.settingsOpen || !active) return null;
 	return (
 		<MemorySettings
-			palace={palace}
+			palace={palaceView}
 			avatars={avatars}
 			models={models}
 			theme={themeState?.theme}

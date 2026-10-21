@@ -72,3 +72,25 @@ test('child overflow with only protected rounds stops; one-shot task has no reco
   await assert.rejects(local.chatCompletion({ engine: { port: 9999, modelId: 'loaded', contextLength: 8192 }, payload: { model: 'loaded', messages: [{ role: 'system', content: 'required instructions' }, { role: 'user', content: 'required file/task' }], max_tokens: 1024 }, fetchImpl: one.fetch }), /cannot fit/);
   assert.equal(one.calls.length, 1);
 });
+
+test('high-context steering is counted, retained once through guarded recovery, and delivered at the checkpoint', async () => {
+  let claimed = false, recoveries = 0, delivered = 0, executions = 0;
+  const b = backend({ tokens: text => Math.ceil(text.length / 4), infer: (_payload, n) => n === 1 ? toolReply() : reply('Done [TASK COMPLETE]') });
+  const result = await runMemoryChat({ ...base,
+    messages: [{ role: 'system', content: 'Rules and older recoverable context: ' + 'x'.repeat(18000) }, { role: 'user', content: 'Keep the task objective.' }],
+    fetchImpl: b.fetch,
+    takeSteeringInstructions: async () => {
+      if (!executions || claimed) return [];
+      claimed = true;
+      return [{ id: 'steer-high', deliveryRequestId: 'checkpoint-high', content: 'Use these latest constraints. ' + 's'.repeat(12000) }];
+    },
+    markSteeringDelivered: async ids => { assert.deepEqual(ids, ['steer-high']); delivered++; },
+    executeTool: async () => { executions++; return 'Successful operation already completed'; },
+    recoverContext: async () => { recoveries++; return { messages: [{ role: 'system', content: 'Rules; faithful earlier context summary' }, { role: 'user', content: 'Keep the task objective.' }] }; },
+  });
+  assert.equal(result, 'Done [TASK COMPLETE]');
+  assert.equal(recoveries, 1); assert.equal(executions, 1); assert.equal(delivered, 1);
+  assert.equal(b.calls.length, 2);
+  assert.equal(b.calls[1].messages.filter(m => String(m.content).includes('Use these latest constraints.')).length, 1);
+  assert.equal(b.calls[1].messages.find(m => m.role === 'tool').tool_call_id, 'read-1');
+});

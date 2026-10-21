@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { McpManager } = require('../src/main/mcpManager');
 const { createHash } = require('node:crypto');
-const { approvedMutations } = require('../src/main/safetyGuards');
+const { approvedMutations, mutationHash, mutationApprovalKey } = require('../src/main/safetyGuards');
 
 test('MCP mutation approvals intercept, match payloads and permit only one dispatch', async () => {
   const manager = new McpManager();
@@ -20,7 +20,8 @@ test('MCP mutation approvals intercept, match payloads and permit only one dispa
     } },
   });
   const args = { nested: { query: 'DELETE FROM records' } };
-  const hash = createHash('sha256').update(JSON.stringify(args)).digest('hex').slice(0, 16);
+  const hash = mutationHash(undefined, 'database', 'query', JSON.stringify(args));
+  const key = mutationApprovalKey(undefined, hash);
   const intercept = `SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`;
   const invoke = (payload = args) => manager.callTool('database', 'query', payload);
   try {
@@ -28,20 +29,20 @@ test('MCP mutation approvals intercept, match payloads and permit only one dispa
     assert.equal(calls.length, 1);
     await assert.rejects(invoke(), { message: intercept });
     assert.equal(calls.length, 1);
-    approvedMutations.add(hash);
+    approvedMutations.add(key);
     await assert.rejects(invoke({ nested: { query: 'DELETE FROM other_records' } }), /SAFETY GUARD INTERCEPT/);
-    assert.ok(approvedMutations.has(hash));
+    assert.ok(approvedMutations.has(key));
     const results = await Promise.allSettled([invoke(), invoke()]);
     assert.deepEqual(results.map(result => result.status), ['fulfilled', 'rejected']);
     assert.equal(results[1].reason.message, intercept);
     assert.deepEqual(calls[1].arguments, args);
     assert.equal(calls.length, 2);
-    assert.equal(approvedMutations.has(hash), false);
+    assert.equal(approvedMutations.has(key), false);
     await assert.rejects(invoke(), { message: intercept });
-    approvedMutations.add(hash);
+    approvedMutations.add(key);
     fail = true;
     await assert.rejects(invoke(), /Server failed/);
-    assert.equal(approvedMutations.has(hash), false, 'Failed attempts also consume approval');
+    assert.equal(approvedMutations.has(key), false, 'Failed attempts also consume approval');
     await assert.rejects(invoke(), { message: intercept });
     assert.equal(calls.length, 3);
   } finally { approvedMutations.clear(); }

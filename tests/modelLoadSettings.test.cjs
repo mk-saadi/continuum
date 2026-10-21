@@ -50,6 +50,17 @@ try {
   // Architecture metadata alone never adds an override.
   assert.equal(buildLlamaServerArgs(model, {}, 8080).includes('--override-kv'), false);
 
+  // 1b. MTP is opt-out and only reaches the CLI for files that ship nextn layers.
+  // A GGUF without them keeps the non-speculative command line even with MTP on.
+  assert.equal(defaults.mtp, true);
+  assert.equal(buildLlamaServerArgs(model, {}, 8080).includes('--spec-type'), false);
+  const mtpModel = { ...model, mtpLayers: 1 };
+  assert.equal(flagValue(buildLlamaServerArgs(mtpModel, {}, 8080), '--spec-type'), 'draft-mtp');
+  assert.equal(buildLlamaServerArgs(mtpModel, { mtp: false }, 8080).includes('--spec-type'), false);
+  assert.equal(normalizeLoadConfig({ mtp: false }).mtp, false);
+  assert.throws(() => normalizeLoadConfig({ mtp: 'on' }), /multi-token prediction/i);
+  assert.throws(() => normalizeLoadConfig({ mtp: 1 }), /multi-token prediction/i);
+
   // 2. Old saved config shapes load with their original behavior.
   const loadModeOnly = normalizeLoadConfig({ loadMode: 'mmap+mlock', cacheTypeK: 'q8_0', cacheTypeV: 'q8_0', threads: 8 });
   assert.equal(loadModeOnly.loadMode, 'mmap+mlock');
@@ -189,6 +200,15 @@ try {
   assert.equal(moeMeta.architecture, 'gemma4');
   assert.equal(moeMeta.expertCount, 128);
   assert.equal(moeMeta.isMoe, true);
+  // nextn/MTP layers come from the architecture metadata and are off by default.
+  const mtpFile = path.join(directory, 'Qwen3.8-27B-IQ3_S-mtp.gguf');
+  writeGguf(mtpFile, [
+    ['general.architecture', 8, () => Buffer.concat([Buffer.from([6, 0, 0, 0, 0, 0, 0, 0]), Buffer.from('qwen35')])],
+    ['qwen35.nextn_predict_layers', 4, () => { const b = Buffer.alloc(4); b.writeUInt32LE(1); return b; }],
+  ]);
+  const mtpMeta = await parseModelMetadata(mtpFile, 'Qwen3.8-27B-IQ3_S-mtp.gguf', fs.statSync(mtpFile), []);
+  assert.equal(mtpMeta.architecture, 'qwen35');
+  assert.equal(mtpMeta.mtpLayers, 1);
   const denseFile = path.join(directory, 'dense-1.5B.gguf');
   writeGguf(denseFile, [
     ['general.architecture', 8, () => Buffer.concat([Buffer.from([5, 0, 0, 0, 0, 0, 0, 0]), Buffer.from('llama')])],
@@ -197,6 +217,7 @@ try {
   assert.equal(denseMeta.architecture, 'llama');
   assert.equal(denseMeta.expertCount, null);
   assert.equal(denseMeta.isMoe, false);
+  assert.equal(denseMeta.mtpLayers, 0);
   const brokenMeta = await parseModelMetadata(path.join(directory, 'absent.gguf'), 'absent.gguf', { size: 4 }, []);
   assert.equal(brokenMeta.architecture, null);
   assert.equal(brokenMeta.expertCount, null);
@@ -211,6 +232,7 @@ try {
     assert.match(helpText, /--load-mode MODE/);
     assert.match(helpText, /--no-kv-offload/);
     assert.match(helpText, /--no-mmproj-offload/);
+    assert.match(helpText, /draft-mtp/);
     assert.match(helpText, /--override-kv KEY=TYPE:VALUE/);
     assert.doesNotMatch(helpText, /--expert-count|--n-experts|--num-experts/);
     assert.match(helpText, /- mlock: force system to keep model in RAM/);

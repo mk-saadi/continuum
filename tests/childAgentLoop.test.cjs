@@ -47,7 +47,7 @@ test('1. a child finishes after one model response when no tools are needed', as
   assert.equal(output, 'Auth uses signed JWTs.');
   assert.equal(payloads.length, 1, 'exactly one inference turn');
   const [payload] = payloads;
-  assert.equal(payload.stream, false);
+  assert.equal(payload.stream, true, 'runtime progress observation enables streaming');
   assert.equal(payload.messages.length, 2, 'only the system prompt and the task');
   assert.equal(payload.messages[0].role, 'system');
   assert.equal(payload.messages[0].content, CHILD_AGENT_SYSTEM_PROMPT);
@@ -454,6 +454,7 @@ test('spawn_sub_agent with investigate=true runs the loop end to end through the
   const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'child-loop-e2e-'));
   const requests = [];
   const server = http.createServer((req, res) => {
+    if (req.method !== 'POST' || req.url !== '/v1/chat/completions') { res.writeHead(404); res.end(); return; }
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -484,7 +485,7 @@ test('spawn_sub_agent with investigate=true runs the loop end to end through the
     assert.equal(answer, 'E2E findings');
     assert.equal(requests.length, 2, 'two real HTTP inference turns');
     for (const payload of requests) {
-      assert.equal(payload.stream, false);
+      assert.equal(payload.stream, true, 'runtime progress observation enables streaming');
       assert.equal(payload.tool_choice, 'auto');
       assert.deepEqual(toolNamesIn(payload), CHILD_TOOL_NAMES.filter(name => !name.startsWith('lsp_')).sort());
     }

@@ -66,7 +66,8 @@ test('mode matrix, independent callers, transitions, cursor revocation and pendi
     const refs = await f.api.references(f.input);
     f.context.permissionMode = 'read_only';
     assert.equal((await f.api.references({ ...f.input, cursor: refs.nextCursor })).error.code, 'LSP_PERMISSION_DENIED');
-    await f.manager.permissionChanged(f.context, f.root); assert.equal(f.manager.instances.size, 0);
+    const shared = f.manager.instances.get(f.root);
+    await f.manager.permissionChanged(f.context, f.root); assert.equal(f.manager.instances.get(f.root), shared, 'caller revocation retains the shared process');
     f.context.permissionMode = 'workspace_write'; assert.equal((await f.api.definition(f.input)).success, true);
     const waiting = f.api.hover(f.input); setTimeout(() => { f.context.permissionMode = 'ask_approval'; }, 40);
     assert.equal((await waiting).error.code, 'LSP_PERMISSION_DENIED');

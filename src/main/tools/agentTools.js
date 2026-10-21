@@ -33,7 +33,7 @@ const agentTools = [
 	}, ['name', 'description', 'instructions']),
 	define(
 		"manage_mcp_servers",
-		"Enable, disable, or restart installed MCP servers for this chat. Enabling or restarting makes their tool schemas available on the next model turn.",
+		"Enable, disable, or restart installed MCP servers for this chat. Enabling or restarting makes their tool schemas available before the next inference request in this same run. Continue with the newly available tools without restarting.",
 		{
 			action: { type: "string", enum: ["enable", "disable", "restart"] },
 			server_names: { type: "array", items: string("Installed MCP server name"), minItems: 1, maxItems: 20 },
@@ -119,9 +119,12 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run a shell command with a 45-second timeout. Contained commands run inside the workspace sandbox and can write only inside the project root; commands that would affect the system outside the workspace request user approval first. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Contained commands run inside the workspace sandbox and can write only inside the project root; commands that would affect the system outside the workspace request user approval first. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
+            background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
+            background_lifetime_ms: { type: "integer", minimum: 1000, maximum: 1800000, description: "Explicit background lifetime; mutually exclusive with timeout_ms. Default 60000; run cancellation/end remains authoritative." },
+            timeout_ms: { type: "integer", minimum: 1000, maximum: 300000, description: "Foreground timeout in milliseconds; default 60000, maximum 300000. Agent cancellation/deadlines take precedence." },
 			cwd: string("Working directory; defaults to the project root"),
 			user_confirmed: {
 				type: "boolean",
@@ -130,6 +133,8 @@ const agentTools = [
 		},
 		["command"],
 	),
+	define("get_command_status", "Retrieve bounded background output and truthful status for this workspace session.", { command_id: string("Owned background command ID") }, ["command_id"]),
+	define("stop_background_command", "Cancel an owned background command and clean up its process tree. Idempotent after termination.", { command_id: string("Owned background command ID") }, ["command_id"]),
 	define(
 		"run_tests",
 		"Run a verification command (tests, lint, type-check, or build) and return a structured verdict instead of raw output. Use this before claiming work is complete. `status` is `passed` only when the command exits 0; a nonzero exit is `failed`, an exceeded timeout is `timed_out`, a user interruption is `cancelled`, and a command that never ran (missing tool, no exit status) is `error`. Runs with the same sandbox, approval, workspace, and timeout rules as execute_command.",
@@ -139,8 +144,8 @@ const agentTools = [
 			timeout_ms: {
 				type: "number",
 				minimum: 1000,
-				maximum: 120000,
-				description: "Optional verification timeout in milliseconds (1000-120000); defaults to 45000 like execute_command",
+				maximum: 300000,
+				description: "Optional verification timeout in milliseconds (1000-300000); defaults to 60000 like execute_command",
 			},
 		},
 		["command"],
@@ -664,58 +669,32 @@ function truncateOutput(stdout, stderr = "") {
 		]),
 	);
 }
-function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 45000) {
-	requireText(args.command, "command");
-	return new Promise((resolve) => {
-        const run = workspaceRoot
-            ? (command, options, done) => {
-                if (process.platform !== 'linux') return done(new Error('Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.'), '', '');
-                // Filesystem isolation is the security boundary. Unsharing the
-                // network namespace fails on some desktop/container kernels and
-                // prevents even local git commands from starting.
-                //
-                // Usability: $HOME and /tmp must be writable, but the real ones
-                // stay read-only (via `--ro-bind / /`). Workspace-local home and
-                // temp areas are created inside the workspace (symlink-checked,
-                // fail-closed through scopedPath) and exposed through env and a
-                // /tmp overlay. The /tmp overlay is mounted BEFORE the workspace
-                // bind: when the workspace itself lives under /tmp, mounting it
-                // afterwards would hide the workspace bind from the namespace.
-                (async () => {
-                    const sandboxHome = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/home');
-                    const sandboxTmp = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/tmp');
-                    await fs.mkdir(sandboxHome, { recursive: true });
-                    await fs.mkdir(sandboxTmp, { recursive: true });
-                    execFile('bwrap', ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
-                        '--ro-bind', '/', '/', '--bind', sandboxTmp, '/tmp', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
-                        '--chdir', cwd, '/bin/sh', '-c', command],
-                        { ...options, env: { ...process.env, HOME: sandboxHome, TMPDIR: sandboxTmp } }, done);
-                })().catch(error => done(error, '', ''));
-            }
-            : exec;
-        run(
-			args.command,
-			{ cwd, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, encoding: "utf8", signal },
-			(error, stdout, stderr) => {
-				if (error && typeof error.code !== "number") stderr += `\nCommand failed: ${error.message}`;
-				// Distinguish how the process ended. Node reports a user abort as
-				// an AbortError, a timeout as a killed process with a signal, and
-				// a spawn failure (missing runner/executable) as a string code.
-				// Consumers of the raw shape (the model, the UI, the work digest)
-				// still read exitCode; these fields are additive evidence.
-				const cancelled = Boolean(error) && (error.name === "AbortError" || error.code === "ABORT_ERR");
-				const timedOut = Boolean(error) && !cancelled && error.killed === true && typeof error.signal === "string";
-				const spawnError = Boolean(error) && !cancelled && !timedOut && typeof error.code === "string" ? error.code : null;
-				resolve({
-					...truncateOutput(stdout, stderr),
-					exitCode: error ? (typeof error.code === "number" ? error.code : 1) : 0,
-					...(cancelled ? { cancelled: true } : {}),
-					...(timedOut ? { timedOut: true } : {}),
-					...(spawnError ? { spawnError } : {}),
-				});
-			},
-		);
-	});
+async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 60000, validateAuthorization = () => {}, deadline = null, onState = null) {
+ requireText(args.command, "command");
+ const { runForeground } = require('../foregroundCommand');
+ let file, argv, env;
+ if (workspaceRoot) {
+  if (process.platform !== 'linux') return { success: false, status: 'spawn_failed', spawnError: 'SANDBOX_UNAVAILABLE', exitCode: null, stdout: '', stderr: 'Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.' };
+  const sandboxHome = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/home');
+  const sandboxTmp = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/tmp');
+  await fs.mkdir(sandboxHome, { recursive: true });
+  await fs.mkdir(sandboxTmp, { recursive: true });
+  file = 'bwrap';
+  argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
+   '--ro-bind', '/', '/', '--bind', sandboxTmp, '/tmp', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
+   '--chdir', cwd, '/bin/sh', '-c', args.command];
+  env = { ...process.env, HOME: sandboxHome, TMPDIR: sandboxTmp };
+ } else {
+  file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
+  argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
+ }
+ validateAuthorization();
+ const remaining = deadline?.remainingMs() ?? Infinity;
+ const effectiveTimeout = Math.max(1, Math.ceil(Math.min(timeoutMs, remaining)));
+ const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout,
+  windowsVerbatimArguments: process.platform === "win32", requestedTimeoutMs: args.timeout_ms ?? timeoutMs, onState, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out' });
+ const displayed = truncateOutput(result.stdout, result.stderr);
+ return { ...result, ...displayed, success: result.status === "completed", output_truncated: result.output_truncated || displayed.stdout !== result.stdout || displayed.stderr !== result.stderr };
 }
 
 // ---------------------------------------------------------------------------
@@ -730,8 +709,8 @@ function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 45000) {
 // ---------------------------------------------------------------------------
 
 const VERIFICATION_TIMEOUT_MIN = 1000;
-const VERIFICATION_TIMEOUT_MAX = 120000;
-const VERIFICATION_TIMEOUT_DEFAULT = 45000;
+const VERIFICATION_TIMEOUT_MAX = 300000;
+const VERIFICATION_TIMEOUT_DEFAULT = 60000;
 const VERIFICATION_STREAM_LIMIT = 4000; // per captured stream
 const VERIFICATION_EXCERPT_LIMIT = 1200; // failure excerpt
 // Shell conventions for "the command could not be run at all": 127 is the
@@ -771,6 +750,7 @@ function verificationFailureExcerpt(stdout, stderr) {
 }
 
 function verificationStatus(result, signal) {
+	if (result?.status === "agent_deadline_exceeded") return "agent_deadline_exceeded";
 	if (result?.cancelled || signal?.aborted) return "cancelled";
 	if (result?.timedOut) return "timed_out";
 	if (result?.spawnError) return "error";
@@ -787,6 +767,7 @@ function verificationStatus(result, signal) {
 }
 
 function verificationReason(status, result, exitCode, timeoutMs) {
+ if (status === "agent_deadline_exceeded") return "Verification stopped because the controlling agent deadline was exceeded.";
 	if (status === "timed_out") {
 		return `Verification timed out after ${timeoutMs} ms and was stopped without a pass/fail result.`;
 	}
@@ -824,7 +805,7 @@ function structureVerification(args, result, signal, timeoutMs, cwdLabel) {
 	};
 	// Carry the shell recovery boundary's evidence through, so a verification
 	// that touched the workspace is still restorable from the returned result.
-	for (const key of ["recoveryCheckpointId", "recoveryChangedTotal", "recoveryChanged", "recoveryComplete", "recoveryPostFailed"]) {
+	for (const key of ["duration_ms", "timeout_ms", "requested_timeout_ms", "output_truncated", "signal", "recoveryCheckpointId", "recoveryChangedTotal", "recoveryChanged", "recoveryComplete", "recoveryPostFailed"]) {
 		if (result && result[key] !== undefined) structured[key] = result[key];
 	}
 	if (status === "passed") {
@@ -841,11 +822,19 @@ function structureVerification(args, result, signal, timeoutMs, cwdLabel) {
 // the cwd under the same containment rules, run the command (sandboxed unless
 // the user granted an uncontained run), and wrap it in the shell recovery
 // boundary when the session has a project root.
-async function runScopedCommand(name, args, { root, signal, uncontained, sessionId, recoveryRoot, timeoutMs }) {
+async function runScopedCommand(name, args, { root, signal, uncontained, sessionId, recoveryRoot, timeoutMs, validateAuthorization = () => {}, onState = null }) {
 	const cwd = uncontained
 		? path.resolve(root, args.cwd ?? ".")
 		: await scopedPath(root, args.cwd ?? ".", true);
-	const runCommand = () => executeCommand(args, cwd, signal, uncontained ? undefined : root, timeoutMs);
+ const deadlines = require('../subagents/executionDeadline');
+ const deadline = deadlines.getExecutionDeadline(sessionId);
+ const commandSignal = deadlines.combineSignals(signal, deadline?.signal);
+ const runCommand = () => {
+  validateAuthorization();
+  const remaining = deadline?.remainingMs() ?? Infinity;
+  if (remaining <= 0) deadline.fire();
+  return executeCommand(args, cwd, commandSignal, uncontained ? undefined : root, timeoutMs, validateAuthorization, deadline, onState);
+ };
 	const projectRoot = recoveryRoot ? path.resolve(recoveryRoot) : null;
 	const result = projectRoot
 		? await require("../recoveryBoundary").withShellRecovery(
@@ -861,7 +850,7 @@ async function runScopedCommand(name, args, { root, signal, uncontained, session
 	return { result, cwd };
 }
 
-async function runVerification(args, { root, signal, uncontained, sessionId, recoveryRoot }) {
+async function runVerification(args, { root, signal, uncontained, sessionId, recoveryRoot, validateAuthorization }) {
 	const timeoutMs = verificationTimeoutMs(args);
 	const { result, cwd } = await runScopedCommand("run_tests", args, {
 		root,
@@ -869,6 +858,7 @@ async function runVerification(args, { root, signal, uncontained, sessionId, rec
 		uncontained,
 		sessionId,
 		recoveryRoot,
+		validateAuthorization,
 		timeoutMs,
 	});
 	const cwdLabel = uncontained ? cwd : path.relative(root, cwd) || ".";
@@ -2208,7 +2198,7 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 	}, writeAll);
 }
 
-async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null }) {	try {
+async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null }) {	try {
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
 		if (LSP_TOOL_NAMES.includes(name)) {
@@ -2242,27 +2232,40 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         }
         const { guardTool, effectiveMode, sessionProject } = require('../toolPermissions');
         const project = sessionProject(sessionId);
-        permissionMode = effectiveMode(permissionMode, project);
+        permissionMode = require('../lspExecutionContext').currentMode(sessionId, effectiveMode(permissionMode, project));
         // Without an explicit permission grant the model cannot approve itself:
         // the inner guard runs with no approval channel, so anything that would
         // prompt is denied here. The IPC path grants after the real prompt and
         // passes that decision in as `approval`.
         let guardDecision = approval;
-        if (!permissionGranted) guardDecision = await guardTool({ name, args, permissionMode, project, signal });
+        if (permissionGranted && approval && (approval.mode !== permissionMode ||
+            (Object.hasOwn(approval, 'policyRevision') && approval.policyRevision !== require('../lspExecutionContext').revision(sessionId)))) {
+            const error = new Error('Execution blocked: Permission revoked since authorization.');
+            error.code = 'PERMISSION_REVOKED'; throw error;
+        }
+        if (!permissionGranted) guardDecision = await guardTool({ name, args, permissionMode, project, signal, sessionId });
         // Uncontained means the user explicitly consented (full access, or an
         // approval grant): paths resolve freely and commands run outside the
         // bwrap sandbox. Everything else stays workspace-scoped and sandboxed.
         const uncontained = permissionMode === 'full_access' || guardDecision?.approved === true;
+        const authorizationRevision = require('../lspExecutionContext').revision(sessionId);
+        const validateAuthorization = () => {
+            signal?.throwIfAborted();
+            if (sessionId && require('../lspExecutionContext').revision(sessionId) !== authorizationRevision) {
+                const error = new Error('Execution blocked: Permission revoked before execution.');
+                error.code = 'PERMISSION_REVOKED'; throw error;
+            }
+        };
 		signal?.throwIfAborted();
 		if (name === "manage_mcp_servers") {
 			if (require('../configManager').getAppSettings().mcpMode === 'manual')
 				throw new Error('MCP server management is disabled in Manual Mode.');
-			return await require("../mcpManager").manageServers(args.action, args.server_names, sessionId);
+			return await require("../mcpManager").manageServers(args.action, args.server_names, sessionId, { signal, trustedOnly: guardDecision?.trustedMcpActivation === true });
 		}
 		if (name === "approve_mcp_mutation") {
 			if (typeof args.hash !== "string" || !/^[a-f0-9]{16}$/.test(args.hash))
 				throw new Error("Invalid mutation hash; use the hash from the safety intercept.");
-			approvedMutations.add(args.hash);
+			approvedMutations.add(require('../safetyGuards').mutationApprovalKey(sessionId, args.hash));
 			return { success: true, hash: args.hash };
 		}
 		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
@@ -2296,6 +2299,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		const root = readingFiles ? path.resolve(rootPath ?? project?.root_path ?? process.cwd())
 			: await fs.realpath(project?.root_path ?? (uncontained ? process.cwd() : sessionRoot(sessionId)));
 		if (!readingFiles && !(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
+        validateAuthorization();
 		if (name === "spawn_sub_agent")
 			return await executeSpawnSubagent({ ...args, rootPath: root, engine, signal, parentSessionId: sessionId,
                 executionContext: executionContext ?? require('../lspExecutionContext').forTool(sessionId, permissionMode),
@@ -2309,7 +2313,25 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				signal,
 				parentSessionId: sessionId, budgetScope,
 			});
+        if (["get_command_status", "stop_background_command"].includes(name)) {
+            if (typeof args.command_id !== 'string' || args.command_id.length > 100) throw new Error('Invalid command_id.');
+            const manager = require('../backgroundCommands');
+            const context = { runId: backgroundContext?.runId, sessionId, workspace: root };
+            return name === 'get_command_status' ? manager.status(args.command_id, context) : await manager.stop(args.command_id, context);
+        }
 		if (name === "execute_command") {
+            if (Object.hasOwn(args, 'background') && typeof args.background !== 'boolean') throw new Error('background must be boolean.');
+            let timeoutMs = verificationTimeoutMs(args);
+            if (Object.hasOwn(args, 'background_lifetime_ms')) {
+                if (args.background !== true || Object.hasOwn(args, 'timeout_ms') || !Number.isInteger(args.background_lifetime_ms) || args.background_lifetime_ms < 1000 || args.background_lifetime_ms > 1800000) throw new Error('background_lifetime_ms requires background:true, no timeout_ms, and an integer in 1000-1800000.');
+                timeoutMs = args.background_lifetime_ms;
+            }
+            if (args.background === true) {
+                if (!project?.root_path || !backgroundContext) throw new Error('Background commands require an active main workspace run.');
+                return require('../backgroundCommands').start({ runId: backgroundContext.runId, sessionId, workspace: root }, args.command, timeoutMs,
+                    (commandSignal, onState) => runScopedCommand('execute_command', args, { root, signal: commandSignal, uncontained, sessionId,
+                        recoveryRoot: project.root_path, timeoutMs, validateAuthorization, onState }).then(value => value.result), validateAuthorization);
+            }
 			// Contained commands run inside the bwrap sandbox (workspace_write and
 			// unapproved ask_approval alike); an approval grant or full access runs
 			// them directly, since explicit consent is the escape hatch.
@@ -2323,7 +2345,8 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				uncontained,
 				sessionId,
 				recoveryRoot: project?.root_path,
-				timeoutMs: 45000,
+				validateAuthorization,
+				timeoutMs: verificationTimeoutMs(args),
 			});
 			return result;
 		}
@@ -2338,6 +2361,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				uncontained,
 				sessionId,
 				recoveryRoot: project?.root_path,
+				validateAuthorization,
 			});
 		}
 		if (name === "search_project_content") return await searchContent(root, args, signal);
@@ -2367,6 +2391,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		const target = ["read_project_file", "list_directory"].includes(name)
 			? await readablePath(root, args.relative_path ?? ".")
 			: uncontained ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
+		validateAuthorization();
 		if (name === "list_directory") {
 			const entries = await fs.readdir(target, { withFileTypes: true });
 			return {
@@ -2510,7 +2535,12 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		});
 	} catch (error) {
 		const result = { success: false, error: error.message };
-		if (error?.code === "STALE_FILE") result.code = error.code;
+        if (["execute_command", "run_tests"].includes(name)) {
+            if (["PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED"].includes(error?.code)) result.status = 'permission_denied';
+            else if (error?.code === 'SUBAGENT_DEADLINE_EXCEEDED') result.status = 'agent_deadline_exceeded';
+            else if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') result.status = 'cancelled';
+        }
+		if (["STALE_FILE", "PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED"].includes(error?.code)) result.code = error.code;
 		if (error?.currentContentHash !== undefined) {
 			result.current_content_hash = error.currentContentHash;
 			result.size_bytes = error.currentSizeBytes ?? null;
@@ -2521,7 +2551,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			// try, so its typed errors land here too).
 			result.outcome = error?.deleteOutcome
 				?? (error?.code === "APPROVAL_DENIED" ? "approval_denied"
-					: error?.code === "PERMISSION_DENIED" ? "permission_denied"
+					: ["PERMISSION_DENIED", "PERMISSION_REVOKED"].includes(error?.code) ? "permission_denied"
 						: error?.name === "AbortError" || error?.code === "ABORT_ERR" ? "cancelled"
 							: "error");
 		}
