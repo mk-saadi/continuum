@@ -3,6 +3,13 @@ const { localEngineFetch } = require("./localEngineFetch");
 const { normalizeLoadConfig } = require("./configManager");
 const { parseOffloadDiagnostics } = require("./gpuMemory");
 const { createHash, randomUUID } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const ENGINE_BINARY = "llama-server";
+// Explicit escape hatch for installs the app's inherited PATH cannot see
+// (desktop launchers, Flatpak-style sandboxes, or a build kept outside PATH).
+const ENGINE_BINARY_ENV = "CONTINUUM_LLAMA_SERVER";
 
 const askUserTool = {
 	type: "function",
@@ -198,6 +205,61 @@ function buildLlamaServerArgs(model, input, port) {
 	}
 	return args;
 }
+
+function isExecutableFile(filePath, fsImpl = fs) {
+	try {
+		if (!fsImpl.statSync(filePath).isFile()) return false;
+		fsImpl.accessSync(filePath, fs.constants.X_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// The managed loader runs the binary directly (`shell: false`), so the OS has
+// to find it on the app's PATH. Shell aliases and PATH changes made only in a
+// login profile never reach that lookup, and a dangling symlink (for example
+// /usr/local/bin/llama-server pointing at a build that was moved) makes spawn
+// fail before llama-server can print a single line. An explicit, verified path
+// is the one way to be certain which build loads.
+function resolveEngineCommand(env = process.env, { fsImpl = fs } = {}) {
+	const override = typeof env?.[ENGINE_BINARY_ENV] === "string" ? env[ENGINE_BINARY_ENV].trim() : "";
+	if (!override) return ENGINE_BINARY;
+	if (!isExecutableFile(override, fsImpl))
+		throw new Error(
+			`${ENGINE_BINARY_ENV} is set to "${override}", but that is not an executable file. ` +
+				`Point it at a llama.cpp ${ENGINE_BINARY} binary, or unset it to use the one on PATH.`,
+		);
+	return override;
+}
+
+// Spawn failures carry only an errno ("spawn llama-server ENOENT"), which says
+// nothing about what to fix. Turn the resolution failures into instructions.
+function describeEngineSpawnError(error, command = ENGINE_BINARY, env = process.env) {
+	const raw = error?.message ?? String(error);
+	const code = error?.code;
+	if (!["ENOENT", "ENOTFOUND", "EACCES"].includes(code)) return raw;
+	const isPath = command.includes("/") || command.includes("\\");
+	const tried = isPath
+		? []
+		: String(env?.PATH ?? env?.Path ?? "")
+				.split(path.delimiter)
+				.filter(Boolean)
+				.map((directory) => path.join(directory, command));
+	const reason =
+		code === "EACCES"
+			? `"${command}" exists but the app is not allowed to execute it.`
+			: isPath
+				? `"${command}" does not exist. The path is probably a stale symlink or a build that was moved.`
+				: `"${command}" was not found in any directory on the app's PATH.`;
+	const lines = [`Could not start the local engine (${code}): ${reason}`];
+	if (tried.length) lines.push(`Tried: ${tried.join(", ")}`);
+	lines.push(
+		`Continuum starts ${ENGINE_BINARY} directly, without a shell, so shell aliases and PATH changes made only in a terminal profile do not apply. ` +
+			`Install a llama.cpp build and put ${ENGINE_BINARY} on PATH, or set ${ENGINE_BINARY_ENV} to the binary's absolute path.`,
+	);
+	return lines.join("\n");
+}
 module.exports = {
 	buildLlamaServerArgs,
 	generationSamplingParams,
@@ -205,6 +267,10 @@ module.exports = {
 	TOOL_OUTPUT_NOTICE,
 	askUserTool,
 	askUserDuringRun,
+	resolveEngineCommand,
+	describeEngineSpawnError,
+	ENGINE_BINARY,
+	ENGINE_BINARY_ENV,
 };
 
 function buildLlamaServerEnv(source = process.env) {

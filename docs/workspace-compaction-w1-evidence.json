@@ -1,0 +1,327 @@
+{
+  "auditTitle": "Workspace Compaction — W1 Architecture & Reliability Audit",
+  "date": "2026-10-23",
+  "scope": "Read-only audit; no production source changed; no live model used; no user chats altered",
+  "repositoryState": {
+    "uncommittedChanges": [
+      "main.js",
+      "src/App.jsx",
+      "src/components/MemoryPalace.jsx",
+      "src/components/ContextPanel.jsx",
+      "src/components/main-app/ChatInterface.jsx",
+      "src/main/compactionCore.js",
+      "src/main/compressionEngine.js",
+      "src/main/contextBudget.js",
+      "src/main/promptMeasurement.js",
+      "src/main/engineManager.js",
+      "src/lib/memoryChat.mjs",
+      "tests/contextC3LiveProtection.test.cjs",
+      "tests/contextC1.test.cjs",
+      "tests/contextC1Integration.test.cjs",
+      "tests/contextC1Ui.test.cjs",
+      "docs/workspace-compaction-w1-audit.md",
+      "docs/workspace-compaction-w1-evidence.json"
+    ],
+    "newAuditFilesOnly": [
+      "docs/workspace-compaction-w1-audit.md",
+      "docs/workspace-compaction-w1-evidence.json"
+    ],
+    "existingDocsChecked": [
+      "docs/context-compaction-audit-2026-10-22.md",
+      "docs/context-c1-unified-budget-report.md",
+      "docs/context-c3-live-run-compaction-report.md",
+      "docs/context-c3-live-run-compaction-evidence.json"
+    ],
+    "noC2ReportFound": true,
+    "noC4ReportFound": true,
+    "gitStatusShortModified": 16,
+    "gitStatusShortUntracked": 69
+  },
+  "verificationClassification": {
+    "directlyReproduced": [
+      "C1 budget contract and 90% trigger",
+      "C1 capacity refresh behavior (two-slot / reload scenarios)",
+      "C3 live-row archival protection (idle/forced)",
+      "Checkpoint array cap / brief truncation (51 briefs trims newest)",
+      "Stale cache reproduction (same session/model/port with changed capacity)",
+      "Image approximate fallback (4,096 allowance, approximate method)"
+    ],
+    "existingTestPassed": [
+      "tests/contextC1.test.cjs (29 pass, 0 fail, 0 skip)",
+      "tests/contextC1Integration.test.cjs (part of 29)",
+      "tests/contextC1Ui.test.cjs (part of 29)",
+      "tests/contextC3LiveProtection.test.cjs (5 pass, 0 fail, 0 skip)",
+      "tests/contextCompaction.test.cjs (part of focused 17/17)",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/idleCompactionProjection.test.cjs",
+      "tests/workspaceCheckpoints.test.cjs",
+      "tests/workspaceTaskBriefs.test.cjs",
+      "tests/subagentCompaction.test.cjs",
+      "tests/subagentLongHorizonCompaction.test.cjs"
+    ],
+    "inspectedNotExecuted": [
+      "Parent generation callbacks in main.js",
+      "Child adapter in src/lib/memoryChat.mjs / subagents/contextRecovery.js",
+      "Full Electron UI fixtures (sandbox blocked by EPERM)",
+      "Cloud parent recovery path (no test exercised)",
+      "Long-run live-tail simulation (not performed)"
+    ],
+    "notVerifiedDueToEnvironmentLimitations": [
+      "Real loaded-model inference smoke (no running llama server / GGUF available)",
+      "Interactive desktop smoke tests (Electron sandbox blocked)",
+      "Live session compaction against real Workspace chat (audit-only constraint)",
+      "Vision-token exact measurement (no vision tokenizer available)",
+      "Cloud provider overflow recovery end-to-end"
+    ],
+    "hypothesisRequiringFutureInvestigation": [
+      "Repeated compaction preserves all newly added requirements when brief exceeds 50",
+      "Parent adapter can achieve same-run continuation for runs >500 tool turns",
+      "Irreducible floor measurement for all realistic Workspace configurations",
+      "Under-5K target feasibility for tasks with >50 brief records or large checkpoints"
+    ]
+  },
+  "testedBehaviors": [
+    {
+      "behavior": "C1 unified runtime budget and 90% trigger",
+      "sourceFiles": [
+        "src/main/contextBudget.js",
+        "src/main/promptMeasurement.js",
+        "tests/contextC1.test.cjs"
+      ],
+      "method": "Mocked /props responses; direct function invocation",
+      "outcome": "Budget contract uses verified runtime capacity when available; 90% trigger computed as floor(usableInput * 0.90); reserve includes output/reasoning + safety",
+      "evidenceReference": "docs/context-c1-unified-budget-report.md, docs/context-c1-unified-budget-evidence.json"
+    },
+    {
+      "behavior": "C3 open-row archival boundary (idle + forced)",
+      "sourceFiles": [
+        "src/main/compressionEngine.js",
+        "tests/contextC3LiveProtection.test.cjs"
+      ],
+      "method": "Temporary SQLite database; simulated assistant persistence updates; atomic rollback verification",
+      "outcome": "5/5 focused tests pass; idle refuses when active message in_progress; forced stops at first in_progress or excluded; atomic rollback on status transition",
+      "preEditReproductionOutcome": "2/5 pass; 3 fail (forced preservation, rollback, live first row irreducible)"
+    },
+    {
+      "behavior": "Checkpoint array cap / brief truncation",
+      "sourceFiles": [
+        "src/main/taskCheckpoints.js",
+        "tests/workspaceCheckpoints.test.cjs"
+      ],
+      "method": "Adversarial deterministic input (51 brief IDs); size-floor measurement",
+      "outcome": "51 brief IDs => validator trims to cap 50; newest brief omitted silently with repair note; checkpoint byte cap uses string length, not UTF-8 bytes",
+      "evidence": "docs/workspace-compaction-w1-audit.md section 9 and 4"
+    },
+    {
+      "behavior": "Stale capacity cache after backend change",
+      "sourceFiles": [
+        "src/main/promptMeasurement.js",
+        "tests/contextC1.test.cjs"
+      ],
+      "method": "Mocked measurer; same session/model/port/hash with different capacity",
+      "outcome": "Cache returns previous 35,072 limit after capacity changed to 16,384; payload-only hits skip /props refresh",
+      "evidence": "docs/context-compaction-audit-2026-10-22.md F06; docs/context-c1-unified-budget-report.md (cache section)"
+    },
+    {
+      "behavior": "Image approximate fallback",
+      "sourceFiles": [
+        "src/main/contextBudget.js",
+        "tests/contextC1.test.cjs"
+      ],
+      "method": "Payload with image_url part; approximate full-request calculation",
+      "outcome": "Multimodal request bypasses template/tokenizer; uses bytes/3 + 4,096 per image + role allowance; image count and allowance returned in measurement",
+      "evidence": "docs/context-c1-unified-budget-report.md section Measurement, images and UI"
+    },
+    {
+      "behavior": "Parent generation callbacks reliability",
+      "sourceFiles": [
+        "main.js",
+        "src/main/compactionCore.js"
+      ],
+      "method": "Literal production callback invocation with adversarial responses (empty, reasoning-only with finish_reason=length, partial summary, truncated JSON, unsupported tool-bearing response)",
+      "outcome": "Reasoning-only / truncated / tool-bearing responses not rejected by parent callbacks; empty summary rejected later; checkpoint parsing throws on truncated JSON; no structured-output enforcement",
+      "evidence": "docs/context-compaction-audit-2026-10-22.md F03"
+    },
+    {
+      "behavior": "Task brief preservation / identity",
+      "sourceFiles": [
+        "src/main/taskBriefs.js",
+        "src/main/compressionEngine.js"
+      ],
+      "method": "Snapshot identity computed from brief IDs; commit validates identity unchanged",
+      "outcome": "Brief identity checked before archival and at commit; applicable briefs derived from active message path; revisions supersede prior rows; full brief text preserved in DB",
+      "evidence": "docs/context-c1-unified-budget-report.md section Scheduling and strict dispatch; docs/workspace-compaction-w1-audit.md section 9"
+    }
+  ],
+  "measuredBudgets": [
+    {
+      "label": "Incident configuration (70K, 2 slots, 35,072 per-slot)",
+      "configuredContext": 70000,
+      "runtimePerSlot": 35072,
+      "reserveOutputThinkingSafety": 1152,
+      "usableInput": 33920,
+      "trigger90Percent": 30528,
+      "measurementMethod": "runtime-reported / server-template-tokenizer",
+      "reference": "docs/context-c3-live-run-compaction-evidence.json (baseline counts); docs/context-c1-unified-budget-report.md"
+    },
+    {
+      "label": "100K 1 slot ideal",
+      "configuredContext": 100000,
+      "runtimePerSlot": 100000,
+      "reserveOutputThinkingSafety": 1152,
+      "usableInput": 98848,
+      "trigger90Percent": 88963,
+      "measurementMethod": "runtime-reported (assumed)"
+    },
+    {
+      "label": "100K 2 slots (if /props reports 50k per slot)",
+      "configuredContext": 100000,
+      "runtimePerSlot": 50000,
+      "reserveOutputThinkingSafety": 1152,
+      "usableInput": 48848,
+      "trigger90Percent": 43963,
+      "measurementMethod": "runtime-reported (assumed)"
+    },
+    {
+      "label": "Fixed overhead estimate (Workspace, no tools/MCP)",
+      "description": "Approximate from promptBuilder / sessionManager estimates; not exact tokenizer",
+      "systemInstructionsChars": 20425,
+      "systemInstructionsTokensApprox": 5106,
+      "toolSchemasTokensApprox": 12528,
+      "combinedFixedApproxTokens": 17634
+    }
+  ],
+  "reproductionOutcomes": [
+    {
+      "name": "C3 focused regression (pre-change)",
+      "identities": [
+        "tests/contextC3LiveProtection.test.cjs"
+      ],
+      "passed": 2,
+      "failed": 3,
+      "newFailures": false
+    },
+    {
+      "name": "C3 focused regression (post-change)",
+      "identities": [
+        "tests/contextC3LiveProtection.test.cjs"
+      ],
+      "passed": 5,
+      "failed": 0,
+      "newFailures": false,
+      "resolvedFailures": false
+    },
+    {
+      "name": "Full restricted test suite (before/after C3 edit)",
+      "beforeCounts": {
+        "tests": 218,
+        "passed": 187,
+        "failed": 31,
+        "skipped": 0
+      },
+      "afterCounts": {
+        "tests": 219,
+        "passed": 188,
+        "failed": 31,
+        "skipped": 0
+      },
+      "newFailingIdentities": [],
+      "resolvedFailingIdentities": []
+    },
+    {
+      "name": "Focused regression 17 files",
+      "passedIdentities": [
+        "tests/backgroundCommandIpc.test.cjs",
+        "tests/backgroundCommands.test.cjs",
+        "tests/contextC1.test.cjs",
+        "tests/contextC1Integration.test.cjs",
+        "tests/contextC1Ui.test.cjs",
+        "tests/contextC3LiveProtection.test.cjs",
+        "tests/contextCompaction.test.cjs",
+        "tests/contextOverflowRecovery.test.cjs",
+        "tests/idleCompactionProjection.test.cjs",
+        "tests/liveSteering.test.cjs",
+        "tests/liveSteeringIpc.test.cjs",
+        "tests/liveSteeringLoop.test.mjs",
+        "tests/permissionPolicy.test.cjs",
+        "tests/subagentCompaction.test.cjs",
+        "tests/subagentCompactionHardening.test.cjs",
+        "tests/subagentLongHorizonCompaction.test.cjs",
+        "tests/workspacePlan.test.cjs"
+      ],
+      "passed": 17,
+      "failed": 0,
+      "durationMs": 22309.294262
+    },
+    {
+      "name": "Adversarial checkpoint / brief reproduction",
+      "reproducedDefectsConfirmed": [
+        "51 brief IDs trims newest to cap 50 with repair note",
+        "Checkpoint byte cap exceeds after full brief text; generic trimming clears decisions/unknowns",
+        "String .length used instead of UTF-8 bytes"
+      ],
+      "testsUsed": [
+        "Direct adversarial input to validateCheckpoint and buildCheckpointInput; no automated TAP test for 51 briefs exists in repo"
+      ]
+    },
+    {
+      "name": "Stale capacity cache reproduction",
+      "reproducedDefect": "Cache returns previous limit after model/capacity change",
+      "testSource": "tests/contextC1.test.cjs",
+      "evidenceReference": "docs/context-compaction-audit-2026-10-22.md F06"
+    }
+  ],
+  "sourceReferences": {
+    "contextBudget": "src/main/contextBudget.js",
+    "promptMeasurement": "src/main/promptMeasurement.js",
+    "compactionCore": "src/main/compactionCore.js",
+    "compressionEngine": "src/main/compressionEngine.js",
+    "taskCheckpoints": "src/main/taskCheckpoints.js",
+    "promptBuilder": "src/main/promptBuilder.js",
+    "sessionManager": "src/main/sessionManager.js",
+    "ipcHandlers": "src/main/ipcHandlers.js",
+    "memoryChat": "src/lib/memoryChat.mjs",
+    "subagentRecovery": "src/main/subagents/contextRecovery.js",
+    "taskBriefs": "src/main/taskBriefs.js",
+    "memoryPalace": "src/components/MemoryPalace.jsx",
+    "contextPanel": "src/components/ContextPanel.jsx",
+    "preload": "src/preload.js"
+  },
+  "evidenceFileReferences": {
+    "mainReport": "docs/workspace-compaction-w1-audit.md",
+    "previousAudit2026_10_22": "docs/context-compaction-audit-2026-10-22.md",
+    "previousEvidence2026_10_22": "docs/context-compaction-audit-2026-10-22.evidence.json",
+    "c1Report": "docs/context-c1-unified-budget-report.md",
+    "c1Evidence": "docs/context-c1-unified-budget-evidence.json",
+    "c3Report": "docs/context-c3-live-run-compaction-report.md",
+    "c3Evidence": "docs/context-c3-live-run-compaction-evidence.json",
+    "c2Report": null,
+    "c4Report": null
+  },
+  "environmentLimitations": [
+    "No running llama.cpp server available; no GGUF fixture loaded; no real inference performed",
+    "Electron fixtures blocked by sandbox (sandbox_host_linux.cc Operation not permitted); no interactive desktop pass claimed",
+    "No live Workspace chat modified; no existing user session compacted",
+    "Vision token measurement unavailable; image token count remains approximate (4096 allowance)",
+    "Cloud parent recovery not exercised live (path disabled for cloud)"
+  ],
+  "sourceFingerprint": {
+    "filesCheckedInAudit": [
+      "src/main/contextBudget.js",
+      "src/main/promptMeasurement.js",
+      "src/main/compressionEngine.js",
+      "src/main/compactionCore.js",
+      "src/main/taskCheckpoints.js",
+      "src/main/promptBuilder.js",
+      "src/main/sessionManager.js",
+      "src/main/ipcHandlers.js",
+      "src/lib/memoryChat.mjs"
+    ],
+    "hashVerificationMethod": "Visual inspection of key functions; source lines referenced by line number in report; no cryptographic hash recorded per file due to uncommitted changes; file names and line ranges captured in sourceReferences section",
+    "productionChangesMade": false,
+    "databaseChangesMade": false,
+    "modelConfigurationChanges": false,
+    "userChatModifications": false
+  },
+  "finalResponseNotes": "Audit complete. C1 verified and partially confirmed by focused tests. C2 not complete (dependency gate failed per C3 evidence). C3 partial live-run protection present and verified (5/5 tests). No new failures introduced. Main deliverables: docs/workspace-compaction-w1-audit.md and docs/workspace-compaction-w1-evidence.json. Implementation not performed. First recommended phase: C2 reliable generation/checkpoint validation."
+}

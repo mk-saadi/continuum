@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { SliderField } from "../FormControls";
 import SubagentModelSelect from "../SubagentModelSelect";
 import SubagentBudgetSettings from "../SubagentBudgetSettings";
+import { SettingsCard, SettingsMessage } from "./SettingsSection";
+import { LuBot, LuShieldCheck } from "react-icons/lu";
 
 const limits = [
 	{
@@ -52,69 +54,42 @@ export default function GeneralSettingsTab() {
 
 	return (
 		<>
-			<section
-				className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
-				aria-labelledby="subagent-model-title"
+			<SettingsCard
+				icon={LuBot}
+				title="Sub-agent model"
+				description='Model used by spawned sub-agents. "Follow the chat model" (default) runs children on whatever the current chat uses; choosing something else gives sub-agents their own model without changing this chat. Whichever model is chosen, sub-agents stay read-only.'
 			>
-				<h4
-					id="subagent-model-title"
-					className="font-semibold"
-				>
-					Sub-Agent Model
-				</h4>
-				<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-					Model used by spawned sub-agents. "Follow the chat model" (default) runs children on
-					whatever the current chat uses; choosing something else gives sub-agents their own model
-					without changing this chat. Whichever model is chosen, sub-agents stay read-only.
-				</p>
-				<div className="mt-4">
+				<div className="space-y-3">
 					<SubagentModelSelect disabled={saving} />
-				</div>
-				<div className="mt-4">
 					<SubagentBudgetSettings disabled={saving} />
 				</div>
-			</section>
-			<section
-				className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
-				aria-labelledby="execution-guardrails-title"
+			</SettingsCard>
+			<SettingsCard
+				icon={LuShieldCheck}
+				title="Execution guardrails"
+				description="Stop an agent run when tool failures reach either limit."
 			>
-				<h4
-					id="execution-guardrails-title"
-					className="font-semibold"
-				>
-					Execution Guardrails
-				</h4>
-				<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-					Stop an agent run when tool failures reach either limit.
-				</p>
-				<div className="mt-4 space-y-4">
+				<div className="space-y-3">
 					{limits.map(({ key, label, min, max, fallback }) => (
-                        <SliderField
-                            key={key}
-                            label={label}
-                            valueLabel={settings?.[key] ?? fallback}
-                            min={min}
-                            max={max}
-                            step={1}
-                            value={settings?.[key] ?? fallback}
-                            disabled={!settings || saving}
-                            onChange={event => {
-                                const value = Number(event.target.value);
-                                setSettings(previous => ({ ...previous, [key]: value }));
-                            }}
-                            onCommit={event => update(key, Number(event.target.value))}
-                        />
+						<SliderField
+							key={key}
+							label={label}
+							valueLabel={settings?.[key] ?? fallback}
+							min={min}
+							max={max}
+							step={1}
+							value={settings?.[key] ?? fallback}
+							disabled={!settings || saving}
+							onChange={(event) => {
+								const value = Number(event.target.value);
+								setSettings((previous) => ({ ...previous, [key]: value }));
+							}}
+							onCommit={(event) => update(key, Number(event.target.value))}
+						/>
 					))}
 				</div>
-			</section>
-			{error && (
-				<p
-					role="alert"
-					className="mb-5 text-xs text-[var(--error)]"
-				>
-					{error}
-				</p>
-			)}
+			</SettingsCard>
+			<SettingsMessage>{error}</SettingsMessage>
 		</>
 	);
 }

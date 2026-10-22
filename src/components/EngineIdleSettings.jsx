@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { LuTimer } from "react-icons/lu";
 import { SelectField } from "./FormControls";
+import { SettingsCard, SettingsMessage } from "./settings/SettingsSection";
 
 export default function EngineIdleSettings() {
 	const [minutes, setMinutes] = useState(null);
@@ -32,27 +34,23 @@ export default function EngineIdleSettings() {
 		}
 	}
 	return (
-		<section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+		<SettingsCard
+			icon={LuTimer}
+			title="Engine idle timeout"
+			description="How long the loaded model stays in memory while idle. Active replies finish before the countdown starts."
+		>
 			<SelectField
-				label="Engine Idle Timeout (Keep in Memory)"
+				label="Keep in memory"
 				value={minutes ?? -1}
 				disabled={minutes === null || busy}
-				hint="Applies to every model. Active replies finish before the idle countdown starts."
 				onChange={(event) => save(Number(event.target.value))}
 			>
-				<option value={5}>5m</option>
-				<option value={15}>15m</option>
-				<option value={60}>60m</option>
-				<option value={-1}>Never</option>
+				<option value={5}>5 minutes</option>
+				<option value={15}>15 minutes</option>
+				<option value={60}>60 minutes</option>
+				<option value={-1}>Never unload</option>
 			</SelectField>
-			{error && (
-				<p
-					role="alert"
-					className="mt-2 text-xs text-[var(--error)]"
-				>
-					{error}
-				</p>
-			)}
-		</section>
+			<SettingsMessage>{error}</SettingsMessage>
+		</SettingsCard>
 	);
 }

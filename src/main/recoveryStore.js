@@ -1604,24 +1604,37 @@ async function getWorkspaceRecoveryOverview(root, chatSessionId) {
   if (!realRoot) return { state: 'empty', reason: 'no-workspace' };
   const session = connection().prepare('SELECT id FROM recovery_sessions WHERE project_root = ?').get(realRoot);
   if (!session) return { state: 'empty', reason: 'no-history' };
-  const rows = connection().prepare('SELECT * FROM recovery_checkpoints WHERE session_id = ? ORDER BY id ASC').all(session.id);
-  if (!rows.length) return { state: 'empty', reason: 'no-history' };
-  const mine = rows.filter((row) => (row.chat_session_id ?? null) === (chatSessionId ?? null));
-  const latest = mine.length ? summarizeCheckpointRow(mine[mine.length - 1]) : null;
-  if (!latest) {
+  // The sidebar needs counts and two endpoints, never the full recovery
+  // history. SELECT * across this workspace materialized gigabytes of
+  // manifests and post-state JSON on startup when saved tabs were restored.
+  const counts = connection().prepare(`SELECT COUNT(*) AS total,
+    COUNT(CASE WHEN chat_session_id IS ? THEN 1 END) AS mine,
+    COUNT(DISTINCT CASE WHEN length(chat_session_id) > 0
+      THEN substr(chat_session_id, 1, 8) ELSE 'unknown run' END) AS otherChats
+    FROM recovery_checkpoints WHERE session_id = ?`).get(chatSessionId ?? null, session.id);
+  if (!counts.total) return { state: 'empty', reason: 'no-history' };
+  if (!counts.mine) {
     return {
-      state: 'empty', reason: 'no-chat-history', checkpointCount: rows.length,
-      otherCheckpointCount: rows.length,
-      otherChats: new Set(rows.map((row) => shortChatId(row.chat_session_id))).size,
+      state: 'empty', reason: 'no-chat-history', checkpointCount: counts.total,
+      otherCheckpointCount: counts.total, otherChats: counts.otherChats,
     };
   }
-  const earliest = summarizeCheckpointRow(mine[0]);
+  const latestRow = connection().prepare(`SELECT id, kind, tool_name, pinned, created_at,
+    chat_session_id, op_json, coverage_json FROM recovery_checkpoints
+    WHERE session_id = ? AND chat_session_id IS ? ORDER BY id DESC LIMIT 1`)
+    .get(session.id, chatSessionId ?? null);
+  const latest = summarizeCheckpointRow(latestRow);
+  const earliest = connection().prepare(`SELECT id, kind, created_at FROM recovery_checkpoints
+    WHERE session_id = ? AND chat_session_id IS ? ORDER BY id ASC LIMIT 1`)
+    .get(session.id, chatSessionId ?? null);
   // Positive protection only on verified evidence: complete coverage AND all
   // referenced blobs physically present (bounded check, stat only).
   let blobsMissing = 0;
   let blobsChecked = 0;
+  let postOk = false;
   try {
     const full = getCheckpoint(latest.id);
+    postOk = full.op?.postComplete !== false && full.op?.postFailed === undefined;
     for (const rec of Object.values(full.manifest.paths)) {
       if (blobsChecked >= 50) break;
       if (rec && rec.kind === 'file' && typeof rec.hash === 'string') {
@@ -1632,20 +1645,12 @@ async function getWorkspaceRecoveryOverview(root, chatSessionId) {
   } catch {
     blobsMissing = -1;
   }
-  const postOk = (() => {
-    try {
-      const op = getCheckpoint(latest.id).op;
-      return op?.postComplete !== false && op?.postFailed === undefined;
-    } catch {
-      return false;
-    }
-  })();
   const state = !latest.coverageComplete || !postOk || blobsMissing !== 0 ? 'partial'
     : latest ? 'protected' : 'empty';
   return {
     state,
-    checkpointCount: mine.length,
-    otherCheckpointCount: rows.length - mine.length,
+    checkpointCount: counts.mine,
+    otherCheckpointCount: counts.total - counts.mine,
     latest,
     runStart: { id: earliest.id, kind: earliest.kind, createdAt: earliest.createdAt },
     blobsChecked,
@@ -1660,8 +1665,11 @@ async function getRecoveryHistory(root, chatSessionId, limit = 50) {
   const session = connection().prepare('SELECT id FROM recovery_sessions WHERE project_root = ?').get(realRoot);
   if (!session) return { mine: [], other: [] };
   const safeLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50;
-  const rows = connection().prepare('SELECT * FROM recovery_checkpoints WHERE session_id = ? ORDER BY id DESC LIMIT ?')
-    .all(session.id, safeLimit);
+  // Summarize one row at a time; manifests and accumulated post-state must
+  // not be retained as an array just to render a history list.
+  const rows = connection().prepare(`SELECT id, kind, tool_name, pinned, created_at,
+    chat_session_id, op_json, coverage_json FROM recovery_checkpoints
+    WHERE session_id = ? ORDER BY id DESC LIMIT ?`).iterate(session.id, safeLimit);
   const mine = [];
   const other = [];
   for (const row of rows) {

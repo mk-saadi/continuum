@@ -226,14 +226,15 @@ test('1. the selection round-trips through its IPC channels and is validated', a
     assert.deepEqual(await handlers.get('subagent:save-model')(event, CLOUD_SELECTION), CLOUD_SELECTION);
     assert.deepEqual(await handlers.get('subagent:get-model')(event), CLOUD_SELECTION);
 
-    // Validation reuses the chat's own provider check: unknown provider and
-    // known-provider/wrong-model are both refused.
+    // Validation reuses the chat's own provider check: an unknown provider is
+    // refused, while any model that provider offers is accepted (a provider is
+    // no longer pinned to one saved model).
     await assert.rejects(
       handlers.get('subagent:save-model')(event, { type: 'cloud', provider: 'missing-provider', model: 'cloud-child' }),
       /Invalid chat provider\. Select a saved provider and model\./);
-    await assert.rejects(
-      handlers.get('subagent:save-model')(event, { type: 'cloud', provider: 'step7-cloud', model: 'other-model' }),
-      /Invalid chat provider\. Select a saved provider and model\./);
+    const OTHER_MODEL = { type: 'cloud', provider: 'step7-cloud', model: 'other-model' };
+    assert.deepEqual(await handlers.get('subagent:save-model')(event, OTHER_MODEL), OTHER_MODEL);
+    await handlers.get('subagent:save-model')(event, CLOUD_SELECTION);
     await assert.rejects(handlers.get('subagent:save-model')(event, 'local'),
       /must be null \(follow the chat model\)/);
     await assert.rejects(handlers.get('subagent:save-model')(event, { type: 'gpu' }),

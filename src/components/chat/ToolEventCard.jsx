@@ -260,6 +260,20 @@ function rowMeta(step, kind, classification, outcome, testSummary, editStats) {
 		classification.key === "success" &&
 		!isImageOnlyResult(step)
 	) {
+		const result = step.result && typeof step.result === "object" ? step.result : null;
+		if (
+			result &&
+			Number.isSafeInteger(result.actual_start_line) &&
+			Number.isSafeInteger(result.actual_end_line)
+		) {
+			return {
+				text:
+					Number.isSafeInteger(result.total_lines)
+						? `${result.actual_start_line}–${result.actual_end_line} of ${result.total_lines}`
+						: `${result.actual_start_line}–${result.actual_end_line}`,
+				tone: "text-[var(--text-muted)]",
+			};
+		}
 		const lines = resultLineCount(
 			step.result && typeof step.result === "object" && typeof step.result.content === "string"
 				? step.result.content
@@ -680,13 +694,22 @@ function ReadOutput({ step }) {
 				? result.output
 				: result;
 	const lines = resultLineCount(content);
+	const range = result && typeof result === "object" &&
+		Number.isSafeInteger(result.actual_start_line) && Number.isSafeInteger(result.actual_end_line)
+		? `lines ${result.actual_start_line.toLocaleString()}–${result.actual_end_line.toLocaleString()}` +
+			(Number.isSafeInteger(result.total_lines) ? ` of ${result.total_lines.toLocaleString()}` : "")
+		: null;
+	const truncated = result && typeof result === "object" && result.truncated === true;
 	return (
 		<section
 			aria-label="Tool output"
 			className="space-y-1.5"
 		>
 			<h4 className="flex items-center justify-between gap-2 font-medium text-[var(--text-secondary)]">
-				<span>Output{typeof lines === "number" && ` · ${lines.toLocaleString()} lines`}</span>
+				<span>
+					Output{range ? ` · ${range}` : typeof lines === "number" && ` · ${lines.toLocaleString()} lines`}
+					{truncated ? " · truncated" : ""}
+				</span>
 				{typeof content === "string" && content && (
 					<CopyButton
 						text={content.slice(0, TOOL_DISPLAY_LIMIT)}

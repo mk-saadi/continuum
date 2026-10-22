@@ -22,7 +22,7 @@ const IDLE_DELAY_MS = 10_000;
 // summary ARE the memory there, with no checkpoint to fall back on. The 2%
 // margin absorbs chars/4 estimator error (exact measurement only exists on
 // the forced path). All three are documented, tunable bounds, not optima.
-// The trigger stays at 75% for both kinds.
+// Pressure is 90% of usable input; post-compaction targets remain unchanged.
 const IDLE_TARGET_FRACTION_WORKSPACE = 0.40;
 const IDLE_TARGET_FRACTION_CASUAL = 0.50;
 const IDLE_ESTIMATOR_MARGIN_FRACTION = 0.02;
@@ -69,7 +69,7 @@ function resolveProjectionTools(sessionId, modelId, { tools } = {}) {
 // projection and the extension loop below converges. Deliberately excludes
 // RAG excerpts (spliced after recovery) and output reserve (covered by the
 // headroom between the 60% target and the window). chars/4 throughout, like
-// the trigger math — see IDLE_ESTIMATOR_MARGIN_FRACTION.
+// the projection math — see IDLE_ESTIMATOR_MARGIN_FRACTION.
 function projectIdlePrompt({ sessionId, modelId, summaryText, briefSection, checkpointSection, retainedMessages, tools, memoryTokens = 0, workLogTokens = 0, planTokens = 0 }) {
   const breakdown = projectForcedFloor({ sessionId, modelId, summaryText, briefSection, checkpointSection, tailMessages: retainedMessages, tools });
   const total = breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens
@@ -217,7 +217,7 @@ function checkForcedFloor({ breakdown, contextWindowLimit, maxTokens = null, thi
 // not projected (spliced after recovery; the guard re-measures then).
 function buildProspectivePrompt({ sessionId, modelId, summaryText, briefSection, checkpointSection, tailMessages,
   tools, delegationAvailable, userText, excludeMessageIds }) {
-  const { buildSessionSystemPrompt, messageForModel } = require('./promptBuilder');
+  const { buildSessionSystemPrompt, messageForModel, workspaceContinuation } = require('./promptBuilder');
   const { prependBaseSystemPrompt } = require('./baseSystemPrompt');
   const effective = require('./profileSettings').getSessionSettings(sessionId, modelId).effective;
   const richLevel = require('./profileSettings').resolveRichLevel(sessionId, modelId);
@@ -236,6 +236,7 @@ function buildProspectivePrompt({ sessionId, modelId, summaryText, briefSection,
     ...(checkpointSection ? [checkpointSection] : []),
     ...(summaryText ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summaryText}` }] : []),
     buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
+    ...workspaceContinuation(checkpointSection, retained),
     ...retained,
   ], effective.memoryEnabled, null, richLevel);
   return { messages, tools: Array.isArray(tools) ? tools : [] };
@@ -326,6 +327,8 @@ async function compressContext({
   // them from session sampling settings). Nulls keep uncapped defaults.
   maxTokens = null,
   thinkingBudget = null,
+  pressureMeasurement = null,
+  isCurrent = () => true,
 }) {
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (tools !== null && !Array.isArray(tools)) throw new TypeError('tools must be an array when provided.');
@@ -337,8 +340,8 @@ async function compressContext({
   // open while waiting for the LLM.
   const snapshot = db.transaction(() => {
     if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return null;
+    if (!force && (!isCurrent() || getActiveMessages(sessionId).some(message => message.status === 'in_progress'))) return null;
     const usage = getContextUsage(sessionId, modelId);
-    if (!force && usage.totalTokens <= 0.75 * contextWindowLimit) return null;
 
     const lock = db.prepare(`
       UPDATE sessions SET is_compressing = 1
@@ -369,9 +372,35 @@ async function compressContext({
   if (!snapshot) return { compressed: false, archivedCount: 0 };
 
   try {
-    const candidates = snapshot.messages.slice(
-      0, Math.max(0, snapshot.messages.length - PROTECTED_MESSAGES),
-    );
+    // Workspace continuity lives in briefs + a validated checkpoint. Only
+    // in-flight rows must survive verbatim; casual chats keep their old tail.
+    const excluded = new Set(excludeMessageIds);
+    // A caller exclusion is not the authority on whether a row is live.
+    // Protect the entire suffix starting at an open message, including during
+    // forced recovery. Its execution steps may still be receiving results.
+    const firstExcluded = snapshot.messages.findIndex(message =>
+      excluded.has(message.id) || message.status === 'in_progress');
+    const eligibleEnd = firstExcluded < 0 ? snapshot.messages.length : firstExcluded;
+    const candidateEnd = snapshot.isWorkspace ? eligibleEnd
+      : Math.min(eligibleEnd, Math.max(0, snapshot.messages.length - PROTECTED_MESSAGES));
+    const candidates = snapshot.messages.slice(0, candidateEnd);
+    const { messageForModel, rebuildChatMessages } = require('./promptBuilder');
+    const sourceTokens = message => estimateContentTokens(messageForModel(message).content);
+    let selectionTotal = snapshot.totalTokens;
+    if (!force) {
+      // Same full-request fallback used by the context bar, including images
+      // and schemas. Never use the text-only DB total as the pressure gate.
+      const promptTools = resolveProjectionTools(sessionId, modelId, { tools });
+      const promptTokens = require('./contextBudget').approximateTokens({ model: modelId,
+        messages: rebuildChatMessages({ sessionId, modelId, userText }), tools: promptTools ?? [] });
+      const { createRuntimeBudget, atCompactionPressure } = require('./contextBudget');
+      const contract = pressureMeasurement?.budgetContract ?? createRuntimeBudget({
+        modelId, runtimeContextTokens: contextWindowLimit,
+        payload: { ...(maxTokens ? { max_tokens: maxTokens } : {}), reasoning_budget_tokens: thinkingBudget ?? 0 },
+        currentInputTokens: promptTokens });
+      selectionTotal = contract.currentInputTokens;
+      if (!atCompactionPressure(contract)) return { compressed: false, archivedCount: 0 };
+    }
     const tailMessages = snapshot.messages.slice(candidates.length);
     if (candidates.length === 0) {
       // Nothing archivable, but a bloated summary alone can still pin a short
@@ -392,6 +421,7 @@ async function compressContext({
         });
         if (dropped.total <= target) {
           db.transaction(() => {
+            if (!isCurrent() || getActiveMessages(sessionId).some(message => message.status === 'in_progress')) return;
             if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return;
             if (getSessionSummary(sessionId) !== snapshot.oldSummary) {
               throw new Error('Session summary changed during compression; retry later.');
@@ -402,7 +432,7 @@ async function compressContext({
             reason: 'summary-overflow-dropped', projectedTokens: dropped.total };
         }
       }
-      return { compressed: false, archivedCount: 0 };
+      return { compressed: false, archivedCount: 0, reason: 'protected-context-too-large' };
     }
 
     // Forced recovery archives every candidate, so the post-recovery floor is
@@ -437,27 +467,26 @@ async function compressContext({
     // Idle summaries go through the same capped, abortable wrapper as the
     // forced path's inline one, so no caller can grow the context floor with
     // an unbounded summary. Force keeps its exact inline behavior below.
-    const summarize = force
+    const summarizeCallback = force
       ? llmSummarizeCallback
       : idleSummarizer(llmSummarizeCallback, modelId, { signal });
-    let { newSummary, selectedCount, remainingTokens, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
-      candidates, oldSummary: snapshot.oldSummary, totalTokens: snapshot.totalTokens,
+    // Expand attachments for every pass, including idle selection extensions.
+    const summarize = (old, batch, ...args) => summarizeCallback(old,
+      batch.map(message => ({ ...message, content: messageForModel(message).content })), ...args);
+    let { newSummary, selectedCount, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
+      candidates: candidates.map(message => ({ ...message, estimated_tokens: sourceTokens(message) })),
+      oldSummary: snapshot.oldSummary, totalTokens: selectionTotal,
       contextWindowLimit, force, signal, estimate: estimateTokens, summarize,
-      modelMessage: message => ({ ...message,
-        ...(force ? { content: require('./promptBuilder').messageForModel(message).content } : {}) }),
     });
 
-    // Core memories and the ten protected messages can make 65% unattainable.
+    // Fixed prompt costs and retained messages can make 65% unattainable.
     // Do not replace context with a summary that saves no tokens.
-    const selectedSourceTokens = force ? candidates.slice(0, selectedCount).reduce((total, message) => {
-      const content = require('./promptBuilder').messageForModel(message).content;
-      return total + estimateTokens(typeof content === 'string' ? content : JSON.stringify(content));
-    }, 0) : 0;
-    // Include expanded attachment text for forced recovery. Refuse a summary
+    const selectedSourceTokens = candidates.slice(0, selectedCount)
+      .reduce((total, message) => total + sourceTokens(message), 0);
+    // Include expanded attachment text and image allowances. Refuse a summary
     // that makes the recoverable source larger, even though its DB estimate
     // may have counted only a tiny user caption.
-    if ((!force && remainingTokens >= snapshot.totalTokens) ||
-        (force && estimateTokens(newSummary) >= oldSummaryTokens + selectedSourceTokens)) {
+    if (estimateTokens(newSummary) >= oldSummaryTokens + selectedSourceTokens) {
       return { compressed: false, archivedCount: 0 };
     }
 
@@ -607,6 +636,8 @@ async function compressContext({
     }
 
     const commit = db.transaction(() => {
+      if (!force && (!isCurrent() || getActiveMessages(sessionId).some(message => message.status === 'in_progress')))
+        throw new Error('Idle context changed or a message is in progress; archival cancelled.');
       if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return { count: 0, checkpointId: null };
       let checkpointId = null;
       if (getSessionSummary(sessionId) !== snapshot.oldSummary) {
@@ -641,6 +672,7 @@ async function compressContext({
         UPDATE messages SET archived = 1, is_summarized = 1
         WHERE id = ? AND session_id = ? AND archived = 0 AND is_summarized = 0
           AND role = ? AND content = ? AND estimated_tokens = ?
+          AND COALESCE(status, 'completed') <> 'in_progress'
       `);
       // Workspace evidence check BEFORE archival mutates the active set:
       // execution-step mutations bypass the message predicates, so compare
@@ -735,6 +767,8 @@ async function compressContext({
   }
 }
 
+const idleAttempts = new Map();
+
 function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete = () => {}, llmCheckpointCallback = null, options = {}) {
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (llmCheckpointCallback !== null && typeof llmCheckpointCallback !== 'function') throw new TypeError('llmCheckpointCallback must be a function when provided.');
@@ -761,10 +795,23 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
       return;
     }
     let retry = false;
-    void checkAndCompressContext({
-      sessionId, modelId, contextWindowLimit, llmSummarizeCallback, llmCheckpointCallback,
-      signal: controller.signal,
-    }).then((result) => {
+    void (async () => {
+      const measured = options.resolveMeasurement ? await options.resolveMeasurement() : null;
+      if (options.resolveMeasurement && (!measured || !measured.isCurrent())) return { compressed: false };
+      if (measured) {
+        if (getActiveMessages(sessionId).some(message => message.status === 'in_progress')) return { compressed: false };
+        if (!require('./contextBudget').atCompactionPressure(measured.budgetContract)) return { compressed: false };
+        const identity = `${modelId}:${measured.promptIdentity}`;
+        if (idleAttempts.get(sessionId) === identity) return { compressed: false };
+        if (idleAttempts.size >= 128) idleAttempts.delete(idleAttempts.keys().next().value);
+        idleAttempts.set(sessionId, identity);
+      }
+      return checkAndCompressContext({
+        sessionId, modelId, contextWindowLimit: measured?.limit ?? contextWindowLimit,
+        llmSummarizeCallback, llmCheckpointCallback, signal: controller.signal,
+        pressureMeasurement: measured, isCurrent: measured?.isCurrent,
+      });
+    })().then((result) => {
       retry = result.retry === true;
       if (result.compressed) onComplete({ sessionId, ...result });
       else if (result.reason) onComplete({ sessionId, ...result });

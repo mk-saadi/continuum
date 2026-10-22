@@ -6,6 +6,8 @@ import {
   sourceLabel,
   tokenValue,
 } from './usageDashboardFormat.mjs';
+import { SelectField } from '../../FormControls';
+import { SettingsButton, SettingsMessage } from '../SettingsSection';
 
 const GROUPS = [
   { id: 'chat', label: 'Conversation' },
@@ -64,23 +66,20 @@ export default function AttributionView({ filters }) {
 
   const rows = attribution?.rows ?? [];
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-attribution-title">
+    <div className="space-y-3">
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-attribution-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h3 id="usage-attribution-title" className="text-sm font-semibold">Where usage originated</h3>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Sub-agent cost is attributed to its parent conversation and counted once.</p>
+            <h3 id="usage-attribution-title" className="text-xs font-semibold">Where usage originated</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">Sub-agent cost is attributed to its parent conversation and counted once.</p>
           </div>
-          <label className="text-xs text-[var(--text-secondary)]">
-            Group by
-            <select value={groupBy} onChange={event => setGroupBy(event.target.value)} className="ml-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--text-primary)]">
-              {GROUPS.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}
-            </select>
-          </label>
+          <SelectField className="w-48" label="Group by" value={groupBy} onChange={event => setGroupBy(event.target.value)}>
+            {GROUPS.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}
+          </SelectField>
         </div>
-        {error ? <p role="alert" className="mt-3 text-xs text-[var(--error)]">{error}</p> : null}
-        {loading ? <p role="status" className="mt-3 text-xs text-[var(--text-muted)]">Loading attribution…</p> : rows.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No usage to attribute for this selection.</p>
+        <SettingsMessage>{error}</SettingsMessage>
+        {loading ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading attribution…</p> : rows.length === 0 ? (
+          <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No usage to attribute for this selection.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[680px] text-left text-xs">
@@ -119,19 +118,19 @@ export default function AttributionView({ filters }) {
         </p>
       </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-records-title">
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-records-title">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 id="usage-records-title" className="text-sm font-semibold">Detailed usage records</h3>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">One row per parent turn or completed sub-agent run. Message content is never loaded.</p>
+            <h3 id="usage-records-title" className="text-xs font-semibold">Detailed usage records</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">One row per parent turn or completed sub-agent run. Message content is never loaded.</p>
           </div>
-          <button type="button" className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-hover)]" onClick={() => setRecordsOpen(open => !open)} aria-expanded={recordsOpen}>
+          <SettingsButton type="button" onClick={() => setRecordsOpen(open => !open)} aria-expanded={recordsOpen}>
             {recordsOpen ? 'Hide records' : 'Show records'}
-          </button>
+          </SettingsButton>
         </div>
         {recordsOpen ? <div className="mt-3">
-          {recordsError ? <p role="alert" className="text-xs text-[var(--error)]">{recordsError}</p> : null}
-          {recordsLoading && !records ? <p role="status" className="text-xs text-[var(--text-muted)]">Loading records…</p> : null}
+          <SettingsMessage>{recordsError}</SettingsMessage>
+          {recordsLoading && !records ? <p role="status" className="text-[11px] text-[var(--text-muted)]">Loading records…</p> : null}
           {records ? <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-left text-xs">
@@ -168,8 +167,8 @@ export default function AttributionView({ filters }) {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-muted)]">
               <span>Showing {records.rows.length === 0 ? 0 : records.offset + 1}–{records.offset + records.rows.length} of {records.total}.</span>
               <span className="flex gap-2">
-                <button type="button" disabled={page === 0 || recordsLoading} onClick={() => setPage(value => Math.max(0, value - 1))} className="rounded-lg border border-[var(--border)] px-2.5 py-1 disabled:opacity-40">Previous</button>
-                <button type="button" disabled={!records.hasMore || recordsLoading} onClick={() => setPage(value => value + 1)} className="rounded-lg border border-[var(--border)] px-2.5 py-1 disabled:opacity-40">Next</button>
+                <SettingsButton type="button" disabled={page === 0 || recordsLoading} onClick={() => setPage(value => Math.max(0, value - 1))}>Previous</SettingsButton>
+                <SettingsButton type="button" disabled={!records.hasMore || recordsLoading} onClick={() => setPage(value => value + 1)}>Next</SettingsButton>
               </span>
             </div>
           </> : null}

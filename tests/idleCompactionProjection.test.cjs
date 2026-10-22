@@ -167,11 +167,11 @@ test('repeated compaction cycles retain headroom instead of retriggering', async
   assert.ok(summaries.includes(summaryBeforeFourth), 'resume chains onto the running summary');
 });
 
-test('the idle trigger stays at 75% for both session kinds', async () => {
+test('the idle trigger stays quiet below 75% of the full request', async () => {
   const id = freshId('trigger');
-  const LIMIT = 10000;
+  const LIMIT = 100000;
   sessions.getOrCreateSession(id, MODEL);
-  seedMessages(id, 70, 400);
+  seedMessages(id, 12, 100);
   const usage = sessions.getContextUsage(id, MODEL);
   assert.ok(usage.totalTokens <= 0.75 * LIMIT, `precondition: ${usage.totalTokens} at/below trigger`);
   let called = 0;
@@ -342,7 +342,7 @@ test('brief and worklog injection keep working and archived history stays intact
   assert.ok(joined.includes('Ship the injection widget.'), 'brief survives compression');
   assert.ok(joined.includes('Injection rolling summary.'), 'summary injected');
   const rows = sessions.loadSession(id).messages;
-  assert.ok(rows.slice(-10).every((row) => !row.archived), 'protected tail intact');
+  assert.ok(rows.slice(-10).some((row) => row.archived), 'workspace tail is eligible for compaction');
   assert.ok(rows.filter((row) => row.archived).length > 0);
   assert.equal(new Set(rows.map((row) => row.id)).size, rows.length, 'no duplicated messages');
 });
@@ -522,4 +522,65 @@ test('context-usage display stays consistent with the compaction projection', as
   // documented prefix is the only admitted difference.
   const markerOverhead = Math.ceil('[EARLIER CONVERSATION SUMMARY]:\n'.length / 4);
   assert.equal(projected.total - usage.totalTokens, fixed + markerOverhead);
+});
+
+
+test('short image-heavy workspace compacts from full-prompt pressure and preserves attachment evidence', async () => {
+  const project = projects.createProject({ name: 'Image Workspace' });
+  const id = freshId('images');
+  const limit = 100000;
+  sessions.getOrCreateSession(id, MODEL, project.id);
+  const image = path.join(directory, 'tiny.png');
+  fs.writeFileSync(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'));
+  const { processUploads } = require('../src/main/fileUploads');
+  for (let batch = 0; batch < 3; batch++) {
+    const attachments = await processUploads(Array(8).fill(image));
+    sessions.saveMessage(id, 'user', `Review batch ${batch}.`, attachments);
+    sessions.saveMessage(id, 'assistant', `Observed layout details in batch ${batch}.`);
+  }
+  assert.equal(sessions.getContextUsage(id, MODEL).messageCount, 6);
+  assert.ok(sessions.getContextUsage(id, MODEL).totalTokens < 1000);
+  let imageCount = 0;
+  const result = await engine.checkAndCompressContext({
+    sessionId: id, modelId: MODEL, contextWindowLimit: limit, tools: [],
+    llmSummarizeCallback: async (_old, batch) => {
+      const content = require('../src/main/compactionCore').summaryUserContent(_old, batch);
+      assert.ok(Array.isArray(content), 'vision parts reach the summarizer');
+      assert.ok(!content[0].text.includes('base64,'), 'image bytes never become JSON text tokens');
+      imageCount += content.filter(part => part.type === 'image_url').length;
+      return 'Preserve observed layouts and the selected design direction.';
+    },
+    llmCheckpointCallback: async () => ({ objective: 'Review image layouts.', outstandingRequirements: [] }),
+  });
+  assert.equal(result.compressed, true);
+  assert.ok(imageCount >= 16, 'image-heavy batches actually inspected before archival');
+  assert.ok(Number.isSafeInteger(result.checkpointId));
+  assert.ok(result.archivedCount > 0);
+  assert.equal(sessions.loadSession(id).messages.length, 6, 'raw history remains stored');
+  assert.ok(fs.existsSync(image));
+  const rebuilt = require('../src/main/promptBuilder').rebuildChatMessages({ sessionId: id, modelId: MODEL });
+  const remainingImages = rebuilt.flatMap(message => Array.isArray(message.content) ? message.content : [])
+    .filter(part => part.type === 'image_url').length;
+  assert.ok(remainingImages < 24, 'archived images leave the active request');
+  assert.ok(rebuilt.some(message => message.role === 'user'), 'checkpoint-only continuation satisfies strict chat templates');
+  assert.ok(briefs.getAllBriefs(id).length >= 3, 'task briefs remain');
+});
+
+test('workspace recovery keeps explicitly excluded in-flight messages verbatim', async () => {
+  const project = projects.createProject({ name: 'In-flight Workspace' });
+  const id = freshId('inflight');
+  sessions.getOrCreateSession(id, MODEL, project.id);
+  sessions.saveMessage(id, 'user', 'Build the widget.');
+  sessions.saveMessage(id, 'assistant', 'Completed preparation.');
+  const parked = sessions.saveMessage(id, 'assistant', 'In progress');
+  const parkedId = typeof parked === 'number' ? parked : parked.id;
+  const result = await engine.recoverContextOverflow({ sessionId: id, modelId: MODEL,
+    contextWindowLimit: 100000, excludeMessageIds: [parkedId],
+    llmSummarizeCallback: async () => 'Prepared widget.',
+    llmCheckpointCallback: async () => ({ objective: 'Build the widget.', outstandingRequirements: [] }),
+  });
+  assert.equal(result.compressed, true);
+  const rows = sessions.loadSession(id).messages;
+  assert.equal(rows.find(row => row.id === parkedId).archived, 0);
+  assert.ok(rows.slice(0, -1).every(row => row.archived));
 });

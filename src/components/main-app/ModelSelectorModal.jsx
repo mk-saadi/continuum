@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import ModelCapabilitiesModal from "../ModelCapabilitiesModal";
 import ModelSettingsModal from "../ModelSettingsModal";
+import { SelectField, TextField } from "../FormControls";
+import { SettingsButton } from "../settings/SettingsSection";
 import {
 	LuArrowRight,
 	LuBrain,
@@ -26,22 +28,6 @@ const capabilityIcons = [
 	["tools", "Tool use", LuWrench],
 ];
 
-function cloudService(model) {
-	if (model.providerName) return model.providerName;
-	try {
-		const host = new URL(model.baseUrl).hostname;
-		return (
-			{
-				"openrouter.ai": "OpenRouter",
-				"api.anthropic.com": "Anthropic",
-				"api.openai.com": "OpenAI",
-				"api.deepseek.com": "DeepSeek",
-			}[host] || host
-		);
-	} catch {
-		return model.apiType === "anthropic" ? "Anthropic" : "Cloud";
-	}
-}
 const tokens = (value) =>
 	value
 		? value >= 1000
@@ -156,8 +142,11 @@ export default function ModelSelectorModal({
 	const [error, setError] = useState("");
 	const [cloudMetadata, setCloudMetadata] = useState([]);
 	const [metadataStatus, setMetadataStatus] = useState("");
+	const [expandedProvider, setExpandedProvider] = useState(null);
+	const [modelsByProvider, setModelsByProvider] = useState({});
+	const [manualModels, setManualModels] = useState({});
 	const providerSignature = cloudProviders
-		.map((row) => `${row.id}:${row.baseUrl}:${row.modelId}:${row.apiType}:${row.configured}`)
+		.map((row) => `${row.id}:${row.baseUrl}:${row.apiType}:${row.configured}`)
 		.join("|");
 	useEffect(() => {
 		if (!window.api?.getCloudModelMetadata) return;
@@ -171,7 +160,7 @@ export default function ModelSelectorModal({
 				setCloudMetadata(rows);
 				setMetadataStatus(
 					rows.some((row) => row.error)
-						? "Some cloud metadata is unavailable. Hover a cloud model for details."
+						? "Some cloud metadata is unavailable. Model selection still works."
 						: "",
 				);
 			})
@@ -197,40 +186,103 @@ export default function ModelSelectorModal({
 		(model) =>
 			!/mmproj/i.test((model.modelPath || model.path || model.name || model.id).split(/[\\/]/).pop()),
 	);
-	const providers = cloudProviders
-		.filter((row) => (row.category ?? "text") === "text" && row.configured && row.modelId?.trim())
-		.map((row) => {
-			const metadata = cloudMetadata.find(
-				(item) => item.providerId === row.id && item.modelId === row.modelId,
+	// Providers are model-agnostic: every configured text provider can serve
+	// any model it lists. The model is chosen below, per chat.
+	const providers = cloudProviders.filter(
+		(row) => (row.category ?? "text") === "text" && row.configured,
+	);
+	const activeProviderId = activeChatProvider?.type === "cloud" ? activeChatProvider.provider : null;
+	const activeModelId = activeChatProvider?.type === "cloud" ? activeChatProvider.model : null;
+	const metadataFor = (providerId, modelId) =>
+		modelId
+			? cloudMetadata.find((item) => item.providerId === providerId && item.modelId === modelId) || null
+			: null;
+
+	async function loadProviderModels(row, { force = false } = {}) {
+		const existing = modelsByProvider[row.id];
+		if (!force && (existing?.loading || existing?.models)) return;
+		setModelsByProvider((previous) => ({
+			...previous,
+			[row.id]: { loading: true, models: existing?.models || [], error: "" },
+		}));
+		try {
+			const result = await window.api.fetchCloudModels({ id: row.id });
+			if (result?.error) throw new Error(result.error);
+			setModelsByProvider((previous) => ({
+				...previous,
+				[row.id]: { loading: false, models: result?.models || [], error: "" },
+			}));
+		} catch (cause) {
+			setModelsByProvider((previous) => ({
+				...previous,
+				[row.id]: {
+					loading: false,
+					models: existing?.models || [],
+					error: cause.message || "Could not fetch this provider's models.",
+				},
+			}));
+		}
+	}
+
+	function toggleProvider(row) {
+		const opening = expandedProvider !== row.id;
+		setExpandedProvider(opening ? row.id : null);
+		if (opening) loadProviderModels(row);
+	}
+
+	function chooseModel(row, modelId) {
+		if (!modelId) return;
+		onSelectProvider({ type: "cloud", provider: row.id, model: modelId });
+		onClose();
+	}
+
+	const matchingQuery = (value) => value.toLowerCase().includes(query.toLowerCase());
+	const localEntries = localModels
+		.filter((model) => {
+			if (source === "cloud") return false;
+			const name =
+				model.generalName ||
+				(model.name || model.id)
+					.split(/[\\/]/)
+					.pop()
+					.replace(/\.gguf$/i, "");
+			return (
+				!query ||
+				matchingQuery(
+					`${name} ${model.name || ""} ${model.modelId || ""} ${model.architecture || ""} ${model.quantization || ""}`,
+				)
 			);
-			return { ...row, ...metadata, id: row.id, name: row.name, modelId: row.modelId };
-		});
-	const entries = [
-		...localModels.map((model) => ({
+		})
+		.map((model) => ({
+			kind: "local",
 			model,
-			local: true,
 			name:
 				model.generalName ||
 				(model.name || model.id)
 					.split(/[\\/]/)
 					.pop()
 					.replace(/\.gguf$/i, ""),
-		})),
-		...providers.map((model) => ({ model, local: false, name: model.name || model.modelId })),
-	]
-		.filter(
-			({ model, local, name }) =>
-				(source === "all" || (source === "local") === local) &&
-				`${name} ${model.name || ""} ${model.modelId || ""} ${model.architecture || ""} ${model.quantization || ""}`
-					.toLowerCase()
-					.includes(query.toLowerCase()),
-		)
-		.sort((a, b) =>
-			sort === "size"
-				? (b.model.fileIdentity?.size || 0) - (a.model.fileIdentity?.size || 0) ||
-					a.name.localeCompare(b.name)
-				: a.name.localeCompare(b.name),
-		);
+		}));
+	const cloudEntries = providers
+		.filter((row) => {
+			if (source === "local") return false;
+			if (!query) return true;
+			const knownModels = cloudMetadata
+				.filter((item) => item.providerId === row.id)
+				.map((item) => item.modelId)
+				.join(" ");
+			return matchingQuery(
+				`${row.name} ${row.baseUrl || ""} ${row.apiType || ""} ${row.modelId || ""} ${knownModels}`,
+			);
+		})
+		.map((row) => ({ kind: "cloud", provider: row, name: row.name }));
+	const entries = [...localEntries, ...cloudEntries].sort((a, b) =>
+		sort === "size"
+			? (b.kind === "local" ? b.model.fileIdentity?.size || 0 : 0) -
+					(a.kind === "local" ? a.model.fileIdentity?.size || 0 : 0) ||
+				a.name.localeCompare(b.name)
+			: a.name.localeCompare(b.name),
+	);
 
 	if (editingCapabilities)
 		return (
@@ -396,130 +448,225 @@ export default function ModelSelectorModal({
 							aria-label="Available models"
 							className="m-0 list-none p-0"
 						>
-							{entries.map(({ model, local, name }) => {
-								const loaded =
-									local &&
-									loadedLocalModel?.modelPath ===
+							{entries.map((entry) => {
+								if (entry.kind === "local") {
+									const { model, name } = entry;
+									const loaded =
+										loadedLocalModel?.modelPath ===
 										(model.modelPath || model.path || model.id);
-								const active = local
-									? activeChatProvider?.type === "local" && selectedModel === model.id
-									: activeChatProvider?.type === "cloud" &&
-										activeChatProvider.provider === model.id &&
-										activeChatProvider.model === model.modelId;
-								const runtime = loaded ? loadedLocalModel.capabilities : undefined;
+									const active =
+										activeChatProvider?.type === "local" && selectedModel === model.id;
+									const runtime = loaded ? loadedLocalModel.capabilities : undefined;
+									return (
+										<li
+											key={`local:${model.id}`}
+											className="relative"
+										>
+											<button
+												type="button"
+												disabled={busy}
+												aria-label={`${active ? "Selected" : loaded ? "Use loaded" : "Load"} ${name}`}
+												aria-current={active ? "true" : undefined}
+												onClick={() => {
+													if (loaded) {
+														onSelectModel(model.id);
+														onSelectProvider({ type: "local" });
+														onClose();
+													} else setConfiguring(model);
+												}}
+												className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${active ? "bg-[var(--active-chat)]" : ""}`}
+											>
+												<span
+													className="min-w-0"
+													title={model.modelPath || model.path || model.id}
+												>
+													<span className="flex min-w-0 items-center gap-2 text-xs font-medium">
+														<span className="truncate">{name}</span>
+														{loaded && (
+															<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
+																Loaded
+															</span>
+														)}
+													</span>
+													<span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
+														{model.architecture || "GGUF · architecture unknown"}
+													</span>
+												</span>
+												<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+													<LuCpu
+														size={13}
+														aria-hidden="true"
+													/>
+													<span
+														className="truncate"
+														title="Local file"
+													>
+														Local
+													</span>
+												</span>
+												<Capabilities
+													model={model}
+													local
+													runtime={runtime}
+													overrides={capabilityOverrides[overrideKey(model, true)]}
+												/>
+												<span className="text-[11px] tabular-nums text-[var(--text-secondary)]">
+													{model.paramSize || "—"}
+												</span>
+												<span className="truncate font-mono text-[10px] text-[var(--text-secondary)]">
+													{model.quantization || "—"}
+												</span>
+												<span
+													title="File size on disk"
+													className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]"
+												>
+													{model.sizeFormatted || "—"}
+												</span>
+												<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
+													{active ? (
+														<>
+															<LuCheck
+																size={12}
+																aria-hidden="true"
+															/>
+															Active
+														</>
+													) : (
+														<>
+															{loaded ? "Use" : "Load"}
+															<LuArrowRight
+																size={12}
+																aria-hidden="true"
+															/>
+														</>
+													)}
+												</span>
+											</button>
+											<button
+												type="button"
+												aria-label={`Edit capabilities for ${name}`}
+												title="Edit model capabilities"
+												disabled={busy}
+												onClick={() => setEditingCapabilities({ model, local: true, name })}
+												className="absolute right-2 top-3 grid size-7 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+											>
+												<LuPencil
+													size={13}
+													aria-hidden="true"
+												/>
+											</button>
+										</li>
+									);
+								}
+
+								const row = entry.provider;
+								const isActive = activeProviderId === row.id;
+								const expanded = expandedProvider === row.id;
+								const providerModels = modelsByProvider[row.id];
+								const modelList = providerModels?.models || [];
+								const capabilityModelId =
+									(isActive ? activeModelId : "") || row.modelId?.trim() || "";
+								const capabilityMetadata = metadataFor(row.id, capabilityModelId);
+								const capabilityModel = capabilityModelId
+									? {
+											...row,
+											...(capabilityMetadata || {}),
+											id: row.id,
+											modelId: capabilityModelId,
+										}
+									: null;
+								const overrides = capabilityModel
+									? capabilityOverrides[overrideKey(capabilityModel, false)]
+									: undefined;
+								const providerHost = (() => {
+									try {
+										return new URL(row.baseUrl).hostname;
+									} catch {
+										return row.apiType || "Cloud";
+									}
+								})();
 								return (
 									<li
-										key={`${local ? "local" : "cloud"}:${model.id}`}
+										key={`cloud:${row.id}`}
 										className="relative"
 									>
 										<button
 											type="button"
 											disabled={busy}
-											aria-label={`${active ? "Selected" : loaded ? "Use loaded" : local ? "Load" : "Use"} ${name}`}
-											aria-current={active ? "true" : undefined}
-											onClick={() => {
-												if (!local) {
-													onSelectProvider({
-														type: "cloud",
-														provider: model.id,
-														model: model.modelId,
-													});
-													onClose();
-												} else if (loaded) {
-													onSelectModel(model.id);
-													onSelectProvider({ type: "local" });
-													onClose();
-												} else setConfiguring(model);
-											}}
-											className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${active ? "bg-[var(--active-chat)]" : ""}`}
+											aria-expanded={expanded}
+											aria-label={`${isActive ? "Change" : "Choose"} a model for ${row.name}`}
+											aria-current={isActive ? "true" : undefined}
+											onClick={() => toggleProvider(row)}
+											className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${isActive ? "bg-[var(--active-chat)]" : ""}`}
 										>
 											<span
 												className="min-w-0"
-												title={
-													local
-														? model.modelPath || model.path || model.id
-														: model.modelId
-												}
+												title={row.baseUrl}
 											>
 												<span className="flex min-w-0 items-center gap-2 text-xs font-medium">
-													<span className="truncate">{name}</span>
-													{loaded && (
+													<span className="truncate">{row.name}</span>
+													{expanded && (
 														<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
-															Loaded
+															{providerModels?.loading ? "Loading…" : "Choose a model"}
 														</span>
 													)}
 												</span>
 												<span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
-													{local
-														? model.architecture || "GGUF · architecture unknown"
-														: model.modelId}
+													{isActive ? activeModelId : row.baseUrl || "Cloud provider"}
 												</span>
 											</span>
 											<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-												{local ? (
-													<LuCpu
-														size={13}
-														aria-hidden="true"
-													/>
-												) : (
-													<LuCloud
-														size={13}
-														aria-hidden="true"
-													/>
-												)}
+												<LuCloud
+													size={13}
+													aria-hidden="true"
+												/>
 												<span
 													className="truncate"
-													title={local ? "Local file" : cloudService(model)}
+													title={providerHost}
 												>
-													{local ? "Local" : cloudService(model)}
+													{capabilityMetadata?.providerName || "Cloud"}
 												</span>
 											</span>
-											<Capabilities
-												model={model}
-												local={local}
-												runtime={runtime}
-												overrides={capabilityOverrides[overrideKey(model, local)]}
-											/>
+											{capabilityModel ? (
+												<Capabilities
+													model={capabilityModel}
+													local={false}
+													overrides={overrides}
+												/>
+											) : (
+												<span className="text-[11px] text-[var(--text-muted)]">—</span>
+											)}
 											<span className="text-[11px] tabular-nums text-[var(--text-secondary)]">
 												{source === "cloud"
-													? tokens(
-															capabilityOverrides[overrideKey(model, local)]
-																?.contextLength ?? model.contextLength,
-														)
-													: model.paramSize || "—"}
+													? tokens(overrides?.contextLength ?? capabilityMetadata?.contextLength)
+													: capabilityModel?.paramSize || "—"}
 											</span>
 											<span
 												title={
-													local
-														? "GGUF quantization"
-														: source === "cloud"
-															? "Maximum output tokens reported by provider"
-															: "Remote quantization is not reported"
+													source === "cloud"
+														? "Maximum output tokens reported by provider"
+														: "Remote quantization is not reported"
 												}
 												className="truncate font-mono text-[10px] text-[var(--text-secondary)]"
 											>
 												{source === "cloud"
-													? tokens(model.maxOutputTokens)
-													: model.quantization || "—"}
+													? tokens(capabilityMetadata?.maxOutputTokens)
+													: capabilityModel?.quantization || "—"}
 											</span>
 											<span
 												title={
-													local
-														? "File size on disk"
-														: source === "cloud"
-															? "USD per million input / output tokens. Routing and cache pricing may vary."
-															: "Cloud models have no local file size"
+													source === "cloud"
+														? "USD per million input / output tokens. Routing and cache pricing may vary."
+														: "Cloud providers have no local file size"
 												}
 												className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]"
 											>
 												{source === "cloud"
-													? priceLabel(model.pricing)
-													: local
-														? model.sizeFormatted || "—"
-														: "—"}
+													? priceLabel(capabilityMetadata?.pricing)
+													: "—"}
 											</span>
 											<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
-												{active ? (
+												{isActive ? (
 													<>
 														<LuCheck
 															size={12}
@@ -529,7 +676,7 @@ export default function ModelSelectorModal({
 													</>
 												) : (
 													<>
-														{loaded || !local ? "Use" : "Load"}
+														{expanded ? "Choose" : "Models"}
 														<LuArrowRight
 															size={12}
 															aria-hidden="true"
@@ -538,19 +685,114 @@ export default function ModelSelectorModal({
 												)}
 											</span>
 										</button>
-										<button
-											type="button"
-											aria-label={`Edit capabilities for ${name}`}
-											title="Edit model capabilities"
-											disabled={busy}
-											onClick={() => setEditingCapabilities({ model, local, name })}
-											className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-										>
-											<LuPencil
-												size={13}
-												aria-hidden="true"
-											/>
-										</button>
+										{capabilityModel && (
+											<button
+												type="button"
+												aria-label={`Edit capabilities for ${row.name}`}
+												title="Edit model capabilities"
+												disabled={busy}
+												onClick={() =>
+													setEditingCapabilities({
+														model: capabilityModel,
+														local: false,
+														name: `${row.name} / ${capabilityModelId}`,
+													})
+												}
+												className="absolute right-2 top-3 grid size-7 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+											>
+												<LuPencil
+													size={13}
+													aria-hidden="true"
+												/>
+											</button>
+										)}
+										{expanded && (
+											<div className="border-b border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3">
+												<div className="flex max-w-xl items-end gap-2">
+													<SelectField
+														className="min-w-0 flex-1"
+														label={`${row.name} model`}
+														value={isActive ? activeModelId : ""}
+														disabled={providerModels?.loading}
+														placeholder={
+															providerModels?.loading
+																? "Loading models…"
+																: "Choose a model…"
+														}
+														onChange={(event) => chooseModel(row, event.target.value)}
+													>
+														{modelList.map((modelId) => (
+															<option
+																key={modelId}
+																value={modelId}
+															>
+																{modelId}
+															</option>
+														))}
+														{isActive &&
+															activeModelId &&
+															!modelList.includes(activeModelId) && (
+																<option value={activeModelId}>{activeModelId}</option>
+															)}
+													</SelectField>
+													<SettingsButton
+														type="button"
+														disabled={providerModels?.loading}
+														onClick={() => loadProviderModels(row, { force: true })}
+													>
+														{providerModels?.loading ? "Loading…" : "Reload models"}
+													</SettingsButton>
+												</div>
+												{providerModels?.error ? (
+													<p
+														role="alert"
+														className="mt-2 text-[11px] leading-relaxed text-[var(--error)]"
+													>
+														{providerModels.error}
+													</p>
+												) : null}
+												{!providerModels?.loading &&
+												!providerModels?.error &&
+												!modelList.length ? (
+													<p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+														No models were returned. Enter one manually, or check this
+														provider's base URL and API key in Settings → Models &amp;
+														Generation.
+													</p>
+												) : null}
+												{!providerModels?.loading &&
+												(providerModels?.error || !modelList.length) ? (
+													<div className="mt-2 flex max-w-xl items-end gap-2">
+														<TextField
+															className="min-w-0 flex-1"
+															label="Model ID"
+															value={manualModels[row.id] || ""}
+															placeholder="Type the provider's model ID"
+															onChange={(event) =>
+																setManualModels((previous) => ({
+																	...previous,
+																	[row.id]: event.target.value,
+																}))
+															}
+															onKeyDown={(event) => {
+																if (event.key !== "Enter") return;
+																event.preventDefault();
+																chooseModel(row, (manualModels[row.id] || "").trim());
+															}}
+														/>
+														<SettingsButton
+															type="button"
+															disabled={!manualModels[row.id]?.trim()}
+															onClick={() =>
+																chooseModel(row, (manualModels[row.id] || "").trim())
+															}
+														>
+															Use model
+														</SettingsButton>
+													</div>
+												) : null}
+											</div>
+										)}
 									</li>
 								);
 							})}

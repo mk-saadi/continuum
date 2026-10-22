@@ -277,6 +277,14 @@ Before executing any delete/bulk-write operation outside of that id-scoped patte
 	return { ...prompt, memoryContext: true };
 }
 
+// Workspace may archive every verbatim turn. Strict chat templates still
+// require a user turn when resuming from the preserved task state.
+function workspaceContinuation(checkpoint, messages) {
+  return checkpoint && !messages.some(message => message.role === 'user')
+    ? [{ role: 'user', content: 'Continue the task from the preserved task brief, checkpoint, and conversation summary.' }]
+    : [];
+}
+
 // Read-only rebuild: keeps originals in SQLite, excludes this generation's
 // persistence row and empty failed attempts from the model-facing transcript.
 function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], delegationAvailable = true, userText = '', contextWindowLimit = null }) {
@@ -313,6 +321,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
       ...(checkpoint ? [checkpoint] : []),
       ...(summary ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
       buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
+      ...workspaceContinuation(checkpoint, active),
       ...active.map(messageForModel),
       ...(workLog ? [workLog] : []),
       ...(plan ? [plan] : []),
@@ -385,6 +394,7 @@ function prepareChatMessages({
 						? [{ role: "system", content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }]
 						: []),
 					systemPrompt,
+					...workspaceContinuation(checkpoint, activeSessionMessages),
 					...activeSessionMessages,
 					...(workLog ? [workLog] : []),
 					...(plan ? [plan] : []),
@@ -479,6 +489,7 @@ function getToolContext(mcpTools = [], memoryEnabled = true, sessionId = null, p
 }
 
 module.exports = {
+	workspaceContinuation,
 	buildProjectContext,
 	buildSessionSystemPrompt,
 	getToolContext,

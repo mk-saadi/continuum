@@ -35,9 +35,22 @@ export function buildContextLabel({ total, limit, error, isCloud }) {
 	return { label, fullLabel };
 }
 
-export function buildContextTooltip({ total, limit, error, isCloud, method, confidence, live, persisted }) {
+export function buildContextTooltip({ total, limit, error, isCloud, method, confidence, live, persisted, budgetContract }) {
 	const { fullLabel } = buildContextLabel({ total, limit, error, isCloud });
 	const lines = [fullLabel];
+	if (budgetContract) {
+		for (const [label, value] of [
+			['Configured total', budgetContract.configuredContextTokens],
+			['Runtime per-request capacity', budgetContract.runtimeContextTokens],
+            ['Provider advertised context', budgetContract.advertisedContextTokens],
+			['Reserved output', budgetContract.reservedOutputTokens],
+			['Safety margin', budgetContract.reservedSafetyTokens],
+			['Usable input', budgetContract.usableInputTokens],
+			['Compaction threshold (90%)', budgetContract.autoCompactionTriggerTokens],
+		]) lines.push(`${label}: ${fullTokenCount(value)}`);
+		lines.push(`Capacity: ${budgetContract.capacityMethod} (${budgetContract.capacityConfidence})`);
+        lines.push('Prepared request projection; dispatch may change tool rounds, media shape and provider fields. Final wire guard enforces fit.');
+	}
 	if (method !== undefined || confidence !== undefined) {
 		lines.push(
 			`Current prompt: ${fullTokenCount(total)} tokens (${contextMethodLabel(method, confidence)})`,

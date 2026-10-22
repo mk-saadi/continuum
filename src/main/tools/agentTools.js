@@ -11,6 +11,17 @@ const recoveryStore = require("../recoveryStore");
 
 const IGNORED = new Set(["node_modules", ".git", "dist", "build"]);
 const string = (description) => ({ type: "string", description });
+
+// Phase 2.5A: bounded page reads for the existing native file reader. These
+// limits are deliberately conservative: a page is useful for inspecting one
+// function, while the existing 20,000-character output bound remains the hard
+// ceiling (a single source line can be arbitrarily large).
+const READ_DEFAULT_PAGE_LINES = 200;
+const READ_MAX_PAGE_LINES = 400;
+const READ_MAX_OUTPUT_CHARS = 20000;
+// Far beyond any supported source file, but keeps arithmetic safe and rejects
+// absurd inputs explicitly instead of entering an unbounded scan.
+const READ_MAX_LINE_NUMBER = 1000000000;
 const define = (name, description, properties, required = []) => ({
 	type: "function",
 	function: {
@@ -282,18 +293,33 @@ const agentTools = [
 	define(
 		"read_project_file",
 		[
-			"Read files by absolute or project-relative path. Images return vision content; PDFs return extracted text. Large text is truncated.",
-			"Reads return the observed sha256 content hash and byte size. Pass if_content_hash from a previous read/write to skip retransmitting an unchanged file: a match returns only not_modified plus metadata, while a changed file returns its current content and new hash.",
-			"A hash match proves only that the bytes are unchanged; it does not prove the code or content is correct. Read full content when you need it for debugging.",
+			"Read files by absolute or project-relative path; images return vision content, PDFs text, and large text is truncated.",
+			"Pass 1-based start_line/end_line for one page (default 200 lines, max 400); reads return sha256, byte size, and line coverage.",
+			"if_content_hash skips unchanged content; expected_content_hash gates a page's version. A hash match proves bytes unchanged, not correctness.",
 		].join(" "),
 		{
 			relative_path: string(
 				"Absolute or project-relative file path",
 			),
+			start_line: {
+				type: "integer",
+				minimum: 1,
+				description: "1-based first line.",
+			},
+			end_line: {
+				type: "integer",
+				minimum: 1,
+				description: "1-based inclusive last line.",
+			},
 			if_content_hash: {
 				type: "string",
 				pattern: "^(?:sha256:)?[a-fA-F0-9]{64}$",
-				description: "Optional sha256:<hex> content hash from a previous read/write. If it still matches, return not_modified without content; if not, return current content and hash.",
+				description: "sha256:<hex> from a previous read/write; a match returns not_modified without content.",
+			},
+			expected_content_hash: {
+				type: "string",
+				pattern: "^(?:sha256:)?[a-fA-F0-9]{64}$",
+				description: "sha256:<hex> version gate for the next page; a mismatch returns no content.",
 			},
 		},
 		["relative_path"],
@@ -1832,6 +1858,240 @@ function relativeDisplayPath(root, target, requested) {
 	return typeof requested === "string" && requested.trim() ? requested : path.basename(target);
 }
 
+function typedReadError(code, message) {
+	const error = new Error(message);
+	error.code = code;
+	return error;
+}
+
+function parseOptionalReadLine(value, name) {
+	if (value === undefined) return null;
+	if (!Number.isSafeInteger(value) || value < 1 || value > READ_MAX_LINE_NUMBER) {
+		throw typedReadError(
+			"INVALID_LINE_RANGE",
+			`${name} must be a positive integer from 1 to ${READ_MAX_LINE_NUMBER}.`,
+		);
+	}
+	return value;
+}
+
+// Resolve the optional line arguments into one bounded page. Omitted values
+// keep the legacy whole-file read; supplying either line argument opts into
+// ranged mode. A missing start defaults to 1 and a missing end to one default
+// page. The maximum page length is enforced before any file I/O.
+function resolveReadRange(args) {
+	const startArg = parseOptionalReadLine(args.start_line, "start_line");
+	const endArg = parseOptionalReadLine(args.end_line, "end_line");
+	if (startArg === null && endArg === null) return null;
+	const startLine = startArg ?? 1;
+	const requestedEndLine = endArg
+		?? Math.min(startLine + READ_DEFAULT_PAGE_LINES - 1, READ_MAX_LINE_NUMBER);
+	if (requestedEndLine < startLine) {
+		throw typedReadError("INVALID_LINE_RANGE", "end_line must be >= start_line.");
+	}
+	const endLine = Math.min(requestedEndLine, startLine + READ_MAX_PAGE_LINES - 1);
+	return {
+		startLine,
+		endLine,
+		requestedEndLine,
+		endProvided: endArg !== null,
+		pageCapped: endLine < requestedEndLine,
+	};
+}
+
+// A range read is a different operation from a write: it must never claim
+// that bytes from two versions form one snapshot. The response intentionally
+// omits content and names both versions so the agent can refresh.
+function versionMismatchResult(display, expectedHash, current, extra = {}) {
+	return {
+		success: false,
+		code: "STALE_FILE",
+		outcome: "version_mismatch",
+		path: display,
+		expected_content_hash: expectedHash,
+		current_content_hash: current?.contentHash ?? null,
+		size_bytes: current?.sizeBytes ?? null,
+		...extra,
+		error: `File changed since it was read; refusing to return content from a different version of ${display}. ` +
+			`Expected ${expectedHash}, found ${current?.contentHash ?? "missing"}. Re-read the file before continuing.`,
+	};
+}
+
+/**
+ * Incrementally scan one text file, hashing the full byte stream while
+ * retaining only the requested page. Memory is bounded by the read chunk plus
+ * at most one output page (and one bounded oversized line); the whole file is
+ * never materialized. Hash and page bytes come from the same stream, so a
+ * response can never pair one version's hash with another version's content.
+ *
+ * Returns `{ unstable: true }` when the path's identity/size/mtime changed
+ * across the scan; the caller performs a small bounded retry. A file that keeps
+ * changing is reported as an explicit error rather than a fabricated snapshot.
+ */
+async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPUT_CHARS } = {}) {
+	const pathBefore = await fs.stat(abs);
+	if (!pathBefore.isFile()) throw new Error("Read target must be a regular file.");
+	const handle = await fs.open(abs, "r");
+	try {
+		const before = await handle.stat();
+		if (before.dev !== pathBefore.dev || before.ino !== pathBefore.ino) return { unstable: true };
+		const hash = require("node:crypto").createHash("sha256");
+		// UTF-8 uses at most 4 bytes per code point and at most 3 bytes per
+		// UTF-16 code unit. A line above this byte bound cannot fit maxChars.
+		const lineByteLimit = maxChars * 4 + 4;
+		const chunk = Buffer.allocUnsafe(64 * 1024);
+		let position = 0;
+		let size = 0;
+		let newlineCount = 0;
+		let lastByteWasNewline = false;
+		let sawBytes = false;
+		let lineActive = false;
+		let lineParts = [];
+		let lineBytes = 0;
+		let lineTooLong = false;
+		let collected = [];
+		let collectedChars = 0;
+		let stopped = false;
+		let stopReason = null;
+		let oversized = null;
+		let overflow = null;
+
+		const beginLine = () => {
+			lineActive = true;
+			lineParts = [];
+			lineBytes = 0;
+			lineTooLong = false;
+		};
+
+		const append = (bytes) => {
+			if (!lineActive) return;
+			lineBytes += bytes.length;
+			if (stopped || lineTooLong) return;
+			if (lineBytes > lineByteLimit) {
+				lineTooLong = true;
+				lineParts = [];
+				return;
+			}
+			if (bytes.length) lineParts.push(Buffer.from(bytes));
+		};
+
+		const finishLine = () => {
+			if (!lineActive) return;
+			const lineNumber = newlineCount + 1;
+			const inRange = lineNumber >= range.startLine && lineNumber <= range.endLine;
+			if (inRange && !stopped) {
+				if (lineTooLong) {
+					overflow = { line: lineNumber, bytes: lineBytes };
+					if (!collected.length) {
+						oversized = { line: lineNumber, bytes: lineBytes };
+						stopReason = "oversized_line";
+					} else {
+						stopReason = "output_limit";
+					}
+					stopped = true;
+				} else {
+					const text = lineParts.length ? Buffer.concat(lineParts).toString("utf8") : "";
+					if (collectedChars + text.length > maxChars) {
+						overflow = { line: lineNumber, chars: text.length, bytes: lineBytes };
+						if (!collected.length) {
+							oversized = { line: lineNumber, chars: text.length, bytes: lineBytes };
+							stopReason = "oversized_line";
+						} else {
+							stopReason = "output_limit";
+						}
+						stopped = true;
+					} else {
+						collected.push(text);
+						collectedChars += text.length;
+					}
+				}
+			}
+			lineActive = false;
+			lineParts = [];
+			lineBytes = 0;
+			lineTooLong = false;
+		};
+
+		while (true) {
+			signal?.throwIfAborted();
+			const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+			if (!bytesRead) break;
+			const slice = chunk.subarray(0, bytesRead);
+			// The existing reader refuses any NUL-containing text, even beyond
+			// the requested page. Keep that contract before returning a range.
+			if (slice.includes(0)) throw new Error("Unsupported binary file.");
+			hash.update(slice);
+			size += bytesRead;
+			sawBytes = true;
+			if (!lineActive) beginLine();
+			let cursor = 0;
+			while (cursor < bytesRead) {
+				const newline = slice.indexOf(10, cursor);
+				if (newline === -1) {
+					append(slice.subarray(cursor));
+					lastByteWasNewline = false;
+					cursor = bytesRead;
+				} else {
+					append(slice.subarray(cursor, newline + 1));
+					finishLine();
+					newlineCount += 1;
+					lastByteWasNewline = true;
+					cursor = newline + 1;
+					if (cursor < bytesRead) beginLine();
+				}
+			}
+			position += bytesRead;
+		}
+		if (lineActive) finishLine();
+		const after = await handle.stat().catch(() => null);
+		if (!after) return { unstable: true };
+		let pathAfter;
+		try {
+			pathAfter = await fs.stat(abs);
+		} catch {
+			return { unstable: true };
+		}
+		if (
+			after.dev !== before.dev || after.ino !== before.ino ||
+			after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+			pathAfter.dev !== before.dev || pathAfter.ino !== before.ino ||
+			pathAfter.size !== before.size || pathAfter.mtimeMs !== before.mtimeMs
+		) {
+			return { unstable: true };
+		}
+		const totalLines = newlineCount + (sawBytes && !lastByteWasNewline ? 1 : 0);
+		return {
+			unstable: false,
+			contentHash: formatContentHash(hash.digest("hex")),
+			sizeBytes: size,
+			totalLines,
+			content: collected.join(""),
+			collectedLines: collected.length,
+			stopReason,
+			oversized,
+			overflow,
+		};
+	} finally {
+		await handle.close().catch(() => {});
+	}
+}
+
+async function readTextRangeStable(abs, range, options = {}) {
+	const attempts = 3;
+	for (let attempt = 0; attempt < attempts; attempt += 1) {
+		options.signal?.throwIfAborted();
+		const result = await readTextRangeOnce(abs, range, options);
+		if (!result.unstable) return result;
+		// Yield between attempts so a competing writer can finish, without any
+		// global lock, cache, or retained file handle.
+		await new Promise((resolve) => setImmediate(resolve));
+	}
+	throw typedReadError(
+		"FILE_CHANGED_DURING_READ",
+		"File changed while it was being read; no consistent snapshot was available. Re-read the file.",
+	);
+}
+
 const DIFF_MAX_BYTES = 200000;
 const DIFF_MAX_LINES = 200;
 async function boundedTextForDiff(abs) {
@@ -2406,17 +2666,18 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			const requestedHash = args.if_content_hash === undefined
 				? null
 				: normalizeContentHash(args.if_content_hash, "if_content_hash");
+			const expectedHash = args.expected_content_hash === undefined
+				? null
+				: normalizeContentHash(args.expected_content_hash, "expected_content_hash");
+			if (requestedHash && expectedHash) {
+				throw typedReadError(
+					"INVALID_CONTENT_HASH_MODE",
+					"Provide either if_content_hash (skip unchanged content) or expected_content_hash (version gate), not both.",
+				);
+			}
+			const range = resolveReadRange(args);
 			if (!(await fs.stat(target)).isFile()) throw new Error("Read target must be a regular file.");
-			// One byte snapshot feeds both the version hash and the returned
-			// content, so a conditional response can never describe a different
-			// version than the one whose content was (or was not) sent.
-			const bytes = await fs.readFile(target);
-			const base = {
-				success: true,
-				path: relativeDisplayPath(root, target, args.relative_path),
-				content_hash: contentHashOfBytes(bytes),
-				size_bytes: bytes.length,
-			};
+			const display = relativeDisplayPath(root, target, args.relative_path);
 			const mime = {
 				".png": "image/png",
 				".jpg": "image/jpeg",
@@ -2424,7 +2685,128 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				".webp": "image/webp",
 				".gif": "image/gif",
 			}[path.extname(target).toLowerCase()];
+			if (range && (mime || path.extname(target).toLowerCase() === ".pdf")) {
+				throw typedReadError(
+					"LINE_RANGE_UNSUPPORTED",
+					"Line ranges are not supported for image or PDF reads; read the file without start_line/end_line.",
+				);
+			}
+			if (range) {
+				const scan = await readTextRangeStable(target, range, { signal });
+				const base = {
+					success: true,
+					path: display,
+					content_hash: scan.contentHash,
+					size_bytes: scan.sizeBytes,
+				};
+				if (expectedHash && expectedHash !== scan.contentHash) {
+					return versionMismatchResult(
+						display,
+						expectedHash,
+						{ contentHash: scan.contentHash, sizeBytes: scan.sizeBytes },
+						{
+							start_line: range.startLine,
+							end_line: range.requestedEndLine,
+							total_lines: scan.totalLines,
+						},
+					);
+				}
+				if (scan.totalLines < 1 || range.startLine > scan.totalLines) {
+					return {
+						...base,
+						success: false,
+						code: "LINE_RANGE_OUT_OF_BOUNDS",
+						outcome: "line_range_out_of_bounds",
+						start_line: range.startLine,
+						end_line: range.requestedEndLine,
+						total_lines: scan.totalLines,
+						error: `start_line ${range.startLine} is beyond the end of ${display} ` +
+							`(${scan.totalLines} line${scan.totalLines === 1 ? "" : "s"}).`,
+					};
+				}
+				if (requestedHash && requestedHash === scan.contentHash) {
+					const effectiveEnd = Math.min(range.requestedEndLine, scan.totalLines);
+					const hasMore = effectiveEnd < scan.totalLines;
+					return {
+						...base,
+						not_modified: true,
+						start_line: range.startLine,
+						end_line: effectiveEnd,
+						total_lines: scan.totalLines,
+						has_more: hasMore,
+						next_start_line: hasMore ? effectiveEnd + 1 : null,
+					};
+				}
+				if (scan.oversized) {
+					const oversized = {
+						...base,
+						success: false,
+						code: "LINE_TOO_LONG",
+						outcome: "line_too_long",
+						start_line: range.startLine,
+						end_line: range.requestedEndLine,
+						total_lines: scan.totalLines,
+						line_number: scan.oversized.line,
+						line_bytes: scan.oversized.bytes,
+						max_output_chars: READ_MAX_OUTPUT_CHARS,
+						suggested_next_start_line: scan.oversized.line < scan.totalLines
+							? scan.oversized.line + 1
+							: null,
+						error: `Line ${scan.oversized.line} in ${display} is too long to return within the ` +
+							`${READ_MAX_OUTPUT_CHARS.toLocaleString()}-character output limit. ` +
+							"Continue after that line or inspect it with a different tool.",
+					};
+					if (scan.oversized.chars !== undefined) oversized.line_chars = scan.oversized.chars;
+					return oversized;
+				}
+				const actualEnd = range.startLine + scan.collectedLines - 1;
+				const hasMore = actualEnd < scan.totalLines;
+				const result = {
+					...base,
+					...(requestedHash ? { not_modified: false } : {}),
+					start_line: range.startLine,
+					end_line: actualEnd,
+					actual_start_line: range.startLine,
+					actual_end_line: actualEnd,
+					total_lines: scan.totalLines,
+					has_more: hasMore,
+					next_start_line: hasMore ? actualEnd + 1 : null,
+					content: scan.content,
+				};
+				if (range.endProvided && range.requestedEndLine !== actualEnd) {
+					result.requested_end_line = range.requestedEndLine;
+				}
+				if (range.pageCapped || scan.stopReason === "output_limit") {
+					result.truncated = true;
+					result.truncation_reason = scan.stopReason === "output_limit" ? "output_limit" : "page_limit";
+				}
+				if (scan.stopReason === "output_limit" && scan.overflow) {
+					result.overflow_line_number = scan.overflow.line;
+					result.overflow_line_bytes = scan.overflow.bytes;
+					if (scan.overflow.chars !== undefined) result.overflow_line_chars = scan.overflow.chars;
+					if (scan.overflow.line < scan.totalLines) {
+						result.suggested_next_start_line = scan.overflow.line + 1;
+					}
+				}
+				return result;
+			}
+			// One byte snapshot feeds both the version hash and the returned
+			// content, so a conditional response can never describe a different
+			// version than the one whose content was (or was not) sent.
+			const bytes = await fs.readFile(target);
+			const base = {
+				success: true,
+				path: display,
+				content_hash: contentHashOfBytes(bytes),
+				size_bytes: bytes.length,
+			};
 			if (mime) {
+				if (expectedHash && expectedHash !== base.content_hash) {
+					return versionMismatchResult(display, expectedHash, {
+						contentHash: base.content_hash,
+						sizeBytes: base.size_bytes,
+					});
+				}
 				if (requestedHash && requestedHash === base.content_hash) {
 					return { ...base, not_modified: true };
 				}
@@ -2441,6 +2823,12 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			// a matching hash must never turn an unsupported file into a
 			// readable one.
 			if (content.includes("\0")) throw new Error("Unsupported binary file.");
+			if (expectedHash && expectedHash !== base.content_hash) {
+				return versionMismatchResult(display, expectedHash, {
+					contentHash: base.content_hash,
+					sizeBytes: base.size_bytes,
+				});
+			}
 			if (requestedHash && requestedHash === base.content_hash) {
 				return { ...base, not_modified: true };
 			}
@@ -2540,7 +2928,9 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             else if (error?.code === 'SUBAGENT_DEADLINE_EXCEEDED') result.status = 'agent_deadline_exceeded';
             else if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') result.status = 'cancelled';
         }
-		if (["STALE_FILE", "PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED"].includes(error?.code)) result.code = error.code;
+		if (["STALE_FILE", "PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED",
+			"INVALID_LINE_RANGE", "LINE_RANGE_OUT_OF_BOUNDS", "LINE_RANGE_UNSUPPORTED",
+			"LINE_TOO_LONG", "FILE_CHANGED_DURING_READ", "INVALID_CONTENT_HASH_MODE"].includes(error?.code)) result.code = error.code;
 		if (error?.currentContentHash !== undefined) {
 			result.current_content_hash = error.currentContentHash;
 			result.size_bytes = error.currentSizeBytes ?? null;

@@ -48,20 +48,20 @@ export default function SpendingTimeline({ data = [], groupBy = 'day', title = '
   const hasPriced = chartData.some(row => row.estimatedCost > 0 || row.providerReported > 0);
   if (!chartData.length || !hasActivity) {
     return (
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+        <h3 className="text-xs font-semibold">{title}</h3>
+        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">
           No cloud usage recorded for this period.
         </p>
       </section>
     );
   }
   return (
-    <figure className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label={`${title}, grouped by ${groupBy} in UTC`}>
+    <figure className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-label={`${title}, grouped by ${groupBy} in UTC`}>
       <figcaption className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">USD · UTC · {groupBy === 'week' ? 'weeks start Monday' : groupBy === 'month' ? 'monthly buckets' : 'daily buckets'}</p>
+          <h3 className="text-xs font-semibold">{title}</h3>
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">USD · UTC · {groupBy === 'week' ? 'weeks start Monday' : groupBy === 'month' ? 'monthly buckets' : 'daily buckets'}</p>
         </div>
         <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
           <span><span className="mr-1 inline-block size-2.5 rounded-sm bg-[#5b9bff]" />Rate-based estimate</span>

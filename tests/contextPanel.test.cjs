@@ -6,6 +6,7 @@ const path = require('node:path');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const sidebar = read('src/components/RightSidebar.jsx');
 const panel = read('src/components/ContextPanel.jsx');
+const app = read('src/App.jsx');
 const preload = read('src/preload.js');
 const palace = read('src/components/MemoryPalace.jsx');
 const engine = read('src/main/compressionEngine.js');
@@ -20,7 +21,7 @@ assert.ok(
 assert.ok(sidebar.includes('LuHistory'), 'Context tab has an icon');
 assert.ok(sidebar.includes('id="controls-context"'), 'context panel mounted with a stable id');
 assert.ok(
-   /<ContextPanel\s+sessionId=\{sessionId\}\s+modelId=\{modelId\}\s+active=\{tab === "context"\}\s*\/>/.test(sidebar),
+   /<ContextPanel\s+measurement=\{contextMeasurement\}\s+sessionId=\{sessionId\}\s+modelId=\{modelId\}\s+active=\{tab === "context"\}\s*\/>/.test(sidebar),
   'context panel receives the session and visibility for refresh',
 );
 assert.ok(
@@ -47,8 +48,16 @@ assert.ok(panel.includes('Stored records, shown as saved'), 'archived originals 
 assert.ok(panel.includes('Superseded versions describe past history'), 'superseded versions explained, not rewritten');
 assert.ok(!panel.includes('dangerouslySetInnerHTML'), 'checkpoint text and tool output render as escaped text');
 assert.ok(!panel.match(/token.?saved|saved.*tokens?/i), 'no fabricated token-savings claims');
-assert.ok(panel.includes('onCompressionComplete'), 'panel refreshes on compression completion');
-assert.ok(panel.includes('result.error ?? result.reason'), 'panel surfaces failure reasons');
+assert.ok(panel.includes('useCompressionEvents'), 'panel refreshes on compression completion');
+assert.ok(
+  panel.includes('result.error ?? result.reason'),
+  'panel surfaces failure reasons',
+);
+const compressionEvents = read('src/context/CompressionEventsContext.jsx');
+assert.ok(
+  compressionEvents.includes('onCompressionComplete') && app.includes('<CompressionEventsProvider>'),
+  'one provider owns the compression subscription instead of one listener per pane',
+);
 assert.ok(panel.includes('role="alert"'), 'errors use role=alert');
 assert.ok(panel.includes('role="status"'), 'loading and status use role=status');
 

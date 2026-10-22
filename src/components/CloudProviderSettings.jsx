@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { LuCloud } from 'react-icons/lu';
+import { NumberField, SelectField, TextField } from './FormControls';
+import {
+  SettingsButton,
+  SettingsCard,
+  SettingsEmpty,
+  SettingsHint,
+  SettingsMessage,
+} from './settings/SettingsSection';
 
-const inputClass = 'mt-1 block w-full rounded-lg border border-[var(--border)] bg-[var(--input)] p-2';
 const EMPTY_DEFAULTS = { defaultImageProviderId: '', defaultVideoProviderId: '' };
 function isLocalBaseUrlValue(value) {
   const host = (() => { try { return new URL(String(value || '').trim()).hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, ''); } catch { return ''; } })();
@@ -106,88 +114,122 @@ export default function CloudProviderSettings() {
       ? { ...row, pricing: { ...(row.pricing ?? {}), [field]: value } } : row));
   }
 
-  return <div className="space-y-4">
-    <div role="tablist" aria-label="Cloud provider categories" className="flex w-fit gap-1 rounded-lg border border-[var(--border)] p-1">
-      {[['text', 'Text Models (LLMs)'], ['media', 'Media Models (Image & Video)']].map(([id, label]) =>
-        <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setMessage(''); setError(''); }}
-          className={`rounded-md px-3 py-2 text-sm ${tab === id ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'text-[var(--text-secondary)]'}`}>{label}</button>)}
-    </div>
+  const categoryCopy = tab === 'text'
+    ? 'Configure conversational cloud providers. Only text models appear in the chat model selector.'
+    : 'Configure image and video generation APIs. Media providers never appear as conversational chat models.';
 
-    {tab === 'text' ? <>
-      <p className="text-sm text-[var(--text-secondary)]">Configure conversational cloud providers. Only Text Models appear in the chat model selector.</p>
-      <p className="text-xs text-[var(--text-muted)]">API keys are stored locally in this app’s settings database. Leave a saved key blank to keep it.</p>
-      <button type="button" disabled={busy} onClick={() => addProvider('text')} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">+ Add Text Provider</button>
-    </> : <>
-      <p className="text-sm text-[var(--text-secondary)]">Configure image and video generation APIs. Media providers never appear as conversational chat models.</p>
-      <div className="grid gap-3 rounded-xl border border-[var(--border)] p-4 sm:grid-cols-2">
-        <label className="block text-sm">Default Image Model for Tools
-          <select value={defaults.defaultImageProviderId} disabled={busy} onChange={event => updateDefaults('defaultImageProviderId', event.target.value)} className={inputClass}>
+  return <div className="space-y-3">
+    <SettingsCard icon={LuCloud} title="Cloud providers" description={categoryCopy}>
+      <div role="tablist" aria-label="Cloud provider categories" className="flex w-fit gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1">
+        {[['text', 'Text Models (LLMs)'], ['media', 'Media Models (Image & Video)']].map(([id, label]) =>
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setMessage(''); setError(''); }}
+            className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${tab === id ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'}`}>{label}</button>)}
+      </div>
+
+      {tab === 'text' ? <>
+        <SettingsHint>API keys are stored locally in this app’s settings database. Leave a saved key blank to keep it.</SettingsHint>
+        <div className="mt-3">
+          <SettingsButton disabled={busy} onClick={() => addProvider('text')}>+ Add Text Provider</SettingsButton>
+        </div>
+      </> : <>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <SelectField label="Default Image Model for Tools" value={defaults.defaultImageProviderId} disabled={busy}
+            onChange={event => updateDefaults('defaultImageProviderId', event.target.value)}>
             <option value="">No default selected</option>{mediaOfType('image').map(row => <option key={row.id} value={row.id}>{row.name} — {row.modelId}</option>)}
-          </select>
-        </label>
-        <label className="block text-sm">Default Video Model for Tools
-          <select value={defaults.defaultVideoProviderId} disabled={busy} onChange={event => updateDefaults('defaultVideoProviderId', event.target.value)} className={inputClass}>
+          </SelectField>
+          <SelectField label="Default Video Model for Tools" value={defaults.defaultVideoProviderId} disabled={busy}
+            onChange={event => updateDefaults('defaultVideoProviderId', event.target.value)}>
             <option value="">No default selected</option>{mediaOfType('video').map(row => <option key={row.id} value={row.id}>{row.name} — {row.modelId}</option>)}
-          </select>
-        </label>
-      </div>
-      <p className="text-xs text-[var(--text-muted)]">Generation may incur provider charges. API keys are stored locally in this app’s settings database.</p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} onClick={() => addProvider('media', 'image')} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">+ Add Image Provider</button>
-        <button type="button" disabled={busy} onClick={() => addProvider('media', 'video')} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">+ Add Video Provider</button>
-      </div>
-    </>}
+          </SelectField>
+        </div>
+        <SettingsHint>Generation may incur provider charges. API keys are stored locally in this app’s settings database.</SettingsHint>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SettingsButton disabled={busy} onClick={() => addProvider('media', 'image')}>+ Add Image Provider</SettingsButton>
+          <SettingsButton disabled={busy} onClick={() => addProvider('media', 'video')}>+ Add Video Provider</SettingsButton>
+        </div>
+      </>}
+    </SettingsCard>
 
-    {visibleProviders.map(row => <form key={row.id} onSubmit={event => { event.preventDefault(); persist(row); }} className="space-y-3 rounded-xl border border-[var(--border)] p-4">
-      <h3 className="font-semibold">{row.name || (row.category === 'media' ? 'Media Provider' : 'Text Provider')} <span className="text-xs font-normal text-[var(--text-secondary)]">{row.configured ? (needsApiKey(row) ? 'Key saved' : 'Ready') : 'Not configured'}</span></h3>
-      <label className="block text-sm">Name<input required value={row.name} disabled={busy} placeholder="OpenRouter, Stability, My API" onChange={event => update(row.id, 'name', event.target.value)} className={inputClass} /></label>
-      {row.category === 'media' && <label className="block text-sm">Media Type
-        <select value={row.mediaType || 'image'} disabled={busy} onChange={event => update(row.id, 'mediaType', event.target.value)} className={inputClass}>
-          <option value="image">Image</option><option value="video">Video</option>
-        </select>
-      </label>}
-      <label className="block text-sm">API Type
-        <select value={row.apiType || 'openai'} disabled={busy} onChange={event => update(row.id, 'apiType', event.target.value)} className={inputClass}>
-          {row.category === 'text' ? <><option value="openai">OpenAI-compatible Chat</option><option value="anthropic">Anthropic Messages</option></> : <>
-            <option value="openrouter">OpenRouter Images</option><option value="openai-images">OpenAI-compatible Images</option><option value="stable-diffusion">Stable Diffusion Web API</option>
-          </>}
-        </select>
-      </label>
-      <label className="block text-sm">Base URL<input required type="url" value={row.baseUrl} disabled={busy} onChange={event => update(row.id, 'baseUrl', event.target.value)} className={inputClass} /></label>
-      <label className="block text-sm">API Key{!needsApiKey(row) && <span className="text-[var(--text-muted)]"> (optional for local servers)</span>}<input required={!row.configured && needsApiKey(row)} type="password" autoComplete="off" spellCheck={false} value={row.apiKey || ''} disabled={busy}
-        placeholder={row.configured ? 'Leave blank to keep saved key' : needsApiKey(row) ? 'Enter API key' : 'Empty — not needed for LM Studio / Ollama'} onChange={event => update(row.id, 'apiKey', event.target.value)} className={inputClass} /></label>
-      <div>
-        <label htmlFor={`model-${row.id}`} className="block text-sm">Model ID</label>
-        <div className="flex items-center gap-2">
-          <input id={`model-${row.id}`} required list={`models-${row.id}`} value={row.modelId} disabled={busy} placeholder="Type a model ID or test the connection"
-            onChange={event => update(row.id, 'modelId', event.target.value)} className={`${inputClass} min-w-0 flex-1`} />
-          <button type="button" disabled={busy || modelLists[row.id]?.loading || !row.baseUrl.trim() || (!row.apiKey?.trim() && !row.configured && needsApiKey(row))} onClick={() => fetchModels(row)}
-            className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50">{modelLists[row.id]?.loading ? 'Testing…' : row.category === 'text' ? 'Fetch Models' : 'Test / Fetch Models'}</button>
+    {visibleProviders.map(row => <SettingsCard
+      as="form"
+      key={row.id}
+      onSubmit={event => { event.preventDefault(); persist(row); }}
+      className="space-y-3"
+      title={row.name || (row.category === 'media' ? 'Media Provider' : 'Text Provider')}
+      action={
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] ${row.configured ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
+          {row.configured ? (needsApiKey(row) ? 'Key saved' : 'Ready') : 'Not configured'}
+        </span>
+      }
+    >
+      <TextField label="Name" required value={row.name} disabled={busy} placeholder="OpenRouter, Stability, My API" onChange={event => update(row.id, 'name', event.target.value)} />
+      {row.category === 'media' && <SelectField label="Media Type" value={row.mediaType || 'image'} disabled={busy} onChange={event => update(row.id, 'mediaType', event.target.value)}>
+        <option value="image">Image</option><option value="video">Video</option>
+      </SelectField>}
+      <SelectField label="API Type" value={row.apiType || 'openai'} disabled={busy} onChange={event => update(row.id, 'apiType', event.target.value)}>
+        {row.category === 'text' ? <><option value="openai">OpenAI-compatible Chat</option><option value="anthropic">Anthropic Messages</option></> : <>
+          <option value="openrouter">OpenRouter Images</option><option value="openai-images">OpenAI-compatible Images</option><option value="stable-diffusion">Stable Diffusion Web API</option>
+        </>}
+      </SelectField>
+      <TextField label="Base URL" required type="url" value={row.baseUrl} disabled={busy} onChange={event => update(row.id, 'baseUrl', event.target.value)} />
+      <TextField
+        label={<>API Key{!needsApiKey(row) && <span className="font-normal text-[var(--text-muted)]"> (optional for local servers)</span>}</>}
+        required={!row.configured && needsApiKey(row)}
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        value={row.apiKey || ''}
+        disabled={busy}
+        placeholder={row.configured ? 'Leave blank to keep saved key' : needsApiKey(row) ? 'Enter API key' : 'Empty — not needed for LM Studio / Ollama'}
+        onChange={event => update(row.id, 'apiKey', event.target.value)}
+      />
+      {row.category === 'media' ? (
+        <div>
+          <div className="flex items-end gap-2">
+            <TextField id={`model-${row.id}`} className="min-w-0 flex-1" label="Model ID" required list={`models-${row.id}`} value={row.modelId} disabled={busy} placeholder="Type a model ID or test the connection"
+              onChange={event => update(row.id, 'modelId', event.target.value)} />
+            <SettingsButton disabled={busy || modelLists[row.id]?.loading || !row.baseUrl.trim() || (!row.apiKey?.trim() && !row.configured && needsApiKey(row))} onClick={() => fetchModels(row)}>
+              {modelLists[row.id]?.loading ? 'Testing…' : 'Test / Fetch Models'}
+            </SettingsButton>
+          </div>
+          <datalist id={`models-${row.id}`}>{(modelLists[row.id]?.models || []).map(modelId => <option key={modelId} value={modelId} />)}</datalist>
+          <SettingsHint>Choose a suggestion or type the provider’s model ID.</SettingsHint>
+          <SettingsMessage>{modelLists[row.id]?.error}</SettingsMessage>
+          {modelLists[row.id] && !modelLists[row.id].loading && !modelLists[row.id].error && <p role="status" className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            {modelLists[row.id].models.length ? `${modelLists[row.id].models.length} models fetched.` : 'Connection succeeded. Enter a model ID manually.'}
+          </p>}
         </div>
-        <datalist id={`models-${row.id}`}>{(modelLists[row.id]?.models || []).map(modelId => <option key={modelId} value={modelId} />)}</datalist>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">Choose a suggestion or type the provider’s model ID.</p>
-        {modelLists[row.id]?.error && <p role="alert" className="mt-1 text-xs text-[var(--error)]">{modelLists[row.id].error}</p>}
-        {modelLists[row.id] && !modelLists[row.id].loading && !modelLists[row.id].error && <p role="status" className="mt-1 text-xs text-[var(--text-secondary)]">
-          {modelLists[row.id].models.length ? `${modelLists[row.id].models.length} models fetched.` : 'Connection succeeded. Enter a model ID manually.'}
-        </p>}
-      </div>
-      {row.category === 'text' && <fieldset className="rounded-lg border border-[var(--border)] p-3">
-        <legend className="px-1 text-xs text-[var(--text-muted)]">Cost rates (optional, USD per million tokens)</legend>
+      ) : (
+        <div>
+          <div className="flex items-center gap-2">
+            <SettingsButton disabled={busy || modelLists[row.id]?.loading || !row.baseUrl.trim() || (!row.apiKey?.trim() && !row.configured && needsApiKey(row))} onClick={() => fetchModels(row)}>
+              {modelLists[row.id]?.loading ? 'Testing…' : 'Test connection'}
+            </SettingsButton>
+            {modelLists[row.id] && !modelLists[row.id].loading && !modelLists[row.id].error && <p role="status" className="text-[11px] text-[var(--text-secondary)]">
+              {modelLists[row.id].models.length ? `${modelLists[row.id].models.length} models available.` : 'Connection succeeded. No model list was returned.'}
+            </p>}
+          </div>
+          <SettingsHint>Models are chosen per chat in the model selector, so one provider and key can serve any of its models.</SettingsHint>
+          <SettingsMessage>{modelLists[row.id]?.error}</SettingsMessage>
+        </div>
+      )}
+      {row.category === 'text' && <fieldset className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+        <legend className="px-1 text-[11px] text-[var(--text-muted)]">Cost rates (optional, USD per million tokens)</legend>
         <div className="grid gap-2 sm:grid-cols-4">
-          <label className="block text-xs">Input<input type="number" min="0" step="any" value={row.pricing?.input ?? ''} disabled={busy} placeholder="e.g. 2" onChange={event => updatePricing(row.id, 'input', event.target.value)} className={inputClass} /></label>
-          <label className="block text-xs">Output<input type="number" min="0" step="any" value={row.pricing?.output ?? ''} disabled={busy} placeholder="e.g. 10" onChange={event => updatePricing(row.id, 'output', event.target.value)} className={inputClass} /></label>
-          <label className="block text-xs">Cache read<input type="number" min="0" step="any" value={row.pricing?.cacheRead ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheRead', event.target.value)} className={inputClass} /></label>
-          <label className="block text-xs">Cache write<input type="number" min="0" step="any" value={row.pricing?.cacheWrite ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheWrite', event.target.value)} className={inputClass} /></label>
+          <NumberField label="Input" min="0" step="any" value={row.pricing?.input ?? ''} disabled={busy} placeholder="e.g. 2" onChange={event => updatePricing(row.id, 'input', event.target.value)} />
+          <NumberField label="Output" min="0" step="any" value={row.pricing?.output ?? ''} disabled={busy} placeholder="e.g. 10" onChange={event => updatePricing(row.id, 'output', event.target.value)} />
+          <NumberField label="Cache read" min="0" step="any" value={row.pricing?.cacheRead ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheRead', event.target.value)} />
+          <NumberField label="Cache write" min="0" step="any" value={row.pricing?.cacheWrite ?? ''} disabled={busy} placeholder="optional" onChange={event => updatePricing(row.id, 'cacheWrite', event.target.value)} />
         </div>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">Used for cost estimates only. Enter both input and output to enable them; leave blank to rely on known provider pricing or a provider-reported charge.</p>
+        <SettingsHint>Used for cost estimates only. Enter both input and output to enable them; leave blank to rely on known provider pricing or a provider-reported charge.</SettingsHint>
       </fieldset>}
-      <div className="flex gap-3">
-        <button disabled={busy} className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-[var(--on-accent)] disabled:opacity-50">Save</button>
-        <button type="button" disabled={busy} onClick={() => persist(row, true)} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">Delete</button>
+      <div className="flex items-center gap-2 border-t border-[var(--border)] pt-3">
+        <SettingsButton type="submit" variant="primary" disabled={busy}>Save</SettingsButton>
+        <SettingsButton disabled={busy} onClick={() => persist(row, true)}>Delete</SettingsButton>
       </div>
-    </form>)}
-    {!visibleProviders.length && <p className="rounded-xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--text-secondary)]">No {tab === 'text' ? 'text' : 'media'} providers configured.</p>}
-    {error && <p role="alert" className="text-sm text-[var(--error)]">{error}</p>}
-    {message && <p role="status" className="text-sm">{message}</p>}
+    </SettingsCard>)}
+    {!visibleProviders.length && <SettingsEmpty>No {tab === 'text' ? 'text' : 'media'} providers configured.</SettingsEmpty>}
+    <SettingsMessage>{error}</SettingsMessage>
+    <SettingsMessage tone="success">{message}</SettingsMessage>
   </div>;
 }

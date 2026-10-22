@@ -1,0 +1,1104 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Dhaka",
+  "scope": "Read-only audit of current source, packaged backend, screenshot session and running local model /props. No inference, setting changes, chat mutation or production fixes. Temporary databases used for reproductions.",
+  "productionSourceChangedDuringAudit": [],
+  "sourceHashes": {
+    "main.js": "652939d195912320015f9bf1e3020ca838fcc6edb28bcfb1d1d770937df11a84",
+    "src/preload.js": "7bbe00365aea78a2193e3bf759468068d155d07a2cd01cb88839dfe032081e61",
+    "src/main/agentDefaults.js": "baee44070876d68d011736e83d6c7fa19a3e39cc45437a510cf98334b48a304e",
+    "src/main/dataAccess.js": "8091ec4c3f468ece8ac03c85b6e0d1411b8461721040b9a525d8c38c842c566d",
+    "src/main/workspacePlan.js": "8dcb3dd5ae7ca776a09ed9dfa689855386428e864250df9f12acb76b2e6e8eaf",
+    "src/main/pathUtils.js": "254500630909d916e352a7c14779f80a79bef88cb9908552a0fd29772fe4af5e",
+    "src/main/filesystemToolLimits.js": "621b62a41b87219300fd42537d90c78004469271f39501b4df2e3bdf4c826cdf",
+    "src/main/contextBudget.js": "be2e70c0ac7895f2d0c8acd00ec384ea3db679a2938900ff23ac8c93f8e88753",
+    "src/main/runSteering.js": "0176429604f318a95b39775897634df5f34abf433876fccede447d0305743080",
+    "src/main/subAgentRunner.js": "8ac32cfb6ccae5e090f7932382b7727ea40d831d7542a0af4875feb1f2a2b1c6",
+    "src/main/messageSearch.js": "5bbf42c872be061d57651c30922fa3301c836563beac69e43caa44b981c4ec42",
+    "src/main/dataMigration.js": "8fc4616c09830b1ed940c06ca70c7a62d6560ba08678be2190ebfe7dfcf77f84",
+    "src/main/memorySearchRuntime.js": "389c361c83131ab706684ece285f791111e8f791e52b25e97bb6dc6c00f04885",
+    "src/main/engineManager.js": "134102c2a7a4ae0d54afcc86d2311af91fede3d7600f84395b762bf30525f1b6",
+    "src/main/nativePlaywright.js": "ba763512ea95692f768fd81c84cf43c4e6baecb8cd5ab90ec386405e3268b30b",
+    "src/main/mcpManager.js": "89a21b4a33d3186af4c70d41de7d9e11f07f13841f7bc9b6b60c86b85b088f78",
+    "src/main/workLog.js": "a3abe9e5590ff3f86228bca6ca92bacbcee01fb8ad61a03bb3f239f7b0839a8e",
+    "src/main/capabilityOverrides.js": "6f5d59ac6c43e256528d4d019fa655c051648714cc9c77e7b2b60eb947e4bb8f",
+    "src/main/backgroundSettings.js": "061b3089804b09c2d5e7b49d11eb3e1a9894726e9b1501a5439020c9d0dcf022",
+    "src/main/messageVariants.js": "8560057ad60dc738f7f75ed610dd000867b168048dd2f0048a52fb72a68a6846",
+    "src/main/localMedia.js": "92a40c0d93952e48716b91ec99e6d643e879fdfec6433927261e7e69df12402f",
+    "src/main/safetyGuards.js": "6ff0126471d3002f8391b3c6ac6ef460561ef3ac60d5a443498bd992c78b2502",
+    "src/main/db.js": "c65f948ea5dcbf6f812fd79f7674997772371ec1a5369f88d4bfac857f8dad7a",
+    "src/main/localEngineFetch.js": "615ef6452eacf7b151ac8f33b1ad2ad586b9f3c6e02171a364141b2f310a9aea",
+    "src/main/gpuMemory.js": "2fadf8bed0f18daf8d9c01946fc6a139a205729bd934bec4746d9fa266e435db",
+    "src/main/memoryManager.js": "1e6cbbbf1844fda985a9d4e06ada4c0e21603c5208ec7cbbde994143c11bdf13",
+    "src/main/memorySearchCore.js": "7e23f16d57b5ce7f592bcd33370a348d43471ff8a8a3c2ec5f3ad64616a4c41b",
+    "src/main/contextInspection.js": "6218ca7d963c8c8a1582abd4b3abd93b535a18195112c646dde884cc6e48e415",
+    "src/main/remoteMcp.js": "f3e65da27ec05de158b0196e79353e13200d200e0183f5c58233abaa3d1fe439",
+    "src/main/lspExecutionContext.js": "fbd34e5cec46285f7fe60443474bba37b3f68280578c1fde7960420492695eb1",
+    "src/main/spendingDashboard.js": "766c2213fbcfd8454f678ac97df5b2b361fc1ceaf9d282bb928696df3b056929",
+    "src/main/ragManager.js": "e0d68c60c089225df4da3d9033ac763cb67e5ef4fdfe426b14652e82e0babfd8",
+    "src/main/projectManager.js": "22519296c63317ecda2edaf577dc7d6cb63d483754dccbac14c526422592636a",
+    "src/main/skillsManager.js": "8430a30068ae7f41bd1f439e3ea099e4c8f5ea8c47b1650efbf93767cf976a65",
+    "src/main/compressionEngine.js": "bdb6db90d939cfd7b27e98916816747783d29309362a5d012ef67f6beaef3499",
+    "src/main/lspManager.js": "6a86dd0cc78ace4cc9491f02d586b03149fcb654705db5d5384d5f4bd3e47ada",
+    "src/main/samplingManager.js": "f5914bddc487742d83c514086810478bb4a2e0b8aa5d5341b3cf0ce773370453",
+    "src/main/configStore.js": "3c24ca0a9373153b43ddbf5e05d50557cad6b8737abb2cd9e4d2e424849826e7",
+    "src/main/compactionCore.js": "98965f78606b23ad5e673129ecffe853b5634802364f79b34953bc0828ff8554",
+    "src/main/legacyDataMigration.js": "8e0cbe74adddf0f7ef0b3e230bf0eceb0ef24f3ddd764ff4009b8cbad8273955",
+    "src/main/exportService.js": "3c5d71176bf0506079c0640cb9f5075a10505ef1fa0563ab84d5f33581295619",
+    "src/main/toolPermissions.js": "7c83d33aa6c77bbaeaad7ee9f3040d4dc57b4e79c415510198280fe278030ee2",
+    "src/main/promptBuilder.js": "8f5d2cd36036cd5d35cd882b18b33de81b8617b72002c37b129f154a064f1e7c",
+    "src/main/costEstimator.js": "38fe03086038fec6b6640037369c689ebe00686e4c325678dd490b36a9c61ed6",
+    "src/main/taskCheckpoints.js": "97a365f66156404e673aed9c2aeef1e2638ba9f5a0c24b4ebdc1190b1fbcd149",
+    "src/main/executionSteps.js": "25c96790a2c28d1f514bfc22b7f123bc6c314bed320ab1f1d7c723418029e685",
+    "src/main/recoveryIpc.js": "22676de1eca4653250a0d1c85d5dabc2a837616ec30c351e01277fd7b28ff74e",
+    "src/main/baseSystemPrompt.js": "e4c8300dac08f81f4cab6f691860d694f4cad65fb3e21e49413d304179054577",
+    "src/main/ipcHandlers.js": "fb64303dc5162d71c105c831788aadda63654055de2423d1391b3520b3a81500",
+    "src/main/taskBriefs.js": "b01cd44272ee9e1ead108bdb26f77fc17f5a16f941394c9faa0f5da96463b845",
+    "src/main/foregroundCommand.js": "2db8af41d28b1d8b5e88cc8d384eb82cd81d118802017ce87d49fe36ea3212ea",
+    "src/main/cloudProviders.js": "64ff811de0798e4dc1e3776d9ac3b0d0d872827737b5b38675f96a3de679d2c5",
+    "src/main/attachmentAccess.js": "ff57b5c4a133ae07268b2f4b3547b9cab53f04d540d4767a16ace9fc150ee3ee",
+    "src/main/memoryToolExecutor.js": "7d20a693fc843df110ef97aea48a517310f65e5ab42dece7542695ebf3dd4bc1",
+    "src/main/recoveryBoundary.js": "1b9375e6795571d27370b68a948632dec37f4af38a3473a2f7c8f6d173a30846",
+    "src/main/promptMeasurement.js": "cd6237a23c386b345eddecd35c263a6aea9731209f5ae4ce5cc2e2df91e6f4dd",
+    "src/main/memorySearchWorker.js": "5f7783c61e5dcd5544458e9c887aa5adfea15200004dbed12495cad0cb37533b",
+    "src/main/gifProcessor.js": "63a6889500fd8eec05629de0c6a027494658ea31d926e37a6fd62fd49dc28816",
+    "src/main/recoveryReferenceIndex.js": "845e5a017de19c1b87a9eb560ca3f46e4afcf0c1ad832ba9e4aada118eb10c75",
+    "src/main/attachmentDocuments.js": "1b3e3ba9a280a6daa9aac7539040983edeb236ed131c2eb217456e1ff18d6607",
+    "src/main/cloudModelMetadata.js": "396f6c86bb1ab737430692e1172d75c3316bd88c4c073884f8f4b31b48f54be8",
+    "src/main/modelScanner.js": "15e68fee20f6e12fe85a29df5946e921ff7d2b515edb50d958363852c8484c6f",
+    "src/main/sessionManager.js": "aaef765f20dc366b3be3a6a3cd478a22afdb11c7df11c3b31e217566a2c22b6c",
+    "src/main/configManager.js": "cff94388645f153448d0bbe9c2785cd6697ae256f35b9ae9345ba6db4b149777",
+    "src/main/turnDigest.js": "0f6a409a2cefe95808b4e091c310bbae2e917440e6d6146d28d5a3f1d38f43ba",
+    "src/main/streamDispatcher.js": "65ff823dff1ecc290b2c01a42cf13ba08ccb1bc52d0bd68802340a1e39a4706d",
+    "src/main/lspCodeIntelligence.js": "cf4b9441aa6500d73856f7eb581c776fad62a80b8d717a9331588a586ca8e998",
+    "src/main/fileUploads.js": "c7d003c018b29e5077505e85306711ba9fba169c9d80ab832b9833d77d6c94a1",
+    "src/main/profileSettings.js": "569e669e43e8e2a95f3525e14c24f749ddf5b0eec3ceea4f1ff6e75ffcc30214",
+    "src/main/recoveryStore.js": "506b222f4d099234b978fdfcb30451d23565059917a9ba0dba9467d5ca2beced",
+    "src/main/reasoningRuntime.js": "f9a7b9e31e08e0803748b84130b27f01b68a4ce1626207506c729d131a8719ae",
+    "src/main/settingsResolver.js": "ce986b3ab0989469005c6810a9a5a70cd5c7d39cfaa3f024954aae000f3f91d7",
+    "src/main/nativeTools.js": "4b8a0fd8e5756545b3e69f74b80079be13386d240aa4ce37ae4987f2600cbd2d",
+    "src/main/modelCapabilities.js": "d49cd9242a71acfbcfdff01769fa166459ceb095a6d23c8456d2568425bcc401",
+    "src/main/memoryNormalization.js": "4dcb7ea7a8ac6308b73a7aff365aa025144a4730a6ec6a1bcc4828d679b3d992",
+    "src/main/agentManager.js": "c54a8c8c52876c3b9700cdf30c26a0d0a0eaee1a2a7a4287a7c635525b52be71",
+    "src/main/nodeHttpFetch.js": "ff8a5ce43a6a3aa91e5c9fa949bd571f8bd31836f953dee594824d35aff10df5",
+    "src/main/tokenUsage.js": "d4bbc1f68b60bc2cfaca02531be41a7abde0af74706a227546992c0ae5860a76",
+    "src/main/backgroundCommands.js": "ec64c5b6588df394c8be1b7580517c78de07bda6eae7255f43e6e2dbca2378a5",
+    "src/hooks/useSessionDraft.js": "6cb03b72e3b553f5ea53696dc4a9ce2d9b412675d67ff12cdd6f134bdf6ee414",
+    "src/hooks/useBackgroundSettings.js": "1e769ba23daf913b9305a969f76a2a858cf1491e71295312f46c4e8120ada001",
+    "src/hooks/useRowUiState.js": "04d33486a0030e0c60d03c38e28011df8b1cd598506ca2acd27f8e6948f46a8b",
+    "src/hooks/useAvatarSettings.js": "ab8e5c1848b5b972d0704d1d4fc096c4d264b8207a5d57df1bc24cddecd58d14",
+    "src/components/main-app/useTranscriptVirtual.js": "01d01a9b254da9ed0b521695eaa2fe8718240c354c39cbc84739beff43132fb1",
+    "src/components/main-app/useStreamBuffer.js": "ce70bbf8714931630eab7e77fa5ecd29356e4da9353b1c291a7b022d5137b33c",
+    "src/components/main-app/useTranscriptWindow.js": "020503a7cfbe53ac340e0d4bc3aed8941bbe559c561a4a81bad2efad881a3ab5",
+    "src/main/services/notificationService.js": "baa53ae2d7ea9da6648b23a12046d7949adc55c3da65ee65a3795b126d329f05",
+    "src/main/subagents/index.js": "2363ee3839084f52451927a6806f84485323412d556548cc654a95d363c8461f",
+    "src/main/subagents/budgetSettings.js": "246589d79265ed58d747d3350aef71a4d8deaab634efc79bc6ddcf5265ac049e",
+    "src/main/subagents/executionManager.js": "c2796c9d86e0bf0816e7a3459cbf09259ca58f8de4d348e85af24f73a5c4f416",
+    "src/main/subagents/executionStore.js": "c34e089b08d28808e0d4141587620d83a5f29f15c2317077d5366adae87e5fd6",
+    "src/main/subagents/agentLoop.js": "fbaa93084a9f4c65fbe094181e9f517615d324a11765511c46a0bb6938c4472e",
+    "src/main/subagents/inferenceScheduler.js": "ead42a179f83195527ae0d892b97ea0f7d734dd326aa760ce2a9ee745a4dc39c",
+    "src/main/subagents/modelSelection.js": "53cc92520fe836eebcda8646dfad6f3cbaad48ccb6db302a916579b2e218d385",
+    "src/main/subagents/executionDeadline.js": "2c40b49f352f7989ab4d4b5f6ac6af177e745860bead10abfc9b3ec3c8227131",
+    "src/main/subagents/completion.js": "d99fce2d4f807e1bf45228a1c7a0474d379c7bd6e8ce62c785b1251df7511763",
+    "src/main/subagents/budgets.js": "951f6d06609ad75b07ab9d6044554c39bd700a7e17eafe9b6528f43ff9ac980f",
+    "src/main/subagents/executionBudget.js": "2303796663630fb8574706cc3de7210f17aafc34b7498d78c8e83bcf5d4ab853",
+    "src/main/subagents/persistence.js": "6c2ec4d67602350eba49caa854a20f9b39075cf5dd6e6d08d66b67045b477275",
+    "src/main/subagents/sessionManager.js": "92973e9aa00520b3558225ca8e181f983b2a70de822f7eaa6744d42fffa20bf4",
+    "src/main/subagents/continuationState.js": "fbade57fcc666138fc193371880d7c97bea6313cda4a0e317d63dd7328ff5819",
+    "src/main/subagents/contextRecovery.js": "f6de1d74f3fadb88b99da812f1085ff692df351356f91b115139e6806ab1318c",
+    "src/main/subagents/continuationManager.js": "8900774008d4a24e4a93eb9abb1b708728334a7948ebf15282bc121d054204f4",
+    "src/main/subagents/backgroundStore.js": "f4bf4fa4d0b24e8161fafc7cf11e175ddecefc63a478df5c1a24fffc0b379fca",
+    "src/main/tools/generateImage.js": "880b182783bdb2b2078baa7ca84f44257bd69bbdb9f055d74f561afba417e7dd",
+    "src/main/tools/saveMemory.js": "d8ffd67c675c3b40efa1adeda798a232667d0e3bedbca51ba9ceb28ed5eb303e",
+    "src/main/tools/subagent.js": "a27f2bd4dffae9f762da340b218d7d0ead8942da939f0b67771f8ec9c80bc80e",
+    "src/main/tools/webDiscovery.js": "ef7b3b66eec52f860f0419b8e50bec57d3e6b621a8b7450a77468cec0ce7a507",
+    "src/main/tools/lspTools.js": "e401a0c380fe85999aadd2909976bb6372a8e6fd9c4ed75fe9592c24a98d898f",
+    "src/main/tools/agentTools.js": "a56d3550ea172390554a551b09b620f784470ba35e152b8765c61c062e3d4b66",
+    "src/main/tools/searchMemory.js": "95e804dec9977e4bde3450110969a3a00e9b818ee03700f7c6ee8a76fe6f6fd1",
+    "src/main/tools/webSearch.js": "f37625d862591c3498232cdb3156517c7cdea52a3efa760434798acd79ca2aca",
+    "src/main/subagents/providers/localProvider.js": "78d12e591f8ce07f5a6e1ad6a066c53933892496b8fd1a13ef77ba0c94dcaea0",
+    "src/main/subagents/providers/streamCompletion.js": "7e1d808b55bc2ec265818476bb1f37bc6382b63bed84dcd8275bf909cfbd51cf",
+    "src/main/subagents/providers/index.js": "3ee5ad89e644211851b7b5e3663a553f28e32e6b7867fed9b4abe2eec01cf9ba",
+    "src/main/subagents/providers/cloudProvider.js": "19e7d0315d9697ee8079bbb135361dcbd0e4b2e9d033eec2ccc1ec3f63389865",
+    "src/lib/colorSwatches.mjs": "b7f1c244d46c776405d68ba4648187c602cb9d5fd42be810b08e44a45a679a4d",
+    "src/lib/chatSearch.mjs": "271bc45a03a814ba0d17a3078936fc678edd461e45e0d8ed23629088f52a8b4a",
+    "src/lib/steeringDisplay.mjs": "41ab311fda6a934b38b5a0a91aff30d7008d7aad0243f6e6a6eb702646103c40",
+    "src/lib/summarizeNotice.mjs": "9802db9a54323f1550a71e96d24c43cbd36b5484e92263d16229ff31678944fe",
+    "src/lib/sessionGroups.mjs": "85d274c33a36cf3da677179621933420eff8d09373f0a24e4f3afe0fda96c777",
+    "src/lib/tooltip.mjs": "4efa0510c0cd4f45196d376824ac2a21b16b72c6fca0d6ee20fd3d0bd30639a0",
+    "src/lib/contextDisplay.mjs": "fab6ae24c3291885d242af21c9dfaa2a391416d74c960877972bf473c97b4e9e",
+    "src/lib/thinkingBudget.mjs": "17d311d565346cfac5e79354b4a1b62f0674fb6013c4897be8006be932afb0a5",
+    "src/lib/recoverySafety.mjs": "c7c5ba47b42933927cb298e728dd2ef0d51281f77b73dfadb6ef85d0341e8505",
+    "src/lib/transcriptWindow.mjs": "b09e0cdefac83725201c2d41cfee80f1223b91d185d8f65b9a7b6460d2d5a52d",
+    "src/lib/memoryEstimate.mjs": "49006deb18f5dd81600f115f666afc68ed8661d03a1c9924be6cc8ae051de8a4",
+    "src/lib/subagentDisplay.mjs": "346c6ec6d205db3c18d3886c8133a76b9f18cda9a3902bde052444f777aaad08",
+    "src/lib/headerWorkspace.mjs": "200ea2e1b240f769c296d53299fe842188d13c327a1d920362125d93ca9dc14c",
+    "src/lib/diffView.mjs": "07fb7f132c765f281708e376cbcb36c8ac5d023cdd0341ec77ec4b0a35fb768a",
+    "src/lib/permissionModes.mjs": "e130f542b2b6b5e59b209b37c95f6e7e2cad57c542553e7f6d2fa628ea57e109",
+    "src/lib/desktopChat.mjs": "6fe46b3c1ff86f5b9620cb1756cb834484bf93e23034d788d2e4180b594af58b",
+    "src/lib/imageValidation.mjs": "8432af9f141be7c106eab73c07a35ac8b090d6bd9ebd9a35f776430e77389ed9",
+    "src/lib/thinkingStream.mjs": "fba0bd156df34f2fe5cbd47ec282204cb1e08542099d2e97c4fef5d3f1c169aa",
+    "src/lib/completionStats.mjs": "0dbace7702d5c699fe2cc0f97cdc2ccb0b0603806ba7597a3eec92d21c687368",
+    "src/lib/memoryChat.mjs": "7d414c2ff43d816729d48ee5070535e9ca5c9667c4bfbedd59aaf3b8a5dcc6d3",
+    "src/lib/tabState.mjs": "bd80c8010e2fa817c5c23be6d76c757a82c3153b06d53126bb217badd64f56e3",
+    "src/lib/tabIcons.mjs": "e70969f744496fa744b1a90d689d99bdb0e4d120b21c2b401098bda1dde74980",
+    "src/lib/settingsPanels.mjs": "c2d3de9434ee28066b44d365af1492293b4f7e47695b230b1a5345b8e7210bc6",
+    "src/lib/costFormat.mjs": "da5534b88b2805860bf62502154389c35cadd0a431eee2f375ac2855d5700d01",
+    "src/lib/terminalLogStore.mjs": "02c1f4e4779605968ff2de97d3f380e65b9f9c5ba8ce715d555ef9cfd7c90156",
+    "src/lib/directoryListing.mjs": "d63d9ec87920d1e45a1fe5bd55929fe5011c63afb801c927a1edc1f438bfa4c7",
+    "src/lib/chatFind.mjs": "1330042882c26f32aff2564f39a63a92703793b9badad318eb4cfcc7563584f9",
+    "src/lib/toolDisplay.mjs": "e43084b92323272945e2be9b4ac3547dd657aa034eeeab50be9f07c9995e228b",
+    "src/lib/tabShortcuts.mjs": "53ecaca93f98f3075e3d15f060dd362f1208101050a12108ae5a6cb3b759f304",
+    "src/lib/textSelection.mjs": "b92312dc4df26fc20d81ffc35b3ef647b1355bbf62a9f9c57b7ea801ec82ea2c",
+    "src/lib/attachmentPolicy.mjs": "829326ff88850da3aaf0d3456872d0c8d4fa3dcc040ef003475f05f8f98062d7",
+    "src/lib/messageIdentity.mjs": "6a0b36b18bb393b70b4bc2d84c0dfd286f09224ea79197dc9f6cbd81d8a46def",
+    "src/lib/executionEvents.mjs": "58a8cb48f912227d99d37593b0e127fa6f6ed8c83b7461ac9ffda5e46a1eda52",
+    "src/lib/repetitionDetector.mjs": "c61decd4bd906fc994afea3d0a6bd4f92b9091fe66980d104d28763f039ca97c",
+    "src/lib/rowUiState.mjs": "10c25d5e4d432644482b11c4ce1b5fa8d211aa1e3fa79e81641482cc85857bed",
+    "src/lib/markdownMedia.mjs": "dead9d4a7f2753b0e243e9e2d405bf619a6506224c2085c3c4865ae26ff7362a",
+    "src/lib/sidebarControls.mjs": "2214aa76e4faf75fb14b8838de8fc8059a5c3e36b83e7d1145dbef7ba7908736",
+    "src/lib/transcriptVirtual.mjs": "cb97b3001d81085feab846a4e9cb21ff26e7bf1f49c8d41b28725be4a3708dfb",
+    "src/lib/sidebarHistory.mjs": "19c58ef353fb74d957f3a974cc67a3724f2ffb22be4b2d2fe3aac7ad396632fa",
+    "src/lib/latexArrows.mjs": "a34b48c999df587d9e372d7b2ca71faf58dfc8ebc85219229918d93e1b7a4f91",
+    "src/lib/palacePolling.mjs": "7b92fd764c337373c011b5106318118f267b25186c8eee457bdfbc7cbeec8f2a",
+    "src/lib/chatTitle.mjs": "973936f3b471a0583e5f108cc76a17a0176b22b658884e370fc92bccadb84448",
+    "src/lib/toolResultFormatter.mjs": "f5c426dd6369efbdcc15206de1ed7e5e3108b4328fa755e5996103d5273eaee6",
+    "src/utils/uiLayerOpacity.mjs": "c912c46d0a23d8c77b933bb9692e6b811cf2c17053a23fac0ee5f0c9e51bd535",
+    "src/utils/imageUtils.mjs": "38476553f045b1a408e747ea19ba06728f9f3b7c255d8259ac4a0929e1bdff86",
+    "src/components/settings/usage/usageDashboardFormat.mjs": "fdf0409b6b9e40bf2eec354301a062b66793b4aa47954ce9466725444eda994e",
+    "src/App.jsx": "2cb8ffaf2b12fd71f46db439ec8ea89551304ab5e4a83ac96df0aa335599a420",
+    "src/main.jsx": "8b28249fa80ea2132cb988cc2b3d1a97adff1d86d385253e2247ed6d50f5f258",
+    "src/components/ModelSettingsModal.jsx": "a5688fe8d2794d0f95601aa7088cfb57da404a1818ba07d10375cee529401f6e",
+    "src/components/LocalApiSettings.jsx": "13bff6cf07298c5bff828a4283e0c15ba4104713faa96a3f153259a6542a2ef5",
+    "src/components/AgentSettingsPopover.jsx": "dff0f3f3f3d688ca191179ea82a84ec9ed488c0729f5a73bcfc4436b23fc16c2",
+    "src/components/AvatarSettings.jsx": "0751023fd83cab7562b44857d63dbb27dbf4108d4bac04f2490d138a96586a0b",
+    "src/components/ProjectWorkspace.jsx": "cd87cf2158461f0947572eda01d60821024ebb35199b6d308f4e779dd9ff5a70",
+    "src/components/MemoryTab.jsx": "30fa7208342e5d0d22289ab73e492895dcdc600904549165a777b29bf8360428",
+    "src/components/AdditionalPrompts.jsx": "0c835e7a4dbfe39e77e9243c745ce98bae911bd117cf0a3aa1d03cc1a1f4d764",
+    "src/components/InteractiveChart.jsx": "630d714144d2dc984046ce0ce903b391e7d97ef34136be541a87d34e41715b57",
+    "src/components/TerminalLog.jsx": "b7d7c6b599524c644aae8da13cbc4dde3a48d3dc76bb72818aedd1e8663b64cd",
+    "src/components/FormControls.jsx": "918df72c796507cea4cae6955c25e4ffc6ec4aa122934046638131be94067365",
+    "src/components/ContextPanel.jsx": "556fc1de5618835475c42d334aa2dc0721d9d302b1d2ae3353c690aab80514e6",
+    "src/components/DirectorySettings.jsx": "e923797050db3bd1f706f77e879215a23bae6d8e1a0e0dc09b042e78bd62704c",
+    "src/components/SettingsIcon.jsx": "749ea0bfcd11beb263848a32028ca4cdc5ec1f3188d7ca0f7e23c8227a9e6052",
+    "src/components/IntegrationsTab.jsx": "543ec6fabd20b4756fafebb84ed0010472241a8006636177444339dbb324fca8",
+    "src/components/ProjectsView.jsx": "325b2ca273daa0ea390b9c574c0755950d84863ac0c369a8924d83d643978174",
+    "src/components/SubagentBudgetSettings.jsx": "ec0276fab1e612a3ae8870f9d954976686cc710f8520f2369cdd80179c511b97",
+    "src/components/ChatInputBar.jsx": "edd9c4cb3d4dfe68df9aca47811db969ac1111fe8a690b8ddceb96374d2060c6",
+    "src/components/ChatInput.jsx": "e7713c52e773857b78300540ae054ac5a37bfcb7935b7ec5b9c572073756dfda",
+    "src/components/RightSidebar.jsx": "d3dcde072aade10084a7100f215d7f8a456f2a89bb25fa5390b05c57e2da2675",
+    "src/components/ModelCapabilitiesModal.jsx": "a150b5f54329060b2704968560138d8623410726b8d170c4aeeb7e551b3d7e24",
+    "src/components/ColorSwatch.jsx": "ba0f58423f3253fae863466f6f2a27cdb8464f0a53d5922c224f8ee782f4d172",
+    "src/components/MessageActions.jsx": "b54095efb31f3c39a7775aac086ad0be3d4d6736a5dc4d95d83af9d4b77ecd41",
+    "src/components/ThoughtBlock.jsx": "d2af28151ceb9ae48c5c60516fabf4dca16c14ad58ddf507c4eeb4f0d44573c6",
+    "src/components/TabBar.jsx": "f0dbe8c5ef79a5322669d7ac0a1ef509bdf59665b46108fc9b3cb3e192d560dc",
+    "src/components/RagSettings.jsx": "7e5cd595b03c482ac4c016b8a2014f69d7ba5ef639f50d62b9770b79d9921f59",
+    "src/components/MemoryPalace.jsx": "9824e4305cc517575f7a17c9e012ed72770a4f52e617ef4ede2469d4f7b729ab",
+    "src/components/ModelProfileSettings.jsx": "0db09e50440d7cab7501a50813a8d7870f1ae5f0b1080b7b7ab476acfb47e9b1",
+    "src/components/SubagentModelSelect.jsx": "151d7c88246fdef0944d281b33cda123fd547e2e251f42bb5fc1a7ec288c4104",
+    "src/components/ProjectModal.jsx": "4670334638432efa5708377f8f1fd442cafded09e3eccc320a3d7e34ccf6ac35",
+    "src/components/Tooltip.jsx": "d2888515dd99d684cd4c3a24c5a2c83eced36ab8f1c0bbc01df10040f3a8b4f7",
+    "src/components/EngineIdleSettings.jsx": "bb04f3856ed862788bbc48526adb59bf2db33dde55b9ddd9fc50c03b4e32fae1",
+    "src/components/CloudProviderSettings.jsx": "96e5df366529d07011920a7581e84e73f20a1b0f445249dfb9bfb65ba205bd92",
+    "src/components/AssistantMessage.jsx": "9c8baabf06600a80c9cb1ffe5d5f75730f50835d2e42865010c5add7186c825f",
+    "src/components/ChatTuning.jsx": "18303b9d972395893dc76b590f41288c89f0b1912ce931b6dfd8e18eec5200d7",
+    "src/components/AssistantAvatar.jsx": "3261fb101b54bd358b72f83c6af4e9c0af6532f4e0789ad332e2c65f5675a8fe",
+    "src/components/Sidebar.jsx": "8da170e8dfd6f99676179f1a7dac7b8f1d2d504b57364e1356287d9b5850a841",
+    "src/components/FileBrowserWidget.jsx": "53cbf1ca17ec3868187aaec6c17daff612e79c91087e2944aa88075c95dce632",
+    "src/components/RichBlocks.jsx": "826a1bd3a3575215bab5817650dee3c699ca15d3319c74684357927d90621384",
+    "src/components/ChatMessage.jsx": "228a6c9f126a5fedbba2e1e4d64e13343064ccaf984860bd9486d94deb8a38bf",
+    "src/components/ChatHistory.jsx": "5ed9760f8baf97a453a2d2e34de2a80b85d676bb3321048acb2247ebae85f0c8",
+    "src/components/ServerConfigTab.jsx": "7b74992d0f9ea5a6ba6e758cde073350db596639ea39982f272f8b6911cb257b",
+    "src/components/ToolCallBlock.jsx": "263f84fdd0ed53c3975b0790291f3ce549a73d1ecc80acd25025163ef662933f",
+    "src/context/CompressionEventsContext.jsx": "3836445e236eb7179df13105d7275195e0553ec6c3095dd99c8b4c2b791354a6",
+    "src/context/TabContext.jsx": "e73ad4c213b4edbaee378c4a59b3d6ce78579d013001d81a2dddea5485118d68",
+    "src/context/UIStateContext.jsx": "57dcb0161421ffb19e36508d22448bc8c18bcf4acc1e14a41a9875becc6d7020",
+    "src/components/chat/DiffReviewModal.jsx": "734f890fc038dc4c146375ba14cd02e3026f96fb7058463a6a89008f1f7dea22",
+    "src/components/chat/SubagentLimitBadge.jsx": "7697fc51cedfb56de66acb6c0c7f106440937cb73207eaf9afc65ae6774b909e",
+    "src/components/chat/AttachmentPreview.jsx": "421e005706ae46b38a68096b5f4e03331b79fdf92868faeab86ddb63caa8648d",
+    "src/components/chat/TextSelectionMenu.jsx": "35df04fd6e682086c1d4d8c30e2cceb7d528edc2ecffa3f44eaee1bef1994d14",
+    "src/components/chat/TurnOutcomes.jsx": "503bccf7ebaa9a78da440aff31db85bfac9d80a04d65475c6c203191b69ed93e",
+    "src/components/chat/PendingInteractions.jsx": "1b37644303f251990820ae4d4ddcf43f155add6844d5130469528cd13763c7ba",
+    "src/components/chat/RecoveryCard.jsx": "155f0ecc9a634da585e39150659026599ec01867a2e0da0984ab99f524f22dec",
+    "src/components/chat/WorkspacePlanCard.jsx": "ae31e87c47744d18ec47aa3485b252f384fdd08ebcf85ddf952101b799891ebb",
+    "src/components/chat/ChatFindBar.jsx": "3b5d3e4d14919c6db4b9668ca13f71dcc983003fe591ab92f654b3bcc47f2799",
+    "src/components/chat/WorkspaceTimeline.jsx": "87bf275093dd7562ba2c828bc1b0ee0c37bbd1dbc8596b53163d64a81dc6873e",
+    "src/components/chat/ToolEventCard.jsx": "8fe718e64622f7e9041724b16b432423075cf8b60f55d7a12975b4044ae8dee1",
+    "src/components/chat/RecoveryHistoryModal.jsx": "f82adee670c3dfe67f1ded122dedb7192be4152734c309048635aa19039dea6c",
+    "src/components/chat/SubagentTranscriptModal.jsx": "242dccc75fe41a5f0c52044696ac3a7c7738f8f8e5d0e4fbf48b72dd8f7c97c8",
+    "src/components/chat/BackgroundCommandCard.jsx": "7414d043f6edd294c36180b84f465ebe828560b4103d453c94f09bbd9c78cb10",
+    "src/components/project/ProjectSkillsCard.jsx": "d75e89e0453e93eea70c057c566076acf9fc298685ed240a452b586c1f4e34c2",
+    "src/components/main-app/ChatInterface.jsx": "89e3700ad09e5c18bffa5b3ac0c5316e8bed1d285d35c545274018e813b8cd27",
+    "src/components/main-app/ModelSelectorModal.jsx": "eff783b7d644d978893c6b46ea9ccf8b1e4702e2228a279d4f71c6d16366847f",
+    "src/components/main-app/ToolApprovalToast.jsx": "7a86f328c22f655b5befbd0dd87fb75dd18c77e14175b771235a524ec5fab826",
+    "src/components/main-app/Header.jsx": "9239d30f3e564a05f2cab121cafe43cd469473addf78faf9e05c82238f33f025",
+    "src/components/main-app/MemorySettings.jsx": "b36d2dc35994a68fb08629e688ff3ee347492eec510a23af36e4a924dc8b6d20",
+    "src/components/main-app/Titlebar.jsx": "8619a326e2a3e9e665f157aeced92bb5804c626e7de734c8462a5358cccc1428",
+    "src/components/main-app/ToolLimitToast.jsx": "ce4dbd5effd15ac092160d4c123b0e254b2821abac1d5fb205151de9ba9364bc",
+    "src/components/settings/GeneralSettingsTab.jsx": "82461e78e181bf236954d4b52ede11a9f482b8380bddf3da265ca05e01391041",
+    "src/components/settings/NotificationSettings.jsx": "a3f2cfddadffb8bb597726698491bf30f2155acb4381e9e7f5fa087b87b049f9",
+    "src/components/settings/RecoveryStorageSettings.jsx": "732b21ce20dc5c97936d7285cc2fa31f19a2e20879ced4616f2d4c619bbbc210",
+    "src/components/settings/TokenHistory.jsx": "848c17576b763cb30b5e6e889ae5b9b0c59fcbe2e75f217d93c7eeaf489fadb1",
+    "src/components/settings/SkillsSettingsTab.jsx": "c93ac48032fb44e29a04e9183398572e5329f109d7e26e0675aee04a1903fde4",
+    "src/components/settings/BackgroundSettings.jsx": "716a18d3421a6e0abe31e0f8f1b20a89167e16215d9d500851ca78af99b78b98",
+    "src/components/settings/TokenChart.jsx": "24646a8674a6ff334a70b432eedc68d79ac88488022850b2af570492a02e798f",
+    "src/components/settings/McpSettingsTab.jsx": "d29d791e25b9d92f6daa96ed3c5c7eba700fcb48cce4fc58241025846f79183e",
+    "src/components/settings/SettingsSection.jsx": "37079ad811db3e6f463bc3b3db5596308c0671a864607796d273b8e180183033",
+    "src/components/settings/usage/ProviderBreakdownTable.jsx": "ca32fa57ed76221c0303b13d90b0158a89b73c3966e06b831e0cef5db7ed414a",
+    "src/components/settings/usage/AttributionView.jsx": "28a5841c95c2da5ff34321483f9e5e9deb96732d48c3853edf6eb091efa6a2f2",
+    "src/components/settings/usage/ModelSpendingTable.jsx": "36fadc1f4f3359db57b0d03c237d3ac478958d804dc66fd4b3182a1d2fe6cab6",
+    "src/components/settings/usage/ModelDetailPanel.jsx": "d6d67a67552195cc1b337da87fb0148ab8c3893d1c7a3970dce1f28931ea1cf4",
+    "src/components/settings/usage/SpendingTimeline.jsx": "34435dfd3a9114d9cb5abf45d6cdc63c7f84b681da1f64c8bb27e93e5311fa43",
+    "src/components/settings/usage/UsageCostsDashboard.jsx": "02904c159133397c3362369baf9fa30670c5592f25f4e804100cb336e5ac446a",
+    "src/components/settings/usage/PricingHistoryView.jsx": "60688fb7c58510868223e2e4cf64959d920d6cc9301c83c56ec794170ccbfdcb",
+    "src/lib/promptCaching.cjs": "7f81811df89391741d1db999ba630e29ce641a3d3537f8812f3c37674f9268a7",
+    "src/lib/cloudPricing.cjs": "83c79f13c3cc7c4fdc208b7b7f9f8074681728ce99a82a964e6f148523477530",
+    "src/lib/systemMessages.cjs": "ea7ad7a8c34f4d021e102cec7ae0f45938b5c5a5899430cd8b283e61f289511c",
+    "src/lib/reasoningControls.cjs": "6ea40b491074196dd12987cf1dbc94ed8dd317dcc2022b69b64468933eda11ea"
+  },
+  "serverLimits": {
+    "port": 8080,
+    "total_slots": 2,
+    "default_generation_settings": {
+      "n_ctx": 35072
+    },
+    "top_level_keys": [
+      "default_generation_settings",
+      "total_slots",
+      "model_alias",
+      "model_ftype",
+      "model_path",
+      "modalities",
+      "media_marker",
+      "endpoint_slots",
+      "endpoint_props",
+      "endpoint_metrics",
+      "ui",
+      "ui_settings",
+      "chat_template",
+      "chat_template_caps",
+      "bos_token",
+      "eos_token",
+      "build_info",
+      "is_sleeping",
+      "cors_proxy_enabled"
+    ]
+  },
+  "sessionAccounting": {
+    "usage": {
+      "totalTokens": 7073,
+      "coreTokens": 76,
+      "workLogTokens": 1530,
+      "planTokens": 0,
+      "messageCount": 33
+    },
+    "tools": {
+      "count": 48,
+      "toolTokens": 9385,
+      "pluginTokens": 0,
+      "schemaChars": 37540,
+      "schemaEstimate": 12528
+    },
+    "prepared": {
+      "estimate": 36015,
+      "withoutImages": 31899,
+      "messages": [
+        {
+          "role": "system",
+          "category": "system",
+          "contentChars": 4232,
+          "imageCount": 0,
+          "estimate": 1477
+        },
+        {
+          "role": "system",
+          "category": "brief",
+          "contentChars": 2890,
+          "imageCount": 0,
+          "estimate": 1090
+        },
+        {
+          "role": "system",
+          "category": "session-system",
+          "contentChars": 16193,
+          "imageCount": 0,
+          "estimate": 5579
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 27,
+          "imageCount": 0,
+          "estimate": 56
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1353,
+          "imageCount": 0,
+          "estimate": 505
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 14,
+          "imageCount": 0,
+          "estimate": 51
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 450,
+          "imageCount": 0,
+          "estimate": 202
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 59,
+          "imageCount": 0,
+          "estimate": 67
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1567,
+          "imageCount": 0,
+          "estimate": 591
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 111,
+          "imageCount": 0,
+          "estimate": 84
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1262,
+          "imageCount": 0,
+          "estimate": 483
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 58,
+          "imageCount": 0,
+          "estimate": 66
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1128,
+          "imageCount": 0,
+          "estimate": 438
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 83,
+          "imageCount": 0,
+          "estimate": 74
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 453,
+          "imageCount": 0,
+          "estimate": 207
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 27,
+          "imageCount": 0,
+          "estimate": 56
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 926,
+          "imageCount": 0,
+          "estimate": 370
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 89,
+          "imageCount": 0,
+          "estimate": 76
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 819,
+          "imageCount": 0,
+          "estimate": 333
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 122,
+          "imageCount": 0,
+          "estimate": 88
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 248,
+          "imageCount": 0,
+          "estimate": 133
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 54,
+          "imageCount": 0,
+          "estimate": 65
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1596,
+          "imageCount": 0,
+          "estimate": 615
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 103,
+          "imageCount": 0,
+          "estimate": 82
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1864,
+          "imageCount": 0,
+          "estimate": 689
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 64,
+          "imageCount": 0,
+          "estimate": 68
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 2443,
+          "imageCount": 0,
+          "estimate": 902
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 97,
+          "imageCount": 0,
+          "estimate": 79
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1392,
+          "imageCount": 0,
+          "estimate": 524
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 91,
+          "imageCount": 0,
+          "estimate": 77
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1718,
+          "imageCount": 0,
+          "estimate": 640
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 82,
+          "imageCount": 0,
+          "estimate": 74
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1939,
+          "imageCount": 0,
+          "estimate": 724
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": 61,
+          "imageCount": 0,
+          "estimate": 67
+        },
+        {
+          "role": "assistant",
+          "category": "history",
+          "contentChars": 1250,
+          "imageCount": 0,
+          "estimate": 480
+        },
+        {
+          "role": "user",
+          "category": "history",
+          "contentChars": null,
+          "imageCount": 1,
+          "estimate": 4325
+        },
+        {
+          "role": "system",
+          "category": "work-log",
+          "contentChars": 6119,
+          "imageCount": 0,
+          "estimate": 2177
+        }
+      ]
+    },
+    "idleProjection": {
+      "breakdown": {
+        "systemTokens": 4120,
+        "summaryTokens": 0,
+        "briefTokens": 723,
+        "checkpointTokens": 0,
+        "tailTokens": 9609,
+        "toolTokens": 9385
+      },
+      "memoryTokens": 76,
+      "workLogTokens": 1530,
+      "planTokens": 0,
+      "total": 25443
+    },
+    "idle": {
+      "configuredLimit": 70000,
+      "trigger": 52500,
+      "actualSlotLimit": 35072,
+      "usableInputBudget": 33920,
+      "actualSlotTrigger": 26304
+    }
+  },
+  "adversarialChecks": {
+    "parallelWindow": {
+      "configured": 70000,
+      "reported": 35072,
+      "budget": 33920,
+      "reserve": 1152,
+      "idleTriggerAgainstConfigured": 52500,
+      "method": "approximate-full-request"
+    },
+    "reasoningOnlySummary": {
+      "returned": "",
+      "finishReason": "length",
+      "requestMaxTokens": 512,
+      "explicitReasoningControls": []
+    },
+    "truncatedSummary": {
+      "finishReason": "length",
+      "accepted": true
+    },
+    "truncatedCheckpoint": {
+      "threw": true,
+      "errorType": "SyntaxError",
+      "requestMaxTokens": 2048,
+      "explicitReasoningControls": []
+    },
+    "requirementCoverage": {
+      "inputBriefs": 51,
+      "validatorOk": true,
+      "retained": 50,
+      "missing": [
+        51
+      ]
+    },
+    "briefSizeFloor": {
+      "fiveBriefsOf1700Chars": true,
+      "validatorOk": false,
+      "errors": [
+        "checkpoint exceeds size cap (8910 > 8000 chars) even after trimming"
+      ]
+    },
+    "summaryEvidence": {
+      "executionStepFactRetained": false
+    }
+  },
+  "cacheCheck": {
+    "firstLimit": 35072,
+    "secondLimit": 35072,
+    "newRuntimeLimit": 16384,
+    "propsCalls": 1,
+    "cachedDespiteChangedCapacity": true
+  },
+  "idleLiveRowCheck": {
+    "compressed": true,
+    "liveRowArchived": true,
+    "statusAtArchival": "in_progress",
+    "remainsArchivedAfterFinalUpdate": true,
+    "finalFactVisibleInActiveMessages": false
+  },
+  "packagedSourceMatches": [
+    {
+      "path": "main.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/compressionEngine.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/compactionCore.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/contextBudget.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/taskCheckpoints.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/promptMeasurement.js",
+      "matches": true
+    },
+    {
+      "path": "src/main/promptBuilder.js",
+      "matches": true
+    }
+  ],
+  "nodeTestFiles": [
+    {
+      "name": "contextMeasure.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 81
+    },
+    {
+      "name": "contextBudget.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 134
+    },
+    {
+      "name": "contextRecoveryReliability.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 243
+    },
+    {
+      "name": "contextCompaction.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": null,
+      "pass": null,
+      "fail": null,
+      "skipped": null,
+      "milliseconds": 822
+    },
+    {
+      "name": "contextOverflowRecovery.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 836
+    },
+    {
+      "name": "compressionLifecycle.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 967
+    },
+    {
+      "name": "workspaceBriefBudget.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 498
+    },
+    {
+      "name": "workspaceBudgetVerification.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 817
+    },
+    {
+      "name": "idleCompactionProjection.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 1620
+    },
+    {
+      "name": "workspaceCheckpoints.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 1572
+    },
+    {
+      "name": "contextPanel.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": null,
+      "pass": null,
+      "fail": null,
+      "skipped": null,
+      "milliseconds": 30
+    },
+    {
+      "name": "workspaceTaskBriefs.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 929
+    },
+    {
+      "name": "contextDispatch.test.mjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 285
+    },
+    {
+      "name": "contextInspection.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 935
+    },
+    {
+      "name": "contextTelemetry.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 1050
+    },
+    {
+      "name": "subagentCompaction.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 702
+    },
+    {
+      "name": "subagentCompactionHardening.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 365
+    },
+    {
+      "name": "reasoningControls.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 96
+    },
+    {
+      "name": "reasoningRuntime.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 73
+    },
+    {
+      "name": "reasoningUsage.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 59
+    },
+    {
+      "name": "compactionBadge.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": null,
+      "pass": null,
+      "fail": null,
+      "skipped": null,
+      "milliseconds": 1370
+    },
+    {
+      "name": "workLog.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 790
+    },
+    {
+      "name": "workspacePlan.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 800
+    },
+    {
+      "name": "liveSteering.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 173
+    },
+    {
+      "name": "projectPlanRetrieval.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 760
+    },
+    {
+      "name": "liveSteeringLoop.test.mjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 104
+    },
+    {
+      "name": "liveSteeringIpc.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 654
+    },
+    {
+      "name": "attachments.test.cjs",
+      "code": 1,
+      "signal": null,
+      "passed": false,
+      "timedOut": false,
+      "tests": null,
+      "pass": null,
+      "fail": null,
+      "skipped": null,
+      "milliseconds": 306
+    },
+    {
+      "name": "modelCapabilities.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 64
+    },
+    {
+      "name": "subagentModelBudgets.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 212
+    },
+    {
+      "name": "replyVariants.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": null,
+      "pass": null,
+      "fail": null,
+      "skipped": null,
+      "milliseconds": 748
+    },
+    {
+      "name": "subagentLongHorizonCompaction.test.cjs",
+      "code": 0,
+      "signal": null,
+      "passed": true,
+      "timedOut": false,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "milliseconds": 20584
+    }
+  ],
+  "nodeTestSummary": {
+    "files": 32,
+    "passedFiles": 31,
+    "failedFiles": 1,
+    "tapTests": 290,
+    "tapPassed": 290,
+    "scriptChecksPassed": 4
+  },
+  "uiTestFiles": [
+    {
+      "name": "contextPanel.ui.cjs",
+      "code": 1,
+      "signal": null
+    },
+    {
+      "name": "compressionDispatch.ui.cjs",
+      "code": 0,
+      "signal": null
+    },
+    {
+      "name": "cloudContext.ui.cjs",
+      "code": 0,
+      "signal": null
+    }
+  ],
+  "existingFailures": [
+    {
+      "file": "tests/attachments.test.cjs",
+      "reason": "Fixture uploads PNG without a verified runtime image capability; rejected by attachment policy before the tested upload workflow."
+    },
+    {
+      "file": "tests/contextPanel.ui.cjs",
+      "reason": "The no-token-savings assertion searches all text before Archived messages, including the Token usage card; it fails on that legitimate heading."
+    }
+  ],
+  "limitations": [
+    "No live summarization/checkpoint generation was requested; screenshots exact discarded checkpoint response cannot be recovered.",
+    "No request-specific exact image token count is available from current counting code.",
+    "UI checks used Electron with mocked APIs and temporary profiles under Xvfb.",
+    "Passing mock suites do not establish quality of summaries on the loaded model."
+  ]
+}

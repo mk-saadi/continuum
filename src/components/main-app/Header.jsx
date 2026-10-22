@@ -56,6 +56,7 @@ export default function Header({
 		confidence: hasContext ? palace.contextConfidence : undefined,
 		live,
 		persisted,
+        budgetContract: palace.budgetContract,
 	});
 
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;

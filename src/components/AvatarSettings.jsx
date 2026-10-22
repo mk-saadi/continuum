@@ -1,11 +1,23 @@
 import React, { useId, useState } from "react";
+import { LuImages, LuUserRound } from "react-icons/lu";
+import { TextField } from "./FormControls";
 import { optimizeImage } from "../utils/imageUtils.mjs";
+import {
+	SettingsButton,
+	SettingsCard,
+	SettingsCheckRow,
+	SettingsEmpty,
+	SettingsMessage,
+	settingsLabel,
+} from "./settings/SettingsSection";
+
+const fileButtonClass =
+	"inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
 
 export default function AvatarSettings({ avatars, models }) {
 	const { settings, update } = avatars;
 	const [busyId, setBusyId] = useState(null); // null | "global" | model.id
 	const [error, setError] = useState("");
-	const buttonClass = "rounded border border-[var(--border)] px-2 py-1 text-xs disabled:opacity-40";
 
 	async function change(patch) {
 		try {
@@ -50,86 +62,66 @@ export default function AvatarSettings({ avatars, models }) {
 	}
 
 	return (
-		<div className="space-y-4">
-			<h3 className="font-semibold">Avatars &amp; Branding</h3>
-            {avatars.error && <p role="alert">{avatars.error}</p>}
-			<label className="flex items-center gap-2">
-				<input
-					type="checkbox"
+		<div className="space-y-3">
+			<SettingsCard
+				icon={LuUserRound}
+				title="Avatars & branding"
+				description="Choose the identity shown next to assistant replies."
+			>
+				<SettingsCheckRow
 					role="switch"
+					label="Enable avatars"
 					checked={settings.showAvatars}
 					onChange={(event) => change({ showAvatars: event.target.checked })}
-				/>{" "}
-				Enable Avatars
-			</label>
-
-			<section
-				className="space-y-3 rounded-lg border border-[var(--border)] p-3"
-				aria-labelledby="global-llm-branding"
-			>
-				<h4
-					id="global-llm-branding"
-					className="font-medium"
-				>
-					Global LLM Branding
-				</h4>
-				<label className="block">
-					Global LLM Avatar
-					<input
-						type="file"
-						accept=".png,.jpg,.jpeg"
-						disabled={busyId !== null}
-						onChange={(event) => upload(event)}
-						className="mt-2 block w-full file:mr-2 file:rounded file:border file:border-[var(--border)] file:bg-transparent file:p-2 file:text-inherit"
-					/>
-				</label>
-				<label
-					className="block"
-					htmlFor="global-llm-name"
-				>
-					Global LLM Name
-				</label>
-				<input
-					id="global-llm-name"
-					type="text"
-					value={settings.globalModelName ?? ""}
-					onChange={(event) => change({ globalModelName: event.target.value })}
-					placeholder="e.g., Assistant"
-					maxLength={200}
-					className="block w-full rounded border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm"
 				/>
-				<p className="text-xs text-[var(--text-muted)]">
-					Used when a model has no custom name. Existing replies keep their saved names.
-				</p>
-				{settings.globalAvatarUrl && (
-					<div className="flex items-center gap-2">
-						<img
-							src={settings.globalAvatarUrl}
-							alt="Global avatar preview"
-							className="size-12 rounded-lg object-cover"
-						/>
-						<button
-							type="button"
-							className={buttonClass}
+				<SettingsMessage>{avatars.error}</SettingsMessage>
+				<div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
+					<div>
+						<span className={settingsLabel}>Global LLM Avatar</span>
+						<input
+							type="file"
+							accept=".png,.jpg,.jpeg"
 							disabled={busyId !== null}
-							onClick={() => change({ globalAvatarUrl: null })}
-						>
-							Remove global avatar
-						</button>
+							onChange={(event) => upload(event)}
+							className="block w-full cursor-pointer text-[11px] text-[var(--text-secondary)] file:mr-2 file:cursor-pointer file:rounded-lg file:border file:border-[var(--border)] file:bg-[var(--bg-secondary)] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[var(--text-primary)] hover:file:bg-[var(--surface-hover)]"
+						/>
 					</div>
-				)}
-			</section>
+					<TextField
+						id="global-llm-name"
+						label="Global LLM Name"
+						value={settings.globalModelName ?? ""}
+						onChange={(event) => change({ globalModelName: event.target.value })}
+						placeholder="e.g., Assistant"
+						maxLength={200}
+						hint="Used when a model has no custom name. Existing replies keep their saved names."
+					/>
+					{settings.globalAvatarUrl && (
+						<div className="flex items-center gap-3">
+							<img
+								src={settings.globalAvatarUrl}
+								alt="Global avatar preview"
+								className="size-12 rounded-lg object-cover"
+							/>
+							<SettingsButton
+								disabled={busyId !== null}
+								onClick={() => change({ globalAvatarUrl: null })}
+							>
+								Remove global avatar
+							</SettingsButton>
+						</div>
+					)}
+				</div>
+			</SettingsCard>
 
-			<div className="space-y-2">
-				<p className="font-medium">Per-model names and avatars</p>
-				<p className="text-xs text-[var(--text-muted)]">
-					Set a name and avatar for each model. Blank names use the global name, then the model
-					filename.
-				</p>
+			<SettingsCard
+				icon={LuImages}
+				title="Per-model names and avatars"
+				description="Set a name and avatar for each model. Blank names use the global name, then the model filename."
+			>
 				{!models.length ? (
-					<p className="text-sm text-[var(--text-muted)]">No scanned models available.</p>
+					<SettingsEmpty>No scanned models available.</SettingsEmpty>
 				) : (
-					<ul className="space-y-1  rounded border border-[var(--border)] p-1">
+					<ul className="divide-y divide-[var(--border)]">
 						{models.map((model) => (
 							<ModelAvatarRow
 								key={model.id}
@@ -154,40 +146,22 @@ export default function AvatarSettings({ avatars, models }) {
 								disabled={busyId !== null && busyId !== model.id}
 								onUpload={(event) => upload(event, model.id)}
 								onRemove={() => removeModelAvatar(model.id)}
-								buttonClass={buttonClass}
 							/>
 						))}
 					</ul>
 				)}
-			</div>
+			</SettingsCard>
 
-			{busyId && <p role="status">Preparing avatar…</p>}
-			{error && (
-				<p
-					role="alert"
-					className="palace-error"
-				>
-					{error}
-				</p>
-			)}
+			<SettingsMessage tone="info">{busyId ? "Preparing avatar…" : ""}</SettingsMessage>
+			<SettingsMessage>{error}</SettingsMessage>
 		</div>
 	);
 }
 
-function ModelAvatarRow({
-	model,
-	displayName,
-	onNameChange,
-	avatarUrl,
-	busy,
-	disabled,
-	onUpload,
-	onRemove,
-	buttonClass,
-}) {
+function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, disabled, onUpload, onRemove }) {
 	const inputId = useId();
 	return (
-		<li className="flex flex-wrap items-center gap-3 rounded-lg p-2 hover:bg-[var(--surface-hover)]">
+		<li className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
 			{avatarUrl ? (
 				<img
 					src={avatarUrl}
@@ -201,19 +175,19 @@ function ModelAvatarRow({
 			)}
 			<div className="min-w-0 flex-1">
 				<span
-					className="block truncate text-sm"
+					className="block truncate text-xs font-medium"
 					title={model.name || model.id}
 				>
 					{model.name || model.id}
 				</span>
-				<input
+				<TextField
 					type="text"
 					aria-label={`Display name for ${model.name || model.id}`}
 					value={displayName}
 					onChange={(event) => onNameChange(event.target.value)}
 					placeholder="Use global name or model filename"
 					maxLength={200}
-					className="mt-1 w-full rounded border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-sm"
+					className="mt-1"
 				/>
 			</div>
 			<input
@@ -226,19 +200,17 @@ function ModelAvatarRow({
 			/>
 			<label
 				htmlFor={inputId}
-				className={`${buttonClass} cursor-pointer ${disabled || busy ? "pointer-events-none opacity-40" : ""}`}
+				className={`${fileButtonClass} ${disabled || busy ? "pointer-events-none opacity-40" : ""}`}
 			>
 				{busy ? "Uploading…" : avatarUrl ? "Change" : "Upload"}
 			</label>
 			{avatarUrl && (
-				<button
-					type="button"
-					className={buttonClass}
+				<SettingsButton
 					disabled={disabled}
 					onClick={onRemove}
 				>
 					Remove
-				</button>
+				</SettingsButton>
 			)}
 		</li>
 	);

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { costValue, coverageLabel, savingsValue, tokenValue } from './usageDashboardFormat.mjs';
+import { TextField } from '../../FormControls';
 
 const COLUMNS = [
   { key: 'model', label: 'Model', sortable: true },
@@ -51,27 +52,25 @@ export default function ModelSpendingTable({ models = [], selectedKey = null, on
   };
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-model-table-title">
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-model-table-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 id="usage-model-table-title" className="text-sm font-semibold">Spending by model</h3>
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Provider identity is part of the billing identity. Select a row for rates, tokens, and limitations.</p>
+          <h3 id="usage-model-table-title" className="text-xs font-semibold">Spending by model</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">Provider identity is part of the billing identity. Select a row for rates, tokens, and limitations.</p>
         </div>
-        <label className="text-xs text-[var(--text-secondary)]">
-          Find model
-          <input
-            type="search"
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-            placeholder="Model or provider"
-            className="ml-2 w-44 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--text-primary)]"
-          />
-        </label>
+        <TextField
+          type="search"
+          aria-label="Find model"
+          value={search}
+          onChange={event => setSearch(event.target.value)}
+          placeholder="Model or provider"
+          className="w-44"
+        />
       </div>
       {models.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No model usage recorded for this selection.</p>
+        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No model usage recorded for this selection.</p>
       ) : sorted.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No model matches “{search}”.</p>
+        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No model matches “{search}”.</p>
       ) : (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-xs">

@@ -11,7 +11,10 @@ const { createContextGuardedFetch } = require('./contextBudget');
 const { createMediaGuardedFetch } = require('./modelCapabilities');
 const rawFetch = (url, options) => fetch(url, { ...options, dispatcher });
 let capabilityProvider = () => null;
-function setLocalCapabilityProvider(provider) { capabilityProvider = provider; }
+function setLocalCapabilityProvider(provider) {
+  capabilityProvider = provider;
+  require('./contextBudget').setContextRuntimeProvider(provider);
+}
 const localEngineFetch = createContextGuardedFetch(createMediaGuardedFetch(rawFetch, endpoint => {
   const engine = capabilityProvider();
   if (!engine?.modelPath || Number(endpoint.port) !== engine.port) return {};

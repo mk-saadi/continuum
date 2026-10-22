@@ -11,6 +11,7 @@ import { ChatInterface } from "./components/main-app/ChatInterface.jsx";
 import { Titlebar } from "./components/main-app/Titlebar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
+import { CompressionEventsProvider } from "./context/CompressionEventsContext.jsx";
 import { UIStateProvider, useModalActions, useModalState, useTheme } from "./context/UIStateContext.jsx";
 import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
@@ -176,15 +177,34 @@ function AppContent() {
 	const [loadWarning, setLoadWarning] = useState(null);
 	// Stable array: rebuilt only when the underlying model/cloud lists change,
 	// so unrelated AppContent renders do not invalidate every TabPane.
-	const chatModels = useMemo(
-		() => [
-			...models,
-			...cloudProviders
-				.filter((row) => row.configured && row.modelId?.trim())
-				.map((row) => ({ id: `cloud:${row.id}:${row.modelId}`, name: `${row.name} / ${row.modelId}` })),
-		],
-		[models, cloudProviders],
-	);
+	// Cloud providers no longer store a single model. A provider's legacy saved
+	// model is listed for compatibility, and every chat tab's current cloud
+	// selection is added so the header and transcript can resolve its name.
+	const chatModels = useMemo(() => {
+		const cloudModels = [];
+		const seen = new Set();
+		for (const row of cloudProviders) {
+			if (!row.configured) continue;
+			const modelId = row.modelId?.trim();
+			if (!modelId) continue;
+			const id = `cloud:${row.id}:${modelId}`;
+			seen.add(id);
+			cloudModels.push({ id, name: `${row.name} / ${modelId}` });
+		}
+		for (const item of tabs) {
+			if (!item.modelId?.startsWith("cloud:") || seen.has(item.modelId)) continue;
+			const [, providerId, ...rest] = item.modelId.split(":");
+			const model = rest.join(":");
+			if (!providerId || !model) continue;
+			const provider = cloudProviders.find((row) => row.id === providerId);
+			seen.add(item.modelId);
+			cloudModels.push({
+				id: item.modelId,
+				name: `${provider?.name || providerId} / ${model}`,
+			});
+		}
+		return [...models, ...cloudModels];
+	}, [models, cloudProviders, tabs]);
 
 	// Scan on mount; clicking an empty dropdown also allows a retry.
 	const handleScanClick = useCallback(async () => {
@@ -462,7 +482,8 @@ const TabPane = memo(function TabPane({
 				isCloud={isCloud}
 				modelName={
 					isCloud
-						? `${parts[1]} / ${parts.slice(2).join(":")}`
+						? models.find((model) => model.id === tab.modelId)?.name ||
+							`${parts[1]} / ${parts.slice(2).join(":")}`
 						: localReady
 							? loadedLocalModel?.name || tab.modelId
 							: models.find((model) => model.id === tab.modelId)?.name || tab.modelId
@@ -552,10 +573,12 @@ export { TabPane };
 
 export default function App() {
 	return (
-		<TabProvider>
-			<UIStateProvider>
-				<AppContent />
-			</UIStateProvider>
-		</TabProvider>
+		<CompressionEventsProvider>
+			<TabProvider>
+				<UIStateProvider>
+					<AppContent />
+				</UIStateProvider>
+			</TabProvider>
+		</CompressionEventsProvider>
 	);
 }

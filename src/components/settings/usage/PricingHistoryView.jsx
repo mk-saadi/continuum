@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { costValue, rateValue, sourceLabel } from './usageDashboardFormat.mjs';
+import { SettingsButton, SettingsMessage } from '../SettingsSection';
 
 const PAGE_SIZE = 25;
 
@@ -48,20 +49,20 @@ export default function PricingHistoryView({ filters }) {
 
   const rows = state.rows ?? [];
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-pricing-title">
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-pricing-title">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h3 id="usage-pricing-title" className="text-sm font-semibold">Pricing history</h3>
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          <h3 id="usage-pricing-title" className="text-xs font-semibold">Pricing history</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
             Rate snapshots recorded with each turn. Historical charges keep the rate that priced them.
           </p>
         </div>
-        <span className="rounded-full border border-[var(--border)] px-2.5 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
+        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
       </div>
-      {error ? <p role="alert" className="mt-3 text-xs text-[var(--error)]">{error}</p> : null}
-      {loading && !rows.length ? <p role="status" className="mt-3 text-xs text-[var(--text-muted)]">Loading pricing history…</p> : null}
+      <SettingsMessage>{error}</SettingsMessage>
+      {loading && !rows.length ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading pricing history…</p> : null}
       {!loading && !rows.length && !error ? (
-        <p className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">
+        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">
           No pricing evidence has been recorded for this selection. That is unknown, not a zero rate.
         </p>
       ) : null}
@@ -117,7 +118,7 @@ export default function PricingHistoryView({ filters }) {
                       </td>
                     </tr>
                     {open ? (
-                      <tr className="border-b border-[var(--border)]/60 bg-[var(--surface-raised)]">
+                      <tr className="border-b border-[var(--border)]/60 bg-[var(--bg-secondary)]">
                         <td colSpan={11} className="px-3 py-3 text-[11px] text-[var(--text-secondary)]">
                           <div className="grid gap-4 sm:grid-cols-[minmax(0,220px)_1fr]">
                             <table className="w-full text-[11px]">
@@ -156,8 +157,8 @@ export default function PricingHistoryView({ filters }) {
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-muted)]">
         <span>Showing {rows.length === 0 ? 0 : state.offset + 1}–{(state.offset ?? 0) + rows.length} of {state.total ?? 0} rate snapshots.</span>
         <span className="flex gap-2">
-          <button type="button" disabled={page === 0 || loading} onClick={() => setPage(value => Math.max(0, value - 1))} className="rounded-lg border border-[var(--border)] px-2.5 py-1 disabled:opacity-40">Previous</button>
-          <button type="button" disabled={!state.hasMore || loading} onClick={() => setPage(value => value + 1)} className="rounded-lg border border-[var(--border)] px-2.5 py-1 disabled:opacity-40">Next</button>
+          <SettingsButton type="button" disabled={page === 0 || loading} onClick={() => setPage(value => Math.max(0, value - 1))}>Previous</SettingsButton>
+          <SettingsButton type="button" disabled={!state.hasMore || loading} onClick={() => setPage(value => value + 1)}>Next</SettingsButton>
         </span>
       </div>
     </section>

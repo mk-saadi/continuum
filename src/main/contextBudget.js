@@ -21,6 +21,12 @@ function isContextOverflow(error) {
     detail?.type === 'exceed_context_size_error' || detail?.code === 'exceed_context_size_error' ||
     (Number.isFinite(detail?.n_prompt_tokens) && Number.isFinite(detail?.n_ctx) && detail.n_prompt_tokens > detail.n_ctx);
 }
+let runtimeProvider = () => null;
+function setContextRuntimeProvider(provider) { runtimeProvider = provider; }
+function runtimeIdentityFor(url) {
+  const runtime = runtimeProvider();
+  return runtime && Number(new URL(url).port) === runtime.port ? runtime.runtimeIdentity ?? null : null;
+}
 function reserveTokens(payload, limit) {
   const output = payload.max_tokens > 0 ? payload.max_tokens : Math.min(1024, Math.floor(limit / 4));
   // `reasoning_budget_tokens` is the installed local runtime's field; the
@@ -29,6 +35,34 @@ function reserveTokens(payload, limit) {
     ?? payload.thinking_budget ?? payload.reasoning_budget ?? 0);
   // Thinking is part of generated output, not a second independent allowance.
   return Math.max(output, thinking) + Math.min(128, Math.ceil(limit / 100));
+}
+// Capacity and occupancy are independent: cached input still occupies context.
+function createRuntimeBudget({ provider = 'local', modelId = null, runtimeIdentity = null,
+  configuredContextTokens = null, runtimeContextTokens = null, fallbackCeilingTokens = 8192, payload = {},
+  currentInputTokens = null, measurementMethod = 'approximate-full-request' } = {}) {
+  const valid = n => Number.isSafeInteger(n) && n > 0;
+  const verified = valid(runtimeContextTokens);
+  // Offline local totals may be shared by unknown slots. Bound the fallback;
+  // never divide configured totals and present the quotient as measured.
+  const limit = verified ? runtimeContextTokens : Math.min(valid(configuredContextTokens) ? configuredContextTokens : 8192, valid(fallbackCeilingTokens) ? Math.min(8192, fallbackCeilingTokens) : 8192);
+  const reserve = reserveTokens(payload, limit);
+  if (!Number.isSafeInteger(reserve) || reserve < 0 || reserve >= limit)
+    throw new ContextBudgetError('invalid output/reasoning reservation');
+  const safety = Math.min(128, Math.ceil(limit / 100));
+  const usableInputTokens = limit - reserve;
+  return { provider, modelId, runtimeIdentity, configuredContextTokens,
+    runtimeContextTokens: verified && provider === 'local' ? runtimeContextTokens : null,
+    advertisedContextTokens: verified && provider !== 'local' ? runtimeContextTokens : null,
+    capacityTokens: limit, reservedOutputTokens: reserve - safety, reservedSafetyTokens: safety,
+    usableInputTokens, autoCompactionThresholdRatio: 0.90,
+    autoCompactionTriggerTokens: Math.floor(usableInputTokens * 0.90),
+    currentInputTokens, measurementMethod,
+    capacityMethod: verified ? (provider === 'local' ? 'runtime-reported' : 'provider-advertised') : 'conservative-fallback',
+    capacityConfidence: verified && provider === 'local' ? 'verified' : 'unverified',
+    measurementConfidence: measurementMethod === 'server-template-tokenizer' ? 'measured' : 'estimated' };
+}
+function atCompactionPressure(budget) {
+  return budget.currentInputTokens >= budget.autoCompactionTriggerTokens;
 }
 function approximateTokens(payload) {
   let images = 0;
@@ -59,11 +93,12 @@ function templateIncludesSchema(prompt, schema) {
 // verification measure a prospective prompt without sending it.
 function createPromptMeasurer(fetchImpl) {
   const counts = new Map();
-  async function measure(url, payload, options, knownLimit) {
+  async function measure(url, payload, options = {}, knownLimit) {
+    const runtimeAtStart = runtimeIdentityFor(url);
     const signal = options.signal;
     signal?.throwIfAborted();
     let limit = knownLimit ?? options.contextWindowLimit;
-    let props;
+    let props, runtimeContextTokens = null;
     const probeSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(2500)]) : AbortSignal.timeout(2500);
     const probe = async (route, body) => {
       const response = await fetchImpl(new URL(route, url).href, {
@@ -83,7 +118,10 @@ function createPromptMeasurer(fetchImpl) {
     try {
       props = await probe('/props');
       const reported = props?.default_generation_settings?.n_ctx;
-      if (Number.isSafeInteger(reported) && reported > 0) limit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, reported) : reported;
+      if (Number.isSafeInteger(reported) && reported > 0) {
+        runtimeContextTokens = knownLimit ? Math.min(knownLimit, reported) : reported;
+        limit = runtimeContextTokens;
+      }
     } catch { signal?.throwIfAborted(); }
     if (!Number.isSafeInteger(limit) || limit <= 0) limit = 8192;
     let tokens, method = 'approximate-full-request', note = null;
@@ -91,8 +129,8 @@ function createPromptMeasurer(fetchImpl) {
     // Reuse only after verifying the same server model/template/context through
     // props. Cache is bounded; unavailable props and images are never cached.
     const identity = typeof props?.model_path === 'string' && typeof props?.chat_template === 'string' && JSON.stringify([props.model_path, props.chat_template, props.default_generation_settings?.n_ctx]);
-    const key = !multimodal && identity && createHash('sha256').update(url + identity + JSON.stringify(payload)).digest('hex');
-    if (!multimodal && key && counts.has(key)) { tokens = counts.get(key); method = 'server-template-tokenizer'; }
+    const key = !multimodal && identity && createHash('sha256').update(url + (options.runtimeIdentity ?? runtimeAtStart ?? '') + identity + JSON.stringify(payload)).digest('hex');
+    if (!multimodal && key && counts.has(key)) { ({ tokens, method, note } = counts.get(key)); }
     else if (!multimodal) {
       try {
         // Strict templates (e.g. Qwen) accept a single leading system turn
@@ -109,7 +147,7 @@ function createPromptMeasurer(fetchImpl) {
         const counted = await probe('/tokenize', { content: rendered.prompt, add_special: true, parse_special: true });
         if (!Array.isArray(counted.tokens)) throw new Error('Missing token count');
         tokens = counted.tokens.length; method = 'server-template-tokenizer';
-        if (key) { if (counts.size >= 64) counts.delete(counts.keys().next().value); counts.set(key, tokens); }
+        if (key) { if (counts.size >= 64) counts.delete(counts.keys().next().value); counts.set(key, { tokens, method, note }); }
       } catch (error) {
         signal?.throwIfAborted();
         // A template rejection must stay a labeled fallback, never the silent
@@ -122,7 +160,20 @@ function createPromptMeasurer(fetchImpl) {
       }
     }
     tokens ??= approximateTokens(payload);
-    return { tokens, method, limit, budget: limit - reserveTokens(payload, limit), ...(note ? { note } : {}) };
+    if (!multimodal && key && !counts.has(key)) {
+      if (counts.size >= 64) counts.delete(counts.keys().next().value);
+      counts.set(key, { tokens, method, note });
+    }
+    if (runtimeAtStart !== runtimeIdentityFor(url)) throw new ContextBudgetError('backend changed during measurement');
+    const budgetContract = createRuntimeBudget({ modelId: payload.model,
+      runtimeIdentity: options.runtimeIdentity ?? runtimeAtStart ?? identity ?? url,
+      configuredContextTokens: options.contextWindowLimit ?? null,
+      runtimeContextTokens, fallbackCeilingTokens: knownLimit ?? 8192, payload, currentInputTokens: tokens, measurementMethod: method });
+    const imageCount = payload.messages.reduce((n, message) => n + (Array.isArray(message.content)
+      ? message.content.filter(part => part?.type === 'image_url').length : 0), 0);
+    return { tokens, method, limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,
+      budgetContract, imageCount, imageAllowanceTokens: imageCount * 4096,
+      ...(multimodal ? { note: 'image-tokens-estimated' } : note ? { note } : {}) };
   }
   return measure;
 }
@@ -196,4 +247,4 @@ function createContextGuardedFetch(fetchImpl) {
   guardedFetch.contextGuarded = true;
   return guardedFetch;
 }
-module.exports = { createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };
+module.exports = { setContextRuntimeProvider, createRuntimeBudget, atCompactionPressure, createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };

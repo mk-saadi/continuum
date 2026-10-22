@@ -17,17 +17,21 @@ const hitRatio = row => row.cacheReadCoverage === 'measured' && row.cacheReadTok
 export default function TokenChart({ data = [], groupBy = 'month' }) {
   const maximum = Math.max(1, ...data.map(row => row.promptTokens + row.completionTokens));
   if (!data.some(row => row.turns || row.promptTokens || row.completionTokens)) {
-    return <p className="rounded-xl border border-[var(--border)] p-8 text-center text-[var(--text-muted)]">No token usage recorded for this period.</p>;
+    return <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[11px] text-[var(--text-muted)]">No token usage recorded for this period.</p>;
   }
-  return <figure aria-label="Token consumption history" className="space-y-3">
-    <figcaption className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
+  return <figure
+    aria-label="Token consumption history"
+    className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+  >
+    <h3 className="text-xs font-semibold text-[var(--text-primary)]">Token usage over time</h3>
+    <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-secondary)]">
       <span><span className="mr-1 inline-block size-3 rounded-sm bg-blue-500" />Input tokens (gross)</span>
       <span><span className="mr-1 inline-block size-3 rounded-sm bg-indigo-400" />Cached input</span>
       <span><span className="mr-1 inline-block size-3 rounded-sm bg-emerald-500" />Cache write</span>
       <span><span className="mr-1 inline-block size-3 rounded-sm bg-amber-500" />Completion tokens</span>
       <span>Scale: {number(maximum)} tokens · UTC{groupBy === 'week' ? ' · Weeks start Monday' : ''}</span>
     </figcaption>
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)] p-4">
+    <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
       <div className="flex items-end gap-3 pt-24" style={{ minWidth: Math.max(280, data.length * 56) }}>
         {data.map((row, index) => {
           const label = groupBy === 'month' ? row.period.slice(0, 7) : row.period;

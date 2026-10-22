@@ -58,7 +58,7 @@ export const TextField = forwardRef(function TextField(
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none placeholder:text-[var(--text-muted)] ${inputClassName}`}
+					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none rounded-xl! placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 				/>
 			</div>
 		</FieldShell>
@@ -71,7 +71,6 @@ export const NumberField = forwardRef(function NumberField(props, ref) {
 			{...props}
 			ref={ref}
 			type="number"
-			inputClassName={`appearance-none tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${props.inputClassName || ""}`}
 		/>
 	);
 });
@@ -118,51 +117,59 @@ export const SelectField = forwardRef(function SelectField(
 
 	const selectedOption = options.find((opt) => String(opt.value) === String(value));
 
-    const handleOpen = () => {
-        if (!disabled) setIsOpen(true);
-    };
+	const handleOpen = () => {
+		if (!disabled) setIsOpen(true);
+	};
 
-    useLayoutEffect(() => {
-        if (!isOpen) return;
-        const trigger = triggerRef.current;
-        const menu = menuRef.current;
-        if (!trigger || !menu) return;
-        const owner = trigger.closest('dialog');
-        const placeMenu = () => {
-            const rect = trigger.getBoundingClientRect();
-            const boundary = owner?.getBoundingClientRect();
-            // Remain inside the modal's clipping boundary and the viewport.
-            const leftEdge = Math.max(8, (boundary?.left ?? 0) + 8);
-            const rightEdge = Math.min(window.innerWidth - 8, (boundary?.right ?? window.innerWidth) - 8);
-            const topEdge = Math.max(8, (boundary?.top ?? 0) + 8);
-            const bottomEdge = Math.min(window.innerHeight - 8, (boundary?.bottom ?? window.innerHeight) - 8);
-            if (rect.bottom < topEdge || rect.top > bottomEdge) { setIsOpen(false); return; }
-            const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
-            const below = Math.max(0, bottomEdge - rect.bottom - 6);
-            const above = Math.max(0, rect.top - topEdge - 6);
-            const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
-            const upwards = openTop ? above >= desiredHeight || above >= below : below < desiredHeight && above > below;
-            const maxHeight = Math.min(288, upwards ? above : below);
-            const height = Math.min(desiredHeight, maxHeight);
-            const next = {
-                left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
-                top: upwards ? rect.top - 6 - height : rect.bottom + 6,
-                width, maxHeight,
-            };
-            setMenuCoords(previous => Object.keys(next).every(key => previous[key] === next[key]) ? previous : next);
-        };
-        placeMenu();
-        window.addEventListener('resize', placeMenu);
-        document.addEventListener('scroll', placeMenu, true);
-        const observer = new ResizeObserver(placeMenu);
-        observer.observe(trigger);
-        observer.observe(menu);
-        return () => {
-            window.removeEventListener('resize', placeMenu);
-            document.removeEventListener('scroll', placeMenu, true);
-            observer.disconnect();
-        };
-    }, [isOpen, openTop]);
+	useLayoutEffect(() => {
+		if (!isOpen) return;
+		const trigger = triggerRef.current;
+		const menu = menuRef.current;
+		if (!trigger || !menu) return;
+		const owner = trigger.closest("dialog");
+		const placeMenu = () => {
+			const rect = trigger.getBoundingClientRect();
+			const boundary = owner?.getBoundingClientRect();
+			// Remain inside the modal's clipping boundary and the viewport.
+			const leftEdge = Math.max(8, (boundary?.left ?? 0) + 8);
+			const rightEdge = Math.min(window.innerWidth - 8, (boundary?.right ?? window.innerWidth) - 8);
+			const topEdge = Math.max(8, (boundary?.top ?? 0) + 8);
+			const bottomEdge = Math.min(window.innerHeight - 8, (boundary?.bottom ?? window.innerHeight) - 8);
+			if (rect.bottom < topEdge || rect.top > bottomEdge) {
+				setIsOpen(false);
+				return;
+			}
+			const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
+			const below = Math.max(0, bottomEdge - rect.bottom - 6);
+			const above = Math.max(0, rect.top - topEdge - 6);
+			const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
+			const upwards = openTop
+				? above >= desiredHeight || above >= below
+				: below < desiredHeight && above > below;
+			const maxHeight = Math.min(288, upwards ? above : below);
+			const height = Math.min(desiredHeight, maxHeight);
+			const next = {
+				left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
+				top: upwards ? rect.top - 6 - height : rect.bottom + 6,
+				width,
+				maxHeight,
+			};
+			setMenuCoords((previous) =>
+				Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next,
+			);
+		};
+		placeMenu();
+		window.addEventListener("resize", placeMenu);
+		document.addEventListener("scroll", placeMenu, true);
+		const observer = new ResizeObserver(placeMenu);
+		observer.observe(trigger);
+		observer.observe(menu);
+		return () => {
+			window.removeEventListener("resize", placeMenu);
+			document.removeEventListener("scroll", placeMenu, true);
+			observer.disconnect();
+		};
+	}, [isOpen, openTop]);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -274,7 +281,7 @@ export const SelectField = forwardRef(function SelectField(
 								top: menuCoords.top,
 								width: menuCoords.width,
 								maxHeight: menuCoords.maxHeight,
-                                margin: 0,
+								margin: 0,
 							}}
 							className="fixed z-[9999] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
 							onMouseDown={(e) => e.stopPropagation()}
@@ -429,14 +436,14 @@ export const TextAreaField = forwardRef(function TextAreaField(
 			required={required}
 			className={className}
 		>
-			<div className="flex rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50">
+			<div className="flex rounded-xl! border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50">
 				<textarea
 					{...inputProps}
 					id={id}
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
+					className={`min-w-0 w-full rounded-xl! bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
 				/>
 			</div>
 		</FieldShell>
@@ -444,7 +451,17 @@ export const TextAreaField = forwardRef(function TextAreaField(
 });
 
 export const SliderField = forwardRef(function SliderField(
-	{ label, valueLabel, hint, id: suppliedId, className, inputClassName = "", required, onCommit, ...inputProps },
+	{
+		label,
+		valueLabel,
+		hint,
+		id: suppliedId,
+		className,
+		inputClassName = "",
+		required,
+		onCommit,
+		...inputProps
+	},
 	ref,
 ) {
 	const generatedId = useId();

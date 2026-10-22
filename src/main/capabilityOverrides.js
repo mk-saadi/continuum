@@ -6,9 +6,11 @@ function keyFor(target) {
     return JSON.stringify(['local', target.modelId]);
   }
   if (target?.type === 'cloud') {
-    const provider = require('./cloudProviders').getCloudProviders().find(row => row.id === target.provider && row.modelId === target.model);
+    const provider = require('./cloudProviders').getCloudProviders().find(row => row.id === target.provider);
     if (!provider) throw new Error('Select a saved cloud provider and model.');
-    return JSON.stringify(['cloud', provider.id, provider.baseUrl, provider.modelId]);
+    const model = typeof target.model === 'string' ? target.model.trim() : '';
+    if (!model) throw new Error('Select a saved cloud provider and model.');
+    return JSON.stringify(['cloud', provider.id, provider.baseUrl, model]);
   }
   throw new Error('Invalid capability target.');
 }

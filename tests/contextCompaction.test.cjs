@@ -29,7 +29,7 @@ const { prepareChatMessages } = require('../src/main/promptBuilder');
     let calls = 0;
     const options = { sessionId: 'chat', modelId: 'model', contextWindowLimit: 2667,
       llmSummarizeCallback: async (old, batch) => { calls++; assert.ok(old === null || old === 'First rolling summary'); assert.ok(batch.length <= 10); return 'First rolling summary'; } };
-    assert.equal((await checkAndCompressContext(options)).compressed, false);
+    assert.equal((await checkAndCompressContext({ ...options, contextWindowLimit: 100000 })).compressed, false);
     assert.equal(calls, 0);
     const profiles = require('../src/main/profileSettings');
     profiles.saveSessionMemorySettings('chat', 'model', { compactionEnabled: false });

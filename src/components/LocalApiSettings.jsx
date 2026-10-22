@@ -1,4 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { LuServer } from "react-icons/lu";
+import { TextField } from "./FormControls";
+import {
+	SettingsButton,
+	SettingsCard,
+	SettingsHint,
+	SettingsMessage,
+	SettingsStatus,
+} from "./settings/SettingsSection";
 
 export default function LocalApiSettings() {
 	const [settings, setSettings] = useState(null);
@@ -46,10 +55,13 @@ export default function LocalApiSettings() {
 	const port = activePort ?? settings?.apiServerPort;
 	const endpoint = port ? `http://127.0.0.1:${port}/v1` : null;
 	return (
-		<div className="mb-4 space-y-3 rounded-lg border border-[var(--border)] p-3">
-			<h3 className="font-semibold">Local API Server</h3>
+		<SettingsCard
+			icon={LuServer}
+			title="Local API server"
+			description="An OpenAI-compatible endpoint for local apps and scripts."
+		>
 			<form
-				className="palace-form"
+				className="space-y-3"
 				onSubmit={async (event) => {
 					event.preventDefault();
 					setBusy(true);
@@ -68,40 +80,37 @@ export default function LocalApiSettings() {
 					}
 				}}
 			>
-				<label>
-					Local API Server Port
-					<input
-						type="number"
-						min="1"
-						max="65535"
-						step="1"
-						value={draft}
-						disabled={busy || !settings}
-						placeholder="Automatic"
-						onChange={(event) => {
-							setDraft(event.target.value);
-							setNotice("");
-						}}
-					/>
-				</label>
-				<p className="palace-hint">
-					Default: 8080. Leave blank to choose an available port automatically.
-				</p>
-				<button
-					className="palace-add"
+				<TextField
+					label="Local API Server Port"
+					type="number"
+					min="1"
+					max="65535"
+					step="1"
+					value={draft}
+					disabled={busy || !settings}
+					placeholder="Automatic"
+					hint="Default: 8080. Leave blank to choose an available port automatically."
+					onChange={(event) => {
+						setDraft(event.target.value);
+						setNotice("");
+					}}
+				/>
+				<SettingsButton
+					type="submit"
+					variant="primary"
 					disabled={busy || !settings}
 				>
 					{busy ? "Saving…" : "Save port"}
-				</button>
+				</SettingsButton>
 			</form>
-			<div className="space-y-2 rounded bg-[var(--input)] p-3">
-				<p>{activePort ? "Current engine endpoint" : "Configured endpoint (engine stopped)"}</p>
-				<code className="block select-text break-all">
+			<div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+				<SettingsStatus active={Boolean(activePort)}>
+					{activePort ? "Current engine endpoint" : "Configured endpoint (engine stopped)"}
+				</SettingsStatus>
+				<code className="block select-text break-all font-mono text-[11px] text-[var(--text-secondary)]">
 					{endpoint || "Start the engine to get its automatic port."}
 				</code>
-				<button
-					type="button"
-					className="palace-add"
+				<SettingsButton
 					disabled={!endpoint}
 					onClick={async () => {
 						try {
@@ -114,17 +123,13 @@ export default function LocalApiSettings() {
 					}}
 				>
 					Copy OpenAI Base URL
-				</button>
+				</SettingsButton>
 			</div>
-			{notice && <p role="status">{notice}</p>}
-			{error && (
-				<p
-					role="alert"
-					className="palace-error"
-				>
-					{error}
-				</p>
+			<SettingsMessage tone="success">{notice}</SettingsMessage>
+			<SettingsMessage>{error}</SettingsMessage>
+			{!window.api?.getAppSettings && (
+				<SettingsHint>Open the desktop app to configure the local API server.</SettingsHint>
 			)}
-		</div>
+		</SettingsCard>
 	);
 }

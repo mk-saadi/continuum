@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SpendingTimeline from './SpendingTimeline';
 import { costValue, coverageLabel, savingsValue, sourceLabel, tokenValue } from './usageDashboardFormat.mjs';
+import { SettingsButton, SettingsMessage } from '../SettingsSection';
 
 function Metric({ label, value, hint }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-2.5">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2.5">
       <dt className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
       <dd className="mt-1 text-sm font-semibold tabular-nums">{value}</dd>
       {hint ? <dd className="mt-0.5 text-[10px] text-[var(--text-muted)]">{hint}</dd> : null}
@@ -43,18 +44,18 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
   const row = detail ?? model;
   const pricing = state?.pricing ?? [];
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-model-detail-title" aria-live="polite">
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-model-detail-title" aria-live="polite">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 id="usage-model-detail-title" className="text-sm font-semibold">{model.modelId ?? 'Unknown model'}</h3>
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{model.providerLabel} · {model.providerFamilyLabel}</p>
+          <h3 id="usage-model-detail-title" className="text-xs font-semibold">{model.modelId ?? 'Unknown model'}</h3>
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">{model.providerLabel} · {model.providerFamilyLabel}</p>
         </div>
-        <button type="button" onClick={onClose} className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs hover:bg-[var(--surface-hover)]">Close detail</button>
+        <SettingsButton type="button" onClick={onClose}>Close detail</SettingsButton>
       </div>
-      {error ? <p role="alert" className="mt-3 text-xs text-[var(--error)]">{error}</p> : null}
-      {loading && !state ? <p role="status" className="mt-3 text-xs text-[var(--text-muted)]">Loading model detail…</p> : null}
+      <SettingsMessage>{error}</SettingsMessage>
+      {loading && !state ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading model detail…</p> : null}
       {!loading && !detail && !error ? (
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-4 text-xs text-[var(--text-muted)]">
+        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-4 text-[11px] text-[var(--text-muted)]">
           This model has no rows under the current filters. Clear a filter to inspect it again.
         </p>
       ) : null}
@@ -74,13 +75,13 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
             <Metric label="Reasoning tokens" value={tokenValue(detail.reasoningTokens, detail.reasoningCoverage, { local })} />
             <Metric label="Data completeness" value={coverageLabel(detail.dataCompleteness)} hint={`${detail.authoritativeTurns ?? 0} authoritative turns`} />
           </dl>
-          <div className="mt-4">
+          <div className="mt-3">
             <SpendingTimeline data={state.timeline} groupBy={state.filters?.groupBy} title={`${model.modelId ?? 'Model'} spending over time`} />
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <h4 className="text-xs font-semibold">Rate snapshots recorded for this model</h4>
             {pricing.length === 0 ? (
-              <p className="mt-2 rounded-lg border border-dashed border-[var(--border)] p-4 text-xs text-[var(--text-muted)]">
+              <p className="mt-2 rounded-lg border border-dashed border-[var(--border)] p-4 text-[11px] text-[var(--text-muted)]">
                 No rate evidence recorded. Spend is unknown for this model, not $0.00.
               </p>
             ) : (

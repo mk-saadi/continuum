@@ -626,6 +626,11 @@ export function formatArgFields(step) {
       break;
     case 'read':
       push('Path', str(args.relative_path ?? args.path, 160));
+      if (Number.isSafeInteger(args.start_line) || Number.isSafeInteger(args.end_line)) {
+        const start = Number.isSafeInteger(args.start_line) ? args.start_line : 1;
+        const end = Number.isSafeInteger(args.end_line) ? args.end_line : null;
+        push('Lines', end === null ? `${start}+` : `${start}–${end}`);
+      }
       break;
     case 'search':
       push('Query', str(args.query));

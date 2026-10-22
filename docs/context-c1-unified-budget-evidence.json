@@ -1,0 +1,494 @@
+{
+  "phase": "C1",
+  "clientDate": "2026-10-22",
+  "timezone": "Asia/Dhaka",
+  "incident": {
+    "configuredContextTokens": 70000,
+    "runtimeContextTokens": 35072,
+    "reservedOutputTokens": 1024,
+    "reservedSafetyTokens": 128,
+    "usableInputTokens": 33920,
+    "ratio": 0.9,
+    "trigger": 30528
+  },
+  "baselineFocused": {
+    "commandLog": "/tmp/c1-focused-before.log",
+    "counts": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failedFiles": [],
+    "durationMs": 1551.056222
+  },
+  "baselineFull": {
+    "commandLog": "/tmp/c1-regression-before.log",
+    "counts": {
+      "tests": 215,
+      "pass": 184,
+      "fail": 31,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failedFiles": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "durationMs": 43108.468714
+  },
+  "finalFull": {
+    "commandLog": "/tmp/c1-regression-complete.log",
+    "counts": {
+      "tests": 218,
+      "pass": 187,
+      "fail": 31,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "failedFiles": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "durationMs": 37596.615456
+  },
+  "newFailingFiles": [],
+  "resolvedFailingFiles": [],
+  "focusedFiles": [
+    {
+      "file": "contextC1.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 24,
+        "pass": 24,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextC1Integration.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextC1Ui.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextBudget.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextMeasure.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextTelemetry.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "idleCompactionProjection.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 18,
+        "pass": 18,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextRecoveryReliability.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextOverflowRecovery.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextCompaction.test.cjs",
+      "exitCode": 0,
+      "counts": {},
+      "failures": []
+    },
+    {
+      "file": "compressionLifecycle.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "workspaceBudgetVerification.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "workspaceBriefBudget.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "modelCapabilities.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "subagentModelSelection.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "subagentModelBudgets.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "subagentCompaction.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "subagentCompactionHardening.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "liveSteering.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "liveSteeringLoop.test.mjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "liveSteeringIpc.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "contextPanel.test.cjs",
+      "exitCode": 0,
+      "counts": {},
+      "failures": []
+    },
+    {
+      "file": "palacePolling.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "attachmentPolicy.test.mjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "attachmentDocuments.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "attachments.test.cjs",
+      "exitCode": 1,
+      "counts": {},
+      "failures": []
+    },
+    {
+      "file": "reasoningControls.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 17,
+        "pass": 17,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    },
+    {
+      "file": "reasoningRuntime.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": []
+    }
+  ],
+  "focusedTotals": {
+    "files": 28,
+    "passedFiles": 27,
+    "failedFiles": 1,
+    "tap": {
+      "tests": 244,
+      "pass": 244,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "performance": {
+    "mockTransport": true,
+    "budgetResolutionMs": 36.990547,
+    "cacheHitMs": 0.5486439999999959,
+    "schemaChangeMs": 1.2043299999999988,
+    "guardMeasurementAndMockDispatchMs": 2.479374000000007,
+    "headerFormatMsPerCall": 0.047363702999999986,
+    "props": 4,
+    "tokenizers": 3,
+    "propsPerExplicitLocalMeasurement": 1,
+    "propsPerReactRender": 0
+  },
+  "electronFixtures": [
+    {
+      "file": "contextPanel.ui.cjs",
+      "exitCode": 1,
+      "reason": "Chromium sandbox_host_linux.cc abort: shutdown Operation not permitted; no assertions executed"
+    },
+    {
+      "file": "compressionDispatch.ui.cjs",
+      "exitCode": 1,
+      "reason": "Chromium sandbox_host_linux.cc abort: shutdown Operation not permitted; no assertions executed"
+    },
+    {
+      "file": "cloudContext.ui.cjs",
+      "exitCode": 1,
+      "reason": "Chromium sandbox_host_linux.cc abort: shutdown Operation not permitted; no assertions executed"
+    },
+    {
+      "file": "palacePolling.ui.cjs",
+      "exitCode": 1,
+      "reason": "Chromium sandbox_host_linux.cc abort: shutdown Operation not permitted; no assertions executed"
+    }
+  ],
+  "realRuntimeSmoke": {
+    "executed": false,
+    "reason": "No running llama server or workspace GGUF model fixture exposed in execution namespace; no live conversation/model reconfigured."
+  },
+  "productionBuild": {
+    "passed": true,
+    "seconds": 14.49,
+    "warnings": [
+      "Chunks larger than 500 kB after minification"
+    ]
+  },
+  "environmentLimitations": [
+    "npm test directory entrypoint fails with MODULE_NOT_FOUND; full suite used explicit tests/*.test.cjs tests/*.test.mjs globs.",
+    "spawnSync may return EPERM together with status 0 and empty output: aggregation results from that method were discarded and direct shell tests rerun.",
+    "Electron browser sandbox cannot initialize in this execution environment.",
+    "Full regression contains pre-existing failures, including process/network restrictions and the unverified-image attachment fixture."
+  ],
+  "sourceHashes": {
+    "main.js": "268f73874bfd7f25984588f27668fb181859a63f154126bbcbe776b62bc74c4c",
+    "src/main/contextBudget.js": "228d83a1905d3b57a847733ce68525940b5bb92ee33fb51fcdde73231eca5916",
+    "src/main/promptMeasurement.js": "67d156afdd9d6102b6f23277ee18e12b10147328a078cff91e5de5106ccfff84",
+    "src/main/compressionEngine.js": "84523e025b5495c736492c7f66eb7c07b13e21f8b139528a239193a539060d6a",
+    "src/main/ipcHandlers.js": "c070d412cc92ab3b82307f11d862a72c093be4c9bee3c7b973c1eaf95f91c314",
+    "src/main/localEngineFetch.js": "99509d148d651f835128d5dd8a491bcc67da9c42b7dfb06f26a023dcc2d77fb8",
+    "src/main/subagents/modelSelection.js": "0917bcc50d010d75e3027f589901e1faf74e64c2573a25f3afb4558ad0363175",
+    "src/components/MemoryPalace.jsx": "227af2b26d96ea03be450380b1f2d827b9e5ec04ff930ac7f3c0ca8c5dd40e3f",
+    "src/components/ContextPanel.jsx": "7437dd6afc862649543b5b83905430b91a0cd956aa1eceab053708f8affe8d73",
+    "src/components/RightSidebar.jsx": "6a692e9b9ff41dc922b8fc153fbb0d0463e473d0f794b33a303c61550113f4ec",
+    "src/components/main-app/ChatInterface.jsx": "ceb7f0e650ae228465c85d89896c833f2b30cc3ad96e319ef249a7aa17b3b3c2",
+    "src/components/main-app/Header.jsx": "0928b12bcbf59c2cc35d0ab1ab426e3a3a211f2dfb53965efe525eb71e28d7cf",
+    "src/lib/contextDisplay.mjs": "0c6d003541026ca35a92a4d33403256fc578001482bbd3d15399beb44f7b22c4",
+    "src/lib/contextMeasurement.mjs": "e11096acd50d93be4da31ab7b82e90c7f3cd5355c79832957bd48c8c4521033f",
+    "tests/contextC1.test.cjs": "3e6cab6be233af32fc33cbf8081add6c440324742192975e031130a785ae4a28",
+    "tests/contextC1Integration.test.cjs": "b95e0ccd983b1ffe1fdca6099f69575d61741754036078392a0008c15a95253d",
+    "tests/contextC1Ui.test.cjs": "08f7debcbb36cf1ce3902b4ca0a64476c33ca1162183adc0086bf12cf49be5f6",
+    "tests/contextPanel.test.cjs": "3ab3c55fb7f2c9b673657d1e86680cd06019310ca2f3ecf81fe8e0b1cc85adf7",
+    "tests/subagentLongHorizonCompaction.test.cjs": "7ff9a60802d9444841b75146159ad305968fa76962c975e294613bb7303cc83a"
+  }
+}

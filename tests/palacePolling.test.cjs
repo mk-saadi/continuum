@@ -57,7 +57,7 @@ async function main() {
     assert.ok(app.includes('active={tab.id === activeTabId}'), 'active still derives from the tab store');
     // The gate must not reach execution, persistence, or subscriptions: every
     // event-driven and agent path in the hook stays ungated.
-    for (const token of ['prepareChatMessages', 'saveMessage', 'onCompressionComplete', 'onChanged', 'scheduleIdleCompression', 'measureContext']) {
+    for (const token of ['prepareChatMessages', 'saveMessage', 'useCompressionEvents', 'onChanged', 'scheduleIdleCompression', 'measureContext']) {
       assert.ok(palace.includes(token), `${token} path retained`);
     }
     const chat = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'main-app', 'ChatInterface.jsx'), 'utf8');

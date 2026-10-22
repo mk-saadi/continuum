@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PALACE_POLL_INTERVAL_MS, isDocumentHidden, shouldPollTick, usageEqual } from '../lib/palacePolling.mjs';
+import { acceptsContextMeasurement } from '../lib/contextMeasurement.mjs';
+import { useCompressionEvents } from '../context/CompressionEventsContext.jsx';
 
 const tokens = (text) => Math.ceil(text.length / 4);
 
@@ -41,7 +43,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     };
   }, [isCloud, modelId]);
   const contextLength = isCloud ? (cloudContext?.modelId === modelId ? cloudContext.contextLength : null) : activeModelConfig?.contextLength;
-  const limit = Number.isSafeInteger(contextLength) && contextLength > 0 ? contextLength : null;
+  const configuredLimit = Number.isSafeInteger(contextLength) && contextLength > 0 ? contextLength : null;
   const [usage, setUsage] = useState(null);
   const [coreTokens, setCoreTokens] = useState(0);
   const [pluginTokens, setPluginTokens] = useState(0);
@@ -56,16 +58,17 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
 
   const measure = useCallback(async () => {
     if (!api?.measureContext || !modelId) return;
-    const version = measureGeneration.current;
+    const version = ++measureGeneration.current;
+    setMeasured(null);
     try {
       const result = await api.measureContext(sessionId, modelId, { cloud: isCloud, permissionMode });
-      if (version !== measureGeneration.current) return;
+      if (!acceptsContextMeasurement(version, measureGeneration.current, result, sessionId, modelId)) return;
       setMeasured(result);
       setMeasureError('');
     } catch (err) {
       if (version === measureGeneration.current) setMeasureError(err?.message ?? String(err));
     }
-  }, [api, sessionId, modelId, isCloud, permissionMode]);
+  }, [api, sessionId, modelId, isCloud, permissionMode, configuredLimit, activeModelConfig?.parallel, activeModelConfig?.runtimeIdentity]);
 
   const noteLivePhase = useCallback((event) => {
     if (!event || event.sessionId !== sessionId) return;
@@ -80,7 +83,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   useEffect(() => {
     let active = true;
     let lastToolTokens = null, lastPluginTokens = null;
-    const update = status => {
+    const update = (status, changed = false) => {
       if (!active) return;
       setPluginTokens(status.pluginTokens);
       setToolTokens(status.toolTokens);
@@ -88,13 +91,13 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
       // Tool schemas changed: the measured prompt is stale. The initial
       // status fetch only establishes baselines without re-measuring
       // (the session effect below already measures on mount/switch).
-      if (lastToolTokens !== null && (status.toolTokens !== lastToolTokens || status.pluginTokens !== lastPluginTokens)) {
+      if (lastToolTokens !== null && (changed || status.toolTokens !== lastToolTokens || status.pluginTokens !== lastPluginTokens)) {
         measure();
       }
       lastToolTokens = status.toolTokens;
       lastPluginTokens = status.pluginTokens;
     };
-    const unsubscribe = window.mcpAPI?.onChanged(update);
+    const unsubscribe = window.mcpAPI?.onChanged(status => update(status, true));
     window.mcpAPI?.getStatus().then(update).catch(err => { if (active) setError(err.message); });
     return () => { active = false; unsubscribe?.(); };
   }, [measure]);
@@ -145,13 +148,12 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     return () => { generation.current += 1; measureGeneration.current += 1; clearInterval(interval); };
   }, [api, modelId, refresh, measure, isActive, pollIntervalMs]);
 
-  useEffect(() => api?.onCompressionComplete((result) => {
-    if (result.sessionId !== sessionId) return;
+  useCompressionEvents(sessionId, (result) => {
     if (!result.compressed) return;
     setToast(`Summarized ${result.archivedCount} earlier messages to free memory`);
     refresh();
     measure();
-  }), [api, sessionId, refresh, measure]);
+  });
 
   // Engine transitions (offline → ready, port change, restart) change what
   // the tokenizer backend can measure, but no session/model prop changes.
@@ -160,6 +162,8 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   useEffect(() => {
     const prev = engineIdentity.current;
     engineIdentity.current = { ready: engineReady, port: enginePort };
+    measureGeneration.current += 1;
+    setMeasured(null);
     if (!engineReady) return;
     // First ready transition, or a port change while ready (restart with a
     // new backend identity): the cached offline/previous-backend reading is stale.
@@ -195,9 +199,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   }, [toast]);
 
   const schedule = useCallback(() => {
-    if (!api || !modelId || isCloud || limit === null) return;
-    api.scheduleIdleCompression(sessionId, modelId, limit).catch((err) => setError(err.message));
-  }, [api, modelId, sessionId, limit, isCloud]);
+    if (!api || !modelId || isCloud || configuredLimit === null) return;
+    api.scheduleIdleCompression(sessionId, modelId, configuredLimit).catch((err) => setError(err.message));
+  }, [api, modelId, sessionId, configuredLimit, isCloud]);
 
   const prepareMessages = useCallback(async (text, regenerate = false, attachments = []) => {
     if (!api) throw new Error('Memory Palace is available in the desktop app.');
@@ -243,6 +247,8 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   // contextTokens is all-inclusive in both branches: the measured payload
   // already contains every tool schema, while the legacy fallback adds the
   // live MCP plugin tokens on top (matching the previous header behavior).
+  const budgetContract = measuredFresh ? measured.budgetContract : null;
+  const limit = budgetContract?.usableInputTokens ?? null;
   const contextTokens = measuredFresh
     ? measured.tokens + draftTokens
     : fallbackTokens === null ? null : fallbackTokens + (pluginTokens || 0);
@@ -261,7 +267,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   return useMemo(() => ({
     api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage, toolTokens, pluginTokens, mcpStatus,
     setDraftTokens,
-    measure, measured: measuredValue, measureError,
+    measure, measured: measuredValue, budgetContract, measureError,
     noteLivePhase, clearLiveTelemetry, liveTelemetry,
     // Persisted per-turn server telemetry for this session (latest completed turn).
     turnTelemetry,
@@ -270,7 +276,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     toggle,
   }), [
     api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage,
-    toolTokens, pluginTokens, mcpStatus, setDraftTokens, measure, measuredValue, measureError, noteLivePhase,
+    toolTokens, pluginTokens, mcpStatus, setDraftTokens, measure, measuredValue, budgetContract, measureError, noteLivePhase,
     clearLiveTelemetry, liveTelemetry, turnTelemetry, contextTokens, contextMethod, contextConfidence, fallbackTokens, toggle,
   ]);
 }

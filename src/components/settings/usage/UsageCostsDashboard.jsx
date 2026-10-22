@@ -11,6 +11,11 @@ import {
   savingsValue,
   tokenValue,
 } from './usageDashboardFormat.mjs';
+import { SelectField, TextField } from '../../FormControls';
+import {
+  SettingsButton,
+  SettingsMessage,
+} from '../SettingsSection';
 
 const RANGES = [
   { id: '7d', label: 'Last 7 days', group: 'day' },
@@ -36,9 +41,9 @@ const TABS = [
 
 function MetricCard({ label, value, hint, warning = false, local = false }) {
   return (
-    <div className={`rounded-xl border p-3 ${warning ? 'border-[var(--warning,#b45309)]/50' : 'border-[var(--border)]'} bg-[var(--surface)]`}>
+    <div className={`rounded-xl border p-3 shadow-[0_2px_4px_var(--window-shadow)] ${warning ? 'border-[var(--warning,#b45309)]/50' : 'border-[var(--border)]'} bg-[var(--surface)]`}>
       <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
-      <p className={`mt-1 text-lg font-semibold tabular-nums ${local ? 'text-[var(--text-muted)]' : ''}`}>{value}</p>
+      <p className={`mt-1 text-sm font-semibold tabular-nums ${local ? 'text-[var(--text-muted)]' : ''}`}>{value}</p>
       {hint ? <p className="mt-0.5 text-[10px] leading-relaxed text-[var(--text-muted)]">{hint}</p> : null}
     </div>
   );
@@ -65,8 +70,8 @@ function TokenAnalytics({ summary, local }) {
     ['Total tokens', summary.totalTokens, summary.totalTokensCoverage, 'Input + output; cache reads are already inside input'],
   ];
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-token-title">
-      <h3 id="usage-token-title" className="text-sm font-semibold">Token &amp; cache analytics</h3>
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-token-title">
+      <h3 id="usage-token-title" className="text-xs font-semibold">Token &amp; cache analytics</h3>
       <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
         Cloud tokens only. Partial coverage is prefixed with “≥”; unavailable evidence is “—”, never zero.
       </p>
@@ -115,7 +120,7 @@ function Overview({ dashboard, onSelectModel }) {
   const localOnly = summary.billableTurns === 0 && summary.turns > 0;
   const topModels = dashboard.models.slice(0, 5);
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total priced spend"
@@ -162,8 +167,8 @@ function Overview({ dashboard, onSelectModel }) {
       <SpendingTimeline data={dashboard.timeline} groupBy={dashboard.range.groupBy} />
       <TokenAnalytics summary={summary} local={localOnly} />
       {topModels.length ? (
-        <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-top-models-title">
-          <h3 id="usage-top-models-title" className="text-sm font-semibold">Top models by priced spend</h3>
+        <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-top-models-title">
+          <h3 id="usage-top-models-title" className="text-xs font-semibold">Top models by priced spend</h3>
           <ul className="mt-2 divide-y divide-[var(--border)]/60">
             {topModels.map(row => {
               const local = row.providerFamily === 'local';
@@ -257,72 +262,51 @@ export default function UsageCostsDashboard() {
   const hasFilters = Boolean(providerId || modelId || projectId || range !== '30d');
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-labelledby="usage-filters-title">
+    <div className="space-y-3">
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-filters-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 id="usage-filters-title" className="text-sm font-semibold">Cloud spending &amp; usage</h3>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+            <h3 id="usage-filters-title" className="text-xs font-semibold">Cloud spending &amp; usage</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
               Read-only aggregation of recorded cost evidence. All timestamps and buckets are UTC.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setRefreshToken(value => value + 1)} disabled={loading} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-hover)] disabled:opacity-40">
+            <SettingsButton type="button" onClick={() => setRefreshToken(value => value + 1)} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
-            <button type="button" onClick={resetFilters} disabled={!hasFilters} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-hover)] disabled:opacity-40">
+            </SettingsButton>
+            <SettingsButton type="button" onClick={resetFilters} disabled={!hasFilters}>
               Reset filters
-            </button>
+            </SettingsButton>
           </div>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          <label className="text-xs text-[var(--text-secondary)]">
-            Date range
-            <select value={range} onChange={event => changeRange(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]">
-              {RANGES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select>
-          </label>
-          <label className="text-xs text-[var(--text-secondary)]">
-            Timeline grouping
-            <select value={groupBy} onChange={event => setGroupBy(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]">
-              {GROUPS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select>
-          </label>
-          <label className="text-xs text-[var(--text-secondary)]">
-            Provider
-            <select value={providerId} onChange={event => setProviderId(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]">
-              <option value="">All providers</option>
-              {options.providers.map(option => <option key={option.providerId} value={option.providerId}>{option.label} · {option.familyLabel}</option>)}
-            </select>
-          </label>
-          <label className="text-xs text-[var(--text-secondary)]">
-            Model
-            <select value={modelId} onChange={event => setModelId(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]">
-              <option value="">All models</option>
-              {options.models.map(option => <option key={`${option.providerId}:${option.modelId}`} value={option.modelId}>{option.label} · {option.providerLabel}</option>)}
-            </select>
-          </label>
-          <label className="text-xs text-[var(--text-secondary)]">
-            Workspace
-            <select value={projectId} onChange={event => setProjectId(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]">
-              <option value="">All workspaces</option>
-              {options.projects.map(option => <option key={option.projectId} value={option.projectId}>{option.name}</option>)}
-            </select>
-          </label>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <SelectField label="Date range" value={range} onChange={event => changeRange(event.target.value)}>
+            {RANGES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </SelectField>
+          <SelectField label="Timeline grouping" value={groupBy} onChange={event => setGroupBy(event.target.value)}>
+            {GROUPS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </SelectField>
+          <SelectField label="Provider" value={providerId} onChange={event => setProviderId(event.target.value)}>
+            <option value="">All providers</option>
+            {options.providers.map(option => <option key={option.providerId} value={option.providerId}>{option.label} · {option.familyLabel}</option>)}
+          </SelectField>
+          <SelectField label="Model" value={modelId} onChange={event => setModelId(event.target.value)}>
+            <option value="">All models</option>
+            {options.models.map(option => <option key={`${option.providerId}:${option.modelId}`} value={option.modelId}>{option.label} · {option.providerLabel}</option>)}
+          </SelectField>
+          <SelectField label="Workspace" value={projectId} onChange={event => setProjectId(event.target.value)}>
+            <option value="">All workspaces</option>
+            {options.projects.map(option => <option key={option.projectId} value={option.projectId}>{option.name}</option>)}
+          </SelectField>
           {range === 'custom' ? (
             <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-[var(--text-secondary)]">
-                From (UTC)
-                <input type="date" value={from} onChange={event => setFrom(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]" />
-              </label>
-              <label className="text-xs text-[var(--text-secondary)]">
-                To (UTC)
-                <input type="date" value={to} onChange={event => setTo(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)]" />
-              </label>
+              <TextField type="date" label="From (UTC)" value={from} onChange={event => setFrom(event.target.value)} />
+              <TextField type="date" label="To (UTC)" value={to} onChange={event => setTo(event.target.value)} />
             </div>
           ) : null}
         </div>
-        {error ? <p role="alert" className="mt-3 rounded-lg border border-[var(--error)]/40 bg-[var(--surface-raised)] p-3 text-xs text-[var(--error)]">{error}</p> : null}
+        <SettingsMessage>{error}</SettingsMessage>
       </section>
 
       <div role="tablist" aria-label="Spending dashboard sections" className="flex flex-wrap gap-1 border-b border-[var(--border)]">
@@ -356,10 +340,10 @@ export default function UsageCostsDashboard() {
           <section id="usage-costs-panel-overview" role="tabpanel" aria-labelledby="usage-costs-tab-overview" hidden={tab !== 'overview'} tabIndex={0}>
             <Overview dashboard={dashboard} onSelectModel={openModel} />
           </section>
-          <section id="usage-costs-panel-models" role="tabpanel" aria-labelledby="usage-costs-tab-models" hidden={tab !== 'models'} tabIndex={0} className="space-y-4">
+          <section id="usage-costs-panel-models" role="tabpanel" aria-labelledby="usage-costs-tab-models" hidden={tab !== 'models'} tabIndex={0} className="space-y-3">
             <ModelSpendingTable models={dashboard.models} selectedKey={selectedModel?.key ?? null} onSelect={setSelectedModel} />
             {selectedModel ? <ModelDetailPanel model={selectedModel} filters={filters} onClose={() => setSelectedModel(null)} /> : (
-              <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-xs text-[var(--text-muted)]">
+              <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-[11px] text-[var(--text-muted)]">
                 Select a model row to inspect its timeline, token mix, coverage, and recorded rate snapshots.
               </p>
             )}
@@ -375,7 +359,7 @@ export default function UsageCostsDashboard() {
           </section>
         </>
       ) : loading ? (
-        <p role="status" className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Loading spending dashboard…</p>
+        <p role="status" className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center text-[11px] text-[var(--text-muted)]">Loading spending dashboard…</p>
       ) : null}
       {loading && dashboard ? <p role="status" className="text-[11px] text-[var(--text-muted)]">Updating dashboard…</p> : null}
       <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">

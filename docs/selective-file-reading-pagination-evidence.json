@@ -1,0 +1,196 @@
+{
+  "phase": "2.5A",
+  "generated_at": "2026-10-21T20:01:50.774Z",
+  "note": "Measured on disposable temporary fixtures with the real native dispatcher. No inference/provider call is made. Token estimates are JSON character counts / 4, not billed tokens. maxRSS is the process high-water mark in KiB.",
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu_count": 8,
+    "total_memory_bytes": 16583028736
+  },
+  "limits": {
+    "default_page_lines": 200,
+    "max_page_lines": 400,
+    "max_output_chars": 20000,
+    "read_tool_schema_chars": 1148
+  },
+  "cases": [
+    {
+      "fixture": "small_100",
+      "file_bytes": 2684,
+      "file_lines": 100,
+      "full_read": {
+        "latency_ms": 5.643,
+        "returned_chars": 2942,
+        "estimated_tokens": 736,
+        "truncated": false,
+        "content_chars": 2684
+      },
+      "range_read": {
+        "start_line": 50,
+        "end_line": 100,
+        "requested_end_line": 149,
+        "actual_start_line": 50,
+        "actual_end_line": 100,
+        "latency_ms": 3.715,
+        "returned_chars": 1747,
+        "estimated_tokens": 437,
+        "content_chars": 1379,
+        "total_lines": 100,
+        "has_more": false,
+        "truncated": false,
+        "truncation_reason": null,
+        "outcome": "success",
+        "line_number": null,
+        "line_bytes": null,
+        "suggested_next_start_line": null
+      },
+      "range_vs_full": {
+        "chars_saved": 1195,
+        "reduction_percent": 40.62
+      }
+    },
+    {
+      "fixture": "medium_4000",
+      "file_bytes": 121786,
+      "file_lines": 4000,
+      "full_read": {
+        "latency_ms": 1.372,
+        "returned_chars": 20896,
+        "estimated_tokens": 5224,
+        "truncated": true,
+        "content_chars": 20019
+      },
+      "range_read": {
+        "start_line": 2000,
+        "end_line": 2099,
+        "requested_end_line": null,
+        "actual_start_line": 2000,
+        "actual_end_line": 2099,
+        "latency_ms": 5.955,
+        "returned_chars": 3502,
+        "estimated_tokens": 876,
+        "content_chars": 3100,
+        "total_lines": 4000,
+        "has_more": true,
+        "truncated": false,
+        "truncation_reason": null,
+        "outcome": "success",
+        "line_number": null,
+        "line_bytes": null,
+        "suggested_next_start_line": null
+      },
+      "range_vs_full": {
+        "chars_saved": 17394,
+        "reduction_percent": 83.24
+      }
+    },
+    {
+      "fixture": "large_50000",
+      "file_bytes": 1627788,
+      "file_lines": 50000,
+      "full_read": {
+        "latency_ms": 5.928,
+        "returned_chars": 20897,
+        "estimated_tokens": 5225,
+        "truncated": true,
+        "content_chars": 20019
+      },
+      "range_read": {
+        "start_line": 25000,
+        "end_line": 25199,
+        "requested_end_line": null,
+        "actual_start_line": 25000,
+        "actual_end_line": 25199,
+        "latency_ms": 22.119,
+        "returned_chars": 7109,
+        "estimated_tokens": 1778,
+        "content_chars": 6600,
+        "total_lines": 50000,
+        "has_more": true,
+        "truncated": false,
+        "truncation_reason": null,
+        "outcome": "success",
+        "line_number": null,
+        "line_bytes": null,
+        "suggested_next_start_line": null
+      },
+      "range_vs_full": {
+        "chars_saved": 13788,
+        "reduction_percent": 65.98
+      }
+    },
+    {
+      "fixture": "very_long_line",
+      "file_bytes": 1000001,
+      "file_lines": 1,
+      "full_read": {
+        "latency_ms": 3.365,
+        "returned_chars": 20203,
+        "estimated_tokens": 5051,
+        "truncated": true,
+        "content_chars": 20019
+      },
+      "range_read": {
+        "start_line": 1,
+        "end_line": 1,
+        "requested_end_line": null,
+        "actual_start_line": null,
+        "actual_end_line": null,
+        "latency_ms": 17.144,
+        "returned_chars": 506,
+        "estimated_tokens": 127,
+        "content_chars": null,
+        "total_lines": 1,
+        "has_more": null,
+        "truncated": false,
+        "truncation_reason": null,
+        "outcome": "LINE_TOO_LONG",
+        "line_number": 1,
+        "line_bytes": 1000001,
+        "suggested_next_start_line": null
+      },
+      "range_vs_full": {
+        "chars_saved": 19697,
+        "reduction_percent": 97.5
+      }
+    }
+  ],
+  "responsiveness": {
+    "large_full_read": {
+      "elapsed_ms": 5.832,
+      "max_timer_delay_ms": 0,
+      "timer_ticks": 2
+    },
+    "large_range_read": {
+      "elapsed_ms": 21.579,
+      "max_timer_delay_ms": 0.716,
+      "timer_ticks": 19
+    }
+  },
+  "memory": {
+    "max_rss_before_kb": 113596,
+    "max_rss_after_kb": 113724,
+    "max_rss_delta_kb": 128,
+    "medium_full_read_latency_ms": 1.557,
+    "medium_range_read_latency_ms": 1.905
+  },
+  "sample_comparison": {
+    "fixture": "medium_4000",
+    "whole_file_chars": 20896,
+    "range_100_lines_chars": 3502,
+    "whole_file_tokens_approx": 5224,
+    "range_100_lines_tokens_approx": 876,
+    "reduction_percent": 83.24
+  },
+  "honesty": {
+    "range_reads_still_read_the_whole_file": true,
+    "reason": "The full-file SHA-256 and total_lines metadata require scanning every byte; the reader streams the file in 64 KiB chunks and retains only the requested page.",
+    "not_claimed": [
+      "No claim that pagination improves model reasoning quality.",
+      "No claim of atomic file snapshots; stability is a bounded pre/post stat check with retry.",
+      "No claim that token estimates equal provider-billed tokens."
+    ]
+  }
+}

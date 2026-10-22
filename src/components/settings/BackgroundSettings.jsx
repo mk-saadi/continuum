@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { LuImage } from "react-icons/lu";
 import { SliderField } from "../FormControls";
 import {
 	DEFAULT_BACKGROUND_OPACITY,
@@ -8,6 +9,12 @@ import {
 	notifyBackgroundOpacityChanged,
 } from "../../hooks/useBackgroundSettings";
 import { mediaSource } from "../../lib/markdownMedia.mjs";
+import {
+	SettingsButton,
+	SettingsCard,
+	SettingsHint,
+	SettingsMessage,
+} from "./SettingsSection";
 
 // Custom static background image + surface opacity. Self-contained like
 // GeneralSettingsTab: loads/saves through window.api and notifies the App
@@ -101,22 +108,13 @@ export default function BackgroundSettings() {
 	const hasImage = Boolean(previewUrl) && !previewBroken;
 
 	return (
-		<section
-			className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
-			aria-labelledby="background-image-title"
+		<SettingsCard
+			icon={LuImage}
+			title="Background image"
+			description="Personalize the app with a static image behind the interface. Surfaces stay readable: only background colors turn translucent, never text or icons."
 		>
-			<h4
-				id="background-image-title"
-				className="font-semibold"
-			>
-				Background image
-			</h4>
-			<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-				Personalize the app with a static image behind the interface. Surfaces stay readable:
-				only background colors turn translucent, never text or icons.
-			</p>
 			{hasImage ? (
-				<div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)]">
+				<div className="overflow-hidden rounded-lg border border-[var(--border)]">
 					<img
 						src={previewUrl}
 						alt="Background preview"
@@ -128,34 +126,31 @@ export default function BackgroundSettings() {
 				settings.imagePath && (
 					<p
 						role="status"
-						className="mt-3 rounded-lg border border-[var(--border)] p-3 text-xs text-[var(--text-secondary)]"
+						className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-[11px] leading-relaxed text-[var(--text-secondary)]"
 					>
 						The saved image file is missing or unreadable. Choose a new one below; the
 						interface stays solid until then.
 					</p>
 				)
 			)}
-			<div className="mt-3 flex flex-wrap gap-2">
-				<button
-					type="button"
+			<div className="mt-3 flex flex-wrap items-center gap-2">
+				<SettingsButton
+					variant="primary"
 					disabled={busy || !window.api?.pickBackgroundImage}
 					onClick={() => run(() => window.api.pickBackgroundImage())}
-					className="cursor-pointer rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					{busy ? "Working…" : settings.imagePath ? "Replace image…" : "Choose image…"}
-				</button>
+				</SettingsButton>
 				{settings.imagePath && (
-					<button
-						type="button"
+					<SettingsButton
 						disabled={busy}
 						onClick={() => run(() => window.api.removeBackgroundImage())}
-						className="cursor-pointer rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
 					>
 						Remove image
-					</button>
+					</SettingsButton>
 				)}
 			</div>
-			<div className="mt-4">
+			<div className="mt-3 border-t border-[var(--border)] pt-3">
 				<SliderField
 					label="Surface opacity"
 					valueLabel={`${settings.opacity}% solid`}
@@ -165,23 +160,16 @@ export default function BackgroundSettings() {
 					step={1}
 					value={settings.opacity}
 					disabled={busy}
-					onChange={(event) => setSettings(current => ({ ...current, opacity: Number(event.target.value) }))}
+					onChange={(event) =>
+						setSettings((current) => ({ ...current, opacity: Number(event.target.value) }))
+					}
 					onCommit={(event) => changeOpacity(event.target.value)}
 				/>
 			</div>
-			{error && (
-				<p
-					role="alert"
-					className="mt-3 text-xs text-[var(--error)]"
-				>
-					{error}
-				</p>
-			)}
+			<SettingsMessage>{error}</SettingsMessage>
 			{!window.api?.pickBackgroundImage && (
-				<p className="mt-3 rounded-lg border border-[var(--border)] p-3 text-xs text-[var(--text-secondary)]">
-					Background images are available in the desktop app.
-				</p>
+				<SettingsHint>Background images are available in the desktop app.</SettingsHint>
 			)}
-		</section>
+		</SettingsCard>
 	);
 }

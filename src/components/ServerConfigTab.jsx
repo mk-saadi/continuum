@@ -1,4 +1,12 @@
 import React, { useState } from 'react';
+import { LuFileJson, LuPlugZap } from 'react-icons/lu';
+import { SelectField, TextAreaField, TextField } from './FormControls';
+import {
+  SettingsButton,
+  SettingsCard,
+  SettingsHint,
+  SettingsMessage,
+} from './settings/SettingsSection';
 
 export default function ServerConfigTab({ config: mcpConfig, busy: mcpBusy, onSave: saveMcpConfig, error: mcpError, onError: setMcpError }) {
   const mcpLoading = !mcpConfig;
@@ -51,35 +59,60 @@ export default function ServerConfigTab({ config: mcpConfig, busy: mcpBusy, onSa
     if (await saveMcpConfig(config)) setRawEditing(false);
   }
 
-  return <div className="space-y-4">
-    <p className="text-xs text-[var(--text-secondary)]">Add a local process or remote SSE server, or edit the complete configuration.</p>
-    {mcpError && <p role="alert" className="palace-error">{mcpError}</p>}
-        {rawEditing ? <form className="palace-form" onSubmit={saveRawConfig}>
-          <h3>Raw JSON Editor</h3>
-          <label>MCP Configuration JSON<textarea rows={14} value={rawConfig} onChange={event => setRawConfig(event.target.value)}
-            spellCheck={false} autoComplete="off" disabled={mcpBusy} /></label>
-          <button className="palace-add" disabled={mcpBusy || busy}>{mcpBusy ? 'Saving…' : 'Save JSON'}</button>
-          <button type="button" className="palace-add" disabled={mcpBusy} onClick={() => { setRawEditing(false); setMcpError(''); }}>Cancel</button>
-        </form> : <>
-          <button type="button" className="palace-add" onClick={openRawEditor} disabled={mcpLoading || mcpBusy || busy || !mcpConfig}>Raw JSON Editor</button>
-          <form className="palace-form" onSubmit={addMcpServer}>
-            <h3>Add MCP Server</h3>
-            <fieldset disabled={mcpLoading || mcpBusy || !mcpConfig}>
-              <legend>Connection Type</legend>
-              <label className="palace-check"><input type="radio" name="mcp-connection-type" value="stdio" checked={connectionType === 'stdio'} onChange={() => setConnectionType('stdio')} />Local Process</label>
-              <label className="palace-check"><input type="radio" name="mcp-connection-type" value="sse" checked={connectionType === 'sse'} onChange={() => setConnectionType('sse')} />Remote URL</label>
-            </fieldset>
-            <label>Server Name<input required value={serverName} onChange={event => setServerName(event.target.value)} placeholder={connectionType === 'sse' ? 'klikbase' : 'filesystem'} disabled={mcpLoading || mcpBusy || !mcpConfig} /></label>
-            {connectionType === 'sse' ? <>
-              <label>URL<input type="url" required value={serverUrl} onChange={event => setServerUrl(event.target.value)} placeholder="https://example.com/sse" disabled={mcpLoading || mcpBusy || !mcpConfig} /></label>
-              <label>Headers<textarea rows={3} value={serverHeaders} onChange={event => setServerHeaders(event.target.value)} placeholder={'{"Authorization": "Bearer..."}'} spellCheck={false} autoComplete="off" disabled={mcpLoading || mcpBusy || !mcpConfig} /></label>
-            </> : <>
-              <label>Command<input required value={serverCommand} onChange={event => setServerCommand(event.target.value)} placeholder="npx or /path/to/python" disabled={mcpLoading || mcpBusy || !mcpConfig} /></label>
-              <label>Args<input value={serverArgs} onChange={event => setServerArgs(event.target.value)} placeholder="-y, @modelcontextprotocol/server-filesystem, /path/to/folder" aria-describedby="mcp-args-hint" disabled={mcpLoading || mcpBusy || !mcpConfig} /></label>
-              <p id="mcp-args-hint" className="palace-hint">Separate arguments with commas. Spaces within an argument are preserved.</p>
-            </>}
-            <button className="palace-add" disabled={mcpLoading || mcpBusy || busy || !mcpConfig || !serverName.trim() || !(connectionType === 'sse' ? serverUrl.trim() : serverCommand.trim())}>{mcpBusy ? 'Saving…' : 'Add MCP Server'}</button>
-          </form>
-        </>}
+  return <div className="space-y-3">
+    <SettingsMessage>{mcpError}</SettingsMessage>
+    {rawEditing ? (
+      <SettingsCard
+        as="form"
+        icon={LuFileJson}
+        title="Raw JSON editor"
+        description="Edit the complete MCP configuration. The saved file is replaced only after it parses."
+        onSubmit={saveRawConfig}
+        className="space-y-3"
+      >
+        <TextAreaField
+          label="MCP Configuration JSON"
+          rows={14}
+          value={rawConfig}
+          onChange={event => setRawConfig(event.target.value)}
+          spellCheck={false}
+          autoComplete="off"
+          disabled={mcpBusy}
+          inputClassName="font-mono"
+        />
+        <div className="flex items-center gap-2">
+          <SettingsButton type="submit" variant="primary" disabled={mcpBusy || busy}>{mcpBusy ? 'Saving…' : 'Save JSON'}</SettingsButton>
+          <SettingsButton type="button" disabled={mcpBusy} onClick={() => { setRawEditing(false); setMcpError(''); }}>Cancel</SettingsButton>
+        </div>
+      </SettingsCard>
+    ) : <>
+      <SettingsCard
+        icon={LuPlugZap}
+        title="Add MCP server"
+        description="Add a local process or remote SSE server, or edit the complete configuration as JSON."
+        action={
+          <SettingsButton type="button" onClick={openRawEditor} disabled={mcpLoading || mcpBusy || busy || !mcpConfig}>
+            Raw JSON Editor
+          </SettingsButton>
+        }
+      >
+        <form className="space-y-3" onSubmit={addMcpServer}>
+          <SelectField label="Connection Type" value={connectionType} onChange={event => setConnectionType(event.target.value)} disabled={mcpLoading || mcpBusy || !mcpConfig}>
+            <option value="stdio">Local Process</option>
+            <option value="sse">Remote URL</option>
+          </SelectField>
+          <TextField label="Server Name" required value={serverName} onChange={event => setServerName(event.target.value)} placeholder={connectionType === 'sse' ? 'klikbase' : 'filesystem'} disabled={mcpLoading || mcpBusy || !mcpConfig} />
+          {connectionType === 'sse' ? <>
+            <TextField label="URL" type="url" required value={serverUrl} onChange={event => setServerUrl(event.target.value)} placeholder="https://example.com/sse" disabled={mcpLoading || mcpBusy || !mcpConfig} />
+            <TextAreaField label="Headers" rows={3} value={serverHeaders} onChange={event => setServerHeaders(event.target.value)} placeholder={'{"Authorization": "Bearer..."}'} spellCheck={false} autoComplete="off" disabled={mcpLoading || mcpBusy || !mcpConfig} />
+          </> : <>
+            <TextField label="Command" required value={serverCommand} onChange={event => setServerCommand(event.target.value)} placeholder="npx or /path/to/python" disabled={mcpLoading || mcpBusy || !mcpConfig} />
+            <TextField label="Args" value={serverArgs} onChange={event => setServerArgs(event.target.value)} placeholder="-y, @modelcontextprotocol/server-filesystem, /path/to/folder" disabled={mcpLoading || mcpBusy || !mcpConfig} />
+            <SettingsHint>Separate arguments with commas. Spaces within an argument are preserved.</SettingsHint>
+          </>}
+          <SettingsButton type="submit" variant="primary" disabled={mcpLoading || mcpBusy || busy || !mcpConfig || !serverName.trim() || !(connectionType === 'sse' ? serverUrl.trim() : serverCommand.trim())}>{mcpBusy ? 'Saving…' : 'Add MCP Server'}</SettingsButton>
+        </form>
+      </SettingsCard>
+    </>}
   </div>;
 }

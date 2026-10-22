@@ -114,7 +114,7 @@ test('measured fit through the real tokenizer path still commits and recovers', 
   assert.equal(result.compressed, true);
   assert.equal(result.measuredMethod, 'server-template-tokenizer');
   assert.equal(calls, 1);
-  assert.equal(result.archivedCount, 2);
+  assert.equal(result.archivedCount, 12);
   assert.equal(sessions.getSessionSummary(id), 'Fitting summary.');
   assert.ok(Number.isSafeInteger(result.checkpointId));
   const latest = checkpoints.getLatestCheckpoint(id);
@@ -130,7 +130,7 @@ test('measured fit through the real tokenizer path still commits and recovers', 
   assert.ok(joined.includes('Fitting summary.'));
   const archivedContents = new Set(sessions.getFullChatHistory(id).messages
     .filter(row => row.archived === 1).map(row => row.content));
-  assert.equal(archivedContents.size, 2);
+  assert.equal(archivedContents.size, 12);
   assert.ok(rebuilt.filter(message => !message.taskBrief).every(message =>
     typeof message.content !== 'string' || !archivedContents.has(message.content)));
   assert.ok(briefs.getApplicableBriefs(id).length > 0);

@@ -71,6 +71,8 @@ test('long-horizon benchmark: 220 tool calls in 32K, 3+ compactions, suspension,
     let phaseTarget = 150; // run 1 stops at the finite tool-call limit
     const requests = [];
     const fetchImpl = async (url, options = {}) => {
+      // C1 cannot treat a configured total as verified per-request capacity.
+      if (new URL(url).pathname === '/props') return Response.json({ default_generation_settings: { n_ctx: engine.contextLength } });
       if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
       const p = JSON.parse(options.body); requests.push(p);
       const system = p.messages[0].content;
@@ -203,6 +205,8 @@ test('long-horizon reliability: a failing tool is recovered, dispatches stay uni
     const TOOL_TURNS = 24;
     const requests = [];
     const fetchImpl = async (url, options = {}) => {
+      // C1 cannot treat a configured total as verified per-request capacity.
+      if (new URL(url).pathname === '/props') return Response.json({ default_generation_settings: { n_ctx: engine.contextLength } });
       if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
       const p = JSON.parse(options.body); requests.push(p);
       const n = requests.length;

@@ -118,8 +118,17 @@ function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiK
 	if (typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(id)) throw new Error("Invalid provider ID.");
 	if (typeof name !== "string" || !name.trim() || name.length > 200)
 		throw new Error("Enter a provider name.");
-	if (typeof modelId !== "string" || !modelId.trim() || modelId.length > 200 || /[\r\n\0]/.test(modelId))
+	// Text providers are model-agnostic: the model is chosen per chat in the
+	// model selector. Media providers still store the single generation model.
+	const normalizedModelId =
+		typeof modelId === "string" ? modelId.trim() : modelId === undefined ? "" : null;
+	if (
+		normalizedModelId === null ||
+		normalizedModelId.length > 200 ||
+		/[\r\n\0]/.test(normalizedModelId)
+	)
 		throw new Error("Enter a valid model ID.");
+	if (category === "media" && !normalizedModelId) throw new Error("Enter a valid model ID.");
 	if (
 		apiKey !== undefined &&
 		(typeof apiKey !== "string" || /[\r\n\0]/.test(apiKey) || apiKey.length > 4096)
@@ -137,7 +146,7 @@ function saveCloudProvider({ id, name, baseUrl = DEFAULT_BASE_URL, modelId, apiK
 		category,
 		name: name.trim(),
 		baseUrl: normalizeBaseUrl(baseUrl),
-		modelId: modelId.trim(),
+		modelId: normalizedModelId,
 		apiType,
 		...(category === "media" ? { mediaType } : {}),
 		// Rates are optional cost evidence, never a requirement to save a
@@ -290,8 +299,8 @@ function getKnownModelMetadata(providerId, modelId) {
     return knownMetadata.get(knownKey(providerId, modelId)) ?? null;
 }
 async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = false } = {}) {
-    const providers = readSettings().filter(row => row.category === 'text' && row.modelId?.trim() && (row.apiKey?.trim() || !providerNeedsKey(row)));
-    return Promise.all(providers.map(async row => {
+    const providers = readSettings().filter(row => row.category === 'text' && (row.apiKey?.trim() || !providerNeedsKey(row)));
+    const results = await Promise.all(providers.map(async row => {
         const hash = require('node:crypto').createHash('sha256').update(row.apiKey || "").digest('hex');
         const cacheKey = `${row.baseUrl}:${row.apiType}:${hash}`;
         let cached = metadataCache.get(cacheKey);
@@ -301,25 +310,46 @@ async function getCloudModelMetadata({ fetchImpl = nodeHttpFetch, refresh = fals
             if (metadataCache.size > 100) metadataCache.delete(metadataCache.keys().next().value);
         }
         const result = await cached.promise;
-        if (result.error) metadataCache.delete(cacheKey);
-        const model = result.metadata?.find(model => model.id === row.modelId);
-        const overrides = require('./capabilityOverrides').getOverrides({ type: 'cloud', provider: row.id, model: row.modelId });
-        const row_ = { providerId: row.id, modelId: row.modelId, ...(model || {}), ...(overrides.contextLength ? { contextLength: overrides.contextLength, contextSource: 'user' } : {}), error: result.error || (model ? null : 'Metadata not reported for this model.') };
-        if (!result.error && model) knownMetadata.set(knownKey(row.id, row.modelId), row_);
-        return row_;
+        if (result.error) {
+            metadataCache.delete(cacheKey);
+            return [{ providerId: row.id, providerName: row.name, modelId: '', error: result.error }];
+        }
+        const models = result.metadata || [];
+        if (!models.length) {
+            return [{ providerId: row.id, providerName: row.name, modelId: '', error: 'No models reported by this provider.' }];
+        }
+        // Every model the provider offers is returned, so a chat can use any of
+        // them without saving one on the provider row first.
+        return models.map(model => {
+            const overrides = require('./capabilityOverrides').getOverrides({ type: 'cloud', provider: row.id, model: model.id });
+            const entry = {
+                providerId: row.id,
+                providerName: model.providerName || row.name,
+                modelId: model.id,
+                ...model,
+                ...(overrides.contextLength ? { contextLength: overrides.contextLength, contextSource: 'user' } : {}),
+                error: null,
+            };
+            knownMetadata.set(knownKey(row.id, model.id), entry);
+            return entry;
+        });
     }));
+    return results.flat();
 }
 
 function validateChatProvider(target = { type: "local" }) {
 	if (target?.type === "local") return { type: "local" };
+	const model = typeof target?.model === "string" ? target.model.trim() : "";
 	if (
 		target?.type !== "cloud" ||
 		typeof target.provider !== "string" ||
-		typeof target.model !== "string" ||
-		!readSettings().some((row) => row.id === target.provider && row.category === "text" && row.modelId === target.model)
+		!model ||
+		model.length > 300 ||
+		/[\r\n\0]/.test(model) ||
+		!readSettings().some((row) => row.id === target.provider && row.category === "text")
 	)
 		throw new Error("Invalid chat provider. Select a saved provider and model.");
-	return { type: "cloud", provider: target.provider, model: target.model };
+	return { type: "cloud", provider: target.provider, model };
 }
 function anthropicBlocks(content) {
 	if (typeof content === "string") return content ? [{ type: "text", text: content }] : [];

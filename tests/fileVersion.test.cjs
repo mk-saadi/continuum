@@ -157,7 +157,9 @@ test('6. unconditional read stays a full read with version metadata', async () =
 	const definition = agentTools.find((tool) => tool.function.name === 'read_project_file').function;
 	assert.deepEqual(definition.parameters.required, ['relative_path']);
 	assert.ok(definition.parameters.properties.if_content_hash);
-	assert.equal(definition.parameters.properties.start_line, undefined, 'line ranges are not part of this tool');
+	assert.ok(definition.parameters.properties.start_line);
+	assert.ok(definition.parameters.properties.end_line);
+	assert.ok(definition.parameters.properties.expected_content_hash);
 });
 
 test('7. matching conditional read returns a compact unchanged response', async () => {

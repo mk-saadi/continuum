@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { LuHardDrive } from "react-icons/lu";
 import { NumberField } from "../FormControls";
+import { SettingsButton, SettingsCard, SettingsMessage } from "./SettingsSection";
 
 // Global recovery-storage policy. This is app-wide configuration (retention
 // window, disk cap, usage) — deliberately separate from the per-chat
@@ -73,8 +75,8 @@ export default function RecoveryStorageSettings({ disabled = false }) {
 			const report = await window.api.pruneRecoveryStore();
 			setNotice(
 				`Cleanup kept ${report.kept} checkpoint${report.kept === 1 ? "" : "s"}` +
-				` and removed ${report.pruned.length + report.capEvicted.length}` +
-				(report.capShortfallMB > 0 ? `; still ${report.capShortfallMB} MB over the cap (pinned and recent points are never forced out)` : "."),
+					` and removed ${report.pruned.length + report.capEvicted.length}` +
+					(report.capShortfallMB > 0 ? `; still ${report.capShortfallMB} MB over the cap (pinned and recent points are never forced out)` : "."),
 			);
 			setStats(await window.api.getRecoveryStats());
 		} catch (cause) {
@@ -85,14 +87,12 @@ export default function RecoveryStorageSettings({ disabled = false }) {
 	};
 
 	return (
-		<div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-			<h4 className="font-semibold">Workspace recovery storage</h4>
-			<p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-				File snapshots behind the per-chat recovery history. Oldest unpinned checkpoints are
-				cleaned automatically; pinned checkpoints and each session's latest points are never
-				forced out. Snapshot content lives outside your projects and is never synced anywhere.
-			</p>
-			<div className="mt-3 grid grid-cols-2 gap-3">
+		<SettingsCard
+			icon={LuHardDrive}
+			title="Workspace recovery storage"
+			description="File snapshots behind the per-chat recovery history. Oldest unpinned checkpoints are cleaned automatically; pinned checkpoints and each session's latest points are never forced out. Snapshot content lives outside your projects and is never synced anywhere."
+		>
+			<div className="grid grid-cols-2 gap-3">
 				<NumberField
 					label="Keep history (days)"
 					min={1}
@@ -112,30 +112,20 @@ export default function RecoveryStorageSettings({ disabled = false }) {
 					onBlur={(event) => commitNumber("recoveryStorageCapMB", event.target.value)}
 				/>
 			</div>
-			<p className="mt-3 text-xs text-[var(--text-secondary)] tabular-nums">
+			<p className="mt-3 text-[11px] tabular-nums leading-relaxed text-[var(--text-secondary)]">
 				Using {stats ? formatBytes(stats.physicalBytes) : "…"} on disk
 				{stats ? ` (${stats.checkpointCount} checkpoints · ${formatBytes(stats.logicalBytes)} of history)` : ""}.
 			</p>
-			<div className="mt-2 flex items-center gap-2">
-				<button
-					type="button"
+			<div className="mt-2">
+				<SettingsButton
 					onClick={runPrune}
 					disabled={disabled || busy}
-					className="cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					{busy ? "Cleaning…" : "Clean up now"}
-				</button>
+				</SettingsButton>
 			</div>
-			{notice && (
-				<p role="status" className="mt-2 text-xs text-[var(--accent-bright)]">
-					{notice}
-				</p>
-			)}
-			{error && (
-				<p role="alert" className="mt-2 text-xs text-[var(--error)]">
-					{error}
-				</p>
-			)}
-		</div>
+			<SettingsMessage tone="success">{notice}</SettingsMessage>
+			<SettingsMessage>{error}</SettingsMessage>
+		</SettingsCard>
 	);
 }

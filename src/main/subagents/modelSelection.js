@@ -59,7 +59,8 @@ function providerIdOf(engine) {
 function buildChatEngine({ cloud, target, config, modelId }) {
   if (cloud) return { provider: 'cloud', modelId: target?.model ?? null, chatTarget: target ?? null };
   if (!config) return null;
-  return { provider: 'local', port: config.port, modelId, contextLength: config.activeModelConfig?.contextLength,
+  return { provider: 'local', port: config.port, modelId, contextLength: config.capabilities?.contextLength ?? config.activeModelConfig?.contextLength,
+    ...(config.runtimeIdentity ? { runtimeIdentity: config.runtimeIdentity } : {}),
     ...(config.modelMetadata ? { localModel: config.modelMetadata } : {}) };
 }
 
@@ -142,7 +143,8 @@ function resolveChildEngine(parentEngine = null) {
       provider: 'local',
       port: config.port,
       modelId: config.modelPath,
-      contextLength: config.activeModelConfig?.contextLength,
+      contextLength: config.capabilities?.contextLength ?? config.activeModelConfig?.contextLength,
+    ...(config.runtimeIdentity ? { runtimeIdentity: config.runtimeIdentity } : {}),
       ...(config.modelMetadata ? { localModel: config.modelMetadata } : {}),
     };
   }

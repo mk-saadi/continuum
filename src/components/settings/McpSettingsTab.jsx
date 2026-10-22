@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { LuBot, LuSlidersHorizontal } from "react-icons/lu";
+import { LuBot, LuPlug, LuSlidersHorizontal } from "react-icons/lu";
 import IntegrationsTab from "../IntegrationsTab";
+import { SettingsCard, SettingsMessage } from "./SettingsSection";
 
 const modes = [
-	{ value: "auto", label: "Auto (Dynamic AI)", Icon: LuBot },
-	{ value: "manual", label: "Manual (User Control)", Icon: LuSlidersHorizontal },
+	{ value: "auto", label: "Auto (dynamic AI)", Icon: LuBot },
+	{ value: "manual", label: "Manual (user control)", Icon: LuSlidersHorizontal },
 ];
 
 const descriptions = {
@@ -19,10 +20,17 @@ export default function McpSettingsTab(props) {
 
 	useEffect(() => {
 		let active = true;
-		window.api.getAppSettings()
-			.then(settings => { if (active) setMode(settings.mcpMode); })
-			.catch(error => { if (active) setModeError(error.message); });
-		return () => { active = false; };
+		window.api
+			.getAppSettings()
+			.then((settings) => {
+				if (active) setMode(settings.mcpMode);
+			})
+			.catch((error) => {
+				if (active) setModeError(error.message);
+			});
+		return () => {
+			active = false;
+		};
 	}, []);
 
 	async function selectMode(nextMode) {
@@ -43,23 +51,38 @@ export default function McpSettingsTab(props) {
 	}
 
 	return (
-		<div className="space-y-5">
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
-				<h3 className="text-sm font-semibold">MCP Tool Management Mode</h3>
-				<div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-[var(--surface)] p-1 sm:grid-cols-2" role="group" aria-label="MCP tool management mode">
+		<>
+			<SettingsCard
+				icon={LuPlug}
+				title="MCP tool management mode"
+				description={mode ? descriptions[mode] : "Choose how the assistant may enable MCP servers."}
+				descriptionLive
+			>
+				<div
+					className="grid grid-cols-1 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1 sm:grid-cols-2"
+					role="group"
+					aria-label="MCP tool management mode"
+				>
 					{modes.map(({ value, label, Icon }) => (
-						<button key={value} type="button" aria-pressed={mode === value} disabled={mode === null || saving}
+						<button
+							key={value}
+							type="button"
+							aria-pressed={mode === value}
+							disabled={mode === null || saving}
 							onClick={() => selectMode(value)}
-							className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 ${mode === value ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
-							<Icon aria-hidden="true" className="text-sm" />
+							className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${mode === value ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+						>
+							<Icon
+								aria-hidden="true"
+								className="text-sm"
+							/>
 							{label}
 						</button>
 					))}
 				</div>
-				<p className="mt-3 text-xs text-[var(--text-secondary)]" aria-live="polite">{mode && descriptions[mode]}</p>
-				{modeError && <p role="alert" className="palace-error mt-2">{modeError}</p>}
-			</div>
+				<SettingsMessage>{modeError}</SettingsMessage>
+			</SettingsCard>
 			<IntegrationsTab {...props} />
-		</div>
+		</>
 	);
 }

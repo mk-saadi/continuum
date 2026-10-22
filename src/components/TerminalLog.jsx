@@ -1,5 +1,7 @@
 import React, { useSyncExternalStore } from "react";
+import { LuTerminal } from "react-icons/lu";
 import { terminalLogStore } from "../lib/terminalLogStore.mjs";
+import { SettingsButton, SettingsCard, SettingsStatus } from "./settings/SettingsSection";
 
 const noopSubscribe = () => () => {};
 
@@ -23,28 +25,35 @@ export default function TerminalLog({ engineRunning, serverPort, serverError, ac
 	// all, or a hidden Usage tab keeps re-rendering the whole modal forever.
 	const log = useTerminalLog(active);
 	return (
-		<div className="space-y-3">
-			<div className="flex items-center justify-between text-xs">
-				<span>{engineRunning ? `Engine running on port ${serverPort}` : "Engine stopped"}</span>
-				<button
-					type="button"
-					className="rounded border border-[var(--border)] px-2 py-1"
+		<SettingsCard
+			icon={LuTerminal}
+			title="Engine logs"
+			action={
+				<SettingsButton
 					onClick={log.clear}
 				>
 					Clear logs
-				</button>
-			</div>
+				</SettingsButton>
+			}
+		>
+			<SettingsStatus
+				active={engineRunning}
+				pulse={engineRunning}
+				className="mb-3"
+			>
+				{engineRunning ? `Engine running on port ${serverPort}` : "Engine stopped"}
+			</SettingsStatus>
 			{serverError && (
 				<p
 					role="alert"
-					className="palace-error"
+					className="mb-3 text-[11px] font-medium leading-relaxed text-[var(--error)]"
 				>
 					{serverError}
 				</p>
 			)}
 			<div
 				aria-label="Terminal output"
-				className="h-[45vh] overflow-auto rounded bg-[var(--terminal)] p-3 font-mono text-[11px] text-[var(--terminal-text)] select-text"
+				className="h-[45vh] select-text overflow-auto rounded-lg border border-[var(--border)] bg-[var(--terminal)] p-3 font-mono text-[11px] leading-relaxed text-[var(--terminal-text)]"
 			>
 				{!log.lines.length
 					? "No output yet. Load a model to see logs."
@@ -57,6 +66,6 @@ export default function TerminalLog({ engineRunning, serverPort, serverError, ac
 							</div>
 						))}
 			</div>
-		</div>
+		</SettingsCard>
 	);
 }

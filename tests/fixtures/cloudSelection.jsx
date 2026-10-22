@@ -7,8 +7,11 @@ let rows = [{ id: 'openai', name: 'OpenAI', modelId: 'gpt-test', baseUrl: 'https
 window.calls = { loads: [], kills: 0, saves: [] };
 window.api = {
   getCloudProviders: async () => rows,
+  getCloudProviderDefaults: async () => ({ defaultImageProviderId: '', defaultVideoProviderId: '' }),
   fetchCloudModels: async input => {
     window.calls.fetchModels = input;
+    if (input.id === 'openai') return { models: ['gpt-test', 'gpt-other'] };
+    if (input.id === 'anthropic') return { models: ['claude-test'] };
     return new Promise(resolve => { window.resolveModels = resolve; });
   },
   saveCloudProvider: async value => {
@@ -17,7 +20,7 @@ window.api = {
     rows = rows.some(item => item.id === value.id) ? rows.map(item => item.id === value.id ? row : item) : [...rows, row];
     return rows;
   },
-  deleteCloudProvider: async id => { rows = rows.filter(row => row.id !== id); return rows; },
+  deleteCloudProvider: async value => { const id = typeof value === 'string' ? value : value?.id; rows = rows.filter(row => row.id !== id); return rows; },
   getModelLoadConfig: async () => ({ config: { contextLength: 8192, gpuOffload: 'auto', threads: 4, evalBatch: 2048, physicalBatch: 512, parallel: 1, mlock: false, flashAttention: 'auto', cacheTypeK: 'f16', cacheTypeV: 'f16', chatTemplate: 'auto', reasoningFormat: 'auto' }, remembered: false }),
   launchEngine: async id => { window.calls.loads.push(id); return { success: true, modelPath: id }; },
 };

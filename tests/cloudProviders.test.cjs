@@ -280,7 +280,7 @@ test("cancellation propagates to the provider request", async () => {
 	});
 });
 
-test("provider CRUD keeps secrets private, preserves blank keys and rejects stale selections", () => {
+test("provider CRUD keeps secrets private, preserves blank keys and allows any provider model", () => {
 	stored = [];
 	assert.deepEqual(getCloudProviders(), []);
 	const input = {
@@ -297,11 +297,29 @@ test("provider CRUD keeps secrets private, preserves blank keys and rejects stal
 	assert.ok(!JSON.stringify(rows).includes("secret"));
 	saveCloudProvider({ ...input, apiKey: "", modelId: "model-y" });
 	assert.equal(stored[0].apiKey, "secret");
-	assert.throws(
-		() => validateChatProvider({ type: "cloud", provider: input.id, model: "model-x" }),
-		/Invalid/,
+	// A text provider serves every model it lists; the chosen model is not
+	// pinned to the one saved last.
+	assert.deepEqual(
+		validateChatProvider({ type: "cloud", provider: input.id, model: "model-x" }),
+		{ type: "cloud", provider: input.id, model: "model-x" },
 	);
-	assert.deepEqual(deleteCloudProvider(input.id), []);
+	assert.deepEqual(
+		validateChatProvider({ type: "cloud", provider: input.id, model: "model-y" }),
+		{ type: "cloud", provider: input.id, model: "model-y" },
+	);
+	// Text providers can be saved before choosing a model at all.
+	const noModel = saveCloudProvider({
+		id: "no-model",
+		name: "No Model",
+		baseUrl: "https://example.com/v1",
+		apiKey: "key",
+	});
+	assert.equal(noModel.find((row) => row.id === "no-model")?.modelId, "");
+	assert.deepEqual(
+		validateChatProvider({ type: "cloud", provider: "no-model", model: "any-listed-model" }),
+		{ type: "cloud", provider: "no-model", model: "any-listed-model" },
+	);
+	assert.deepEqual(deleteCloudProvider(input.id), noModel.filter((row) => row.id !== input.id));
 	assert.throws(() => createCloudFetch({ type: "cloud", provider: input.id, model: "model-y" }), /Invalid/);
 	for (const baseUrl of [
 		"file:///tmp/key",
@@ -478,4 +496,15 @@ test('optional cost rates round-trip and malformed rates are refused', () => {
   // Blank rates clear an override back to catalog/provider evidence.
   saveCloudProvider({ id: 'priced', name: 'Priced', baseUrl: 'https://api.openai.com/v1', modelId: 'gpt-5', pricing: { input: '', output: '' } });
   assert.equal(getCloudProviders('text').find(entry => entry.id === 'priced').pricing, null);
+});
+
+test('metadata exposes every model a provider offers, without a saved model', async () => {
+  stored = [];
+  saveCloudProvider({ id: 'multi', name: 'Multi Cloud', baseUrl: 'https://multi.example/v1', apiKey: 'key', apiType: 'openai' });
+  const { getCloudModelMetadata } = require('../src/main/cloudProviders');
+  const rows = await getCloudModelMetadata({
+    fetchImpl: async () => Response.json({ data: [{ id: 'model-one' }, { id: 'model-two' }] }),
+  });
+  assert.deepEqual(rows.map(row => row.modelId), ['model-one', 'model-two']);
+  assert.ok(rows.every(row => row.providerId === 'multi' && !row.error));
 });

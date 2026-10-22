@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 
 // Read-only Workspace Context inspection: what compression preserved — the
 // current and historical checkpoints, the verbatim task brief, per-brief work
@@ -494,7 +495,7 @@ function BriefWorkLog({ workLog }) {
 	);
 }
 
-export default function ContextPanel({ sessionId, modelId = null, active = false }) {
+export default function ContextPanel({ sessionId, modelId = null, active = false, measurement = null }) {
 	const api = typeof window !== "undefined" ? window.memoryPalace : null;
 	const [usage, setUsage] = useState(null);
 	const [usageError, setUsageError] = useState("");
@@ -614,25 +615,20 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 		}
 	}, [active, refresh, refreshUsage]);
 
-	useEffect(
-		() =>
-			api?.onCompressionComplete?.((result) => {
-				if (!result || result.sessionId !== sessionId) return;
-				if (result.compressed) {
-					setLastAttempt({
-						ok: true,
-						archivedCount: result.archivedCount ?? 0,
-						checkpointId: result.checkpointId ?? null,
-					});
-				} else if (result.error || result.reason) {
-					setLastAttempt({ ok: false, error: result.error ?? result.reason });
-				} else {
-					return;
-				}
-				void refresh();
-			}),
-		[api, sessionId, refresh],
-	);
+	useCompressionEvents(sessionId, (result) => {
+		if (result.compressed) {
+			setLastAttempt({
+				ok: true,
+				archivedCount: result.archivedCount ?? 0,
+				checkpointId: result.checkpointId ?? null,
+			});
+		} else if (result.error || result.reason) {
+			setLastAttempt({ ok: false, error: result.error ?? result.reason });
+		} else {
+			return;
+		}
+		void refresh();
+	});
 
 	if (!api) {
 		return (
@@ -646,6 +642,21 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 
 	return (
 		<div className="space-y-3">
+            <div className={cardClass}>
+                <h3 className={headingClass}>Request context budget</h3>
+                {measurement?.sessionId === sessionId && measurement?.modelId === modelId && measurement.budgetContract ? (
+                    <div className={bodyClass}>
+                        <p>Prepared full request: {measurement.tokens.toLocaleString()} / {measurement.budgetContract.usableInputTokens.toLocaleString()} usable input tokens ({(100 * measurement.tokens / measurement.budgetContract.usableInputTokens).toFixed(1)}%)</p>
+                        <p>{measurement.method} · {measurement.confidence}</p>
+                        <p>Configured: {measurement.budgetContract.configuredContextTokens?.toLocaleString() ?? 'unknown'}; runtime per request: {measurement.budgetContract.runtimeContextTokens?.toLocaleString() ?? 'unavailable'}; provider advertised: {measurement.budgetContract.advertisedContextTokens?.toLocaleString() ?? 'unavailable'}</p>
+                        <p>Output reserve: {measurement.budgetContract.reservedOutputTokens.toLocaleString()}; safety: {measurement.budgetContract.reservedSafetyTokens.toLocaleString()}</p>
+                        <p>Compaction: {measurement.budgetContract.autoCompactionTriggerTokens.toLocaleString()} (90% of usable input)</p>
+                        <p>Capacity: {measurement.budgetContract.capacityMethod} · {measurement.budgetContract.capacityConfidence}</p>
+                        {measurement.imageCount > 0 && <p>Image allowance: {measurement.imageAllowanceTokens.toLocaleString()} estimated tokens for {measurement.imageCount} image(s)</p>}
+                        <p>Prepared projection includes instructions, tool schemas, attachments and task state. Dispatch can change tool rounds, media shape and provider fields; its final guard remains authoritative. Component counts below are partial estimates.</p>
+                    </div>
+                ) : <p className={bodyClass}>Current request budget pending.</p>}
+            </div>
 			<div className={cardClass}>
 				<div className="mb-2 flex items-center justify-between gap-2">
 					<h3 className={headingClass}>Token usage</h3>

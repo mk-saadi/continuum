@@ -1274,7 +1274,8 @@ function registerIpcHandlers({
 			const config = getEngineConfig?.();
 			return require("./promptMeasurement").measurePreparedContext({ sessionId, modelId, cloud, permissionMode, userText,
 				engine: cloud || !config ? null : { port: config.port, modelPath: config.modelPath ?? config.activeModelConfig?.modelPath ?? null,
-					contextLength: config.activeModelConfig?.contextLength ?? 32768 } });
+					contextLength: config.activeModelConfig?.contextLength ?? 32768,
+                    localModel: config.modelMetadata, runtimeIdentity: config.runtimeIdentity, parallelSlots: config.activeModelConfig?.parallel } });
 		},
 		"session:get-messages": ({ sessionId }) => getActiveMessages(sessionId),
 		"session:get-summary": ({ sessionId }) => getSessionSummary(sessionId),
@@ -1304,6 +1305,20 @@ function registerIpcHandlers({
 				typeof llmCheckpointCallback === "function"
 					? (input, _modelId, opts) => llmCheckpointCallback(input, modelId, opts ?? {})
 					: null,
+                {
+                    resolveMeasurement: async () => {
+                        const config = getEngineConfig?.();
+                        const currentModel = config?.modelPath ?? config?.activeModelConfig?.modelPath;
+                        if (!config || currentModel !== modelId || !config.port) return null;
+                        const identity = config.runtimeIdentity;
+                        const measured = await require('./promptMeasurement').measurePreparedContext({ sessionId, modelId,
+                            engine: { port: config.port, modelPath: currentModel, runtimeIdentity: identity,
+                                contextLength: config.activeModelConfig?.contextLength, localModel: config.modelMetadata } });
+                        if (getEngineConfig?.()?.runtimeIdentity !== identity) return null;
+                        return { ...measured, isCurrent: () => require('./promptMeasurement').isPreparedContextCurrent(sessionId, modelId, measured.stateIdentity) && getEngineConfig?.()?.runtimeIdentity === identity &&
+                            (getEngineConfig?.()?.modelPath ?? getEngineConfig?.()?.activeModelConfig?.modelPath) === modelId };
+                    },
+                },
 			);
 			return { scheduled: true };
 		},

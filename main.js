@@ -19,6 +19,8 @@ const {
 	buildLlamaServerEnv,
 	createStartupHandler,
 	createIdleService,
+	resolveEngineCommand,
+	describeEngineSpawnError,
 } = require("./src/main/engineManager");
 const {
 	normalizeLoadConfig,
@@ -299,6 +301,7 @@ async function launchProcess(command, model = null, config = null) {
 		return { success: false, error: "Unload the current engine before loading another model." };
 	launching = true;
 
+	let engineCommand = null;
 	try {
 		const { apiServerPort } = getAppSettings();
 		engineConfig.port = await getFreePort(apiServerPort);
@@ -306,7 +309,8 @@ async function launchProcess(command, model = null, config = null) {
 		const appliedConfig = model ? normalizeLoadConfig(config) : null;
 		if (model) {
 			const args = buildLlamaServerArgs(model, appliedConfig, engineConfig.port);
-			childProcess = spawn("llama-server", args, {
+			engineCommand = resolveEngineCommand();
+			childProcess = spawn(engineCommand, args, {
 				shell: false,
 				detached: true,
 				stdio: ["ignore", "pipe", "pipe"],
@@ -324,7 +328,9 @@ async function launchProcess(command, model = null, config = null) {
 				env: buildLlamaServerEnv(),
 			});
 		}
-		const processForLaunch = childProcess;
+		engineConfig.runtimeIdentity = require('node:crypto').randomUUID();
+        require('./src/main/promptMeasurement').clearCache();
+        const processForLaunch = childProcess;
 		let idleUnloaded = false;
 		const processIdleService = createIdleService({
 			onIdle: () => {
@@ -417,6 +423,10 @@ async function launchProcess(command, model = null, config = null) {
 
 		childProcess.on("error", (err) => {
 			startup.cancel();
+			// The renderer shows this in the load dialog, but the launching
+			// terminal is where a developer looks first. Without this the main
+			// process stayed silent and the failure looked impossible to place.
+			console.error("[engine] failed to spawn", engineCommand ?? "engine binary", err);
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", {
 					stream: "stderr",
@@ -431,6 +441,9 @@ async function launchProcess(command, model = null, config = null) {
 			processIdleService.dispose();
 			if (childProcess !== processForLaunch) return;
 			currentlyLoadedModelPath = null;
+            engineConfig.runtimeIdentity = null;
+            engineConfig.capabilities = null;
+            require('./src/main/promptMeasurement').clearCache();
 			engineConfig.contextStatus = idleUnloaded ? "idle_unloaded" : "stopped";
 			engineConfig.activeModelConfig = null;
 			engineConfig.offloadDiagnostics = null;
@@ -460,7 +473,7 @@ async function launchProcess(command, model = null, config = null) {
 			processForLaunch.once("spawn", resolve);
 			processForLaunch.once("error", reject);
 		});
-		engineConfig.activeModelConfig = appliedConfig;
+		engineConfig.activeModelConfig = appliedConfig ? { ...appliedConfig, runtimeIdentity: engineConfig.runtimeIdentity } : null;
 		if (mainWindow && !mainWindow.isDestroyed()) {
 			mainWindow.webContents.send("terminal:status", {
 				running: true,
@@ -493,7 +506,16 @@ async function launchProcess(command, model = null, config = null) {
 		engineConfig.activeModelConfig = null;
 		childProcess = null;
 		childPid = null;
-		return { success: false, error: err.message };
+		const spawnFailed =
+			engineCommand && typeof err?.syscall === "string" && err.syscall.startsWith("spawn");
+		const message = spawnFailed ? describeEngineSpawnError(err, engineCommand) : err.message;
+		if (spawnFailed && mainWindow && !mainWindow.isDestroyed()) {
+			mainWindow.webContents.send("terminal:output", {
+				stream: "stderr",
+				data: `\n[engine error] ${message}\n`,
+			});
+		}
+		return { success: false, error: message };
 	} finally {
 		launching = false;
 	}
@@ -648,7 +670,7 @@ ipcMain.handle("terminal:status", async () => {
 		offloadWarning: childProcess ? engineConfig.offloadWarning : null,
 		pid: childPid,
 		port: childProcess !== null ? engineConfig.port : null,
-		activeModelConfig: childProcess !== null ? engineConfig.activeModelConfig : null,
+		activeModelConfig: childProcess !== null && engineConfig.activeModelConfig ? { ...engineConfig.activeModelConfig, runtimeIdentity: engineConfig.runtimeIdentity } : null,
 	};
 });
 
@@ -792,10 +814,7 @@ app.whenReady().then(() => {
 							},
 							{
 								role: "user",
-								content: JSON.stringify({
-									oldSummary,
-									messages: messageBatch.map(({ role, content }) => ({ role, content })),
-								}),
+								content: require("./src/main/compactionCore").summaryUserContent(oldSummary, messageBatch),
 							},
 						],
 					}),

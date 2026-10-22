@@ -340,7 +340,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{error && (
 						<p
 							role="alert"
-							className="mb-3 rounded-lg border border-[var(--error)] px-3 py-2 text-xs text-[var(--error-strong)]"
+							className="mb-3 whitespace-pre-line break-words rounded-lg border border-[var(--error)] px-3 py-2 text-xs text-[var(--error-strong)]"
 						>
 							{error}
 						</p>

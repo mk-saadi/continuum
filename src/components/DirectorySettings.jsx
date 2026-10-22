@@ -1,4 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { LuDatabase, LuFolder } from 'react-icons/lu';
+import { SettingsButton, SettingsCard, SettingsMessage } from './settings/SettingsSection';
+
+const destinations = [
+  { key: 'modelDirectory', title: 'Model Directory', icon: LuFolder },
+  { key: 'appDataDirectory', title: 'App Data Directory', icon: LuDatabase },
+];
 
 export default function DirectorySettings() {
   const [config, setConfig] = useState(null);
@@ -39,21 +46,33 @@ export default function DirectorySettings() {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); setMigrating(false); }
   }
-  return <div className="space-y-4">
-    {['modelDirectory', 'appDataDirectory'].map(key => <section key={key} className="space-y-2 rounded-lg border border-[var(--border)] p-4">
-      <h3 className="font-semibold">{key === 'modelDirectory' ? 'Model Directory' : 'App Data Directory'}</h3>
-      <p className="break-all text-xs text-[var(--text-secondary)]">{config?.[key] || 'Loading…'}</p>
-      {key === 'appDataDirectory' && <p className="text-xs text-[var(--text-muted)]">SQLite, RAG vectors, attachments, embedding models, and avatars. Choose an empty folder. Settings will reload after migration.</p>}
-      <button type="button" disabled={busy || !config} onClick={() => change(key)}
-        className="rounded border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-40">Change Directory</button>
-    </section>)}
-    {error && <p role="alert" className="palace-error">{error}</p>}
-    <dialog ref={overlay} onCancel={event => event.preventDefault()}
-      className="fixed inset-0 m-auto rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-8 text-[var(--text-primary)] backdrop:bg-black/70">
-      <div role="status" aria-live="polite" className="flex items-center gap-3">
-        <span aria-hidden="true" className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        Migrating app data. Do not close the application...
-      </div>
-    </dialog>
-  </div>;
+  return (
+    <div className="space-y-3">
+      {destinations.map(({ key, title, icon: Icon }) => (
+        <SettingsCard key={key} icon={Icon} title={title}>
+          <p className="break-all rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]">
+            {config?.[key] || 'Loading…'}
+          </p>
+          {key === 'appDataDirectory' && (
+            <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+              SQLite, RAG vectors, attachments, embedding models, and avatars. Choose an empty folder. Settings will reload after migration.
+            </p>
+          )}
+          <div className="mt-3">
+            <SettingsButton type="button" disabled={busy || !config} onClick={() => change(key)}>
+              Change Directory
+            </SettingsButton>
+          </div>
+        </SettingsCard>
+      ))}
+      <SettingsMessage>{error}</SettingsMessage>
+      <dialog ref={overlay} onCancel={event => event.preventDefault()}
+        className="fixed inset-0 m-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/70">
+        <div role="status" aria-live="polite" className="flex items-center gap-3 text-xs">
+          <span aria-hidden="true" className="size-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+          Migrating app data. Do not close the application...
+        </div>
+      </dialog>
+    </div>
+  );
 }

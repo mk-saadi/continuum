@@ -120,6 +120,7 @@ export default function RightSidebar({
 	projectName = null,
 	modelName = null,
 	cloudChat = false,
+    contextMeasurement = null,
 	runtime = null,
 }) {
 	const sections = isWorkspace ? WORKSPACE_SECTIONS : CASUAL_SECTIONS;
@@ -964,6 +965,7 @@ export default function RightSidebar({
 							className={panelClass}
 						>
 							<ContextPanel
+                                measurement={contextMeasurement}
 								sessionId={sessionId}
 								modelId={modelId}
 								active={tab === "context"}

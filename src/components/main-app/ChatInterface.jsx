@@ -29,6 +29,7 @@ import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { activeStepsOf, getTurnInteractions, pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
 import { useLeftSidebar, useRightSidebar } from "../../context/UIStateContext.jsx";
+import { useCompressionEvents } from "../../context/CompressionEventsContext.jsx";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { OLDER_SCROLL_THRESHOLD_PX, useTranscriptWindow } from "./useTranscriptWindow.js";
 import { useTranscriptVirtual } from "./useTranscriptVirtual.js";
@@ -598,19 +599,14 @@ export function ChatInterface({
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));
 	}, [refreshHistory]);
-	useEffect(
-		() =>
-			palace.api?.onCompressionComplete((result) => {
-				if (result.sessionId !== palace.sessionId) return;
-				const ids = new Set(result.summarizedMessageIds || []);
-				setMessages((previous) =>
-					previous.map((message) =>
-						ids.has(message.id) ? { ...message, is_summarized: 1, archived: 1 } : message,
-					),
-				);
-			}),
-		[palace.api, palace.sessionId],
-	);
+	useCompressionEvents(palace.sessionId, (result) => {
+		const ids = new Set(result.summarizedMessageIds || []);
+		setMessages((previous) =>
+			previous.map((message) =>
+				ids.has(message.id) ? { ...message, is_summarized: 1, archived: 1 } : message,
+			),
+		);
+	});
 	const newChat = () => {
 		if (busyRef.current) return;
 		onChat();
@@ -2556,6 +2552,7 @@ export function ChatInterface({
 				onClose={onClose}
 				sessionId={palace.sessionId}
 				modelId={selectedModel}
+                contextMeasurement={palace.measured}
 				agents={agents}
 				sessionAgent={sessionAgent}
 				disabled={streaming || loading || agentLoading || !window.api?.applyAgent}

@@ -385,11 +385,20 @@ function summarizeRead(tool, args, paths, result, status, errorText) {
     );
   }
   if (tool === 'read_project_file') {
+    const ranged = result && typeof result === 'object'
+      && Number.isSafeInteger(result.actual_start_line) && Number.isSafeInteger(result.actual_end_line);
+    const rangeSuffix = ranged
+      ? ` lines ${result.actual_start_line}–${result.actual_end_line}${Number.isSafeInteger(result.total_lines) ? ` of ${result.total_lines}` : ''}`
+      : '';
     if (result && typeof result === 'object' && result.not_modified === true) {
-      return capText(`verified${scope} unchanged`, SUMMARY_CAP);
+      return capText(`verified${scope}${rangeSuffix} unchanged`, SUMMARY_CAP);
     }
     if (result && typeof result === 'object' && (result.type === 'image_url' || result.image_url)) {
       return capText(`read${scope} (image content)`, SUMMARY_CAP);
+    }
+    if (ranged) {
+      const truncated = result.truncated === true ? ' (truncated)' : '';
+      return capText(`read${scope}${rangeSuffix}${truncated}`, SUMMARY_CAP);
     }
     const content = result && typeof result === 'object' && typeof result.content === 'string' ? result.content : null;
     if (content !== null) return capText(`read${scope} (${content.length} chars)`, SUMMARY_CAP);
