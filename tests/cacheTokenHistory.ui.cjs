@@ -29,7 +29,25 @@ app.whenReady().then(async () => {
       check(body().includes('1,000') && body().includes('500'), 'uncached and completion values shown');
       check(body().includes('Cache-hit ratio unavailable'), 'incomplete data withholds the ratio');
       check(body().includes('Cached reads may still occupy the context window'), 'occupancy is not implied to fall');
-      const tooltip = document.querySelector('[role="tooltip"]').textContent;
+      const wrapper = document.querySelector('.recharts-wrapper');
+      check(wrapper, 'Recharts produced a chart surface');
+      const bar = document.querySelector('.recharts-bar path');
+      check(bar, 'the first stacked bar rendered');
+      // Recharts v3 binds React synthetic onMouseMove on the chart wrapper and
+      // resolves the hovered category from clientX/clientY; poll until the chart
+      // has finished its first layout pass and the tooltip appears.
+      let tooltipEl = null;
+      for (let attempt = 0; attempt < 15 && !tooltipEl; attempt++) {
+        const box = bar.getBoundingClientRect();
+        const x = box.x + box.width / 2, y = box.y + box.height / 2;
+        wrapper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: x, clientY: y }));
+        await wait();
+        wrapper.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+        await wait();
+        tooltipEl = document.querySelector('[role="tooltip"]');
+      }
+      check(tooltipEl, 'hovering a bar shows the token tooltip');
+      const tooltip = tooltipEl.textContent;
       check(tooltip.includes('Gross input: 1,000'), 'tooltip separates gross input');
       check(tooltip.includes('Cached input: 500'), 'tooltip shows measured cache reads');
       check(tooltip.includes('Uncached input: 500'), 'tooltip shows uncached input');
