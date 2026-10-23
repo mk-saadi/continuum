@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from "react";
+import React, { useEffect, useRef, useSyncExternalStore } from "react";
 import { LuTerminal } from "react-icons/lu";
 import { terminalLogStore } from "../lib/terminalLogStore.mjs";
 import { SettingsButton, SettingsCard, SettingsStatus } from "./settings/SettingsSection";
@@ -24,14 +24,41 @@ export default function TerminalLog({ engineRunning, serverPort, serverError, ac
 	// them. When the panel is not the visible one it must not subscribe at
 	// all, or a hidden Usage tab keeps re-rendering the whole modal forever.
 	const log = useTerminalLog(active);
+	// The scroll container and the pin state live in refs so output bursts
+	// never trigger extra re-renders: we only mutate scrollTop imperatively.
+	const scrollRef = useRef(null);
+	const pinnedRef = useRef(true);
+
+	useEffect(() => {
+		// New output (or first mount) snaps the view to the bottom, but only
+		// while the user has not scrolled up to read history.
+		const el = scrollRef.current;
+		if (el && pinnedRef.current) {
+			el.scrollTop = el.scrollHeight;
+		}
+	}, [log.lines.length]);
+
+	const handleScroll = () => {
+		const el = scrollRef.current;
+		if (!el) return;
+		// A few pixels of tolerance absorb sub-pixel rounding when the view is
+		// exactly at the bottom; anything further up means the user read history.
+		pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 4;
+	};
+
+	const handleClear = () => {
+		// Clearing resets the log, so the view is back at "latest" again.
+		pinnedRef.current = true;
+		log.clear();
+	};
 	return (
 		<SettingsCard
 			icon={LuTerminal}
 			title="Engine logs"
 			action={
-				<SettingsButton
-					onClick={log.clear}
-				>
+			<SettingsButton
+				onClick={handleClear}
+			>
 					Clear logs
 				</SettingsButton>
 			}
@@ -53,6 +80,8 @@ export default function TerminalLog({ engineRunning, serverPort, serverError, ac
 			)}
 			<div
 				aria-label="Terminal output"
+				ref={scrollRef}
+				onScroll={handleScroll}
 				className="h-[45vh] select-text overflow-auto rounded-lg border border-[var(--border)] bg-[var(--terminal)] p-3 font-mono text-[11px] leading-relaxed text-[var(--terminal-text)]"
 			>
 				{!log.lines.length

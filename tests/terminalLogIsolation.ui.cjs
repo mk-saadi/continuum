@@ -115,6 +115,34 @@ app.whenReady().then(async () => {
       await wait(60);
       const cleared = { lines: domLines(), storeLength: window.getLogLines().length, empty: emptyState() };
 
+      // Scroll pinning: fresh output sticks the view to the bottom until the
+      // user scrolls up; scrolling back down re-arms it.
+      const logBox = document.querySelector('[aria-label="Terminal output"]');
+      // The fixture page loads no stylesheet, so give the container an explicit
+      // height (standing in for h-[45vh]) to make overflow deterministic.
+      logBox.style.height = '200px';
+      logBox.style.overflowY = 'auto';
+      for (let i = 1; i <= 40; i += 1) window.emitTerminal('fill ' + i + '\\n');
+      await wait(200);
+      const distanceFromBottom = () => logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight;
+      const pinnedAfterFill = { overflow: logBox.scrollHeight > logBox.clientHeight, atBottom: distanceFromBottom() <= 4 };
+
+      // The user scrolls up to read history...
+      logBox.scrollTop = 0;
+      logBox.dispatchEvent(new Event('scroll'));
+      await wait(20);
+      window.emitTerminal('while reading\\n');
+      await wait(200);
+      const whileReading = { atBottom: distanceFromBottom() <= 4, scrollTop: logBox.scrollTop };
+
+      // ...and scrolls back to the bottom, which re-arms auto-scroll.
+      logBox.scrollTop = logBox.scrollHeight;
+      logBox.dispatchEvent(new Event('scroll'));
+      await wait(20);
+      window.emitTerminal('re-pinned\\n');
+      await wait(200);
+      const repinnedAtBottom = distanceFromBottom() <= 4;
+
       return {
         order: openedLines,
         afterBurst,
@@ -125,6 +153,7 @@ app.whenReady().then(async () => {
         afterLive,
         reopened,
         cleared,
+        scrollPin: { pinnedAfterFill, whileReading, repinnedAtBottom },
       };
     })()`);
 
@@ -151,6 +180,15 @@ app.whenReady().then(async () => {
     assert.deepEqual(results.cleared.lines, []);
     assert.equal(results.cleared.storeLength, 0);
     assert.match(results.cleared.empty, /No output yet/);
+
+    // Fresh output pins the view to the bottom...
+    assert.ok(results.scrollPin.pinnedAfterFill.overflow, 'log overflows so scrolling is possible');
+    assert.ok(results.scrollPin.pinnedAfterFill.atBottom, 'new output keeps the view at the bottom');
+    // ...until the user scrolls up to read history.
+    assert.ok(!results.scrollPin.whileReading.atBottom, 'scrolling up unpins auto-scroll');
+    assert.equal(results.scrollPin.whileReading.scrollTop, 0, 'output while reading does not yank the view down');
+    // Scrolling back to the bottom re-arms it.
+    assert.ok(results.scrollPin.repinnedAtBottom, 'scrolling back down re-pins the view on new output');
 
     console.log('Terminal-log isolation: AppContent untouched, ordered buffered history, remount without duplicates, and clear all passed.');
   } finally {
