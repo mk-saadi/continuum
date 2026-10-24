@@ -1,0 +1,5033 @@
+{
+  "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+  "initial": [
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "29a3ce4f901fdb63127364c162d1aea4f548b8ec7cd35dc3e5c5bf4d24378dc8",
+      "requestBytes": 4346,
+      "requestCharacters": 4346,
+      "estimatedInputTokens": 1087,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 3440,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 1,
+      "nativeSchemaBytes": 659,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 0,
+      "taskStateBytes": 2,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "0d14f2e9b41749f06c7a6b2a76711efb7339ba7fb228df2844ea8c70d2f89232",
+      "requestBytes": 5864,
+      "requestCharacters": 5862,
+      "estimatedInputTokens": 1466,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4461,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4461,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "ask_approval",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "2cbf00e99c5390d7aa66a32fb9b4b32f5a32f403212e0eb0d5315e9e1da8a4dc",
+      "requestBytes": 5864,
+      "requestCharacters": 5862,
+      "estimatedInputTokens": 1466,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4461,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4461,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "workspace_write",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "084971b209412ba3eb135a4505bf831a70481e338a636fa08e8e9dd31195a3f5",
+      "requestBytes": 5864,
+      "requestCharacters": 5862,
+      "estimatedInputTokens": 1466,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4461,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4461,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "2831aa5c4dd90e30c654b13225181c9139fc212f5f58203ab0eb8ec08bf8a5cd",
+      "requestBytes": 5864,
+      "requestCharacters": 5862,
+      "estimatedInputTokens": 1466,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4461,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4461,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "anthropic",
+      "model": "claude-fixture",
+      "requestFingerprint": "d1b384b44922c2a4c975b45d922d093e79ce1c261d4e7bc41900830099f1ee18",
+      "requestBytes": 4252,
+      "requestCharacters": 4252,
+      "estimatedInputTokens": 1063,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 3435,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 1,
+      "nativeSchemaBytes": 630,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 0,
+      "taskStateBytes": 2,
+      "messageCount": 1,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "read_only",
+      "provider": "anthropic",
+      "model": "claude-fixture",
+      "requestFingerprint": "b868b601c444e8c194a005f3796adf1b286f18c6997cc79b8e9c9a10d1a08046",
+      "requestBytes": 5741,
+      "requestCharacters": 5739,
+      "estimatedInputTokens": 1435,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4493,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1098,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 2,
+      "messageCount": 1,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "ask_approval",
+      "provider": "anthropic",
+      "model": "claude-fixture",
+      "requestFingerprint": "d9669734b7bb569523227c032e769b968e383d12c03fd89dba5991781425bf26",
+      "requestBytes": 5741,
+      "requestCharacters": 5739,
+      "estimatedInputTokens": 1435,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4493,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1098,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 2,
+      "messageCount": 1,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "workspace_write",
+      "provider": "anthropic",
+      "model": "claude-fixture",
+      "requestFingerprint": "0ebcb5f2949b2920627bfcd7dc7632d3a802c1e1d755a31144f5f539a18e37f8",
+      "requestBytes": 5741,
+      "requestCharacters": 5739,
+      "estimatedInputTokens": 1435,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4493,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1098,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 2,
+      "messageCount": 1,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "anthropic",
+      "model": "claude-fixture",
+      "requestFingerprint": "b852fe155c1b3cb33c37a32ab3138c86fc20ae6975452e97dd099d217de65357",
+      "requestBytes": 5741,
+      "requestCharacters": 5739,
+      "estimatedInputTokens": 1435,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4493,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1098,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 2,
+      "messageCount": 1,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "openrouter",
+      "model": "fixture",
+      "requestFingerprint": "05692f9e5e91163ef11e193e9e117767246bfb2962a2eb109255cc0549178182",
+      "requestBytes": 4209,
+      "requestCharacters": 4209,
+      "estimatedInputTokens": 1053,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 3440,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 1,
+      "nativeSchemaBytes": 659,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 0,
+      "taskStateBytes": 2,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "read_only",
+      "provider": "openrouter",
+      "model": "fixture",
+      "requestFingerprint": "ebb69543bf83e39473ca348603bb1c4944e765d2fc76971cc3db72c22f2bdfd0",
+      "requestBytes": 5727,
+      "requestCharacters": 5725,
+      "estimatedInputTokens": 1432,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4461,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4461,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "ask_approval",
+      "provider": "openrouter",
+      "model": "fixture",
+      "requestFingerprint": "82036af73804496e56b00551c4d405860834365870995a8269f71a1d92914989",
+      "requestBytes": 5729,
+      "requestCharacters": 5727,
+      "estimatedInputTokens": 1432,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4463,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4463,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "workspace_write",
+      "provider": "openrouter",
+      "model": "fixture",
+      "requestFingerprint": "27317ff2b755482fee5345e2e59035508afc03bef7055f4c72ba7672712a01a4",
+      "requestBytes": 5729,
+      "requestCharacters": 5727,
+      "estimatedInputTokens": 1432,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4463,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4463,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "openrouter",
+      "model": "fixture",
+      "requestFingerprint": "d836d10af6b9152da349e076dcc8ffed0ed4bca26d0eba4e8d274d4495e2ae44",
+      "requestBytes": 5729,
+      "requestCharacters": 5727,
+      "estimatedInputTokens": 1432,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4463,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4463,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count"
+    },
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "ce72cb6eca95afaf0303222b8414952c7c09ab9b31a1ca2e59e16ce4bc06229e",
+      "requestBytes": 4414,
+      "requestCharacters": 4414,
+      "estimatedInputTokens": 1104,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 3508,
+      "personaInstructionBytes": 39,
+      "nativeSchemaCount": 1,
+      "nativeSchemaBytes": 659,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 0,
+      "taskStateBytes": 2,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+      "variant": "persona"
+    },
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "d64189a9c50f638af6ff73e47630ae92fa0cec242be72968e134a363625fe8e6",
+      "requestBytes": 14876,
+      "requestCharacters": 14876,
+      "estimatedInputTokens": 3719,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 13970,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 1,
+      "nativeSchemaBytes": 659,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 0,
+      "taskStateBytes": 2,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+      "variant": "custom-system"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "2c7114a19c609ff29d21b563e252743deec9f4384445b88c4beb3bd22de29fa4",
+      "requestBytes": 5920,
+      "requestCharacters": 5918,
+      "estimatedInputTokens": 1480,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4517,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 151,
+      "taskStateBytes": 4517,
+      "messageCount": 2,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+      "variant": "repository"
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "local",
+      "model": "fixture",
+      "requestFingerprint": "8e39714576e24cda7fd67de28f370401246fcc3fb58e08dd218673d280ce8149",
+      "requestBytes": 6049,
+      "requestCharacters": 6045,
+      "estimatedInputTokens": 1512,
+      "exactInputTokens": null,
+      "providerReportedPromptTokens": null,
+      "systemInstructionBytes": 4572,
+      "personaInstructionBytes": 0,
+      "nativeSchemaCount": 2,
+      "nativeSchemaBytes": 1156,
+      "mcpDiscoveryBytes": 0,
+      "activatedMcpSchemaBytes": 0,
+      "projectContextBytes": 100,
+      "taskStateBytes": 4572,
+      "messageCount": 3,
+      "measurementConfidence": "estimated",
+      "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+      "variant": "task-brief"
+    }
+  ],
+  "scaling": [
+    {
+      "serverCount": 0,
+      "toolsPerServer": 0,
+      "availableTools": 0,
+      "discoveryLatencyMs": 0.05548399999997855,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 0,
+      "initialMetadataOverheadBytes": 0,
+      "resultCount": 0,
+      "resultPayloadBytes": 0,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "29a3ce4f901fdb63127364c162d1aea4f548b8ec7cd35dc3e5c5bf4d24378dc8",
+          "requestBytes": 4346,
+          "requestCharacters": 4346,
+          "estimatedInputTokens": 1087,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 3440,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 0,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 0
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "00de63a98787005a43afda8a0a2eaf40b16db9ee9a0afca3fefe0da43b70e288",
+          "requestBytes": 5866,
+          "requestCharacters": 5864,
+          "estimatedInputTokens": 1466,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 4463,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 0,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 4463,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 0
+        }
+      ],
+      "heapDeltaBytes": 2098936,
+      "cachedMockSchemas": 0
+    },
+    {
+      "serverCount": 5,
+      "toolsPerServer": 10,
+      "availableTools": 50,
+      "discoveryLatencyMs": 0.3006159999999909,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 595,
+      "initialMetadataOverheadBytes": 595,
+      "resultCount": 5,
+      "resultPayloadBytes": 595,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "719e345c836f236da5ac988dae6b19868d76a549e780ada3ccff556d8c01665d",
+          "requestBytes": 5734,
+          "requestCharacters": 5724,
+          "estimatedInputTokens": 1431,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 4828,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 595,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 1388
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "b75983289eb6ca4099ba9a745151b7e5ebda4636b392f984959ed6a2db0b326b",
+          "requestBytes": 7254,
+          "requestCharacters": 7242,
+          "estimatedInputTokens": 1811,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 5851,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 595,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 5851,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 1388
+        }
+      ],
+      "activationLatencyMs": 1.4840390000000525,
+      "activatedSchemaCount": 10,
+      "activatedSchemaBytes": 2061,
+      "unrelatedSchemasAbsent": true,
+      "postActivationEstimatedTokens": 2326,
+      "heapDeltaBytes": 3746480,
+      "cachedMockSchemas": 50
+    },
+    {
+      "serverCount": 20,
+      "toolsPerServer": 20,
+      "availableTools": 400,
+      "discoveryLatencyMs": 0.42010899999991125,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 2389,
+      "initialMetadataOverheadBytes": 2389,
+      "resultCount": 20,
+      "resultPayloadBytes": 2389,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "01075ec0d43a894937fd1f24f45954d76fb8129e814f7a6cb129a637f20e2702",
+          "requestBytes": 7573,
+          "requestCharacters": 7533,
+          "estimatedInputTokens": 1884,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 6667,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 2389,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 3227
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "306389c41dc646651ad006962b7c47b197517b47741dbcfce7aaf5a585d0f0d4",
+          "requestBytes": 9093,
+          "requestCharacters": 9051,
+          "estimatedInputTokens": 2263,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 7690,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 2389,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 7690,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 3227
+        }
+      ],
+      "activationLatencyMs": 0.678545999999983,
+      "activatedSchemaCount": 20,
+      "activatedSchemaBytes": 4141,
+      "unrelatedSchemasAbsent": true,
+      "postActivationEstimatedTokens": 3298,
+      "heapDeltaBytes": -8689240,
+      "cachedMockSchemas": 400
+    },
+    {
+      "serverCount": 50,
+      "toolsPerServer": 20,
+      "availableTools": 1000,
+      "discoveryLatencyMs": 0.390521999999919,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 5989,
+      "initialMetadataOverheadBytes": 5989,
+      "resultCount": 50,
+      "resultPayloadBytes": 5989,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "80320e08dd7ffb0a120d24b9ceafe049b5253a11ef4e7ce84a10066d0fcd2bb7",
+          "requestBytes": 11263,
+          "requestCharacters": 11163,
+          "estimatedInputTokens": 2791,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 10357,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 5989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 6917
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "7357ab0c2001c3a3ba3278f127325ebf6d78634ab79f4a262dc5594e58de0494",
+          "requestBytes": 12783,
+          "requestCharacters": 12681,
+          "estimatedInputTokens": 3171,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 11380,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 5989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 11380,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 6917
+        }
+      ],
+      "activationLatencyMs": 0.8933920000000626,
+      "activatedSchemaCount": 20,
+      "activatedSchemaBytes": 4141,
+      "unrelatedSchemasAbsent": true,
+      "postActivationEstimatedTokens": 4206,
+      "heapDeltaBytes": 5175936,
+      "cachedMockSchemas": 1000
+    },
+    {
+      "serverCount": 100,
+      "toolsPerServer": 20,
+      "availableTools": 2000,
+      "discoveryLatencyMs": 1.7970340000000533,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 11989,
+      "initialMetadataOverheadBytes": 11989,
+      "resultCount": 100,
+      "resultPayloadBytes": 11989,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "2a3a6e2d6fd26f485dfea8526093a91be5a02955aabe46620411c939c89c5efd",
+          "requestBytes": 17413,
+          "requestCharacters": 17213,
+          "estimatedInputTokens": 4304,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 16507,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 11989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 13067
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "4c9090b2c4d109793a9e8379d05ab4f5ecef6d5195607222a100a55cc0bfb172",
+          "requestBytes": 18933,
+          "requestCharacters": 18731,
+          "estimatedInputTokens": 4683,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 17530,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 11989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 17530,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 13067
+        }
+      ],
+      "activationLatencyMs": 0.5039939999999206,
+      "activatedSchemaCount": 20,
+      "activatedSchemaBytes": 4141,
+      "unrelatedSchemasAbsent": true,
+      "postActivationEstimatedTokens": 5718,
+      "heapDeltaBytes": 6717728,
+      "cachedMockSchemas": 2000
+    },
+    {
+      "serverCount": 100,
+      "toolsPerServer": 100,
+      "availableTools": 10000,
+      "discoveryLatencyMs": 3.6160650000000487,
+      "initialMcpSchemaCount": 0,
+      "discoveryPromptBytes": 11989,
+      "initialMetadataOverheadBytes": 11989,
+      "resultCount": 100,
+      "resultPayloadBytes": 11989,
+      "searchSupported": false,
+      "paginationSupported": false,
+      "relevantLastEntryPresent": true,
+      "initial": [
+        {
+          "chatMode": "casual",
+          "permissionMode": "read_only",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "2a3a6e2d6fd26f485dfea8526093a91be5a02955aabe46620411c939c89c5efd",
+          "requestBytes": 17413,
+          "requestCharacters": 17213,
+          "estimatedInputTokens": 4304,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 16507,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 1,
+          "nativeSchemaBytes": 659,
+          "mcpDiscoveryBytes": 11989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 0,
+          "taskStateBytes": 2,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 13067
+        },
+        {
+          "chatMode": "workspace",
+          "permissionMode": "full_access",
+          "provider": "local",
+          "model": "fixture",
+          "requestFingerprint": "c78de7facd2325d53f545107e1c80e665ff262e2a5718c8b7d984f57d910a19a",
+          "requestBytes": 18933,
+          "requestCharacters": 18731,
+          "estimatedInputTokens": 4683,
+          "exactInputTokens": null,
+          "providerReportedPromptTokens": null,
+          "systemInstructionBytes": 17530,
+          "personaInstructionBytes": 0,
+          "nativeSchemaCount": 2,
+          "nativeSchemaBytes": 1156,
+          "mcpDiscoveryBytes": 11989,
+          "activatedMcpSchemaBytes": 0,
+          "projectContextBytes": 100,
+          "taskStateBytes": 17530,
+          "messageCount": 2,
+          "measurementConfidence": "estimated",
+          "measurementMethod": "actual transport JSON characters / 4; estimate, not tokenizer count",
+          "metadataRequestDeltaBytesFromZero": 13067
+        }
+      ],
+      "activationLatencyMs": 6.220035999999936,
+      "activatedSchemaCount": 100,
+      "activatedSchemaBytes": 20781,
+      "unrelatedSchemasAbsent": true,
+      "postActivationEstimatedTokens": 9878,
+      "heapDeltaBytes": -2760344,
+      "cachedMockSchemas": 10000
+    }
+  ],
+  "inventory": [
+    {
+      "name": "manage_native_tools",
+      "group": "discovery",
+      "initialVisibility": "all",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "initial",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_definition",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_references",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_document_symbols",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_workspace_symbols",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_hover",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "lsp_diagnostics",
+      "group": "lsp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group lsp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "lsp",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "ask_approval": {
+          "decision": "deny",
+          "reason": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access."
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "unverified",
+      "configuration": "supported JS/TS project and LSP runtime",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "use_skill",
+      "group": "skills",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group skills",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "project skill required",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "propose_skill",
+      "group": "skills",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group skills",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "manage_mcp_servers",
+      "group": "mcp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group mcp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "external_mutation",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "approve_mcp_mutation",
+      "group": "mcp",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group mcp",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "external_mutation",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "get_recent_chat_history",
+      "group": "memory",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group memory",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "delegate_task",
+      "group": "subagents",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group subagents",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": false,
+          "activated": false
+        },
+        "full_access": {
+          "eligible": false,
+          "activated": false
+        }
+      },
+      "capability": "agent_spawn",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "legacy, shadowed by execute_command; cloud excludes it",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "generate_image",
+      "group": "media",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group media",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": false,
+          "activated": false
+        },
+        "workspace_write": {
+          "eligible": false,
+          "activated": false
+        },
+        "full_access": {
+          "eligible": false,
+          "activated": false
+        }
+      },
+      "capability": "external_mutation",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "image provider absent",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "spawn_sub_agent",
+      "group": "subagents",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group subagents",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "agent_spawn",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "web_search",
+      "group": "web",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group web",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "get_single_web_page_content",
+      "group": "web",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group web",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "extract_web_page_data",
+      "group": "web",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group web",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "execute_command",
+      "group": "commands",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group commands",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "local_execution",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "get_command_status",
+      "group": "commands",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group commands",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "stop_background_command",
+      "group": "commands",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group commands",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "run_tests",
+      "group": "commands",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group commands",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "local_execution",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "update_plan",
+      "group": "tasks",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group tasks",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "plan_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "get_project_plans",
+      "group": "tasks",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group tasks",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "plan_read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "str_replace_editor",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "search_project_content",
+      "group": "files",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group files",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "take_screenshot",
+      "group": "media",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group media",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "read_project_file",
+      "group": "files",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group files",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "write_project_file",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "move_project_file",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "delete_project_file",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "file_delete",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "edit_project_files",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "apply_patch",
+      "group": "editing",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group editing",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "list_directory",
+      "group": "files",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group files",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_status",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_diff",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_log",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_show",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_branch",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_stage",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_unstage",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_commit",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "external_mutation",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_create_branch",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_switch",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_sync",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "external_mutation",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "approve"
+        },
+        "workspace_write": {
+          "decision": "approve"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_stash",
+      "group": "git_write",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_write",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "workspace_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "git_blame",
+      "group": "git_read",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group git_read",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "agent dispatcher registration present",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": true
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "search_memory",
+      "group": "memory",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group memory",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "read",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "allow"
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "engine/memory dispatcher",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": true,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "save_memory",
+      "group": "memory",
+      "initialVisibility": "hidden",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "activate group memory",
+      "modes": {
+        "read_only": {
+          "eligible": false,
+          "activated": false
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": "memory_write",
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "deny",
+          "reason": "Execution blocked: Chat is in Read Only mode."
+        },
+        "ask_approval": {
+          "decision": "allow"
+        },
+        "workspace_write": {
+          "decision": "allow"
+        },
+        "full_access": {
+          "decision": "allow"
+        }
+      },
+      "backendDispatch": "engine/memory dispatcher",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    },
+    {
+      "name": "ask_user",
+      "group": "clarification",
+      "initialVisibility": "workspace only, if configured",
+      "discovery": "authorized names in manage_native_tools list, grouped by capability; no free-text search",
+      "activation": "initial",
+      "modes": {
+        "read_only": {
+          "eligible": true,
+          "activated": true
+        },
+        "ask_approval": {
+          "eligible": true,
+          "activated": true
+        },
+        "workspace_write": {
+          "eligible": true,
+          "activated": true
+        },
+        "full_access": {
+          "eligible": true,
+          "activated": true
+        }
+      },
+      "capability": null,
+      "permissionRequirements": {
+        "read_only": {
+          "decision": "workspace clarification"
+        },
+        "ask_approval": {
+          "decision": "workspace clarification"
+        },
+        "workspace_write": {
+          "decision": "workspace clarification"
+        },
+        "full_access": {
+          "decision": "workspace clarification"
+        }
+      },
+      "backendDispatch": "engine/memory dispatcher",
+      "configuration": "permission/session policy",
+      "supportedContexts": {
+        "workspace": "per-mode eligibility above",
+        "casualReadOnly": false,
+        "investigationChild": false
+      },
+      "coverage": "schema, permission visibility, discovery and activation; execution is representative, not all 50 invoked",
+      "actualResult": "all eligible schemas reachable in tested modes"
+    }
+  ],
+  "loops": [
+    {
+      "provider": "local",
+      "fullCatalog": false,
+      "runIdStable": true,
+      "requests": 8,
+      "executed": 7,
+      "activationCalls": 3,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 1,
+      "recoveryMethod": "explicit transport recovery callback, not actual threshold pressure",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1491,
+          "requestBytes": 5966,
+          "requestFingerprint": "07ae1faa049bc5360565594d14920462bf47ceb942f07e1ae57b6a8f85198a6b",
+          "schemaCount": 2
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2161,
+          "requestBytes": 8646,
+          "requestFingerprint": "a33b2cb816fd4195fd0861692e83ec77d1b0ba25cca807f038ffe24540c714a5",
+          "schemaCount": 5
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2248,
+          "requestBytes": 8994,
+          "requestFingerprint": "eb8208a0cba02e91428ed7929d95cef702a727f916a96f40bbd6ff569b7a74f2",
+          "schemaCount": 5
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2361,
+          "requestBytes": 9446,
+          "requestFingerprint": "bc595f065d5486b9621b230441b1e5834a0368c14458c41a6aba9db400901044",
+          "schemaCount": 5
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 3736,
+          "requestBytes": 14947,
+          "requestFingerprint": "11ae48b37c7a30bed321ec55321a2ebe1414d7909d56801702fa69a630bbcc57",
+          "schemaCount": 11
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 3921,
+          "requestBytes": 15691,
+          "requestFingerprint": "5cfb1e9772c39ccd3d0746fdb4e8f5317a5d7ed7db51b1e183b7f5442b82eb11",
+          "schemaCount": 11
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4904,
+          "requestBytes": 19621,
+          "requestFingerprint": "65e3ee22e8ac151eded3bff5092e673f09930a9cc00e658e78cab5c157ab0486",
+          "schemaCount": 15
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5164,
+          "requestBytes": 20663,
+          "requestFingerprint": "8cef17759f6f1cb93dc127f4eeef62a53a353ba29f71e615dacb6df6fd232027",
+          "schemaCount": 15
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 25986,
+      "outputTokens": null
+    },
+    {
+      "provider": "local",
+      "fullCatalog": true,
+      "runIdStable": true,
+      "requests": 5,
+      "executed": 4,
+      "activationCalls": 0,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 1,
+      "recoveryMethod": "explicit transport recovery callback, not actual threshold pressure",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 10890,
+          "requestBytes": 43578,
+          "requestFingerprint": "29abc4a4147694c8984580e946d2b031bfbeb9bea6774c9101d979ca9884da8e",
+          "schemaCount": 50
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 11008,
+          "requestBytes": 44052,
+          "requestFingerprint": "3f9073466f036f28cc7614550161ebf6a11a0772e66af65309615dd509314e9b",
+          "schemaCount": 50
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 11121,
+          "requestBytes": 44504,
+          "requestFingerprint": "28cb284986e577f5eebc8ee280209e706b9a4590d3185dde7f6e1dd79e14fb69",
+          "schemaCount": 50
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 11306,
+          "requestBytes": 45248,
+          "requestFingerprint": "3336eff15993841d24d301dc355afe0f90b65de0b84c602da6e3a8e6ad6d9ef2",
+          "schemaCount": 50
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 11567,
+          "requestBytes": 46290,
+          "requestFingerprint": "c868215ddb6aee9d2574e6950ad3fd6445432239b87e4025c2cfbd836a2b76f1",
+          "schemaCount": 50
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 55892,
+      "outputTokens": null
+    },
+    {
+      "provider": "anthropic",
+      "fullCatalog": false,
+      "runIdStable": true,
+      "requests": 8,
+      "executed": 7,
+      "activationCalls": 3,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 0,
+      "recoveryMethod": "not exercised",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1461,
+          "requestBytes": 5843,
+          "requestFingerprint": "1e812e53d479109e7926af49de457cc93da4d1ae0e9951849f2c6cfecae96b19",
+          "schemaCount": 2
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2112,
+          "requestBytes": 8447,
+          "requestFingerprint": "99b2b5c37c09ce7b9a86464fa2fa8514645037968ae0bd12f75df35757ce2d34",
+          "schemaCount": 5
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2203,
+          "requestBytes": 8813,
+          "requestFingerprint": "312e28e4ca1f40a0cc074f7266d866ade2b74ba16fe6233e416e3f1b26f22527",
+          "schemaCount": 5
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2321,
+          "requestBytes": 9283,
+          "requestFingerprint": "183612c48d3a7c0cda511750d072139ff610de8ad4637d483f534016b563a215",
+          "schemaCount": 5
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 3655,
+          "requestBytes": 14624,
+          "requestFingerprint": "c30cc6ece4484552fba158f0afcf6e41439ae1fc703172cb34c7d064a88cde68",
+          "schemaCount": 11
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 3841,
+          "requestBytes": 15370,
+          "requestFingerprint": "32eb6e508364c5772e96582639313231a9b31e87f91a437eac19abac1c8cd6a3",
+          "schemaCount": 11
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4798,
+          "requestBytes": 19198,
+          "requestFingerprint": "31394109c7b97e05462b113fd824d2216928e615f70f7b9a8d7fe84a4ef39214",
+          "schemaCount": 15
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5058,
+          "requestBytes": 20238,
+          "requestFingerprint": "4255ff0ce7585fc458ff7df9eed2f68a1c134ca5fdb2cfc1bc58466434215dac",
+          "schemaCount": 15
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 25449,
+      "outputTokens": null
+    },
+    {
+      "provider": "anthropic",
+      "fullCatalog": true,
+      "runIdStable": true,
+      "requests": 5,
+      "executed": 4,
+      "activationCalls": 0,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 0,
+      "recoveryMethod": "not exercised",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 10511,
+          "requestBytes": 42063,
+          "requestFingerprint": "924dcb941e9617b23bbdb9060762b1a3ec645cb067fef046e270ea0156ed1323",
+          "schemaCount": 50
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 10633,
+          "requestBytes": 42552,
+          "requestFingerprint": "7d48c089af4cc54b201569d9a3065b2e07ad45ab4e2133dba696cdc20848b50f",
+          "schemaCount": 50
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 10751,
+          "requestBytes": 43022,
+          "requestFingerprint": "3740504f874cd591402249fb24423e28936ee5a1be30dda966419cd19085b37c",
+          "schemaCount": 50
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 10936,
+          "requestBytes": 43768,
+          "requestFingerprint": "bf4d999e670105f3ae46b854a0046679fd95fe929ebceb12cca085cca895da50",
+          "schemaCount": 50
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 11196,
+          "requestBytes": 44808,
+          "requestFingerprint": "639070df5ac702c734d8fa50b71229b759627c726babf9e4e703432fb9f68d4d",
+          "schemaCount": 50
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 54027,
+      "outputTokens": null
+    },
+    {
+      "provider": "openrouter",
+      "fullCatalog": false,
+      "runIdStable": true,
+      "requests": 8,
+      "executed": 7,
+      "activationCalls": 3,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 0,
+      "recoveryMethod": "not exercised",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "manage_native_tools",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1457,
+          "requestBytes": 5829,
+          "requestFingerprint": "4f830e8b7644bec865b26bbc4e3583682d9c6abb358a84f4bdd4641571408eee",
+          "schemaCount": 2
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2127,
+          "requestBytes": 8509,
+          "requestFingerprint": "3992ffa9893b93376a705de7b3c5f7783f1372bed919179d52f687a245837cc0",
+          "schemaCount": 5
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2214,
+          "requestBytes": 8857,
+          "requestFingerprint": "ff076bff6f7765e3f719ec1bfc4268aec28a79693402f4a187b47347d5915f8f",
+          "schemaCount": 5
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2327,
+          "requestBytes": 9309,
+          "requestFingerprint": "2581c3bc0305d0040895e89a56609abcb3bd5112bb0d361aefa6399f6669ca5e",
+          "schemaCount": 5
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 3702,
+          "requestBytes": 14810,
+          "requestFingerprint": "045e7afed982bb5daadf39674092979c7fb8a78d20cc251f6427c89879a7774b",
+          "schemaCount": 11
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 3887,
+          "requestBytes": 15554,
+          "requestFingerprint": "2e9d26aaf7835a6833c51ae58bfcfe29894084f569192a4e6233a9aa503fc7c0",
+          "schemaCount": 11
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4869,
+          "requestBytes": 19484,
+          "requestFingerprint": "8840b163cebdbfdf7b0b237a7d1f0e5ee5f81cffacad30c4552dfff15b81c317",
+          "schemaCount": 15
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5130,
+          "requestBytes": 20527,
+          "requestFingerprint": "0afe454e93e8f916290d3cce1d5354d38cd5cbf8fe86bb225e86eee9b0f5ed81",
+          "schemaCount": 15
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 25713,
+      "outputTokens": null
+    },
+    {
+      "provider": "openrouter",
+      "fullCatalog": true,
+      "runIdStable": true,
+      "requests": 5,
+      "executed": 4,
+      "activationCalls": 0,
+      "failedActivations": 0,
+      "repeatedActivations": 0,
+      "editCount": 1,
+      "steeringDelivered": 1,
+      "recoveryCallbacks": 0,
+      "recoveryMethod": "not exercised",
+      "completed": true,
+      "outcomes": [
+        {
+          "name": "search_project_content",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "read_project_file",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "str_replace_editor",
+          "error": false,
+          "status": null
+        },
+        {
+          "name": "run_tests",
+          "error": false,
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 10856,
+          "requestBytes": 43441,
+          "requestFingerprint": "607449e8b7febf70fc3f9d9d96f40e72fdfdf5ec5792a2a0f192c71cb401d4db",
+          "schemaCount": 50
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 10974,
+          "requestBytes": 43915,
+          "requestFingerprint": "7b76963d7667fb5e9742ff1742335ae414db44608f042ca81d299117417f61bc",
+          "schemaCount": 50
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 11087,
+          "requestBytes": 44367,
+          "requestFingerprint": "a9682ddaf8d57fd892febe6e5888cfd392d055f60bf5483b2e85b46a28e834d2",
+          "schemaCount": 50
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 11272,
+          "requestBytes": 45112,
+          "requestFingerprint": "7c57ef7c12f79dc605cd9fa4e1818268d6e40adc46cafd278327385cb7e0d92a",
+          "schemaCount": 50
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 11533,
+          "requestBytes": 46155,
+          "requestFingerprint": "64d42837298810f56dc0f112aad47c286b2b680ea5a58444d0c52d7c0e6b44d5",
+          "schemaCount": 50
+        }
+      ],
+      "cumulativeEstimatedInputTokens": 55722,
+      "outputTokens": null
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "MCP_CATALOG_PROMPT_LEAKAGE",
+      "status": "reproduced; architectural follow-up required",
+      "insertionPath": "McpManager.getDiscoveryCatalog -> buildSessionSystemPrompt -> each request",
+      "noBoundedSearch": true
+    },
+    {
+      "code": "EXACT_TOKENIZER_UNAVAILABLE",
+      "status": "observed"
+    },
+    {
+      "code": "PROMPT_EXCEEDS_BUDGET",
+      "status": "Casual at 50/100 configured inactive MCP servers by estimate"
+    },
+    {
+      "code": "NATIVE_NOT_DISCOVERABLE",
+      "status": "not observed among eligible schemas"
+    },
+    {
+      "code": "NATIVE_ACTIVATION_FAILED",
+      "status": "not observed for authorized fixture groups; invalid/unauthorized groups rejected in T2 checks"
+    },
+    {
+      "code": "NATIVE_UNAUTHORIZED",
+      "status": "read-only writes and stale post-downgrade execution denied"
+    },
+    {
+      "code": "MCP_SEARCH_NO_MATCH",
+      "status": "search interface absent, not a successful search with zero results"
+    },
+    {
+      "code": "MCP_CATALOG_TRUNCATED",
+      "status": "not truncated; unbounded result count is the defect"
+    },
+    {
+      "code": "MCP_ACTIVATION_FAILED",
+      "status": "not observed in fake connections; not proof of stdio/remote availability"
+    },
+    {
+      "code": "MCP_UNAUTHORIZED",
+      "status": "existing grant-isolation/revocation suites pass"
+    },
+    {
+      "code": "STALE_SCHEMA_PERMISSION_CHANGE",
+      "status": "not observed in tested downgrade"
+    },
+    {
+      "code": "PROVIDER_SCHEMA_SERIALIZATION_FAILURE",
+      "status": "not observed in controlled adapter tasks; existing cloudProviders suite has localhost listen EPERM"
+    },
+    {
+      "code": "CONTEXT_RECOVERY_INCOMPATIBILITY",
+      "status": "current-run tail still irreducible; C2/C3 gaps remain"
+    },
+    {
+      "code": "SESSION_ISOLATION_FAILURE",
+      "status": "not observed in runtime fixtures; UI lifecycle unverified"
+    },
+    {
+      "code": "TOOL_CALL_RESULT_PAIRING_FAILURE",
+      "status": "not observed in deterministic tasks"
+    }
+  ],
+  "fullCatalog": {
+    "count": 50,
+    "bytes": 38768,
+    "characters": 38750,
+    "estimatedTokens": 9688,
+    "fingerprint": "cd2453549e85cb772354401dd25fc8791ee656762043c041e9399cb7ba19b3e1"
+  },
+  "largeServer": {
+    "availableTools": 150,
+    "neededTools": 2,
+    "activatedTools": 150,
+    "schemaBytes": 31841,
+    "estimatedSchemaTokens": 7961,
+    "activationLatencyMs": 1.4255359999999655,
+    "selectiveActivationSupported": false,
+    "postActivationEstimatedInputTokens": 9649,
+    "requestFingerprint": "f9eb69c9d03ba0d3c8cabf64b82b12a6ef44332fb6070f0e29d306b628a1d1f8"
+  },
+  "coexistence": {
+    "completed": true,
+    "requests": 8,
+    "nativeCalls": 6,
+    "mcpCalls": 1,
+    "uniqueNames": true,
+    "pairsIntact": true,
+    "otherSessionSchemas": 0,
+    "outcomes": [
+      {
+        "name": "manage_native_tools",
+        "error": false,
+        "status": null
+      },
+      {
+        "name": "read_project_file",
+        "error": false,
+        "status": null
+      },
+      {
+        "name": "manage_mcp_servers",
+        "error": false,
+        "status": null
+      },
+      {
+        "name": "manage_native_tools",
+        "error": false,
+        "status": null
+      },
+      {
+        "name": "str_replace_editor",
+        "error": false,
+        "status": null
+      },
+      {
+        "name": "run_tests",
+        "error": false,
+        "status": "passed"
+      }
+    ]
+  },
+  "sessionIsolation": {
+    "separateNativeGroups": true,
+    "casualWorkspaceLeak": false,
+    "modelSwitchRefresh": true,
+    "downgradeRevokes": true,
+    "staleExecutionDenied": true,
+    "newRunStartsCompact": true,
+    "uiTabs": "unverified",
+    "backendRestart": "not end-to-end tested; activation Map is process-local"
+  },
+  "optionalImage": {
+    "providerConfigured": false,
+    "result": "explicit error",
+    "noRemoteRequest": true
+  },
+  "auditDate": "2026-10-23",
+  "timezone": "Asia/Dhaka",
+  "verdict": "NOT ACCEPTED: estimated empty-catalog budgets pass; MCP scaling gate fails; exact/live validation incomplete",
+  "revision": "78923fa85b21341ffe1dcc7c52fda514bcbf1ab5",
+  "initialWorkingTree": [
+    " M src/main/baseSystemPrompt.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/promptMeasurement.js",
+    " M src/main/toolPermissions.js",
+    " M src/main/tools/agentTools.js",
+    " M tests/backgroundCommandIpc.test.cjs",
+    " M tests/permissionIsolationReliability.test.cjs",
+    " M tests/permissionPolicy.test.cjs",
+    " M tests/projects.test.cjs",
+    " M tests/recentChatHistory.test.cjs",
+    " M tests/sessionPromptWording.test.cjs",
+    " M tests/subagentModelSelection.test.cjs",
+    "?? docs/t2-prompt-budget-optimization-evidence.json",
+    "?? docs/t2-prompt-budget-optimization-report.md",
+    "?? docs/token-overhead-regression-audit.md",
+    "?? docs/token-overhead-regression-evidence.json",
+    "?? src/main/nativeToolActivation.js",
+    "?? tests/t2PromptBudgets.test.cjs"
+  ],
+  "sourceFingerprints": {
+    "src/main/baseSystemPrompt.js": "dac85e8b57ffd39bea1589f741ced4ee5f2ba2c2281d90d72a6b71ecd5c4a410",
+    "src/main/promptBuilder.js": "fd7afe7b676263dee9cd865bd27248e22d284c2e3a08269cc4384041d6c62084",
+    "src/main/promptMeasurement.js": "d0c48e90027195a7cdf5b40eeceedae2a9e0a36a3e270290619562c393075a41",
+    "src/main/nativeToolActivation.js": "3831914ab1ae9eab6368f46b5f6c93ab5c12e7ab56ec6a523ec939119626d202",
+    "src/main/mcpManager.js": "89a21b4a33d3186af4c70d41de7d9e11f07f13841f7bc9b6b60c86b85b088f78",
+    "src/main/toolPermissions.js": "02e7da3d7d4f8e02889c28956f82255c8b095f7009ee0d8ec3bc0f8b8d44b65d",
+    "src/main/tools/agentTools.js": "fe870d40363af9a084917868dd065ddb707526540de1354ed437cc0da8cb1207",
+    "src/main/ipcHandlers.js": "72d87248bcd8ee4c729606f1b876b1d8b23314f30af6a5f7592362b5636ed295",
+    "src/main/cloudProviders.js": "64ff811de0798e4dc1e3776d9ac3b0d0d872827737b5b38675f96a3de679d2c5",
+    "src/main/contextBudget.js": "228d83a1905d3b57a847733ce68525940b5bb92ee33fb51fcdde73231eca5916",
+    "src/main/compressionEngine.js": "26d827bed9ab48b17f4443a1789d6b624defefe22f6d88f6c4bf76f02ba6773c",
+    "src/lib/memoryChat.mjs": "7d414c2ff43d816729d48ee5070535e9ca5c9667c4bfbedd59aaf3b8a5dcc6d3",
+    "src/main/subagents/agentLoop.js": "fbaa93084a9f4c65fbe094181e9f517615d324a11765511c46a0bb6938c4472e"
+  },
+  "sourceFingerprintNote": "Audit snapshot of preserved working-tree code; no T2E runtime changes, not a fingerprint of committed HEAD.",
+  "documentationInspected": {
+    "docs/token-overhead-regression-audit.md": "cb6571cedca441233fb17ae952b08a4a91bb1a2cbe7c6c7c57aa0a048bfdb366",
+    "docs/token-overhead-regression-evidence.json": "2c32ab5ae68c44b81cd466e9f79432ec2cd696c7f35cf5c146d4b26e279875d7",
+    "docs/t2-prompt-budget-optimization-report.md": "87ea62833f97d5609fff62eea2d572068ff571c09fa4e0805f29b9b7394d83b3",
+    "docs/t2-prompt-budget-optimization-evidence.json": "57e6457cf7ec8a9b86ba8894389a299f1b591f1c226271c8c593a3aa46e2f534",
+    "docs/workspace-compaction-w1-audit.md": "897ee4c1424694d57c3d30cec19fd0411292f938860d0cc8d3aad79eeca3a53e",
+    "docs/context-c1-unified-budget-report.md": "49c595c2e58834b6bafe71fba7a8bba29f424420555fa7653a32cf82e22e7de1",
+    "docs/context-c3-live-run-compaction-report.md": "4a1a0be3b41c27e01ca1cd6578886be03de900a478a520fa8b1765bc6426fb4e",
+    "docs/dynamic-mcp-hot-activation-report.md": "c2e2a248f9dea9a99c241d12b2838fe0deca6ac85a6dea2b26fa4b221cb6ae92",
+    "docs/dynamic-mcp-hot-activation-evidence.json": "d2ca6445bee5822e2c6956c4596140f4bcc3b36f8ff8bcb6f7526cd2da3e24b1"
+  },
+  "filesCreated": [
+    "tests/t2eRuntimeMcpScaling.test.cjs",
+    "docs/t2e-runtime-mcp-scaling-report.md",
+    "docs/t2e-runtime-mcp-scaling-evidence.json"
+  ],
+  "productionChanges": [],
+  "baseline": {
+    "tests": 220,
+    "passed": 189,
+    "failed": 31,
+    "durationMs": 38991.473626,
+    "passingIdentities": [
+      "tests/agentTools.test.cjs",
+      "tests/agents.test.cjs",
+      "tests/anthropicCacheReuse.test.cjs",
+      "tests/attachmentDocuments.test.cjs",
+      "tests/attachmentPolicy.test.mjs",
+      "tests/autonomyLoop.test.mjs",
+      "tests/backgroundCommandIpc.test.cjs",
+      "tests/backgroundCommands.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/backgroundGifBounding.test.cjs",
+      "tests/backgroundSettings.test.cjs",
+      "tests/baseSystemPrompt.test.cjs",
+      "tests/cacheTokenAccounting.test.cjs",
+      "tests/cacheTokenHistory.test.cjs",
+      "tests/cacheTokenIntegration.test.cjs",
+      "tests/capabilityOverrides.test.cjs",
+      "tests/chatExport.test.cjs",
+      "tests/chatFtsRemoval.test.cjs",
+      "tests/chatHistorySearch.test.cjs",
+      "tests/chatSearch.test.mjs",
+      "tests/chatTitle.test.mjs",
+      "tests/childMessaging.test.cjs",
+      "tests/cloudCostEstimation.test.cjs",
+      "tests/cloudModelMetadata.test.cjs",
+      "tests/cloudPricing.test.cjs",
+      "tests/cloudPromptCaching.test.cjs",
+      "tests/cloudSpendingDashboard.test.cjs",
+      "tests/colorSwatches.test.cjs",
+      "tests/commandExecutionReliability.test.cjs",
+      "tests/compactPlanResults.test.cjs",
+      "tests/compactionBadge.test.cjs",
+      "tests/compressionLifecycle.test.cjs",
+      "tests/contextBudget.test.cjs",
+      "tests/contextC1.test.cjs",
+      "tests/contextC1Integration.test.cjs",
+      "tests/contextC1Ui.test.cjs",
+      "tests/contextC3LiveProtection.test.cjs",
+      "tests/contextCompaction.test.cjs",
+      "tests/contextDispatch.test.mjs",
+      "tests/contextInspection.test.cjs",
+      "tests/contextMeasure.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/contextPanel.test.cjs",
+      "tests/contextRecoveryReliability.test.cjs",
+      "tests/contextTelemetry.test.cjs",
+      "tests/costFormat.test.mjs",
+      "tests/dataMigration.test.cjs",
+      "tests/desktopChat.test.mjs",
+      "tests/diffView.test.mjs",
+      "tests/directoryListing.test.mjs",
+      "tests/engineBinary.test.cjs",
+      "tests/engineIdle.test.cjs",
+      "tests/engineLaunch.test.cjs",
+      "tests/engineWarmup.test.cjs",
+      "tests/failureDetail.test.mjs",
+      "tests/fileVersion.test.cjs",
+      "tests/generateTitleIpc.test.cjs",
+      "tests/generatedTitle.test.cjs",
+      "tests/ggufMetadata.test.cjs",
+      "tests/gpuOffload.test.cjs",
+      "tests/headerWorkspace.test.mjs",
+      "tests/historyRewind.test.mjs",
+      "tests/idleCompactionProjection.test.cjs",
+      "tests/imageUtils.test.mjs",
+      "tests/imageValidation.test.mjs",
+      "tests/incrementalPersistence.test.cjs",
+      "tests/inferenceScheduler.test.cjs",
+      "tests/latexArrows.test.cjs",
+      "tests/leftSidebarModes.test.cjs",
+      "tests/legacyAttachmentPaths.test.cjs",
+      "tests/legacyDataMigration.test.cjs",
+      "tests/liveSteering.test.cjs",
+      "tests/liveSteeringIpc.test.cjs",
+      "tests/liveSteeringLoop.test.mjs",
+      "tests/markdownCode.test.cjs",
+      "tests/markdownMedia.test.mjs",
+      "tests/mcpConfig.test.cjs",
+      "tests/mcpDynamicActivation.test.cjs",
+      "tests/mcpFilesystemDirectories.test.cjs",
+      "tests/mcpHotReload.test.cjs",
+      "tests/mcpPermissions.test.cjs",
+      "tests/mediaProtocol.test.cjs",
+      "tests/memoryChat.test.mjs",
+      "tests/memoryNormalization.test.cjs",
+      "tests/messageBranches.test.cjs",
+      "tests/messageIdentity.test.mjs",
+      "tests/midRunQuestions.test.cjs",
+      "tests/modelCapabilities.test.cjs",
+      "tests/modelLoadSettings.test.cjs",
+      "tests/modelMemoryEstimate.test.cjs",
+      "tests/modelScanner.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nativePlaywright.test.cjs",
+      "tests/nativeWebSearch.test.cjs",
+      "tests/notifications.test.cjs",
+      "tests/palacePolling.test.cjs",
+      "tests/permissionIsolationReliability.test.cjs",
+      "tests/permissionPolicy.test.cjs",
+      "tests/permissionSelector.test.mjs",
+      "tests/projectPlanRetrieval.test.cjs",
+      "tests/projectToolLoopGuard.test.mjs",
+      "tests/projects.test.cjs",
+      "tests/promptCorrectness.test.cjs",
+      "tests/reasoningControls.test.cjs",
+      "tests/reasoningRuntime.test.cjs",
+      "tests/reasoningUsage.test.cjs",
+      "tests/recentChatHistory.test.cjs",
+      "tests/recoveryPostState.test.cjs",
+      "tests/recoveryReferenceIndex.test.cjs",
+      "tests/recoverySafety.test.cjs",
+      "tests/recoverySafetyMessages.test.mjs",
+      "tests/recoveryScanPerf.test.cjs",
+      "tests/repetitionDetector.test.mjs",
+      "tests/replyVariants.test.cjs",
+      "tests/richBlocks.test.cjs",
+      "tests/rightSidebarControls.test.cjs",
+      "tests/sampling.test.cjs",
+      "tests/selectiveFileReading.e2e.test.cjs",
+      "tests/selectiveFileReading.test.cjs",
+      "tests/sessionHistory.test.cjs",
+      "tests/sessionHistoryPerf.test.cjs",
+      "tests/sessionPromptWording.test.cjs",
+      "tests/sessionRestoreWiring.test.cjs",
+      "tests/settingsPanels.test.mjs",
+      "tests/settingsResolver.test.cjs",
+      "tests/sidebarAnimation.test.cjs",
+      "tests/sidebarHistory.test.mjs",
+      "tests/sidebarModes.test.mjs",
+      "tests/skillProposalLegacyIpc.test.cjs",
+      "tests/skillProposalStepArgs.test.mjs",
+      "tests/skills.test.cjs",
+      "tests/spawnSubagent.test.cjs",
+      "tests/steeringDisplay.test.mjs",
+      "tests/streamDispatcher.test.cjs",
+      "tests/subAgentFetch.test.cjs",
+      "tests/subAgentPayload.test.cjs",
+      "tests/subagentBudgets.test.cjs",
+      "tests/subagentCompaction.test.cjs",
+      "tests/subagentCompactionHardening.test.cjs",
+      "tests/subagentCompletionReliability.test.cjs",
+      "tests/subagentContinuation.test.cjs",
+      "tests/subagentDispatchConcurrency.test.mjs",
+      "tests/subagentDisplay.test.mjs",
+      "tests/subagentFailureDiagnostics.test.cjs",
+      "tests/subagentLongHorizonBudgets.test.cjs",
+      "tests/subagentLongHorizonCompaction.test.cjs",
+      "tests/subagentModelBudgets.test.cjs",
+      "tests/subagentModelSelection.test.cjs",
+      "tests/subagentReliability.test.cjs",
+      "tests/subagentRetention.test.cjs",
+      "tests/subagentRuntime.test.cjs",
+      "tests/subagentStreaming.test.cjs",
+      "tests/subagentTimeouts.test.cjs",
+      "tests/subagentTranscript.test.cjs",
+      "tests/summarizeNotice.test.mjs",
+      "tests/t2PromptBudgets.test.cjs",
+      "tests/tabIcons.test.mjs",
+      "tests/tabPersistence.test.mjs",
+      "tests/tabShortcuts.test.mjs",
+      "tests/terminalLogStore.test.mjs",
+      "tests/textSelection.test.mjs",
+      "tests/tokenUsage.test.cjs",
+      "tests/toolArgumentLimit.test.mjs",
+      "tests/toolDisplay.test.mjs",
+      "tests/toolFailureCircuitBreaker.test.mjs",
+      "tests/toolPermissions.test.cjs",
+      "tests/toolResultFormatter.test.mjs",
+      "tests/toolVerbs.test.mjs",
+      "tests/tooltip.test.mjs",
+      "tests/transcriptVirtual.test.mjs",
+      "tests/transcriptWindow.test.mjs",
+      "tests/turnDigest.test.cjs",
+      "tests/turnOutcomes.test.mjs",
+      "tests/uiLayerOpacity.test.cjs",
+      "tests/variantStatus.test.cjs",
+      "tests/verification.test.cjs",
+      "tests/webSearch.test.cjs",
+      "tests/webSearchDispatcher.test.cjs",
+      "tests/workLog.test.cjs",
+      "tests/workLogDisplay.test.cjs",
+      "tests/workspaceAutonomy.test.mjs",
+      "tests/workspaceBriefBudget.test.cjs",
+      "tests/workspaceBudgetVerification.test.cjs",
+      "tests/workspaceCheckpoints.test.cjs",
+      "tests/workspaceMidRunQuestions.test.cjs",
+      "tests/workspacePlan.test.cjs",
+      "tests/workspaceStages.test.mjs",
+      "tests/workspaceTaskBriefs.test.cjs",
+      "tests/xmlToolStreaming.test.mjs"
+    ],
+    "failingIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "logSha256": "397c8697330c000bc9ad642a35870a80c90b1897ad5585bac85c593a3602caf5"
+  },
+  "finalRegression": {
+    "tests": 221,
+    "passed": 190,
+    "failed": 31,
+    "durationMs": 47932.674315,
+    "passingIdentities": [
+      "tests/agentTools.test.cjs",
+      "tests/agents.test.cjs",
+      "tests/anthropicCacheReuse.test.cjs",
+      "tests/attachmentDocuments.test.cjs",
+      "tests/attachmentPolicy.test.mjs",
+      "tests/autonomyLoop.test.mjs",
+      "tests/backgroundCommandIpc.test.cjs",
+      "tests/backgroundCommands.test.cjs",
+      "tests/backgroundExecution.test.cjs",
+      "tests/backgroundGifBounding.test.cjs",
+      "tests/backgroundSettings.test.cjs",
+      "tests/baseSystemPrompt.test.cjs",
+      "tests/cacheTokenAccounting.test.cjs",
+      "tests/cacheTokenHistory.test.cjs",
+      "tests/cacheTokenIntegration.test.cjs",
+      "tests/capabilityOverrides.test.cjs",
+      "tests/chatExport.test.cjs",
+      "tests/chatFtsRemoval.test.cjs",
+      "tests/chatHistorySearch.test.cjs",
+      "tests/chatSearch.test.mjs",
+      "tests/chatTitle.test.mjs",
+      "tests/childMessaging.test.cjs",
+      "tests/cloudCostEstimation.test.cjs",
+      "tests/cloudModelMetadata.test.cjs",
+      "tests/cloudPricing.test.cjs",
+      "tests/cloudPromptCaching.test.cjs",
+      "tests/cloudSpendingDashboard.test.cjs",
+      "tests/colorSwatches.test.cjs",
+      "tests/commandExecutionReliability.test.cjs",
+      "tests/compactPlanResults.test.cjs",
+      "tests/compactionBadge.test.cjs",
+      "tests/compressionLifecycle.test.cjs",
+      "tests/contextBudget.test.cjs",
+      "tests/contextC1.test.cjs",
+      "tests/contextC1Integration.test.cjs",
+      "tests/contextC1Ui.test.cjs",
+      "tests/contextC3LiveProtection.test.cjs",
+      "tests/contextCompaction.test.cjs",
+      "tests/contextDispatch.test.mjs",
+      "tests/contextInspection.test.cjs",
+      "tests/contextMeasure.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/contextPanel.test.cjs",
+      "tests/contextRecoveryReliability.test.cjs",
+      "tests/contextTelemetry.test.cjs",
+      "tests/costFormat.test.mjs",
+      "tests/dataMigration.test.cjs",
+      "tests/desktopChat.test.mjs",
+      "tests/diffView.test.mjs",
+      "tests/directoryListing.test.mjs",
+      "tests/engineBinary.test.cjs",
+      "tests/engineIdle.test.cjs",
+      "tests/engineLaunch.test.cjs",
+      "tests/engineWarmup.test.cjs",
+      "tests/failureDetail.test.mjs",
+      "tests/fileVersion.test.cjs",
+      "tests/generateTitleIpc.test.cjs",
+      "tests/generatedTitle.test.cjs",
+      "tests/ggufMetadata.test.cjs",
+      "tests/gpuOffload.test.cjs",
+      "tests/headerWorkspace.test.mjs",
+      "tests/historyRewind.test.mjs",
+      "tests/idleCompactionProjection.test.cjs",
+      "tests/imageUtils.test.mjs",
+      "tests/imageValidation.test.mjs",
+      "tests/incrementalPersistence.test.cjs",
+      "tests/inferenceScheduler.test.cjs",
+      "tests/latexArrows.test.cjs",
+      "tests/leftSidebarModes.test.cjs",
+      "tests/legacyAttachmentPaths.test.cjs",
+      "tests/legacyDataMigration.test.cjs",
+      "tests/liveSteering.test.cjs",
+      "tests/liveSteeringIpc.test.cjs",
+      "tests/liveSteeringLoop.test.mjs",
+      "tests/markdownCode.test.cjs",
+      "tests/markdownMedia.test.mjs",
+      "tests/mcpConfig.test.cjs",
+      "tests/mcpDynamicActivation.test.cjs",
+      "tests/mcpFilesystemDirectories.test.cjs",
+      "tests/mcpHotReload.test.cjs",
+      "tests/mcpPermissions.test.cjs",
+      "tests/mediaProtocol.test.cjs",
+      "tests/memoryChat.test.mjs",
+      "tests/memoryNormalization.test.cjs",
+      "tests/messageBranches.test.cjs",
+      "tests/messageIdentity.test.mjs",
+      "tests/midRunQuestions.test.cjs",
+      "tests/modelCapabilities.test.cjs",
+      "tests/modelLoadSettings.test.cjs",
+      "tests/modelMemoryEstimate.test.cjs",
+      "tests/modelScanner.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nativePlaywright.test.cjs",
+      "tests/nativeWebSearch.test.cjs",
+      "tests/notifications.test.cjs",
+      "tests/palacePolling.test.cjs",
+      "tests/permissionIsolationReliability.test.cjs",
+      "tests/permissionPolicy.test.cjs",
+      "tests/permissionSelector.test.mjs",
+      "tests/projectPlanRetrieval.test.cjs",
+      "tests/projectToolLoopGuard.test.mjs",
+      "tests/projects.test.cjs",
+      "tests/promptCorrectness.test.cjs",
+      "tests/reasoningControls.test.cjs",
+      "tests/reasoningRuntime.test.cjs",
+      "tests/reasoningUsage.test.cjs",
+      "tests/recentChatHistory.test.cjs",
+      "tests/recoveryPostState.test.cjs",
+      "tests/recoveryReferenceIndex.test.cjs",
+      "tests/recoverySafety.test.cjs",
+      "tests/recoverySafetyMessages.test.mjs",
+      "tests/recoveryScanPerf.test.cjs",
+      "tests/repetitionDetector.test.mjs",
+      "tests/replyVariants.test.cjs",
+      "tests/richBlocks.test.cjs",
+      "tests/rightSidebarControls.test.cjs",
+      "tests/sampling.test.cjs",
+      "tests/selectiveFileReading.e2e.test.cjs",
+      "tests/selectiveFileReading.test.cjs",
+      "tests/sessionHistory.test.cjs",
+      "tests/sessionHistoryPerf.test.cjs",
+      "tests/sessionPromptWording.test.cjs",
+      "tests/sessionRestoreWiring.test.cjs",
+      "tests/settingsPanels.test.mjs",
+      "tests/settingsResolver.test.cjs",
+      "tests/sidebarAnimation.test.cjs",
+      "tests/sidebarHistory.test.mjs",
+      "tests/sidebarModes.test.mjs",
+      "tests/skillProposalLegacyIpc.test.cjs",
+      "tests/skillProposalStepArgs.test.mjs",
+      "tests/skills.test.cjs",
+      "tests/spawnSubagent.test.cjs",
+      "tests/steeringDisplay.test.mjs",
+      "tests/streamDispatcher.test.cjs",
+      "tests/subAgentFetch.test.cjs",
+      "tests/subAgentPayload.test.cjs",
+      "tests/subagentBudgets.test.cjs",
+      "tests/subagentCompaction.test.cjs",
+      "tests/subagentCompactionHardening.test.cjs",
+      "tests/subagentCompletionReliability.test.cjs",
+      "tests/subagentContinuation.test.cjs",
+      "tests/subagentDispatchConcurrency.test.mjs",
+      "tests/subagentDisplay.test.mjs",
+      "tests/subagentFailureDiagnostics.test.cjs",
+      "tests/subagentLongHorizonBudgets.test.cjs",
+      "tests/subagentLongHorizonCompaction.test.cjs",
+      "tests/subagentModelBudgets.test.cjs",
+      "tests/subagentModelSelection.test.cjs",
+      "tests/subagentReliability.test.cjs",
+      "tests/subagentRetention.test.cjs",
+      "tests/subagentRuntime.test.cjs",
+      "tests/subagentStreaming.test.cjs",
+      "tests/subagentTimeouts.test.cjs",
+      "tests/subagentTranscript.test.cjs",
+      "tests/summarizeNotice.test.mjs",
+      "tests/t2PromptBudgets.test.cjs",
+      "tests/t2eRuntimeMcpScaling.test.cjs",
+      "tests/tabIcons.test.mjs",
+      "tests/tabPersistence.test.mjs",
+      "tests/tabShortcuts.test.mjs",
+      "tests/terminalLogStore.test.mjs",
+      "tests/textSelection.test.mjs",
+      "tests/tokenUsage.test.cjs",
+      "tests/toolArgumentLimit.test.mjs",
+      "tests/toolDisplay.test.mjs",
+      "tests/toolFailureCircuitBreaker.test.mjs",
+      "tests/toolPermissions.test.cjs",
+      "tests/toolResultFormatter.test.mjs",
+      "tests/toolVerbs.test.mjs",
+      "tests/tooltip.test.mjs",
+      "tests/transcriptVirtual.test.mjs",
+      "tests/transcriptWindow.test.mjs",
+      "tests/turnDigest.test.cjs",
+      "tests/turnOutcomes.test.mjs",
+      "tests/uiLayerOpacity.test.cjs",
+      "tests/variantStatus.test.cjs",
+      "tests/verification.test.cjs",
+      "tests/webSearch.test.cjs",
+      "tests/webSearchDispatcher.test.cjs",
+      "tests/workLog.test.cjs",
+      "tests/workLogDisplay.test.cjs",
+      "tests/workspaceAutonomy.test.mjs",
+      "tests/workspaceBriefBudget.test.cjs",
+      "tests/workspaceBudgetVerification.test.cjs",
+      "tests/workspaceCheckpoints.test.cjs",
+      "tests/workspaceMidRunQuestions.test.cjs",
+      "tests/workspacePlan.test.cjs",
+      "tests/workspaceStages.test.mjs",
+      "tests/workspaceTaskBriefs.test.cjs",
+      "tests/xmlToolStreaming.test.mjs"
+    ],
+    "failingIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "logSha256": "ee993e4794df3c8ab86d3ca09cadc422666c09ddaba6f50adb951e7fb788d567"
+  },
+  "focusedRegression": {
+    "tests": 37,
+    "passed": 37,
+    "failed": 0,
+    "durationMs": 9193.560859,
+    "passingIdentities": [
+      "tests/agentTools.test.cjs",
+      "tests/backgroundCommandIpc.test.cjs",
+      "tests/backgroundCommands.test.cjs",
+      "tests/cacheTokenAccounting.test.cjs",
+      "tests/cloudPromptCaching.test.cjs",
+      "tests/commandExecutionReliability.test.cjs",
+      "tests/contextC1.test.cjs",
+      "tests/contextC1Integration.test.cjs",
+      "tests/contextC3LiveProtection.test.cjs",
+      "tests/contextDispatch.test.mjs",
+      "tests/contextMeasure.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/liveSteeringIpc.test.cjs",
+      "tests/liveSteeringLoop.test.mjs",
+      "tests/mcpConfig.test.cjs",
+      "tests/mcpDynamicActivation.test.cjs",
+      "tests/mcpHotReload.test.cjs",
+      "tests/mcpPermissions.test.cjs",
+      "tests/modelCapabilities.test.cjs",
+      "tests/nativePermissions.test.cjs",
+      "tests/nativeWebSearch.test.cjs",
+      "tests/permissionIsolationReliability.test.cjs",
+      "tests/permissionPolicy.test.cjs",
+      "tests/projectPlanRetrieval.test.cjs",
+      "tests/reasoningRuntime.test.cjs",
+      "tests/recentChatHistory.test.cjs",
+      "tests/selectiveFileReading.test.cjs",
+      "tests/sessionPromptWording.test.cjs",
+      "tests/sessionRestoreWiring.test.cjs",
+      "tests/skills.test.cjs",
+      "tests/spawnSubagent.test.cjs",
+      "tests/subagentBudgets.test.cjs",
+      "tests/subagentCompaction.test.cjs",
+      "tests/t2PromptBudgets.test.cjs",
+      "tests/t2eRuntimeMcpScaling.test.cjs",
+      "tests/toolPermissions.test.cjs",
+      "tests/workspacePlan.test.cjs"
+    ],
+    "failingIdentities": [],
+    "logSha256": "2542c65481280da232790ad4cb3372065f2a5988ade3679921bf2af97166286c"
+  },
+  "newAuditChecks": {
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "durationMs": 1423.630119,
+    "passingIdentities": [
+      "Gate 1: actual local, Anthropic and OpenRouter transport bodies for fresh sessions",
+      "Gate 2: exact 50-tool inventory, eligible discovery and incremental activation across modes",
+      "Gate 3: quantify existing unbounded MCP metadata rather than truncate registry",
+      "150-tool server activation cost is whole-server; stale removal cannot resolve old schema",
+      "representative coding task: actual adapters, same-run refresh, recovery callback, cumulative full-catalog comparison",
+      "native and mock GitHub MCP execute together with independent session grants",
+      "session/run lifecycle and model changes retain only currently authorized native exposure",
+      "optional image provider absence is an explicit capability failure"
+    ],
+    "failingIdentities": [],
+    "logSha256": "b8f5867954dcde7db4924e390306452359ec21b2b250fef59f065f626a3517aa"
+  },
+  "finalAuditFileCheck": {
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "durationMs": 1877.750931,
+    "passingIdentities": [
+      "tests/t2eRuntimeMcpScaling.test.cjs"
+    ],
+    "failingIdentities": [],
+    "logSha256": "ac7b48e05aafdaa98ad8bf7029306a9fbe0d1d5fde6c5806409e85fda8a5699b"
+  },
+  "existingT2Checks": {
+    "tests": 12,
+    "passed": 12,
+    "failed": 0,
+    "durationMs": 766.766062,
+    "passingIdentities": [
+      "production fresh request profile casual (estimated guard, not exact tokenizer proof)",
+      "production fresh request profile read_only (estimated guard, not exact tokenizer proof)",
+      "production fresh request profile ask_approval (estimated guard, not exact tokenizer proof)",
+      "production fresh request profile workspace_write (estimated guard, not exact tokenizer proof)",
+      "production fresh request profile full_access (estimated guard, not exact tokenizer proof)",
+      "custom persona, required project guidelines, huge user text and task briefs survive",
+      "catalog covers every native tool; activation only changes exposure and cleans up by owner",
+      "real agent loop activates, edits and verifies in one run (cloud=false)",
+      "real agent loop activates, edits and verifies in one run (cloud=true)",
+      "Casual custom persona is preserved once within the estimated initial budget",
+      "native and MCP activation coexist, preserve inactive discovery and session scope",
+      "twenty-call continuation retains activation through a tool error without schema thrashing"
+    ],
+    "failingIdentities": [],
+    "logSha256": "32600568a4fef3ec8df277f798ff9f9e359f261438c32c08392ccdc69da5eb8b"
+  },
+  "existingT2Measurements": [
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1095,
+      "nativeToolSchemaTokens": 165,
+      "systemInstructionTokens": 872,
+      "projectContextTokens": 0,
+      "taskStateTokens": 0,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 1
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "ask_approval",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "workspace_write",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "scenario": "settings-modal-agent",
+      "cloud": false,
+      "requests": 9,
+      "operations": 8,
+      "totalEstimatedInputTokens": 32215,
+      "additionalActivationRequests": 4,
+      "activationLatenciesMs": [
+        7.879702000000066,
+        6.826689999999985,
+        7.570251999999982,
+        7.47453500000006
+      ],
+      "requestProfiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1615,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2069,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2739,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2826,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 2938,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 4313,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4497,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5479,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        },
+        {
+          "request": 9,
+          "estimatedInputTokens": 5739,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        }
+      ],
+      "dynamicToolActivationCount": 3,
+      "activatedToolGroups": [
+        "files",
+        "editing",
+        "commands"
+      ]
+    },
+    {
+      "scenario": "settings-modal-agent",
+      "cloud": true,
+      "requests": 9,
+      "operations": 8,
+      "totalEstimatedInputTokens": 32536,
+      "additionalActivationRequests": 4,
+      "activationLatenciesMs": [
+        6.817794000000049,
+        7.273773000000006,
+        6.944031999999993,
+        4.463569000000007
+      ],
+      "requestProfiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1651,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2104,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2775,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2861,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 2974,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 4348,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4533,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5515,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        },
+        {
+          "request": 9,
+          "estimatedInputTokens": 5775,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        }
+      ],
+      "dynamicToolActivationCount": 3,
+      "activatedToolGroups": [
+        "files",
+        "editing",
+        "commands"
+      ]
+    },
+    {
+      "scenario": "after-20-tool-calls",
+      "requests": 21,
+      "operations": 20,
+      "initialRequestInputTokens": 1516,
+      "postActivationRequestInputTokens": 4124,
+      "totalEstimatedInputTokens": 63990,
+      "additionalActivationRequests": 1,
+      "dynamicToolActivationCount": 1,
+      "activatedToolGroups": [
+        "files"
+      ]
+    }
+  ],
+  "newFailingIdentities": [],
+  "resolvedFailingIdentities": [],
+  "productionBuild": {
+    "status": "passed",
+    "command": "npm run build",
+    "durationSeconds": 13.13,
+    "warning": "existing chunks over 500 kB",
+    "logSha256": "9fad2c41593865195ad588db5368ab079a027a0c04865326520f0211e636273a"
+  },
+  "npmTest": {
+    "status": "failed",
+    "reason": "node --test tests/ resolves directory as module on Node 22.23.2; MODULE_NOT_FOUND",
+    "equivalentExplicitSuiteRun": true
+  },
+  "environmentLimitations": {
+    "node": "22.23.2",
+    "exactTokenizer": "unavailable; no compatible llama-server process or non-hidden workspace GGUF fixture found; no model loaded/reconfigured",
+    "realInference": "not performed",
+    "paidRequests": 0,
+    "electronUI": "tabContextPersistence.ui.cjs aborted before assertions: sandbox_host_linux.cc Operation not permitted",
+    "cloudFixtures": "real createCloudFetch serializers; injected transports; synthetic usage excluded from real token measurements",
+    "memory": "single process heap deltas, no GC stabilization, noisy and not peak RSS",
+    "scope": "no W2; no real user accounts, live DB migrations, real Git mutations or live recovery cleanup"
+  },
+  "readyForW2": false,
+  "permissionEvidence": {
+    "fourModes": "fresh requests and per-tool visibility/activation matrix measured",
+    "readOnly": "writes and command schemas denied by policy; direct write dispatch rejected",
+    "askApproval": "existing permissionPolicy and permissionIsolationReliability checks pass; in-workspace edits retain policy allowing them, external operations require approval",
+    "workspaceWrite": "deletion still requires approval; traversal/symlink checks unchanged and existing focused policy checks pass",
+    "fullAccess": "trusted runtime revision/ownership guards unchanged; no unrestricted policy changes",
+    "lsp": "mode/config filtered, independent child ceiling; focused mocked permission suite passes; baseline real-LSP files fail",
+    "mcp": "session grants, disable/remove stale resolve, permission revisions verified in focused suites",
+    "untrustedMetadata": "descriptions do not enter permission decision/trust comparison. Prompt injection resistance is not established by model stubs; descriptions still inserted into system-role text."
+  },
+  "acceptanceGates": {
+    "gate1": "provisional pass by full-serialized-request estimate; exact count unavailable",
+    "gate2": "eligible 50-tool schema coverage passes; representative execution passes; all-50 backend execution not claimed",
+    "gate3": "fail: unbounded metadata; Casual 50/100 exceeds mandatory budget by estimate",
+    "gate4": "deterministic permission and adapter coverage passes; live model/UI/restarts incomplete",
+    "gate5": "no new failures; full suite retains 31 baseline failures; production build passed"
+  },
+  "securityReviewNotes": [
+    "No inference quality or all-50 execution claim. Inventory checks exercise every eligible schema, not every tool operation.",
+    "No actual UI tab switching/closure or app restart verified. Native state resets at run end; MCP session grants intentionally persist beyond native run state.",
+    "MCP sessionServers/sessionDisabled maps have no session-close cleanup API found; unbounded process lifetime/session churn needs separate lifecycle validation. Process sharing itself is not a grant."
+  ]
+}

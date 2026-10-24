@@ -23,7 +23,8 @@ test('MCP mutation approvals intercept, match payloads and permit only one dispa
   const hash = mutationHash(undefined, 'database', 'query', JSON.stringify(args));
   const key = mutationApprovalKey(undefined, hash);
   const intercept = `SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`;
-  const invoke = (payload = args) => manager.callTool('database', 'query', payload);
+  // The trusted outer approval is independent of the legacy single-use SQL challenge.
+  const invoke = (payload = args) => manager.callTool('database', 'query', payload, { approval: { approved: true } });
   try {
     await invoke({ query: 'SELECT * FROM records' });
     assert.equal(calls.length, 1);
@@ -63,8 +64,8 @@ test('real stdio discovery, pagination, namespacing, execution and disable', asy
     const name = tools[0].function.name;
     const target = manager.resolveTool(name);
     assert.deepEqual(target, { serverName: 'first', toolName: 'echo' });
-    assert.equal(JSON.parse(await manager.callTool('first', 'echo', { text: 'hello' })).content[0].text, 'hello');
-    assert.equal(JSON.parse(await manager.callTool('first', 'fail', {})).isError, true);
+    assert.equal(JSON.parse(await manager.callTool('first', 'echo', { text: 'hello' }, { approval: { approved: true } })).content[0].text, 'hello');
+    assert.equal(JSON.parse(await manager.callTool('first', 'fail', {}, { approval: { approved: true } })).isError, true);
     await manager.setToolEnabled(name, false);
     assert.equal(manager.getTools().length, 3);
     assert.throws(() => manager.resolveTool(name), /disabled/);
@@ -76,7 +77,7 @@ test('real stdio discovery, pagination, namespacing, execution and disable', asy
     await manager.saveConfig({ mcpServers: { replacement: definition } });
     assert.deepEqual(manager.getStatus().servers.map(s => s.name), ['replacement']);
     assert.equal(manager.getTools().length, 2);
-    assert.equal(JSON.parse(await manager.callTool('replacement', 'echo', { text: 'reloaded' })).content[0].text, 'reloaded');
+    assert.equal(JSON.parse(await manager.callTool('replacement', 'echo', { text: 'reloaded' }, { approval: { approved: true } })).content[0].text, 'reloaded');
     await manager.saveConfig({ mcpServers: {} });
     assert.deepEqual(manager.getTools(), []);
   } finally { await manager.close(); await fs.rm(directory, { recursive: true }); }
@@ -172,4 +173,26 @@ test('manual mode exposes only UI-enabled servers and blocks dynamic activation'
     await manager.close();
     await fs.rm(directory, { recursive: true, force: true });
   }
+});
+
+test('missing MCP runtime reports setup guidance and a native fetch alternative', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-runtime-'));
+  const manager = new McpManager({ configPath: path.join(directory, 'mcp.json'),
+    createConnection: async () => { const error = new Error('spawn uvx ENOENT'); error.code = 'ENOENT'; throw error; } });
+  try {
+    await manager.saveConfig({ mcpServers: { fetch: { command: 'uvx' } } });
+    assert.match(manager.getStatus().servers[0].error, /MCP_RUNTIME_NOT_FOUND.*uvx.*get_single_web_page_content/);
+  } finally { await manager.close(); await fs.rm(directory, { recursive: true, force: true }); }
+});
+
+test('browser extension connection errors retain the server message and expose recovery guidance', async () => {
+  const manager = new McpManager();
+  const original = { isError: true, content: [{ type: 'text', text: 'Error: No connection to browser extension.' }] };
+  manager.servers.set('browsermcp', { enabled: true, status: 'connected', disabledTools: new Set(),
+    tools: [{ name: 'browser_navigate' }], client: { callTool: async () => original } });
+  const result = JSON.parse(await manager.callTool('browsermcp', 'browser_navigate', { url: 'https://example.com' }));
+  assert.equal(result.code, 'MCP_BROWSER_NOT_CONNECTED');
+  assert.equal(result.retryable, false);
+  assert.deepEqual(result.content, original.content);
+  assert.match(result.recovery, /playwright-native/);
 });

@@ -522,6 +522,7 @@ function registerIpcHandlers({
 			return record;
 		},
 		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender) => {
+            if (sessionId) require('./sessionDeletion').assertAvailable(sessionId);
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
@@ -560,6 +561,8 @@ function registerIpcHandlers({
 			// generating status event.
 			const runId = require('node:crypto').randomUUID();
 			controller.runId = runId;
+            let settleRun;
+            controller.settled = new Promise(resolve => { settleRun = resolve; });
             const lspExecutionContext = require('./lspExecutionContext').createContext(sessionId, permissionMode, runId);
             const backgroundProject = require('./toolPermissions').sessionProject(sessionId);
             const backgroundContext = backgroundProject?.root_path ? { runId, sessionId, workspace: require('node:fs').realpathSync(backgroundProject.root_path) } : null;
@@ -602,6 +605,8 @@ function registerIpcHandlers({
 			};
             const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
 			try {
+                require('./nativeToolActivation').begin(sessionId, runId);
+                mcpManager.beginRun?.(sessionId, runId);
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
@@ -665,7 +670,17 @@ function registerIpcHandlers({
                     const delegationAvailable = tools.some(tool => tool.function.name === 'spawn_sub_agent');
                     messages.splice(summaryIndex < 0 ? 1 : summaryIndex + 1, 0, buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText: currentUserText }));
 				notify({ type: "context", pluginTokens, toolTokens });
+                const resolveAdvertisedIdentity = name => memoryTools.some(t => t.name === name)
+                    ? { serverName: 'memory', toolName: name }
+                    : agentTools.some(t => t.function.name === name) || name === 'ask_user'
+                        ? { serverName: 'native', toolName: name } : mcpManager.resolveTool(name, sessionId);
+                const advertisedTools = require('./advertisedTools').createManifestStore({ sessionId, runId,
+                    epoch: () => ({ permission: require('./lspExecutionContext').revision(sessionId),
+                        mcpMode: mcpManager.getMcpMode?.() ?? getAppSettings().mcpMode,
+                        configuration: require('./advertisedTools').fingerprint([...(mcpManager.servers ?? [])].map(([name, server]) =>
+                            [name, server.definition, server.enabled, [...(server.disabledTools ?? [])]])) }), resolve: resolveAdvertisedIdentity });
 				const text = await runMemoryChat({
+                    onAdvertisedTools: schemas => advertisedTools.record(schemas),
                         projectId: usageProjectId,
                         takeCommandCompletions: backgroundContext ? () => require('./backgroundCommands').take(backgroundContext) : null,
                         markCommandCompletions: backgroundContext ? (ids, accepted) => require('./backgroundCommands').acknowledge(backgroundContext, ids, accepted) : null,
@@ -817,6 +832,26 @@ function registerIpcHandlers({
 					chatTools: tools,
                     getChatTools: async () => {
                         await mcpManager.reload();
+                        await mcpManager.reconnectPrepared?.(sessionId, { signal: controller.signal, authorize: async serverName => {
+                            const contexts = require('./lspExecutionContext');
+                            const mode = contexts.currentMode(sessionId, permissionMode);
+                            if (mode === 'read_only') return null;
+                            let approval;
+                            try {
+                                approval = await guardTool({ name: 'find_and_prepare_mcp_tools', args: { query: serverName },
+                                    permissionMode: mode, sessionId, project, signal: controller.signal,
+                                    requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+                            } catch (error) {
+                                if (['APPROVAL_DENIED', 'PERMISSION_DENIED'].includes(error.code)) return null;
+                                throw error;
+                            }
+                            return () => {
+                                controller.signal.throwIfAborted();
+                                if (contexts.currentMode(sessionId, permissionMode) !== approval.mode ||
+                                    contexts.revision(sessionId) !== approval.policyRevision)
+                                    throw new Error('PERMISSION_REVOKED: Permission changed before MCP reconnection.');
+                            };
+                        } });
                         const context = getToolContext(mcpManager.getTools(sessionId), profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled, sessionId, permissionMode, modelId);
                         notify({ type: "context", pluginTokens: context.pluginTokens, toolTokens: context.toolTokens });
                         return filterTools(context.tools);
@@ -898,7 +933,7 @@ function registerIpcHandlers({
 							telemetry });
 					},
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
-					executeTool: async (call) => {
+					executeTool: async (call, activationRequest) => {
 						controller.signal.throwIfAborted();
 						const id = require("node:crypto").randomUUID();
 						let target;
@@ -911,11 +946,18 @@ function registerIpcHandlers({
 								: isAgent || isAskUser ? { serverName: "native", toolName: call.name } : mcpManager.resolveTool(call.name, sessionId);
 							notify({ type: "tool", id, ...target, status: "pending" });
 							const args = JSON.parse(call.arguments || "{}");
+                            const currentSchema = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId,
+                                lspExecutionContext?.permissionMode ?? permissionMode, modelId).tools.find(t => t.function.name === call.name);
+                            if (!currentSchema) throw new Error('TOOL_NOT_ADVERTISED: Tool was revoked.');
+                            const acceptedManifest = advertisedTools.accept(activationRequest?.advertisedManifest, call.name, currentSchema.function.parameters, target);
+                            require('./toolSchemaValidation').validate(currentSchema.function.parameters, args);
+
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
 							let approval;
 							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, sessionId, project,
-                                native: isAgent || isMemory, signal: controller.signal,
+                                native: isAgent || isMemory, serverName: target.serverName, signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+                            advertisedTools.validateEpoch(acceptedManifest);
 							// Sub-agent observability: link the parent step to the child
 							// session as soon as the runtime opens it (before the
 							// child finishes), and re-assert on completion. The
@@ -943,6 +985,22 @@ function registerIpcHandlers({
 								})
 								: isAgent ? await executeAgentTool({ ...call, sessionId, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, permissionGranted: true, approval, signal: controller.signal,
                                     engine: chatEngine, budgetScope: childBudgetScope, executionContext: lspExecutionContext, backgroundContext,
+                                    validateToolAuthorization: () => advertisedTools.validateEpoch(acceptedManifest),
+                                    validateMcpActivation: async (mcpTools) => {
+                                        const active = filterTools(getToolContext(mcpTools, memoryEnabled, sessionId,
+                                            lspExecutionContext?.permissionMode ?? permissionMode, modelId).tools);
+                                        const payload = { ...activationRequest, tools: active };
+                                        const { createPromptMeasurer, approximateTokens, createRuntimeBudget } = require('./contextBudget');
+                                        if (!cloud) return createPromptMeasurer(require('./localEngineFetch').localEngineFetch)(
+                                            `http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
+                                            { signal: controller.signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 32768 });
+                                        const metadata = await require('./cloudProviders').getCloudModelMetadata();
+                                        const advertised = metadata.find(row => row.providerId === target.provider && row.modelId === target.model)?.contextLength;
+                                        const tokens = approximateTokens(payload);
+                                        const budgetContract = createRuntimeBudget({ provider: target.provider, modelId,
+                                            runtimeContextTokens: advertised, payload, currentInputTokens: tokens });
+                                        return { tokens, budget: budgetContract.usableInputTokens, budgetContract, method: 'approximate-full-request' };
+                                    },
                                     onChildSession: (childSessionId) => { spawnChildId = attachChildSession(childSessionId); } })
 								: await mcpManager.callTool(target.serverName, target.toolName, args, {
 										signal: controller.signal, sessionId, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, permissionGranted: true, approval,
@@ -1024,6 +1082,7 @@ function registerIpcHandlers({
 				require('./engineManager').notifyChatOutcome({ error, aborted: controller.signal.aborted });
                 throw error;
 			} finally {
+                try {
 				if (persistTimer !== null) clearTimeout(persistTimer);
                 finishEngineRequest?.();
                 notify({ type: "indexing", progress: null });
@@ -1036,6 +1095,8 @@ function registerIpcHandlers({
                     require('./backgroundCommands').events.removeListener('change', backgroundUpdate);
                 }
 				steeringRuns.delete(runId);
+                require('./nativeToolActivation').end(sessionId, runId);
+                mcpManager.endRun?.(sessionId, runId);
 				// Close the steering queue only after the run is no longer
 				// discoverable, so a late submission cannot slip in after this
 				// reconciliation. Anything not delivered is reported, never applied.
@@ -1054,6 +1115,7 @@ function registerIpcHandlers({
 					}
 				}
 				if (sessionId && !sender.isDestroyed()) sender.send('engine:stream-status', { sessionId, status: 'idle', runId });
+                } finally { settleRun(); }
 			}
 		},
 		"session:regenerate-last": async (data, notify, sender) => {
@@ -1187,7 +1249,8 @@ function registerIpcHandlers({
 		},
 		"session:move-to-folder": ({ sessionId, folderName }) =>
 			updateSession(sessionId, "folder_name", folderName),
-		"session:delete": ({ sessionId }) => { require('./lspExecutionContext').forget(sessionId); return deleteSession(sessionId); },
+		"session:delete": ({ sessionId }, _notify, sender) => require('./sessionDeletion').deleteConversation(
+            sessionId, sender, controller => [...(requests.get(sender)?.values() ?? [])].includes(controller)),
 		"session:delete-message": ({ sessionId, messageId }) => deleteMessage(sessionId, messageId),
 		"session:branch-chat": ({ sourceSessionId, targetMessageId }) =>
 			branchChat(sourceSessionId, targetMessageId),
@@ -1371,7 +1434,7 @@ function registerIpcHandlers({
 				// Steering handlers read/write only main-process state but need the
 				// sender identity to prove run ownership. No stream dispatcher is
 				// involved: status updates are compact direct events.
-				if (channel.startsWith("steering:") || channel === "engine:set-permission-mode") return handler(payload, () => {}, event.sender);
+				if (channel.startsWith("steering:") || channel === "engine:set-permission-mode" || channel === "session:delete") return handler(payload, () => {}, event.sender);
 				return handler(payload);
                 });
 			});

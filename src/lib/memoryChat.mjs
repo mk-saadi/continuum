@@ -254,6 +254,14 @@ function normalizeStreamArguments(value) {
   throw new SyntaxError('Invalid tool arguments.');
 }
 
+function incompleteToolResponse(finishReason, partialCompletion = {}) {
+  const error = new Error('Incomplete tool-call response; no tools were executed.');
+  error.code = 'INCOMPLETE_TOOL_RESPONSE';
+  error.finishReason = finishReason;
+  error.partialCompletion = partialCompletion;
+  return error;
+}
+
 export async function readCompletion(response, onText, signal, now, onThinking, abortLoop = () => {}, onToolStream = () => {}) {
   const reasoningDetector = createRepetitionDetector();
   const contentDetector = createRepetitionDetector();
@@ -277,7 +285,17 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     if (!choice?.message) throw new Error('Missing model message.');
     const rawContent = choice.message.content || '';
     const toolCalls = choice.message.tool_calls || [];
-    if (toolCalls.length && choice.finish_reason !== 'tool_calls') throw new Error('Incomplete tool-call response; no tools were executed.');
+    if (toolCalls.length && choice.finish_reason !== 'tool_calls') {
+      const partial = { usage: result.usage ?? result.usageMetadata, timings: result.timings, endTime: now() };
+      if (choice.finish_reason !== 'stop') throw incompleteToolResponse(choice.finish_reason, partial);
+      // Match streaming compatibility without accepting truncated arguments.
+      for (const call of toolCalls) {
+        try {
+          if (!call.function?.name?.trim()) throw new Error('Missing tool name.');
+          call.function.arguments = normalizeStreamArguments(call.function.arguments);
+        } catch { throw incompleteToolResponse(choice.finish_reason, partial); }
+      }
+    }
     const reasoning = choice.message.reasoning_content ?? choice.message.reasoning;
     if (typeof reasoning === 'string') intercept(reasoning, reasoningDetector, onThinking);
     // Intercept raw XML tool calls so they execute instead of leaking to the UI.
@@ -366,7 +384,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
   const xmlTail = xmlInterceptor.finish();
   if (xmlTail) content += intercept(xmlTail, contentDetector, onText);
   if (calls.size && finishReason !== 'tool_calls' && finishReason !== 'stop') {
-    throw new Error('Incomplete tool-call response; no tools were executed.');
+    throw incompleteToolResponse(finishReason, { usage, timings, endTime });
   }
   for (const call of calls.values()) {
     // Some compatible endpoints finish tool calls with "stop". Accept that
@@ -375,7 +393,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
       if (call.argumentError || !call.function.name.trim()) throw new Error('Invalid tool call.');
       call.function.arguments = normalizeStreamArguments(call.function.arguments);
     } catch {
-      if (finishReason === 'stop') throw new Error('Incomplete tool-call response; no tools were executed.');
+      if (finishReason === 'stop') throw incompleteToolResponse(finishReason, { usage, timings, endTime });
       // Explicit tool_calls completions retain the existing per-tool error and
       // retry path for malformed or oversized arguments.
     }
@@ -457,6 +475,7 @@ export async function runMemoryChat({
   takeSteeringInstructions = null, markSteeringDelivered = null, markSteeringUndelivered = null,
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
+  onAdvertisedTools = () => {},
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
     throw new TypeError('maxToolRounds must be between 1 and 1000.');
@@ -504,6 +523,7 @@ export async function runMemoryChat({
   let remindedFileOps = false, remindedSubagent = false;
   let casualToolCount = 0, maxAllowedTools = 5, finalResponseOnly = false;
   let turnCount = 0, round = 0, executionState = 'running';
+  let incompleteRetries = 0, retryOutputBudget = null;
   // Workspace runs (casualMode === false) have no fixed turn/round ceiling:
   // long tasks continue until completion, cancellation, or a genuine blocker.
   // Casual runs keep the bounded budget with user-approved continuation, so
@@ -666,11 +686,18 @@ export async function runMemoryChat({
       temperature: params.temperature, top_p: params.top_p, top_k: params.top_k,
       repeat_penalty: params.repeat_penalty, max_tokens: params.max_tokens,
     };
+    if (retryOutputBudget !== null) requestPayload.max_tokens = retryOutputBudget;
     // Desktop injects localEngineFetch with no header/body deadline. Keep the
     // caller signal for explicit cancellation; prefill may take several minutes.
     const loopController = new AbortController();
     const requestSignal = signal ? AbortSignal.any([signal, loopController.signal]) : loopController.signal;
-    const send = () => fetchImpl(`${baseUrl}/v1/chat/completions`, {
+    let advertisedManifest;
+    const recordAdvertisement = () => {
+      advertisedManifest = onAdvertisedTools(JSON.parse(JSON.stringify(requestPayload.tools)));
+    };
+    const send = () => {
+      recordAdvertisement();
+      return fetchImpl(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload), signal: requestSignal,
       contextWindowLimit: loadedContextSize,
@@ -700,9 +727,11 @@ export async function runMemoryChat({
           temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
           repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens },
           reasoningRequestFields(activeReasoning, cloud));
+        recordAdvertisement();
         return requestPayload;
       } : undefined,
     });
+    };
     let response;
     try {
       response = await send();
@@ -777,6 +806,17 @@ export async function runMemoryChat({
     catch (error) {
       const partial = error.partialCompletion || { endTime: now() };
       phases.push({ ...phaseStats({ ...partial, startTime: phaseStart }), raw: { usage: partial.usage, timings: partial.timings } });
+      // Retry inference only: no calls from the rejected batch entered history
+      // or execution. Never retry content filtering or explicit cancellation.
+      if (error.code === 'INCOMPLETE_TOOL_RESPONSE' && error.finishReason !== 'content_filter' &&
+          !requestSignal.aborted && incompleteRetries < 2) {
+        incompleteRetries++;
+        if (error.finishReason === 'length' && requestPayload.max_tokens > 0) {
+          retryOutputBudget = Math.max(requestPayload.max_tokens, Math.min(32768, requestPayload.max_tokens * 2));
+        }
+        history.push({ role: 'user', content: 'The previous model response contained incomplete tool calls. No tools from that response were executed. Retry with complete tool arguments and concise reasoning.' });
+        continue;
+      }
       throw error;
     }
     finally {
@@ -788,6 +828,8 @@ export async function runMemoryChat({
       }
       publishSteps(true);
     }
+    incompleteRetries = 0;
+    retryOutputBudget = null;
     if (result.loopDetected) {
       const notice = `\n\n${REASONING_LOOP_NOTICE}`;
       visibleContent += notice;
@@ -972,7 +1014,8 @@ export async function runMemoryChat({
         step.status = 'running';
         if (call.function.name.startsWith('lsp_')) entry.lspStarted = now();
         publishSteps(true);
-        const dispatched = executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id });
+        const dispatched = executeTool({ name: call.function.name, arguments: call.function.arguments, modelId, id: call.id },
+          { ...requestPayload, advertisedManifest, messages: history.map(message => ({ ...message })) });
         if (SUB_AGENT_TOOL_NAMES.has(call.function.name)) {
           // Dispatched ahead: settled after the rest of the batch, in call
           // order. The no-op catch keeps a rejection from going unhandled

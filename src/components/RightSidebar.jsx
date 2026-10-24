@@ -692,7 +692,7 @@ export default function RightSidebar({
 								key={call.id}
 								className="flex min-w-0 items-center justify-between gap-2 text-[11px]"
 							>
-								<span className="min-w-0 truncate font-mono">{call.toolName}</span>
+								<span className="min-w-0 truncate" title={call.toolName}>{call.displayName}</span>
 								<span
 									className={`shrink-0 ${TOOL_STATUS_STYLE[call.status] ?? TOOL_STATUS_STYLE.unknown}`}
 								>

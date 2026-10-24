@@ -789,3 +789,47 @@ test('stopping mid-stream preserves reported usage without inventing missing tok
   assert.equal(stats.totalTokens,null);
   assert.ok(stats.time > 0);
 });
+
+test('incomplete tool generation retries with more output space without replaying tools', async () => {
+  const requests = [], executed = [];
+  await runMemoryChat({ ...base, samplingParams: { max_tokens: 1024 },
+    executeTool: async call => { executed.push(call.name); return { success: true }; },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push(request);
+      if (requests.length === 1) return stream([
+        chunk({ tool_calls: [{ index: 0, id: 'first', function: { name: 'search_memory', arguments: '{}' } }] }),
+        chunk({}, 'tool_calls'),
+      ]);
+      if (requests.length === 2) return stream([
+        chunk({ tool_calls: [{ index: 0, id: 'partial', function: { name: 'save_memory', arguments: '{' } }] }),
+        chunk({}, 'length'),
+      ]);
+      if (requests.length === 3) return Response.json({ choices: [{ finish_reason: 'stop', message: {
+        tool_calls: [{ id: 'complete', type: 'function', function: { name: 'save_memory', arguments: '{}' } }],
+      } }] });
+      return stream([chunk({ content: 'Done [TASK COMPLETE]' }, 'stop')]);
+    },
+  });
+  assert.deepEqual(executed, ['search_memory', 'save_memory']);
+  assert.equal(requests[2].max_tokens, 2048);
+  assert.equal(requests[2].messages.filter(message => message.role === 'tool').length, 1);
+  assert.ok(!requests[2].messages.some(message => message.tool_calls?.some(call => call.id === 'partial')));
+});
+
+test('incomplete tool retries are bounded and content filtering is not retried', async () => {
+  for (const reason of ['length', 'content_filter']) {
+    let requests = 0;
+    await assert.rejects(runMemoryChat({ ...base,
+      executeTool: () => assert.fail('Incomplete calls must never execute'),
+      fetchImpl: async () => {
+        requests++;
+        return stream([
+          chunk({ tool_calls: [{ index: 0, function: { name: 'save_memory', arguments: '{' } }] }),
+          chunk({}, reason),
+        ]);
+      },
+    }), /Incomplete tool-call/);
+    assert.equal(requests, reason === 'length' ? 3 : 1);
+  }
+});

@@ -36,7 +36,7 @@ require('../src/main/sessionManager').getOrCreateSession('chat', 'model', projec
 // execution-path assertions about outcomes — not bwrap availability — the
 // focus. Permission and containment behavior is asserted separately below.
 function run(args, { sessionId = 'chat', permissionMode = 'full_access', signal } = {}) {
-  return executeAgentTool({ name: 'run_tests', arguments: JSON.stringify(args), sessionId, permissionMode, signal });
+  return require('./helpers/approvedNativeCommand.cjs')({ name: 'run_tests', arguments: JSON.stringify(args), sessionId, permissionMode, signal });
 }
 
 test.after(() => {
@@ -176,7 +176,7 @@ test('existing tool registration and command execution keep working', async () =
 
   // execute_command preserves legacy streams and exitCode alongside its additive
   // execution status; run_tests retains its separate verification verdict.
-  const legacy = await executeAgentTool({
+  const legacy = await require('./helpers/approvedNativeCommand.cjs')({
     name: 'execute_command', arguments: JSON.stringify({ command: 'printf legacy; exit 4' }),
     sessionId: 'chat', permissionMode: 'full_access',
   });

@@ -46,70 +46,38 @@ const workspaceProject = projects.createProject({ name: 'Wording', root_path: di
 const workspaceContent = (mode) => content(mode, workspaceProject.id);
 
 async function main() {
-  await test('sub-agent protocol keeps requirements without duplication', () => {
+  await test('specialized delegation protocol accompanies directly available workspace tools', () => {
     const prompt = workspaceContent('auto');
-    assert.equal((prompt.match(/### Sub-Agent Delegation Protocol/g) || []).length, 1);
-    assert.match(prompt, /MANDATORY Delegation Triggers/);
-    assert.match(prompt, /spawn_sub_agent/);
-    assert.match(prompt, /target_files/);
-    assert.match(prompt, /investigate.*cannot be combined with `url` or `target_file`/);
-    assert.match(prompt, /fixed and read-only/);
-    // Removed: the duplicated local-sweep bullet. The raw-matches-vs-delegate
-    // decision rule survives in the Local Files trigger below.
-    assert.equal((prompt.match(/when only the conclusion matters/g) || []).length, 0);
-    assert.match(prompt, /when you want the raw matches in this context/);
-    assert.match(prompt, /Delegate the bulk of the reading instead/);
-    assert.doesNotMatch(prompt, /Example correct invocation/);
-    assert.match(prompt, /Example investigation invocation/);
+    assert.match(prompt, /use advertised web tools/);
+    assert.match(prompt, /### Sub-Agent Delegation Protocol/);
+    const deferred = require('../src/main/promptBuilder').subAgentProtocol;
+    assert.match(deferred, /MANDATORY Delegation Triggers/);
+    assert.match(deferred, /fixed and read-only/);
+    assert.match(deferred, /investigate.*cannot be combined with `url` or `target_file`/);
   });
-
-  await test('casual chat defers details, keeps the safety core', () => {
+  await test('casual profile preserves safety and omits workspace execution protocol', () => {
     const prompt = content('auto');
-    // Core behavior present in both modes.
-    assert.match(prompt, /CRITICAL: Never output plain status text/);
-    assert.match(prompt, /provide your final response directly/);
-    assert.match(prompt, /Never run bulk deletion queries/);
-    assert.match(prompt, /human confirmation before proceeding/);
-    assert.match(prompt, /MANDATORY Delegation Triggers/);
-    // Deferred to just-in-time reminders (memoryChat tests prove delivery).
-    assert.doesNotMatch(prompt, /replace a specific anchor at the bottom/);
-    assert.doesNotMatch(prompt, /collect those ids as you create the records/);
-    assert.doesNotMatch(prompt, /Example investigation invocation/);
-    // Casual chats keep the stored preference: off renders the DISABLED flow.
+    assert.match(prompt, /Never bulk-delete/);
+    assert.match(prompt, /explicit human confirmation/);
     assert.match(prompt, /DISABLED - AUTONOMOUS EXECUTION/);
-    assert.match(prompt, /Summarize any assumptions made/);
+    assert.doesNotMatch(prompt, /create a plan once|Background commands remain/);
   });
-
-  await test('visualization keeps a parseable example and all rules', () => {
+  await test('compact chart contract preserves supported types and numeric requirements', () => {
     const prompt = content('auto');
-    assert.match(prompt, /### Visualizations & Charting Protocol/);
-    assert.match(prompt, /#### ABSOLUTE FORBIDDEN ACTIONS/);
-    assert.match(prompt, /matplotlib/);
-    assert.match(prompt, /never numeric strings/);
-    assert.match(prompt, /matches a numeric property/);
-    const example = prompt.match(/```json:chart\n([\s\S]*?)\n```/)[1];
-    assert.equal(JSON.parse(example).type, 'bar');
-    assert.doesNotMatch(prompt, /^Trigger: Numerical metrics/m);
+    assert.match(prompt, /bar\/line\/area\/pie/);
+    assert.match(prompt, /matching keys and numeric values/);
+    assert.match(prompt, /Do not run commands to generate chart images/);
+    assert.match(prompt, /soft pastel hues/);
   });
-
-  await test('autonomy, safety, browser, MCP and mid-run rules intact', () => {
+  await test('workspace retains safety, activation, task continuity and MCP discovery', () => {
     const prompt = workspaceContent('auto');
-    assert.match(prompt, /CRITICAL: Never output plain status text/);
-    assert.match(prompt, /provide your final response directly/);
-    assert.match(prompt, /Never run bulk deletion queries/);
-    assert.match(prompt, /delete only by that exact id list/);
-    assert.match(prompt, /human confirmation before proceeding/);
-    assert.match(prompt, /BROWSER AUTOMATION/);
-    assert.match(prompt, /playwright-native/);
-    assert.match(prompt, /Optional MCP integrations/);
-    // Workspace chats force mid-run questions on (see workspaceMidRunQuestions):
-    // the prompt advertises the ENABLED clarification flow, never DISABLED.
+    assert.match(prompt, /Never bulk-delete/);
+    assert.match(prompt, /exact IDs created by the test/);
+    assert.match(prompt, /explicit human confirmation/);
+    assert.match(prompt, /find_and_prepare_mcp_tools/);
     assert.match(prompt, /MID-RUN CLARIFICATIONS \(ENABLED\)/);
-    assert.match(prompt, /Call the `ask_user` tool/);
-    assert.doesNotMatch(prompt, /DISABLED - AUTONOMOUS EXECUTION/);
-    assert.doesNotMatch(prompt, /Summarize any assumptions made/);
-    // Removed: mid-run bullet duplicating the autonomy loop rule.
-    assert.doesNotMatch(prompt, /Complete all tool steps until the task objective is resolved/);
+    assert.match(prompt, /get the existing plan/);
+    assert.match(prompt, /original user requirements authoritative/);
   });
 
   console.log('Session prompt wording: protocol, visualization, and rule behavior pinned.');

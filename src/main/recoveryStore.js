@@ -100,6 +100,9 @@ function ensureRecoverySchema() {
       size INTEGER NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TRIGGER IF NOT EXISTS recovery_no_deleted_insert BEFORE INSERT ON recovery_checkpoints
+      WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.chat_session_id)
+      BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END`,
     `CREATE INDEX IF NOT EXISTS idx_recovery_checkpoints_session ON recovery_checkpoints(session_id, id)`,
     // Workspace content index: last-seen hash/size/mtime per path, so
     // repeated boundary scans rehash only changed files instead of the whole
@@ -1488,6 +1491,19 @@ async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPer
 // reading happens in time-boxed batches that yield to the event loop:
 // pruning a large history stays responsive instead of freezing the app.
 const DELETE_BATCH_MS = 25;
+// Called inside the conversation deletion transaction. Shared workspace journals
+// and blobs remain; the existing refcount-aware GC reclaims unreferenced bytes.
+function deleteChatCheckpoints(chatSessionId) {
+  if (!connection().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'recovery_checkpoints'").get()) return;
+  const rows = connection().prepare('SELECT id, manifest_json FROM recovery_checkpoints WHERE chat_session_id = ?').all(chatSessionId);
+  if (rows.some(row => activeRestores.has(row.id))) throw new Error('File recovery is active; retry conversation deletion after it finishes.');
+  for (const row of rows) {
+    if (isIndexed(row.id)) applyRefcountDelta(checkpointBlobHashes(parseManifest(row.manifest_json)), -1);
+    connection().prepare('DELETE FROM recovery_indexed_checkpoints WHERE checkpoint_id = ?').run(row.id);
+    connection().prepare('DELETE FROM recovery_checkpoints WHERE id = ?').run(row.id);
+  }
+}
+
 async function deleteCheckpoints(ids) {
   const list = [...new Set(ids)].filter((id) => Number.isSafeInteger(id));
   if (!list.length) return;
@@ -1821,6 +1837,7 @@ module.exports = {
   getRecoveryStats,
   pruneRecovery,
   deleteCheckpoints,
+  deleteChatCheckpoints,
   diffTextLines,
   getWorkspaceRecoveryOverview,
   getRecoveryHistory,

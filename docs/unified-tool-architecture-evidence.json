@@ -1,0 +1,1974 @@
+{
+  "date": "2026-10-24",
+  "timezone": "Asia/Dhaka",
+  "status": "core architecture implemented; runtime acceptance limitations remain",
+  "measurementMethod": "serialized JSON characters/4 estimate; no real-model accuracy or cache claims",
+  "initialWorkingTree": [
+    " M src/components/RightSidebar.jsx",
+    " M src/lib/executionEvents.mjs",
+    " M src/lib/memoryChat.mjs",
+    " M src/lib/sidebarControls.mjs",
+    " M src/main/baseSystemPrompt.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/mcpManager.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/promptMeasurement.js",
+    " M src/main/toolPermissions.js",
+    " M src/main/tools/agentTools.js",
+    " M tests/agentTools.test.cjs",
+    " M tests/backgroundCommandIpc.test.cjs",
+    " M tests/mcpDynamicActivation.test.cjs",
+    " M tests/mcpManager.test.cjs",
+    " M tests/memoryChat.test.mjs",
+    " M tests/permissionIsolationReliability.test.cjs",
+    " M tests/permissionPolicy.test.cjs",
+    " M tests/projects.test.cjs",
+    " M tests/promptCorrectness.test.cjs",
+    " M tests/recentChatHistory.test.cjs",
+    " M tests/sessionPromptWording.test.cjs",
+    " M tests/subagentModelSelection.test.cjs",
+    " M tests/toolVerbs.test.mjs",
+    "?? docs/t2-prompt-budget-optimization-evidence.json",
+    "?? docs/t2-prompt-budget-optimization-report.md",
+    "?? docs/t2e-runtime-mcp-scaling-evidence.json",
+    "?? docs/t2e-runtime-mcp-scaling-report.md",
+    "?? docs/t2f-scalable-mcp-discovery-evidence.json",
+    "?? docs/t2f-scalable-mcp-discovery-report.md",
+    "?? docs/token-overhead-regression-audit.md",
+    "?? docs/token-overhead-regression-evidence.json",
+    "?? src/main/mcpPermissionPolicy.js",
+    "?? src/main/nativeToolActivation.js",
+    "?? tests/t2PromptBudgets.test.cjs",
+    "?? tests/t2eRuntimeMcpScaling.test.cjs",
+    "?? tests/t2fMcpDiscovery.test.cjs",
+    "?? tests/t2fRuntimeMcpScaling.test.cjs",
+    "?? tests/workspaceMcpApprovals.test.cjs"
+  ],
+  "filesChangedByThisTask": [
+    "package.json",
+    "package-lock.json",
+    "src/main/nativeToolActivation.js",
+    "src/main/promptBuilder.js",
+    "src/main/tools/agentTools.js",
+    "src/main/mcpManager.js",
+    "src/main/toolPermissions.js",
+    "src/main/mcpPermissionPolicy.js",
+    "src/main/advertisedTools.js",
+    "src/main/toolSchemaValidation.js",
+    "src/main/ipcHandlers.js",
+    "src/lib/memoryChat.mjs",
+    "src/main/subagents/agentLoop.js",
+    "tests/unifiedToolArchitecture.test.cjs",
+    "tests/unifiedMcpSecurity.test.cjs",
+    "tests/t2PromptBudgets.test.cjs",
+    "tests/t2eRuntimeMcpScaling.test.cjs",
+    "tests/t2fRuntimeMcpScaling.test.cjs",
+    "tests/agentTools.test.cjs",
+    "tests/permissionPolicy.test.cjs",
+    "tests/projects.test.cjs",
+    "tests/recentChatHistory.test.cjs",
+    "tests/sessionPromptWording.test.cjs",
+    "tests/subagentModelSelection.test.cjs",
+    "tests/subagentReliability.test.cjs",
+    "tests/workspaceMcpApprovals.test.cjs",
+    "tests/lspAgentIntegration.test.cjs",
+    "tests/permissionIsolationReliability.test.cjs",
+    "docs/unified-tool-architecture-report.md",
+    "docs/unified-tool-architecture-evidence.json"
+  ],
+  "sourceFingerprints": {
+    "package.json": "2f24d922e82b6c9a50110fcc7aadd6aa4515b56ea7aef5e1af0a9083554f5042",
+    "package-lock.json": "01f391c42853677449d3fd45195555b8ccf2c169ecae3fca7ff427d46e937d2f",
+    "src/main/nativeToolActivation.js": "2013cd46fffff9212e3f8f246fdba5a8205efe93084bf89cf75d11142756b9d2",
+    "src/main/promptBuilder.js": "35354bafce781153e7699cbfa5689c754956607b763299cdcedc6e94b305d60e",
+    "src/main/tools/agentTools.js": "e84592bcbb1edb5a91d4ad5d3800854df32c8190bd7ca04de3f2658dc296b5a6",
+    "src/main/mcpManager.js": "deac3f5c2701c314baab327e44caf57f8c0a4bf7a8782ae77763158afaaec7f2",
+    "src/main/toolPermissions.js": "57a5f4d2639271dcc489a84238061c40ffc6729c8002214ebd3a36328b854054",
+    "src/main/mcpPermissionPolicy.js": "0c08f34c5e9ef770c1ea8f31f2a86d18652f00d4bd1260e2bccb4583926c1de2",
+    "src/main/advertisedTools.js": "404722d049cbbe43830292994883cf30411b5f84cc6e3d022d5e8f0b2911dbbe",
+    "src/main/toolSchemaValidation.js": "434ab6b0f498fc6f3a2a1d669fa7dd64e255ce649b6e0fefd95a8ba0baf17211",
+    "src/main/ipcHandlers.js": "cbd644426319027d60adfbb515ec525beeed2ea0d103e8340dda343eb7eb76d2",
+    "src/lib/memoryChat.mjs": "e57744d7de0a89efd04894c5605b838dabc84d7dd29c9758737f4bf28454b75f",
+    "src/main/subagents/agentLoop.js": "cf96079532d7727b2fbe01dc612eff0ca49bcef2c7e3ba7b1f099419cad235c6",
+    "tests/unifiedToolArchitecture.test.cjs": "01b550cc7d13326a1cc9c1c43699c749dde0e80f855c1bf93a3c6c6f38583d0c",
+    "tests/unifiedMcpSecurity.test.cjs": "b7279f62bda1d77a1735b953112440295ca4c0a7829f8c9a206e36547aee0002",
+    "tests/t2PromptBudgets.test.cjs": "916697f1fc6ed51f7cafa8a6df5fa9ed7e3ec96e7c9a306033200396c3e3eb64",
+    "tests/t2eRuntimeMcpScaling.test.cjs": "745f0dc3335170ee1bb81ec0fca19e2b70ab5e4dc329abc80e27d50032660e5a",
+    "tests/t2fRuntimeMcpScaling.test.cjs": "a7b02a0307c37e212d9643f1a16de73b14cf570b5e5b18e38e803ef9e2a9aa02",
+    "tests/agentTools.test.cjs": "1643b0bc776a07e67df690775a172147dc8ceb619c653ddb33a0679aa061dbf3",
+    "tests/permissionPolicy.test.cjs": "38968148a243cec2c7e97c208ed6428684ac0608e403f67692a3bb50abb14123",
+    "tests/projects.test.cjs": "6b4eeb95ea30d02ef72023db097312d8048a39f55ae3a4898308224f1a96e0fd",
+    "tests/recentChatHistory.test.cjs": "2a348cc58378f1ba847a501a33f392260cd0c7b80d038b1549b464a6d3ec6a51",
+    "tests/sessionPromptWording.test.cjs": "0b7ded4a6a8a1dd1eab32330fdb067a5ddbdfe733b1847b8d5cb3f72d946ac43",
+    "tests/subagentModelSelection.test.cjs": "49dd90d442371acef5bd7dc691ed47e8813d4628d13dbf1b9282d13bd44af35f",
+    "tests/subagentReliability.test.cjs": "0176d9e05cbb61af8f25964126f63f41c8c126bca677edc8e4b21c88a340e67b",
+    "tests/workspaceMcpApprovals.test.cjs": "b30d96160afe566c717a858db4539f0d58c6066bca6345d7463df7c159cc00d1",
+    "tests/lspAgentIntegration.test.cjs": "3a342b56b6a73095c70359cb562fd057fb329f588aeadad96d07face574ae46b",
+    "tests/permissionIsolationReliability.test.cjs": "be3666892de08b6c3b227b91f3352e8f913eba4a0826a488d145b990356dcb66"
+  },
+  "baselineSourceFingerprints": {
+    "agentTools.js": "e2209ffe42234b0a09d863cbe681ca8cfc56b5acf68bdf43243863f2da572183",
+    "promptBuilder.js": "23d19a85297c0b97517f99929d84a7faa6c30f9203236824ecc428a79a14055a",
+    "mcpManager.js": "9fba5885e7551ac54b0b77a7654abfa48564b434a4d649ed8177e831c1d46f07"
+  },
+  "baseline": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "tests": 224,
+    "pass": 192,
+    "fail": 32,
+    "failingFileIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/permissionIsolationReliability.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ]
+  },
+  "finalRestricted": {
+    "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "tests": 226,
+    "pass": 195,
+    "fail": 31,
+    "skipped": 0,
+    "failingFileIdentities": [
+      "tests/apiServerPort.test.cjs",
+      "tests/attachments.test.cjs",
+      "tests/childAgentLoop.test.cjs",
+      "tests/cloudIpc.test.cjs",
+      "tests/cloudProviders.test.cjs",
+      "tests/deleteProjectFile.test.cjs",
+      "tests/engineSettings.test.cjs",
+      "tests/filesystemToolLimits.test.cjs",
+      "tests/gitTools.test.cjs",
+      "tests/localEngineFetch.test.cjs",
+      "tests/lspAgentIntegration.test.cjs",
+      "tests/lspCodeIntelligence.test.cjs",
+      "tests/lspFoundation.test.cjs",
+      "tests/lspProduction.test.cjs",
+      "tests/lspProductionAgent.test.cjs",
+      "tests/mcpIpc.test.cjs",
+      "tests/mcpManager.test.cjs",
+      "tests/mcpSse.test.cjs",
+      "tests/messageActions.test.cjs",
+      "tests/messageStats.test.cjs",
+      "tests/nodeHttpFetchCancel.test.cjs",
+      "tests/rag.test.cjs",
+      "tests/recoveryBoundary.test.cjs",
+      "tests/recoveryIpc.test.cjs",
+      "tests/recoveryStartupMemory.test.cjs",
+      "tests/recoveryStore.test.cjs",
+      "tests/skillImportIpc.test.cjs",
+      "tests/skillProposalIpc.test.cjs",
+      "tests/subAgentRunner.test.cjs",
+      "tests/subagentOutOfProcessRecovery.test.cjs",
+      "tests/subagentSession.test.cjs"
+    ],
+    "newFailingFiles": [],
+    "resolvedFailingFiles": [
+      "tests/permissionIsolationReliability.test.cjs"
+    ]
+  },
+  "finalLocalhostEnabled": {
+    "tests": 1734,
+    "pass": 1721,
+    "fail": 12,
+    "skipped": 1,
+    "failureDetails": [
+      {
+        "test": "not ok 7 - tests/attachments.test.cjs",
+        "location": "tests/attachments.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 167 - cloud settings persist privately and cloud chat works without a local engine",
+        "location": "tests/cloudIpc.test.cjs:22:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "not ok 60 - tests/engineSettings.test.cjs",
+        "location": "tests/engineSettings.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 483 - MCP execution applies the cap before serialization",
+        "location": "tests/filesystemToolLimits.test.cjs:45:1",
+        "error": "'Call initDatabase() before accessing the database.'"
+      },
+      {
+        "test": "not ok 717 - IPC executes MCP tools, emits cards, and re-prompts with JSON output",
+        "location": "tests/mcpIpc.test.cjs:22:1",
+        "error": "\"Cannot read properties of undefined (reading 'getPath')\""
+      },
+      {
+        "test": "not ok 718 - preload config methods invoke trusted config handlers",
+        "location": "tests/mcpIpc.test.cjs:273:1",
+        "error": "'event.sender.once is not a function'"
+      },
+      {
+        "test": "not ok 103 - tests/messageActions.test.cjs",
+        "location": "tests/messageActions.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 106 - tests/messageStats.test.cjs",
+        "location": "tests/messageStats.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 125 - tests/rag.test.cjs",
+        "location": "tests/rag.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 155 - tests/skillImportIpc.test.cjs",
+        "location": "tests/skillImportIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 156 - tests/skillProposalIpc.test.cjs",
+        "location": "tests/skillProposalIpc.test.cjs:1:1",
+        "error": "'test failed'"
+      },
+      {
+        "test": "not ok 165 - tests/subAgentRunner.test.cjs",
+        "location": "tests/subAgentRunner.test.cjs:1:1",
+        "error": "'test failed'"
+      }
+    ],
+    "freshEnabledBaselineAvailable": false
+  },
+  "focusedAuthorizationLspProviders": {
+    "tests": 98,
+    "pass": 98,
+    "fail": 0,
+    "skipped": 0
+  },
+  "newArchitectureTests": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skipped": 0
+  },
+  "newSecurityTests": {
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "skipped": 0
+  },
+  "measurements": [
+    {
+      "mode": "casual",
+      "requestEstimatedTokens": 1355,
+      "nativeSchemaEstimatedTokens": 341,
+      "toolNames": [
+        "find_and_prepare_mcp_tools",
+        "manage_native_tools"
+      ]
+    },
+    {
+      "mode": "read_only",
+      "requestEstimatedTokens": 6099,
+      "nativeSchemaEstimatedTokens": 3826,
+      "toolNames": [
+        "ask_user",
+        "delegate_task",
+        "extract_web_page_data",
+        "find_and_prepare_mcp_tools",
+        "get_command_status",
+        "get_project_plans",
+        "get_recent_chat_history",
+        "get_single_web_page_content",
+        "git_blame",
+        "git_branch",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_status",
+        "list_directory",
+        "propose_skill",
+        "read_project_file",
+        "search_memory",
+        "search_project_content",
+        "spawn_sub_agent",
+        "stop_background_command",
+        "take_screenshot",
+        "web_search"
+      ]
+    },
+    {
+      "mode": "ask_approval",
+      "requestEstimatedTokens": 9498,
+      "nativeSchemaEstimatedTokens": 7225,
+      "toolNames": [
+        "apply_patch",
+        "approve_mcp_mutation",
+        "ask_user",
+        "delete_project_file",
+        "edit_project_files",
+        "execute_command",
+        "extract_web_page_data",
+        "find_and_prepare_mcp_tools",
+        "get_command_status",
+        "get_project_plans",
+        "get_recent_chat_history",
+        "get_single_web_page_content",
+        "git_blame",
+        "git_branch",
+        "git_commit",
+        "git_create_branch",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_stage",
+        "git_stash",
+        "git_status",
+        "git_switch",
+        "git_sync",
+        "git_unstage",
+        "list_directory",
+        "move_project_file",
+        "propose_skill",
+        "read_project_file",
+        "run_tests",
+        "save_memory",
+        "search_memory",
+        "search_project_content",
+        "spawn_sub_agent",
+        "stop_background_command",
+        "str_replace_editor",
+        "take_screenshot",
+        "update_plan",
+        "web_search",
+        "write_project_file"
+      ]
+    },
+    {
+      "mode": "workspace_write",
+      "requestEstimatedTokens": 10441,
+      "nativeSchemaEstimatedTokens": 8169,
+      "toolNames": [
+        "apply_patch",
+        "approve_mcp_mutation",
+        "ask_user",
+        "delete_project_file",
+        "edit_project_files",
+        "execute_command",
+        "extract_web_page_data",
+        "find_and_prepare_mcp_tools",
+        "get_command_status",
+        "get_project_plans",
+        "get_recent_chat_history",
+        "get_single_web_page_content",
+        "git_blame",
+        "git_branch",
+        "git_commit",
+        "git_create_branch",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_stage",
+        "git_stash",
+        "git_status",
+        "git_switch",
+        "git_sync",
+        "git_unstage",
+        "list_directory",
+        "lsp_definition",
+        "lsp_diagnostics",
+        "lsp_document_symbols",
+        "lsp_hover",
+        "lsp_references",
+        "lsp_workspace_symbols",
+        "move_project_file",
+        "propose_skill",
+        "read_project_file",
+        "run_tests",
+        "save_memory",
+        "search_memory",
+        "search_project_content",
+        "spawn_sub_agent",
+        "stop_background_command",
+        "str_replace_editor",
+        "take_screenshot",
+        "update_plan",
+        "web_search",
+        "write_project_file"
+      ]
+    },
+    {
+      "mode": "full_access",
+      "requestEstimatedTokens": 10441,
+      "nativeSchemaEstimatedTokens": 8169,
+      "toolNames": [
+        "apply_patch",
+        "approve_mcp_mutation",
+        "ask_user",
+        "delete_project_file",
+        "edit_project_files",
+        "execute_command",
+        "extract_web_page_data",
+        "find_and_prepare_mcp_tools",
+        "get_command_status",
+        "get_project_plans",
+        "get_recent_chat_history",
+        "get_single_web_page_content",
+        "git_blame",
+        "git_branch",
+        "git_commit",
+        "git_create_branch",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_stage",
+        "git_stash",
+        "git_status",
+        "git_switch",
+        "git_sync",
+        "git_unstage",
+        "list_directory",
+        "lsp_definition",
+        "lsp_diagnostics",
+        "lsp_document_symbols",
+        "lsp_hover",
+        "lsp_references",
+        "lsp_workspace_symbols",
+        "move_project_file",
+        "propose_skill",
+        "read_project_file",
+        "run_tests",
+        "save_memory",
+        "search_memory",
+        "search_project_content",
+        "spawn_sub_agent",
+        "stop_background_command",
+        "str_replace_editor",
+        "take_screenshot",
+        "update_plan",
+        "web_search",
+        "write_project_file"
+      ]
+    },
+    {
+      "inventory": [
+        "manage_native_tools",
+        "lsp_definition",
+        "lsp_references",
+        "lsp_document_symbols",
+        "lsp_workspace_symbols",
+        "lsp_hover",
+        "lsp_diagnostics",
+        "find_and_prepare_mcp_tools",
+        "use_skill",
+        "propose_skill",
+        "manage_mcp_servers",
+        "approve_mcp_mutation",
+        "get_recent_chat_history",
+        "delegate_task",
+        "generate_image",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "execute_command",
+        "get_command_status",
+        "stop_background_command",
+        "run_tests",
+        "update_plan",
+        "get_project_plans",
+        "str_replace_editor",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "write_project_file",
+        "move_project_file",
+        "delete_project_file",
+        "edit_project_files",
+        "apply_patch",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_stage",
+        "git_unstage",
+        "git_commit",
+        "git_create_branch",
+        "git_switch",
+        "git_sync",
+        "git_stash",
+        "git_blame",
+        "search_memory",
+        "save_memory",
+        "ask_user"
+      ],
+      "originalSchemaEstimatedTokens": 9955,
+      "compactSchemaEstimatedTokens": 8949
+    },
+    {
+      "scenario": "gmail-same-run",
+      "requests": 6,
+      "preparations": 1,
+      "executions": 2,
+      "nativeExecutions": 1,
+      "hallucinationsRejected": 1,
+      "launches": 1,
+      "cumulativeEstimatedInputTokens": 64606,
+      "cacheReadTokens": null,
+      "outputTokens": null,
+      "modelSelectionAccuracy": null
+    },
+    {
+      "scenario": "playwright-same-run",
+      "requests": 6,
+      "preparations": 1,
+      "executions": 2,
+      "nativeExecutions": 1,
+      "hallucinationsRejected": 1,
+      "launches": 1,
+      "cumulativeEstimatedInputTokens": 64612,
+      "cacheReadTokens": null,
+      "outputTokens": null,
+      "modelSelectionAccuracy": null
+    }
+  ],
+  "freshBeforeAfterCodingComparison": {
+    "method": "serialized JSON characters/4; mocked model, real disposable file/edit/test execution",
+    "catalog": {
+      "beforeTools": 50,
+      "beforeEstimatedTokens": 9779,
+      "afterTools": 51,
+      "afterEstimatedTokens": 8949,
+      "largest": [
+        {
+          "name": "update_plan",
+          "tokens": 495
+        },
+        {
+          "name": "spawn_sub_agent",
+          "tokens": 383
+        },
+        {
+          "name": "search_memory",
+          "tokens": 377
+        },
+        {
+          "name": "execute_command",
+          "tokens": 323
+        },
+        {
+          "name": "get_project_plans",
+          "tokens": 288
+        },
+        {
+          "name": "read_project_file",
+          "tokens": 279
+        },
+        {
+          "name": "write_project_file",
+          "tokens": 268
+        },
+        {
+          "name": "edit_project_files",
+          "tokens": 259
+        },
+        {
+          "name": "manage_mcp_servers",
+          "tokens": 245
+        },
+        {
+          "name": "run_tests",
+          "tokens": 227
+        }
+      ]
+    },
+    "metrics": [
+      {
+        "variant": "baseline",
+        "requests": 9,
+        "preparations": 4,
+        "executions": 4,
+        "cumulativeEstimatedInputTokens": 31628,
+        "profiles": [
+          {
+            "tokens": 1586,
+            "schemas": 2
+          },
+          {
+            "tokens": 2038,
+            "schemas": 2
+          },
+          {
+            "tokens": 2675,
+            "schemas": 5
+          },
+          {
+            "tokens": 2758,
+            "schemas": 5
+          },
+          {
+            "tokens": 2864,
+            "schemas": 5
+          },
+          {
+            "tokens": 4237,
+            "schemas": 11
+          },
+          {
+            "tokens": 4418,
+            "schemas": 11
+          },
+          {
+            "tokens": 5399,
+            "schemas": 15
+          },
+          {
+            "tokens": 5653,
+            "schemas": 15
+          }
+        ],
+        "fixtureElapsedMs": 289.68302700000004,
+        "realModel": false
+      },
+      {
+        "variant": "direct",
+        "requests": 5,
+        "preparations": 0,
+        "executions": 4,
+        "cumulativeEstimatedInputTokens": 53526,
+        "profiles": [
+          {
+            "tokens": 10452,
+            "schemas": 46
+          },
+          {
+            "tokens": 10535,
+            "schemas": 46
+          },
+          {
+            "tokens": 10641,
+            "schemas": 46
+          },
+          {
+            "tokens": 10822,
+            "schemas": 46
+          },
+          {
+            "tokens": 11076,
+            "schemas": 46
+          }
+        ],
+        "fixtureElapsedMs": 138.64286200000004,
+        "realModel": false
+      }
+    ]
+  },
+  "providerScalingAndLoops": {
+    "method": "actual transport JSON characters / 4; estimate, not tokenizer count",
+    "scaling": [
+      {
+        "serverCount": 0,
+        "toolsPerServer": 0,
+        "totalTools": 0,
+        "registryMetadataBytes": 2,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "05843f0d77e6b8eed9d09a51432d45a48ae126422b036c4b48a4ff1c280a4d09",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "c8f66256bcf200d8c5201102b8cf3a4e050d6056509e25c247f4b0e890ec8c17",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "2d7042f9d2885cf14b69814e6c1275101e2f493621c1b65809baf610c7d5a94e",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 0.802977999999996,
+        "searchResultCount": 0,
+        "searchResultBytes": 113,
+        "heapDeltaBytes": 6899544,
+        "fixtureElapsedMs": 102.548282
+      },
+      {
+        "serverCount": 5,
+        "toolsPerServer": 10,
+        "totalTools": 50,
+        "registryMetadataBytes": 7297,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "ccb9f74a80aa27fe551c9284899dcc2189324e13adad87ba6ae697fe124ad8a1",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "39ebdba04776899d32e10c52cb6d8b90e32837b6c94a4bcb9fd42b1d872069fb",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "1b7fa5b4433c8ea27c4d977a96f72b103e1e3c982be045269375172fc7f928a2",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 0.8372229999999945,
+        "searchResultCount": 5,
+        "searchResultBytes": 1029,
+        "activationLatencyMs": 30.979524999999967,
+        "postActivation": {
+          "requestBytes": 42088,
+          "requestCharacters": 42068,
+          "estimatedInputTokens": 10517,
+          "c1ApproximateInputTokens": 14094,
+          "exactTokenizerTokens": null,
+          "requestFingerprint": "88b2ff2d27b45b1720e680ccee1b5236f2d1fe7c5a7125b98c271f4b1e046571",
+          "nativeSchemaBytes": 32680,
+          "activatedSchemaBytes": 413,
+          "activatedSchemaCount": 2,
+          "discoverySchemaBytes": 2,
+          "injectedServerMetadataBytes": 0
+        },
+        "heapDeltaBytes": 6097192,
+        "fixtureElapsedMs": 76.09727600000002
+      },
+      {
+        "serverCount": 20,
+        "toolsPerServer": 20,
+        "totalTools": 400,
+        "registryMetadataBytes": 57382,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "41ece245aa7565c510b6f66e2237d9c5781acccf324591e8da086879cc33ee8b",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "a47655b499c75e465790526ccb98fc6a4151590a3a526d50beff1e92d2bc8155",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "aab94b6e99c6a41d1fadc7ee44a17f80525b7bf9602246cacb8909ed9c18de22",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 0.8720619999999712,
+        "searchResultCount": 5,
+        "searchResultBytes": 1033,
+        "activationLatencyMs": 1.7486049999999977,
+        "postActivation": {
+          "requestBytes": 42088,
+          "requestCharacters": 42068,
+          "estimatedInputTokens": 10517,
+          "c1ApproximateInputTokens": 14094,
+          "exactTokenizerTokens": null,
+          "requestFingerprint": "1ee45d12244649e88d5dc989b537a56ca964f381729fdcd9d4d8610b4595eab9",
+          "nativeSchemaBytes": 32680,
+          "activatedSchemaBytes": 413,
+          "activatedSchemaCount": 2,
+          "discoverySchemaBytes": 2,
+          "injectedServerMetadataBytes": 0
+        },
+        "heapDeltaBytes": -4948568,
+        "fixtureElapsedMs": 46.00461999999999
+      },
+      {
+        "serverCount": 50,
+        "toolsPerServer": 20,
+        "totalTools": 1000,
+        "registryMetadataBytes": 143452,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "3753fb79bd8e6ea2a4cae2ea2881bb23bb8ba14a21ee668a57e96b2c75594658",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "c49b9118721a82c1e13dc7a82da040aa79223d96fa9f14cbc1b1d0a7d6af02f6",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "80323ceba0189e04038cf431fc7ee80d22b63121b5c8d2488984c5cf0874ed76",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 1.5388299999999617,
+        "searchResultCount": 5,
+        "searchResultBytes": 1033,
+        "activationLatencyMs": 0.7693669999999884,
+        "postActivation": {
+          "requestBytes": 42088,
+          "requestCharacters": 42068,
+          "estimatedInputTokens": 10517,
+          "c1ApproximateInputTokens": 14094,
+          "exactTokenizerTokens": null,
+          "requestFingerprint": "d6ba35b2fe353ead7e1169da502c1fc7199e3966c2bb40901e480ca49ae451a2",
+          "nativeSchemaBytes": 32680,
+          "activatedSchemaBytes": 413,
+          "activatedSchemaCount": 2,
+          "discoverySchemaBytes": 2,
+          "injectedServerMetadataBytes": 0
+        },
+        "heapDeltaBytes": 11012432,
+        "fixtureElapsedMs": 43.83531099999999
+      },
+      {
+        "serverCount": 100,
+        "toolsPerServer": 20,
+        "totalTools": 2000,
+        "registryMetadataBytes": 286902,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "28fed38c4016b5bcfca5f3d5a59b21a0c6be17a13d12193bfe3118ec35df4a68",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "933b9c03a5a71b0ce88169c746018104deb5dcfac5b9445476daf66ee89f4d4a",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "a99f6f1ec967c8eff5b6dc1a41b9a129599f9fbf27c75bbb9a23e5366d1ff9cf",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 3.0610829999999964,
+        "searchResultCount": 5,
+        "searchResultBytes": 1033,
+        "activationLatencyMs": 0.8190999999999349,
+        "postActivation": {
+          "requestBytes": 42088,
+          "requestCharacters": 42068,
+          "estimatedInputTokens": 10517,
+          "c1ApproximateInputTokens": 14094,
+          "exactTokenizerTokens": null,
+          "requestFingerprint": "80a8ed78e143031a4a4a3f459f87904476df7e9ae03bd1950dfff2d174d267be",
+          "nativeSchemaBytes": 32680,
+          "activatedSchemaBytes": 413,
+          "activatedSchemaCount": 2,
+          "discoverySchemaBytes": 2,
+          "injectedServerMetadataBytes": 0
+        },
+        "heapDeltaBytes": -1110040,
+        "fixtureElapsedMs": 44.83738200000005
+      },
+      {
+        "serverCount": 100,
+        "toolsPerServer": 100,
+        "totalTools": 10000,
+        "registryMetadataBytes": 1414902,
+        "initial": [
+          {
+            "chatMode": "casual",
+            "provider": "local",
+            "requestBytes": 5387,
+            "requestCharacters": 5387,
+            "estimatedInputTokens": 1347,
+            "c1ApproximateInputTokens": 1860,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abe7218e6432c8b5b9b84eafb5c16609e9b8cefb62e9a5b3e76905b7be068579",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "anthropic",
+            "requestBytes": 5264,
+            "requestCharacters": 5264,
+            "estimatedInputTokens": 1316,
+            "c1ApproximateInputTokens": 1787,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "128579f3eba05a384367a6ffebd7bec67850d66d3354b65ac653a4178332955c",
+            "nativeSchemaBytes": 1305,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "casual",
+            "provider": "openrouter",
+            "requestBytes": 5250,
+            "requestCharacters": 5250,
+            "estimatedInputTokens": 1313,
+            "c1ApproximateInputTokens": 1814,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "18acf1c77558f802e165c98218eb99dab6caf8a4050b88fd0d44d5dcf359ba5a",
+            "nativeSchemaBytes": 1363,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "local",
+            "requestBytes": 41676,
+            "requestCharacters": 41656,
+            "estimatedInputTokens": 10414,
+            "c1ApproximateInputTokens": 13956,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "ac61001e1eb87a913bacc19899e05da9723b1a0f6890e7dad4f4ddab3a9af128",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "anthropic",
+            "requestBytes": 40277,
+            "requestCharacters": 40257,
+            "estimatedInputTokens": 10065,
+            "c1ApproximateInputTokens": 13458,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "abd9fd0a11cd9349e387c1a96ab4072af5b85fc8e3c9284a5d1d8d440401dff1",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "chatMode": "workspace",
+            "provider": "openrouter",
+            "requestBytes": 41539,
+            "requestCharacters": 41519,
+            "estimatedInputTokens": 10380,
+            "c1ApproximateInputTokens": 13911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "b8ab14c14114f854dd72cae4994cb653d009256d18b72c0048fcc119a5887be9",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "searchLatencyMs": 14.437240999999972,
+        "searchResultCount": 5,
+        "searchResultBytes": 1033,
+        "activationLatencyMs": 0.6965460000000121,
+        "postActivation": {
+          "requestBytes": 42088,
+          "requestCharacters": 42068,
+          "estimatedInputTokens": 10517,
+          "c1ApproximateInputTokens": 14094,
+          "exactTokenizerTokens": null,
+          "requestFingerprint": "f00a5bf8188f92ba51998decadd1a35c5526fb5147fc67594874a3c4f1868e2d",
+          "nativeSchemaBytes": 32680,
+          "activatedSchemaBytes": 413,
+          "activatedSchemaCount": 2,
+          "discoverySchemaBytes": 2,
+          "injectedServerMetadataBytes": 0
+        },
+        "heapDeltaBytes": -745176,
+        "fixtureElapsedMs": 59.29038200000002
+      }
+    ],
+    "loops": [
+      {
+        "provider": "local",
+        "runIdStable": true,
+        "requests": 7,
+        "executed": 6,
+        "mcpCalls": 2,
+        "steeringDelivered": 1,
+        "recoveryCallbacks": 1,
+        "toolResultOrderVerified": true,
+        "isolated": true,
+        "measurements": [
+          {
+            "requestBytes": 41910,
+            "requestCharacters": 41890,
+            "estimatedInputTokens": 10473,
+            "c1ApproximateInputTokens": 14034,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "de5089724bc9fe436e63eb2e60738e282a423fda70458fe1cef3c3ec79899820",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 42888,
+            "requestCharacters": 42868,
+            "estimatedInputTokens": 10717,
+            "c1ApproximateInputTokens": 14424,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "1ce8ad97fd901e67b78e1e68a463b41ed397da8e09fe23a512d7a7cfdf89972d",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43325,
+            "requestCharacters": 43305,
+            "estimatedInputTokens": 10827,
+            "c1ApproximateInputTokens": 14666,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "ad7595f03b3f6e9b033a4767d7fe8a4eef43b9f1a51162227c6cc0067d12c6bb",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43651,
+            "requestCharacters": 43631,
+            "estimatedInputTokens": 10908,
+            "c1ApproximateInputTokens": 14839,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "5979bf9c5e35864fb677ff5486d2209cb610c9a00fb311fe55d9f9a1bb92aa5f",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 44072,
+            "requestCharacters": 44052,
+            "estimatedInputTokens": 11013,
+            "c1ApproximateInputTokens": 15043,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "206899686d452ab2d527fb56f2a64fe6855e46abb0450b4b935c0a4c66dc2077",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 45041,
+            "requestCharacters": 45021,
+            "estimatedInputTokens": 11256,
+            "c1ApproximateInputTokens": 15430,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "2ed5065c20324b7eb752ede55e805e03deafb28c132e13346222b4cfeeaca1ce",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 417,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 45374,
+            "requestCharacters": 45354,
+            "estimatedInputTokens": 11339,
+            "c1ApproximateInputTokens": 15605,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "74f14fb520b1e4753338d9934b5ce684adad6ca5b63fcefe7475fa0f9c54ad48",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 417,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "totalEstimatedInputTokens": 76533
+      },
+      {
+        "provider": "anthropic",
+        "runIdStable": true,
+        "requests": 7,
+        "executed": 6,
+        "mcpCalls": 2,
+        "steeringDelivered": 1,
+        "recoveryCallbacks": 0,
+        "toolResultOrderVerified": true,
+        "isolated": true,
+        "measurements": [
+          {
+            "requestBytes": 40511,
+            "requestCharacters": 40491,
+            "estimatedInputTokens": 10123,
+            "c1ApproximateInputTokens": 13536,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "91d095dcacab0c70974a42e6b86925dc8827760674728577596b0dde1f93e4b9",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 41478,
+            "requestCharacters": 41458,
+            "estimatedInputTokens": 10365,
+            "c1ApproximateInputTokens": 13922,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "a913092edd7e9ea7e76aace5fce627f6eb6e0562989825a41f1185eeee1fa12a",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 182,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 41934,
+            "requestCharacters": 41914,
+            "estimatedInputTokens": 10479,
+            "c1ApproximateInputTokens": 14138,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "1ad485f6334187b07246f8d16eeaa33b92eb76fbdb9ff9190dbf370d620bf3fd",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 182,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 42278,
+            "requestCharacters": 42258,
+            "estimatedInputTokens": 10565,
+            "c1ApproximateInputTokens": 14317,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "b308b555a266ef0de6821a251d3de45a2e1c8f378e523a2a13f50785efe67ac1",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 182,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 42717,
+            "requestCharacters": 42697,
+            "estimatedInputTokens": 10675,
+            "c1ApproximateInputTokens": 14527,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "db86a913a0d968758ecc0928126bd036c2290debed66ee6028ab924bc78b11c9",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 182,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43675,
+            "requestCharacters": 43655,
+            "estimatedInputTokens": 10914,
+            "c1ApproximateInputTokens": 14911,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "6bda2c60ffe892c6c92e183597f3ad80ede1cab5ffaab1f88aef2b16fefd21ee",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 359,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 44030,
+            "requestCharacters": 44010,
+            "estimatedInputTokens": 11003,
+            "c1ApproximateInputTokens": 15093,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "a31ec20a30f45f3c66e0d821536e55ce80315c60780191cb2782064af3deace8",
+            "nativeSchemaBytes": 31346,
+            "activatedSchemaBytes": 359,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "totalEstimatedInputTokens": 74124
+      },
+      {
+        "provider": "openrouter",
+        "runIdStable": true,
+        "requests": 7,
+        "executed": 6,
+        "mcpCalls": 2,
+        "steeringDelivered": 1,
+        "recoveryCallbacks": 0,
+        "toolResultOrderVerified": true,
+        "isolated": true,
+        "measurements": [
+          {
+            "requestBytes": 41775,
+            "requestCharacters": 41755,
+            "estimatedInputTokens": 10439,
+            "c1ApproximateInputTokens": 13989,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "6df6d6fa2f085e0bb5fad8ff2cfbbac59d3a476af7b6a2a48356636068238a0c",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 2,
+            "activatedSchemaCount": 0,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 42753,
+            "requestCharacters": 42733,
+            "estimatedInputTokens": 10684,
+            "c1ApproximateInputTokens": 14379,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "c0825495aa3cf82ca7b262dbe4e0a9a48a08c3c51329451558cc90ccca1c2811",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43190,
+            "requestCharacters": 43170,
+            "estimatedInputTokens": 10793,
+            "c1ApproximateInputTokens": 14621,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "025d1d3ec40e943857920baaba0d37c2a51ab728233e2efab7eab3163c4388a5",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43516,
+            "requestCharacters": 43496,
+            "estimatedInputTokens": 10874,
+            "c1ApproximateInputTokens": 14794,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "a694ee9c6023f155ea20159c8064bc426c5f311cb0c9de66116f9f1b92764386",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 43937,
+            "requestCharacters": 43917,
+            "estimatedInputTokens": 10980,
+            "c1ApproximateInputTokens": 14998,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "f3b48038c40168502ae45fde1b133a7f6ad02abc950d2e1982315f95a202d964",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 211,
+            "activatedSchemaCount": 1,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 44906,
+            "requestCharacters": 44886,
+            "estimatedInputTokens": 11222,
+            "c1ApproximateInputTokens": 15385,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "bff705ab8db8ad22d3e633d95a1208de199150999694ff4fa1ab6b6205594a6d",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 417,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          },
+          {
+            "requestBytes": 45239,
+            "requestCharacters": 45219,
+            "estimatedInputTokens": 11305,
+            "c1ApproximateInputTokens": 15560,
+            "exactTokenizerTokens": null,
+            "requestFingerprint": "43e70fdf45c701b6ba1b0df1b4ce9a407cca6bcb64f8be7d5a59e2240cf62c1f",
+            "nativeSchemaBytes": 32680,
+            "activatedSchemaBytes": 417,
+            "activatedSchemaCount": 2,
+            "discoverySchemaBytes": 2,
+            "injectedServerMetadataBytes": 0
+          }
+        ],
+        "totalEstimatedInputTokens": 76297
+      }
+    ],
+    "largeServer": {
+      "availableTools": 150,
+      "legacy": {
+        "requestBytes": 73516,
+        "requestCharacters": 73496,
+        "estimatedInputTokens": 18374,
+        "c1ApproximateInputTokens": 24570,
+        "exactTokenizerTokens": null,
+        "requestFingerprint": "e001b2b3b3ed042abfaae51c2be87b51872f68f51bea668cd29a5c54e9ed972c",
+        "nativeSchemaBytes": 32680,
+        "activatedSchemaBytes": 31841,
+        "activatedSchemaCount": 150,
+        "discoverySchemaBytes": 2,
+        "injectedServerMetadataBytes": 0
+      },
+      "selected": {
+        "requestBytes": 42100,
+        "requestCharacters": 42080,
+        "estimatedInputTokens": 10520,
+        "c1ApproximateInputTokens": 14098,
+        "exactTokenizerTokens": null,
+        "requestFingerprint": "525a498633edb98894abec711a27a853fd4bac60bbd025ea34a2bc8759b69842",
+        "nativeSchemaBytes": 32680,
+        "activatedSchemaBytes": 425,
+        "activatedSchemaCount": 2,
+        "discoverySchemaBytes": 2,
+        "injectedServerMetadataBytes": 0
+      }
+    },
+    "exactTokenizerTokens": null,
+    "discoveryInterface": {
+      "initial": "manage_native_tools mcp group",
+      "deferredSchemaBytes": 978,
+      "schemasInitiallyExposed": 0
+    }
+  },
+  "productionBuild": {
+    "passed": true,
+    "elapsed": [
+      "7.76s"
+    ],
+    "warning": "existing chunk-size warning"
+  },
+  "electronUI": {
+    "permissionSelector": "permissionMode.ui: context option lists, defaults, and project save OK",
+    "liveSteering": "Composer steering UI passed.",
+    "cacheTokenHistory": "Cache-aware token history UI: gross/uncached split, honest coverage, ratio and model filter passed.",
+    "contextPanel": "Workspace Context panel UI test failed: Error: no token-savings claims in status",
+    "contextPanelSourceChangedByTask": false
+  },
+  "localModel": {
+    "healthProbe": "http://127.0.0.1:8080/health",
+    "result": "connection refused",
+    "qwenInferencePerformed": false,
+    "exactTokenizerTokens": null,
+    "cacheReadTokens": null,
+    "cacheWriteTokens": null,
+    "promptEvaluationTime": null,
+    "prefillLatency": null,
+    "localhostEnabledHealthProbe": "connection refused as well; no active default endpoint reached"
+  },
+  "security": {
+    "existingDispatchersReused": true,
+    "newAuthorizationEngine": false,
+    "manifest": "request ID, session/run identity, schema SHA-256, source identity, policy/configuration epoch; bounded run-owned memory",
+    "outboundGate": "explicit trusted UI approval even Full Access; sending/publishing/deletion/financial operation names, HTTP mutations, destructive SQL; legacy hash cannot substitute",
+    "limitations": [
+      "Operation names and top-level argument checks cannot universally classify opaque MCP code/API wrappers or outbound effects hidden inside native Full Access shell programs. No universal network/semantic confinement was added.",
+      "Manifests are in-memory request ownership, not a new persisted recovery grant. Recovered runs advertise fresh manifests."
+    ]
+  },
+  "limitations": [
+    "All 51 registered definitions compile and preserve structural fields; this is not proof that every optional/native capability executed successfully.",
+    "No live Qwen selection accuracy, invalid-argument retry rate or actual llama.cpp token-prefix/cache reuse measurements.",
+    "Gmail/browser scenarios use isolated mocked MCP operations, not real account actions or a live browser navigation.",
+    "Fresh Workspace overhead exceeds the preferred 6K\u20139K target; direct availability increases cumulative input in the measured short coding task.",
+    "No new Casual-to-Workspace automatic migration UI; the prompt asks the user to open in Workspace using existing navigation.",
+    "Existing full-suite failures remain; context-panel UI wording assertion fails in unchanged code.",
+    "External schemas outside the supported Ajv draft-07-compatible subset fail explicitly rather than being altered.",
+    "No exhaustive semantic audit of arbitrary third-party MCP executables."
+  ],
+  "constraints": {
+    "commits": false,
+    "pushes": false,
+    "stashes": false,
+    "resets": false,
+    "liveAccountMutations": false,
+    "paidInference": false,
+    "liveDatabaseMigration": false,
+    "w2Implemented": false,
+    "repositoryCommits": false
+  },
+  "stages": {
+    "U1": "direct native implementation, 51 structural schema contracts and estimated footprint verified; live selection/all optional executions unverified",
+    "U2": "Auto/Manual, cold preparation, disabled protection, request-boundary reconnect, large catalogs and provider flows verified with isolated fixtures",
+    "U3": "advertised manifests, live revocation, original-schema checks, known consequential outbound approval and child isolation verified; opaque program effects are not universally classified",
+    "U4": "deterministic serialization/context/Casual checks verified; actual KV reuse and interactive escalation unverified",
+    "U5": "full regression, representative simulations, selected Electron fixtures and build performed; remaining failures/runtime gaps prevent complete acceptance"
+  },
+  "tokenBudgetAcceptance": {
+    "charactersPer4": true,
+    "conservativeC1BytesPer3": false,
+    "exactModelTokenizer": null,
+    "totalWorkspacePreferred6to9K": false
+  },
+  "freshEmailAutoManualComparison": [
+    {
+      "variant": "baseline-auto",
+      "requests": 7,
+      "preparations": 5,
+      "executions": 1,
+      "serverStarts": 1,
+      "messagesReturnedPerExecution": 5,
+      "cumulativeEstimatedInputTokens": 18084,
+      "profiles": [
+        {
+          "inputEstimatedTokens": 1568,
+          "nativeSchemaEstimatedTokens": 289,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 2372,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 2475,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 2639,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 2764,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 3019,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 73
+        },
+        {
+          "inputEstimatedTokens": 3247,
+          "nativeSchemaEstimatedTokens": 666,
+          "mcpSchemaEstimatedTokens": 73
+        }
+      ],
+      "outputTokens": null,
+      "cacheReadTokens": null,
+      "actualModelAccuracy": null
+    },
+    {
+      "variant": "direct-auto",
+      "requests": 3,
+      "preparations": 1,
+      "executions": 1,
+      "serverStarts": 1,
+      "messagesReturnedPerExecution": 5,
+      "cumulativeEstimatedInputTokens": 32061,
+      "profiles": [
+        {
+          "inputEstimatedTokens": 10434,
+          "nativeSchemaEstimatedTokens": 8169,
+          "mcpSchemaEstimatedTokens": 0
+        },
+        {
+          "inputEstimatedTokens": 10700,
+          "nativeSchemaEstimatedTokens": 8169,
+          "mcpSchemaEstimatedTokens": 73
+        },
+        {
+          "inputEstimatedTokens": 10927,
+          "nativeSchemaEstimatedTokens": 8169,
+          "mcpSchemaEstimatedTokens": 73
+        }
+      ],
+      "outputTokens": null,
+      "cacheReadTokens": null,
+      "actualModelAccuracy": null
+    },
+    {
+      "variant": "manual",
+      "requests": 3,
+      "preparations": 0,
+      "executions": 2,
+      "serverStarts": 1,
+      "messagesReturnedPerExecution": 5,
+      "cumulativeEstimatedInputTokens": 31653,
+      "profiles": [
+        {
+          "inputEstimatedTokens": 10324,
+          "nativeSchemaEstimatedTokens": 7993,
+          "mcpSchemaEstimatedTokens": 142
+        },
+        {
+          "inputEstimatedTokens": 10551,
+          "nativeSchemaEstimatedTokens": 7993,
+          "mcpSchemaEstimatedTokens": 142
+        },
+        {
+          "inputEstimatedTokens": 10778,
+          "nativeSchemaEstimatedTokens": 7993,
+          "mcpSchemaEstimatedTokens": 142
+        }
+      ],
+      "outputTokens": null,
+      "cacheReadTokens": null,
+      "actualModelAccuracy": null
+    }
+  ],
+  "browserNavigationAndInspection": {
+    "fixture": "local HTTP page and mocked Playwright MCP, no real browser engine",
+    "requests": 5,
+    "preparations": 2,
+    "executions": 2,
+    "launches": 1,
+    "cumulativeEstimatedInputTokens": 54087,
+    "profiles": [
+      {
+        "inputEstimatedTokens": 10442,
+        "hostedSchemaCount": 0
+      },
+      {
+        "inputEstimatedTokens": 10699,
+        "hostedSchemaCount": 1
+      },
+      {
+        "inputEstimatedTokens": 10788,
+        "hostedSchemaCount": 1
+      },
+      {
+        "inputEstimatedTokens": 11036,
+        "hostedSchemaCount": 2
+      },
+      {
+        "inputEstimatedTokens": 11122,
+        "hostedSchemaCount": 2
+      }
+    ],
+    "navigationAndInspectionVerified": true,
+    "realModel": false,
+    "realBrowser": false,
+    "outputTokens": null,
+    "cacheReadTokens": null
+  },
+  "reconnection": {
+    "path": "existing request checkpoint -> ordinary permission/approval guard -> existing manager queue/activateTools/connectServer",
+    "autoSelectionPreserved": true,
+    "manualSelectionPreserved": true,
+    "disabledConfigCannotReuseOldGrant": true,
+    "deniedApprovalDoesNotConnect": true,
+    "additionalModelPreparationCalls": 0,
+    "transport": "injected disposable fixture, not live remote servers"
+  },
+  "intermediateDefect": {
+    "description": "Configuration-epoch telemetry assumed methods omitted by lightweight MCP recovery mocks. Fixed optional telemetry access; trusted manifest membership and current execution guards remain mandatory.",
+    "affectedRecoveryFiles": [
+      "tests/compressionLifecycle.test.cjs",
+      "tests/contextOverflowRecovery.test.cjs",
+      "tests/workspaceBriefBudget.test.cjs"
+    ],
+    "postFixFocused": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "concurrencyObservation": "A concurrency assertion failed once under concurrent full suites/build and passed focused retests plus the final full runs without changing its assertion."
+  }
+}

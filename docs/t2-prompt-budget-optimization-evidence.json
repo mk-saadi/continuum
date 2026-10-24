@@ -1,0 +1,795 @@
+{
+  "status": "implemented; exact model-tokenizer budget acceptance unverified",
+  "measurementMethod": "complete serialized JSON characters/4; component estimates overlap; not actual model tokens",
+  "actualModelTokenCounts": null,
+  "modelReportedPromptTokens": null,
+  "noInferenceRequests": true,
+  "initialGitStatus": [
+    "?? docs/token-overhead-regression-audit.md",
+    "?? docs/token-overhead-regression-evidence.json"
+  ],
+  "baseline": [
+    {
+      "mode": "casual",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 7462,
+      "serializedCharacters": 29846,
+      "nativeToolSchemaTokens": 3329,
+      "systemInstructionTokens": 4075,
+      "toolCount": 20,
+      "toolNames": [
+        "search_memory",
+        "propose_skill",
+        "get_recent_chat_history",
+        "delegate_task",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "get_command_status",
+        "stop_background_command",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_blame"
+      ]
+    },
+    {
+      "mode": "read_only",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 9097,
+      "serializedCharacters": 36386,
+      "nativeToolSchemaTokens": 4089,
+      "systemInstructionTokens": 4951,
+      "toolCount": 23,
+      "toolNames": [
+        "ask_user",
+        "search_memory",
+        "use_skill",
+        "propose_skill",
+        "get_recent_chat_history",
+        "delegate_task",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "get_command_status",
+        "stop_background_command",
+        "get_project_plans",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_blame"
+      ]
+    },
+    {
+      "mode": "ask_approval",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 13336,
+      "serializedCharacters": 53342,
+      "nativeToolSchemaTokens": 8327,
+      "systemInstructionTokens": 4952,
+      "toolCount": 41,
+      "toolNames": [
+        "ask_user",
+        "search_memory",
+        "save_memory",
+        "use_skill",
+        "propose_skill",
+        "manage_mcp_servers",
+        "approve_mcp_mutation",
+        "get_recent_chat_history",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "execute_command",
+        "get_command_status",
+        "stop_background_command",
+        "run_tests",
+        "update_plan",
+        "get_project_plans",
+        "str_replace_editor",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "write_project_file",
+        "move_project_file",
+        "delete_project_file",
+        "edit_project_files",
+        "apply_patch",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_stage",
+        "git_unstage",
+        "git_commit",
+        "git_create_branch",
+        "git_switch",
+        "git_sync",
+        "git_stash",
+        "git_blame"
+      ]
+    },
+    {
+      "mode": "workspace_write",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 14280,
+      "serializedCharacters": 57119,
+      "nativeToolSchemaTokens": 9270,
+      "systemInstructionTokens": 4952,
+      "toolCount": 47,
+      "toolNames": [
+        "ask_user",
+        "search_memory",
+        "save_memory",
+        "lsp_definition",
+        "lsp_references",
+        "lsp_document_symbols",
+        "lsp_workspace_symbols",
+        "lsp_hover",
+        "lsp_diagnostics",
+        "use_skill",
+        "propose_skill",
+        "manage_mcp_servers",
+        "approve_mcp_mutation",
+        "get_recent_chat_history",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "execute_command",
+        "get_command_status",
+        "stop_background_command",
+        "run_tests",
+        "update_plan",
+        "get_project_plans",
+        "str_replace_editor",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "write_project_file",
+        "move_project_file",
+        "delete_project_file",
+        "edit_project_files",
+        "apply_patch",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_stage",
+        "git_unstage",
+        "git_commit",
+        "git_create_branch",
+        "git_switch",
+        "git_sync",
+        "git_stash",
+        "git_blame"
+      ]
+    },
+    {
+      "mode": "full_access",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 14279,
+      "serializedCharacters": 57115,
+      "nativeToolSchemaTokens": 9270,
+      "systemInstructionTokens": 4951,
+      "toolCount": 47,
+      "toolNames": [
+        "ask_user",
+        "search_memory",
+        "save_memory",
+        "lsp_definition",
+        "lsp_references",
+        "lsp_document_symbols",
+        "lsp_workspace_symbols",
+        "lsp_hover",
+        "lsp_diagnostics",
+        "use_skill",
+        "propose_skill",
+        "manage_mcp_servers",
+        "approve_mcp_mutation",
+        "get_recent_chat_history",
+        "spawn_sub_agent",
+        "web_search",
+        "get_single_web_page_content",
+        "extract_web_page_data",
+        "execute_command",
+        "get_command_status",
+        "stop_background_command",
+        "run_tests",
+        "update_plan",
+        "get_project_plans",
+        "str_replace_editor",
+        "search_project_content",
+        "take_screenshot",
+        "read_project_file",
+        "write_project_file",
+        "move_project_file",
+        "delete_project_file",
+        "edit_project_files",
+        "apply_patch",
+        "list_directory",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_show",
+        "git_branch",
+        "git_stage",
+        "git_unstage",
+        "git_commit",
+        "git_create_branch",
+        "git_switch",
+        "git_sync",
+        "git_stash",
+        "git_blame"
+      ]
+    }
+  ],
+  "after": [
+    {
+      "mode": "casual",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1810,
+      "serializedCharacters": 7239,
+      "nativeToolSchemaTokens": 165,
+      "systemInstructionTokens": 1588,
+      "toolCount": 1,
+      "toolNames": [
+        "manage_native_tools"
+      ]
+    },
+    {
+      "mode": "read_only",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 2201,
+      "serializedCharacters": 8801,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1854,
+      "toolCount": 2,
+      "toolNames": [
+        "ask_user",
+        "manage_native_tools"
+      ]
+    },
+    {
+      "mode": "ask_approval",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 2201,
+      "serializedCharacters": 8804,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1855,
+      "toolCount": 2,
+      "toolNames": [
+        "ask_user",
+        "manage_native_tools"
+      ]
+    },
+    {
+      "mode": "workspace_write",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 2202,
+      "serializedCharacters": 8807,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1855,
+      "toolCount": 2,
+      "toolNames": [
+        "ask_user",
+        "manage_native_tools"
+      ]
+    },
+    {
+      "mode": "full_access",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 2201,
+      "serializedCharacters": 8803,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1854,
+      "toolCount": 2,
+      "toolNames": [
+        "ask_user",
+        "manage_native_tools"
+      ]
+    }
+  ],
+  "benchmark": [
+    {
+      "scenario": "casual",
+      "before": 7462,
+      "after": 1810,
+      "reductionPercent": 75.74
+    },
+    {
+      "scenario": "read_only",
+      "before": 9097,
+      "after": 2201,
+      "reductionPercent": 75.81
+    },
+    {
+      "scenario": "ask_approval",
+      "before": 13336,
+      "after": 2201,
+      "reductionPercent": 83.5
+    },
+    {
+      "scenario": "workspace_write",
+      "before": 14280,
+      "after": 2202,
+      "reductionPercent": 84.58
+    },
+    {
+      "scenario": "full_access",
+      "before": 14279,
+      "after": 2201,
+      "reductionPercent": 84.59
+    },
+    {
+      "scenario": "lsp activated (full_access)",
+      "before": 14279,
+      "after": 3145,
+      "reductionPercent": 77.97
+    },
+    {
+      "scenario": "commands activated (full_access)",
+      "before": 14279,
+      "after": 3020,
+      "reductionPercent": 78.85
+    }
+  ],
+  "deterministicTests": [
+    {
+      "chatMode": "casual",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1095,
+      "nativeToolSchemaTokens": 165,
+      "systemInstructionTokens": 872,
+      "projectContextTokens": 0,
+      "taskStateTokens": 0,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 1
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "read_only",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "ask_approval",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "workspace_write",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "chatMode": "workspace",
+      "permissionMode": "full_access",
+      "provider": "local",
+      "model": "fixture",
+      "measurementMethod": "serialized-json-characters/4",
+      "measurementConfidence": "estimated",
+      "initialRequestInputTokens": 1493,
+      "nativeToolSchemaTokens": 289,
+      "systemInstructionTokens": 1146,
+      "projectContextTokens": 26,
+      "taskStateTokens": 102,
+      "dynamicToolActivationCount": 0,
+      "activatedToolGroups": [],
+      "postActivationRequestInputTokens": null,
+      "toolCount": 2
+    },
+    {
+      "scenario": "settings-modal-agent",
+      "cloud": false,
+      "requests": 9,
+      "operations": 8,
+      "totalEstimatedInputTokens": 32215,
+      "additionalActivationRequests": 4,
+      "activationLatenciesMs": [
+        7.959578999999962,
+        6.134010999999987,
+        4.751690000000053,
+        5.413377000000082
+      ],
+      "requestProfiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1615,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2069,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2739,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2826,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 2938,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 4313,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4497,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5479,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        },
+        {
+          "request": 9,
+          "estimatedInputTokens": 5739,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        }
+      ],
+      "dynamicToolActivationCount": 3,
+      "activatedToolGroups": [
+        "files",
+        "editing",
+        "commands"
+      ]
+    },
+    {
+      "scenario": "settings-modal-agent",
+      "cloud": true,
+      "requests": 9,
+      "operations": 8,
+      "totalEstimatedInputTokens": 32536,
+      "additionalActivationRequests": 4,
+      "activationLatenciesMs": [
+        4.792844000000059,
+        5.915279999999939,
+        7.673674000000005,
+        7.455361999999923
+      ],
+      "requestProfiles": [
+        {
+          "request": 1,
+          "estimatedInputTokens": 1651,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 2,
+          "estimatedInputTokens": 2104,
+          "toolCount": 2,
+          "dynamicToolActivationCount": 0,
+          "activatedToolGroups": []
+        },
+        {
+          "request": 3,
+          "estimatedInputTokens": 2775,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 4,
+          "estimatedInputTokens": 2861,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 5,
+          "estimatedInputTokens": 2974,
+          "toolCount": 5,
+          "dynamicToolActivationCount": 1,
+          "activatedToolGroups": [
+            "files"
+          ]
+        },
+        {
+          "request": 6,
+          "estimatedInputTokens": 4348,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 7,
+          "estimatedInputTokens": 4533,
+          "toolCount": 11,
+          "dynamicToolActivationCount": 2,
+          "activatedToolGroups": [
+            "files",
+            "editing"
+          ]
+        },
+        {
+          "request": 8,
+          "estimatedInputTokens": 5515,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        },
+        {
+          "request": 9,
+          "estimatedInputTokens": 5775,
+          "toolCount": 15,
+          "dynamicToolActivationCount": 3,
+          "activatedToolGroups": [
+            "files",
+            "editing",
+            "commands"
+          ]
+        }
+      ],
+      "dynamicToolActivationCount": 3,
+      "activatedToolGroups": [
+        "files",
+        "editing",
+        "commands"
+      ]
+    },
+    {
+      "scenario": "after-20-tool-calls",
+      "requests": 21,
+      "operations": 20,
+      "initialRequestInputTokens": 1516,
+      "postActivationRequestInputTokens": 4124,
+      "totalEstimatedInputTokens": 63990,
+      "additionalActivationRequests": 1,
+      "dynamicToolActivationCount": 1,
+      "activatedToolGroups": [
+        "files"
+      ]
+    }
+  ],
+  "baselineFailureIdentities": [
+    "tests/apiServerPort.test.cjs",
+    "tests/attachments.test.cjs",
+    "tests/childAgentLoop.test.cjs",
+    "tests/cloudIpc.test.cjs",
+    "tests/cloudProviders.test.cjs",
+    "tests/deleteProjectFile.test.cjs",
+    "tests/engineSettings.test.cjs",
+    "tests/filesystemToolLimits.test.cjs",
+    "tests/gitTools.test.cjs",
+    "tests/localEngineFetch.test.cjs",
+    "tests/lspAgentIntegration.test.cjs",
+    "tests/lspCodeIntelligence.test.cjs",
+    "tests/lspFoundation.test.cjs",
+    "tests/lspProduction.test.cjs",
+    "tests/lspProductionAgent.test.cjs",
+    "tests/mcpIpc.test.cjs",
+    "tests/mcpManager.test.cjs",
+    "tests/mcpSse.test.cjs",
+    "tests/messageActions.test.cjs",
+    "tests/messageStats.test.cjs",
+    "tests/nodeHttpFetchCancel.test.cjs",
+    "tests/rag.test.cjs",
+    "tests/recoveryBoundary.test.cjs",
+    "tests/recoveryIpc.test.cjs",
+    "tests/recoveryStartupMemory.test.cjs",
+    "tests/recoveryStore.test.cjs",
+    "tests/skillImportIpc.test.cjs",
+    "tests/skillProposalIpc.test.cjs",
+    "tests/subAgentRunner.test.cjs",
+    "tests/subagentOutOfProcessRecovery.test.cjs",
+    "tests/subagentSession.test.cjs"
+  ],
+  "newDependencies": [],
+  "limitations": [
+    "No live applicable model tokenizer available; no exact irreducible floor claimed.",
+    "No actual Anthropic/OpenRouter inference or billing endpoints called.",
+    "Provider transport and agent-quality validation remains mocked.",
+    "UI Context panel failed status-wording assertion; header functional assertions passed but cleanup failed.",
+    "No baseline total-run token capture; twenty-call before comparison unavailable.",
+    "No real model reload, full Electron session switching or live model compaction scenario executed."
+  ],
+  "filesChanged": [
+    "src/main/baseSystemPrompt.js",
+    "src/main/ipcHandlers.js",
+    "src/main/promptBuilder.js",
+    "src/main/promptMeasurement.js",
+    "src/main/toolPermissions.js",
+    "src/main/tools/agentTools.js",
+    "tests/backgroundCommandIpc.test.cjs",
+    "tests/permissionIsolationReliability.test.cjs",
+    "tests/permissionPolicy.test.cjs",
+    "tests/projects.test.cjs",
+    "tests/recentChatHistory.test.cjs",
+    "tests/sessionPromptWording.test.cjs",
+    "tests/subagentModelSelection.test.cjs",
+    "src/main/nativeToolActivation.js",
+    "tests/t2PromptBudgets.test.cjs",
+    "docs/t2-prompt-budget-optimization-report.md",
+    "docs/t2-prompt-budget-optimization-evidence.json"
+  ],
+  "regression": {
+    "baselineCommand": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "baseline": {
+      "files": 219,
+      "pass": 188,
+      "fail": 31
+    },
+    "after": {
+      "files": 220,
+      "pass": 189,
+      "fail": 31
+    },
+    "afterLog": "/tmp/t2-final4-full.log",
+    "failureIdentityComparison": "equal; no new or resolved file failures",
+    "npmTest": "existing MODULE_NOT_FOUND tests directory entry on Node 22.23.2",
+    "productionBuild": "passed",
+    "focusedIntegration": "5 files passed",
+    "newT2Checks": 12
+  },
+  "afterFailureIdentities": [
+    "tests/apiServerPort.test.cjs",
+    "tests/attachments.test.cjs",
+    "tests/childAgentLoop.test.cjs",
+    "tests/cloudIpc.test.cjs",
+    "tests/cloudProviders.test.cjs",
+    "tests/deleteProjectFile.test.cjs",
+    "tests/engineSettings.test.cjs",
+    "tests/filesystemToolLimits.test.cjs",
+    "tests/gitTools.test.cjs",
+    "tests/localEngineFetch.test.cjs",
+    "tests/lspAgentIntegration.test.cjs",
+    "tests/lspCodeIntelligence.test.cjs",
+    "tests/lspFoundation.test.cjs",
+    "tests/lspProduction.test.cjs",
+    "tests/lspProductionAgent.test.cjs",
+    "tests/mcpIpc.test.cjs",
+    "tests/mcpManager.test.cjs",
+    "tests/mcpSse.test.cjs",
+    "tests/messageActions.test.cjs",
+    "tests/messageStats.test.cjs",
+    "tests/nodeHttpFetchCancel.test.cjs",
+    "tests/rag.test.cjs",
+    "tests/recoveryBoundary.test.cjs",
+    "tests/recoveryIpc.test.cjs",
+    "tests/recoveryStartupMemory.test.cjs",
+    "tests/recoveryStore.test.cjs",
+    "tests/skillImportIpc.test.cjs",
+    "tests/skillProposalIpc.test.cjs",
+    "tests/subAgentRunner.test.cjs",
+    "tests/subagentOutOfProcessRecovery.test.cjs",
+    "tests/subagentSession.test.cjs"
+  ],
+  "tokenBudgetAcceptance": {
+    "exactVerified": false,
+    "reason": "Applicable provider/model tokenizer unavailable; no paid inference authorized.",
+    "estimatedDefaultProfilesWithinTargets": true,
+    "irreducibleFloor": null
+  }
+}

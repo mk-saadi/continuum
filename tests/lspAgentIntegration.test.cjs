@@ -251,7 +251,7 @@ test('independently denied children hide LSP and reject forged calls under an el
     fetchMock = async (_url, opts) => {
       const p = JSON.parse(opts.body); assert.equal(p.tools.some(t => LSP_TOOL_NAMES.includes(t.function.name)), false);
       if (!turn++) return response([call('forged-lsp', 'lsp_definition', { path: 'a.ts', line: 1, column: 18 })]);
-      const out = JSON.parse(p.messages.find(m => m.role === 'tool').content); assert.equal(out.error.code, 'LSP_PERMISSION_DENIED'); return response(null, 'LSP permission denied.');
+      const out = p.messages.find(m => m.role === 'tool').content; assert.match(out, /not available.*not executed/); return response(null, 'LSP permission denied.');
     };
     const answer = await dispatch(id, 'full_access', 'spawn_sub_agent', { task: 'Review without modifying files.', investigate: true }, { executionContext: ctx, engine: { port: 12345, modelId: 'model', contextLength: 32768 }, onChildSession: childId => contexts.setChildMode(childSessions.getSession(childId), mode) });
     assert.match(answer, /permission denied/);

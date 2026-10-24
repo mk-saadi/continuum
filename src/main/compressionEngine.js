@@ -11,6 +11,7 @@ const {
 const idleTimers = new Map();
 const pendingUnlocks = new Set();
 const inFlight = new Map();
+const idleControllers = new Map();
 const PROTECTED_MESSAGES = 10;
 const IDLE_DELAY_MS = 10_000;
 // Idle compaction targets the *projected prompt* (system + schemas + memory +
@@ -251,6 +252,7 @@ function releaseCompressionLock(sessionId) {
 function checkAndCompressContext(options) {
   if (options.transcriptAdapter) return require('./compactionCore').compactTranscript({
     adapter: options.transcriptAdapter, payload: options.payload, force: options.force, signal: options.signal });
+  require('./sessionDeletion').assertAvailable(options.sessionId);
   const current = inFlight.get(options.sessionId);
   if (current) return current;
   const promise = require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
@@ -769,20 +771,35 @@ async function compressContext({
 
 const idleAttempts = new Map();
 
+async function cancelSessionCompression(sessionId) {
+  const timer = idleTimers.get(sessionId);
+  if (timer) clearTimeout(timer);
+  idleTimers.delete(sessionId);
+  for (const controller of idleControllers.get(sessionId) ?? []) controller.abort(new Error('Conversation deletion requested.'));
+  try { await inFlight.get(sessionId); } catch { /* Cancelled work cannot commit. */ }
+  idleControllers.delete(sessionId); idleAttempts.delete(sessionId); pendingUnlocks.delete(sessionId);
+}
+
 function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete = () => {}, llmCheckpointCallback = null, options = {}) {
+  require('./sessionDeletion').assertAvailable(sessionId);
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (llmCheckpointCallback !== null && typeof llmCheckpointCallback !== 'function') throw new TypeError('llmCheckpointCallback must be a function when provided.');
   const previous = idleTimers.get(sessionId);
-  if (previous) clearTimeout(previous);
+  if (previous) {
+    clearTimeout(previous);
+    idleControllers.get(sessionId)?.delete(previous.compressionController);
+  }
 
   // Abort wiring: the signal (when provided) is the caller's cancellation
   // channel, threaded through checkAndCompressContext into every summarize,
   // checkpoint, and measure call. A fresh controller per execution keeps
-  // concurrent sessions independent. No production caller passes one yet
-  // (the renderer has no idle-cancel channel), so this path is proven by
-  // tests, not yet exercised live.
+  // concurrent sessions independent. H1 also retains these controllers so
+  // Delete Chat can abort pending/running idle compression in the main process.
   const { signal: externalSignal = null } = options ?? {};
   const controller = new AbortController();
+  const controllers = idleControllers.get(sessionId) ?? new Set();
+  controllers.add(controller);
+  idleControllers.set(sessionId, controllers);
   if (externalSignal) {
     if (externalSignal.aborted) controller.abort(externalSignal.reason);
     else externalSignal.addEventListener('abort', () => controller.abort(externalSignal.reason), { once: true });
@@ -812,28 +829,33 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
         pressureMeasurement: measured, isCurrent: measured?.isCurrent,
       });
     })().then((result) => {
+      if (controller.signal.aborted) return;
       retry = result.retry === true;
       if (result.compressed) onComplete({ sessionId, ...result });
       else if (result.reason) onComplete({ sessionId, ...result });
     }).catch((error) => {
+      if (controller.signal.aborted) return;
       console.error('Idle context compression failed:', error);
       // Surface the failure to the inspection panel through the existing
       // completion channel. Existing listeners ignore non-compressed
       // results (empty id sets); the panel renders the error explicitly.
       onComplete({ sessionId, compressed: false, error: error?.message ?? String(error) });
     }).finally(() => {
+      controllers.delete(controller);
+      if (!controllers.size && idleControllers.get(sessionId) === controllers) idleControllers.delete(sessionId);
       // Keep a newer typing/streaming debounce if one has already been set.
-      if ((retry || pendingUnlocks.has(sessionId)) && !idleTimers.has(sessionId)) {
+      if (!controller.signal.aborted && (retry || pendingUnlocks.has(sessionId)) && !idleTimers.has(sessionId)) {
         scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback, options);
       }
     });
   }, IDLE_DELAY_MS);
 
+  timer.compressionController = controller;
   timer.unref?.();
   idleTimers.set(sessionId, timer);
 }
 
-module.exports = { checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
+module.exports = { cancelSessionCompression, checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
   // Test-only projection helpers and bounds (pure accounting, no behavior change).
   projectForcedFloor, projectIdlePrompt, resolveProjectionTools, idleTargetFor,
   IDLE_TARGET_FRACTION_WORKSPACE, IDLE_TARGET_FRACTION_CASUAL,

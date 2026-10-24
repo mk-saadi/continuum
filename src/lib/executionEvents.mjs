@@ -154,6 +154,24 @@ function argPaths(args) {
   return [...candidates.filter((value) => typeof value === 'string' && value), ...files, ...editFiles].slice(0, 4);
 }
 
+// Display labels never replace the recorded identifiers used for dispatch.
+export function toolDisplayName(step) {
+  const name = step?.toolName || 'Tool';
+  if (name === 'manage_mcp_servers') {
+    return ({ search: 'Search MCP tools', inspect: 'Inspect MCP server',
+      activate: 'Activate MCP tools', enable: 'Enable MCP server',
+      disable: 'Disable MCP server', restart: 'Restart MCP server' })[step?.args?.action] || 'Manage MCP servers';
+  }
+  if (name === 'approve_mcp_mutation') return 'Approve MCP operation';
+  if (name === 'manage_native_tools') return 'Manage built-in tools';
+  if (step?.serverName && !['native', 'memory'].includes(step.serverName)) {
+    const readable = name.replace(/_/g, ' ');
+    const label = readable.charAt(0).toUpperCase() + readable.slice(1);
+    return readable.toLowerCase() === step.serverName.toLowerCase() ? label : `${label} (${step.serverName})`;
+  }
+  return name;
+}
+
 // Short human summary derived ONLY from recorded args/result.
 export function summarizeStep(step) {
   if (!step || step.type === 'thought') {
@@ -471,7 +489,7 @@ export function toolVerb(step) {
     case 'move': return 'Move';
     case 'delete': return 'Delete';
     case 'save': return 'Save';
-    case 'mcp': return step?.toolName === 'approve_mcp_mutation' ? 'Approve' : 'Servers';
+    case 'mcp': return toolDisplayName(step);
     case 'write': return 'Write';
     case 'list': return 'List';
     case 'subagent': return 'Subagent';
@@ -479,7 +497,7 @@ export function toolVerb(step) {
     case 'question': return 'Question';
     case 'skill': return 'Skill';
     case 'plan': return 'Plan';
-    default: return step?.toolName || 'Tool';
+    default: return toolDisplayName(step);
   }
 }
 

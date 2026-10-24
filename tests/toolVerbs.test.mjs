@@ -12,8 +12,8 @@ test('no native tool renders as raw snake_case', () => {
     delete_project_file: 'Delete',
     save_memory: 'Save',
     search_memory: 'Search',
-    manage_mcp_servers: 'Servers',
-    approve_mcp_mutation: 'Approve',
+    manage_mcp_servers: 'Manage MCP servers',
+    approve_mcp_mutation: 'Approve MCP operation',
     execute_command: 'Run',
     read_project_file: 'Read',
     git_status: 'Git status',
@@ -77,4 +77,12 @@ test('git stages title the operation, mixed stages stay generic', async () => {
     stepSummary({ type: 'tool_call', toolName: 'git_status', status: 'complete', args: {} }).summary,
     '',
   );
+});
+
+test('MCP labels describe the action and keep server tools identifiable', async () => {
+  const { toolDisplayName } = await import('../src/lib/executionEvents.mjs');
+  assert.equal(toolDisplayName({ toolName: 'manage_mcp_servers', args: { action: 'inspect' } }), 'Inspect MCP server');
+  assert.equal(toolDisplayName({ toolName: 'manage_mcp_servers', args: { action: 'activate' } }), 'Activate MCP tools');
+  assert.equal(toolDisplayName({ toolName: 'browser_navigate', serverName: 'browsermcp' }), 'Browser navigate (browsermcp)');
+  assert.equal(toolDisplayName({ toolName: 'fetch', serverName: 'fetch' }), 'Fetch');
 });

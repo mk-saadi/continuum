@@ -599,6 +599,9 @@ export function ChatInterface({
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));
 	}, [refreshHistory]);
+	useEffect(() => palace.api?.onSessionDeleted?.(({ sessionId }) => {
+        setGroups(current => current.map(group => ({ ...group, sessions: group.sessions.filter(session => session.id !== sessionId) })));
+    }), [palace.api]);
 	useCompressionEvents(palace.sessionId, (result) => {
 		const ids = new Set(result.summarizedMessageIds || []);
 		setMessages((previous) =>

@@ -53,7 +53,7 @@ const run = (args = {}, sessionId = 'current') => executeAgentTool({ name: 'get_
         assert.equal(getToolContext([], enabled, sessionId).tools.filter(tool => tool.function.name === 'get_recent_chat_history').length, 1);
       }
     }
-    assert.match(buildSessionSystemPrompt({ sessionId: 'current', modelId: 'model' }).content, /CROSS-SESSION MEMORY:.*1-2 word keywords/);
+    assert.match(buildSessionSystemPrompt({ sessionId: 'current', modelId: 'model' }).content, /For recall, retrieve evidence/);
     for (let i = 0; i < 12; i++) insert.run('global', 'user', `Extra ${i}`, '2026-09-08 10:00:00', 0, 0);
     const limited = await run();
     assert.equal(limited.length, 5);

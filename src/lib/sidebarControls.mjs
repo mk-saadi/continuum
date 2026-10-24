@@ -1,3 +1,5 @@
+import { toolDisplayName } from './executionEvents.mjs';
+
 // Pure sidebar helpers shared by RightSidebar.jsx and its tests.
 // No JSX here so tests can import this module directly.
 
@@ -40,6 +42,7 @@ export function extractToolCalls(messages) {
 			calls.push({
 				id: step.id ?? `${message.id ?? "message"}:${calls.length}`,
 				toolName: step.toolName ?? "tool",
+				displayName: toolDisplayName(step),
 				status: step.status ?? "unknown",
 				messageId: message.id ?? null,
 			});

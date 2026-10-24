@@ -85,6 +85,8 @@ class McpManager extends EventEmitter {
     this.lazyByDefault = lazyByDefault;
     this.sessionServers = new Map();
     this.sessionDisabled = new Map();
+    this.sessionTools = new Map();
+    this.activeRuns = new Map();
   }
   isUiEnabled(definition) {
     return this.lazyByDefault
@@ -205,6 +207,8 @@ class McpManager extends EventEmitter {
       if (Object.hasOwn(config.mcpServers, name)) continue;
       server.enabled = false;
       this.servers.delete(name);
+      for (const selections of this.sessionTools.values()) selections.delete(name);
+      for (const names of this.sessionServers.values()) names.delete(name);
       await server.client?.close().catch(() => {});
       changed = true;
     }
@@ -216,6 +220,7 @@ class McpManager extends EventEmitter {
       const launchDefinition = ({ disabledTools, ...launch }) => launch;
       if (previous?.definition && isDeepStrictEqual(launchDefinition(previous.definition), launchDefinition(definition))) {
         previous.disabledTools = new Set(definition.disabledTools || []);
+        this.revokeSelections(name, previous.disabledTools);
         previous.definition = structuredClone(definition);
         return;
       }
@@ -266,7 +271,11 @@ class McpManager extends EventEmitter {
       server.status = 'connected';
     } catch (error) {
       await server.client?.close().catch(() => {});
-      server.status = 'error'; server.error = error.message; server.tools = [];
+      server.status = 'error';
+      server.error = error.code === 'ENOENT' && !definition.url
+        ? `MCP_RUNTIME_NOT_FOUND: Cannot launch server '${name}': executable '${definition.command}' or configured working directory was not found. Install the required runtime and ensure it is on the app's PATH, or set an absolute command path and valid cwd in MCP Settings. Do not retry until setup changes.${definition.command === 'uvx' ? ' The fetch server requires uv/uvx. For web pages, use native get_single_web_page_content or web_search instead.' : ''}`
+        : error.message;
+      server.tools = [];
     }
     this.emit('changed');
   }
@@ -292,6 +301,162 @@ class McpManager extends EventEmitter {
       Array.isArray(names) && names.length > 0 && names.length <= 20 &&
       names.every(name => require('./nativePlaywright').isTrustedNativePlaywright(name, this.servers.get(name)?.definition));
   }
+  // The existing manager owns the registry. No credentials, launch arguments,
+  // headers or schemas are serialized by discovery.
+  searchCapabilities({ query = '', limit = 5, cursor, server_names } = {}, sessionId) {
+    const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
+    if (typeof query !== 'string' || query.length > 500 || query.includes('\0') ||
+        !Number.isInteger(limit) || limit < 1 || limit > 10 ||
+        (server_names !== undefined && (!Array.isArray(server_names) || server_names.length !== 1 || typeof server_names[0] !== 'string')))
+      fail('MCP_INVALID_SEARCH', 'Search requires a query of at most 500 characters, limit 1–10 and optionally one exact server identifier.');
+    if (this.configError) fail('MCP_CATALOG_UNAVAILABLE', 'MCP catalog configuration is invalid.');
+    let servers = [...this.servers.values()];
+    if (!servers.length) {
+      try {
+        const config = JSON.parse(require('node:fs').readFileSync(this.configPath, 'utf8'));
+        servers = Object.entries(config.mcpServers || {}).map(([name, definition]) => ({ name, definition, tools: [],
+          disabledTools: new Set(definition.disabledTools || []), status: 'inactive' }));
+      } catch (error) { if (error.code !== 'ENOENT') fail('MCP_CATALOG_UNAVAILABLE', 'MCP catalog cannot be read.'); }
+    }
+    const stop = new Set(['find', 'and', 'or', 'the', 'a', 'an', 'to', 'for', 'read', 'get', 'search']);
+    const terms = query.toLowerCase().trim().split(/[\s_\-/]+/u).filter(term => term && !stop.has(term));
+    const revision = createHash('sha256');
+    const rows = [];
+    const clip = value => String(value || '').replace(/\s+/g, ' ').slice(0, 240);
+    for (const server of servers) {
+      revision.update(JSON.stringify([server.name, server.definition?.description, server.definition?.disabled,
+        server.status, server.definition?.displayName, [...server.disabledTools], server.tools.map(t => [t.name, t.description, t.inputSchema])]));
+      if (server_names && server.name !== server_names[0]) continue;
+      const purpose = require('./nativePlaywright').isTrustedNativePlaywright(server.name, server.definition)
+        ? 'Browser automation navigation page DOM inspection screenshots' : server.definition?.description || '';
+      // Include a server row even when its lazy process has never been started.
+      // Inspect connects only the chosen server and loads searchable tool metadata.
+      for (const tool of [null, ...server.tools]) {
+        const name = tool?.name || '';
+        const haystack = `${server.name} ${server.definition?.displayName || ''} ${purpose} ${name} ${tool?.description || ''}`.toLowerCase();
+        const score = terms.reduce((n, term) => n + (haystack.includes(term) ? 1 : 0), 0) +
+          (query && [server.name.toLowerCase(), name.toLowerCase()].includes(query.toLowerCase()) ? 100 : 0) +
+          (name && query.toLowerCase().split(/\s+/).includes(name.toLowerCase()) ? 200 : 0);
+        if (terms.length && !terms.every(term => haystack.includes(term))) continue;
+        rows.push({ score, serverId: server.name, ...(server.definition?.displayName ? { serverName: clip(server.definition.displayName) } : {}), ...(tool ? { toolName: name } : {}),
+          description: clip(tool?.description || purpose), status: server.status,
+          disabled: server.definition?.disabled === true || !!(tool && server.disabledTools.has(name)),
+          metadataTrust: 'untrusted' });
+      }
+    }
+    const version = revision.digest('hex');
+    const searchKey = createHash('sha256').update(JSON.stringify({ query, server_names })).digest('hex');
+    rows.sort((a, b) => b.score - a.score || (a.serverId < b.serverId ? -1 : a.serverId > b.serverId ? 1 : 0) ||
+      ((a.toolName || '') < (b.toolName || '') ? -1 : (a.toolName || '') > (b.toolName || '') ? 1 : 0));
+    let offset = 0;
+    if (cursor !== undefined) {
+      try {
+        if (typeof cursor !== 'string' || cursor.length > 2048) throw new Error();
+        const state = JSON.parse(Buffer.from(cursor, 'base64url').toString());
+        if (state.version !== version) fail('MCP_STALE_CURSOR', 'MCP catalog changed; repeat the search.');
+        if (state.searchKey !== searchKey ||
+            !Number.isSafeInteger(state.offset) || state.offset < 0 || state.offset > rows.length) throw new Error();
+        offset = state.offset;
+      } catch (error) { if (error.code === 'MCP_STALE_CURSOR') throw error; fail('MCP_INVALID_CURSOR', 'Invalid MCP search continuation.'); }
+    }
+    const results = [];
+    let size = 0;
+    for (const row of rows.slice(offset, offset + limit)) {
+      const { score, ...result } = row;
+      const rowSize = Buffer.byteLength(JSON.stringify(result));
+      if (rowSize > 12000) fail('MCP_IDENTITY_TOO_LARGE', 'MCP identifier exceeds discovery payload capacity; rename it in Settings.');
+      if (size + rowSize > 12000) break;
+      results.push(result); size += rowSize;
+    }
+    const next = offset + results.length;
+    return { results, hasMore: next < rows.length,
+      ...(next < rows.length ? { cursor: Buffer.from(JSON.stringify({ version, searchKey, offset: next })).toString('base64url') } : {}),
+      ...(!results.length ? { message: 'No matching MCP capabilities. Try a server purpose or another keyword.' } : {}) };
+  }
+  async findAndPrepare(args, sessionId, options = {}) {
+    if (this.getMcpMode() === 'manual') throw new Error('MCP preparation is disabled in Manual Mode.');
+    if (typeof args.query !== 'string' || !args.query.trim()) throw new Error('MCP query is required.');
+    await this.init();
+    const query = args.query.split(/\s+/).map(word => {
+      const lower = word.toLowerCase();
+      if (/^(my|please|one|two|three|four|five|six|seven|eight|nine|ten|\d+)$/.test(lower)) return '';
+      return ({ latest: 'recent', newest: 'recent', messages: 'email', emails: 'email' })[lower] || word;
+    }).filter(Boolean).join(' ');
+    let search = this.searchCapabilities({ ...args, query }, sessionId);
+    if (!search.results.length && !args.cursor) {
+      // A lazy server may have no cached tool names yet. Resolve only an
+      // explicit identifier mentioned by the query, never launch the catalog.
+      const named = [...this.servers.keys()].filter(name => args.server_names?.includes(name) ||
+        args.query.toLowerCase().split(/\s+/).includes(name.toLowerCase()));
+      if (named.length === 1) search = this.searchCapabilities({ query: '', server_names: named, limit: 10 }, sessionId);
+    }
+    const exact = search.results.filter(row => row.toolName && args.query.toLowerCase().split(/\s+/).includes(row.toolName.toLowerCase()));
+    const queryWords = args.query.toLowerCase().replace(/[_-]/g, ' ');
+    const mutationIntent = /\b(send|publish|post|delete|remove|transfer|purchase|pay|trade)\b/.test(queryWords) &&
+      !/\b(read|fetch|search|list|get|inspect)\b/.test(queryWords);
+    const eligibleRow = row => !row.disabled && (!row.toolName || mutationIntent ||
+      !['outbound', 'destructive', 'external-mutation'].includes(require('./mcpPermissionPolicy').classifyEffect(row.toolName)));
+    const eligible = (exact.length ? exact : search.results).filter(eligibleRow);
+    const servers = [...new Set(eligible.map(row => row.serverId))];
+    const explicitServer = args.server_names?.length === 1 || (servers.length === 1 && args.query.toLowerCase().split(/\s+/).includes(servers[0].toLowerCase()));
+    // Never choose an arbitrary integration or truncate an ambiguous page.
+    if (args.cursor || servers.length !== 1 || (search.hasMore && !(exact.length && explicitServer))) return { ...search, ready: false, message: 'Refine the query or choose an exact server identifier. Disabled tools require MCP Settings.' };
+    const serverId = servers[0];
+    if (this.servers.get(serverId)?.definition.disabled === true) throw new Error('MCP_SERVER_DISABLED: Enable this server in MCP Settings.');
+    let tools = eligible.filter(row => row.toolName).map(row => row.toolName);
+    if (!tools.length) {
+      // Existing activation connects with an empty selection; no schema or
+      // operation is exposed while authoritative tools/list is loading.
+      await this.activateTools(serverId, [], sessionId, { ...options, protectDisabled: true });
+      const loaded = this.searchCapabilities({ ...args, query, cursor: undefined, server_names: [serverId] }, sessionId);
+      const matches = loaded.results.filter(row => row.toolName && eligibleRow(row));
+      const exactLoaded = matches.filter(row => args.query.toLowerCase().split(/\s+/).includes(row.toolName.toLowerCase()));
+      tools = (exactLoaded.length ? exactLoaded : matches).map(row => row.toolName);
+      if ((loaded.hasMore && !exactLoaded.length) || tools.length !== 1) return { ...loaded, ready: false, message: 'Choose a more specific operation.' };
+    }
+    if (tools.length !== 1) return { ...search, ready: false, message: 'Multiple operations match; refine the query.' };
+    const result = await this.activateTools(serverId, tools, sessionId, { ...options, protectDisabled: true });
+    return { ...result, ready: true, tools: tools.map(name => this.toolName(serverId, name)) };
+  }
+  async reconnectPrepared(sessionId, { signal, authorize } = {}) {
+    if (!this.activeRuns.has(sessionId) || typeof authorize !== 'function') return;
+    const runId = this.activeRuns.get(sessionId);
+    const manual = this.getMcpMode() === 'manual';
+    for (const [name, server] of this.servers) {
+      const selected = this.sessionTools.get(sessionId)?.get(name);
+      if (server.status !== 'disconnected' || !server.enabled || server.definition.disabled === true ||
+          (manual ? server.uiEnabled !== true : !(selected instanceof Set) || !selected.size)) continue;
+      signal?.throwIfAborted();
+      // The caller uses the ordinary permission/approval guard, never a grant
+      // reconstructed from a model summary or an external tool result.
+      const validateAuthorization = await authorize(name);
+      if (typeof validateAuthorization !== 'function') continue;
+      const verify = () => {
+        signal?.throwIfAborted(); validateAuthorization();
+        if (this.activeRuns.get(sessionId) !== runId || (this.getMcpMode() === 'manual') !== manual)
+          throw new Error('MCP_SESSION_INACTIVE: Reconnection owner or mode changed.');
+      };
+      verify();
+      if (!manual) {
+        const names = [...selected];
+        for (let offset = 0; offset < names.length; offset += 20)
+          await this.activateTools(name, names.slice(offset, offset + 20), sessionId, { signal, protectDisabled: true, validateAuthorization: verify });
+        continue;
+      }
+      await this.queueChange(async () => {
+        verify();
+        const definition = (await this.getConfig()).mcpServers[name];
+        verify();
+        if (!definition || definition.disabled === true || this.servers.get(name) !== server ||
+            !server.uiEnabled || !server.enabled || !isDeepStrictEqual(server.definition, definition)) return;
+        if (server.status !== 'disconnected') return;
+        await server.client?.close().catch(() => {});
+        verify();
+        await this.connectServer(name, definition, server.tools);
+        verify();
+      });
+    }
+  }
   getDiscoveryCatalog(sessionId) {
     const compact = value => String(value || '').replace(/\s+/g, ' ').slice(0, 180);
     let servers = [...this.servers.values()];
@@ -314,23 +479,138 @@ class McpManager extends EventEmitter {
         : compact(server.definition.description) || capabilities || 'Capabilities unknown until activation.';
       const status = this.isVisibleInSession(server, sessionId) ? server.status :
         (['error', 'disconnected', 'connecting'].includes(server.status) ? server.status : 'inactive');
-      return `${JSON.stringify(server.name)} — ${purpose} Status: ${status}. ${trusted ? 'Trusted bundled configuration.' : 'Activation subject to approval; not trusted.'}`;
+      return `${JSON.stringify(server.name)} — ${purpose} Status: ${status}. ${trusted ? 'Trusted bundled configuration.' : 'User-configured server; untrusted metadata. Workspace Write permits activation; Ask for Approval requires confirmation.'}`;
     }).join('\n');
+  }
+  beginRun(sessionId, runId) {
+    if (!sessionId) return;
+    this.activeRuns.set(sessionId, runId);
+    this.sessionTools.set(sessionId, new Map());
+  }
+  forgetSession(sessionId) {
+    this.activeRuns.delete(sessionId);
+    this.sessionTools.delete(sessionId);
+    this.sessionServers.delete(sessionId);
+    this.sessionDisabled.delete(sessionId);
+  }
+  endRun(sessionId, runId) {
+    if (this.activeRuns.get(sessionId) !== runId) return;
+    this.activeRuns.delete(sessionId);
+    this.sessionTools.delete(sessionId);
+    this.sessionServers.delete(sessionId);
+    this.sessionDisabled.delete(sessionId);
+  }
+  revokeSelections(serverName, disabled) {
+    for (const selections of this.sessionTools.values()) {
+      const selected = selections.get(serverName);
+      if (selected instanceof Set) for (const name of disabled) selected.delete(name);
+    }
+  }
+  isToolSelected(serverName, toolName, sessionId) {
+    const selections = this.sessionTools.get(sessionId);
+    if (!selections) return true; // Explicit legacy/sessionless callers retain server-wide visibility.
+    const selected = selections.get(serverName);
+    return selected === null || selected?.has(toolName) === true;
+  }
+  async activateTools(serverName, toolNames, sessionId, { signal, trustedOnly = false, protectDisabled = false, validate, validateAuthorization = () => {} } = {}) {
+    if (typeof sessionId !== 'string' || !sessionId || !text(serverName) ||
+        !Array.isArray(toolNames) || toolNames.length > 20 || toolNames.some(name => !text(name) || !name))
+      throw new Error('MCP_INVALID_SELECTION: Select one server and at most 20 exact tool names.');
+    if (!this.activeRuns.has(sessionId)) throw new Error('MCP_SESSION_INACTIVE: Select tools inside the current owning run.');
+    const runId = this.activeRuns.get(sessionId);
+    await this.init();
+    // Serialize selections with configuration changes and other activation calls.
+    return this.queueChange(async () => {
+      signal?.throwIfAborted(); validateAuthorization();
+      const verify = () => {
+        signal?.throwIfAborted(); validateAuthorization();
+        if (this.activeRuns.get(sessionId) !== runId) throw new Error('MCP_SESSION_INACTIVE: The owning run changed.');
+        if (this.getMcpMode() === 'manual') throw new Error('MCP management is disabled in Manual Mode.');
+      };
+      verify();
+      const config = await this.getConfig();
+      const definition = config.mcpServers[serverName];
+      if (!definition) throw new Error('MCP_SERVER_REMOVED: Repeat capability search.');
+      if (definition.disabled === true && (protectDisabled || !this.isSessionEnabled(serverName, sessionId))) throw new Error('MCP_SERVER_DISABLED: This server is disabled. Use the authorized enable action for this chat, or enable it in MCP Settings, before inspecting or activating tools.');
+      if (trustedOnly && !require('./nativePlaywright').isTrustedNativePlaywright(serverName, definition))
+        throw new Error('MCP_ACTIVATION_UNAUTHORIZED: Configuration changed; approval required.');
+      let server = this.servers.get(serverName);
+      if (!server || !isDeepStrictEqual(server.definition, definition)) throw new Error('MCP_STALE_SELECTION: Reload and repeat capability search.');
+      // Reserve an empty selection before connecting: no transient whole-server
+      // exposure, including broadcasts while tools/list is in flight.
+      let selections = this.sessionTools.get(sessionId);
+      if (!selections) { selections = new Map(); this.sessionTools.set(sessionId, selections); }
+      const previous = selections.get(serverName);
+      if (!selections.has(serverName)) selections.set(serverName, new Set());
+      const active = this.sessionServers.get(sessionId) || new Set();
+      this.sessionServers.set(sessionId, active); active.add(serverName);
+      this.sessionDisabled.get(sessionId)?.delete(serverName);
+      if (server.status !== 'connected') {
+        server.enabled = false;
+        await server.client?.close().catch(() => {});
+        verify();
+        await this.connectServer(serverName, definition, server.tools);
+        server = this.servers.get(serverName);
+      }
+      verify();
+      if (server?.status !== 'connected') throw new Error(`MCP_SERVER_DISCONNECTED: Selected server could not connect. ${server?.error || 'Check MCP Settings.'}`);
+      const names = [...new Set(toolNames)];
+      for (const name of names) {
+        const tool = server.tools.find(t => t.name === name);
+        if (!tool) throw new Error('MCP_TOOL_REMOVED: Repeat capability search for the selected server.');
+        if (server.disabledTools.has(name)) throw new Error('MCP_TOOL_DISABLED: Tool is disabled in Settings.');
+        if (!object(tool.inputSchema) || (tool.inputSchema.type !== undefined && tool.inputSchema.type !== 'object'))
+          throw new Error('MCP_SCHEMA_INVALID: Tool requires a JSON object schema.');
+        require('./toolSchemaValidation').compile(tool.inputSchema);
+      }
+      const selected = new Set(previous === null ? server.tools.map(t => t.name) : previous || []);
+      for (const name of names) selected.add(name);
+      const schemas = server.tools.filter(t => selected.has(t.name) && !server.disabledTools.has(t.name)).map(t => this.schema(server, t));
+      const prospective = [...this.getTools(sessionId).filter(t => !server.tools.some(st => this.toolName(serverName, st.name) === t.function.name)), ...schemas];
+      const { approximateTokens, createRuntimeBudget, ContextBudgetError } = require('./contextBudget');
+      const schemaBytes = Buffer.byteLength(JSON.stringify(schemas));
+      const addedSchemaBytes = Math.max(0, Buffer.byteLength(JSON.stringify(prospective)) - Buffer.byteLength(JSON.stringify(this.getTools(sessionId))));
+      const schemaSnapshot = JSON.stringify(server.tools);
+      let measured;
+      if (validate) measured = await validate(prospective);
+      else {
+        const payload = { messages: [], tools: prospective };
+        const tokens = approximateTokens(payload);
+        const budgetContract = createRuntimeBudget({ payload, currentInputTokens: tokens });
+        measured = { tokens, budget: budgetContract.usableInputTokens, budgetContract, method: 'approximate-full-request' };
+      }
+      if (measured.tokens > measured.budget) {
+        const error = new ContextBudgetError(`MCP activation: ${measured.tokens} estimated input tokens; capacity ${measured.budget}; select fewer tools`);
+        error.code = 'MCP_ACTIVATION_BUDGET_EXCEEDED'; throw error;
+      }
+      verify();
+      if (this.servers.get(serverName) !== server || JSON.stringify(server.tools) !== schemaSnapshot || server.status !== 'connected' || !server.enabled ||
+          names.some(name => server.disabledTools.has(name) || !server.tools.some(t => t.name === name)))
+        throw new Error('MCP_SCHEMA_REFRESH_FAILED: Catalog changed during activation; search again.');
+      selections.set(serverName, selected);
+      this.emit('changed');
+      return { success: true, serverId: serverName, selectedTools: names, selectedToolCount: selected.size, schemaBytes, addedSchemaBytes, estimatedAddedSchemaTokens: Math.ceil(addedSchemaBytes / 3),
+        estimatedSchemaTokens: Math.ceil(schemaBytes / 3), measurementMethod: measured.method,
+        message: 'Selected schemas appear on the next request in this run. Execution permissions remain required. Use search with server_names to page this server catalog.' };
+    });
+  }
+  schema(server, tool) {
+    return { type: 'function', function: { name: this.toolName(server.name, tool.name),
+      description: tool.description || `${server.name}: ${tool.name}`,
+      parameters: tool.inputSchema || { type: 'object', properties: {} } } };
   }
   getTools(sessionId) {
     const manual = this.getMcpMode() === 'manual';
     return [...this.servers.values()].filter(s => s.enabled && s.status === 'connected' &&
       (manual ? s.uiEnabled === true : !this.lazyByDefault || arguments.length === 0 || this.isVisibleInSession(s, sessionId))).flatMap(s =>
-      s.tools.filter(t => !s.disabledTools.has(t.name)).map(t => ({ type: 'function', function: {
-        name: this.toolName(s.name, t.name), description: t.description || `${s.name}: ${t.name}`, parameters: t.inputSchema || { type: 'object', properties: {} },
-      } })));
+      s.tools.filter(t => !s.disabledTools.has(t.name) && (manual || this.isToolSelected(s.name, t.name, sessionId))).map(t => this.schema(s, t)));
   }
   resolveTool(name, sessionId) {
     const manual = this.getMcpMode() === 'manual';
     for (const server of this.servers.values()) {
       if (!server.enabled || server.status !== 'connected') continue;
       if (manual ? server.uiEnabled !== true : this.lazyByDefault && arguments.length > 1 && !this.isVisibleInSession(server, sessionId)) continue;
-      const tool = server.tools.find(t => !server.disabledTools.has(t.name) && this.toolName(server.name, t.name) === name);
+      const tool = server.tools.find(t => !server.disabledTools.has(t.name) && (manual || this.isToolSelected(server.name, t.name, sessionId)) && this.toolName(server.name, t.name) === name);
       if (tool) return { serverName: server.name, toolName: tool.name };
     }
     throw new Error('MCP tool is unavailable or disabled.');
@@ -339,16 +619,29 @@ class McpManager extends EventEmitter {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
     if (this.getMcpMode() === 'manual' ? server.uiEnabled !== true : this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId)) throw new Error('MCP server is not enabled for this chat.');
+    if (this.getMcpMode() !== 'manual' && !this.isToolSelected(serverName, toolName, sessionId)) throw new Error('MCP_TOOL_NOT_SELECTED: Activate this tool for the current chat.');
     if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be a JSON object.');
+    const authoritative = server.tools.find(tool => tool.name === toolName).inputSchema || { type: 'object' };
+    require('./toolSchemaValidation').validate(authoritative, args);
     const contexts = require('./lspExecutionContext');
     const revision = contexts.revision(sessionId);
     if (sessionId) {
       permissionMode = contexts.currentMode(sessionId, permissionMode);
       if (approval && (approval.mode !== permissionMode || (Object.hasOwn(approval, 'policyRevision') && approval.policyRevision !== revision))) throw new Error('Execution blocked: Permission revoked since authorization.');
-      if (!permissionGranted || permissionMode === 'read_only') await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal });
+      if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal });
+    }
+    if (['workspace_write', 'ask_approval'].includes(permissionMode) && toolName === 'delete_project_file' && !approval?.approved) {
+      throw new Error('Execution blocked: File deletion requires explicit approval.');
     }
     const payload = JSON.stringify(args);
-    if (!(permissionGranted && ['ask_approval', 'full_access'].includes(permissionMode)) && requiresConfirmation(payload)) {
+    if (require('./mcpPermissionPolicy').requiresOutboundApproval(toolName, args) && !approval?.approved) {
+      throw new Error('Execution blocked: Outbound or consequential mutation requires explicit user approval.');
+    }
+    const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
+    if ((workspaceMcp || permissionMode === 'full_access') && require('./mcpPermissionPolicy').requiresGitApproval(toolName, args, serverName) && !approval?.approved) {
+      throw new Error('Execution blocked: Git commit or push requires explicit approval.');
+    }
+    if (permissionMode !== 'full_access' && !workspaceMcp && !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload)) {
       const hash = require('./safetyGuards').mutationHash(sessionId, serverName, toolName, payload);
       // Delete synchronously before dispatch so concurrent calls cannot reuse approval.
       if (!approvedMutations.delete(require('./safetyGuards').mutationApprovalKey(sessionId, hash))) {
@@ -365,7 +658,7 @@ class McpManager extends EventEmitter {
     const dispatch = () => {
       signal?.throwIfAborted();
       if (sessionId && contexts.revision(sessionId) !== revision) throw new Error('Execution blocked: Permission revoked before MCP dispatch.');
-      if (this.servers.get(serverName) !== server || !server.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) ||
+      if (this.servers.get(serverName) !== server || !server.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || (this.getMcpMode() !== 'manual' && !this.isToolSelected(serverName, toolName, sessionId)) ||
           (this.getMcpMode() === 'manual' ? server.uiEnabled !== true : this.lazyByDefault && sessionId !== undefined && !this.isVisibleInSession(server, sessionId))) throw new Error('MCP tool is unavailable or disabled.');
       return server.client.callTool({ name: toolName, arguments: args }, undefined, { signal, timeout: 60000 });
     };
@@ -381,6 +674,11 @@ class McpManager extends EventEmitter {
     } else {
       result = await dispatch();
     }
+    if (result?.isError && result.content?.some(part => part.type === 'text' &&
+        /no connection to browser extension/i.test(part.text))) {
+      result = { ...result, success: false, code: 'MCP_BROWSER_NOT_CONNECTED', retryable: false,
+        recovery: 'Browser MCP requires a browser tab connected through its extension: click the Browser MCP toolbar icon and Connect. Repeated navigation calls cannot fix this. For browser automation without the extension, search for and activate the bundled playwright-native server, if available and permitted. For page text or search, use native get_single_web_page_content or web_search. Report the setup blocker if no suitable alternative is available.' };
+    }
     return JSON.stringify(limitFilesystemResult(toolName, result));
   }
   setServerEnabled(serverName, enabled) {
@@ -393,7 +691,10 @@ class McpManager extends EventEmitter {
       definition.disabled = !enabled;
       definition.uiEnabled = enabled;
       delete definition.enabled; // Normalize the legacy alias so it cannot override the switch.
-      if (!enabled) for (const names of this.sessionServers.values()) names.delete(serverName);
+      if (!enabled) {
+        for (const names of this.sessionServers.values()) names.delete(serverName);
+        for (const selections of this.sessionTools.values()) selections.delete(serverName);
+      }
       await this.writeConfig(config);
       const server = this.servers.get(serverName);
       if (server) {
@@ -435,8 +736,9 @@ class McpManager extends EventEmitter {
         signal?.throwIfAborted();
         const definition = config.mcpServers[name];
         const previous = this.servers.get(name);
-        if (action === 'disable') { active.delete(name); disabled.add(name); }
-        else { active.add(name); disabled.delete(name); }
+        if (action === 'disable') { active.delete(name); disabled.add(name); this.sessionTools.get(sessionId)?.delete(name); }
+        else if (this.sessionTools.has(sessionId)) this.sessionTools.get(sessionId).set(name, null);
+        if (action !== 'disable') { active.add(name); disabled.delete(name); }
         const shouldConnect = this.shouldConnect(name, definition);
         if (action === 'restart' || (action === 'enable' && previous?.status !== 'connected') ||
             (action === 'disable' && !shouldConnect && previous?.enabled)) {
@@ -487,6 +789,7 @@ class McpManager extends EventEmitter {
       await this.writeConfig(config);
       // Permissions alter declarations and dispatch immediately; connections stay open.
       server.disabledTools = disabled;
+      this.revokeSelections(server.name, disabled);
       server.definition = structuredClone(definition);
       this.emit('changed');
       return config;
@@ -500,6 +803,10 @@ class McpManager extends EventEmitter {
   async disconnect() {
     await Promise.allSettled([...this.servers.values()].map(s => s.client?.close()));
     this.servers.clear();
+    this.sessionTools.clear();
+    this.activeRuns.clear();
+    this.sessionServers.clear();
+    this.sessionDisabled.clear();
     this.emit('changed');
   }
   async close() {

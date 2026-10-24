@@ -10,6 +10,8 @@ const { searchMemoryDatabase } = require('./memorySearchCore');
 let database = null;
 
 const SCHEMA = `
+  -- Content-free deletion markers prevent stale renderer requests from reusing an ID.
+  CREATE TABLE IF NOT EXISTS deleted_sessions (id TEXT PRIMARY KEY NOT NULL);
   CREATE TABLE IF NOT EXISTS background_commands (command_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, workspace TEXT NOT NULL, record TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS project_rules (
     id TEXT PRIMARY KEY NOT NULL,
@@ -95,6 +97,9 @@ const SCHEMA = `
     is_compressing INTEGER NOT NULL DEFAULT 0 CHECK (is_compressing IN (0, 1))
   );
 
+  CREATE TRIGGER IF NOT EXISTS sessions_no_resurrection BEFORE INSERT ON sessions
+    WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.id)
+    BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
   CREATE TABLE IF NOT EXISTS token_usage (
     turn_id TEXT PRIMARY KEY,
     chat_id TEXT,
@@ -565,6 +570,10 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       connection.exec(`DROP TRIGGER IF EXISTS sessions_cascade;`);
       connection.exec(`
         CREATE TRIGGER IF NOT EXISTS sessions_cascade BEFORE DELETE ON sessions BEGIN
+          INSERT OR IGNORE INTO deleted_sessions(id) VALUES (OLD.id);
+          DELETE FROM background_commands WHERE session_id = OLD.id;
+          DELETE FROM subagent_runs WHERE parent_session_id = OLD.id;
+          DELETE FROM token_usage WHERE chat_id = OLD.id;
           DELETE FROM messages WHERE session_id = OLD.id;
           DELETE FROM session_summaries WHERE session_id = OLD.id;
           DELETE FROM workspace_task_briefs WHERE session_id = OLD.id;
@@ -574,6 +583,18 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
           DELETE FROM workspace_plans WHERE session_id = OLD.id;
           DELETE FROM run_steering_messages WHERE session_id = OLD.id;
         END;
+        CREATE TRIGGER IF NOT EXISTS background_no_deleted_insert BEFORE INSERT ON background_commands
+          WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.session_id)
+          BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
+        CREATE TRIGGER IF NOT EXISTS child_no_deleted_insert BEFORE INSERT ON subagent_runs
+          WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.parent_session_id)
+          BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
+        CREATE TRIGGER IF NOT EXISTS child_no_deleted_update BEFORE UPDATE ON subagent_runs
+          WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.parent_session_id)
+          BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
+        CREATE TRIGGER IF NOT EXISTS usage_no_deleted_insert BEFORE INSERT ON token_usage
+          WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.chat_id)
+          BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
         CREATE TRIGGER IF NOT EXISTS attachments_cascade BEFORE DELETE ON messages BEGIN
           DELETE FROM message_attachments WHERE message_id = OLD.id;
         END;
@@ -695,4 +716,4 @@ function branchUserMessage({ messageId, newContent }) {
   }).immediate();
 }
 
-module.exports = { db, initDatabase, syncSystemDate, closeDatabase, getDatabasePath, searchChatHistory, searchMemory, recordContextRewind, branchUserMessage };
+module.exports = { isInitialized: () => Boolean(database?.open), db, initDatabase, syncSystemDate, closeDatabase, getDatabasePath, searchChatHistory, searchMemory, recordContextRewind, branchUserMessage };

@@ -48,7 +48,7 @@ test('SSE sends configured headers on GET and POST, discovers tools, executes an
     assert.equal(manager.getStatus().servers.find(s => s.name === 'remote').status, 'connected');
     assert.equal(manager.getStatus().servers.find(s => s.name === 'unauthorized').status, 'error');
     assert.equal(manager.getTools().length, 1);
-    assert.equal(JSON.parse(await manager.callTool('remote', 'echo', { text: 'remote result' })).content[0].text, 'remote result');
+    assert.equal(JSON.parse(await manager.callTool('remote', 'echo', { text: 'remote result' }, { approval: { approved: true } })).content[0].text, 'remote result');
     assert.equal(requests[0].method, 'GET');
     assert.equal(requests[0].path, '/mcp');
     assert.ok(requests.some(request => request.method === 'GET' && request.path === '/sse'));

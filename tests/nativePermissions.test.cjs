@@ -21,12 +21,12 @@ test('native tool guard prevents writes and model self-approval, full access can
     require('../src/main/db').initDatabase(temp);
     const project = require('../src/main/projectManager').createProject({ name: 'Native permissions', root_path: root });
     require('../src/main/sessionManager').getOrCreateSession('test', 'model', project.id);
-    const run = (name, args, mode) => executeAgentTool({ name, arguments: args, sessionId: 'test', permissionMode: mode });
+    const run = (name, args, mode) => require('./helpers/approvedNativeCommand.cjs')({ name, arguments: args, sessionId: 'test', permissionMode: mode });
     const blocked = await run('write_project_file', { relative_path: 'blocked.txt', content: 'no' }, 'read_only');
     assert.equal(blocked.error, 'Execution blocked: Chat is in Read Only mode.');
     // A system-affecting command must request approval; the model cannot grant
     // its own, so nothing runs and nothing is written.
-    const unapproved = await run('execute_command', { command: 'sudo touch blocked.txt', user_confirmed: true }, 'ask_approval');
+    const unapproved = await executeAgentTool({ name: 'execute_command', arguments: { command: 'sudo touch blocked.txt', user_confirmed: true }, sessionId: 'test', permissionMode: 'ask_approval' });
     assert.equal(unapproved.success, false);
     assert.match(unapproved.error, /approval denied/);
     await assert.rejects(fs.stat(path.join(root, 'blocked.txt')));
@@ -35,7 +35,7 @@ test('native tool guard prevents writes and model self-approval, full access can
     assert.equal(await fs.readFile(path.join(temp, 'outside.txt'), 'utf8'), 'yes');
     const command = await run('execute_command', { command: 'printf autonomous' }, 'full_access');
     assert.equal(command.stdout, 'autonomous');
-    if (process.platform === 'linux') {
+    if (process.platform === 'linux' && require('node:child_process').spawnSync('bwrap', ['--ro-bind','/','/','--unshare-user','--unshare-pid','--unshare-net','--proc','/proc','/bin/sh','-c','true']).status === 0) {
       const git = await run('execute_command', {
         command: 'git init -q && git config user.email test@example.com && git config user.name Test && printf safe > tracked.txt && git add tracked.txt && git commit -qm first && git status --short && git diff HEAD && git branch --show-current',
       }, 'workspace_write');

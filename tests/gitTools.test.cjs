@@ -53,10 +53,11 @@ async function workspaceCall(root, name, args = {}, permissionMode = 'workspace_
     require('../src/main/sessionManager').getOrCreateSession(sid, 'model', project.id);
     workspaceSessions.set(root, sid);
   }
-  const approval = permissionGranted && (name === 'git_commit' || name === 'git_sync')
-    ? await guardTool({ name, args, project: { root_path: root }, permissionMode, requestApproval: async () => true }).catch(() => null)
+  const approval = (permissionGranted || ['git_stage','git_unstage','git_stash','git_create_branch','git_switch'].includes(name))
+    ? await guardTool({ name, args, sessionId: sid, project: { root_path: root }, permissionMode, requestApproval: async () => true }).catch(error => ({ fixtureError: error.message }))
     : null;
-  return executeAgentTool({ name, arguments: args, sessionId: sid, permissionMode, permissionGranted, approval });
+  if (approval?.fixtureError) return { success: false, error: approval.fixtureError };
+  return executeAgentTool({ name, arguments: args, sessionId: sid, permissionMode, permissionGranted: !!approval, approval });
 }
 
 test.after(() => { db.closeDatabase(); fs.rmSync(directory, { recursive: true, force: true }); });
@@ -521,7 +522,7 @@ test('sync push publishes with fingerprint approval', async () => {
     const sid = workspaceSessions.get(root);
     // The approval card shows remote/branch/outgoing history — never secrets.
     let displayed;
-    const approval = await guardTool({ name: 'git_sync', args: { action: 'push' },
+    const approval = await guardTool({ name: 'git_sync', args: { action: 'push' }, sessionId: sid,
       project: { root_path: root }, permissionMode: 'workspace_write',
       requestApproval: async (payload) => { displayed = payload; return true; } });
     assert.ok(approval.gitPushFingerprint);
@@ -546,7 +547,7 @@ test('sync push rejects stale approval and diverged remotes', async () => {
     git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', 'v1'], root);
     await workspaceCall(root, 'git_status');
     const sid = workspaceSessions.get(root);
-    const approve = () => guardTool({ name: 'git_sync', args: { action: 'push' },
+    const approve = () => guardTool({ name: 'git_sync', args: { action: 'push' }, sessionId: sid,
       project: { root_path: root }, permissionMode: 'workspace_write', requestApproval: async () => true });
     const run = (approval) => executeAgentTool({ name: 'git_sync', arguments: { action: 'push' },
       sessionId: sid, permissionMode: 'workspace_write', permissionGranted: true, approval });
@@ -604,8 +605,7 @@ test('sync auth failure names gh without leaking secrets', async () => {
   try {
     await workspaceCall(root, 'git_status');
     const sid = workspaceSessions.get(root);
-    const result = await executeAgentTool({ name: 'git_sync', arguments: { action: 'fetch' },
-      sessionId: sid, permissionMode: 'workspace_write' });
+    const result = await syncCall(root, { action: 'fetch' });
     assert.equal(result.success, false);
     assert.match(result.error, /Authentication failed for 'origin'/);
     assert.match(result.error, /gh auth login/);
@@ -624,11 +624,10 @@ test('sync fails closed outside a repository', async () => {
   try {
     // Fetch runs unprompted; pull/push carry an approval grant so each action
     // reaches remote resolution, where the missing repository fails closed.
-    assert.match((await syncCall(plain, { action: 'fetch' }, false)).error, /Not a git repository/);
+    assert.match((await syncCall(plain, { action: 'fetch' })).error, /Not a git repository/);
     assert.match((await syncCall(plain, { action: 'pull' })).error, /Not a git repository/);
     const sid = workspaceSessions.get(plain);
-    const push = await executeAgentTool({ name: 'git_sync', arguments: { action: 'push' },
-      sessionId: sid, permissionMode: 'workspace_write' });
+    const push = await syncCall(plain, { action: 'push' });
     assert.equal(push.success, false);
     assert.match(push.error, /Not a git repository/);
   } finally { fs.rmSync(plain, { recursive: true, force: true }); }
@@ -776,8 +775,8 @@ test('commit always prompts outside full_access; stage stays contained', async (
   let requested = false;
   const inside = await guardTool({ name: 'git_stage', args: { paths: ['f.txt'] },
     permissionMode: 'workspace_write', project, requestApproval: async () => { requested = true; return true; } });
-  assert.equal(requested, false);
-  assert.equal(inside.approved, false);
+  assert.equal(requested, true);
+  assert.equal(inside.approved, true);
   await assert.rejects(guardTool({ name: 'git_stage', args: { paths: ['../outside.txt'] },
     permissionMode: 'workspace_write', project,
     requestApproval: async () => { throw new Error('must not ask'); } }), /Path escapes/);
@@ -829,11 +828,11 @@ test('commit approval contains staged diff and rejects subsequent staged changes
     fs.writeFileSync(path.join(root, 'f.txt'), 'approved\n');
     git(['add', 'f.txt'], root);
     let displayed;
-    const approval = await guardTool({ name: 'git_commit', args: { message: 'review' }, project: { root_path: root },
-      permissionMode: 'workspace_write', requestApproval: async payload => { displayed = payload; return true; } });
-    assert.match(displayed.args.staged_diff, /approved/);
     await workspaceCall(root, 'git_status');
     const sid = workspaceSessions.get(root);
+    const approval = await guardTool({ name: 'git_commit', args: { message: 'review' }, sessionId: sid, project: { root_path: root },
+      permissionMode: 'workspace_write', requestApproval: async payload => { displayed = payload; return true; } });
+    assert.match(displayed.args.staged_diff, /approved/);
     fs.writeFileSync(path.join(root, 'f.txt'), 'changed\n');
     git(['add', 'f.txt'], root);
     const result = await executeAgentTool({ name: 'git_commit', arguments: { message: 'review' }, sessionId: sid,

@@ -21,11 +21,11 @@ function capture() {
   };
 }
 
-function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeoutMs = timeoutMs, timeoutReason = 'timed_out', windowsVerbatimArguments = false, onState = null }) {
+function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeoutMs = timeoutMs, timeoutReason = 'timed_out', windowsVerbatimArguments = false, onState = null, validateAuthorization = null }) {
   const started = performance.now();
   return new Promise(resolve => {
     const stdout = capture(), stderr = capture();
-    let child, timer, forceTimer, finishTimer, status, code = null, exitSignal = null, spawnError = null, settled = false;
+    let child, timer, forceTimer, finishTimer, revocationTimer, status, code = null, exitSignal = null, spawnError = null, settled = false;
     const kill = force => {
       if (!child?.pid) return;
       if (process.platform === 'win32') {
@@ -41,6 +41,7 @@ function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeo
       if (settled) return;
       settled = true;
       clearTimeout(timer); clearTimeout(forceTimer); clearTimeout(finishTimer);
+      clearInterval(revocationTimer);
       signal?.removeEventListener('abort', abort);
       active.delete(stop);
       child?.stdout?.destroy(); child?.stderr?.destroy();
@@ -106,6 +107,9 @@ function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeo
       if (!forceTimer) finish();
     });
     timer = setTimeout(() => stop(timeoutReason), timeoutMs);
+    if (validateAuthorization) revocationTimer = setInterval(() => {
+      try { validateAuthorization(); } catch { stop('cancelled'); }
+    }, 50);
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
   });

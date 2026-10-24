@@ -23,6 +23,7 @@ function estimateTokens(text) {
 function getOrCreateSession(sessionId, modelId, projectId = null) {
   requireIdentifier(sessionId, 'sessionId');
   requireIdentifier(modelId, 'modelId');
+  require('./sessionDeletion').assertAvailable(sessionId);
   if (projectId !== null) requireIdentifier(projectId, 'projectId');
 
   return db.transaction(() => {
@@ -386,8 +387,11 @@ function requireMutableSession(sessionId) {
 }
 
 function deleteSession(sessionId) {
+  requireIdentifier(sessionId, 'sessionId');
+  if (require('./engineManager').activeStreams.has(sessionId)) throw new Error('Stop the active run before deleting this conversation.');
   return db.transaction(() => {
     requireMutableSession(sessionId);
+    require('./recoveryStore').deleteChatCheckpoints(sessionId);
     db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
     return { deleted: true };
   }).immediate();

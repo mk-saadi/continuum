@@ -105,15 +105,16 @@ test('MCP mutation grants cannot cross sessions or tool identities', async () =>
   const mcp = new McpManager(); const calls = [];
   mcp.servers.set('db', { enabled: true, status: 'connected', disabledTools: new Set(), tools: [{ name: 'query' }, { name: 'other' }], client: { callTool: async c => { calls.push(c); return { content: [] }; } } });
   const a = session('mcp-a'), b = session('mcp-b'); contexts.createContext(a, 'workspace_write'); contexts.createContext(b, 'workspace_write');
-  const args = { query: 'DELETE FROM records' }; let hash;
-  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write' }), e => { hash = e.message.match(/hash ([a-f0-9]{16})/)[1]; return true; });
-  // The native grant has already passed the scoped user approval guard.
+  const args = { query: 'DELETE FROM records' };
+  const hash = require('../src/main/safetyGuards').mutationHash(a, 'db', 'query', JSON.stringify(args));
+  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write' }), /approval denied/);
   assert.equal((await dispatch(a, 'approve_mcp_mutation', { hash }, { permissionMode: 'workspace_write', permissionGranted: true, approval: { mode: 'workspace_write', approved: true } })).success, true);
-  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: b, permissionMode: 'workspace_write' }), /SAFETY GUARD/);
-  await assert.rejects(mcp.callTool('db', 'other', args, { sessionId: a, permissionMode: 'workspace_write' }), /SAFETY GUARD/);
-  await mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write' });
+  // A legacy payload hash is never a substitute for explicit outbound approval.
+  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: b, permissionMode: 'workspace_write' }), /approval denied/);
+  await assert.rejects(mcp.callTool('db', 'other', args, { sessionId: a, permissionMode: 'workspace_write' }), /approval denied/);
+  await mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write', permissionGranted: true, approval: {mode:'workspace_write',approved:true} });
   assert.equal(calls.length, 1);
-  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write' }), /SAFETY GUARD/);
+  await assert.rejects(mcp.callTool('db', 'query', args, { sessionId: a, permissionMode: 'workspace_write' }), /approval denied/);
   await contexts.setMode(a, 'read_only');
   await assert.rejects(mcp.callTool('db', 'query', { query: 'SELECT 1' }, { sessionId: a, permissionMode: 'full_access', permissionGranted: true }), /Read Only|revoked|permission/i);
 });
@@ -181,7 +182,8 @@ test('end-to-end: one parent run keeps plan, steering, child isolation and scope
   });
   parentPayloads.push(payload);
   const names = payload.tools.map(t => t.function.name);
-  switch (round++) {
+  if (round === 0) { round++; return response([call('activate-native', 'manage_native_tools', { action: 'activate', groups: ['tasks', 'subagents', 'editing', 'files'] })]); }
+  switch (round++ - 1) {
    case 0:
     runId = owner.sent.find(e => e.channel === 'engine:stream-status').value.runId;
     return response([call('plan-create', 'update_plan', { action: 'create', objective: 'Retain authorization evidence', steps: [{ description: 'Verify isolation' }] })]);
@@ -192,7 +194,7 @@ test('end-to-end: one parent run keeps plan, steering, child isolation and scope
     assert.equal(childResults.size, 2);
     assert.equal(JSON.parse(childResults.get('eligible')[0].content).success, true);
     assert.match(childResults.get('restricted')[0].content, /not available/);
-    assert.match(childResults.get('restricted')[1].content, /LSP_PERMISSION_DENIED/);
+    assert.match(childResults.get('restricted')[1].content, /not available.*not executed/);
     return response([call('before-write', 'write_project_file', writeArgs('e2e-before.txt'))]);
    case 3:
     await invoke(owner, 'engine:set-permission-mode', { sessionId: id, permissionMode: 'read_only' });
@@ -200,7 +202,7 @@ test('end-to-end: one parent run keeps plan, steering, child isolation and scope
     return response([call('stale-write', 'write_project_file', writeArgs('e2e-denied.txt'))]);
    case 4:
     assert.equal(names.includes('write_project_file'), false);
-    assert.match(payload.messages.filter(m => m.role === 'tool').at(-1).content, /Read Only/);
+    assert.match(payload.messages.filter(m => m.role === 'tool').at(-1).content, /TOOL_NOT_ADVERTISED/);
     assert.equal(fs.existsSync(path.join(root, 'e2e-denied.txt')), false);
     assert.equal(fs.readFileSync(path.join(root, 'e2e-before.txt'), 'utf8'), 'authorized');
     await invoke(owner, 'engine:set-permission-mode', { sessionId: id, permissionMode: 'workspace_write' });
@@ -278,7 +280,11 @@ test('a mode change resolves a pending real IPC approval without performing the 
  const id = session('pending-approval'), owner = sender(); fs.writeFileSync(path.join(root, 'pending-delete.txt'), 'retain');
  let asked; const pendingApproval = new Promise(r => { asked = r; }); const send = owner.send; let round = 0;
  owner.send = (channel, payload) => { send(channel, payload); if (channel === 'engine:request-tool-approval' && !payload.resolved) asked(payload); };
- fetchMock = async () => round++ ? response(null, 'Approval was revoked.') : response([call('pending-delete', 'delete_project_file', { path: 'pending-delete.txt' })]);
+ fetchMock = async () => {
+  const index = round++;
+  if (index === 0) return response([call('activate-editing', 'manage_native_tools', { action: 'activate', groups: ['editing'] })]);
+  return index > 1 ? response(null, 'Approval was revoked.') : response([call('pending-delete', 'delete_project_file', { path: 'pending-delete.txt' })]);
+ };
  const run = invoke(owner, 'engine:chat', { requestId: 'approval-request', sessionId: id, modelId: 'model', permissionMode: 'workspace_write', messages: [{ role: 'user', content: 'Delete with approval.' }] });
  const approval = await pendingApproval;
  await assert.rejects(invoke(sender(), 'engine:tool-approval-response', { requestId: 'approval-request', approvalId: approval.approvalId, action: 'allow' }), /no longer pending/);
@@ -313,7 +319,7 @@ test('a command awaiting recovery preparation cannot start after permission revo
  let started, release; const prepared = new Promise(r => { started = r; });
  boundary.withShellRecovery = async (_options, execute) => { started(); await new Promise(r => { release = r; }); return execute(); };
  try {
-  const operation = dispatch(id, 'execute_command', { command: 'printf forbidden > queued-command.txt' });
+  const operation = require('./helpers/approvedNativeCommand.cjs')({ sessionId: id, name: 'execute_command', arguments: { command: 'printf forbidden > queued-command.txt' }, permissionMode: 'full_access' });
   await prepared; await contexts.setMode(id, 'read_only'); release(); const result = await operation;
   assert.equal(fs.existsSync(path.join(root, 'queued-command.txt')), false, JSON.stringify(result));
   assert.equal(result.success, false);

@@ -141,7 +141,8 @@ async function measurePreparedContext({
   const measuredAt = new Date().toISOString();
   const base = { sessionId, modelId, measuredAt,
     representation: 'prepared-request-projection',
-    messageCount: messages.length, toolCount: tools.length, memoryEnabled };
+    messageCount: messages.length, toolCount: tools.length, memoryEnabled,
+    ...require('./nativeToolActivation').snapshot(sessionId) };
   let result;
   const backendUsable = !cloud && engine && engine.port != null &&
     (engine.modelPath == null || engine.modelPath === modelId);
@@ -193,11 +194,26 @@ async function measurePreparedContext({
   }
   if (stateIdentity !== preparedStateIdentity(sessionId, modelId, mcpToolsOverride) || historyIdentity !== payloadHash(require('./sessionManager').getActiveMessages(sessionId)))
     throw new Error('Prompt history changed during measurement; refresh the current request.');
+  // Full-request total comes from the established measurer. Components are
+  // explicitly estimates and overlap; they must never be summed as exact tokens.
+  const component = value => value.length ? Math.ceil(JSON.stringify(value).length / 4) : 0;
+  const taskMessages = messages.filter(message => message.role === 'system' && /WORKSPACE TASK BRIEF|CHECKPOINT|WORK LOG|WORKSPACE PLAN|EARLIER CONVERSATION SUMMARY/.test(message.content));
+  Object.assign(result, {
+    chatMode: project ? 'workspace' : 'casual', provider: cloud ? modelId.split(':')[1] : 'local', model: modelId,
+    measurementMethod: result.method, measurementConfidence: result.confidence,
+    initialRequestInputTokens: activeMessages.length === 1 && activeMessages[0].role === 'user' && !base.dynamicToolActivationCount ? result.tokens : null,
+    postActivationRequestInputTokens: base.dynamicToolActivationCount ? result.tokens : null,
+    nativeToolSchemaTokens: component(tools.filter(tool => !mcpTools.some(mcp => mcp.function?.name === tool.function?.name))),
+    systemInstructionTokens: component(messages.filter(message => message.role === 'system' || message.role === 'developer')),
+    projectContextTokens: component(require('./promptBuilder').buildProjectContext(sessionId)),
+    taskStateTokens: component(taskMessages), componentMeasurementMethod: 'serialized-characters/4-estimate-overlapping',
+  });
   result.historyIdentity = historyIdentity;
   result.stateIdentity = stateIdentity;
   result.promptIdentity = payloadHash({ hash, budget: result.budgetContract });
   if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value);
   if (cached?.hash === hash && JSON.stringify({ ...cached.result, measuredAt: null }) === JSON.stringify({ ...result, measuredAt: null })) return cached.result;
+  require('./sessionDeletion').assertAvailable(sessionId);
   cache.set(key, { hash, result });
   return result;
 }
@@ -205,6 +221,7 @@ async function measurePreparedContext({
 function preparedStateIdentity(sessionId, modelId, toolsOverride = null) {
   return payloadHash({ messages: require('./sessionManager').getActiveMessages(sessionId),
     settings: require('./profileSettings').getSessionSettings(sessionId, modelId),
+    nativeActivation: require('./nativeToolActivation').snapshot(sessionId),
     tools: toolsOverride ?? require('./mcpManager').getTools(sessionId) });
 }
 function isPreparedContextCurrent(sessionId, modelId, identity) {

@@ -18,7 +18,7 @@ const session = id => require('../src/main/sessionManager').getOrCreateSession(i
 let counter = 0;
 const fixtureContexts = [];
 const node = source => `${JSON.stringify(process.execPath)} -e ${JSON.stringify(source)}`;
-const sandboxAvailable = process.platform === 'linux' && require('node:child_process').spawnSync('bwrap', ['--ro-bind','/','/','--unshare-user','--unshare-pid','--proc','/proc','/bin/sh','-c','true']).status === 0;
+const sandboxAvailable = process.platform === 'linux' && require('node:child_process').spawnSync('bwrap', ['--ro-bind','/','/','--unshare-user','--unshare-pid','--unshare-net','--proc','/proc','/bin/sh','-c','true']).status === 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 function setup(mode = 'full_access', workspaceRoot = workspace, workspaceProject = project) {
   const sessionId = `background-${++counter}`; require('../src/main/sessionManager').getOrCreateSession(sessionId, 'fixture', workspaceProject.id);
@@ -27,7 +27,7 @@ function setup(mode = 'full_access', workspaceRoot = workspace, workspaceProject
   const context = { runId, sessionId, workspace: workspaceRoot };
   manager.openRun({ ...context, signal: controller.signal });
   fixtureContexts.push(context);
-  const dispatch = (name, args) => executeAgentTool({ name, arguments: JSON.stringify(args), sessionId, permissionMode: mode, signal: controller.signal, executionContext, backgroundContext: context });
+  const dispatch = (name, args) => (mode === 'full_access' || mode === 'workspace_write' ? require('./helpers/approvedNativeCommand.cjs') : executeAgentTool)({ name, arguments: JSON.stringify(args), sessionId, permissionMode: mode, signal: controller.signal, executionContext, backgroundContext: context });
   return { context, controller, dispatch };
 }
 async function terminal(id, context) {
@@ -307,7 +307,7 @@ test('shared executor settles a pipe capture failure without crashing or fabrica
   const fixtureModule = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/main/foregroundCommand.js'), 'utf8'), {
     module: fixtureModule, require: name => { assert.equal(name, 'node:child_process'); return { spawn: () => { setImmediate(() => child.stdout.emit('error', new Error('controlled broken pipe'))); return child; } }; },
-    performance, setTimeout, clearTimeout,
+    performance, setTimeout, clearTimeout, setInterval, clearInterval,
     process: { platform: 'linux', kill: () => { setImmediate(() => { child.emit('exit', null, 'SIGTERM'); child.emit('close'); }); } },
   });
   const result = await fixtureModule.exports.runForeground('fixture', [], { timeoutMs: 1000 });

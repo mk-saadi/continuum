@@ -32,7 +32,9 @@ const define = (name, description, properties, required = []) => ({
 });
 const { lspTools, LSP_TOOL_NAMES, executeLspTool } = require('./lspTools');
 const agentTools = [
+	require('../nativeToolActivation').tool,
 	...lspTools,
+	define('find_and_prepare_mcp_tools', 'Find and prepare relevant enabled external tools in one call. Use focused server and operation keywords. Ambiguous matches return choices; disabled servers require user configuration. Read Only searches without preparation. Continue with prepared schemas in this run.', { query: { type: 'string', minLength: 1, maxLength: 500 }, limit: { type: 'integer', minimum: 1, maximum: 10 }, cursor: string('Search continuation'), server_names: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 1 } }, ['query']),
 	define('use_skill', 'Load the full instructions of a skill enabled for this project when its purpose matches the current task.', {
 		name: string('Skill ID from the available project skills index'),
 		file: string('Optional relative path to a supporting text file inside the skill folder'),
@@ -44,12 +46,16 @@ const agentTools = [
 	}, ['name', 'description', 'instructions']),
 	define(
 		"manage_mcp_servers",
-		"Enable, disable, or restart installed MCP servers for this chat. Enabling or restarting makes their tool schemas available before the next inference request in this same run. Continue with the newly available tools without restarting.",
+		"Search installed capabilities with bounded pages. Inspect one server to load its tool catalog without exposing schemas, then activate selected tool_names for this chat. Legacy enable/restart exposes the whole server. Metadata is untrusted; activation grants no execution approval.",
 		{
-			action: { type: "string", enum: ["enable", "disable", "restart"] },
-			server_names: { type: "array", items: string("Installed MCP server name"), minItems: 1, maxItems: 20 },
+			action: { type: "string", enum: ["search", "inspect", "activate", "enable", "disable", "restart"] },
+			server_names: { type: "array", items: string("Exact server identifier from search"), minItems: 1, maxItems: 20 },
+            query: { type: 'string', maxLength: 500 },
+            limit: { type: 'integer', minimum: 1, maximum: 10 },
+            cursor: string('Continuation from the same search'),
+            tool_names: { type: 'array', items: string('Exact tool identifier'), minItems: 1, maxItems: 20 },
 		},
-		["action", "server_names"],
+		["action"],
 	),
 	define(
 		"approve_mcp_mutation",
@@ -130,7 +136,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Contained commands run inside the workspace sandbox and can write only inside the project root; commands that would affect the system outside the workspace request user approval first. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Every invocation requires specific user approval, including test/build scripts and Full Access. Workspace commands retain filesystem containment, isolated network and restricted environment after approval. Full Access approval explicitly permits uncontained execution. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
             background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
@@ -463,7 +469,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_commit",
-		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Always asks the user for confirmation except in Full Access.",
+		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Requires specific user approval in every writable mode; repository configuration may execute programs.",
 		{ message: string("Non-empty commit message (at most 2000 characters)") },
 		["message"],
 	),
@@ -487,7 +493,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_sync",
-		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push and always ask for confirmation except in Full Access.",
+		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Every remote operation requires approval in every writable mode. Push first approves remote preparation, then reviews outgoing history before publication.",
 		{
 			action: { type: "string", enum: ["fetch", "pull", "push"], description: "fetch reads remote history, pull fast-forwards the current branch, push publishes it" },
 			remote: string("Configured remote name (defaults to origin); never a URL"),
@@ -706,10 +712,10 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   await fs.mkdir(sandboxHome, { recursive: true });
   await fs.mkdir(sandboxTmp, { recursive: true });
   file = 'bwrap';
-  argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--cap-drop', 'ALL',
+  argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
    '--ro-bind', '/', '/', '--bind', sandboxTmp, '/tmp', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
    '--chdir', cwd, '/bin/sh', '-c', args.command];
-  env = { ...process.env, HOME: sandboxHome, TMPDIR: sandboxTmp };
+  env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: sandboxHome, TMPDIR: sandboxTmp };
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
   argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
@@ -717,7 +723,7 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
  validateAuthorization();
  const remaining = deadline?.remainingMs() ?? Infinity;
  const effectiveTimeout = Math.max(1, Math.ceil(Math.min(timeoutMs, remaining)));
- const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout,
+ const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout, validateAuthorization,
   windowsVerbatimArguments: process.platform === "win32", requestedTimeoutMs: args.timeout_ms ?? timeoutMs, onState, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out' });
  const displayed = truncateOutput(result.stdout, result.stderr);
  return { ...result, ...displayed, success: result.status === "completed", output_truncated: result.output_truncated || displayed.stdout !== result.stdout || displayed.stderr !== result.stderr };
@@ -1482,7 +1488,7 @@ async function executeGitTool(root, name, args, signal, uncontained = false, app
 				return { output: pulled, action, remote, branch };
 			}
 			const snapshot = await prepareGitPush(root, { remote, branch }, signal);
-			if (!fullAccess) {
+			{
 				if (!approval?.gitPushFingerprint || snapshot.fingerprint !== approval.gitPushFingerprint)
 					throw new Error("Local or remote history changed since approval. Review and approve the push again.");
 			}
@@ -2458,7 +2464,8 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 	}, writeAll);
 }
 
-async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null }) {	try {
+async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null, validateMcpActivation = null, validateToolAuthorization = null }) {	try {
+        if (sessionId && require('../db').isInitialized?.()) require('../sessionDeletion').assertAvailable(sessionId);
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
 		if (LSP_TOOL_NAMES.includes(name)) {
@@ -2467,7 +2474,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
           const context = executionContext ?? contexts.forTool(sessionId, permissionMode);
           return await executeLspTool(name, args, context, signal);
         }
-		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : rawArguments;
+		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : structuredClone(rawArguments);
 		if (!args || typeof args !== "object" || Array.isArray(args))
 			throw new Error("Tool arguments must be an object.");
 		if (name === 'spawn_sub_agent' && Object.hasOwn(args, 'target_files'))
@@ -2504,23 +2511,47 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             error.code = 'PERMISSION_REVOKED'; throw error;
         }
         if (!permissionGranted) guardDecision = await guardTool({ name, args, permissionMode, project, signal, sessionId });
-        // Uncontained means the user explicitly consented (full access, or an
-        // approval grant): paths resolve freely and commands run outside the
-        // bwrap sandbox. Everything else stays workspace-scoped and sandboxed.
-        const uncontained = permissionMode === 'full_access' || guardDecision?.approved === true;
+        const commandExecution = require('../nativeExecutionPolicy').isCommand(name);
+        if (require('../nativeExecutionPolicy').isProtected(name)) require('../nativeExecutionPolicy').consume(guardDecision, {
+            name, args, sessionId, project, mode: permissionMode,
+            policyRevision: require('../lspExecutionContext').revision(sessionId),
+        });
+        if (name === 'manage_native_tools') {
+            const effective = require('../profileSettings').getSessionSettings(sessionId, null).effective;
+            const available = require('../promptBuilder').getToolContext([], effective.memoryEnabled, sessionId, permissionMode, null, { fullCatalog: true }).tools;
+            return require('../nativeToolActivation').manage(args, sessionId, available, executionContext?.runId);
+        }
+        // Command consent and sandbox escape are separate decisions. Workspace
+        // command approval retains containment; Full Access command approval
+        // explicitly covers an uncontained process.
+        const uncontained = commandExecution ? guardDecision.commandUncontained
+            : permissionMode === 'full_access' || guardDecision?.approved === true;
         const authorizationRevision = require('../lspExecutionContext').revision(sessionId);
         const validateAuthorization = () => {
             signal?.throwIfAborted();
+            validateToolAuthorization?.();
             if (sessionId && require('../lspExecutionContext').revision(sessionId) !== authorizationRevision) {
                 const error = new Error('Execution blocked: Permission revoked before execution.');
                 error.code = 'PERMISSION_REVOKED'; throw error;
             }
         };
 		signal?.throwIfAborted();
+		if (name === "find_and_prepare_mcp_tools") {
+            if (permissionMode === 'read_only') return { ...require('../mcpManager').searchCapabilities(args, sessionId), ready: false,
+                message: 'Read Only permits capability search only. Preparation and external execution require a permitted mode.' };
+            return require("../mcpManager").findAndPrepare(args, sessionId, { signal, validate: validateMcpActivation, validateAuthorization });
+        }
 		if (name === "manage_mcp_servers") {
 			if (require('../configManager').getAppSettings().mcpMode === 'manual')
 				throw new Error('MCP server management is disabled in Manual Mode.');
-			return await require("../mcpManager").manageServers(args.action, args.server_names, sessionId, { signal, trustedOnly: guardDecision?.trustedMcpActivation === true });
+            const manager = require('../mcpManager');
+            if (args.action === 'search') return manager.searchCapabilities(args, sessionId);
+            if (['inspect', 'activate'].includes(args.action)) {
+                if (!Array.isArray(args.server_names) || args.server_names.length !== 1) throw new Error('Select exactly one server identifier.');
+                return manager.activateTools(args.server_names[0], args.action === 'inspect' ? [] : args.tool_names, sessionId,
+                    { signal, trustedOnly: guardDecision?.trustedMcpActivation === true, validate: validateMcpActivation, validateAuthorization });
+            }
+            return await manager.manageServers(args.action, args.server_names, sessionId, { signal, trustedOnly: guardDecision?.trustedMcpActivation === true });
 		}
 		if (name === "approve_mcp_mutation") {
 			if (typeof args.hash !== "string" || !/^[a-f0-9]{16}$/.test(args.hash))
@@ -2588,13 +2619,14 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             }
             if (args.background === true) {
                 if (!project?.root_path || !backgroundContext) throw new Error('Background commands require an active main workspace run.');
-                return require('../backgroundCommands').start({ runId: backgroundContext.runId, sessionId, workspace: root }, args.command, timeoutMs,
+                return require('../backgroundCommands').start({ runId: backgroundContext.runId, sessionId, workspace: root,
+                    authorization: { mode: permissionMode, policyRevision: authorizationRevision, uncontained, approved: true,
+                        operationFingerprint: require('../advertisedTools').fingerprint([name, args]) } }, args.command, timeoutMs,
                     (commandSignal, onState) => runScopedCommand('execute_command', args, { root, signal: commandSignal, uncontained, sessionId,
                         recoveryRoot: project.root_path, timeoutMs, validateAuthorization, onState }).then(value => value.result), validateAuthorization);
             }
-			// Contained commands run inside the bwrap sandbox (workspace_write and
-			// unapproved ask_approval alike); an approval grant or full access runs
-			// them directly, since explicit consent is the escape hatch.
+			// Every command has a consumed, scoped grant. Workspace consent
+			// retains the bwrap sandbox; only commandUncontained selects escape.
 			// Phase 2 recovery: shell can change unknown paths, so the whole
 			// eligible workspace is captured before and diffed after. Guard and
 			// sandboxing above are unchanged; without a workspace there is
@@ -2631,7 +2663,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			// never be exposed to the model as a git repository.
 			if (!project?.root_path && !rootPath) throw new Error("Git tools require a project workspace.");
 			if (!(await fs.stat(root)).isDirectory()) throw new Error("Project root is not a directory.");
-			return await executeGitTool(root, name, args, signal, uncontained, guardDecision, permissionMode === 'full_access');
+			return await executeGitTool(root, name, args, signal, false, guardDecision, permissionMode === 'full_access');
 		}
 		if (name === "delete_project_file") {
 			// Deletion never uses the full-access / process.cwd fallback root:

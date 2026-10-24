@@ -71,18 +71,18 @@ test('workspace guards traversal, sibling-prefix paths, symlinks and dangling sy
       });
       assert.equal(granted.approved, true, command);
     }
-    await guardTool({ name: 'execute_command', args: { command: 'echo ok' }, permissionMode: 'workspace_write', project: { root_path: root } });
+    await guardTool({ name: 'execute_command', args: { command: 'echo ok' }, permissionMode: 'workspace_write', project: { root_path: root }, requestApproval: () => true });
     for (const command of ['git init', 'git add .', 'git commit -m test', 'git status', 'git diff', 'git branch'])
-      await guardTool({ name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root } });
+      await guardTool({ name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root }, requestApproval: () => true });
     await assert.rejects(guardTool({ name: 'execute_command', args: { command: 'echo ok', cwd: '..' }, permissionMode: 'workspace_write', project: { root_path: root } }), /Path escapes/);
   } finally { await fs.rm(temp, { recursive: true, force: true }); }
 });
 test('ask approval waits, denies and does not trust user_confirmed', async () => {
   for (const name of ['execute_command', 'execute_sql']) {
     let requested = false;
-    await guardTool({ name, permissionMode: 'ask_approval', requestApproval: async () => { requested = true; return true; } });
+    await guardTool({ name, args: { command: 'printf fixture' }, permissionMode: 'ask_approval', requestApproval: async () => { requested = true; return true; } });
     assert.equal(requested, true, name);
-    await assert.rejects(guardTool({ name, args: { user_confirmed: true }, permissionMode: 'ask_approval', requestApproval: async () => false }), /approval denied/);
+    await assert.rejects(guardTool({ name, args: { command: 'printf fixture', user_confirmed: true }, permissionMode: 'ask_approval', requestApproval: async () => false }), /approval denied/);
   }
   // Memory writes are safe persistent caps: allowed silently, never prompted.
   let requested = false;
@@ -91,7 +91,7 @@ test('ask approval waits, denies and does not trust user_confirmed', async () =>
   await guardTool({ name: 'save_memory', permissionMode: 'workspace_write', project: { root_path: '/tmp' } });
   // Without a workspace there is nothing to write into: denied, not prompted.
   await assert.rejects(guardTool({ name: 'delete_file', args: { path: 'x.txt' }, permissionMode: 'ask_approval', requestApproval: async () => true }), { message: 'Execution blocked: File writes require a project workspace.' });
-  await guardTool({ name: 'execute_command', permissionMode: 'full_access', requestApproval: () => { throw new Error('must not ask'); } });
+  await assert.rejects(guardTool({ name: 'execute_command', args: { command: 'printf fixture' }, permissionMode: 'full_access', requestApproval: () => false }), /approval denied/);
 });
 test('workspace ask approval contains writes, prompting only outside the workspace', async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'permissions-ask-'));
@@ -107,14 +107,14 @@ test('workspace ask approval contains writes, prompting only outside the workspa
     });
     assert.equal(requested, false);
     assert.equal(inside.approved, false);
-    // In-workspace shell command: not prompted merely for being a command.
+    // Opaque shell execution prompts even inside the workspace.
     requested = false;
     await guardTool({
       name: 'execute_command', args: { command: 'printf dev' },
       permissionMode: 'ask_approval', project: { root_path: root },
       requestApproval: async () => { requested = true; return true; },
     });
-    assert.equal(requested, false);
+    assert.equal(requested, true);
     // Outside-workspace write: prompts; denial rejects; approval resolves.
     requested = false;
     await assert.rejects(guardTool({

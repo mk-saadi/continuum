@@ -48,7 +48,7 @@ for (const cloud of [false, true]) for (const streaming of [false, true]) test(`
     const catalog = f.manager.getDiscoveryCatalog('chat-a');
     assert.match(catalog, /navigation, page\/DOM inspection and page screenshots/);
     assert.match(catalog, /inactive/);
-    assert.match(catalog, /not trusted/);
+    assert.match(catalog, /untrusted metadata/);
     assert.doesNotMatch(catalog, /inputSchema|ELECTRON_RUN_AS_NODE/);
     assert.equal(f.launches(), 0);
     let requests = 0, approvals = 0, delivered = 0;
@@ -125,13 +125,31 @@ test('initialization failure and queued manual switch do not expose tools', asyn
       project: { root_path: f.manager.servers.get('playwright-native').definition.cwd } });
     await assert.rejects(invoke('read_only'), /blocked|denied/i);
     await assert.rejects(invoke('ask_approval'), /approval denied/i);
-    await assert.rejects(invoke('workspace_write', ['unknown']), /approval denied/i);
+    assert.equal((await invoke('workspace_write', ['unknown'])).approved, false);
     assert.equal((await invoke('full_access')).mode, 'full_access');
-    assert.equal((await invoke('workspace_write')).trustedMcpActivation, true);
+    assert.equal((await invoke('workspace_write')).approved, false);
     const config = await f.manager.getConfig();
     config.mcpServers['playwright-native'].command = 'untrusted';
     await f.manager.writeConfig(config);
     await assert.rejects(f.manager.manageServers('enable', ['playwright-native'], 'a', { trustedOnly: true }), /not trusted/);
     assert.equal(f.launches(), 0);
   } finally { singleton.isTrustedActivation = original; await f.close(); }
+});
+
+test('authorized chat enable permits inspection of a globally disabled server without changing settings', async () => {
+  const f = await fixture();
+  try {
+    await f.manager.setServerEnabled('unknown', false);
+    f.manager.beginRun('enabled-chat', 'run');
+    f.manager.beginRun('other-chat', 'other-run');
+    await assert.rejects(f.manager.activateTools('unknown', [], 'enabled-chat'), /SERVER_DISABLED/);
+    const enabled = await f.manager.manageServers('enable', ['unknown'], 'enabled-chat');
+    assert.equal(enabled.success, true);
+    await f.manager.activateTools('unknown', ['browser_snapshot'], 'enabled-chat');
+    assert.equal(f.manager.getTools('enabled-chat').length, 1);
+    await assert.rejects(f.manager.activateTools('unknown', [], 'other-chat'), /SERVER_DISABLED/);
+    assert.equal((await f.manager.getConfig()).mcpServers.unknown.disabled, true);
+    await f.manager.setServerEnabled('unknown', false);
+    await assert.rejects(f.manager.activateTools('unknown', [], 'enabled-chat'), /SERVER_DISABLED/);
+  } finally { await f.close(); }
 });

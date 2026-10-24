@@ -727,16 +727,18 @@ test('13. the parent-facing protocol advertises the investigate invocation', () 
   const prompt = buildSessionSystemPrompt({
     sessionId: null, modelId: 'local-model', delegationAvailable: true, userText: '',
   });
-  assert.ok(prompt.content.includes('### Sub-Agent Delegation Protocol'));
-  assert.ok(prompt.content.includes('Autonomous Investigation'),
+  assert.ok(prompt.content.includes('use advertised web tools'));
+  const deferred = require('../src/main/promptBuilder').subAgentProtocol;
+  assert.ok(require('../src/main/promptBuilder').subAgentProtocol.includes('### Sub-Agent Delegation Protocol'));
+  assert.ok(deferred.includes('Autonomous Investigation'),
     'the trigger bullet explains when to investigate');
-  assert.ok(prompt.content.includes('call `spawn_sub_agent` with `investigate: true`'),
+  assert.ok(deferred.includes('call `spawn_sub_agent` with `investigate: true`'),
     'the trigger bullet names the exact flag');
-  assert.ok(prompt.content.includes('exactly one of: a public URL'),
+  assert.ok(deferred.includes('exactly one of: a public URL'),
     'the invocation rule states investigate is exclusive with url/target_file');
-  assert.ok(prompt.content.includes('Its tool set is fixed and read-only'),
+  assert.ok(deferred.includes('Its tool set is fixed and read-only'),
     'the protocol promises the read-only guarantee');
-  assert.ok(prompt.content.includes('"investigate": true,'),
+  assert.ok(deferred.includes('"investigate": true,'),
     'the example invocation shows the flag');
 
   const withoutDelegation = buildSessionSystemPrompt({

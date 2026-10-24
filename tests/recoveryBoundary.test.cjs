@@ -46,7 +46,7 @@ function shellCall(root, command, cwd = '.') {
     require('../src/main/sessionManager').getOrCreateSession(sid, 'model', project.id);
     sessionsByRoot.set(root, sid);
   }
-  return tools.executeAgentTool({ name: 'execute_command', arguments: { command, cwd }, sessionId: sid, permissionMode: 'full_access' });
+  return require('./helpers/approvedNativeCommand.cjs')({ name: 'execute_command', arguments: { command, cwd }, sessionId: sid, permissionMode: 'full_access' });
 }
 async function checkpointsFor(root) {
   return recovery.listCheckpoints(await recovery.getOrCreateRecoverySession(root));

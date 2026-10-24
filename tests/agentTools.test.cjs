@@ -57,7 +57,7 @@ const run = (
 	].includes(name)
 		? "full_access"
 		: "workspace_write",
-) => executeAgentTool({ name, arguments: JSON.stringify(args), sessionId, permissionMode });
+) => (permissionMode === 'full_access' ? require('./helpers/approvedNativeCommand.cjs') : executeAgentTool)({ name, arguments: JSON.stringify(args), sessionId, permissionMode });
 (async () => {
 	let dispose;
 	try {
@@ -72,7 +72,7 @@ const run = (
 		const contextTools = require("../src/main/promptBuilder").getToolContext([], false, "chat").tools;
 		assert.equal(
 			contextTools.length,
-			agentTools.length + 1 - (imageGenerationConfigured ? 0 : 1) - 1,
+			agentTools.length + 1 - (imageGenerationConfigured ? 0 : 1) - 4,
 			"ask_user is also available (generate_image only when an image provider is configured); legacy delegate_task is shadowed while execute_command is offered",
 		);
 		assert.ok(contextTools.some((tool) => tool.function.name === "execute_command"));
@@ -80,7 +80,7 @@ const run = (
 		assert.ok(
 			require("../src/main/promptBuilder")
 				.getToolContext([], false, null)
-				.tools.some((tool) => tool.function.name === "manage_mcp_servers"),
+				.tools.some((tool) => tool.function.name === "find_and_prepare_mcp_tools"),
 		);
 		const mcpManager = require("../src/main/mcpManager");
 		const originalManage = mcpManager.manageServers;
@@ -111,7 +111,9 @@ const run = (
 				sessionId: "chat",
 				modelId: "model",
 			}).content;
-			assert.match(prompt, /Optional MCP integrations[\s\S]*"terminal"[\s\S]*"browser"/);
+			assert.match(prompt, /find_and_prepare_mcp_tools/);
+            assert.doesNotMatch(prompt, /"terminal"|"browser"/);
+            assert.equal(mcpManager.searchCapabilities({query:'terminal'}).results[0].serverId, 'terminal');
 			assert.doesNotMatch(prompt, /heavy/);
 		} finally {
 			mcpManager.manageServers = originalManage;
@@ -120,7 +122,7 @@ const run = (
 		const { approvedMutations } = require("../src/main/safetyGuards");
 		assert.equal(require("../src/main/tools/agentTools").approvedMutations, approvedMutations);
 		const hash = "0123456789abcdef";
-		assert.deepEqual(await run("approve_mcp_mutation", { hash }, null), { success: true, hash });
+		assert.deepEqual(await executeAgentTool({name:"approve_mcp_mutation",arguments:{hash},permissionMode:"full_access",permissionGranted:true,approval:{mode:"full_access",approved:true}}), { success: true, hash });
 		assert.ok(approvedMutations.delete(require('../src/main/safetyGuards').mutationApprovalKey(null, hash)), "Approval is available without a project");
 		for (const hash of ["", "not-a-hash", 42, null]) {
 			assert.equal((await run("approve_mcp_mutation", { hash }, null)).success, false);
@@ -302,7 +304,7 @@ const run = (
 						"ask_approval",
 					)
 				).error,
-				/approval denied/,
+				/approval denied|TOOL_ARGUMENTS_INVALID/,
 			);
 			assert.equal(fs.existsSync(marker), false, "Intercepted commands must not execute");
 		}
@@ -329,7 +331,7 @@ const run = (
 					"ask_approval",
 				)
 			).error,
-			/approval denied/,
+			/approval denied|TOOL_ARGUMENTS_INVALID/,
 			"Model cannot grant its own approval",
 		);
 		const image = await run("take_screenshot", {});

@@ -72,6 +72,7 @@ function start(context, command, timeoutMs, operation, validate) {
   if (records.size >= HISTORY_LIMIT || all.filter(r => r.run_id === owner.runId).length >= RUN_HISTORY_LIMIT) throw new Error('Background command history/notification capacity reached.');
   const controller = new AbortController();
   const r = { command_id: `cmd_${randomUUID()}`, run_id: owner.runId, session_id: owner.sessionId, workspace: owner.workspace,
+    authorization: context.authorization ? structuredClone(context.authorization) : null,
     command_summary: command.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 160), background: true,
     status: 'starting', started_at: new Date().toISOString(), timeout_ms: timeoutMs, exitCode: null,
     notification_state: 'pending', controller, validate, ownerSignal: owner.signal };
@@ -144,9 +145,13 @@ async function closeRun(context) {
   })();
   return owner.closePromise;
 }
+async function forgetSession(sessionId) {
+  await Promise.all([...runs.values()].filter(owner => owner.sessionId === sessionId).map(closeRun));
+  for (const [id, r] of records) if (r.session_id === sessionId) records.delete(id);
+}
 async function shutdown() {
   closing = true;
   await Promise.allSettled([...runs.values()].map(owner => closeRun(owner)));
 }
 function list(sessionId, workspace) { return [...records.values()].filter(r => r.session_id === sessionId && r.workspace === workspace).map(publicRecord); }
-module.exports = { openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
+module.exports = { forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };

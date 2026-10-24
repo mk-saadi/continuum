@@ -169,9 +169,9 @@ test('repetition detection intercepts canonical duplicate attempts without cache
   tools.executeAgentTool = async () => { effects++; return `current state ${effects}`; };
   try {
     const session = {};
-    const s = script([reply(null, [call('a', 'list_directory', { x: 1, y: 2 })]),
-      reply(null, [call('b', 'list_directory', { y: 2, x: 1 })]),
-      reply(null, [call('c', 'list_directory', { x: 1, y: 2 })]), reply('Observed changing values.')]);
+    const s = script([reply(null, [call('a', 'search_project_content', { query: 'needle', relative_path: '.' })]),
+      reply(null, [call('b', 'search_project_content', { relative_path: '.', query: 'needle' })]),
+      reply(null, [call('c', 'search_project_content', { query: 'needle', relative_path: '.' })]), reply('Observed changing values.')]);
     const result = await run(session, s);
     assert.equal(effects, 2); assert.equal(session.budgetState.toolCalls, 2);
     assert.equal(result.stopReason, 'no_progress');

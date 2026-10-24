@@ -295,6 +295,9 @@ ipcMain.on("window:close", (event) => {
 // Terminal engine (child process) IPC
 // ---------------------------------------------------------------------------
 async function launchProcess(command, model = null, config = null) {
+	// Legacy shell launch is not a model loader and has no scoped approval.
+	// All supported UI callers select a scanned model and use argv below.
+	if (!model) return { success: false, error: 'Custom shell engine launch is disabled. Select a scanned local model.' };
 	if (require("./src/main/dataAccess").isMigrating())
 		return { success: false, error: "App data is migrating. Please wait." };
 	if (launching || childProcess)
@@ -312,17 +315,6 @@ async function launchProcess(command, model = null, config = null) {
 			engineCommand = resolveEngineCommand();
 			childProcess = spawn(engineCommand, args, {
 				shell: false,
-				detached: true,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: buildLlamaServerEnv(),
-			});
-		} else {
-			const cleanedCommand = stripFlag(
-				stripFlag(stripFlag(command, "port"), "api-key-file"),
-				"api-key",
-			);
-			childProcess = spawn(`${cleanedCommand} --port ${engineConfig.port}`, {
-				shell: true,
 				detached: true,
 				stdio: ["ignore", "pipe", "pipe"],
 				env: buildLlamaServerEnv(),
@@ -520,7 +512,7 @@ async function launchProcess(command, model = null, config = null) {
 		launching = false;
 	}
 }
-ipcMain.handle("terminal:spawn", (_event, command) => launchProcess(command));
+ipcMain.handle("terminal:spawn", () => ({ success: false, error: 'Custom shell engine launch is disabled. Select a scanned local model.' }));
 
 let switchingLocalModel = false;
 

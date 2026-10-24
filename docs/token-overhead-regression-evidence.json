@@ -1,0 +1,482 @@
+{
+  "auditId": "token-overhead-regression-audit-2026-10-23",
+  "auditDate": "2026-10-23",
+  "workingDirectory": "/home/mk_saadi/projects/persona-projects/llm-electron",
+  "gitStatus": {
+    "short": ["M src/components/settings/TokenChart.jsx", "M tests/cacheTokenHistory.ui.cjs"],
+    "head": "3bc6a8b",
+    "headMessage": "feat: unified context budget (C1), live-run compaction protection (C3), and selective file reading pagination",
+    "committedChangesOnly": false,
+    "workingTreeDirty": true
+  },
+  "mode": "read-only",
+  "noProductionChanges": true,
+  "noLiveDbChanges": true,
+  "noLiveInference": true,
+  "sourceFilesInspected": [
+    "src/main/promptBuilder.js",
+    "src/main/baseSystemPrompt.js",
+    "src/main/nativeTools.js",
+    "src/main/tools/agentTools.js",
+    "src/main/mcpManager.js",
+    "src/main/contextBudget.js",
+    "src/main/promptMeasurement.js",
+    "src/main/sessionManager.js",
+    "src/main/ipcHandlers.js",
+    "src/components/MemoryPalace.jsx",
+    "src/components/ContextPanel.jsx",
+    "main.js",
+    "src/main/toolPermissions.js",
+    "src/main/lspExecutionContext.js",
+    "src/lib/permissionModes.mjs",
+    "src/lib/permissionModes.json",
+    "src/main/profileSettings.js",
+    "src/main/compressionEngine.js",
+    "src/main/taskBriefs.js",
+    "src/main/taskCheckpoints.js",
+    "src/main/workLog.js",
+    "src/main/workspacePlan.js",
+    "src/main/tools/lspTools.js",
+    "src/main/engineManager.js",
+    "src/main/localEngineFetch.js",
+    "src/main/cloudProviders.js",
+    "src/main/recoveryBoundary.js",
+    "src/main/safetyGuards.js"
+  ],
+  "documentReferences": [
+    "docs/workspace-compaction-w1-audit.md",
+    "docs/workspace-compaction-w1-evidence.json",
+    "docs/context-compaction-audit-2026-10-22.md",
+    "docs/context-compaction-audit-2026-10-22.evidence.json",
+    "docs/context-c1-unified-budget-report.md",
+    "docs/context-c1-unified-budget-evidence.json",
+    "docs/context-c3-live-run-compaction-report.md",
+    "docs/context-c3-live-run-compaction-evidence.json"
+  ],
+  "observedMeasurements": {
+    "latestWorkspaceOpenRouter": {
+      "provider": "OpenRouter",
+      "model": "z-ai/glm-5.3-flash",
+      "userMessage": "hello",
+      "headerContextEstimate": "approximately 27.5K / 1,047.4K",
+      "lastPromptInputTokens": 18987,
+      "tokensProcessed": 19052,
+      "lastCompletionTokens": 65,
+      "contextPanelCurrentEstimate": 88,
+      "confidence": "from user screenshot; not independently executed"
+    },
+    "latestCasualLocalQwen": {
+      "provider": "Local Qwen 3.8 27B",
+      "model": "Qwen 3.8 27B",
+      "userMessage": "hello",
+      "headerContextEstimate": "approximately 9.0K / 74.1K",
+      "tokensProcessed": 9051,
+      "confidence": "from user screenshot; not independently executed"
+    },
+    "olderWorkspaceLocalQwen": {
+      "provider": "Local Qwen",
+      "userMessage": "hello",
+      "headerContextEstimate": "1482 / 70000",
+      "tokensProcessed": 12202,
+      "confidence": "from user screenshot; not independently executed"
+    },
+    "olderCasualLocalQwen": {
+      "provider": "Local Qwen",
+      "userMessage": "hello",
+      "headerContextEstimate": "1481 / 70000",
+      "tokensProcessed": 6692,
+      "confidence": "from user screenshot; not independently executed"
+    },
+    "openCodeLocalQwen": {
+      "provider": "Local Llama",
+      "model": "Qwen 3.8 27B",
+      "userMessage": "hello",
+      "contextLimit": 102400,
+      "inputTokens": 5440,
+      "outputTokens": 129,
+      "totalTokens": 5569,
+      "userMessages": 1,
+      "assistantMessages": 1,
+      "confidence": "from user screenshot; different provider/model config; not directly comparable"
+    }
+  },
+  "promptBuilderWorkflowConfirmed": {
+    "prepareChatMessages": {
+      "file": "src/main/promptBuilder.js",
+      "line": 332,
+      "componentsInjected": [
+        "brief (taskBriefs.buildTaskBriefSection)",
+        "checkpoint (taskCheckpoints.buildCheckpointSection)",
+        "summary (getSessionSummary)",
+        "system prompt (buildSessionSystemPrompt)",
+        "workspaceContinuation (checkpoint without user turn)",
+        "active messages (filtered)",
+        "workLog (workLog.buildWorkLogSection)",
+        "plan (workspacePlan.buildPlanSection)",
+        "prependBaseSystemPrompt"
+      ],
+      "appliesToWorkspace": true,
+      "appliesToCasual": "only shared components; brief/checkpoint/plan/workLog/project context null for project-less sessions"
+    },
+    "rebuildChatMessages": {
+      "file": "src/main/promptBuilder.js",
+      "line": 290,
+      "componentsInjected": [
+        "brief",
+        "checkpoint",
+        "summary",
+        "system prompt",
+        "workspaceContinuation",
+        "active messages",
+        "workLog",
+        "plan"
+      ],
+      "appliesToWorkspace": true,
+      "appliesToCasual": "only when project_id set; project context excluded for casual"
+    },
+    "buildSessionSystemPrompt": {
+      "file": "src/main/promptBuilder.js",
+      "line": 216,
+      "alwaysIncluded": [
+        "memorySection",
+        "temporal anchor",
+        "effective system prompt / active agent name",
+        "MCP discovery catalog (compact, when not manual)",
+        "cross-session memory note",
+        "skill proposals note",
+        "browser automation note",
+        "agentic extensibility note",
+        "autonomy rules",
+        "safety rules",
+        "visualization prompt",
+        "sub-agent protocol (SUB_AGENT_CORE or SUB_AGENT_PROTOCOL)"
+      ],
+      "workspaceOnly": [
+        "str_replace_editor surgical edit rules",
+        "update_plan planning rules",
+        "run_tests verification rules",
+        "delete-id-scoped cleanup rules",
+        "LSP tools usage note"
+      ],
+      "casualReduced": ["sub-agent protocol reduced to SUB_AGENT_CORE (no worked example)"]
+    },
+    "buildProjectContext": {
+      "file": "src/main/promptBuilder.js",
+      "line": 178,
+      "eagerInjection": [
+        "project description",
+        "project custom instructions",
+        "project context files (full content, truncated at 100,000 chars)",
+        "repository guidelines (AGENTS.md / PROJECT.md)",
+        "workspace directory tree (depth 2, excludes node_modules/.git/dist/build)"
+      ],
+      "appliesToWorkspace": "only when project_id set",
+      "appliesToCasual": false
+    }
+  },
+  "nativeToolCatalogEvidence": {
+    "agentToolsCount": "approximately 35 defined via define() plus lspTools spread; approximately 48 total native schemas per F13",
+    "agentToolsFile": "src/main/tools/agentTools.js",
+    "agentToolsStartLine": 34,
+    "getToolContextFile": "src/main/promptBuilder.js",
+    "getToolContextLine": 442,
+    "serializedCharsApprox": 37540,
+    "estimatedTokensApprox": 12528,
+    "confidence": "from context-compaction-audit-2026-10-22.md F13; confirmed structurally by source",
+    "toolCategories": {
+      "fileReads": ["read_project_file", "search_project_content", "list_directory"],
+      "fileWrites": ["write_project_file", "str_replace_editor", "edit_project_files", "apply_patch", "move_project_file", "delete_project_file"],
+      "search": ["search_project_content", "web_search", "get_single_web_page_content", "extract_web_page_data"],
+      "lsp": ["lspTools spread at agentTools.js line 33; filtered by available(project)"],
+      "commands": ["execute_command", "run_tests", "get_command_status"],
+      "background": ["stop_background_command", "background commands via lspExecutionContext"],
+      "plans": ["update_plan", "get_project_plans"],
+      "subagent": ["spawn_sub_agent", "get_recent_chat_history"],
+      "mcp": ["manage_mcp_servers", "approve_mcp_mutation"],
+      "media": ["generate_image", "take_screenshot"],
+      "git": ["git_status", "git_branch", "git_diff", "git_log", "git_show", "git_stage", "git_unstage", "git_commit", "git_create_branch", "git_switch", "git_sync", "git_stash", "git_blame"],
+      "memory": ["search_memory", "save_memory"]
+    },
+    "filteringConfirmed": {
+      "visibleCheck": "isToolVisible(name, { permissionMode, project, native }) in toolPermissions.js",
+      "lspProjectCheck": "available(project) filters LSP tools when no project",
+      "commandCheck": "delegate_task hidden when execute_command present",
+      "askUserCheck": "askUserTool excluded when allowMidRunQuestions === false",
+      "memoryCheck": "memory tools excluded when memoryEnabled === false",
+      "manualMcpCheck": "manage_mcp_servers hidden when mcpMode === 'manual'"
+    }
+  },
+  "dynamicMcpVerification": {
+    "getDiscoveryCatalog": {
+      "file": "src/main/mcpManager.js",
+      "line": 295,
+      "compact": true,
+      "maxDescriptionChars": 180,
+      "maxCapabilitiesPerServer": 6,
+      "format": "name - purpose Status: status. trustedFlag"
+    },
+    "getTools": {
+      "file": "src/main/mcpManager.js",
+      "line": 320,
+      "filter": "enabled && status connected && visibility",
+      "inactiveSchemasIncluded": false
+    },
+    "sessionActivation": {
+      "file": "src/main/mcpManager.js",
+      "line": 412,
+      "method": "manageServers",
+      "sessionScoped": true,
+      "permissionGated": true,
+      "newToolsAvailableNextRequest": true
+    },
+    "conclusion": "MCP auto-activation verified; inactive schemas NOT in tool payload; compact catalog in system prompt is minor"
+  },
+  "casualWorkspaceIsolationVerification": {
+    "isCasualChatLine": "promptBuilder.js line 230",
+    "casualReceives": [
+      "base system prompt",
+      "reduced sub-agent protocol (SUB_AGENT_CORE only)",
+      "visible native tools",
+      "active MCP tools",
+      "memory section (if enabled)",
+      "MCP compact catalog (if not manual)",
+      "cross-session memory note",
+      "skill proposals note",
+      "browser automation note",
+      "autonomy rules (reduced)",
+      "safety rules"
+    ],
+    "casualDoesNotReceive": [
+      "workspace task brief",
+      "workspace checkpoint",
+      "workspace plan",
+      "work log",
+      "project context",
+      "directory tree",
+      "project instructions",
+      "project skills",
+      "str_replace_editor rules",
+      "update_plan rules",
+      "run_tests rules",
+      "LSP tools usage note",
+      "workspace delete-id-scoped cleanup rules"
+    ],
+    "conclusion": "Casual Chat isolation verified; no Workspace-only instructions/tools leak into Casual mode"
+  },
+  "tokenCounterScopes": {
+    "contextPanelCurrentEstimate": {
+      "source": "src/components/ContextPanel.jsx + src/lib/contextMeasurement.mjs",
+      "scope": "partial content/text estimate only",
+      "excludes": [
+        "system instructions",
+        "developer instructions",
+        "native tool schemas",
+        "MCP schemas",
+        "brief",
+        "checkpoint",
+        "work log",
+        "plan",
+        "project context",
+        "fixed overhead"
+      ],
+      "confidence": "documented as partial estimate in C1 report F13"
+    },
+    "memoryPalaceHeader": {
+      "source": "src/components/MemoryPalace.jsx",
+      "scope": "rebuilds full prepareChatMessages / rebuildChatMessages; measures prepared request via budgetContract",
+      "confidence": "C1 fixed header to use usableInputTokens"
+    },
+    "onPhaseTelemetry": {
+      "source": "src/main/ipcHandlers.js lines 889-899",
+      "scope": "per-inference-request promptTokens / completionTokens / cachedTokens from server response",
+      "accumulates": "across agent/tool-loop rounds in same user turn",
+      "confidence": "source inspection"
+    },
+    "onStatsTelemetry": {
+      "source": "src/main/ipcHandlers.js lines 847-884",
+      "scope": "per-turn aggregate persisted via tokenUsage.logTokenUsage",
+      "confidence": "source inspection"
+    },
+    "oldHeaderVsTelemetryMismatch": {
+      "explanation": "old header measured content-only / partial estimate while telemetry summed actual backend-reported usage across turns",
+      "evidence": "older header 1482 vs telemetry 12202 for same session"
+    },
+    "newHeaderVsPanelMismatch": {
+      "explanation": "ContextPanel 88 is partial content estimate; header/telemetry 18,987 / 19,052 are prepared-request / backend-reported",
+      "evidence": "different scopes; not inconsistent implementation"
+    }
+  },
+  "estimatedComponentSizes": {
+    "baseSystemPromptWithToolsChars": 2800,
+    "temporalAnchorChars": 120,
+    "memorySectionChars": 1000,
+    "subAgentProtocolCoreChars": 1500,
+    "subAgentProtocolExampleChars": 400,
+    "visualizationPromptChars": 800,
+    "nativeToolSchemasChars": 37540,
+    "nativeToolSchemasTokens": 12528,
+    "briefCheckpointWrapperTokensEstimate": 500,
+    "projectContextChars": "variable; can exceed 10000 with context files + directory tree"
+  },
+  "fixedOverheadEstimateWorkspace": {
+    "nativeToolSchemasTokens": 12528,
+    "systemInstructionsChars": 20425,
+    "systemInstructionsTokensEstimate": 5100,
+    "briefCheckpointWrapperTokensEstimate": 500,
+    "totalFixedFloorTokensEstimate": "approximately 18000 to 20000",
+    "observedInputTokens": 18987,
+    "confidence": "estimated; whole-request tokenization not executed"
+  },
+  "fixedOverheadEstimateCasual": {
+    "nativeToolSchemasTokens": 12528,
+    "systemInstructionsChars": "approximately 15000 to 18000 (reduced sub-agent protocol, no workspace rules)",
+    "systemInstructionsTokensEstimate": 3800,
+    "briefCheckpointPlanWorkLog": "none for casual",
+    "projectContext": "none for casual",
+    "totalFixedFloorTokensEstimate": "approximately 16000 to 17000 (if full catalog exposed)",
+    "observedTokensProcessed": 9051,
+    "confidence": "estimated; discrepancy between estimate and observed may be due to permission-mode tool filtering"
+  },
+  "rankedRootCauses": {
+    "P0Major": [
+      {
+        "id": "P0-1",
+        "cause": "48 native tool schemas (~12.5k tokens) always included in every agent request, even for greeting-only turns",
+        "impact": "Workspace and Casual",
+        "fixable": true,
+        "files": ["src/main/tools/agentTools.js", "src/main/promptBuilder.js"]
+      },
+      {
+        "id": "P0-2",
+        "cause": "Expanded system/developer instructions (~20k chars / ~5k tokens) including sub-agent protocol, visualization, media, token conservation, rich formatting, temporal anchor",
+        "impact": "Workspace and Casual",
+        "fixable": true,
+        "files": ["src/main/baseSystemPrompt.js", "src/main/promptBuilder.js"]
+      },
+      {
+        "id": "P0-3",
+        "cause": "Workspace-only state injected into fresh Workspace session: brief, checkpoint, plan, work log, project context, directory tree",
+        "impact": "Workspace only",
+        "fixable": true,
+        "files": ["src/main/promptBuilder.js", "src/main/taskBriefs.js", "src/main/taskCheckpoints.js", "src/main/workspacePlan.js", "src/main/workLog.js"]
+      }
+    ],
+    "P1Significant": [
+      {
+        "id": "P1-1",
+        "cause": "MCP compact catalog and activation instructions in system prompt for every request",
+        "impact": "Workspace and Casual",
+        "fixable": true,
+        "files": ["src/main/promptBuilder.js", "src/main/mcpManager.js"]
+      },
+      {
+        "id": "P1-2",
+        "cause": "Tool schema serialization overhead per request; dynamic native-tool discovery not used to reduce initial catalog",
+        "impact": "Workspace and Casual",
+        "fixable": true,
+        "files": ["src/main/promptBuilder.js"]
+      },
+      {
+        "id": "P1-3",
+        "cause": "Token counter scope mismatch: ContextPanel partial estimate vs header full-prepared vs telemetry backend-reported",
+        "impact": "UI observability both modes",
+        "fixable": true,
+        "files": ["src/components/ContextPanel.jsx", "src/components/MemoryPalace.jsx", "src/lib/contextMeasurement.mjs"]
+      },
+      {
+        "id": "P1-4",
+        "cause": "Project context eagerly injected (full file contents + directory tree) on every Workspace request",
+        "impact": "Workspace only",
+        "fixable": true,
+        "files": ["src/main/promptBuilder.js"]
+      }
+    ],
+    "P2Smaller": [
+      {
+        "id": "P2-1",
+        "cause": "Provider framing fields add wire payload size but not prompt tokens directly",
+        "impact": "Both",
+        "fixable": false,
+        "files": ["src/main/promptMeasurement.js", "src/main/ipcHandlers.js"]
+      }
+    ]
+  },
+  "remediationPhases": [
+    {
+      "phase": "T1",
+      "objective": "Eliminate confirmed accidental overhead and observability mismatch",
+      "causesAddressed": ["P1-3 token counter scope mismatch"],
+      "expectedSavings": "0 tokens (accounting only)",
+      "risk": "none",
+      "capabilityPreserved": true
+    },
+    {
+      "phase": "T2",
+      "objective": "Native tool-schema optimization",
+      "causesAddressed": ["P0-1 native catalog always on", "P1-2 dynamic discovery not used"],
+      "expectedSavings": "5000 to 10000 tokens (core 8 to 12 tools vs full 48)",
+      "risk": "medium",
+      "capabilityPreserved": true,
+      "feasibilityNote": "Existing dynamic MCP activation infrastructure reusable for same-run native tool expansion"
+    },
+    {
+      "phase": "T3",
+      "objective": "Project context and task-state efficiency",
+      "causesAddressed": ["P1-4 eager project context", "P0-3 brief/checkpoint/plan in fresh sessions"],
+      "expectedSavings": "variable (project size dependent)",
+      "risk": "medium",
+      "capabilityPreserved": true
+    },
+    {
+      "phase": "T4",
+      "objective": "Token accounting and observability alignment",
+      "causesAddressed": ["P1-3"],
+      "expectedSavings": "0 tokens (accounting only)",
+      "risk": "none",
+      "capabilityPreserved": true
+    },
+    {
+      "phase": "T5",
+      "objective": "Benchmark and regression gates",
+      "causesAddressed": "all",
+      "risk": "none",
+      "capabilityPreserved": true
+    }
+  ],
+  "securityAndCapabilityPreservationConfirmed": {
+    "permissionModes": "all four (read_only / ask_approval / guided / full_access)",
+    "workspaceBoundaries": "project_id session check; sessionProject",
+    "subagentIsolation": "spawn_sub_agent gated by visibility; child adapter preserved",
+    "mcpAuthorization": "manage_mcp_servers gated by manual mode; session activation scoped",
+    "lspPermissionChecks": "available(project) filter",
+    "verifiedWrites": "expected_content_hash and approval gates",
+    "backgroundCommandProtections": "runId ownership; lifecycle management",
+    "pendingApprovalRequirements": "guardTool / requestToolApproval",
+    "toolExecutionOwnership": "controller/runId tracked per session"
+  },
+  "measurementLimitations": [
+    "No live model inference executed against user chats (read-only constraint)",
+    "Per-tool-schema token counts not individually tokenized; using characters/4 fallback from F13",
+    "Older build source revisions not fully diffed at commit level",
+    "Provider tokenizer differences (Qwen vs glm-5.3-flash) not directly compared with identical payload",
+    "Multi-turn agent loop token accumulation not reconstructed",
+    "Image token cost not measured (no attachments in hello test)",
+    "Casual Chat observed 9051 vs estimated 16000 to 17000 discrepancy unresolved",
+    "Exact wire-payload byte size not byte-verified"
+  ],
+  "reproductionOutcomes": {
+    "readOnlySourceInspection": "completed for all listed source files",
+    "existingTestRuns": "contextC1.test.cjs (29 pass), contextC3LiveProtection.test.cjs (5 pass), focused regression 17/17 pass; full suite 188/219 pass, 31 fail (pre-existing)",
+    "environmentLimitations": "no running llama server; no GGUF fixture; no Electron sandbox execution; no network to paid providers",
+    "confidenceClassifications": {
+      "confirmedBySourceInspection": "most structural findings",
+      "confirmedByExistingTests": "budget contract, C3 protection, C1 measurement",
+      "estimated": "token counts per component; per-schema breakdown",
+      "unverified": "exact wire-payload byte size; provider-reported actual for current build; old build diff magnitude"
+    }
+  },
+  "deliverables": [
+    "docs/token-overhead-regression-audit.md",
+    "docs/token-overhead-regression-evidence.json"
+  ]
+}

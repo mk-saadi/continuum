@@ -141,6 +141,11 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   renameSession: (sessionId, title) => ipcRenderer.invoke('session:rename', { sessionId, title }),
   generateSessionTitle: payload => ipcRenderer.invoke('session:generate-title', payload),
   moveSession: (sessionId, folderName) => ipcRenderer.invoke('session:move-to-folder', { sessionId, folderName }),
+  onSessionDeleted: callback => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('session:deleted', listener);
+    return () => ipcRenderer.removeListener('session:deleted', listener);
+  },
   deleteSession: (sessionId) => ipcRenderer.invoke('session:delete', { sessionId }),
   deleteMessage: (sessionId, messageId) => ipcRenderer.invoke('session:delete-message', { sessionId, messageId }),
   branchChat: (sourceSessionId, targetMessageId) => ipcRenderer.invoke('session:branch-chat', { sourceSessionId, targetMessageId }),

@@ -848,6 +848,21 @@ function evictOneSession(session) {
   return { removed, executions };
 }
 
+async function forgetParent(parentSessionId) {
+  const children = listSessions().filter(session => session.parentSessionId === parentSessionId);
+  for (const session of children) {
+    // Terminal cancellation suppresses scheduled continuation as well as tools.
+    cancelSession(session);
+    for (const attempt of listExecutions(session.id)) attempt.controller?.abort(new Error('Owning conversation deleted.'));
+  }
+  const deadline = Date.now() + 10_000;
+  while (children.some(session => runningSessionIds().has(session.id))) {
+    if (Date.now() >= deadline) throw new Error('Child execution has not stopped; conversation deletion was not committed.');
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  for (const session of children) evictOneSession(session);
+}
+
 function pruneChildSessions({ now = Date.now(), ttlMs = COMPLETED_TTL_MS, maxCompleted = MAX_COMPLETED_SESSIONS } = {}) {
   if (!Number.isFinite(ttlMs) || !Number.isSafeInteger(maxCompleted) || maxCompleted < 0) {
     throw new TypeError('pruneChildSessions requires a finite ttlMs and a non-negative integer maxCompleted.');
@@ -875,6 +890,7 @@ function pruneChildSessions({ now = Date.now(), ttlMs = COMPLETED_TTL_MS, maxCom
 }
 
 module.exports = {
+  forgetParent,
   registerChild, onTurnSettled, noteInterruptedTurn,
   sendMessage, interrupt, resume,
   // Phase 1.3C control surface: inspect, renew, continue, recover.

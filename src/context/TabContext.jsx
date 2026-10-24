@@ -162,6 +162,13 @@ export function TabProvider({ children }) {
     return () => { active = false; };
   }, [commit]);
 
+  useEffect(() => window.memoryPalace?.onSessionDeleted?.(({ sessionId }) => {
+    commit(current => {
+      const tab = current.tabs.find(item => item.sessionId === sessionId);
+      return tab ? closeTabState(current, tab.id, newDefaultTab) : current;
+    });
+  }), [commit]);
+
   // Best-effort flush when the window is going away. The persistence effect
   // above already writes on every committed change, so this only matters if
   // the effect has not flushed yet; it writes the same deduped payload and

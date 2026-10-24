@@ -17,7 +17,7 @@ const { runForeground, shutdownForegroundCommands } = require('../src/main/foreg
 initDatabase(root);
 const project = require('../src/main/projectManager').createProject({name:'Commands', root_path:workspace});
 require('../src/main/sessionManager').getOrCreateSession('commands', 'model', project.id);
-const run = (args, signal) => executeAgentTool({name:'execute_command',arguments:JSON.stringify(args),sessionId:'commands',permissionMode:'full_access',signal});
+const run = (args, signal) => require('./helpers/approvedNativeCommand.cjs')({name:'execute_command',arguments:JSON.stringify(args),sessionId:'commands',permissionMode:'full_access',signal});
 const node = source => `${JSON.stringify(process.execPath)} -e ${JSON.stringify(source)}`;
 test.after(() => { closeDatabase(); Module._load = originalLoad; fs.rmSync(root,{recursive:true,force:true}); });
 
@@ -136,7 +136,7 @@ test('Windows lifecycle adapter uses owned taskkill tree arguments and preserves
  const vm=require('node:vm'), {EventEmitter}=require('node:events'), {PassThrough}=require('node:stream');
  const calls=[]; const module={exports:{}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/foregroundCommand'),'utf8'),{
-  module,process:{platform:'win32'},performance,setTimeout,clearTimeout,
+  module,process:{platform:'win32'},performance,setTimeout,clearTimeout,setInterval,clearInterval,
   require:name=>{
    assert.equal(name,'node:child_process');
    return {spawn:(file,argv,options)=>{
