@@ -22,7 +22,7 @@ function validateExtraPaths(paths, { home = os.homedir(), maskedPaths = [] } = {
   });
 }
 // Pure: inputs contain already resolved paths. Mount ordering is security-critical.
-function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory }) {
+function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [] }) {
   const argv = ['--tmpfs', '/', '--tmpfs', '/tmp', '--dir', '/sandbox-home'];
   if (tmp) argv.push('--bind', tmp, '/tmp');
   const bound = new Set();
@@ -36,6 +36,7 @@ function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = 
     }
   }
   if (workspace) bind(workspace, workspace, writable);
+  for (const p of gitMetadata) bind(p, p);
   // Hidden data is an empty read-only mount, not writable scratch space.
   const masked = [];
   for (const p of [...new Set(maskedPaths)].sort((a, b) => a.length - b.length)) {
@@ -73,7 +74,7 @@ function assertNoExposedHostSockets(roots) {
     if (socket && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
   }
 }
-function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env }) {
+function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false }) {
   if (!config || !userData) {
     const { app } = require('electron');
     config ??= require('./configStore').getConfig();
@@ -131,7 +132,8 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     bins.push(path.join(validated, 'bin'), parent);
   }
   assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)]);
-  return { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory }),
+  return { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory,
+    gitMetadata: protectGitMetadata ? require("./gitMetadata").resolveGitMetadata(workspace) : [] }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
 }
 module.exports = { buildSandboxMounts, resolveFilesystem, validateExtraPaths, environment, inside };

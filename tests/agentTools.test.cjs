@@ -608,6 +608,17 @@ const run = (
 			assert.equal((await run(name, args, "casual")).success, false, `${name} in casual chat`);
 		}
 
+		fs.mkdirSync(path.join(workspace, '.git'), { recursive: true });
+		fs.writeFileSync(path.join(workspace, '.git/config'), 'fixture');
+		for (const [name, args] of [
+			['write_project_file', { relative_path: '.git/config', content: 'blocked' }],
+			['move_project_file', { source_path: '.git/config', destination_path: 'stolen' }],
+			['edit_project_files', { edits: [{ relative_path: '.git/config', old_str: 'fixture', new_str: 'blocked' }] }],
+		]) {
+			const result = await run(name, args);
+			assert.equal(result.success, false, name);
+			assert.match(result.error, /Git metadata is read-only here; use the git_\* tools/, name);
+		}
 		console.log(
 			"Agent tools: file scope, symlinks, editing, search, command output, screenshot payload and IPC passed.",
 		);

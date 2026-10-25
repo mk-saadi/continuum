@@ -136,7 +136,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. System commands, package operations and commands needing path review require approval. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. System commands, package operations and commands needing path review require approval. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Git metadata is read-only in the shell sandbox; git mutations must use the git_* tools. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
             background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
@@ -712,11 +712,11 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   await fs.mkdir(sandboxHome, { recursive: true });
   await fs.mkdir(sandboxTmp, { recursive: true });
   file = 'bwrap';
-  const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp });
+  const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp, protectGitMetadata: true });
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
    ...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
-  env = { ...filesystem.env, PATH: '/usr/local/bin:/usr/bin:/bin' };
+  env = { ...filesystem.env, GIT_OPTIONAL_LOCKS: '0', PATH: '/usr/local/bin:/usr/bin:/bin' };
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
   argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
@@ -726,6 +726,9 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
  const effectiveTimeout = Math.max(1, Math.ceil(Math.min(timeoutMs, remaining)));
  const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout, validateAuthorization,
   windowsVerbatimArguments: process.platform === "win32", requestedTimeoutMs: args.timeout_ms ?? timeoutMs, onState, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out' });
+ if (workspaceRoot && result.exitCode !== 0 && /read-only file system|cannot .*\.git|unable to create.*(?:index|lock)/i.test(result.stderr)) {
+  result.stderr += '\n' + require('../gitMetadata').MESSAGE;
+ }
  const displayed = truncateOutput(result.stdout, result.stderr);
  return { ...result, ...displayed, success: result.status === "completed", output_truncated: result.output_truncated || displayed.stdout !== result.stdout || displayed.stderr !== result.stderr };
 }
@@ -1598,7 +1601,9 @@ async function executeStrReplaceEditor(target, { old_str, new_str }, recoveryCtx
 // other write tools: sandboxed to root unless the call is uncontained.
 async function resolveWriteTarget(root, value, uncontained) {
 	requireText(value, "path");
-	return uncontained ? path.resolve(root, value) : await scopedPath(root, value, true);
+	const target = uncontained ? path.resolve(root, value) : await scopedPath(root, value, true);
+ require('../gitMetadata').assertWritable(root, target);
+ return target;
 }
 
 // Write file content atomically (temp file + rename) so an interrupted write
@@ -2210,7 +2215,7 @@ async function prepareFileDelete(root, value, { signal } = {}) {
 		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Execution blocked: path escapes the project root.");
 	// Repository history is never a deletion target.
 	if (segments.some((part) => part === ".git"))
-		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Execution blocked: refusing to delete inside the .git directory.");
+		throw deleteFail(DELETE_OUTCOMES.INVALID_PATH, "Git metadata is read-only here; use the git_* tools");
 	let target;
 	try {
 		target = await scopedPath(root, normalized, false);
@@ -2224,6 +2229,7 @@ async function prepareFileDelete(root, value, { signal } = {}) {
 	// resolving to the file behind it.
 	if (normalized.endsWith("/"))
 		throw deleteFail(DELETE_OUTCOMES.NOT_A_FILE, `Not a regular file: ${normalized}.`);
+	require('../gitMetadata').assertWritable(root, target);
 	let stat;
 	try {
 		stat = await fs.lstat(target);
@@ -2728,6 +2734,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		const target = ["read_project_file", "list_directory"].includes(name)
 			? await readablePath(root, args.relative_path ?? ".")
 			: uncontained ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
+		if (!["read_project_file", "list_directory", "move_project_file", "edit_project_files", "apply_patch"].includes(name)) require("../gitMetadata").assertWritable(root, target);
 		validateAuthorization();
 		if (name === "list_directory") {
 			const entries = await fs.readdir(target, { withFileTypes: true });

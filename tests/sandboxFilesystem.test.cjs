@@ -123,3 +123,19 @@ test('active filesystem sockets in admitted system runtime trees reject setup', 
   try { assert.throws(() => resolveFilesystem(options), /socket path is not permitted: \/usr\/local/); }
   finally { fs.readFileSync = original; }
 });
+
+test('shell metadata mounts follow workspace; native profile stays writable; init is discovered next time', t => {
+  const repo = path.join(directory, 'git-project'); fs.mkdirSync(repo);
+  const git = args => cp.execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+  git(['init', '-q']); git(['config', 'user.name', 'Fixture']); git(['config', 'user.email', 'fixture@example.test']);
+  fs.writeFileSync(path.join(repo, 'file'), 'one'); git(['add', '.']); git(['commit', '-qm', 'initial']);
+  const opts = { ...options, workspace: repo, protectGitMetadata: true };
+  const plan = resolveFilesystem(opts), marker = path.join(repo, '.git');
+  assert.ok(plan.mounts.join(' ').includes(`--bind ${repo} ${repo} --ro-bind ${marker} ${marker}`));
+  assert.ok(!resolveFilesystem({ ...opts, protectGitMetadata: false }).mounts.includes(marker));
+  const run = command => cp.spawnSync('/usr/bin/bwrap', ['--die-with-parent', '--unshare-user', '--unshare-net', ...plan.mounts, '--chdir', repo, '/bin/sh', '-ec', command], { env: { ...plan.env, GIT_OPTIONAL_LOCKS: '0' }, encoding: 'utf8' });
+  const probe = run('true');
+  if (probe.status !== 0) { t.skip(`bwrap unavailable: ${probe.stderr}`); return; }
+  for (const command of ['git status', 'git diff', 'git log', 'git show']) assert.equal(run(command).status, 0, command);
+  for (const command of ['rm -rf .git', 'echo bad > .git/config', 'echo bad > .git/hooks/evil', 'git commit --allow-empty -m blocked']) assert.notEqual(run(command).status, 0, command);
+});

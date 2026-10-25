@@ -27,3 +27,12 @@ Recovery preserves eligible workspace files around commands, subject to its docu
 Tool results entering the parent model, replayed tool messages, child-agent tool results, and selected work-log digest fields use the shared secret redactor. Generic token filtering preserves recognized paths; explicit secret signatures still redact inside paths.
 
 Rolling-summary generation, Workspace compact-candidate generation (including intermediate reductions), checkpoint generation, and memory injection do not have a shared secret-redaction pass. Child compaction inherits already-redacted tool text, but does not independently redact its other inputs. Replayed summaries are also not independently redacted. User-typed text and stored memory are user content; this tool-output safeguard does not rewrite them. Workspace compact candidates separately reject sensitive command metadata rather than silently changing exact evidence. These boundaries are outside the tool-output redaction scope.
+
+Shell sandbox git metadata is read-only. After binding the workspace, the shell
+profile overlays resolved `.git` directories and gitfiles, including linked
+worktree gitdirs and common directories, read-only. Each invocation discovers
+metadata again, so shell `git init` is protected on the next invocation.
+`GIT_OPTIONAL_LOCKS=0` permits inspection without optional index refresh writes.
+Git mutations must use the `git_*` tools, whose writable profile is unchanged.
+File tools reject writes, patches, moves and deletes of git metadata, including
+resolved aliases and moves of containing directories.
