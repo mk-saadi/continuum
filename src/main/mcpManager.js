@@ -634,11 +634,11 @@ class McpManager extends EventEmitter {
       throw new Error('Execution blocked: File deletion requires explicit approval.');
     }
     const payload = JSON.stringify(args);
-    if (require('./mcpPermissionPolicy').requiresOutboundApproval(toolName, args) && !approval?.approved) {
+    if (permissionMode !== 'full_access' && require('./mcpPermissionPolicy').requiresOutboundApproval(toolName, args) && !approval?.approved) {
       throw new Error('Execution blocked: Outbound or consequential mutation requires explicit user approval.');
     }
     const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
-    if ((workspaceMcp || permissionMode === 'full_access') && require('./mcpPermissionPolicy').requiresGitApproval(toolName, args, serverName) && !approval?.approved) {
+    if (workspaceMcp && require('./mcpPermissionPolicy').requiresGitApproval(toolName, args, serverName) && !approval?.approved) {
       throw new Error('Execution blocked: Git commit or push requires explicit approval.');
     }
     if (permissionMode !== 'full_access' && !workspaceMcp && !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload)) {

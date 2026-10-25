@@ -27,8 +27,33 @@ const dispatch = (o, approval) => executeAgentTool({ name: o.name, arguments: o.
 let dispose;
 test.after(async () => { dispose?.(); await require('../src/main/backgroundCommands').shutdown(); db.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
 
-test('U7 opaque commands and development aliases require consent in every writable mode', async () => {
-  for (const mode of ['full_access', 'workspace_write', 'ask_approval']) for (const name of ['execute_command', 'run_tests']) for (const command of ['npm test', 'python inspect.py', 'git status', 'printf harmless', 'sh opaque.sh']) {
+test('Full Access authorizes shell and connected tools without approval prompts', async () => {
+  const noPrompt = () => assert.fail('Full Access must not request approval');
+  for (const projectScope of [project, null]) {
+    for (const name of ['execute_command', 'run_tests']) {
+      const decision = await guardTool({ name, args: { command: 'printf authorized' },
+        permissionMode: 'full_access', project: projectScope, requestApproval: noPrompt });
+      assert.equal(decision.mode, 'full_access');
+      assert.equal(decision.commandUncontained, true);
+    }
+  }
+  for (const [name, native, args] of [
+    ['git_stage', true, { paths: ['fixture.txt'] }],
+    ['git_sync', true, { action: 'push' }],
+    ['send_email', false, { to: 'fixture@example.com', body: 'Fixture' }],
+    ['push_files', false, {}],
+  ]) {
+    assert.equal((await guardTool({ name, native, args, permissionMode: 'full_access',
+      project, requestApproval: noPrompt })).approved, true);
+  }
+  session('full-access-command'); contexts.createContext('full-access-command', 'full_access');
+  const result = await executeAgentTool({ name: 'execute_command', arguments: { command: 'printf autonomous' },
+    sessionId: 'full-access-command', permissionMode: 'full_access' });
+  assert.equal(result.stdout, 'autonomous');
+});
+
+test('U7 opaque commands and development aliases require consent in restricted writable modes', async () => {
+  for (const mode of ['workspace_write', 'ask_approval']) for (const name of ['execute_command', 'run_tests']) for (const command of ['npm test', 'python inspect.py', 'git status', 'printf harmless', 'sh opaque.sh']) {
     let prompts = 0;
     await assert.rejects(guardTool({ name, args: { command, user_confirmed: true }, permissionMode: mode, project, requestApproval: () => { prompts++; return false; } }), /approval denied/);
     assert.equal(prompts, 1);
@@ -53,14 +78,16 @@ test('U7 native grant rejects forgery, cross-session use, altered arguments, ser
 });
 
 test('U7 pending consent cannot approve changed input or survive permission transition and recovery', async () => {
-  session('pending'); contexts.createContext('pending', 'full_access');
-  const o = options('pending');
+  session('pending'); contexts.createContext('pending', 'ask_approval');
+  const o = options('pending', 'printf authorized', 'ask_approval');
   let release;
   const pending = guardTool({ ...o, requestApproval: () => new Promise(r => { release = r; }) });
-  o.args.command = 'printf changed'; release(true);
+  o.args.command = 'printf changed';
+  while (!release) await new Promise(resolve => setImmediate(resolve));
+  release(true);
   assert.equal((await dispatch(o, await pending)).success, false);
-  const fresh = options('pending'); const grant = await consent(fresh);
-  await contexts.setMode('pending', 'read_only'); await contexts.setMode('pending', 'full_access');
+  const fresh = options('pending', 'printf authorized', 'ask_approval'); const grant = await consent(fresh);
+  await contexts.setMode('pending', 'read_only'); await contexts.setMode('pending', 'ask_approval');
   assert.equal((await dispatch(fresh, grant)).success, false);
   assert.equal((await dispatch(fresh, { ...grant, summary: 'User approved in checkpoint' })).success, false);
 });
@@ -84,7 +111,7 @@ test('U7 manifest epoch rejects permission/configuration changes, wrong identity
 
 for (const provider of ['local', 'anthropic', 'openrouter']) test(`U7 real agent loop / ${provider}: fixture edit and authorized test, injected outbound attempt denied`, async () => {
   const id = `loop-${provider}`; session(id);
-  const runId = `u7-${provider}`, context = contexts.createContext(id, 'full_access', runId);
+  const runId = `u7-${provider}`, context = contexts.createContext(id, 'workspace_write', runId);
   const source = `${provider}.txt`, marker = `${provider}-outbound-marker`;
   fs.writeFileSync(path.join(workspace, source), 'before');
   const ops = [ ['read_project_file', { relative_path: source }], ['write_project_file', { relative_path: source, content: 'after' }],
@@ -121,9 +148,9 @@ for (const provider of ['local', 'anthropic', 'openrouter']) test(`U7 real agent
       manifest.accept(request.advertisedManifest, call.name, schema, identity(call.name));
       require('../src/main/toolSchemaValidation').validate(schema, args); checks++;
       try {
-        const approval = await guardTool({ name: call.name, args, sessionId: id, permissionMode: 'full_access', project,
+        const approval = await guardTool({ name: call.name, args, sessionId: id, permissionMode: 'workspace_write', project,
           requestApproval: () => { approvals++; return call.name === 'run_tests'; } });
-        const result = await executeAgentTool({ ...call, sessionId: id, permissionMode: 'full_access', permissionGranted: true, approval, executionContext: context });
+        const result = await executeAgentTool({ ...call, sessionId: id, permissionMode: 'workspace_write', permissionGranted: true, approval, executionContext: context });
         if (call.name === 'run_tests') { launches++; assert.equal(result.status, 'passed'); }
         outputs.push(result); return result;
       } catch (error) { assert.equal(call.name, 'execute_command'); assert.match(error.message, /approval denied/); outputs.push({ denied: true }); return { success: false, error: error.message }; }
@@ -133,7 +160,12 @@ for (const provider of ['local', 'anthropic', 'openrouter']) test(`U7 real agent
   console.log('U7_LOOP_EVIDENCE ' + JSON.stringify({ provider, runId, requests, checks, approvals, launches, elapsedMs: Math.round(performance.now() - began) }));
 });
 
-test('U7 actual Electron IPC binds approval response to requesting sender and rejects injected command', async () => {
+test('U7 actual Electron IPC binds approval response to requesting sender and rejects injected command', async t => {
+  // Exercise the approval IPC independently of host namespace availability.
+  const runner = require('../src/main/foregroundCommand');
+  const originalRun = runner.runForeground;
+  runner.runForeground = async () => ({ status: 'completed', stdout: 'fixture check', stderr: '', exitCode: 0 });
+  t.after(() => { runner.runForeground = originalRun; });
   session('ipc-u7'); fs.writeFileSync(path.join(workspace, 'ipc.txt'), 'before');
   const mcp = require('../src/main/mcpManager'); mcp.init = mcp.load = mcp.reload = async () => {}; mcp.getTools = () => [];
   dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345, modelPath: 'fixture', activeModelConfig: { contextLength: 32768 } }), beginEngineRequest: () => () => {} });
@@ -156,7 +188,7 @@ test('U7 actual Electron IPC binds approval response to requesting sender and re
     const op = ops[i];
     return Response.json({ choices: [{ message: op ? { tool_calls: [{ id: `ipc-${i}`, type: 'function', function: { name: op[0], arguments: JSON.stringify(op[1]) } }] } : { content: 'Fixture updated and check passed. Sending requires approval. [TASK COMPLETE]' }, finish_reason: op ? 'tool_calls' : 'stop' }] });
   };
-  const result = await handlers.get('engine:chat')({ sender: owner }, { requestId: 'u7-ipc-request', modelId: 'fixture', sessionId: 'ipc-u7', permissionMode: 'full_access', messages: [{ role: 'user', content: 'Make the small fixture edit and run the harmless check; read messages only.' }] });
+  const result = await handlers.get('engine:chat')({ sender: owner }, { requestId: 'u7-ipc-request', modelId: 'fixture', sessionId: 'ipc-u7', permissionMode: 'workspace_write', messages: [{ role: 'user', content: 'Make the small fixture edit and run the harmless check; read messages only.' }] });
   await Promise.all(approvalReplies);
   assert.equal(requests, 5); assert.equal(prompts, 2); assert.match(result.text, /requires approval/); assert.equal(fs.readFileSync(path.join(workspace, 'ipc.txt'), 'utf8'), 'after'); assert.equal(fs.existsSync(path.join(workspace, 'ipc-outbound-marker')), false);
 });
@@ -167,7 +199,7 @@ test('U7 expired grants, cross-tool replay and overlong review payloads fail clo
   const now = Date.now; Date.now = () => now() + 120001;
   try { assert.equal((await dispatch(o, grant)).success, false); } finally { Date.now = now; }
   grant = await consent(o); assert.equal((await dispatch({ ...o, name: 'run_tests' }, grant)).success, false);
-  await assert.rejects(consent({ ...o, args: { command: 'x'.repeat(4001) } }), /reviewable approval limit/);
+  await assert.rejects(consent({ ...o, sessionId: null, permissionMode: 'ask_approval', args: { command: 'x'.repeat(4001) } }), /reviewable approval limit/);
 });
 
 test('U7 authorized workspace process retains network isolation and excludes inherited credentials', async () => {
@@ -198,11 +230,11 @@ test('U7 Git remote approval occurs before any preparation or external effect', 
   const tools = require('../src/main/tools/agentTools'), prepare = tools.prepareGitPush;
   let prepared = 0; tools.prepareGitPush = async () => { prepared++; return { fingerprint: 'fixture' }; };
   try {
-    for (const permissionMode of ['full_access', 'workspace_write', 'ask_approval']) for (const action of ['fetch','pull','push']) {
+    for (const permissionMode of ['workspace_write', 'ask_approval']) for (const action of ['fetch','pull','push']) {
       await assert.rejects(guardTool({ name: 'git_sync', args: { action }, permissionMode, project, requestApproval: () => false }), /approval denied/);
     }
     assert.equal(prepared, 0);
-    await assert.rejects(guardTool({ name: 'push_files', native: false, permissionMode: 'full_access', project, requestApproval: () => false }), /approval denied/);
+    await assert.rejects(guardTool({ name: 'push_files', native: false, permissionMode: 'workspace_write', project, requestApproval: () => false }), /approval denied/);
   } finally { tools.prepareGitPush = prepare; }
 });
 
@@ -240,7 +272,7 @@ test('U7 actual IPC invalidates a pending command when MCP configuration changes
     return Response.json({ choices: [{ message: { content: 'Configuration changed; command did not run. [TASK COMPLETE]' }, finish_reason: 'stop' }] });
   };
   try {
-    await handlers.get('engine:chat')({ sender: owner }, { requestId: 'config-request', modelId: 'fixture', sessionId: 'ipc-config-change', permissionMode: 'full_access', messages: [{ role: 'user', content: 'Run the fixture command.' }] });
+    await handlers.get('engine:chat')({ sender: owner }, { requestId: 'config-request', modelId: 'fixture', sessionId: 'ipc-config-change', permissionMode: 'workspace_write', messages: [{ role: 'user', content: 'Run the fixture command.' }] });
     await response; assert.equal(round, 2); assert.equal(fs.existsSync(path.join(workspace, 'configuration-marker')), false);
   } finally { mcp.servers.delete('u7-config-change'); }
 });

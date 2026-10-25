@@ -1489,7 +1489,7 @@ async function executeGitTool(root, name, args, signal, uncontained = false, app
 			}
 			const snapshot = await prepareGitPush(root, { remote, branch }, signal);
 			{
-				if (!approval?.gitPushFingerprint || snapshot.fingerprint !== approval.gitPushFingerprint)
+				if (!fullAccess && (!approval?.gitPushFingerprint || snapshot.fingerprint !== approval.gitPushFingerprint))
 					throw new Error("Local or remote history changed since approval. Review and approve the push again.");
 			}
 			if (snapshot.remoteSha) {
@@ -2522,8 +2522,8 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             return require('../nativeToolActivation').manage(args, sessionId, available, executionContext?.runId);
         }
         // Command consent and sandbox escape are separate decisions. Workspace
-        // command approval retains containment; Full Access command approval
-        // explicitly covers an uncontained process.
+        // command approval retains containment; Full Access authorizes an
+        // uncontained process without a separate prompt.
         const uncontained = commandExecution ? guardDecision.commandUncontained
             : permissionMode === 'full_access' || guardDecision?.approved === true;
         const authorizationRevision = require('../lspExecutionContext').revision(sessionId);

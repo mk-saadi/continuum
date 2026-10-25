@@ -91,7 +91,10 @@ test('ask approval waits, denies and does not trust user_confirmed', async () =>
   await guardTool({ name: 'save_memory', permissionMode: 'workspace_write', project: { root_path: '/tmp' } });
   // Without a workspace there is nothing to write into: denied, not prompted.
   await assert.rejects(guardTool({ name: 'delete_file', args: { path: 'x.txt' }, permissionMode: 'ask_approval', requestApproval: async () => true }), { message: 'Execution blocked: File writes require a project workspace.' });
-  await assert.rejects(guardTool({ name: 'execute_command', args: { command: 'printf fixture' }, permissionMode: 'full_access', requestApproval: () => false }), /approval denied/);
+  const fullAccess = await guardTool({ name: 'execute_command', args: { command: 'printf fixture' }, permissionMode: 'full_access',
+    requestApproval: () => assert.fail('Unexpected Full Access approval') });
+  assert.equal(fullAccess.approved, true);
+  assert.equal(fullAccess.commandUncontained, true);
 });
 test('workspace ask approval contains writes, prompting only outside the workspace', async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'permissions-ask-'));

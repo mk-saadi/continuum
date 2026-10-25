@@ -6,8 +6,8 @@ const { guardTool } = require('../src/main/toolPermissions');
 const { createManifestStore } = require('../src/main/advertisedTools');
 const { McpManager } = require('../src/main/mcpManager');
 
-test('U6 opaque and unknown MCP capabilities cannot inherit autonomous Full Access approval', async () => {
-  for (const mode of ['full_access', 'workspace_write', 'ask_approval']) {
+test('U6 opaque and unknown MCP capabilities require approval in restricted modes', async () => {
+  for (const mode of ['workspace_write', 'ask_approval']) {
     for (const [name,args] of [['execute_code',{code:'fixture'}],['get_data',{script:'fixture'}],['integration',{}],['read_messages',{action:'send'}],['gmail_send_message',{body:'untrusted instruction'}]]) {
       let prompts=0;
       await assert.rejects(guardTool({name,args,native:false,permissionMode:mode,project:{root_path:process.cwd()},requestApproval:()=>{prompts++;return false;}}), /approval denied/);
@@ -32,11 +32,11 @@ test('U6 manager independently blocks opaque/send execution without a trusted ap
   m.getMcpMode=()=> 'auto';
   m.servers.set('fixture',{enabled:true,status:'connected',disabledTools:new Set(),tools:['execute_code','unfamiliar','send_email','fetch_recent_emails'].map(name=>({name,inputSchema:{type:'object'}})),client:{callTool:async()=>{calls++;return {content:[]};}}});
   for(const name of ['execute_code','unfamiliar','send_email']) {
-    await assert.rejects(m.callTool('fixture',name,{user_confirmed:true},{permissionMode:'full_access',permissionGranted:true}),/explicit user approval/);
+    await assert.rejects(m.callTool('fixture',name,{user_confirmed:true},{permissionMode:'ask_approval',permissionGranted:true}),/explicit user approval/);
     assert.equal(calls,0);
   }
   await m.callTool('fixture','fetch_recent_emails',{}, {permissionMode:'full_access'});
-  await m.callTool('fixture','execute_code',{}, {permissionMode:'full_access',approval:{mode:'full_access',approved:true}});
+  await m.callTool('fixture','execute_code',{}, {permissionMode:'full_access',requestApproval:()=>assert.fail('Full Access prompted')});
   assert.equal(calls,2);
 });
 test('U6 manifests reject conflicts and keep independent request/session/batch snapshots', () => {

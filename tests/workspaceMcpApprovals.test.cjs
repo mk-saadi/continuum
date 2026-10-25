@@ -62,7 +62,7 @@ test('Workspace Write MCP dispatch skips the generic SQL mutation challenge but 
   } finally { permissions.sessionProject = previousProject; }
 });
 
-test('Full Access retains ordinary tool access and requires protected execution approval', async () => {
+test('Full Access authorizes ordinary and protected tools without approval prompts', async () => {
   for (const [name, args, native] of [
     ['manage_mcp_servers', { action: 'inspect', server_names: ['custom'] }, true],
 
@@ -74,7 +74,10 @@ test('Full Access retains ordinary tool access and requires protected execution 
     assert.equal(result.mode, 'full_access');
   }
   for (const [name,args,native] of [['git_commit',{message:'Commit'},true],['execute_command',{command:'printf opaque'},true],['git_sync',{action:'push'},true],['push_files',{},false]]) {
-    await assert.rejects(guardTool({name,args,native,permissionMode:'full_access',project,requestApproval:()=>false}),/approval denied/);
+    const result = await guardTool({ name, args, native, permissionMode: 'full_access', project,
+      requestApproval: () => assert.fail(`Unexpected Full Access approval for ${name}`) });
+    assert.equal(result.mode, 'full_access');
+    assert.equal(result.approved, true);
   }
 });
 
@@ -89,19 +92,19 @@ test('Full Access MCP dispatch bypasses mutation challenges even without an oute
   try {
     for (const sessionId of [undefined, 'full-access-mcp']) {
       await manager.callTool('custom', 'query', { query: 'SELECT * FROM records' }, { sessionId, permissionMode: 'full_access' });
-      await assert.rejects(manager.callTool('custom', 'push_files', {}, { sessionId, permissionMode: 'full_access' }), /approval/);
+      await manager.callTool('custom', 'push_files', {}, { sessionId, permissionMode: 'full_access' });
     }
-    assert.equal(calls, 2);
+    assert.equal(calls, 4);
   } finally { permissions.sessionProject = previousProject; }
 });
 
-test('external deletion requires explicit approval in every writable mode', async () => {
+test('external deletion requires approval in restricted writable modes and bypasses it in Full Access', async () => {
   for (const permissionMode of ['workspace_write', 'ask_approval', 'full_access']) {
     let prompts = 0;
     const options = { name: 'delete_project_file', args: { path: 'obsolete.txt' }, native: false, permissionMode, project,
       requestApproval: () => { prompts++; return true; } };
     const result = await guardTool(options);
-    assert.equal(prompts, 1);
+    assert.equal(prompts, permissionMode === 'full_access' ? 0 : 1);
     assert.equal(result.approved, true);
     if (permissionMode !== 'full_access') {
       await assert.rejects(guardTool({ ...options, requestApproval: () => false }), /approval denied/);
@@ -126,8 +129,8 @@ test('MCP deletion dispatch enforces approval even when outer permission is gran
       await assert.rejects(manager.callTool('custom', 'delete_project_file', {}, options), /File deletion requires explicit approval/);
       await manager.callTool('custom', 'delete_project_file', {}, { ...options, approval: { mode: permissionMode, approved: true } });
     }
-    await assert.rejects(manager.callTool('custom', 'delete_project_file', {}, { sessionId: 'delete-mcp', permissionMode: 'full_access' }), /approval denied/);
+    await manager.callTool('custom', 'delete_project_file', {}, { sessionId: 'delete-mcp', permissionMode: 'full_access' });
     await manager.callTool('custom', 'delete_project_file', {}, { sessionId: 'delete-mcp', permissionMode: 'full_access', permissionGranted: true, approval: {mode:'full_access',approved:true} });
-    assert.equal(calls, 3);
+    assert.equal(calls, 4);
   } finally { permissions.sessionProject = previousProject; recovery.shouldScanMcpCall = previousScan; }
 });

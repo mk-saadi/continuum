@@ -26,7 +26,7 @@ const MODES = Object.freeze([...modes]);
 // approves is advertised.
 //
 // The bwrap sandbox and workspace path checks are the real security boundary.
-// Opaque process execution requires specific approval. The legacy command
+// Outside Full Access, opaque process execution requires specific approval. The legacy command
 // heuristic remains exported for compatibility and is not an authorization gate.
 // ---------------------------------------------------------------------------
 
@@ -518,12 +518,13 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	if (native && require('./nativeExecutionPolicy').isCommand(name)) {
 		if (mode === 'read_only') throw Object.assign(new Error('Execution blocked: Chat is in Read Only mode.'), { code: 'PERMISSION_DENIED' });
 		if (typeof args.command !== 'string' || !args.command.trim() || args.command.includes('\0')) throw new Error('Invalid command.');
-		if (args.command.length > 4000 || (typeof args.cwd === 'string' && args.cwd.length > 4000))
+		if (mode !== 'full_access' && (args.command.length > 4000 || (typeof args.cwd === 'string' && args.cwd.length > 4000)))
 			throw new Error('Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).');
-		// No command text, development-script name or model-supplied flag proves
-		// an arbitrary program's effects. Every process invocation needs consent.
-		let uncontained = mode === 'full_access' || !root;
-		if (root && mode !== 'full_access') {
+		// Full Access authorizes host execution for this session. Other writable
+		// modes still require specific consent for arbitrary processes.
+		if (mode === 'full_access') return { mode, approved: true, commandUncontained: true };
+		let uncontained = !root;
+		if (root) {
 			try {
 				const cwd = await workspacePath(root, args.cwd ?? '.');
 				if (!(await fs.stat(cwd)).isDirectory()) throw new Error('Execution blocked: Command cwd must be a directory.');
@@ -536,31 +537,6 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
 			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal);
 		return { mode, approved: true, commandUncontained: uncontained };
-	}
-	if (native && ((name === 'manage_mcp_servers' && args?.action === 'search') || (name === 'find_and_prepare_mcp_tools' && mode === 'read_only'))) return { mode, approved: false };
-	if (native && name === 'approve_mcp_mutation' && mode !== 'read_only') return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-	if (!native && mode !== 'read_only' && require('./mcpPermissionPolicy').requiresOutboundApproval(name, args)) {
-        return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-    }
-	if (!native && mode === 'full_access' && require('./mcpPermissionPolicy').requiresGitApproval(name, args, serverName)) {
-		return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-	}
-	if (mode === 'workspace_write' && root && ((native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(name)) || !native)) {
-		if (!native && (name === 'delete_project_file' || require('./mcpPermissionPolicy').requiresGitApproval(name, args, serverName))) {
-			return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-		}
-		return { mode, approved: false };
-	}
-	if (native && name === 'git_sync' && mode !== 'read_only') {
-		if (!root) throw new Error('Git tools require a project workspace.');
-		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
-		// Even fetch may invoke repository-controlled transport helpers. Ask
-		// before preparation, which can itself contact the remote.
-		await requestApproval('tool', name, { ...args, action: args.action === 'push' ? 'prepare_push' : args.action,
-			execution_scope: 'Git remote operation with network access and repository configuration; may execute transport helpers. Push preparation reads remote state; publication requires a separate history review.' }, approvalHandlerFn, signal);
-		const snapshot = args.action === 'push' ? await require('./tools/agentTools').prepareGitPush(root, args, signal) : null;
-		if (snapshot) await requestApproval('tool', name, { action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
-		return { mode, approved: true, ...(snapshot ? { gitPushFingerprint: snapshot.fingerprint } : {}) };
 	}
 	if (mode === 'full_access') {
 		// Full access does not create a workspace: a task plan still needs the
@@ -577,7 +553,29 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			error.code = 'PERMISSION_DENIED';
 			throw error;
 		}
+		return { mode, approved: true };
+	}
+	if (native && ((name === 'manage_mcp_servers' && args?.action === 'search') || (name === 'find_and_prepare_mcp_tools' && mode === 'read_only'))) return { mode, approved: false };
+	if (native && name === 'approve_mcp_mutation' && mode !== 'read_only') return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
+	if (!native && mode !== 'read_only' && require('./mcpPermissionPolicy').requiresOutboundApproval(name, args)) {
+        return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
+    }
+	if (mode === 'workspace_write' && root && ((native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(name)) || !native)) {
+		if (!native && (name === 'delete_project_file' || require('./mcpPermissionPolicy').requiresGitApproval(name, args, serverName))) {
+			return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
+		}
 		return { mode, approved: false };
+	}
+	if (native && name === 'git_sync' && mode !== 'read_only') {
+		if (!root) throw new Error('Git tools require a project workspace.');
+		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
+		// Even fetch may invoke repository-controlled transport helpers. Ask
+		// before preparation, which can itself contact the remote.
+		await requestApproval('tool', name, { ...args, action: args.action === 'push' ? 'prepare_push' : args.action,
+			execution_scope: 'Git remote operation with network access and repository configuration; may execute transport helpers. Push preparation reads remote state; publication requires a separate history review.' }, approvalHandlerFn, signal);
+		const snapshot = args.action === 'push' ? await require('./tools/agentTools').prepareGitPush(root, args, signal) : null;
+		if (snapshot) await requestApproval('tool', name, { action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
+		return { mode, approved: true, ...(snapshot ? { gitPushFingerprint: snapshot.fingerprint } : {}) };
 	}
 	if (name === 'git_commit' && mode !== 'read_only') {
 		if (!root) throw new Error('Git tools require a project workspace.');
