@@ -36,3 +36,13 @@ metadata again, so shell `git init` is protected on the next invocation.
 Git mutations must use the `git_*` tools, whose writable profile is unchanged.
 File tools reject writes, patches, moves and deletes of git metadata, including
 resolved aliases and moves of containing directories.
+
+In Workspace Write, shell syntax and argument paths do not determine approval:
+commands with pipes, expansions, embedded interpreters, URLs or absolute paths
+run without a prompt when the selected bwrap/sandboxFilesystem profile is
+available and cwd is inside the workspace. Package installation and publication
+still require review. Invalid commands and cwd escapes are rejected; an
+unavailable sandbox or uncontained execution requires review. Execution grants
+remain specific and single-use. Dispatch rechecks cwd and requires the actual
+registered filesystem plan, network isolation and sandbox executable before
+launch; a missing or altered plan fails closed without a host fallback.

@@ -4,6 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 const inside = (parent, child) => child === parent || child.startsWith(parent + path.sep);
 const unavailable = p => new Error(`required runtime path unavailable: ${p}`);
+const shellPlans = new WeakMap();
 const SYSTEM = ['/usr', '/bin', '/sbin', '/lib', '/lib64'];
 const ETC = ['/etc/ld.so.cache', '/etc/ld.so.conf', '/etc/ld.so.conf.d', '/etc/passwd', '/etc/group', '/etc/nsswitch.conf', '/etc/localtime', '/etc/ssl/certs', '/etc/ca-certificates', '/etc/mime.types', '/etc/alternatives'];
 function resolveEntry(p, required = false) {
@@ -132,8 +133,24 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     bins.push(path.join(validated, 'bin'), parent);
   }
   assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)]);
-  return { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory,
+  const plan = { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory,
     gitMetadata: protectGitMetadata ? require("./gitMetadata").resolveGitMetadata(workspace) : [] }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
+  if (!network && writable && protectGitMetadata) shellPlans.set(plan, { workspace, mounts: [...plan.mounts], env: { ...plan.env } });
+  return plan;
 }
-module.exports = { buildSandboxMounts, resolveFilesystem, validateExtraPaths, environment, inside };
+// The selected profile is not enough: require a plan built by this module and
+// check the actual invocation immediately before handing it to the executor.
+function assertShellInvocation(plan, { file, argv, cwd, workspace }) {
+  const facts = shellPlans.get(plan);
+  const mountStart = argv.indexOf('--tmpfs');
+  if (!facts || file !== 'bwrap' || facts.workspace !== fs.realpathSync(workspace) ||
+      !inside(facts.workspace, fs.realpathSync(cwd)) ||
+      JSON.stringify(argv.slice(0, mountStart)) !== JSON.stringify(['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL']) ||
+      JSON.stringify(plan.env) !== JSON.stringify(facts.env) ||
+      JSON.stringify(argv.slice(mountStart, mountStart + facts.mounts.length)) !== JSON.stringify(facts.mounts) ||
+      JSON.stringify(argv.slice(mountStart + facts.mounts.length, -1)) !== JSON.stringify(['--setenv', 'PATH', facts.env.PATH, '--chdir', cwd, '/bin/sh', '-c']))
+    throw new Error('Execution blocked: Command must run inside the verified sandboxFilesystem shell profile.');
+}
+
+module.exports = { assertShellInvocation, buildSandboxMounts, resolveFilesystem, validateExtraPaths, environment, inside };

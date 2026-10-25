@@ -49,7 +49,7 @@ const authorize = (f, name, args, requestApproval = () => assert.fail('Unexpecte
   guardTool({ ...f, name, args, requestApproval });
 const dispatch = (f, name, args, approval) => executeAgentTool({ ...f, name, arguments: args, permissionGranted: true, approval });
 test.after(() => { dispose?.(); db.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
-const sandbox = { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace' };
+const sandbox = { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace', filesystemProfile: 'sandboxFilesystem' };
 const commandInput = { tool: 'execute_command', args: { command: 'printf local' }, mode: 'workspace_write', workspaceRoot: '/workspace', sandbox,
   containment: { contained: true }, systemAffecting: false, packageOperation: false, commandReviewRequired: false };
 
@@ -57,9 +57,9 @@ test('shell table: containment, sandbox, system commands, packages and uncertain
   assert.equal(decideToolApproval(commandInput).decision, 'allow');
   for (const facts of [
     { sandbox: { ...sandbox, bwrapAvailable: false } }, { sandbox: { ...sandbox, netUnshared: false } },
-    { sandbox: { ...sandbox, profile: 'host' } }, { uncontained: true }, { systemAffecting: true },
+    { sandbox: { ...sandbox, profile: 'host' } }, { uncontained: true }, { sandbox: { ...sandbox, filesystemProfile: null } },
     { sandbox: { ...sandbox, bwrapAvailable: 'true' } }, { sandbox: { ...sandbox, netUnshared: 'true' } },
-    { packageOperation: true }, { commandReviewRequired: true }, { containment: undefined },
+    { packageOperation: true }, { containment: undefined },
   ]) {
     const result = decideToolApproval({ ...commandInput, ...facts }); assert.equal(result.decision, 'ask'); assert.ok(result.reason);
   }
@@ -80,13 +80,23 @@ test('package patterns keep explicit review; ordinary builds do not match', () =
   for (const command of ['npm test', 'pnpm run build', 'git status', 'printf local']) assert.equal(isPackageOperation(command), false, command);
 });
 
-test('literal cwd and path escapes, including bare symlinks, remain blocked', async () => {
+test('contained shell probe rows allow syntax and argument paths without prompts', async () => {
   const f = fixture(); fs.symlinkSync(directory, path.join(f.root, 'escape'));
-  for (const args of [{ command: 'cat ../outside' }, { command: 'cat escape/file' }, { command: 'cat escape' }, { command: "cat e''scape" }, { command: "cat 'e'scape" }, { command: 'printf local', cwd: '..' }])
-    await assert.rejects(authorize(f, 'execute_command', args), /escapes/);
-  for (const command of ['cat *', '(cat file)', 'node -e "console.log(1)"', 'echo $HOME', 'cd nested && cat file', 'npm install x', 'sudo true']) {
+  const rows = ['ls', 'pwd', 'git status', 'npm test', 'ls | wc -l', "sh -c 'echo $?'",
+    'echo \\hello', 'echo https://example.test', 'ls /usr/bin', 'cat ../outside',
+    'cat escape/file', "cat e''scape", 'cat *', '(cat file)', 'node -e "console.log(1)"',
+    'echo $HOME', 'cd nested && cat file', 'sudo true'];
+  for (const command of rows) {
+    const grant = await authorize(f, 'execute_command', { command });
+    assert.equal(grant.approved, false, command);
+    assert.equal(grant.executionProfile, 'bwrap_workspace', command);
+  }
+  await assert.rejects(authorize(f, 'execute_command', { command: 'pwd', cwd: '..' }), /escapes/);
+  for (const command of ['npm install x', 'npm publish']) {
     let prompts = 0;
-    await assert.rejects(authorize(f, 'execute_command', { command }, () => { prompts++; return false; }), /approval denied/);
+    await assert.rejects(authorize(f, 'execute_command', { command }, payload => {
+      prompts++; assert.equal(payload.args.execution_scope, 'Runs in a sandbox: it can read and write only inside this project, has no network access, and cannot see your home folder or app data.'); return false;
+    }), /approval denied/);
     assert.equal(prompts, 1, command);
   }
 });
@@ -324,18 +334,48 @@ test('bwrap disappearing after autonomous authorization fails without a host ret
   } finally { runner.runForeground = originalRun; sandboxProfile.getWorkspaceSandboxProfile = originalProfile; }
 });
 
-test('autonomous command paths are rechecked after asynchronous recovery preparation', async () => {
-  const f = fixture(); fs.writeFileSync(path.join(f.root, 'file'), 'inside');
-  const args = { command: 'cat file' }, grant = await authorize(f, 'execute_command', args);
+test('live cwd is rechecked after asynchronous recovery preparation', async () => {
+  const f = fixture(); fs.mkdirSync(path.join(f.root, 'nested'));
+  const args = { command: 'pwd', cwd: 'nested' }, grant = await authorize(f, 'execute_command', args);
   const runner = require('../src/main/foregroundCommand'), boundary = require('../src/main/recoveryBoundary');
   const originalRun = runner.runForeground, originalRecovery = boundary.withShellRecovery; let launches = 0;
   runner.runForeground = async () => { launches++; return { status: 'completed', exitCode: 0, stdout: '', stderr: '' }; };
   boundary.withShellRecovery = async (_options, execute) => {
-    fs.unlinkSync(path.join(f.root, 'file')); fs.symlinkSync(directory, path.join(f.root, 'file'));
+    fs.rmdirSync(path.join(f.root, 'nested')); fs.symlinkSync(directory, path.join(f.root, 'nested'));
     return execute();
   };
   try {
     const result = await dispatch(f, 'execute_command', args, grant);
     assert.equal(result.success, false); assert.match(result.error, /escapes/); assert.equal(launches, 0);
   } finally { runner.runForeground = originalRun; boundary.withShellRecovery = originalRecovery; }
+});
+
+ test('dispatch refuses a forged or tampered filesystem plan before launching', async () => {
+  const f = fixture(), filesystem = require('../src/main/sandboxFilesystem'), runner = require('../src/main/foregroundCommand');
+  const originalResolve = filesystem.resolveFilesystem, originalRun = runner.runForeground;
+  let launches = 0;
+  runner.runForeground = async () => { launches++; throw new Error('must not launch'); };
+  try {
+    for (const tamper of [
+      plan => ({ ...plan }),
+      plan => { plan.mounts = ['--bind', '/', '/']; return plan; },
+      plan => { plan.env.PATH = '/tmp'; return plan; },
+    ]) {
+      filesystem.resolveFilesystem = options => tamper(originalResolve(options));
+      const args = { command: "sh -c 'echo $?'" }, grant = await authorize(f, 'execute_command', args);
+      const result = await dispatch(f, 'execute_command', args, grant);
+      assert.equal(result.success, false); assert.match(result.error, /verified sandboxFilesystem/);
+    }
+    assert.equal(launches, 0);
+  } finally { filesystem.resolveFilesystem = originalResolve; runner.runForeground = originalRun; }
+});
+
+test('all six acceptance commands execute in the real sandbox with zero prompts', async () => {
+  const f = fixture(true);
+  fs.writeFileSync(path.join(f.root, 'package.json'), JSON.stringify({ scripts: { test: 'node -e "process.exit(0)"' } }));
+  for (const command of ['ls', 'pwd', 'git status', 'npm test', 'ls | wc -l', "sh -c 'echo $?'", 'echo \\hello', 'echo https://example.test', 'ls /usr/bin']) {
+    const args = { command }, grant = await authorize(f, 'execute_command', args);
+    const result = await dispatch(f, 'execute_command', args, grant);
+    assert.equal(result.success, true, command + ': ' + JSON.stringify(result));
+  }
 });

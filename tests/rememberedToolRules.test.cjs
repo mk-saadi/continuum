@@ -28,7 +28,7 @@ const rules = require('../src/main/rememberedToolRules');
 const contexts = require('../src/main/lspExecutionContext');
 const sandboxModule = require('../src/main/workspaceSandboxProfile');
 const originalSandbox = sandboxModule.getWorkspaceSandboxProfile;
-const sandbox = { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace' };
+const sandbox = { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace', filesystemProfile: 'sandboxFilesystem' };
 sandboxModule.getWorkspaceSandboxProfile = async () => sandbox;
 let seq = 0;
 function fixture(project) {
@@ -68,7 +68,7 @@ test('rememberability matrix: only local installs, provider images and heuristic
   }
   for (const override of [
     { uncontained: true }, { systemAffecting: true }, { containment: { blocked: true, reason: 'outside' } },
-    { sandbox: { ...sandbox, bwrapAvailable: false } }, { sandbox: { ...sandbox, netUnshared: false } },
+    { sandbox: { ...sandbox, bwrapAvailable: false } }, { sandbox: { ...sandbox, filesystemProfile: null } }, { sandbox: { ...sandbox, netUnshared: false } },
     ...['sudo npm ci', 'npm install -g x', 'npm publish', 'npm ci; true', 'npm ci && true', 'npm ci | cat', 'npm ci\n', 'npm ci $(id)', 'npm ci > out', 'npm ci < in', 'npm ci `id`', 'npm ci (x)', 'npm install ../x', 'npm install ..', 'npm install *'].map(command => ({ args: { command } })),
   ]) {
     const result = decide({ ...shell, ...override, remembered: saved(shell) });
@@ -251,7 +251,7 @@ test('real IPC binds save choice to sender and pending policy; tool event persis
   const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
   fetchMock = async () => {
     const calls = [call('activate', 'manage_native_tools', { action: 'activate', groups: ['commands'] }),
-      call('first-install', 'execute_command', { command: 'npm ci' }), call('saved-install', 'execute_command', { command: 'npm ci' }), call('hard-rule', 'execute_command', { command: 'sudo true' })];
+      call('first-install', 'execute_command', { command: 'npm ci' }), call('saved-install', 'execute_command', { command: 'npm ci' }), call('hard-rule', 'execute_command', { command: 'npm publish' })];
     const next = calls[round++];
     return Response.json({ choices: [{ finish_reason: next ? 'tool_calls' : 'stop', message: next ? { tool_calls: [next] } : { content: 'Done. [TASK COMPLETE]' } }] });
   };

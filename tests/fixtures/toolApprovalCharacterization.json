@@ -540,15 +540,13 @@
       "prompts": 0
     },
     "shell:system": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "commandUncontained": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "shell:install": {
       "decision": "ask",

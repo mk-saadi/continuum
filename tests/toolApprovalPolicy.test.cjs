@@ -33,7 +33,7 @@ for (const [tool, args, decisions] of rows) {
         { annotations: { readOnlyHint: true }, serverTrusted: true },
         { annotations: { destructiveHint: true }, serverTrusted: false },
         { checkpointCoverage: { complete: true } },
-        { sandbox: { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace' } },
+        { sandbox: { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace', filesystemProfile: 'sandboxFilesystem' } },
         { sandbox: { bwrapAvailable: false, netUnshared: false, profile: null } },
       ])) assert.deepEqual(decideToolApproval({ ...input, ...facts }), result);
     });
@@ -120,7 +120,7 @@ test('guard obtains the sandbox profile itself and binds autonomous execution to
   const cachedGuard = require.cache[guardPath];
   const originalDecide = policy.decideToolApproval;
   const originalProfile = profile.getWorkspaceSandboxProfile;
-  const facts = Object.freeze({ bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace' });
+  const facts = Object.freeze({ bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace', filesystemProfile: 'sandboxFilesystem' });
   const calls = [];
   policy.decideToolApproval = input => { calls.push(input); return originalDecide(input); };
   profile.getWorkspaceSandboxProfile = async input => { assert.equal(input.uncontained, false); return facts; };

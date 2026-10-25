@@ -373,16 +373,14 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			const cwd = await workspacePath(root, args.cwd ?? '.');
 			const systemAffecting = isSystemAffecting(args.command);
 			const packageOperation = require('./workspaceCommandPolicy').isPackageOperation(args.command);
-			const inspection = systemAffecting || packageOperation ? { resolvedPaths: [cwd], reviewRequired: true }
-				: await require('./workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, workspacePath);
-			commandFacts = { resolvedCwd: cwd, containment: { contained: true }, resolvedPaths: inspection.resolvedPaths, commandReviewRequired: inspection.reviewRequired,
+			commandFacts = { resolvedCwd: cwd, containment: { contained: true }, resolvedPaths: [cwd],
 				systemAffecting, packageOperation };
 		}
 		const sandbox = await require('./workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained });
 		policy = decideToolApproval({ ...policyInput, ...commandFacts, sandbox, uncontained });
 		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, execution_scope: uncontained
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
-			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal, policy);
+			: 'Runs in a sandbox: it can read and write only inside this project, has no network access, and cannot see your home folder or app data.' }, approvalHandlerFn, signal, policy);
 		return { mode, approved: policy.decision === 'ask' || Boolean(policy.savedRule), commandUncontained: uncontained, savedRule: policy.savedRule,
 			...(policy.decision === 'allow' ? { executionProfile: 'bwrap_workspace' } : {}) };
 	}

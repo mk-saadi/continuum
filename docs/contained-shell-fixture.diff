@@ -1,0 +1,24 @@
+diff --git a/tests/fixtures/toolApprovalCharacterization.json b/tests/fixtures/toolApprovalCharacterization.json
+index d6d3029..11e974e 100644
+--- a/tests/fixtures/toolApprovalCharacterization.json
++++ b/tests/fixtures/toolApprovalCharacterization.json
+@@ -540,15 +540,13 @@
+       "prompts": 0
+     },
+     "shell:system": {
+-      "decision": "ask",
+-      "prompts": 1,
++      "decision": "allow",
++      "prompts": 0,
+       "mode": "workspace_write",
+-      "approved": true,
++      "approved": false,
+       "commandUncontained": false,
+       "fingerprints": [],
+-      "promptActions": [
+-        "list"
+-      ]
++      "promptActions": []
+     },
+     "shell:install": {
+       "decision": "ask",

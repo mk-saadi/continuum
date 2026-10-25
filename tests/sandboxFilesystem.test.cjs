@@ -139,3 +139,19 @@ test('shell metadata mounts follow workspace; native profile stays writable; ini
   for (const command of ['git status', 'git diff', 'git log', 'git show']) assert.equal(run(command).status, 0, command);
   for (const command of ['rm -rf .git', 'echo bad > .git/config', 'echo bad > .git/hooks/evil', 'git commit --allow-empty -m blocked']) assert.notEqual(run(command).status, 0, command);
 });
+
+test('shell dispatch verifies actual mount plan, network isolation, cwd and executable', () => {
+  const { assertShellInvocation } = require('../src/main/sandboxFilesystem');
+  const plan = resolveFilesystem({ ...options, protectGitMetadata: true });
+  const argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL', ...plan.mounts,
+    '--setenv', 'PATH', plan.env.PATH, '--chdir', workspace, '/bin/sh', '-c', 'pwd'];
+  const invocation = { file: 'bwrap', argv, cwd: workspace, workspace };
+  assert.doesNotThrow(() => assertShellInvocation(plan, invocation));
+  for (const changed of [
+    { file: '/bin/sh' }, { argv: ['--share-net', ...argv] }, { argv: argv.filter(x => x !== '--unshare-net') },
+    { argv: argv.filter(x => x !== '--unshare-user') }, { cwd: directory },
+    { argv: [...argv.slice(0, -1), '--bind', '/', '/', 'pwd'] },
+  ]) assert.throws(() => assertShellInvocation(plan, { ...invocation, ...changed }), /verified sandboxFilesystem/);
+  for (const invalid of [{ ...plan }, resolveFilesystem({ ...options, network: true, protectGitMetadata: true }), resolveFilesystem(options)])
+    assert.throws(() => assertShellInvocation(invalid, invocation), /verified sandboxFilesystem/);
+});

@@ -57,8 +57,8 @@ test('workspace guards traversal, sibling-prefix paths, symlinks and dangling sy
     await fs.symlink(temp, path.join(root, '.llm_workspace', 'screenshots'));
     await assert.rejects(guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write', project: { root_path: root } }), /Symlink escapes/);
     await fs.rm(path.join(root, '.llm_workspace', 'screenshots'));
-    // System-affecting commands request approval instead of failing outright.
-    for (const command of ['sudo true', 'apt install foo', 'npm install -g foo', 'pip install -g foo']) {
+    // Package installation still requests approval in the contained sandbox.
+    for (const command of ['apt install foo', 'npm install -g foo', 'pip install -g foo']) {
       let requested = false;
       await assert.rejects(guardTool({
         name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root },

@@ -299,12 +299,11 @@ function rawDecision(input) {
   if (native && isCommand(tool) && mode === 'workspace_write' && workspaceRoot) {
     if (input.containment?.blocked) return block(input.containment.reason);
     const sandbox = input.sandbox;
-    if (sandbox?.bwrapAvailable !== true || sandbox.netUnshared !== true || sandbox.profile !== 'bwrap_workspace' || input.uncontained)
+    if (sandbox?.bwrapAvailable !== true || sandbox.netUnshared !== true || sandbox.profile !== 'bwrap_workspace' || sandbox.filesystemProfile !== 'sandboxFilesystem' || input.uncontained)
       return ask('Workspace sandbox is unavailable; execution requires review.', 'command');
-    if (input.systemAffecting) return ask('System-affecting command requires review.', 'command');
     if (input.packageOperation) return ask('Package installation or publication requires review.', 'command');
-    if (input.commandReviewRequired !== false || input.systemAffecting !== false || input.packageOperation !== false || input.containment?.contained !== true)
-      return ask('Command paths or embedded code require review.', 'command');
+    if (input.packageOperation !== false || input.containment?.contained !== true)
+      return ask('Command containment requires review.', 'command');
     return allow('command');
   }
   if (native && isCommand(tool)) return mode === 'read_only'
@@ -364,7 +363,7 @@ function rememberDetails(input) {
         /(?:^| )-/.test(normalized) || input.systemAffecting !== false ||
         input.containment?.contained !== true || !input.resolvedCwd ||
         input.sandbox?.bwrapAvailable !== true || input.sandbox?.netUnshared !== true ||
-        input.sandbox?.profile !== 'bwrap_workspace') return null;
+        input.sandbox?.profile !== 'bwrap_workspace' || input.sandbox?.filesystemProfile !== 'sandboxFilesystem') return null;
     return { rememberKey: JSON.stringify(['shell', tool, normalized, input.resolvedCwd]), rememberLabel: normalized };
   }
   if (native && tool === 'generate_image' && input.imageProviderKey)

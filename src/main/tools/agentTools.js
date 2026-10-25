@@ -136,7 +136,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. System commands, package operations and commands needing path review require approval. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Git metadata is read-only in the shell sandbox; git mutations must use the git_* tools. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. Package installation and publication require approval; other contained commands run without syntax or argument-path review when the sandbox is available. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Git metadata is read-only in the shell sandbox; git mutations must use the git_* tools. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
             background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
@@ -716,6 +716,8 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
    ...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
+  await scopedPath(workspaceRoot, cwd, true);
+  require('../sandboxFilesystem').assertShellInvocation(filesystem, { file, argv, cwd, workspace: workspaceRoot });
   env = { ...filesystem.env, GIT_OPTIONAL_LOCKS: '0', PATH: '/usr/local/bin:/usr/bin:/bin' };
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
@@ -869,16 +871,10 @@ async function runScopedCommand(name, args, { root, signal, uncontained, session
   validateAuthorization();
   if (requiredExecutionProfile) {
    if (requiredExecutionProfile !== 'bwrap_workspace' || uncontained || !root) throw new Error('Execution blocked: bwrap-bound command cannot run on the host.');
-   const inspection = await require('../workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, require('../toolPermissions').workspacePath);
-   if (inspection.reviewRequired) {
-    const p = require('../toolPermissions');
-    const policy = require('../toolApprovalPolicy').decideToolApproval({ tool: name, args, mode: 'workspace_write',
-      workspaceRoot: root, resolvedCwd: cwd, containment: { contained: true },
-      systemAffecting: p.isSystemAffecting(args.command), packageOperation: require('../workspaceCommandPolicy').isPackageOperation(args.command),
-      commandReviewRequired: true, sandbox: await require('../workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained: false }),
-      remembered: require('../rememberedToolRules').list(p.sessionProject(sessionId)?.id, sessionId) });
-    if (policy.decision !== 'allow' || !policy.savedRule) throw new Error('Execution blocked: Command paths require explicit review.');
-   }
+   // Revalidate live cwd after asynchronous recovery preparation. Command
+   // arguments are contained by the mount profile, not a shell parser.
+   await scopedPath(root, cwd, true);
+   if (!(await fs.stat(cwd)).isDirectory()) throw new Error('Execution blocked: Command cwd must be a directory.');
    validateAuthorization();
   }
   const remaining = deadline?.remainingMs() ?? Infinity;

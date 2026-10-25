@@ -20,6 +20,6 @@ async function getWorkspaceSandboxProfile({ workspaceRoot, uncontained }) {
       if ((await fs.stat(candidate)).isFile()) { bwrapAvailable = true; break; }
     } catch { /* Try the next PATH directory. */ }
   }
-  return { bwrapAvailable, netUnshared: true, profile: 'bwrap_workspace' };
+  return { bwrapAvailable, netUnshared: true, profile: 'bwrap_workspace', filesystemProfile: 'sandboxFilesystem' };
 }
 module.exports = { getWorkspaceSandboxProfile };
