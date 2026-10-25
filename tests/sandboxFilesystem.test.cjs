@@ -62,10 +62,13 @@ test('real contained filesystem hides synthetic secrets, aliases and proc tricks
   if (!available(t)) return;
   const outside = path.join(directory, 'host-home'); fs.mkdirSync(outside); fs.writeFileSync(path.join(outside, 'secret'), 'synthetic-secret');
   fs.symlinkSync(outside, path.join(workspace, 'alias'));
+  for (const name of ['.ssh', '.aws', '.config', '.gnupg', 'browser-profile', 'etc', 'mnt', 'run']) {
+    fs.mkdirSync(path.join(outside, name)); fs.writeFileSync(path.join(outside, name, 'secret'), 'synthetic-secret');
+  }
   fs.writeFileSync(path.join(workspace, '.env'), 'PROJECT_SECRET=legitimate');
   for (const network of [false, true]) {
     const plan = resolveFilesystem({ ...options, network });
-    const r = launch(plan, `test ! -e '${outside}/secret'; test ! -e alias/secret; test ! -e private-data/memory_palace.db; test ! -e private-data/memory_palace.db-wal; test ! -e .llm_workspace/private; test ! -e /proc/self/root${outside}/secret; test ! -e /proc/${process.pid}/root; test ! -e /run; test ! -e /mnt; test ! -e /media; test ! -e /etc/shadow; test -r .env; echo ok > written; echo ok > "$HOME/test"; echo ok > /tmp/test; test -r /etc/ssl/certs/ca-certificates.crt; node -e 'console.log("node-ok")'; python3 -c 'print("python-ok")'; git --version; locale`);
+    const r = launch(plan, `test ! -e '${outside}/secret'; test ! -e alias/secret; test ! -e private-data/memory_palace.db; test ! -e private-data/memory_palace.db-wal; test ! -e .llm_workspace/private; test ! -e /proc/self/root${outside}/secret; test ! -e /proc/${process.pid}/root; test ! -e /run; test ! -e /mnt; test ! -e /media; test ! -e /etc/shadow; test -r .env; echo ok > written; echo ok > "$HOME/test"; echo ok > /tmp/test; test -r /etc/ssl/certs/ca-certificates.crt; node -e 'console.log("node-ok")'; python3 -c 'print("python-ok")'; git --version; locale`, !network);
     assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /node-ok/); assert.match(r.stdout, /python-ok/);
   }
 });
@@ -77,13 +80,28 @@ test('nvm-style installation binds resolved prefix, not the rest of home', () =>
 });
 test('offline profile cannot reach host listener and never falls back', async t => {
   if (!available(t, true)) return;
-  const server = net.createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const server = net.createServer(); await new Promise(resolve => server.listen(0, '0.0.0.0', resolve));
   try {
     const port = server.address().port;
+    const lan = Object.values(os.networkInterfaces()).flat().find(x => x.family === 'IPv4' && !x.internal)?.address;
     const r = launch(resolveFilesystem(options), `node -e 'const s=require("net").connect(${port}, "127.0.0.1"); s.on("connect",()=>process.exit(1));s.on("error",()=>process.exit(0));setTimeout(()=>process.exit(0),500)'`, true);
     assert.equal(r.status, 0, r.stderr);
+    if (lan) {
+      const l = launch(resolveFilesystem(options), `node -e 'const s=require("net").connect(${port}, "${lan}"); s.on("connect",()=>process.exit(1));s.on("error",()=>process.exit(0));setTimeout(()=>process.exit(0),500)'`, true);
+      assert.equal(l.status, 0, l.stderr);
+    }
   } finally { server.close(); }
 });
 test('invalid required runtime input fails before spawn', () => {
   assert.throws(() => resolveFilesystem({ ...options, config: { ...config, extraReadOnlyRuntimePaths: ['/not/a/runtime'] } }), /required runtime path unavailable/);
+});
+
+test('Volta resolver binds actual image and leaves shim/home unmounted', () => {
+  const volta = path.join(directory, 'volta-home/.volta/bin'), image = path.join(directory, 'volta-home/.volta/tools/image/node/22');
+  fs.mkdirSync(volta, { recursive: true }); fs.mkdirSync(path.join(image, 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(volta, 'node'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(volta, 'volta'), `#!/bin/sh\nprintf '%s\\n' '${image}/bin/node'\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(image, 'bin/node'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  const plan = resolveFilesystem({ ...options, hostEnv: { PATH: `${volta}:/usr/bin:/bin` } });
+  assert.ok(plan.mounts.includes(image)); assert.ok(!plan.mounts.includes(volta));
 });

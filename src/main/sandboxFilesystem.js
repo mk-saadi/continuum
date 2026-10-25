@@ -66,6 +66,7 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     userData ??= app.getPath('userData');
   }
   workspace = fs.realpathSync(workspace);
+  if (workspace === '/' || inside(workspace, os.homedir())) throw unavailable(workspace);
   const maskedPaths = [config.appDataDirectory, userData, path.join(workspace, '.llm_workspace')].filter(p => fs.existsSync(p)).map(p => fs.realpathSync(p));
   const system = SYSTEM.map(p => resolveEntry(p)).filter(Boolean);
   const etc = [...ETC, ...(network ? ['/etc/resolv.conf', '/etc/hosts'] : [])].map(p => resolveEntry(p)).filter(Boolean).map(e => ({ ...e, fileMapping: true }));

@@ -714,9 +714,9 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   file = 'bwrap';
   const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp });
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
-   ...filesystem.mounts,
+   ...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
-  env = filesystem.env;
+  env = { ...filesystem.env, PATH: '/usr/local/bin:/usr/bin:/bin' };
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
   argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
@@ -1041,7 +1041,7 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 	const gitArgs = ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'color.ui=false',
 		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null'] : []), ...args];
 	// A cwd is not containment: Git can run filters, diff drivers and helpers.
-	// Reads always run with a read-only host filesystem and no network; only
+	// Reads run with an allowlisted runtime filesystem and no network; only
 	// explicit write operations may receive a writable workspace mount.
 	// Remote sync uses a separate profile that shares the host network
 	// namespace but is otherwise identical (read-only /, no capabilities, no
@@ -1052,11 +1052,11 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 	if (!uncontained) {
 		if (process.platform !== 'linux') throw new Error('Git sandbox is unavailable on this platform.');
 		const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: root, network, writable: write, askpassDirectory: askpass ? path.dirname(askpass) : undefined });
-		Object.assign(env, filesystem.env);
+		Object.assign(env, filesystem.env, { PATH: '/usr/local/bin:/usr/bin:/bin' });
 		command = 'bwrap';
 		commandArgs = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
 			...(network ? [] : ['--unshare-net']), '--cap-drop', 'ALL',
-			...filesystem.mounts, '--chdir', root, 'git', ...gitArgs];
+			...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH, '--chdir', root, 'git', ...gitArgs];
 		Object.assign(env, { HOME: '/tmp', TMPDIR: '/tmp' });
 	}
 	return new Promise((resolve, reject) => {
@@ -1214,7 +1214,7 @@ async function pickRelayClient() {
 	const run = (command) => new Promise((resolve) => {
 		require("node:child_process").execFile(command, ["--version"], { timeout: 10000 }, (error) => resolve(!error));
 	});
-	// curl/wget resolve identically inside the sandbox (ro-bind /), so a host
+	// curl/wget use admitted system runtime paths inside the sandbox, so a host
 	// probe decides. Neither present fails closed — but only when auth is
 	// actually required, never for public or file:// remotes.
 	if (await run("curl")) relayClient = "curl";
