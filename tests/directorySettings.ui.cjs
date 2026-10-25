@@ -18,6 +18,7 @@ app.whenReady().then(async () => {
           getConfig: async () => ({ modelDirectory: '/models', appDataDirectory: '/data' }),
           pickDirectory: async () => window.picked,
           setModelDirectory: async directory => directory,
+          setRuntimePaths: async paths => ({ modelDirectory: '/new-models', appDataDirectory: '/data', extraReadOnlyRuntimePaths: paths }),
           migrateAppData: () => new Promise((resolve, reject) => { window.failMigration = reject; }),
         };
         window.scans = 0;
@@ -50,6 +51,11 @@ app.whenReady().then(async () => {
       check(!document.querySelector('dialog').open && !buttons[1].disabled, 'Failure restores controls');
       check(document.querySelector('[role=alert]').textContent.includes('Copy verification failed'), 'Failure displayed');
       check(document.body.textContent.includes('/data'), 'Failure preserves displayed source path');
+      window.picked = '/sdk';
+      [...document.querySelectorAll('button')].find(b => b.textContent === 'Add runtime directory').click(); await tick();
+      check(document.body.textContent.includes('/sdk'), 'Runtime setting added');
+      [...document.querySelectorAll('button')].find(b => b.textContent === 'Remove').click(); await tick();
+      check(!document.body.textContent.includes('/sdk'), 'Runtime setting removed');
     })()`);
     console.log('Directory settings display, picker cancellation, model rescan, migration overlay, and failure recovery passed.');
   } finally {

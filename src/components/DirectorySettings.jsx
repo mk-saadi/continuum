@@ -65,6 +65,21 @@ export default function DirectorySettings() {
           </div>
         </SettingsCard>
       ))}
+      <SettingsCard icon={LuFolder} title="Extra read-only runtime paths">
+        <p className="text-xs">Expose additional SDK or compiler installation directories to contained commands. Never select a home or credentials directory.</p>
+        {(config?.extraReadOnlyRuntimePaths ?? []).map(runtime => <div key={runtime} className="my-2 break-all text-xs">
+          {runtime} <SettingsButton disabled={busy} onClick={async () => {
+            try { setConfig(await window.api.setRuntimePaths(config.extraReadOnlyRuntimePaths.filter(p => p !== runtime))); }
+            catch (err) { setError(err.message); }
+          }}>Remove</SettingsButton>
+        </div>)}
+        <SettingsButton disabled={busy || !config} onClick={async () => {
+          setBusy(true);
+          try { const directory = await window.api.pickDirectory();
+            if (directory) setConfig(await window.api.setRuntimePaths([...(config.extraReadOnlyRuntimePaths ?? []), directory]));
+          } catch (err) { setError(err.message); } finally { setBusy(false); }
+        }}>Add runtime directory</SettingsButton>
+      </SettingsCard>
       <SettingsMessage>{error}</SettingsMessage>
       <dialog ref={overlay} onCancel={event => event.preventDefault()}
         className="fixed inset-0 m-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/70">

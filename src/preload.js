@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('api', {
   setEngineIdleTimeout: minutes => ipcRenderer.invoke('config:set-idle-timeout', minutes),
   pickDirectory: () => ipcRenderer.invoke('config:pick-directory'),
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
+  setRuntimePaths: paths => ipcRenderer.invoke('config:set-runtime-paths', { paths }),
   setModelDirectory: directory => ipcRenderer.invoke('config:set-model-directory', { directory }),
   migrateAppData: directory => ipcRenderer.invoke('config:migrate-app-data', { directory }),
   getAvatarSettings: () => ipcRenderer.invoke('avatars:get'),

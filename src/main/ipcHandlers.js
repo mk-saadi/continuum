@@ -259,6 +259,7 @@ function registerIpcHandlers({
         },
         "dialog:selectDirectory": selectDirectory,
         "config:pick-directory": selectDirectory,
+        "config:set-runtime-paths": ({ paths }) => require('./configStore').saveConfig({ extraReadOnlyRuntimePaths: paths }),
         "config:set-model-directory": ({ directory }) => require('./configStore').setModelDirectory(directory),
         "config:migrate-app-data": ({ directory }) => require('./dataMigration').migrateAppData(directory),
         "avatars:get": () => {

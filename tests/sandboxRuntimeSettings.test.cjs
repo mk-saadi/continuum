@@ -1,0 +1,20 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const Module = require('node:module');
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-settings-'));
+const load = Module._load;
+Module._load = function(name, ...args) { if (name === 'electron') return { app: { getPath: () => path.join(directory, 'userdata') } }; return load.call(this, name, ...args); };
+const store = require('../src/main/configStore');
+test.after(() => { Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
+test('runtime settings default empty, persist validated paths, reject unsafe and missing paths', () => {
+  assert.deepEqual(store.getConfig().extraReadOnlyRuntimePaths, []);
+  const runtime = path.join(directory, 'sdk'); fs.mkdirSync(runtime);
+  assert.deepEqual(store.saveConfig({ extraReadOnlyRuntimePaths: [runtime] }).extraReadOnlyRuntimePaths, [runtime]);
+  assert.deepEqual(store.getConfig().extraReadOnlyRuntimePaths, [runtime]);
+  for (const p of ['/', os.homedir(), directory, path.join(directory, 'userdata'), '/missing/installation', '/etc']) assert.throws(() => store.saveConfig({ extraReadOnlyRuntimePaths: [p] }), /required runtime path unavailable/);
+  assert.deepEqual(store.getConfig().extraReadOnlyRuntimePaths, [runtime]);
+});

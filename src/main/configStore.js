@@ -21,6 +21,7 @@ function getConfig() {
   const root = app.getPath('userData');
   const legacy = fs.existsSync(path.join(root, 'memory_palace.db'));
   return {
+    extraReadOnlyRuntimePaths: saved.extraReadOnlyRuntimePaths ?? [],
     engineIdleTimeoutMinutes: validateIdleTimeout(saved.engineIdleTimeoutMinutes ?? -1),
     modelDirectory: validatePath(saved.modelDirectory ?? path.join(require('node:os').homedir(), 'Desktop', 'LLM_Models')),
     appDataDirectory: validatePath(saved.appDataDirectory ?? (legacy ? root : path.join(root, 'App_Data'))),
@@ -30,6 +31,7 @@ function saveConfig(patch) {
   const config = { ...getConfig(), ...patch };
   validateIdleTimeout(config.engineIdleTimeoutMinutes);
   for (const key of ['modelDirectory', 'appDataDirectory']) config[key] = validatePath(config[key]);
+  config.extraReadOnlyRuntimePaths = require('./sandboxFilesystem').validateExtraPaths(config.extraReadOnlyRuntimePaths ?? [], { maskedPaths: [config.appDataDirectory, app.getPath('userData')].map(p => { try { return fs.realpathSync(p); } catch { return p; } }) });
   fs.mkdirSync(path.dirname(configFile()), { recursive: true });
   const temporary = configFile() + '.tmp';
   fs.writeFileSync(temporary, JSON.stringify(config, null, 2), { mode: 0o600 });
