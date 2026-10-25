@@ -704,7 +704,7 @@ function truncateOutput(stdout, stderr = "") {
 async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 60000, validateAuthorization = () => {}, deadline = null, onState = null) {
  requireText(args.command, "command");
  const { runForeground } = require('../foregroundCommand');
- let file, argv, env;
+ let file, argv, env, gitMetadata;
  if (workspaceRoot) {
   if (process.platform !== 'linux') return { success: false, status: 'spawn_failed', spawnError: 'SANDBOX_UNAVAILABLE', exitCode: null, stdout: '', stderr: 'Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.' };
   const sandboxHome = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/home');
@@ -713,6 +713,7 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   await fs.mkdir(sandboxTmp, { recursive: true });
   file = 'bwrap';
   const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp, protectGitMetadata: true });
+  gitMetadata = filesystem.gitMetadata;
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
    ...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
@@ -728,8 +729,14 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
  const effectiveTimeout = Math.max(1, Math.ceil(Math.min(timeoutMs, remaining)));
  const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout, validateAuthorization,
   windowsVerbatimArguments: process.platform === "win32", requestedTimeoutMs: args.timeout_ms ?? timeoutMs, onState, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out' });
- if (workspaceRoot && result.exitCode !== 0 && /read-only file system|cannot .*\.git|unable to create.*(?:index|lock)/i.test(result.stderr)) {
-  result.stderr += '\n' + require('../gitMetadata').MESSAGE;
+ if (workspaceRoot && result.exitCode !== 0) {
+  const metadata = require('../gitMetadata');
+  for (const stream of ['stderr', 'stdout']) {
+   if (metadata.shellMetadataReadOnlyFailure(gitMetadata, cwd, result[stream])) {
+    result[stream] += '\n' + metadata.SHELL_HINT;
+    break;
+   }
+  }
  }
  const displayed = truncateOutput(result.stdout, result.stderr);
  return { ...result, ...displayed, success: result.status === "completed", output_truncated: result.output_truncated || displayed.stdout !== result.stdout || displayed.stderr !== result.stderr };

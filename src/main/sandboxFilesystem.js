@@ -133,8 +133,8 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     bins.push(path.join(validated, 'bin'), parent);
   }
   assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)]);
-  const plan = { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory,
-    gitMetadata: protectGitMetadata ? require("./gitMetadata").resolveGitMetadata(workspace) : [] }),
+  const gitMetadata = protectGitMetadata ? require('./gitMetadata').resolveGitMetadata(workspace) : [];
+  const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
   if (!network && writable && protectGitMetadata) shellPlans.set(plan, { workspace, mounts: [...plan.mounts], env: { ...plan.env } });
   return plan;
