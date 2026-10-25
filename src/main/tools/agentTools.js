@@ -718,7 +718,7 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
    '--chdir', cwd, '/bin/sh', '-c', args.command];
   await scopedPath(workspaceRoot, cwd, true);
   require('../sandboxFilesystem').assertShellInvocation(filesystem, { file, argv, cwd, workspace: workspaceRoot });
-  env = { ...filesystem.env, GIT_OPTIONAL_LOCKS: '0', PATH: '/usr/local/bin:/usr/bin:/bin' };
+  env = { ...filesystem.env, ...require('../gitIdentity').identityEnvironment(workspaceRoot), GIT_OPTIONAL_LOCKS: '0', PATH: '/usr/local/bin:/usr/bin:/bin' };
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
   argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
@@ -1045,6 +1045,7 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 		Object.assign(env, { GIT_ASKPASS: askpass });
 	}
 	if (!uncontained) Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' });
+	if (!uncontained) Object.assign(env, require('../gitIdentity').identityEnvironment(root, { required: args[0] === 'commit' }));
 	const gitArgs = ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'color.ui=false',
 		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null'] : []), ...args];
 	// A cwd is not containment: Git can run filters, diff drivers and helpers.

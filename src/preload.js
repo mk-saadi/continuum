@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('api', {
   getUsageModelDetail: options => ipcRenderer.invoke('usage:model-detail', options),
   exportChat: (chatId, format) => ipcRenderer.invoke('chat:export', { chatId, format }),
   openPath: filePath => ipcRenderer.invoke('shell:open-path', filePath),
+  setGitIdentity: identity => ipcRenderer.invoke('config:set-git-identity', identity),
   getConfig: () => ipcRenderer.invoke('config:get'),
   setEngineIdleTimeout: minutes => ipcRenderer.invoke('config:set-idle-timeout', minutes),
   pickDirectory: () => ipcRenderer.invoke('config:pick-directory'),

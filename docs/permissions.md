@@ -46,3 +46,17 @@ unavailable sandbox or uncontained execution requires review. Execution grants
 remain specific and single-use. Dispatch rechecks cwd and requires the actual
 registered filesystem plan, network isolation and sandbox executable before
 launch; a missing or altered plan fails closed without a host fallback.
+
+## Git identity
+
+The main process resolves `user.name` and `user.email` independently: repository
+local config first, then **Settings → Agents & Skills → Git identity**, then
+host global Git config captured at application launch. Repository config and
+app settings are read live; restart Continuum to pick up global config changes.
+The resolved values are passed as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`,
+`GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL` to contained Git and shell
+invocations. Global config files and host home remain outside the sandbox.
+A native commit without a complete identity fails with instructions to configure
+it; inspection and non-git shell commands do not require identity. Clearing an
+app field restores fallback for that field. This changes identity resolution
+only; Part C configuration sanitization is not implemented.

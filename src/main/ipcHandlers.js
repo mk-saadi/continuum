@@ -251,6 +251,7 @@ function registerIpcHandlers({
         "cloud:models": input => fetchCloudModels(input),
         "cloud:save": input => saveCloudProvider(input),
         "cloud:delete": id => deleteCloudProvider(id),
+        "config:set-git-identity": identity => require('./configStore').saveConfig({ gitIdentity: require('./gitIdentity').validateIdentity(identity) }),
         "config:get": () => require('./configStore').getConfig(),
         "config:set-idle-timeout": minutes => {
             const config = require('./configStore').saveConfig({ engineIdleTimeoutMinutes: minutes });

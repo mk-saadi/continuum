@@ -705,6 +705,8 @@ ipcMain.handle("get-active-models", async () => {
 // ---------------------------------------------------------------------------
 const mcpManager = require("./src/main/mcpManager");
 app.whenReady().then(() => {
+	try { require('./src/main/gitIdentity').initializeHostGitIdentity(); }
+	catch (error) { console.error('Global Git identity could not be read:', error.message); }
 	if (process.platform === "win32") app.setAppUserModelId("com.continuum.assistant");
 	protocol.handle("media", (request) => serveMediaRequest(request, electronNet.fetch));
 	require("./src/main/legacyDataMigration").migrateLegacyUserData();

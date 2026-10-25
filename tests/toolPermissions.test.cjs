@@ -58,7 +58,7 @@ test('workspace guards traversal, sibling-prefix paths, symlinks and dangling sy
     await assert.rejects(guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write', project: { root_path: root } }), /Symlink escapes/);
     await fs.rm(path.join(root, '.llm_workspace', 'screenshots'));
     // Package installation still requests approval in the contained sandbox.
-    for (const command of ['apt install foo', 'npm install -g foo', 'pip install -g foo']) {
+    for (const command of ['npm publish', 'apt install foo', 'npm install -g foo', 'pip install -g foo']) {
       let requested = false;
       await assert.rejects(guardTool({
         name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root },

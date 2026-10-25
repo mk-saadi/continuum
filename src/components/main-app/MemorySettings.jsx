@@ -14,6 +14,7 @@ import NotificationSettings from "../settings/NotificationSettings";
 import SkillsSettingsTab from "../settings/SkillsSettingsTab";
 import GeneralSettingsTab from "../settings/GeneralSettingsTab";
 import BackgroundSettings from "../settings/BackgroundSettings";
+import GitIdentitySettings from "../GitIdentitySettings";
 import DirectorySettings from "../DirectorySettings";
 import RecoveryStorageSettings from "../settings/RecoveryStorageSettings";
 import ModelProfileSettings from "../ModelProfileSettings";
@@ -656,6 +657,7 @@ function MemorySettings({
 
 						<LazyPanel id="agents" visited={visited} hidden={tab !== "agents"}>
 							<GeneralSettingsTab />
+							<GitIdentitySettings />
 							<SkillsSettingsTab />
 						</LazyPanel>
 
