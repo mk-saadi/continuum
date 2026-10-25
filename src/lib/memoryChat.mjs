@@ -476,6 +476,7 @@ export async function runMemoryChat({
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
   onAdvertisedTools = () => {},
+  workspaceCompaction = null, rebuildWorkspacePrefix = null,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
     throw new TypeError('maxToolRounds must be between 1 and 1000.');
@@ -695,13 +696,44 @@ export async function runMemoryChat({
     const recordAdvertisement = () => {
       advertisedManifest = onAdvertisedTools(JSON.parse(JSON.stringify(requestPayload.tools)));
     };
-    const send = () => {
+    const compactWorkspace = async (force = false, contextWindowLimit = null) => {
+      if (casualMode || !workspaceCompaction) return null;
+      // No executor is running here. All preceding tool batches have finished;
+      // persist() in the owning IPC callback flushes their durable evidence.
+      publishSteps(true);
+      const retrieval = history.filter(m => m.role === 'system' && typeof m.content === 'string' &&
+        m.content.startsWith('Use the following document excerpts as reference data'));
+      let rebuiltHistory;
+      const result = await workspaceCompaction({ payload: requestPayload, tail: history.slice(prefixLength), force, contextWindowLimit,
+        buildRequest: async (projection, retained) => {
+          const prefix = await rebuildWorkspacePrefix(projection);
+          const target = [...prefix, ...retrieval, ...retained];
+          rebuiltHistory = target;
+          return { ...requestPayload, messages: imagesInUserRole
+            ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage)) : sanitizeChatMessages(target, decodeImage) };
+        } });
+      signal?.throwIfAborted();
+      if (result?.compressed) {
+        history.splice(0, history.length, ...rebuiltHistory);
+        prefixLength = history.length - result.tail.length;
+        Object.assign(requestPayload, result.payload);
+      }
+      return result;
+    };
+    const send = async () => {
+      const compacted = !casualMode && workspaceCompaction ? await compactWorkspace() : null;
       recordAdvertisement();
+      if (compacted?.validateDispatch) await compacted.validateDispatch();
+      compacted?.markContinued?.();
       return fetchImpl(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload), signal: requestSignal,
       contextWindowLimit: loadedContextSize,
-      contextRecovery: recoverContext ? async ({ contextWindowLimit }) => {
+      contextRecovery: workspaceCompaction && !casualMode ? async ({ contextWindowLimit }) => {
+        const result = await compactWorkspace(true, contextWindowLimit);
+        result?.markContinued?.();
+        return result?.compressed ? requestPayload : null;
+      } : recoverContext ? async ({ contextWindowLimit }) => {
         // Only the historical prefix is rebuilt. This run's fully paired tool
         // transcript/continuations survive; never replay tool execution.
         const tail = history.slice(prefixLength);

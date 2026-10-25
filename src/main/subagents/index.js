@@ -351,6 +351,9 @@ function startInBackground(options, kind) {
     try { onSpawn(session.id); } catch { /* Observability must never break execution. */ }
   }
   continuationManager.registerChild(session, { kind, engine: childEngine, ...executionOptions });
+  // W4: expose a durable, non-executable identity before returning a detached
+  // handle. Persistence failure leaves compaction closed, never grants resume.
+  require('./persistence').persistChildRun(session);
   backgroundStore.track({ executionId: attempt.id, childSessionId: session.id, kind, controller, detach });
   // Armed once for the detached run; released on settlement (both paths) so a
   // background deadline never outlives its run.

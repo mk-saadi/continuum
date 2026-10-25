@@ -332,7 +332,7 @@ function registerIpcHandlers({
 				throw new Error("Wait for the current chat or indexing operation.");
 			const controller = new AbortController();
 			requests.set(sender, new Map([[requestId, controller]]));
-			const abort = () => controller.abort();
+			const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
 			sender.once("destroyed", abort);
 			try {
                 notify({ type: "indexing", progress: null });
@@ -471,11 +471,11 @@ function registerIpcHandlers({
             requests.get(sender)?.get(requestId)?.resolveToolLimit?.(action === 'allow');
         },
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
-			requests.get(sender)?.get(requestId)?.abort();
+			requests.get(sender)?.get(requestId)?.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
 		},
 		"engine:cancel-session": ({ sessionId }, _notify, sender) => {
 			const controller = activeStreams.get(sessionId);
-			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort();
+			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
 		},
 		// Phase 2.1 live steering. Every mutation resolves the executing run from
 		// trusted in-memory state and requires the calling sender to own it; the
@@ -521,7 +521,7 @@ function registerIpcHandlers({
 			emitSteeringUpdates(sender, [record]);
 			return record;
 		},
-		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender) => {
+		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender, emitActivity = () => {}) => {
             if (sessionId) require('./sessionDeletion').assertAvailable(sessionId);
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
@@ -579,7 +579,7 @@ function registerIpcHandlers({
 				steeringRuns.set(runId, { runId, sessionId, sender, controller });
 				sender.send('engine:stream-status', { sessionId, status: 'generating', runId });
 			}
-			const abort = () => controller.abort();
+			const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
 			sender.once("destroyed", abort);
             let persistence;
 			let persistTimer = null;
@@ -754,7 +754,56 @@ function registerIpcHandlers({
                         fetchImpl,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
                         loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
-                        recoverContext: !cloud && sessionId ? async ({ contextWindowLimit, signal }) => {
+                        rebuildWorkspacePrefix: usageProjectId ? projection => rebuildChatMessages({
+                            sessionId, modelId, excludeMessageIds: [persistence?.messageId],
+                            delegationAvailable: tools.some(tool => tool.function?.name === 'spawn_sub_agent'),
+                            userText: currentUserText, compactionProjection: projection,
+                        }) : null,
+                        workspaceCompaction: usageProjectId ? async boundary => {
+                            // Flush the current row without completing it or changing run identity.
+                            if (persistTimer !== null) clearTimeout(persistTimer);
+                            persistTimer = null;
+                            persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status: 'in_progress' });
+                            const measurement = cloud ? require('./promptMeasurement').createCloudWorkspaceMeasurer(target)
+                                : require('./contextBudget').createPromptMeasurer(require('./localEngineFetch').localEngineFetch);
+                            const policyRevision = require('./lspExecutionContext').revision(sessionId);
+                            const runtime = getEngineConfig?.();
+                            const providerIdentity = cloud ? JSON.stringify(require('./cloudProviders').getStoredProvider(target.provider)) : null;
+                            const isCurrent = () => (cloud ? JSON.stringify(require('./cloudProviders').getStoredProvider(target.provider)) === providerIdentity : (runtime?.modelPath === config.modelPath && runtime?.port === config.port &&
+                                runtime?.runtimeIdentity === config.runtimeIdentity &&
+                                JSON.stringify(getEngineConfig?.()?.activeModelConfig) === JSON.stringify(runtime?.activeModelConfig) && !controller.signal.aborted && activeStreams.get(streamKey) === controller &&
+                                getEngineConfig?.()?.runtimeIdentity === runtime?.runtimeIdentity &&
+                                getEngineConfig?.()?.modelPath === runtime?.modelPath && getEngineConfig?.()?.port === runtime?.port)) &&
+                                !controller.signal.aborted && activeStreams.get(streamKey) === controller &&
+                                require('./lspExecutionContext').revision(sessionId) === policyRevision &&
+                                require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === configuration;
+                            const configuration = require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId);
+                            try {
+                                const result = await require('./workspaceCompaction').compactAtBoundary({ ...boundary,
+                                    sessionId, modelId, owner: controller, messageId: persistence?.messageId,
+                                    onActivity: emitActivity,
+                                    mcpToolNames: mcpManager.getTools(sessionId).map(tool => tool.function?.name ?? tool.name),
+                                    signal: controller.signal, isCurrent,
+                                    measure: payload => cloud ? measurement(payload) : measurement(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
+                                        { signal: controller.signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 32768 }, boundary.contextWindowLimit ?? undefined),
+                                    generate: cloud ? async (candidateRequest, { signal }) => {
+                                        const response = await createCloudFetch(target, { stream: false })('cloud:workspace-candidate', {
+                                            body: JSON.stringify(candidateRequest), signal });
+                                        return response.json();
+                                    } : (candidateRequest, { signal, onProgress }) => llmCheckpointCallback(null, modelId, { signal, onProgress, candidateRequest }),
+                                });
+                                if (result.compressed && !sender.isDestroyed()) sender.send('session:compression-complete', {
+                                    sessionId, compressed: true, checkpointId: result.checkpointId, archivedCount: result.archivedCount, diagnostics: result.diagnostics });
+                                return result;
+                            } catch (error) {
+                                if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, compressed: false, reason: error.code });
+                                // Unknown metadata cannot certify compaction fit. Keep the
+                                // pre-existing provider path, with compaction unsupported.
+                                if (cloud && error.code === 'unknown-cloud-capacity') return { compressed: false, reason: error.code, unsupported: true };
+                                throw error;
+                            }
+                        } : null,
+                        recoverContext: !usageProjectId && !cloud && sessionId ? async ({ contextWindowLimit, signal }) => {
                             if (typeof llmSummarizeCallback !== 'function') return null;
                             const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
                             // Schemas for the floor projection: the same tool
@@ -1181,7 +1230,8 @@ function registerIpcHandlers({
             assertAttachmentNames(input.files.map(file => typeof file === 'string' ? file : file.name), policy);
             return processUploads(input.files);
         },
-		"session:get-all": () => getAllSessions(),
+		"workspace:compaction-activity-list": ({ sessionId }) => require('./workspaceCompactionActivity').list(sessionId),
+        "session:get-all": () => getAllSessions(),
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),
 		"session:load-display": async ({ sessionId }) => {
@@ -1270,7 +1320,7 @@ function registerIpcHandlers({
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
             standaloneDelegation = true;
             const controller = new AbortController();
-            const abort = () => controller.abort();
+            const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
             let finish;
             try {
                 sender.once('destroyed', abort);
@@ -1354,6 +1404,29 @@ function registerIpcHandlers({
             return project?.root_path ? require('./backgroundCommands').list(sessionId, await require('node:fs/promises').realpath(project.root_path)) : [];
         },
         "session:get-plan": ({ sessionId }) => require('./workspacePlan').getPlan(sessionId),
+        // Explicit W2 preparation only. This API never calls the compaction
+        // commit path and never changes the prompt or active history.
+        "session:generate-compact-candidate": async ({ sessionId, modelId }) => {
+            const config = getEngineConfig?.();
+            if (!config || config.modelPath !== modelId || !config.port || typeof llmCheckpointCallback !== 'function')
+                return { ok: false, code: 'model-unavailable' };
+            const identity = config.runtimeIdentity;
+            const { createPromptMeasurer } = require('./contextBudget');
+            const { localEngineFetch } = require('./localEngineFetch');
+            const measure = createPromptMeasurer(localEngineFetch);
+            return require('./compressionEngine').generateWorkspaceCompactCandidate({ sessionId, modelId,
+                isCurrent: () => getEngineConfig?.()?.runtimeIdentity === identity && getEngineConfig?.()?.modelPath === modelId,
+                capacityTokens: config.activeModelConfig?.contextLength ?? 8192,
+                measure: (payload, { signal }) => measure(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
+                    { signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 8192 }),
+                generate: async (request, { signal, onProgress }) => {
+                    if (getEngineConfig?.()?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
+                    const result = await llmCheckpointCallback(null, modelId, { signal, onProgress, candidateRequest: request });
+                    if (getEngineConfig?.()?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
+                    return result;
+                },
+            });
+        },
 		"session:get-archived-messages": ({ sessionId, limit, offset }) => require('./contextInspection').getArchivedMessagesForDisplay(sessionId, { limit, offset }),
 		"session:trigger-compression": ({ sessionId, modelId, contextWindowLimit }, notify) => {
 			if (typeof llmSummarizeCallback !== "function") {
@@ -1391,7 +1464,7 @@ function registerIpcHandlers({
 	const dispose = () => {
 		mcpManager.off("changed", broadcast);
 		subscribers.clear();
-		for (const active of requests.values()) for (const controller of active.values()) controller.abort();
+		for (const active of requests.values()) for (const controller of active.values()) controller.abort(require('./workspaceGenerationRuntime').reason('ipc-disposed'));
 		for (const channel of registered.splice(0)) ipcMain.removeHandler(channel);
 	};
 	try {
@@ -1422,6 +1495,7 @@ function registerIpcHandlers({
 						payload,
 						(result) => dispatcher.dispatch(result),
 						event.sender,
+                        record => { if (!event.sender.isDestroyed() && isTrustedSender(event)) event.sender.send('workspace:compaction-activity', record); },
 					); } finally { dispatcher.close(); }
 				}
 				if (channel === "session:trigger-compression") {

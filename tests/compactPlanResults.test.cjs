@@ -522,13 +522,7 @@ test('context compaction preserves the authoritative plan and latest revision', 
   for (let i = 0; i < 24; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `Turn${i} `.padEnd(400, 'x'));
   const before = plan.getPlan(id);
 
-  const result = await compression.checkAndCompressContext({
-    sessionId: id,
-    modelId: MODEL,
-    contextWindowLimit: 2600,
-    llmSummarizeCallback: async () => 'Summary after compaction.',
-    llmCheckpointCallback: async () => ({ objective: 'Stub objective.', outstandingRequirements: [] }),
-  });
+  const result = await require('./fixtures/w3Compaction.cjs').compact({ sessionId: id, modelId: MODEL });
   assert.equal(result.compressed, true);
   assert.deepEqual(plan.getPlan(id), before);
 

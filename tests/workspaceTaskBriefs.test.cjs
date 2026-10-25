@@ -172,26 +172,15 @@ test('normal preparation and forced-recovery reconstruction share applicable bri
   assert.equal(markers.length, 1);
 });
 
-test('brief-identity change during compression aborts safely without archival', async () => {
+test('legacy Workspace compression refuses before an unvalidated generation callback', async () => {
   const id = workspaceSession(crypto.randomUUID());
-  for (let i = 0; i < 20; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `Turn${i} `.padEnd(400, 'x'));
-  const before = sessions.loadSession(id).messages.map(row => ({ id: row.id, archived: row.archived }));
-  await assert.rejects(compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: 2600,
-    llmSummarizeCallback: async () => {
-      sessions.saveMessage(id, 'user', 'Concurrent correction lands mid-summary.');
-      return 'A summary that must be discarded.';
-    },
-    llmCheckpointCallback: async () => ({ objective: 'Stub objective.', outstandingRequirements: [] }),
-  }), /Task brief changed during compression/);
+  sessions.saveMessage(id, 'user', 'Preserve requirements.');
+  const before = sessions.loadSession(id).messages;
+  const result = await compression.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 2600,
+    llmSummarizeCallback: async () => { throw new Error('must not generate'); } });
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.deepEqual(sessions.loadSession(id).messages, before);
   assert.equal(sessions.getSessionSummary(id), null);
-  const after = sessions.loadSession(id).messages;
-  // The concurrent instruction itself is preserved; nothing was archived.
-  assert.ok(after.every(row => row.archived === 0 && row.is_summarized === 0));
-  assert.deepEqual(after.filter(row => before.some(orig => orig.id === row.id)).map(row => ({ id: row.id, archived: row.archived })), before);
-  assert.ok(after.some(row => row.content === 'Concurrent correction lands mid-summary.'));
-  assert.ok(briefs.getApplicableBriefs(id).some(row => row.content_text === 'Concurrent correction lands mid-summary.'));
-  assert.equal(sessions.loadSession(id).is_compressing, 0);
 });
 
 test('oversized brief fails closed without truncation or archival', async () => {
@@ -208,7 +197,7 @@ test('oversized brief fails closed without truncation or archival', async () => 
     llmSummarizeCallback: async () => 'Too-small summary.',
   });
   assert.equal(result.compressed, false);
-  assert.equal(result.reason, 'task-brief-too-large');
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
   assert.deepEqual(sessions.loadSession(id).messages.map(row => row.archived), before);
   // Durable record survives even though it cannot fit the current window.
   assert.equal(briefs.getAllBriefs(id)[0].content_text, huge);

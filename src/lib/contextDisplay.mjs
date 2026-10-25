@@ -42,12 +42,14 @@ export function buildContextTooltip({ total, limit, error, isCloud, method, conf
 		for (const [label, value] of [
 			['Configured total', budgetContract.configuredContextTokens],
 			['Runtime per-request capacity', budgetContract.runtimeContextTokens],
+            ['Runtime parallel slots', budgetContract.runtimeSlots],
             ['Provider advertised context', budgetContract.advertisedContextTokens],
 			['Reserved output', budgetContract.reservedOutputTokens],
 			['Safety margin', budgetContract.reservedSafetyTokens],
 			['Usable input', budgetContract.usableInputTokens],
 			['Compaction threshold (90%)', budgetContract.autoCompactionTriggerTokens],
 		]) lines.push(`${label}: ${fullTokenCount(value)}`);
+		if (budgetContract.provider === 'local') lines.push('Configured context is a total shared across concurrent predictions; runtime capacity is the verified per-request limit.');
 		lines.push(`Capacity: ${budgetContract.capacityMethod} (${budgetContract.capacityConfidence})`);
         lines.push('Prepared request projection; dispatch may change tool rounds, media shape and provider fields. Final wire guard enforces fit.');
 	}

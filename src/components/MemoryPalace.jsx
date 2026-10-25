@@ -150,6 +150,20 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
 
   useCompressionEvents(sessionId, (result) => {
     if (!result.compressed) return;
+    const d = result.diagnostics;
+    if (d?.commitOutcome === 'committed-and-verified') {
+      // The prepared prefix omits the live protocol tail. Keep the owning
+      // runtime's complete resumed-request measurement until the next request
+      // or normal end-of-turn measurement, rather than replacing it here.
+      if ((d.sessionModelId ?? d.modelId) === modelId && Number.isSafeInteger(d.actualTokens)) {
+        measureGeneration.current += 1;
+        setMeasured({ sessionId, modelId, tokens: d.actualTokens, method: d.actualMeasurementMethod,
+          budgetContract: d.actualBudgetContract, confidence: /approx|estimat|bytes/i.test(d.actualMeasurementMethod) ? 'estimated' : 'measured' });
+        setMeasureError('');
+      }
+      refresh();
+      return;
+    }
     setToast(`Summarized ${result.archivedCount} earlier messages to free memory`);
     refresh();
     measure();

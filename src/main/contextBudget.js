@@ -38,7 +38,7 @@ function reserveTokens(payload, limit) {
 }
 // Capacity and occupancy are independent: cached input still occupies context.
 function createRuntimeBudget({ provider = 'local', modelId = null, runtimeIdentity = null,
-  configuredContextTokens = null, runtimeContextTokens = null, fallbackCeilingTokens = 8192, payload = {},
+  configuredContextTokens = null, runtimeContextTokens = null, runtimeSlots = null, fallbackCeilingTokens = 8192, payload = {},
   currentInputTokens = null, measurementMethod = 'approximate-full-request' } = {}) {
   const valid = n => Number.isSafeInteger(n) && n > 0;
   const verified = valid(runtimeContextTokens);
@@ -50,7 +50,7 @@ function createRuntimeBudget({ provider = 'local', modelId = null, runtimeIdenti
     throw new ContextBudgetError('invalid output/reasoning reservation');
   const safety = Math.min(128, Math.ceil(limit / 100));
   const usableInputTokens = limit - reserve;
-  return { provider, modelId, runtimeIdentity, configuredContextTokens,
+  return { provider, modelId, runtimeIdentity, configuredContextTokens, runtimeSlots,
     runtimeContextTokens: verified && provider === 'local' ? runtimeContextTokens : null,
     advertisedContextTokens: verified && provider !== 'local' ? runtimeContextTokens : null,
     capacityTokens: limit, reservedOutputTokens: reserve - safety, reservedSafetyTokens: safety,
@@ -168,7 +168,7 @@ function createPromptMeasurer(fetchImpl) {
     const budgetContract = createRuntimeBudget({ modelId: payload.model,
       runtimeIdentity: options.runtimeIdentity ?? runtimeAtStart ?? identity ?? url,
       configuredContextTokens: options.contextWindowLimit ?? null,
-      runtimeContextTokens, fallbackCeilingTokens: knownLimit ?? 8192, payload, currentInputTokens: tokens, measurementMethod: method });
+      runtimeContextTokens, runtimeSlots: Number.isSafeInteger(props?.total_slots) && props.total_slots > 0 ? props.total_slots : null, fallbackCeilingTokens: knownLimit ?? 8192, payload, currentInputTokens: tokens, measurementMethod: method });
     const imageCount = payload.messages.reduce((n, message) => n + (Array.isArray(message.content)
       ? message.content.filter(part => part?.type === 'image_url').length : 0), 0);
     return { tokens, method, limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,

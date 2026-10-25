@@ -748,6 +748,12 @@ app.whenReady().then(() => {
 		},
 		llmCheckpointCallback: async (checkpointInput, modelId, generation = {}) => {
 			if (!childProcess) throw new Error("Start the local model server before compressing context.");
+			// W2 consumes the complete response envelope, including finish metadata.
+			// The legacy compaction callback below remains isolated from candidates.
+			if (generation.candidateRequest) {
+                return require('./src/main/workspaceGenerationRuntime').generateLocalCandidate(localEngineFetch,
+                    `http://127.0.0.1:${engineConfig.port}/v1/chat/completions`, generation.candidateRequest, generation);
+			}
 			const response = await localEngineFetch(
 				`http://127.0.0.1:${engineConfig.port}/v1/chat/completions`,
 				{

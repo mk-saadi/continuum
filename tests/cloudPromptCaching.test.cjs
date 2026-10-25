@@ -497,5 +497,7 @@ test("the temporal anchor is stable within a day and does not change per call", 
 	const first = buildTemporalAnchor();
 	const second = buildTemporalAnchor();
 	assert.equal(first, second);
-	assert.match(first, /^\[TEMPORAL CONTEXT\]\nToday's Date: .+\(\d{4}-\d{2}-\d{2}\)\nUser Timezone Offset: -?\d+ mins\n$/);
+	assert.match(first, /^\[TEMPORAL CONTEXT\]\nToday's Date: .+\(\d{4}-\d{2}-\d{2}\)\nUser Timezone Offset: -?\d+ mins\n/);
+	// The anchor also carries the ground-truth policy line.
+	assert.match(first, /factual ground truth for this session — not fictional or roleplay/);
 });

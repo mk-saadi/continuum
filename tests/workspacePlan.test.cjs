@@ -325,13 +325,7 @@ test('the plan is injected as a bounded suffix and survives compaction unchanged
     archived: message.archived,
   }));
 
-  const result = await compression.checkAndCompressContext({
-    sessionId: id,
-    modelId: MODEL,
-    contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Summary after compaction.',
-    llmCheckpointCallback: async () => ({ objective: 'Stub objective.', outstandingRequirements: [] }),
-  });
+  const result = await require('./fixtures/w3Compaction.cjs').compact({ sessionId: id, modelId: MODEL });
   assert.equal(result.compressed, true);
 
   // Compaction never advances or completes a step, and never edits messages

@@ -13,8 +13,8 @@ const handlers = new Map(); let fetchMock;
 const originalLoad = Module._load;
 Module._load = function(name, ...args) {
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, Notification: { isSupported: () => false }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
-  if (name.endsWith('/localEngineFetch')) return { localEngineFetch: (...params) => fetchMock(...params) };
-  if (name.endsWith('/nodeHttpFetch')) return { nodeHttpFetch: (...params) => fetchMock(...params) };
+  if (name.endsWith('/localEngineFetch')) return { localEngineFetch: (...params) => (new URL(params[0]).pathname === '/props' ? Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } })) : new URL(params[0]).pathname === '/apply-template' ? Promise.resolve(Response.json({ prompt: params[1].body })) : new URL(params[0]).pathname === '/tokenize' ? Promise.resolve(Response.json({ tokens: Array(100).fill(0) })) : fetchMock(...params)) };
+  if (name.endsWith('/nodeHttpFetch')) return { nodeHttpFetch: (...params) => (new URL(params[0]).pathname === '/props' ? Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } })) : new URL(params[0]).pathname === '/apply-template' ? Promise.resolve(Response.json({ prompt: params[1].body })) : new URL(params[0]).pathname === '/tokenize' ? Promise.resolve(Response.json({ tokens: Array(100).fill(0) })) : fetchMock(...params)) };
   return originalLoad.call(this, name, ...args);
 };
 const { db, initDatabase, closeDatabase } = require('../src/main/db');

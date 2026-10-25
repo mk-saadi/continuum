@@ -1,3 +1,5 @@
+import CompactionActivity from './CompactionActivity.jsx';
+import { activitySegments } from '../../lib/compactionActivity.mjs';
 import React from "react";
 import { useRowUiState } from "../../hooks/useRowUiState.js";
 import ChatMessage from "../ChatMessage.jsx";
@@ -26,6 +28,7 @@ import { LuChevronDown, LuChevronRight } from "react-icons/lu";
 // ways (Phase 8). `registerRow` supplies a ref callback keyed by stable message
 // identity so the virtualizer can measure the row.
 export function WorkspaceMessage({
+    compactionActivity = [],
 	message,
 	index,
 	lastMessageId = null,
@@ -79,6 +82,10 @@ export function WorkspaceMessage({
 	const isLast = lastMessageId != null ? message.id === lastMessageId : false;
 	return (
 		<RunSection
+            compactionActivity={compactionActivity.filter(e => {
+              const runId = activeVariantOf(message)?.run_id ?? message.run_id;
+              return runId ? e.run_id === runId : e.message_id === (message.persistedMessageId ?? message.id);
+            })}
 			measureRef={measureRef}
 			message={message}
 			streamBuffer={
@@ -105,6 +112,7 @@ export function WorkspaceMessage({
 }
 
 export default function WorkspaceTimeline({
+    compactionActivity = [],
 	messages,
 	streamBuffer,
 	activeStreamMessageId,
@@ -147,6 +155,7 @@ export default function WorkspaceTimeline({
 		>
 			{list.map((message, index) => (
 				<WorkspaceMessage
+                    compactionActivity={compactionActivity}
 					key={message?.id ?? `ws-${index}`}
 					message={message}
 					index={index}
@@ -344,6 +353,7 @@ function RunHeader({
 }
 
 function RunSection({
+    compactionActivity = [],
 	message,
 	measureRef,
 	streamBuffer,
@@ -369,7 +379,9 @@ function RunSection({
 	const stats = statsOf(message);
 	const hasMeta = message.status === "interrupted" || (message.variants?.length ?? 0) > 1 || !!stats;
 	const showFinal = !!text || hasMeta || !!message.streaming;
-	const stages = splitStages(steps);
+	const stages = activitySegments(steps, compactionActivity).flatMap((segment, index) => segment.activity
+      ? [{ key: `compaction:${segment.activity.id}`, activity: segment.activity, events: [] }]
+      : splitStages(segment.steps).map(stage => ({ ...stage, key: `${index}:${stage.key}` })));
 	const eventCount = stages.reduce((sum, stage) => sum + stage.events.length, 0);
 	const responseId = `workspace-response-${message.id ?? "pending"}`;
 
@@ -395,7 +407,7 @@ function RunSection({
 					role="list"
 					aria-label="Run execution stages"
 				>
-					{stages.map((stage) => (
+					{stages.map((stage) => stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
 						<StageSection
 							key={stage.key}
 							stage={stage}

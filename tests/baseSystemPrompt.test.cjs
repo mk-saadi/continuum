@@ -86,7 +86,13 @@ test('generation instructions ride only with a generation backend', () => {
 });
 
 test('temporal anchor is present and rebuilding never duplicates the base', () => {
-  assert.match(buildTemporalAnchor(), /^\[TEMPORAL CONTEXT\]/);
+  const anchor = buildTemporalAnchor();
+  assert.match(anchor, /^\[TEMPORAL CONTEXT\]/);
+  // The session date must be framed as factual ground truth (not roleplay),
+  // with older web timestamps treated as historical data.
+  assert.match(anchor, /factual ground truth for this session — not fictional or roleplay/);
+  assert.match(anchor, /treat those as historical data, not evidence that this date is wrong/);
+  assert.match(anchor, /Only deviate from this date when the user explicitly asks for historical or old data/);
   const once = prependBaseSystemPrompt([{ role: 'user', content: 'hi' }], true);
   assert.equal(once.filter(m => m.role === 'system').length, 1);
   const twice = prependBaseSystemPrompt(once, true);

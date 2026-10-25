@@ -75,11 +75,7 @@ function checkpointDraft(editId, cmdId) {
 }
 
 async function compressWork(id, summary, draft) {
-  return compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => summary,
-    llmCheckpointCallback: async () => draft,
-  });
+  return require('./fixtures/w3Compaction.cjs').compact({ sessionId: id, modelId: MODEL, draft });
 }
 
 test.after(() => { if (disposeIpc) disposeIpc(); closeDatabase(); Module._load = load; os.homedir = home; fs.rmSync(directory, { recursive: true, force: true }); });
@@ -128,11 +124,7 @@ test('legacy schema upgrade preserves data and installs brief/checkpoint cleanup
     sessions.getOrCreateSession(upgraded, MODEL, legacyProject.id);
     sessions.saveMessage(upgraded, 'user', 'Post-upgrade requirement.');
     for (let i = 0; i < 20; i++) sessions.saveMessage(upgraded, i % 2 ? 'assistant' : 'user', `U${i} `.padEnd(400, 'x'));
-    const upgradedResult = await compression.checkAndCompressContext({
-      sessionId: upgraded, modelId: MODEL, contextWindowLimit: LIMIT,
-      llmSummarizeCallback: async () => 'Upgraded summary.',
-      llmCheckpointCallback: async () => stubDraft(),
-    });
+    const upgradedResult = await compressWork(upgraded, '', stubDraft());
     assert.equal(upgradedResult.compressed, true);
     assert.ok(Number.isSafeInteger(upgradedResult.checkpointId));
     assert.ok(briefs.getApplicableBriefs(upgraded).some(brief => brief.content_text === 'Post-upgrade requirement.'));
@@ -149,7 +141,7 @@ test('session deletion leaves no orphaned briefs, checkpoints, summaries, messag
   const id = workspaceSession(crypto.randomUUID());
   const { editMsg } = seedWork(id);
   db.prepare('INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens) VALUES (?, ?, ?, ?)').run(editMsg.id, '/tmp/notes.txt', 'text/plain', 4);
-  const result = await compressWork(id, 'Cascade summary.', checkpointDraft(editMsg.id, editMsg.id));
+  const result = await compressWork(id, 'Cascade summary.', stubDraft());
   assert.equal(result.compressed, true);
   assert.ok(db.prepare('SELECT COUNT(*) AS n FROM workspace_task_briefs WHERE session_id = ?').get(id).n > 0);
   assert.ok(db.prepare('SELECT COUNT(*) AS n FROM workspace_checkpoints WHERE session_id = ?').get(id).n > 0);
@@ -183,7 +175,7 @@ test('restart clears a stuck compression lock and marks in-progress work interru
   const checkpoint = checkpoints.getLatestCheckpoint(id);
   assert.ok(checkpoint);
   assert.equal(checkpoint.id, result.checkpointId);
-  assert.equal(checkpoint.summary_text, 'Restart summary.');
+  assert.equal(checkpoint.summary_text, '');
   assert.ok(sessions.loadSession(id).messages.length > 0);
 });
 
@@ -193,8 +185,8 @@ test('a database failure mid-commit rolls back archival, summary, and checkpoint
   const before = sessions.loadSession(id).messages.map(row => ({ id: row.id, archived: row.archived, content: row.content }));
   // Sabotage the summary write (the last statement group of the commit):
   // SELECTs still work, so the failure lands after archival statements.
-  db.prepare(`CREATE TRIGGER boom_update BEFORE UPDATE ON session_summaries BEGIN SELECT RAISE(ABORT, 'boom-update'); END`).run();
-  db.prepare(`CREATE TRIGGER boom_insert BEFORE INSERT ON session_summaries BEGIN SELECT RAISE(ABORT, 'boom-insert'); END`).run();
+  db.prepare(`CREATE TRIGGER boom_update BEFORE UPDATE ON workspace_checkpoints BEGIN SELECT RAISE(ABORT, 'boom-update'); END`).run();
+  db.prepare(`CREATE TRIGGER boom_insert BEFORE INSERT ON workspace_checkpoints BEGIN SELECT RAISE(ABORT, 'boom-insert'); END`).run();
   try {
     await assert.rejects(compressWork(id, 'Lost summary.', checkpointDraft(editMsg.id, cmdMsg.id)), /boom-/);
     assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0 && row.is_summarized === 0));
@@ -240,7 +232,7 @@ test('full lifecycle: compress, reload, continue, ordered prompt, inspect', asyn
   // Checkpoint tied to the correct summary, brief identity, archived set.
   const row = checkpoints.getLatestCheckpoint(id);
   assert.equal(row.id, result.checkpointId);
-  assert.equal(row.summary_text, 'Lifecycle summary.');
+  assert.equal(row.summary_text, '');
   assert.equal(row.brief_identity, briefs.getBriefIdentity(id));
   const archivedIds = db.prepare('SELECT id FROM messages WHERE session_id = ? AND archived = 1 ORDER BY id').all(id).map(item => item.id);
   assert.deepEqual(JSON.parse(row.archived_ids_json), archivedIds);
@@ -251,7 +243,7 @@ test('full lifecycle: compress, reload, continue, ordered prompt, inspect', asyn
   initDatabase();
   assert.equal(checkpoints.getLatestCheckpoint(id).id, result.checkpointId);
   assert.ok(briefs.getApplicableBriefs(id).some(brief => brief.content_text === 'Build the widget.'));
-  assert.equal(sessions.getSessionSummary(id), 'Lifecycle summary.');
+  assert.equal(sessions.getSessionSummary(id), null);
   assert.ok(sessions.loadSession(id).messages.length > 0);
   // Continue the conversation, then verify prompt order and staleness.
   sessions.saveMessage(id, 'user', 'Follow-up instruction.');
@@ -262,7 +254,7 @@ test('full lifecycle: compress, reload, continue, ordered prompt, inspect', asyn
   const iBrief = contents.findIndex(content => content.includes(briefs.SECTION_MARKER));
   const iCheckpoint = contents.findIndex(content => content.includes(checkpoints.CHECKPOINT_MARKER));
   const iSummary = contents.findIndex(content => content.includes('[EARLIER CONVERSATION SUMMARY]:'));
-  assert.ok(iBrief >= 0 && iCheckpoint > iBrief && iSummary > iCheckpoint, 'brief, checkpoint, summary in order');
+  assert.ok(iBrief >= 0 && iCheckpoint > iBrief && iSummary === -1, 'brief then checkpoint; obsolete rolling summary excluded');
   assert.ok(joined.includes('Follow-up instruction.'));
   assert.ok(contents[contents.length - 1].includes('Done.'));
   const checkpointSection = prompt.find(message => message.taskCheckpoint === true);
@@ -277,7 +269,7 @@ test('full lifecycle: compress, reload, continue, ordered prompt, inspect', asyn
   assert.ok(displayed.checkpoint.staleReasons.length > 0);
   assert.equal(inspection.getCheckpointHistoryForDisplay(id).checkpoints.length, 1);
   assert.ok(inspection.getBriefsForDisplay(id).applicable.some(brief => brief.content_text === 'Follow-up instruction.'));
-  assert.equal(inspection.getSummaryForDisplay(id).text, 'Lifecycle summary.');
+  assert.equal(inspection.getSummaryForDisplay(id).text, null);
   assert.equal(inspection.getArchivedMessagesForDisplay(id, {}).total, archivedIds.length);
 });
 
@@ -287,9 +279,12 @@ test('forced recovery events report success with checkpointId and failure with e
     isTrustedSender: () => true,
     getEngineConfig: () => ({ modelPath: 'model', port: 9999, activeModelConfig: { contextLength: 32768 } }),
     llmSummarizeCallback: async () => 'Event summary.',
-    llmCheckpointCallback: async () => {
+    llmCheckpointCallback: async (_input, _model, { candidateRequest }) => {
       if (checkpointShouldFail) throw new Error('checkpoint backend offline');
-      return stubDraft();
+      const input = JSON.parse(candidateRequest.messages[1].content);
+      const draft = { objective: 'Event task', briefIds: input.briefs.map(b => b.id) };
+      for (const key of require('../src/main/workspaceCompactCandidate').ARRAY_KEYS) draft[key] = [];
+      return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(draft) } }] };
     },
   });
   const sent = [];
@@ -304,7 +299,7 @@ test('forced recovery events report success with checkpointId and failure with e
   sessions.saveMessage(okId, 'assistant', 'Working.', [], null, null, null, null, null,
     [{ id: 'ev-1', type: 'tool_call', toolName: 'execute_command', status: 'complete',
       args: { command: 'make' }, result: { stdout: 'ok', stderr: '', exitCode: 0 } }]);
-  for (let i = 0; i < 12; i++) sessions.saveMessage(okId, i % 2 ? 'assistant' : 'user', `Ev${i} `.padEnd(100, 'x'));
+  for (let i = 0; i < 12; i++) sessions.saveMessage(okId, i % 2 ? 'assistant' : 'user', `Ev${i} `.padEnd(2000, 'x'));
   // Force a backend overflow regardless of measured size; the post-recovery
   // prompt fits the production-like window below.
   const bigOverflow = () => new Response(JSON.stringify({ error: { type: 'exceed_context_size_error', n_prompt_tokens: 40000, n_ctx: 32768 } }), { status: 400 });
@@ -332,7 +327,7 @@ test('forced recovery events report success with checkpointId and failure with e
   const failure = sent.filter(item => item.channel === 'session:compression-complete' && item.payload.sessionId === failId).at(-1);
   assert.ok(failure, 'failure event sent');
   assert.equal(failure.payload.compressed, false);
-  assert.equal(failure.payload.reason, 'checkpoint-generation-failed');
+  assert.equal(failure.payload.reason, 'provider-error');
   // Failed recovery archives nothing, writes no summary or checkpoint, and
   // preserves every pre-existing message (the engine may persist its own
   // in-flight user/assistant rows, which stay unarchived).

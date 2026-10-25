@@ -426,24 +426,7 @@ function anthropicPayload(payload, model) {
 // POSTs (see ./subagents/providers/cloudProvider.js) and need one JSON body.
 // The Anthropic path is non-streaming either way — it is converted to an
 // OpenAI-shaped JSON response below.
-function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, getMetadata = getCloudModelMetadata, onErrorResponse = null } = {}) {
-	target = validateChatProvider(target);
-	if (target.type !== "cloud") throw new Error("Cloud provider required.");
-	const provider = readSettings().find((row) => row.id === target.provider);
-	const apiKey = provider.apiKey?.trim();
-	if (!apiKey && providerNeedsKey(provider)) throw new Error(`Add your ${provider.name} API key in Settings → Cloud Providers.`);
-	return async (_url, options) => {
-		const original = JSON.parse(options.body);
-        const { requiredModalities, assertCapabilities } = require('./modelCapabilities');
-        const required = requiredModalities(original.messages);
-        if (required.length) {
-            const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
-            const { attachmentPolicy } = await import('../lib/attachmentPolicy.mjs');
-            const { getOverrides, applyOverrides } = require('./capabilityOverrides');
-            const overrides = getOverrides(target);
-            const policy = attachmentPolicy(applyOverrides(metadata?.capabilities, overrides), { apiType: provider.apiType, service: metadata?.providerName, overrides });
-            assertCapabilities(policy.enabled, required);
-        }
+function prepareCloudPayload(original, target, provider, stream = true) {
 		const anthropic = provider.apiType === "anthropic";
 		// Provider-aware prompt caching. Resolved from the *actual* target so a
 		// child agent never inherits another provider's cache parameters.
@@ -471,6 +454,28 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 					...mapped.fields,
 					...cacheFields,
 				};
+  return body;
+}
+function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, getMetadata = getCloudModelMetadata, onErrorResponse = null } = {}) {
+	target = validateChatProvider(target);
+	if (target.type !== "cloud") throw new Error("Cloud provider required.");
+	const provider = readSettings().find((row) => row.id === target.provider);
+	const apiKey = provider.apiKey?.trim();
+	if (!apiKey && providerNeedsKey(provider)) throw new Error(`Add your ${provider.name} API key in Settings → Cloud Providers.`);
+	return async (_url, options) => {
+		const original = JSON.parse(options.body);
+        const { requiredModalities, assertCapabilities } = require('./modelCapabilities');
+        const required = requiredModalities(original.messages);
+        if (required.length) {
+            const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
+            const { attachmentPolicy } = await import('../lib/attachmentPolicy.mjs');
+            const { getOverrides, applyOverrides } = require('./capabilityOverrides');
+            const overrides = getOverrides(target);
+            const policy = attachmentPolicy(applyOverrides(metadata?.capabilities, overrides), { apiType: provider.apiType, service: metadata?.providerName, overrides });
+            assertCapabilities(policy.enabled, required);
+        }
+		const anthropic = provider.apiType === "anthropic";
+		const body = prepareCloudPayload(original, target, provider, stream);
 		const response = await fetchImpl(
 			`${normalizeBaseUrl(provider.baseUrl)}/${anthropic ? "messages" : "chat/completions"}`,
 			{
@@ -514,6 +519,8 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 			}));
 		return new Response(
 			JSON.stringify({
+				// Preserve raw completion metadata for strict candidate validation.
+				provider_stop_reason: data.stop_reason ?? null,
 				choices: [
 					{
 						message: {
@@ -564,6 +571,7 @@ module.exports = {
 	deleteCloudProvider,
 	validateChatProvider,
 	createCloudFetch,
+    prepareCloudPayload,
 	anthropicPayload,
 	isLocalBaseUrl,
 	providerNeedsKey,

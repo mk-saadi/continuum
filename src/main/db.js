@@ -611,6 +611,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       `);
     })();
     require('./legacyDataMigration').repairLegacyAttachmentPaths(connection, directory);
+    require('./workspaceCompactionActivity').install(connection);
     database = connection;
     require('./backgroundCommands').restore(connection);
     return database;

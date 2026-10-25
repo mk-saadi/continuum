@@ -2,6 +2,29 @@
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// One native listener across every mounted tab; session-scoped fan-out.
+const compactionSubscribers = new Map();
+const dispatchCompactionActivity = (_event, record) => {
+  for (const callback of [...(compactionSubscribers.get(record?.session_id) ?? [])]) {
+    try { callback(record); } catch { /* A closed/broken pane cannot starve siblings. */ }
+  }
+};
+function subscribeCompactionActivity(sessionId, callback) {
+  if (!compactionSubscribers.size) ipcRenderer.on('workspace:compaction-activity', dispatchCompactionActivity);
+  const callbacks = compactionSubscribers.get(sessionId) ?? new Set();
+  // Wrap so independent subscriptions using the same function clean up separately.
+  const listener = record => callback(record);
+  callbacks.add(listener); compactionSubscribers.set(sessionId, callbacks);
+  let subscribed = true;
+  return () => {
+    if (!subscribed) return;
+    subscribed = false;
+    callbacks.delete(listener);
+    if (!callbacks.size) compactionSubscribers.delete(sessionId);
+    if (!compactionSubscribers.size) ipcRenderer.removeListener('workspace:compaction-activity', dispatchCompactionActivity);
+  };
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   getEngineStatus: () => ipcRenderer.invoke('engine:get-status'),
 });
@@ -132,6 +155,9 @@ contextBridge.exposeInMainWorld('api', {
 });
 
 contextBridge.exposeInMainWorld('memoryPalace', {
+  listCompactionActivity: sessionId => ipcRenderer.invoke('workspace:compaction-activity-list', { sessionId }),
+  onCompactionActivity: subscribeCompactionActivity,
+
   regenerateLast: payload => ipcRenderer.invoke('session:regenerate-last', payload),
   setActiveVariant: (sessionId, messageId, index) => ipcRenderer.invoke('session:set-active-variant', { sessionId, messageId, index }),
   selectMessageBranch: (sessionId, messageId) => ipcRenderer.invoke('session:select-message-branch', { sessionId, messageId }),
@@ -176,6 +202,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
     return () => ipcRenderer.removeListener('session:background-command', listener);
   },
   getPlan: (sessionId) => ipcRenderer.invoke('session:get-plan', { sessionId }),
+  generateCompactCandidate: (sessionId, modelId) => ipcRenderer.invoke('session:generate-compact-candidate', { sessionId, modelId }),
   onPlanUpdated: (callback) => {
     if (typeof callback !== 'function') throw new TypeError('callback must be a function.');
     const listener = (_event, result) => callback(result);

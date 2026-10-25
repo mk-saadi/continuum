@@ -1,3 +1,4 @@
+import { useCompactionActivity } from '../../hooks/useCompactionActivity.js';
 import RightSidebar from "../RightSidebar";
 import { getSidebarMode } from "../../lib/sidebarControls.mjs";
 import AssistantAvatar from "../AssistantAvatar";
@@ -567,6 +568,7 @@ export function ChatInterface({
 	// chats, the tab's project binding for fresh drafts — never the sidebar's
 	// own visibility or tab state.
 	const isWorkspaceChat = getSidebarMode(chatProjectId) === "workspace";
+    const compactionActivity = useCompactionActivity(palace.api, palace.sessionId, isWorkspaceChat);
 	// Skill proposals awaiting review above the composer. Resolved decisions
 	// persist per step id in localStorage; the transcript shows the outcome.
 	// Decision changes have their own version counter so derivation only re-runs
@@ -1436,6 +1438,7 @@ export function ChatInterface({
 					modelName: identity.modelName,
 					onMessageCreated: (id) => {
 						persistedMessageId = id;
+                        if (isWorkspaceChat) setMessages(previous => previous.map(message => message.id === assistantMsg.id ? { ...message, persistedMessageId: id } : message));
 					},
 					displayName: identity.displayName,
 					onExecutionSteps: (steps) => {
@@ -2020,6 +2023,7 @@ export function ChatInterface({
 								)}
 								{virtual.mountedMessages.map((msg, i) => (
 									<WorkspaceMessage
+                                        compactionActivity={compactionActivity}
 										key={msg?.id ?? `ws-${virtual.first + i}`}
 										message={msg}
 										index={virtual.first + i}

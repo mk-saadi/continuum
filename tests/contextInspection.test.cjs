@@ -45,8 +45,8 @@ function checkpointDraft(editId, cmdId, bigId) {
       { text: 'Ran the suite.', sources: [{ messageId: cmdId, stepId: 'cmd-1' }] },
       { text: 'Big output observed.', sources: [{ messageId: bigId, stepId: 'big-1' }] },
     ],
-    decisions: [{ text: 'Use the existing runner.', verified: false }],
-    inProgress: [{ text: 'Waiting on review.', status: 'unknown' }],
+    decisions: [{ text: 'Use the existing runner.', sources: [{ messageId: editId }] }],
+    inProgress: [{ text: 'Waiting on review.', sources: [{ messageId: cmdId }] }],
     filesChanged: [{ path: 'src/foo.js', nature: 'edited', verified: true, stepRef: { messageId: editId, stepId: 'edit-1' } }],
     commands: [{ command: 'npm test', stepRef: { messageId: cmdId, stepId: 'cmd-1' } }],
     tests: [{ command: 'npm test', stepRef: { messageId: cmdId, stepId: 'cmd-1' } }],
@@ -73,11 +73,7 @@ async function seedCompressed() {
       args: { command: 'yes' }, result: { stdout: 'y'.repeat(5000), stderr: '', exitCode: 0 } }]);
   sessions.saveMessage(id, 'user', 'Second instruction.');
   for (let i = 0; i < 22; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `Filler${i} `.padEnd(400, 'x'));
-  const result = await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => SUMMARY_TEXT,
-    llmCheckpointCallback: async () => checkpointDraft(editMsg.id, cmdMsg.id, bigMsg.id),
-  });
+  const result = await require('./fixtures/w3Compaction.cjs').compact({ sessionId: id, modelId: MODEL, draft: checkpointDraft(editMsg.id, cmdMsg.id, bigMsg.id) });
   assert.equal(result.compressed, true);
   assert.ok(Number.isSafeInteger(result.checkpointId));
   return { id, editMsg, cmdMsg, bigMsg, result };
@@ -100,7 +96,7 @@ test('checkpoint retrieval exposes version, status, evidence, and summary bindin
   assert.equal(checkpoint.stale, false);
   assert.deepEqual(checkpoint.staleReasons, []);
   assert.equal(checkpoint.checkpoint.objective, 'Build the widget and keep it green.');
-  assert.equal(checkpoint.summary.text, SUMMARY_TEXT);
+  assert.equal(checkpoint.summary.text, '');
   assert.ok(checkpoint.archivedCount > 0);
   const editKey = `${editMsg.id}:edit-1`;
   assert.equal(evidence[editKey].found, true);
@@ -173,7 +169,7 @@ test('brief display is verbatim with branch applicability and attachment flags',
 
 test('summary display returns text and null states', async () => {
   const { id } = await seedCompressed();
-  assert.equal(inspection.getSummaryForDisplay(id).text, SUMMARY_TEXT);
+  assert.equal(inspection.getSummaryForDisplay(id).text, null);
   const fresh = workspaceSession(crypto.randomUUID());
   sessions.saveMessage(fresh, 'user', 'Hello.');
   assert.equal(inspection.getSummaryForDisplay(fresh).text, null);

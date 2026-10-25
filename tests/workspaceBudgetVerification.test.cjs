@@ -43,98 +43,57 @@ function seedTurns(id, count, chars = 100) {
 
 test.after(() => { closeDatabase(); Module._load = originalLoad; fs.rmSync(directory, { recursive: true, force: true }); });
 
-test('floor-passing candidate with exact over-budget measurement refuses without archival', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  seedTurns(id, 12);
-  const contents = sessions.loadSession(id).messages.map(row => row.content);
-  const briefTexts = briefs.getAllBriefs(id).map(row => row.content_text);
-  let calls = 0;
-  let seen = null;
-  const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => { calls++; return 'Candidate summary that must never persist.'; },
-    llmCheckpointCallback: stubCheckpoint,
-    measurePrompt: async ({ messages, tools, limit }) => {
-      seen = { messages, tools, limit };
-      return { tokens: 99999, method: 'server-template-tokenizer', budget: 7000 };
-    } });
-  assert.equal(result.compressed, false);
-  assert.equal(result.reason, 'prospective-prompt-exceeds-budget');
-  assert.equal(result.measuredMethod, 'server-template-tokenizer');
-  assert.equal(result.measuredTokens, 99999);
-  assert.equal(calls, 1);
-  assert.equal(checkpoints.getLatestCheckpoint(id), null);
-  // The prospective prompt reflected the candidate: new summary, brief,
-  // retained tail, and no archived rows.
-  const texts = seen.messages.map(message => (typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).slice(0, 4000).replace(/\s+/g, ' '));
-  const joined = texts.join('\n');
-  assert.ok(joined.includes('Candidate summary that must never persist.'));
-  assert.ok(joined.includes(briefs.SECTION_MARKER));
-  assert.ok(joined.includes('V0'));
-  assert.equal(seen.limit, LIMIT);
-  // Nothing persisted: no archival, no summary, briefs and history intact.
-  assert.equal(sessions.getSessionSummary(id), null);
-  assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0 && row.is_summarized === 0));
-  assert.deepEqual(sessions.loadSession(id).messages.map(row => row.content), contents);
-  assert.deepEqual(briefs.getAllBriefs(id).map(row => row.content_text), briefTexts);
-  assert.equal(sessions.loadSession(id).is_compressing, 0);
-});
-
-test('repeated unfit attempts stay bounded with no additional archival', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  seedTurns(id, 12);
-  let calls = 0;
-  const attempt = () => compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => { calls++; return 'Summary.'; },
-    measurePrompt: async () => ({ tokens: 99999, method: 'server-template-tokenizer', budget: 7000 }) });
-  const first = await attempt();
-  const second = await attempt();
-  assert.equal(first.compressed, false);
-  assert.equal(second.compressed, false);
-  assert.equal(first.reason, second.reason);
-  assert.equal(calls, 2);
-  assert.equal(sessions.getSessionSummary(id), null);
-  assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0));
-  assert.equal(sessions.loadSession(id).messages.length, 12);
-});
-
-test('measured fit through the real tokenizer path still commits and recovers', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  seedTurns(id, 12);
-  const transport = backend({ tokens: text => Math.ceil(text.length / 4) });
+const safeCompact = require('./fixtures/w3Compaction.cjs').compact;
+const budgets = require('../src/main/contextBudget');
+function measurement(payload, method = 'approximate-full-request') {
+  const tokens = budgets.approximateTokens(payload);
+  const budgetContract = budgets.createRuntimeBudget({ runtimeContextTokens: 524288, payload, currentInputTokens: tokens, measurementMethod: method });
+  return { tokens, method, budgetContract, limit: 524288, budget: budgetContract.usableInputTokens };
+}
+for (const method of ['server-template-tokenizer', 'approximate-full-request']) {
+  test(`W3 ${method} over-budget prospective request refuses without archival`, async () => {
+    const id = workspaceSession(crypto.randomUUID()); seedTurns(id, 12, 1000);
+    const before = sessions.loadSession(id).messages;
+    let seen = false;
+    await assert.rejects(safeCompact({ sessionId: id, measureOverride: async payload => {
+      const result = measurement(payload, method);
+      if (payload.messages.some(m => m.workspaceCompactState)) {
+        seen = true; result.tokens = result.budget + 1; result.budgetContract.currentInputTokens = result.tokens;
+      }
+      return result;
+    } }), /prospective-context-overflow/);
+    assert.equal(seen, true);
+    assert.deepEqual(sessions.loadSession(id).messages, before);
+    assert.equal(checkpoints.getLatestCheckpoint(id), null);
+  });
+}
+test('W3 measured fit through tokenizer mock commits and recovers with authoritative briefs', async () => {
+  const id = workspaceSession(crypto.randomUUID()); seedTurns(id, 12, 1000);
+  const transport = backend({ context: 524288, tokens: text => Math.ceil(text.length / 4) });
   const measure = createPromptMeasurer(transport.fetch);
-  let calls = 0;
-  const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => { calls++; return 'Fitting summary.'; },
-    llmCheckpointCallback: stubCheckpoint,
-    measurePrompt: ({ messages, tools, limit, signal }) =>
-      measure('http://127.0.0.1:9/v1/chat/completions', { model: MODEL, messages, tools }, { signal, contextWindowLimit: limit }) });
+  const result = await safeCompact({ sessionId: id, draft: { objective: 'Preserve task' }, measureOverride: payload =>
+    measure('http://127.0.0.1:9/v1/chat/completions', payload, { contextWindowLimit: 524288 }) });
   assert.equal(result.compressed, true);
-  assert.equal(result.measuredMethod, 'server-template-tokenizer');
-  assert.equal(calls, 1);
-  assert.equal(result.archivedCount, 12);
-  assert.equal(sessions.getSessionSummary(id), 'Fitting summary.');
-  assert.ok(Number.isSafeInteger(result.checkpointId));
-  const latest = checkpoints.getLatestCheckpoint(id);
-  assert.equal(latest.id, result.checkpointId);
-  assert.equal(latest.checkpoint.objective, 'Stub objective.');
-  assert.ok(latest.checkpoint.outstandingRequirements.length > 0);
-  // The rebuilt prompt carries the brief, the committed summary, and only
-  // retained history. Archived rows are excluded as messages (their brief
-  // quotes remain by design).
+  assert.equal(result.diagnostics.measurementMethod, 'server-template-tokenizer');
+  assert.equal(result.diagnostics.prospectiveTokens, result.diagnostics.actualTokens);
+  assert.equal(result.archivedCount, 11);
+  assert.equal(sessions.getSessionSummary(id), null);
+  assert.equal(checkpoints.getLatestCheckpoint(id).checkpoint.lifecycle, 'w3-current');
   const rebuilt = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  const joined = rebuilt.map(message => typeof message.content === 'string' ? message.content : '').join('\n');
-  assert.ok(joined.includes(briefs.SECTION_MARKER));
-  assert.ok(joined.includes('Fitting summary.'));
-  const archivedContents = new Set(sessions.getFullChatHistory(id).messages
-    .filter(row => row.archived === 1).map(row => row.content));
-  assert.equal(archivedContents.size, 12);
-  assert.ok(rebuilt.filter(message => !message.taskBrief).every(message =>
-    typeof message.content !== 'string' || !archivedContents.has(message.content)));
-  assert.ok(briefs.getApplicableBriefs(id).length > 0);
+  assert.ok(rebuilt.some(m => m.taskBrief));
+  assert.ok(rebuilt.some(m => m.workspaceCompactState));
   assert.ok(transport.probes.includes('/props'));
+});
+test('repeated legacy Workspace attempts never launch an unsafe fallback', async () => {
+  const id = workspaceSession(crypto.randomUUID()); seedTurns(id, 12);
+  let calls = 0;
+  for (let i = 0; i < 2; i++) {
+    const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
+      llmSummarizeCallback: async () => { calls++; return 'unsafe'; } });
+    assert.equal(result.reason, 'workspace-safe-boundary-required');
+  }
+  assert.equal(calls, 0);
+  assert.ok(sessions.loadSession(id).messages.every(row => !row.archived));
 });
 
 test('concurrent history change during measurement invalidates without partial persistence', async () => {
@@ -157,20 +116,4 @@ test('concurrent history change during measurement invalidates without partial p
   assert.ok(rows.some(row => row.content === 'Appended mid-measurement.'));
   assert.equal(rows.length, 13);
   assert.equal(sessions.loadSession(id).is_compressing, 0);
-});
-
-test('unavailable tokenizer is recorded, never silent proof of fit', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  seedTurns(id, 12);
-  const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Approximately measured summary.',
-    llmCheckpointCallback: stubCheckpoint,
-    // Absurd over-count with a fallback label: the floor gate (which passes
-    // here) justifies proceeding, and the method must say so explicitly.
-    measurePrompt: async () => ({ tokens: 10 ** 9, method: 'approximate-full-request', budget: 1 }) });
-  assert.equal(result.compressed, true);
-  assert.equal(result.measuredMethod, 'approximate-full-request');
-  assert.equal(sessions.getSessionSummary(id), 'Approximately measured summary.');
-  assert.ok(Number.isSafeInteger(result.checkpointId));
 });

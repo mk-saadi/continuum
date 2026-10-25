@@ -332,6 +332,8 @@ async function compressContext({
   pressureMeasurement = null,
   isCurrent = () => true,
 }) {
+  if (require('./taskBriefs').isWorkspaceSession(sessionId)) return { compressed: false, archivedCount: 0, reason: 'workspace-safe-boundary-required' };
+
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (tools !== null && !Array.isArray(tools)) throw new TypeError('tools must be an array when provided.');
   if (measurePrompt !== null && typeof measurePrompt !== 'function') throw new TypeError('measurePrompt must be a function when provided.');
@@ -772,6 +774,7 @@ async function compressContext({
 const idleAttempts = new Map();
 
 async function cancelSessionCompression(sessionId) {
+  await require('./workspaceCompactCandidate').cancelCandidates(sessionId);
   const timer = idleTimers.get(sessionId);
   if (timer) clearTimeout(timer);
   idleTimers.delete(sessionId);
@@ -856,6 +859,7 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
 }
 
 module.exports = { cancelSessionCompression, checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
+  generateWorkspaceCompactCandidate: options => require('./workspaceCompactCandidate').generateWorkspaceCompactCandidate(options),
   // Test-only projection helpers and bounds (pure accounting, no behavior change).
   projectForcedFloor, projectIdlePrompt, resolveProjectionTools, idleTargetFor,
   IDLE_TARGET_FRACTION_WORKSPACE, IDLE_TARGET_FRACTION_CASUAL,

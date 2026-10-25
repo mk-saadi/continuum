@@ -10,7 +10,9 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'continuum-h1-ipc-'));
 const handlers = new Map(), load = Module._load;
 let fetchMock;
 Module._load = function(name, ...args) {
-  if (name === './localEngineFetch') return { localEngineFetch: (...args) => fetchMock(...args) };
+  if (name === './localEngineFetch') return { localEngineFetch: (...args) => (new URL(args[0]).pathname === '/props' ? Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } })) :
+    new URL(args[0]).pathname === '/apply-template' ? Promise.resolve(Response.json({ prompt: args[1].body })) :
+    new URL(args[0]).pathname === '/tokenize' ? Promise.resolve(Response.json({ tokens: Array(100).fill(0) })) : fetchMock(...args)) };
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, Notification: { isSupported: () => false },
     ipcMain: { handle: (channel, fn) => handlers.set(channel, fn), removeHandler: channel => handlers.delete(channel) } };
   return load.call(this, name, ...args);

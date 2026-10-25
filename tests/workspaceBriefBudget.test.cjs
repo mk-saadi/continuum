@@ -94,14 +94,14 @@ test('forced recovery refuses before the model call when non-compressible contex
       contextWindowLimit: LIMIT, llmSummarizeCallback: async () => { calls++; return 'Must never be produced.'; } });
     const first = await attempt();
     assert.equal(first.compressed, false);
-    assert.equal(first.reason, 'non-compressible-context-too-large');
+    assert.equal(first.reason, 'workspace-safe-boundary-required');
     assert.equal(calls, 0);
     assert.equal(sessions.getSessionSummary(id), null);
     assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0 && row.is_summarized === 0));
     // A repeat attempt must not compress further either: termination, not erosion.
     const second = await attempt();
     assert.equal(second.compressed, false);
-    assert.equal(second.reason, 'non-compressible-context-too-large');
+    assert.equal(second.reason, 'workspace-safe-boundary-required');
     assert.equal(calls, 0);
     assert.deepEqual(sessions.loadSession(id).messages.map(row => row.content), contents);
     assert.ok(briefs.getApplicableBriefs(id).every(row => contents.some(content => content.includes(row.content_text.slice(0, 20)))));
@@ -111,7 +111,7 @@ test('forced recovery refuses before the model call when non-compressible contex
   assert.equal(sessions.loadSession(id).is_compressing, 0);
 });
 
-test('forced recovery refuses after summarization when the grown summary breaks fit', async () => {
+test('legacy forced Workspace recovery refuses without calling the summarizer', async () => {
   const id = workspaceSession(crypto.randomUUID());
   // Two large assistant turns (no briefs) so the no-saving guard passes, then
   // short tail turns. Limit is calibrated from measured components so the
@@ -131,8 +131,8 @@ test('forced recovery refuses after summarization when the grown summary breaks 
   const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
     contextWindowLimit: limit, llmSummarizeCallback: async () => { calls++; return `Grown ${'S'.repeat(14000)}`; } });
   assert.equal(result.compressed, false);
-  assert.equal(result.reason, 'non-compressible-context-too-large');
-  assert.equal(calls, 1);
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.equal(calls, 0);
   assert.equal(sessions.getSessionSummary(id), null);
   assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0 && row.is_summarized === 0));
   assert.equal(briefs.getApplicableBriefs(id).length, 6);

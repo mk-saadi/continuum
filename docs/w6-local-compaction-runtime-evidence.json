@@ -1,0 +1,178 @@
+{
+  "date": "2026-10-25",
+  "scope": "isolated W6 local Workspace candidate runtime and capacity investigation",
+  "historicalIncident": {
+    "taskId": 4319,
+    "configuredContextTokens": 70000,
+    "reportedRuntimeRequestTokens": 35072,
+    "usableInputTokens": 33920,
+    "compactionTriggerTokens": 30528,
+    "preparedInputTokens": 31508,
+    "generatedTokensApprox": 5708,
+    "tokensPerSecondApprox": 54,
+    "exactCancellationOrigin": "unproven",
+    "deadlineCausedIncident": "unproven; concrete unconditional 120000 ms abort path found",
+    "backendTruncationConfirmed": false
+  },
+  "capacity": {
+    "historicalStartupArgs": null,
+    "historicalSlots": null,
+    "historicalKvMode": null,
+    "historicalBackendBuild": null,
+    "verifiedRuntimeCaptureAvailable": false,
+    "numericalReconstruction": {
+      "conditionalOn": "two partitioned slots and 256-token context alignment",
+      "configuredTotal": 70000,
+      "paddedTotal": 70144,
+      "slots": 2,
+      "perRequest": 35072
+    },
+    "applicationDivisionFound": false,
+    "configuredOverrideAdded": false,
+    "runtimeSlotsSource": "/props.total_slots",
+    "runtimeCapacitySource": "/props.default_generation_settings.n_ctx",
+    "outputReserve": 1024,
+    "safetyReserve": 128,
+    "primarySources": [
+      "https://github.com/ggml-org/llama.cpp/blob/master/src/llama-context.cpp",
+      "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/server-context.cpp"
+    ]
+  },
+  "corrections": {
+    "oldAttemptDeadlineMs": 120000,
+    "oldStagedElapsedBudgetMs": 120000,
+    "fixedTotalDeadlineRemoved": true,
+    "inactivityLeaseMs": 600000,
+    "progressSignals": [
+      "content delta",
+      "reasoning_content delta",
+      "reasoning delta",
+      "stage entry"
+    ],
+    "boundsRetained": {
+      "reservedGenerationTokens": 32768,
+      "intermediateTokens": 4096,
+      "segmentLayoutStages": 12,
+      "validationAttempts": 2,
+      "finalOutputMaxTokens": 6144
+    },
+    "abortCodes": [
+      "user-cancelled",
+      "deleted-conversation",
+      "renderer-destroyed",
+      "ipc-disposed",
+      "generation-inactivity-timeout",
+      "unexpected-abort"
+    ],
+    "transport": "local candidate SSE with completion metadata and DONE validation",
+    "casualLoopChanged": false
+  },
+  "tests": {
+    "baseline": {
+      "log": "/tmp/w6-before.tap",
+      "passed": 4,
+      "failed": 0,
+      "failureIdentities": []
+    },
+    "finalFocused": {
+      "log": "/tmp/w6-verified.tap",
+      "passed": 10,
+      "failed": 0,
+      "failureIdentities": []
+    },
+    "finalRuntimeAndUi": {
+      "log": "/tmp/w6-ui-final.tap",
+      "passed": 2,
+      "failed": 0,
+      "failureIdentities": []
+    },
+    "finalAdvancedIncludingStartup": {
+      "log": "/tmp/w6-advanced-final.tap",
+      "passed": 1,
+      "failed": 0,
+      "failureIdentities": []
+    },
+    "individualAdvancedEarlier": {
+      "log": "/tmp/w6-slow-detail.tap",
+      "passed": 24,
+      "failed": 0,
+      "failureIdentities": []
+    },
+    "countUnit": "Node --test output reports files in this environment; direct advanced log reports individual tests",
+    "intermediateFailuresResolved": [
+      {
+        "identity": "W2 H1 deletion cancels an active candidate before durable cleanup",
+        "reason": "updated expected reason to deleted-conversation"
+      },
+      {
+        "identity": "H1 registered Delete Chat IPC cancels its actual engine request before deleting and rejects stale prepare",
+        "reason": "restored existing human deletion message while preserving structured code"
+      }
+    ],
+    "controlledTimeScenarios": [
+      "240-second progressing candidate commits and validates same-run dispatch",
+      "40-minute progress across multiple stages",
+      "multi-segment candidate with each generation exceeding 120 seconds",
+      "user cancellation leaves archive bits unchanged",
+      "deletion cancellation leaves no active candidate",
+      "inactivity leaves archive bits unchanged",
+      "renderer shutdown",
+      "IPC disposal",
+      "unexpected parent abort",
+      "local SSE hidden reasoning and final usage",
+      "HTTP backend failure",
+      "incomplete stream",
+      "multi-slot context reporting"
+    ],
+    "existingRegressionCoverage": [
+      "stale source/checkpoint",
+      "no completed tool replay",
+      "full parent-loop same-run continuation",
+      "H1 deletion through registered IPC",
+      "post-commit compensation",
+      "Casual Chat C1 behavior"
+    ],
+    "productionBuild": {
+      "command": "npm run build",
+      "passed": true,
+      "log": "/tmp/w6-build-final.log",
+      "advisory": "large minified chunks"
+    },
+    "syntaxChecks": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "realModel": {
+    "status": "not run",
+    "reason": "No disposable loaded llama-server process visible; original runtime and GGUF unavailable in execution environment",
+    "activeConversationMutated": false,
+    "liveDatabaseMutated": false
+  },
+  "filesChangedForW6": [
+    "main.js",
+    "src/main/workspaceGenerationRuntime.js",
+    "src/main/workspaceCompactCandidate.js",
+    "src/main/workspaceCompaction.js",
+    "src/main/workspaceCompactionActivity.js",
+    "src/main/ipcHandlers.js",
+    "src/main/sessionDeletion.js",
+    "src/main/contextBudget.js",
+    "src/lib/contextDisplay.mjs",
+    "src/lib/compactionActivity.mjs",
+    "src/components/ModelSettingsModal.jsx",
+    "tests/workspaceGenerationRuntime.test.cjs",
+    "tests/workspaceAdvancedCompaction.test.cjs",
+    "tests/workspaceCompactCandidate.test.cjs",
+    "tests/workspaceSafeCompaction.test.cjs",
+    "docs/w6-local-compaction-runtime-diagnosis.md",
+    "docs/w6-local-compaction-runtime-evidence.json"
+  ],
+  "limitations": [
+    "Historical cancellation attribution unproven",
+    "Historical slot configuration unverified",
+    "Ten-minute silent prefill may still hit inactivity lease",
+    "Cloud candidates remain non-streaming",
+    "Injected callbacks must honor AbortSignal to settle promptly",
+    "Structural source validation does not prove semantic completeness",
+    "Existing failed post-commit compensation recovery limitations remain"
+  ]
+}

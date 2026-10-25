@@ -19,7 +19,7 @@ function deleteConversation(sessionId, sender, ownsController) {
   void (async () => {
     require('./sessionManager').loadSession(sessionId); // Validate before revocation.
     require('./lspExecutionContext').forget(sessionId);
-    controller?.abort(new Error('Conversation deletion requested.'));
+    controller?.abort(Object.assign(new Error('Conversation deletion requested.'), { code: 'deleted-conversation' }));
     await require('./compressionEngine').cancelSessionCompression(sessionId);
     await require('./subagents/continuationManager').forgetParent(sessionId);
     if (controller) {

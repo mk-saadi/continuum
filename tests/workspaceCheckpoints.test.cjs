@@ -127,218 +127,24 @@ test('validator fails structurally invalid drafts', () => {
   assert.ok(oversized.errors.some(error => error.includes('size cap')));
 });
 
-test('checkpoint creation persists a validated, evidence-bound row', async () => {
+// W3 retires the legacy Workspace archive API. Transaction, stale-source,
+// restart, prospective-fit and repeated-run coverage lives in
+// workspaceSafeCompaction.test.cjs against the owning-loop pipeline.
+test('legacy Workspace compression cannot activate checkpoints or archive history', async () => {
   const id = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(id, 'user', 'Build the widget.');
-  const editMsg = sessions.saveMessage(id, 'assistant', 'Editing now.', [], null, null, null, null, null,
-    [{ id: 'edit-1', type: 'tool_call', toolName: 'str_replace_editor', status: 'complete',
-      args: { relative_path: 'src/foo.js', old_str: 'a', new_str: 'b' }, result: { success: true } }]);
-  const cmdMsg = sessions.saveMessage(id, 'assistant', 'Testing now.', [], null, null, null, null, null,
-    [{ id: 'cmd-1', type: 'tool_call', toolName: 'execute_command', status: 'complete',
-      args: { command: 'npm test' }, result: { stdout: '5 passed\n5 tests', stderr: '', exitCode: 0 } }]);
-  for (let i = 0; i < 22; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `Filler${i} `.padEnd(400, 'x'));
-  const result = await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'First summary.',
-    llmCheckpointCallback: async () => ({
-      objective: 'Build the widget and keep it green.',
-      outstandingRequirements: [],
-      completedWork: [
-        { text: 'Edited src/foo.js.', sources: [{ messageId: editMsg.id, stepId: 'edit-1' }] },
-        { text: 'Ran the suite.', sources: [{ messageId: cmdMsg.id, stepId: 'cmd-1' }] },
-      ],
-      filesChanged: [{ path: 'src/foo.js', nature: 'edited', verified: true, stepRef: { messageId: editMsg.id, stepId: 'edit-1' } }],
-      commands: [{ command: 'npm test', stepRef: { messageId: cmdMsg.id, stepId: 'cmd-1' } }],
-      tests: [{ command: 'npm test', stepRef: { messageId: cmdMsg.id, stepId: 'cmd-1' } }],
-      nextActions: ['Ship it.'],
-    }),
-  });
-  assert.equal(result.compressed, true);
-  assert.ok(Number.isSafeInteger(result.checkpointId));
-  const row = checkpoints.getLatestCheckpoint(id);
-  assert.equal(row.id, result.checkpointId);
-  assert.equal(row.status, 'current');
-  assert.equal(row.checkpoint.objective, 'Build the widget and keep it green.');
-  assert.ok(row.checkpoint.outstandingRequirements.some(req => req.text === 'Build the widget.'));
-  assert.equal(row.checkpoint.commands[0].exitCode, 0);
-  assert.equal(row.summary_text, 'First summary.');
-  assert.ok(JSON.stringify(row.checkpoint).length <= checkpoints.CHECKPOINT_BYTE_CAP);
-  const stale = checkpoints.isCheckpointStale(id, row);
-  assert.equal(stale.stale, false);
-});
-
-test('repeated compressions version checkpoints without losing requirements', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  // Short instructions (small briefs) with long assistant outputs, mirroring
-  // real coding sessions where tool results dominate token usage.
-  sessions.saveMessage(id, 'user', 'First requirement.');
-  for (let i = 0; i < 10; i++) sessions.saveMessage(id, 'user', `Note A${i}.`);
-  for (let i = 0; i < 20; i++) sessions.saveMessage(id, 'assistant', `A${i} `.padEnd(500, 'x'));
-  const compress = (summary) => compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => summary,
-    llmCheckpointCallback: stubDraft,
-  });
-  const first = await compress('Summary one.');
-  assert.equal(first.compressed, true);
-  sessions.saveMessage(id, 'user', 'Second requirement.');
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'user', `Note B${i}.`);
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'assistant', `B${i} `.padEnd(500, 'y'));
-  const second = await compress('Summary two.');
-  assert.equal(second.compressed, true);
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'user', `Note C${i}.`);
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'assistant', `C${i} `.padEnd(500, 'z'));
-  sessions.saveMessage(id, 'user', 'Third requirement.');
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'user', `Note D${i}.`);
-  for (let i = 0; i < 6; i++) sessions.saveMessage(id, 'assistant', `D${i} `.padEnd(500, 'w'));
-  const third = await compress('Summary three.');
-  assert.equal(third.compressed, true);
-  assert.ok(first.checkpointId < second.checkpointId && second.checkpointId < third.checkpointId);
-  const history = checkpoints.getCheckpointHistory(id);
-  assert.equal(history.length, 3);
-  assert.deepEqual(history.map(row => row.status), ['current', 'superseded', 'superseded']);
-  for (const row of history) {
-    assert.ok(JSON.stringify(row.checkpoint).length <= checkpoints.CHECKPOINT_BYTE_CAP);
-    const texts = row.checkpoint.outstandingRequirements.map(req => req.text);
-    assert.ok(texts.includes('First requirement.'));
-  }
-  const latest = checkpoints.getLatestCheckpoint(id);
-  const latestTexts = latest.checkpoint.outstandingRequirements.map(req => req.text);
-  assert.ok(latestTexts.includes('Second requirement.'));
-  assert.ok(latestTexts.includes('Third requirement.'));
-  assert.ok(latest.checkpoint.completedWork.length <= 15);
-});
-
-test('checkpoint-generation failure leaves no partial archival or summary', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(id, 'user', 'Doomed requirement.');
-  for (let i = 0; i < 20; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `E${i} `.padEnd(400, 'x'));
-  const before = sessions.loadSession(id).messages.map(row => row.content);
-  const failing = await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Unpersisted summary.',
-    llmCheckpointCallback: async () => { throw new Error('checkpoint backend offline'); },
-  });
-  assert.equal(failing.compressed, false);
-  assert.equal(failing.reason, 'checkpoint-generation-failed');
-  const invalid = await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Unpersisted summary.',
-    llmCheckpointCallback: async () => ({ objective: '   ', outstandingRequirements: [] }),
-  });
-  assert.equal(invalid.compressed, false);
-  assert.equal(invalid.reason, 'checkpoint-invalid');
-  assert.equal(sessions.getSessionSummary(id), null);
-  assert.ok(sessions.loadSession(id).messages.every(row => row.archived === 0 && row.is_summarized === 0));
-  assert.deepEqual(sessions.loadSession(id).messages.map(row => row.content), before);
-  assert.equal(checkpoints.getLatestCheckpoint(id), null);
-  assert.equal(sessions.loadSession(id).is_compressing, 0);
-});
-
-test('stale snapshots reject without partial persistence', async () => {
-  // Summary change mid-operation.
-  const a = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(a, 'user', 'Stale A.');
-  for (let i = 0; i < 20; i++) sessions.saveMessage(a, i % 2 ? 'assistant' : 'user', `A${i} `.padEnd(400, 'x'));
-  await assert.rejects(compression.checkAndCompressContext({
-    sessionId: a, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => {
-      db.prepare("INSERT INTO session_summaries(session_id, summary_text) VALUES (?, 'Sneaky.')").run(a);
-      return 'Discarded.';
-    },
-    llmCheckpointCallback: stubDraft,
-  }), /Session summary changed during compression/);
-  assert.equal(sessions.getSessionSummary(a), 'Sneaky.');
-  assert.ok(sessions.loadSession(a).messages.every(row => row.archived === 0));
-  assert.equal(checkpoints.getLatestCheckpoint(a), null);
-
-  // Execution-step change mid-operation (bypasses message predicates).
-  const b = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(b, 'user', 'Stale B.');
-  const target = sessions.saveMessage(b, 'assistant', 'Work.', [], null, null, null, null, null,
-    [{ id: 'w-1', type: 'tool_call', toolName: 'execute_command', status: 'complete',
-      args: { command: 'make' }, result: { stdout: '', stderr: '', exitCode: 0 } }]);
-  for (let i = 0; i < 20; i++) sessions.saveMessage(b, i % 2 ? 'assistant' : 'user', `B${i} `.padEnd(400, 'x'));
-  await assert.rejects(compression.checkAndCompressContext({
-    sessionId: b, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Discarded.',
-    llmCheckpointCallback: async () => {
-      db.prepare('UPDATE messages SET execution_steps = ? WHERE id = ?')
-        .run(JSON.stringify([{ id: 'w-1', type: 'tool_call', toolName: 'execute_command', status: 'complete',
-          args: { command: 'make clean' }, result: { stdout: '', stderr: '', exitCode: 0 } }]), target.id);
-      return stubDraft();
-    },
-  }), /Task evidence changed during compression/);
-  assert.equal(sessions.getSessionSummary(b), null);
-  assert.ok(sessions.loadSession(b).messages.every(row => row.archived === 0));
-  assert.equal(checkpoints.getLatestCheckpoint(b), null);
-  assert.equal(sessions.loadSession(b).is_compressing, 0);
-});
-
-test('restart recovery retrieves the latest valid checkpoint', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(id, 'user', 'Surviving requirement.');
-  for (let i = 0; i < 20; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `R${i} `.padEnd(400, 'x'));
-  const result = await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Restart summary.',
-    llmCheckpointCallback: stubDraft,
-  });
-  assert.equal(result.compressed, true);
-  closeDatabase();
-  initDatabase();
-  const row = checkpoints.getLatestCheckpoint(id);
-  assert.equal(row.id, result.checkpointId);
-  assert.equal(row.checkpoint.objective, 'Stub objective.');
-  assert.ok(row.checkpoint.outstandingRequirements.some(req => req.text === 'Surviving requirement.'));
-  assert.equal(row.summary_text, 'Restart summary.');
-  assert.equal(checkpoints.isCheckpointStale(id, row).stale, false);
-  assert.ok(sessions.loadSession(id).messages.length > 0);
-});
-
-test('normal and forced construction select the same brief and checkpoint', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(id, 'user', 'Parity requirement.');
-  for (let i = 0; i < 20; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `P${i} `.padEnd(400, 'x'));
-  await compression.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Parity summary.',
-    llmCheckpointCallback: stubDraft,
-  });
-  const prepared = prepareChatMessages({ sessionId: id, modelId: MODEL, userText: 'Follow-up.', regenerate: false });
-  const rebuilt = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  const sections = (prompt) => prompt.filter(message => message.taskBrief === true || message.taskCheckpoint === true);
-  const preparedSections = sections(prepared);
-  const rebuiltSections = sections(rebuilt);
-  assert.deepEqual(preparedSections.map(message => message.briefIds), rebuiltSections.map(message => message.briefIds));
-  assert.equal(preparedSections.find(message => message.taskCheckpoint).checkpointId,
-    rebuiltSections.find(message => message.taskCheckpoint).checkpointId);
-  assert.equal(preparedSections.find(message => message.taskCheckpoint).checkpointStale, true);
-  assert.ok(preparedSections.find(message => message.taskBrief).content.includes('Follow-up.'));
-});
-
-test('prospective measurement includes the candidate checkpoint', async () => {
-  const id = workspaceSession(crypto.randomUUID());
-  sessions.saveMessage(id, 'user', 'Measured requirement.');
-  for (let i = 0; i < 12; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `M${i} `.padEnd(100, 'x'));
-  let seen = null;
-  const result = await compression.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: 8192,
-    llmSummarizeCallback: async () => 'Measured summary.',
-    llmCheckpointCallback: async () => ({ objective: 'Measured objective.', outstandingRequirements: [] }),
-    measurePrompt: async ({ messages, tools, limit }) => {
-      seen = { messages, tools, limit };
-      return { tokens: 10 ** 9, method: 'server-template-tokenizer', budget: 1 };
-    } });
+  sessions.saveMessage(id, 'user', 'Retain this authoritative requirement.');
+  sessions.saveMessage(id, 'assistant', 'Historical completed investigation.');
+  const before = sessions.loadSession(id).messages;
+  let calls = 0;
+  const result = await compression.checkAndCompressContext({ sessionId: id, modelId: MODEL,
+    contextWindowLimit: 8192, force: true,
+    llmSummarizeCallback: async () => { calls++; throw new Error('unsafe fallback'); },
+    llmCheckpointCallback: async () => { calls++; throw new Error('unsafe fallback'); } });
   assert.equal(result.compressed, false);
-  assert.equal(result.reason, 'prospective-prompt-exceeds-budget');
-  const joined = seen.messages.map(message => typeof message.content === 'string' ? message.content : '').join('\n');
-  assert.ok(joined.includes(checkpoints.CHECKPOINT_MARKER));
-  assert.ok(joined.includes('Measured objective.'));
-  assert.ok(joined.includes('Measured summary.'));
-  assert.ok(joined.includes(briefs.SECTION_MARKER));
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.equal(calls, 0);
+  assert.deepEqual(sessions.loadSession(id).messages, before);
   assert.equal(checkpoints.getLatestCheckpoint(id), null);
-  assert.equal(sessions.getSessionSummary(id), null);
 });
 
 test('casual chat creates no checkpoints and receives no injection', async () => {

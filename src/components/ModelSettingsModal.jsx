@@ -19,7 +19,7 @@ const integerFields = [
 	["threads", "CPU threads", "CPU thread pool size."],
 	["evalBatch", "Evaluation batch size", "Maximum logical batch size."],
 	["physicalBatch", "Physical batch size", "Must not exceed the evaluation batch size."],
-	["parallel", "Concurrent predictions", "Maximum simultaneous predictions."],
+	["parallel", "Concurrent predictions", "Maximum simultaneous predictions. The total context is shared across these slots; each request may have a smaller runtime limit."],
 ];
 
 // Compact presentation is scoped to this modal; shared controls keep their behavior.

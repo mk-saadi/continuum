@@ -152,7 +152,18 @@ const PREVIOUS_INSTRUCTIONS = new Set(
 	),
 );
 
-const TEMPORAL_HEADER_RE = /^\[TEMPORAL CONTEXT\]\nToday's Date: [^\n]*\nUser Timezone Offset: -?\d+ mins\n/;
+// The session date is ground truth, not a roleplay setting: models keep
+// arguing the "real" year from older web timestamps, so state it explicitly.
+const TEMPORAL_POLICY_LINE = `This date is factual ground truth for this session — not fictional or roleplay. Answer current-date questions with it and use it to frame recency ("recent", "latest") and time-bounded web searches (e.g., include the current year). If external content such as search results carries older dates, treat those as historical data, not evidence that this date is wrong. Only deviate from this date when the user explicitly asks for historical or old data.`;
+
+function escapeRegex(text) {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Matches both the legacy 3-line anchor and the current one with the policy line.
+const TEMPORAL_HEADER_RE = new RegExp(
+	`^\\[TEMPORAL CONTEXT\\]\\nToday's Date: [^\\n]*\\nUser Timezone Offset: -?\\d+ mins\\n(?:${escapeRegex(TEMPORAL_POLICY_LINE)}\\n)?`
+);
 
 function buildTemporalAnchor() {
 	const now = new Date();
@@ -165,7 +176,7 @@ function buildTemporalAnchor() {
 	// Local calendar date, matching dateFormatted above. toISOString() is UTC
 	// and disagrees with the local date across timezone boundaries.
 	const isoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-	return `[TEMPORAL CONTEXT]\nToday's Date: ${dateFormatted} (${isoDate})\nUser Timezone Offset: ${now.getTimezoneOffset()} mins\n`;
+	return `[TEMPORAL CONTEXT]\nToday's Date: ${dateFormatted} (${isoDate})\nUser Timezone Offset: ${now.getTimezoneOffset()} mins\n${TEMPORAL_POLICY_LINE}\n`;
 }
 
 // Compact session profile; legacy standalone callers keep the existing base.

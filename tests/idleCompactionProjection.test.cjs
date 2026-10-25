@@ -183,31 +183,18 @@ test('the idle trigger stays quiet below 75% of the full request', async () => {
   assert.equal(called, 0, 'no summarizer call below the 75% trigger');
 });
 
-test('workspace sessions compact to the 40% target', async () => {
-  const project = projects.createProject({ name: 'Forty Percent Project' });
-  const id = freshId('forty');
-  const LIMIT = 100000;
+test('W3 retires legacy path: workspace sessions compact to the 40% target', async () => {
+  const project = projects.createProject({ name: 'Legacy Workspace refusal' });
+  const id = freshId('w3-legacy-refusal');
   sessions.getOrCreateSession(id, MODEL, project.id);
-  sessions.saveMessage(id, 'user', 'Build the forty-percent widget.');
-  // Assistant-side bulk (tool-output-like): user messages would each become a
-  // task brief and blow the checkpoint size cap, which is a synthetic-test
-  // artifact, not production brief shape. Token math is what matters here.
-  for (let i = 0; i < 76; i++) sessions.saveMessage(id, 'assistant', `ToolOutput${i} `.padEnd(4000, 'x'));
-  const tools = bigTools(40000);
-  const before = sessions.getContextUsage(id, MODEL);
-  assert.ok(before.totalTokens > 0.75 * LIMIT, `precondition: DB usage ${before.totalTokens} above 75% trigger`);
-  const result = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT, tools,
-    llmSummarizeCallback: async () => 'Workspace forty-percent summary.',
-    llmCheckpointCallback: async () => ({ objective: 'Build the forty-percent widget.', outstandingRequirements: [] }),
-  });
-  assert.equal(result.compressed, true);
-  assert.ok(Number.isSafeInteger(result.projectedTokens));
-  assert.ok(result.projectedTokens <= 0.40 * LIMIT, `projected ${result.projectedTokens} within 40% workspace target`);
-  assert.ok(Number.isSafeInteger(result.checkpointId), 'workspace checkpoint persisted');
-  const actual = actualPromptEstimate(id, tools);
-  assert.ok(actual <= 0.40 * LIMIT + 0.02 * LIMIT, `actual prompt ${actual} near the 40% target`);
-  assert.ok(sessions.loadSession(id).messages.slice(-10).every((row) => !row.archived));
+  sessions.saveMessage(id, 'user', 'Preserve authoritative instruction.');
+  sessions.saveMessage(id, 'assistant', 'Completed historical observation.');
+  const before = sessions.loadSession(id).messages;
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 100000,
+    force: true, llmSummarizeCallback: async () => { throw new Error('unsafe legacy generation'); } });
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.deepEqual(sessions.loadSession(id).messages, before);
 });
 
 test('casual summary overflow drops the summary when that regains the target', async () => {
@@ -323,28 +310,18 @@ test('projection accounts for summaries, memories, briefs, worklog, and the prot
   assert.ok(contents.some((content) => content.includes('[EARLIER CONVERSATION SUMMARY]:') || content.includes('Build the accounting widget.')));
 });
 
-test('brief and worklog injection keep working and archived history stays intact', async () => {
-  const project = projects.createProject({ name: 'Injection Project' });
-  const id = freshId('injection');
+test('W3 retires legacy path: brief and worklog injection keep working and archived history stays intact', async () => {
+  const project = projects.createProject({ name: 'Legacy Workspace refusal' });
+  const id = freshId('w3-legacy-refusal');
   sessions.getOrCreateSession(id, MODEL, project.id);
-  sessions.saveMessage(id, 'user', 'Ship the injection widget.');
-  seedMessages(id, 22, 400, 'Filler');
-  const LIMIT = 2600;
-  const result = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Injection rolling summary.',
-    llmCheckpointCallback: async () => ({ objective: 'Ship the injection widget.', outstandingRequirements: [] }),
-  });
-  assert.equal(result.compressed, true);
-  const prompt = prepareChatMessages({ sessionId: id, modelId: MODEL, userText: '', regenerate: true, regenerateLast: true });
-  const contents = prompt.map((message) => (typeof message.content === 'string' ? message.content : ''));
-  const joined = contents.join('\n');
-  assert.ok(joined.includes('Ship the injection widget.'), 'brief survives compression');
-  assert.ok(joined.includes('Injection rolling summary.'), 'summary injected');
-  const rows = sessions.loadSession(id).messages;
-  assert.ok(rows.slice(-10).some((row) => row.archived), 'workspace tail is eligible for compaction');
-  assert.ok(rows.filter((row) => row.archived).length > 0);
-  assert.equal(new Set(rows.map((row) => row.id)).size, rows.length, 'no duplicated messages');
+  sessions.saveMessage(id, 'user', 'Preserve authoritative instruction.');
+  sessions.saveMessage(id, 'assistant', 'Completed historical observation.');
+  const before = sessions.loadSession(id).messages;
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 100000,
+    force: true, llmSummarizeCallback: async () => { throw new Error('unsafe legacy generation'); } });
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.deepEqual(sessions.loadSession(id).messages, before);
 });
 
 test('irreducible floor terminates safely with an explicit recoverable outcome', async () => {
@@ -525,62 +502,30 @@ test('context-usage display stays consistent with the compaction projection', as
 });
 
 
-test('short image-heavy workspace compacts from full-prompt pressure and preserves attachment evidence', async () => {
-  const project = projects.createProject({ name: 'Image Workspace' });
-  const id = freshId('images');
-  const limit = 100000;
+test('W3 retires legacy path: short image-heavy workspace compacts from full-prompt pressure and preserves attachment evidence', async () => {
+  const project = projects.createProject({ name: 'Legacy Workspace refusal' });
+  const id = freshId('w3-legacy-refusal');
   sessions.getOrCreateSession(id, MODEL, project.id);
-  const image = path.join(directory, 'tiny.png');
-  fs.writeFileSync(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'));
-  const { processUploads } = require('../src/main/fileUploads');
-  for (let batch = 0; batch < 3; batch++) {
-    const attachments = await processUploads(Array(8).fill(image));
-    sessions.saveMessage(id, 'user', `Review batch ${batch}.`, attachments);
-    sessions.saveMessage(id, 'assistant', `Observed layout details in batch ${batch}.`);
-  }
-  assert.equal(sessions.getContextUsage(id, MODEL).messageCount, 6);
-  assert.ok(sessions.getContextUsage(id, MODEL).totalTokens < 1000);
-  let imageCount = 0;
-  const result = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: limit, tools: [],
-    llmSummarizeCallback: async (_old, batch) => {
-      const content = require('../src/main/compactionCore').summaryUserContent(_old, batch);
-      assert.ok(Array.isArray(content), 'vision parts reach the summarizer');
-      assert.ok(!content[0].text.includes('base64,'), 'image bytes never become JSON text tokens');
-      imageCount += content.filter(part => part.type === 'image_url').length;
-      return 'Preserve observed layouts and the selected design direction.';
-    },
-    llmCheckpointCallback: async () => ({ objective: 'Review image layouts.', outstandingRequirements: [] }),
-  });
-  assert.equal(result.compressed, true);
-  assert.ok(imageCount >= 16, 'image-heavy batches actually inspected before archival');
-  assert.ok(Number.isSafeInteger(result.checkpointId));
-  assert.ok(result.archivedCount > 0);
-  assert.equal(sessions.loadSession(id).messages.length, 6, 'raw history remains stored');
-  assert.ok(fs.existsSync(image));
-  const rebuilt = require('../src/main/promptBuilder').rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  const remainingImages = rebuilt.flatMap(message => Array.isArray(message.content) ? message.content : [])
-    .filter(part => part.type === 'image_url').length;
-  assert.ok(remainingImages < 24, 'archived images leave the active request');
-  assert.ok(rebuilt.some(message => message.role === 'user'), 'checkpoint-only continuation satisfies strict chat templates');
-  assert.ok(briefs.getAllBriefs(id).length >= 3, 'task briefs remain');
+  sessions.saveMessage(id, 'user', 'Preserve authoritative instruction.');
+  sessions.saveMessage(id, 'assistant', 'Completed historical observation.');
+  const before = sessions.loadSession(id).messages;
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 100000,
+    force: true, llmSummarizeCallback: async () => { throw new Error('unsafe legacy generation'); } });
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.deepEqual(sessions.loadSession(id).messages, before);
 });
 
-test('workspace recovery keeps explicitly excluded in-flight messages verbatim', async () => {
-  const project = projects.createProject({ name: 'In-flight Workspace' });
-  const id = freshId('inflight');
+test('W3 retires legacy path: workspace recovery keeps explicitly excluded in-flight messages verbatim', async () => {
+  const project = projects.createProject({ name: 'Legacy Workspace refusal' });
+  const id = freshId('w3-legacy-refusal');
   sessions.getOrCreateSession(id, MODEL, project.id);
-  sessions.saveMessage(id, 'user', 'Build the widget.');
-  sessions.saveMessage(id, 'assistant', 'Completed preparation.');
-  const parked = sessions.saveMessage(id, 'assistant', 'In progress');
-  const parkedId = typeof parked === 'number' ? parked : parked.id;
-  const result = await engine.recoverContextOverflow({ sessionId: id, modelId: MODEL,
-    contextWindowLimit: 100000, excludeMessageIds: [parkedId],
-    llmSummarizeCallback: async () => 'Prepared widget.',
-    llmCheckpointCallback: async () => ({ objective: 'Build the widget.', outstandingRequirements: [] }),
-  });
-  assert.equal(result.compressed, true);
-  const rows = sessions.loadSession(id).messages;
-  assert.equal(rows.find(row => row.id === parkedId).archived, 0);
-  assert.ok(rows.slice(0, -1).every(row => row.archived));
+  sessions.saveMessage(id, 'user', 'Preserve authoritative instruction.');
+  sessions.saveMessage(id, 'assistant', 'Completed historical observation.');
+  const before = sessions.loadSession(id).messages;
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 100000,
+    force: true, llmSummarizeCallback: async () => { throw new Error('unsafe legacy generation'); } });
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'workspace-safe-boundary-required');
+  assert.deepEqual(sessions.loadSession(id).messages, before);
 });

@@ -12,7 +12,7 @@ const handlers = new Map(), load = Module._load;
 let fetchMock;
 Module._load = function(name, ...args) {
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => directory }, Notification: { isSupported: () => false }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
-  if (name === './localEngineFetch') return { localEngineFetch: (...args) => fetchMock(...args) };
+  if (name === './localEngineFetch') return { localEngineFetch: (...args) => (new URL(args[0]).pathname === '/props' ? Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } })) : new URL(args[0]).pathname === '/apply-template' ? Promise.resolve(Response.json({ prompt: args[1].body })) : new URL(args[0]).pathname === '/tokenize' ? Promise.resolve(Response.json({ tokens: Array(100).fill(0) })) : fetchMock(...args)) };
   return load.call(this, name, ...args);
 };
 const db = require('../src/main/db'); db.initDatabase(directory);
