@@ -26,8 +26,8 @@ const MODES = Object.freeze([...modes]);
 // approves is advertised.
 //
 // The bwrap sandbox and workspace path checks are the real security boundary.
-// Outside Full Access, opaque process execution requires specific approval. The legacy command
-// heuristic remains exported for compatibility and is not an authorization gate.
+// Workspace Write auto execution is bound to the isolated workspace profile.
+// Other opaque execution requires approval; Full Access authorizes the host.
 // ---------------------------------------------------------------------------
 
 const { CAPABILITIES, capabilityOf, baseDecision, decideToolApproval } = require('./toolApprovalPolicy');
@@ -182,8 +182,8 @@ function isToolVisible(name, { permissionMode, project, native = true } = {}) {
 // ---------------------------------------------------------------------------
 // System-affecting command heuristic (prompt gating ONLY)
 //
-// Legacy coarse denylist retained for compatibility and future policy work.
-// All opaque commands currently ask outside Full Access. This is NOT a security
+// Coarse system-affecting denylist used alongside sandbox and path facts.
+// A negative match alone never authorizes a command. This is NOT a security
 // boundary: real containment comes from the bwrap sandbox and workspace path
 // checks. Commands that mutate the system outside the workspace cannot be
 // confined to it, so they ask for approval instead of failing outright.
@@ -323,19 +323,21 @@ async function requestApproval(kind, name, args, requestApprovalHandler, signal)
 // not remove workspace containment. guardTool issues a single-use capability.
 // ---------------------------------------------------------------------------
 
-async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName, annotations, serverTrusted = false }) {
+async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName, annotations, serverTrusted = false, sessionId }) {
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
 	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted };
+	if (native && name === 'git_switch' && mode === 'workspace_write' && root)
+		policyInput.gitWorktreeDirty = await require('./tools/agentTools').gitWorktreeDirty(root, signal);
 	let policy = decideToolApproval(policyInput);
 	if (policy.decision === 'block') throw Object.assign(new Error(policy.reason), { code: 'PERMISSION_DENIED' });
 	if (policy.route === 'command') {
 		if (typeof args.command !== 'string' || !args.command.trim() || args.command.includes('\0')) throw new Error('Invalid command.');
 		if (mode !== 'full_access' && (args.command.length > 4000 || (typeof args.cwd === 'string' && args.cwd.length > 4000)))
 			throw new Error('Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).');
-		// Full Access authorizes host execution for this session. Other writable
-		// modes still require specific consent for arbitrary processes.
+		// Full Access authorizes the host. Workspace Write may auto-authorize
+		// only the verified isolated profile below.
 		if (mode === 'full_access') return { mode, approved: true, commandUncontained: true };
 		let uncontained = !root;
 		if (root) {
@@ -347,12 +349,23 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 				uncontained = true;
 			}
 		}
+		let commandFacts = {};
+		if (mode === 'workspace_write' && root && !uncontained) {
+			const cwd = await workspacePath(root, args.cwd ?? '.');
+			const systemAffecting = isSystemAffecting(args.command);
+			const packageOperation = require('./workspaceCommandPolicy').isPackageOperation(args.command);
+			const inspection = systemAffecting || packageOperation ? { resolvedPaths: [cwd], reviewRequired: true }
+				: await require('./workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, workspacePath);
+			commandFacts = { containment: { contained: true }, resolvedPaths: inspection.resolvedPaths, commandReviewRequired: inspection.reviewRequired,
+				systemAffecting, packageOperation };
+		}
 		const sandbox = await require('./workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained });
-		policy = decideToolApproval({ ...policyInput, sandbox });
+		policy = decideToolApproval({ ...policyInput, ...commandFacts, sandbox, uncontained });
 		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, execution_scope: uncontained
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
 			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal);
-		return { mode, approved: true, commandUncontained: uncontained };
+		return { mode, approved: policy.decision === 'ask', commandUncontained: uncontained,
+			...(policy.decision === 'allow' ? { executionProfile: 'bwrap_workspace' } : {}) };
 	}
 	if (policy.route === 'full_access') return { mode, approved: true };
 	if (policy.route === 'immediate') return { mode, approved: policy.decision === 'ask'
@@ -360,32 +373,54 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	if (policy.route === 'git_sync') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
-		// Even fetch may invoke repository-controlled transport helpers. Ask
+		const incoming = mode === 'workspace_write' && args.action === 'pull'
+			? await require('./tools/agentTools').prepareGitPullReview(root, args, signal) : null;
+		// Remote preparation may invoke repository-controlled transport helpers. Ask
 		// before preparation, which can itself contact the remote.
-		await requestApproval('tool', name, { ...args, action: args.action === 'push' ? 'prepare_push' : args.action,
+		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, action: args.action === 'push' ? 'prepare_push' : args.action, ...(incoming ? { incoming } : {}),
 			execution_scope: 'Git remote operation with network access and repository configuration; may execute transport helpers. Push preparation reads remote state; publication requires a separate history review.' }, approvalHandlerFn, signal);
 		const snapshot = args.action === 'push' ? await require('./tools/agentTools').prepareGitPush(root, args, signal) : null;
 		if (snapshot && decideToolApproval({ ...policyInput, stage: 'git_publication' }).decision === 'ask') await requestApproval('tool', name, { action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
-		return { mode, approved: true, ...(snapshot ? { gitPushFingerprint: snapshot.fingerprint } : {}) };
+		return { mode, approved: policy.decision === 'ask', ...(snapshot ? { gitPushFingerprint: snapshot.fingerprint } : {}) };
 	}
 	if (policy.route === 'git_commit') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		const snapshot = await require('./tools/agentTools').prepareGitCommit(root, signal);
-		const approved = await requestApproval('tool', name, { ...args, staged_diff: snapshot.stagedDiff }, approvalHandlerFn, signal);
-		return { mode, approved, gitCommitFingerprint: snapshot.fingerprint };
+		const approved = policy.decision === 'ask' ? await requestApproval('tool', name, { ...args, staged_diff: snapshot.stagedDiff }, approvalHandlerFn, signal) : false;
+		return { mode, approved, gitCommitFingerprint: snapshot.fingerprint,
+			...(mode === 'workspace_write' ? { gitCommitReview: { message: args.message, staged_diff: snapshot.stagedDiff } } : {}) };
 	}
 
 	const capability = capabilityOf(name, native);
 
 	if (policy.route === 'delete') {
 		// baseDecision already denied casual chats (no workspace) and read-only
-		// chats; a root exists here. Deletion always confirms — even for a
-		// contained in-workspace file — mirroring git_commit. The approval
-		// payload names the exact file and size, and a content fingerprint is
+		// chats; a root exists here. Workspace Write captures first; other
+		// writable modes retain explicit review. The approval payload names
+		// the exact file and size, and a content fingerprint is
 		// bound so any change between approval and execution is rejected. The
 		// deletion itself stays workspace-contained: there is deliberately no
 		// outside-workspace approval escape.
 		const snapshot = await require('./tools/agentTools').prepareFileDelete(root, args?.path, { signal });
+		if (mode === 'workspace_write') {
+			let checkpoint = null;
+			let checkpointCoverage = { path: snapshot.rel, complete: false, captured: false };
+			try {
+				checkpoint = await require('./recoveryStore').captureOperation({ root, chatSessionId: sessionId ?? null,
+					toolName: name, op: { kind: 'delete', path: snapshot.rel, size: snapshot.size },
+					paths: [snapshot.rel], required: [snapshot.rel], uncontained: false });
+				const record = checkpoint.manifest?.paths?.[snapshot.rel];
+				checkpointCoverage = { ...checkpoint.coverage, path: snapshot.rel,
+					captured: Boolean(checkpoint.checkpointId && record?.kind === 'file' && record.hash === snapshot.hash && record.size === snapshot.size) };
+			} catch { /* An uncovered deletion requires explicit consent. */ }
+			policy = decideToolApproval({ ...policyInput, checkpointCoverage });
+			const approved = policy.decision === 'ask' ? await requestApproval('tool', name,
+				{ operation: 'delete', path: snapshot.rel, size: snapshot.size, recovery: 'No complete checkpoint; deletion may be irreversible.' }, approvalHandlerFn, signal) : false;
+			// captureOperation creates unpinned checkpoints. Denial/abort leaves
+			// them eligible for normal retention cleanup, never a pinned orphan.
+			return { mode, approved, deleteFingerprint: snapshot.fingerprint,
+				deleteCapture: { checkpoint, covered: policy.decision === 'allow', fallbackApproved: approved } };
+		}
 		const approved = await requestApproval('tool', name,
 			{ operation: 'delete', path: snapshot.rel, size: snapshot.size }, approvalHandlerFn, signal);
 		return { mode, approved, deleteFingerprint: snapshot.fingerprint };
@@ -424,7 +459,7 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			throw error;
 		}
 		// Contained in-workspace writes run autonomously in both workspace modes.
-		return { mode, approved: false };
+		return { mode, approved: false, ...(name === 'git_switch' && mode === 'workspace_write' ? { gitWorktreeDirty: policyInput.gitWorktreeDirty } : {}) };
 	}
 
 	// External mutations (image generation, MCP management, MCP-hosted tools)
@@ -462,7 +497,8 @@ async function guardTool(options) {
  // Git mutations may invoke repository-controlled filters/signers. Read-only
  // inspection uses fixed argv with helpers disabled; mutation is opaque.
  if (decideToolApproval({ tool: options.name, args: options.args, mode: result.mode, native: options.native,
-  workspaceRoot: projectRoot(options.project), stage: 'opaque_git', approved: result.approved }).decision === 'ask') {
+  workspaceRoot: projectRoot(options.project), stage: 'opaque_git', approved: result.approved,
+  gitWorktreeDirty: options.name === 'git_switch' && result.gitWorktreeDirty }).decision === 'ask') {
   await requestApproval('tool', options.name, { ...options.args,
    execution_scope: 'Workspace Git mutation; repository configuration may execute filters or signing programs.' }, options.requestApproval, options.signal);
   result.approved = true;
@@ -472,7 +508,9 @@ async function guardTool(options) {
   const error = new Error('Execution blocked: Permission changed while authorizing this operation.');
   error.code = 'PERMISSION_REVOKED'; throw error;
  }
- const decision = { ...result, ...(sessionId ? { policyRevision: revision } : {}) };
+ const { deleteCapture, ...publicResult } = result;
+ const decision = { ...publicResult, ...(sessionId ? { policyRevision: revision } : {}) };
+ if (deleteCapture) require('./nativeExecutionPolicy').issueDelete(decision, deleteCapture, options);
  return options.native !== false && require('./nativeExecutionPolicy').isProtected(options.name)
   ? require('./nativeExecutionPolicy').issue(decision, options) : decision;
 }

@@ -755,13 +755,13 @@ test('branch tools fail closed outside a repository', async () => {
   } finally { fs.rmSync(plain, { recursive: true, force: true }); }
 });
 
-test('commit always prompts outside full_access; stage stays contained', async () => {
+test('Workspace Write commits and stages autonomously; Ask for Approval still reviews commits', async () => {
   const root = makeRepo();
   fs.writeFileSync(path.join(root, 'f.txt'), 'review me');
   git(['add', 'f.txt'], root);
   const project = { root_path: root };
-  // Commit prompts in both workspace modes, even for in-workspace work.
-  for (const mode of ['workspace_write', 'ask_approval']) {
+  // Ask for Approval preserves the staged-diff review.
+  for (const mode of ['ask_approval']) {
     let requested = false;
     await assert.rejects(guardTool({ name: 'git_commit', args: { message: 'x' },
       permissionMode: mode, project,
@@ -775,8 +775,8 @@ test('commit always prompts outside full_access; stage stays contained', async (
   let requested = false;
   const inside = await guardTool({ name: 'git_stage', args: { paths: ['f.txt'] },
     permissionMode: 'workspace_write', project, requestApproval: async () => { requested = true; return true; } });
-  assert.equal(requested, true);
-  assert.equal(inside.approved, true);
+  assert.equal(requested, false);
+  assert.equal(inside.approved, false);
   await assert.rejects(guardTool({ name: 'git_stage', args: { paths: ['../outside.txt'] },
     permissionMode: 'workspace_write', project,
     requestApproval: async () => { throw new Error('must not ask'); } }), /Path escapes/);
@@ -832,7 +832,9 @@ test('commit approval contains staged diff and rejects subsequent staged changes
     const sid = workspaceSessions.get(root);
     const approval = await guardTool({ name: 'git_commit', args: { message: 'review' }, sessionId: sid, project: { root_path: root },
       permissionMode: 'workspace_write', requestApproval: async payload => { displayed = payload; return true; } });
-    assert.match(displayed.args.staged_diff, /approved/);
+    assert.equal(displayed, undefined);
+    assert.match(approval.gitCommitReview.staged_diff, /approved/);
+    assert.equal(approval.gitCommitReview.message, 'review');
     fs.writeFileSync(path.join(root, 'f.txt'), 'changed\n');
     git(['add', 'f.txt'], root);
     const result = await executeAgentTool({ name: 'git_commit', arguments: { message: 'review' }, sessionId: sid,

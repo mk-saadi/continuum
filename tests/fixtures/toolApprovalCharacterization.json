@@ -35,16 +35,14 @@
       "promptActions": []
     },
     "delete_project_file": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [
         "deleteFingerprint"
       ],
-      "promptActions": [
-        null
-      ]
+      "promptActions": []
     },
     "edit_file": {
       "decision": "allow",
@@ -63,15 +61,13 @@
       "promptActions": []
     },
     "execute_command": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "commandUncontained": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "extract_web_page_data": {
       "decision": "allow",
@@ -148,26 +144,22 @@
       "promptActions": []
     },
     "git_commit": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [
         "gitCommitFingerprint"
       ],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "git_create_branch": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "git_diff": {
       "decision": "allow",
@@ -194,24 +186,20 @@
       "promptActions": []
     },
     "git_stage": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "git_stash": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "git_status": {
       "decision": "allow",
@@ -237,14 +225,12 @@
       "prompts": 0
     },
     "git_unstage": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "list_directory": {
       "decision": "allow",
@@ -351,15 +337,13 @@
       "promptActions": []
     },
     "run_tests": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "commandUncontained": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "save_memory": {
       "decision": "allow",
@@ -471,14 +455,12 @@
       "promptActions": []
     },
     "git_sync:fetch": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "fetch"
-      ]
+      "promptActions": []
     },
     "git_sync:pull": {
       "decision": "ask",
@@ -509,34 +491,28 @@
       "prompts": 0
     },
     "git_stash:list": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "list"
-      ]
+      "promptActions": []
     },
     "git_stash:show": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "show"
-      ]
+      "promptActions": []
     },
     "git_stash:push": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "push"
-      ]
+      "promptActions": []
     },
     "git_stash:drop": {
       "decision": "ask",

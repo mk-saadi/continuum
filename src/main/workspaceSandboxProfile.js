@@ -11,8 +11,9 @@ async function getWorkspaceSandboxProfile({ workspaceRoot, uncontained }) {
   if (!workspaceRoot || uncontained || process.platform !== 'linux')
     return { bwrapAvailable: false, netUnshared: false, profile: null };
   let bwrapAvailable = false;
-  // Match spawn's PATH lookup without launching another process.
-  for (const directory of (process.env.PATH ?? '/usr/bin:/bin').split(path.delimiter)) {
+  // Match the workspace executor's restricted environment, not the ambient
+  // host PATH (which may include user or workspace executables).
+  for (const directory of '/usr/local/bin:/usr/bin:/bin'.split(path.delimiter)) {
     try {
       const candidate = path.resolve(directory || '.', 'bwrap');
       await fs.access(candidate, constants.X_OK);

@@ -7,9 +7,9 @@ const workspace = '/workspace';
 const rows = [
   ['execute_command', { command: 'printf ok' }, ['ask', 'ask', 'block', 'allow']],
   ['run_tests', { command: 'npm test' }, ['ask', 'ask', 'block', 'allow']],
-  ...['git_stage', 'git_unstage', 'git_create_branch', 'git_switch', 'git_commit'].map(tool => [tool, {}, ['ask', 'ask', 'block', 'allow']]),
-  ...['list', 'show', 'push', 'drop', 'clear'].map(action => ['git_stash', { action }, ['ask', 'ask', 'block', 'allow']]),
-  ...['fetch', 'pull', 'push'].map(action => ['git_sync', { action }, ['ask', 'ask', 'block', 'allow']]),
+  ...['git_stage', 'git_unstage', 'git_create_branch', 'git_switch', 'git_commit'].map(tool => [tool, {}, ['allow', 'ask', 'block', 'allow']]),
+  ...['list', 'show', 'push', 'drop', 'clear'].map(action => ['git_stash', { action }, [['list', 'show', 'push'].includes(action) ? 'allow' : 'ask', 'ask', 'block', 'allow']]),
+  ...['fetch', 'pull', 'push'].map(action => ['git_sync', { action }, [action === 'fetch' ? 'allow' : 'ask', 'ask', 'block', 'allow']]),
   ...['delete_project_file', 'generate_image', 'approve_mcp_mutation'].map(tool => [tool, {}, ['ask', 'ask', 'block', 'allow']]),
   ...['read_project_file', 'search_project_content', 'web_search', 'search_memory', 'spawn_sub_agent', 'delegate_task'].map(tool => [tool, {}, ['allow', 'allow', 'allow', 'allow']]),
   ...['write_project_file', 'write_file', 'apply_patch', 'edit_project_files', 'move_project_file', 'save_memory', 'update_plan'].map(tool => [tool, {}, ['allow', 'allow', 'block', 'allow']]),
@@ -29,13 +29,13 @@ for (const [tool, args, decisions] of rows) {
       assert.equal(typeof result.reason, 'string');
       if (result.decision === 'ask') assert.ok(result.reason.length > 0);
       // Phase 1: these new facts must not change a single decision.
-      for (const facts of [
+      for (const facts of (mode === 'workspace_write' ? [] : [
         { annotations: { readOnlyHint: true }, serverTrusted: true },
         { annotations: { destructiveHint: true }, serverTrusted: false },
         { checkpointCoverage: { complete: true } },
         { sandbox: { bwrapAvailable: true, netUnshared: true, profile: 'bwrap_workspace' } },
         { sandbox: { bwrapAvailable: false, netUnshared: false, profile: null } },
-      ]) assert.deepEqual(decideToolApproval({ ...input, ...facts }), result);
+      ])) assert.deepEqual(decideToolApproval({ ...input, ...facts }), result);
     });
   });
 }
@@ -72,7 +72,7 @@ test('opaque Git and publication remain independent gates', () => {
   assert.equal(decideToolApproval({ tool: 'git_sync', stage: 'git_publication' }).decision, 'ask');
 });
 
-test('MCP heuristic and hard rules retain existing decisions despite trust/annotations', () => {
+test('MCP hard rules win; trusted read-only metadata may bypass only argument heuristics', () => {
   for (const [tool, args, expected] of [
     ['read_records', {}, 'allow'], ['write_file', {}, 'allow'],
     ['read_records', { body: 'data' }, 'ask'], ['send_message', {}, 'ask'], ['publish', {}, 'ask'],
@@ -82,8 +82,9 @@ test('MCP heuristic and hard rules retain existing decisions despite trust/annot
     const input = { tool, args, native: false, mode: 'workspace_write', workspaceRoot: workspace, serverName: 'github' };
     const result = decideToolApproval(input);
     assert.equal(result.decision, expected, tool);
-    assert.deepEqual(decideToolApproval({ ...input, annotations: { readOnlyHint: true }, serverTrusted: true }), result);
-    assert.deepEqual(decideToolApproval({ ...input, annotations: { destructiveHint: true }, serverTrusted: true }), result);
+    assert.equal(decideToolApproval({ ...input, annotations: { readOnlyHint: true }, serverTrusted: true }).decision,
+      tool === 'read_records' && args.body ? 'allow' : expected);
+    assert.equal(decideToolApproval({ ...input, annotations: { destructiveHint: true }, serverTrusted: true }).decision, 'ask');
     assert.equal(decideToolApproval({ ...input, mode: 'read_only' }).decision, 'block');
     assert.equal(decideToolApproval({ ...input, mode: 'ask_approval' }).decision, 'ask');
     assert.equal(decideToolApproval({ ...input, mode: 'full_access' }).decision, 'allow');
@@ -112,7 +113,7 @@ test('policy is deterministic and never mutates supplied facts', () => {
   assert.deepEqual(baseDecision({ capability: CAPABILITIES.EXTERNAL_MUTATION, mode: 'workspace_write', hasWorkspace: true }), { decision: 'allow' });
 });
 
-test('guard obtains the sandbox profile itself and passes facts without changing approval', async () => {
+test('guard obtains the sandbox profile itself and binds autonomous execution to authoritative facts', async () => {
   const policy = require('../src/main/toolApprovalPolicy');
   const profile = require('../src/main/workspaceSandboxProfile');
   const guardPath = require.resolve('../src/main/toolPermissions');
@@ -129,7 +130,7 @@ test('guard obtains the sandbox profile itself and passes facts without changing
     let prompts = 0;
     await guardTool({ name: 'execute_command', args: { command: 'printf ok', sandbox: { profile: 'forged' } },
       project: { root_path: process.cwd() }, permissionMode: 'workspace_write', requestApproval: () => { prompts++; return true; } });
-    assert.equal(prompts, 1);
+    assert.equal(prompts, 0);
     assert.ok(calls.some(input => input.sandbox === facts));
   } finally {
     policy.decideToolApproval = originalDecide;

@@ -3,7 +3,8 @@
 // Pure approval policy. No I/O, Electron, session state or approval lifecycle.
 // The caller supplies authoritative facts gathered at the existing enforcement
 // points; stages preserve the order of validation, snapshotting and dispatch.
-const { requiresGitApproval, requiresOutboundApproval } = require('./mcpPermissionPolicy');
+const { requiresGitApproval, requiresOutboundApproval, classifyEffect } = require('./mcpPermissionPolicy');
+const { requiresConfirmation } = require('./safetyGuards');
 const { isCommand, isOpaqueGit } = require('./nativeExecutionKinds');
 
 const CAPABILITIES = Object.freeze({
@@ -16,7 +17,7 @@ const CAPABILITIES = Object.freeze({
 	PLAN_WRITE: 'plan_write', // updates the session-owned workspace task plan
 	PLAN_READ: 'plan_read', // reads same-project workspace task plans (read-only)
 	AGENT_SPAWN: 'agent_spawn', // spawns a sub-agent (child runs read-only)
-	FILE_DELETE: 'file_delete', // deletes one in-workspace file; always confirms, workspace-contained
+	FILE_DELETE: 'file_delete', // deletes one workspace file; exact capture or explicit consent
 });
 
 // Built-in tool -> capability mapping. `native` is true for main-process tools
@@ -48,9 +49,8 @@ const TOOL_CAPABILITIES = Object.freeze({
 	git_show: CAPABILITIES.READ,
 	git_branch: CAPABILITIES.READ,
 	git_blame: CAPABILITIES.READ,
-	// Staging stays in-workspace (contained like other writes). Committing
-	// creates persistent shared history, so it always confirms: modeled as an
-	// external mutation, which prompts in every mode except full_access.
+	// Local Git mutations stay contained. The capability catalog preserves
+	// visibility while execution policy refines Workspace Write approvals.
 	git_stage: CAPABILITIES.WORKSPACE_WRITE,
 	git_unstage: CAPABILITIES.WORKSPACE_WRITE,
 	git_stash: CAPABILITIES.WORKSPACE_WRITE,
@@ -72,9 +72,8 @@ const TOOL_CAPABILITIES = Object.freeze({
 	move_project_file: CAPABILITIES.WORKSPACE_WRITE,
 	edit_file: CAPABILITIES.WORKSPACE_WRITE,
 	delete_file: CAPABILITIES.WORKSPACE_WRITE,
-	// Deletion is the most destructive in-workspace action: it is modeled as
-	// its own capability so it always confirms (except Full Access) and is
-	// denied without a workspace, while reusing the existing approval flow.
+	// Deletion has a distinct capability: no workspace or read-only context
+	// can reach it. Workspace Write refines consent using exact capture facts.
 	delete_project_file: CAPABILITIES.FILE_DELETE,
 	// LOCAL_EXECUTION
 	execute_command: CAPABILITIES.LOCAL_EXECUTION,
@@ -196,6 +195,45 @@ function capabilityDecision({ capability, mode, hasWorkspace, native }) {
 }
 
 
+// Shared by the outer guard and the independent dispatch backstop. Hard
+// operations win over annotations. Only metadata-shaped argument heuristics
+// may be bypassed for an explicitly trusted read-only tool.
+function workspaceMcpApproval(input) {
+  const { tool, args = {}, serverName, annotations = {}, serverTrusted = false } = input;
+  if (requiresGitApproval(tool, args, serverName)) return 'Git commit or push requires explicit approval.';
+  const metadataKey = key => /^(?:payload|body|request|requests|steps|actions)$/i.test(key);
+  const hardArgs = value => Object.fromEntries(Object.entries(value).filter(([key]) => !metadataKey(key)));
+  const hardEffect = classifyEffect(tool, hardArgs(args));
+  if (!['read', 'known-mutation'].includes(hardEffect))
+    return 'Outbound or consequential mutation requires explicit user approval.';
+  // Skipping an opaque envelope must not hide executable/API actions inside
+  // that envelope. Plain filter/data objects still honor trusted readOnlyHint.
+  const metadata = Object.entries(args).filter(([key]) => metadataKey(key)).map(([, value]) => value);
+  const envelopes = [...metadata];
+  let inspected = 0;
+  while (envelopes.length) {
+    const value = envelopes.pop();
+    if (!value || typeof value !== 'object') continue;
+    if (++inspected > 1000) return 'Structured payload is too complex for automatic approval.';
+    if (requiresGitApproval(tool, value, serverName) || !['read', 'known-mutation'].includes(classifyEffect(tool, hardArgs(value))))
+      return 'Nested executable or consequential action requires explicit user approval.';
+    for (const child of Object.values(value)) if (child && typeof child === 'object') envelopes.push(child);
+  }
+  if (metadata.length && requiresConfirmation(JSON.stringify(metadata)))
+    return 'SQL mutation requires explicit user approval.';
+  if (annotations?.destructiveHint === true) return 'The connected tool declares destructive effects.';
+  if (serverTrusted === true && annotations?.readOnlyHint === true) return null;
+  return requiresOutboundApproval(tool, args) ? 'Outbound or consequential mutation requires explicit user approval.' : null;
+}
+function workspaceGitApproval(tool, args, input) {
+  if (tool === 'git_stash' && !['list', 'show', 'push'].includes(args.action))
+    return 'Dropping or restoring a stash requires review.';
+  if (tool === 'git_switch' && (input.gitWorktreeDirty || args.force || args.discard || args.discard_changes ||
+      args.discardChanges || Object.values(args).some(value => typeof value === 'string' && /(?:^|\s)(?:-f|--force|--discard-changes)(?:\s|$)/.test(value))))
+    return 'Branch switching could discard uncommitted changes.';
+  return null;
+}
+
 /**
  * @param {object} input
  * @param {string} input.tool
@@ -205,10 +243,10 @@ function capabilityDecision({ capability, mode, hasWorkspace, native }) {
  * @param {'evaluate'|'base'|'containment'|'opaque_git'|'git_publication'|'mcp_dispatch'} [input.stage]
  * @param {object} [input.containment] { blocked, reason } from live path checks.
  * @param {string[]} [input.resolvedPaths] Live-resolved workspace targets.
- * @param {object} [input.annotations] MCP readOnlyHint/destructiveHint (inert in Phase 1).
- * @param {boolean} [input.serverTrusted=false] Inert in Phase 1.
- * @param {object} [input.checkpointCoverage] Inert in Phase 1.
- * @param {object} [input.sandbox] { bwrapAvailable, netUnshared, profile }; inert in Phase 1.
+ * @param {object} [input.annotations] MCP readOnlyHint/destructiveHint (Workspace Write only).
+ * @param {boolean} [input.serverTrusted=false] Used only in Workspace Write.
+ * @param {object} [input.checkpointCoverage] Used only in Workspace Write.
+ * @param {object} [input.sandbox] { bwrapAvailable, netUnshared, profile }; auto execution requires the isolated workspace profile.
  * @returns {{decision:'allow'|'ask'|'block', reason:string, route?:string}}
  */
 function decideToolApproval(input) {
@@ -223,7 +261,11 @@ function decideToolApproval(input) {
     if (['workspace_write', 'ask_approval'].includes(mode) && tool === 'delete_project_file' && !approved)
       return ask('File deletion requires explicit approval.');
     if (input.dispatchPhase === 'deletion') return allow();
-    if (mode !== 'full_access' && requiresOutboundApproval(tool, args) && !approved)
+    if (mode === 'workspace_write' && input.workspaceMcp && !approved) {
+      const reason = workspaceMcpApproval(input);
+      if (reason) return ask(reason);
+    }
+    if (mode !== 'full_access' && !(mode === 'workspace_write' && input.workspaceMcp) && requiresOutboundApproval(tool, args) && !approved)
       return ask('Outbound or consequential mutation requires explicit user approval.');
     if (input.workspaceMcp && requiresGitApproval(tool, args, serverName) && !approved)
       return ask('Git commit or push requires explicit approval.');
@@ -232,8 +274,14 @@ function decideToolApproval(input) {
       return ask('Mutation payload requires a scoped approval challenge.', 'mutation_challenge');
     return allow();
   }
-  if (stage === 'opaque_git') return native !== false && isOpaqueGit(tool) && !approved
-    ? ask('Workspace Git mutation may execute repository-configured programs.') : allow();
+  if (stage === 'opaque_git') {
+    if (mode === 'workspace_write' && native !== false && workspaceRoot) {
+      const reason = workspaceGitApproval(tool, args, input);
+      return reason && !approved ? ask(reason) : allow();
+    }
+    return native !== false && isOpaqueGit(tool) && !approved
+      ? ask('Workspace Git mutation may execute repository-configured programs.') : allow();
+  }
   if (stage === 'git_publication') return ask('Review outgoing Git history before publication.');
   if (stage === 'containment') {
     if (!containment?.blocked) return allow();
@@ -246,6 +294,17 @@ function decideToolApproval(input) {
     const result = capabilityDecision({ capability, mode, hasWorkspace: Boolean(workspaceRoot), native: input.native });
     return result.decision === 'deny' ? block(result.reason) : result.decision === 'approve'
       ? ask('This tool requires explicit user approval.') : allow();
+  }
+  if (native && isCommand(tool) && mode === 'workspace_write' && workspaceRoot) {
+    if (input.containment?.blocked) return block(input.containment.reason);
+    const sandbox = input.sandbox;
+    if (sandbox?.bwrapAvailable !== true || sandbox.netUnshared !== true || sandbox.profile !== 'bwrap_workspace' || input.uncontained)
+      return ask('Workspace sandbox is unavailable; execution requires review.', 'command');
+    if (input.systemAffecting) return ask('System-affecting command requires review.', 'command');
+    if (input.packageOperation) return ask('Package installation or publication requires review.', 'command');
+    if (input.commandReviewRequired !== false || input.systemAffecting !== false || input.packageOperation !== false || input.containment?.contained !== true)
+      return ask('Command paths or embedded code require review.', 'command');
+    return allow('command');
   }
   if (native && isCommand(tool)) return mode === 'read_only'
     ? block('Execution blocked: Chat is in Read Only mode.')
@@ -260,16 +319,30 @@ function decideToolApproval(input) {
   }
   if (native && ((tool === 'manage_mcp_servers' && args.action === 'search') || (tool === 'find_and_prepare_mcp_tools' && mode === 'read_only'))) return allow('immediate');
   if (native && tool === 'approve_mcp_mutation' && mode !== 'read_only') return ask('Approve the scoped MCP mutation challenge.', 'immediate');
+  if (!native && mode === 'workspace_write' && workspaceRoot) {
+    const reason = workspaceMcpApproval(input);
+    return reason ? ask(reason, 'immediate') : allow('immediate');
+  }
   if (!native && mode !== 'read_only' && requiresOutboundApproval(tool, args)) return ask('Connected tool may perform outbound or consequential actions.', 'immediate');
   if (mode === 'workspace_write' && workspaceRoot && ((native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(tool)) || !native)) {
     return !native && (tool === 'delete_project_file' || requiresGitApproval(tool, args, serverName))
       ? ask('Connected tool deletes a project file or publishes Git history.', 'immediate') : allow('immediate');
   }
+  if (native && tool === 'git_sync' && mode === 'workspace_write' && workspaceRoot && args.action === 'fetch') return allow('git_sync');
   if (native && tool === 'git_sync' && mode !== 'read_only') return ask('Git remote preparation may execute transport helpers.', 'git_sync');
+  if (native && tool === 'git_commit' && mode === 'workspace_write' && workspaceRoot) return allow('git_commit');
   if (tool === 'git_commit' && mode !== 'read_only') return ask('Review the staged changes before committing.', 'git_commit');
   const result = decideToolApproval({ ...input, stage: 'base', capability, native });
-  if (result.decision !== 'block' && capability === CAPABILITIES.FILE_DELETE)
-    return ask('Review the exact file before deletion.', 'delete');
+  if (result.decision !== 'block' && capability === CAPABILITIES.FILE_DELETE) {
+    const coverage = input.checkpointCoverage;
+    if (mode === 'workspace_write' && coverage?.complete === true && coverage.path === args.path && coverage.captured === true &&
+        !coverage.skipped?.length && !coverage.excluded?.length) return allow('delete');
+    return ask('Deletion has no complete checkpoint for this file.', 'delete');
+  }
+  if (result.decision === 'allow' && native && isOpaqueGit(tool) && mode === 'workspace_write' && workspaceRoot) {
+    const reason = workspaceGitApproval(tool, args, input);
+    return reason ? ask(reason, 'opaque_git') : allow('opaque_git');
+  }
   if (result.decision === 'allow' && native && isOpaqueGit(tool))
     return ask('Workspace Git mutation may execute repository-configured programs.', 'opaque_git');
   return result;

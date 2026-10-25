@@ -64,7 +64,7 @@ function validateServerConfig(name, server) {
     if (server.cwd !== undefined && !text(server.cwd)) throw new TypeError(`Invalid working directory for ${name}.`);
     if (server.env !== undefined && (!object(server.env) || !Object.entries(server.env).every(([key, value]) => text(key) && text(value)))) throw new TypeError(`Invalid environment for ${name}.`);
   }
-  for (const flag of ['enabled', 'disabled', 'uiEnabled']) if (server[flag] !== undefined && typeof server[flag] !== 'boolean') throw new TypeError(`Invalid ${flag} flag for ${name}.`);
+  for (const flag of ['enabled', 'disabled', 'uiEnabled', 'trusted']) if (server[flag] !== undefined && typeof server[flag] !== 'boolean') throw new TypeError(`Invalid ${flag} flag for ${name}.`);
   if (server.disabledTools !== undefined && (!Array.isArray(server.disabledTools) || !server.disabledTools.every(text))) throw new TypeError(`Invalid disabled tools for ${name}.`);
   if (server.transport !== undefined && !(hasUrl ? ['sse', 'streamable-http'] : ['stdio']).includes(server.transport)) throw new TypeError(`Transport for ${name} must match its URL (sse or streamable-http) or command (stdio).`);
 }
@@ -636,15 +636,15 @@ class McpManager extends EventEmitter {
       if (approval && (approval.mode !== permissionMode || (Object.hasOwn(approval, 'policyRevision') && approval.policyRevision !== revision))) throw new Error('Execution blocked: Permission revoked since authorization.');
       if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal, ...this.getApprovalFacts(serverName, toolName) });
     }
-    const policyInput = { tool: toolName, args, mode: permissionMode, native: false, serverName,
+    const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
+    const policyInput = { workspaceMcp, tool: toolName, args, mode: permissionMode, native: false, serverName,
       approved: Boolean(approval?.approved), permissionGranted, ...this.getApprovalFacts(serverName, toolName), stage: 'mcp_dispatch' };
-    // Preserve deletion/outbound enforcement before workspace lookup and SQL gating.
+    // Preserve independent deletion/outbound enforcement before SQL gating.
     const deletion = decideToolApproval({ ...policyInput, dispatchPhase: 'deletion' });
     if (deletion.decision === 'ask') throw new Error(`Execution blocked: ${deletion.reason}`);
     const payload = JSON.stringify(args);
     const immediate = decideToolApproval(policyInput);
     if (immediate.decision === 'ask') throw new Error(`Execution blocked: ${immediate.reason}`);
-    const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
     const dispatchPolicy = decideToolApproval({ ...policyInput, workspaceMcp,
       mutationRequiresConfirmation: permissionMode !== 'full_access' && !workspaceMcp &&
         !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload) });

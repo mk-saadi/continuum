@@ -136,7 +136,7 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Every invocation requires specific user approval, including test/build scripts and Full Access. Workspace commands retain filesystem containment, isolated network and restricted environment after approval. Full Access approval explicitly permits uncontained execution. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. System commands, package operations and commands needing path review require approval. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
             background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
@@ -363,7 +363,7 @@ const agentTools = [
 	),
 	define(
 		"delete_project_file",
-		"Permanently delete one project file (never a directory, never a symlink). The content is captured for recovery before deletion, so it can be restored. Always asks for confirmation except in Full Access. Fails in Read Only mode, for casual chats without a workspace, and if the file is larger than the recovery capture limit.",
+		"Permanently delete one project file (never a directory, never a symlink). The content is captured for recovery before deletion, so it can be restored. Workspace Write runs without confirmation when this exact file has a complete checkpoint; otherwise it asks before an unprotected deletion. Ask for Approval always confirms and requires capture. Fails in Read Only mode and casual chats without a workspace.",
 		{
 			path: string("Project-relative file path to delete"),
 			expected_hash: {
@@ -469,7 +469,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_commit",
-		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Requires specific user approval except in Full Access; repository configuration may execute programs.",
+		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Workspace Write commits without a prompt and records the message and staged diff; Ask for Approval reviews the staged changes. The commit stays bound to the staged snapshot.",
 		{ message: string("Non-empty commit message (at most 2000 characters)") },
 		["message"],
 	),
@@ -493,7 +493,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_sync",
-		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Every remote operation requires approval except in Full Access. Push first approves remote preparation, then reviews outgoing history before publication.",
+		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Workspace Write fetches without a prompt and asks once before pulling. Ask for Approval reviews every remote operation; Full Access bypasses prompts. Push first approves remote preparation, then reviews outgoing history before publication.",
 		{
 			action: { type: "string", enum: ["fetch", "pull", "push"], description: "fetch reads remote history, pull fast-forwards the current branch, push publishes it" },
 			remote: string("Configured remote name (defaults to origin); never a URL"),
@@ -854,15 +854,21 @@ function structureVerification(args, result, signal, timeoutMs, cwdLabel) {
 // the cwd under the same containment rules, run the command (sandboxed unless
 // the user granted an uncontained run), and wrap it in the shell recovery
 // boundary when the session has a project root.
-async function runScopedCommand(name, args, { root, signal, uncontained, sessionId, recoveryRoot, timeoutMs, validateAuthorization = () => {}, onState = null }) {
+async function runScopedCommand(name, args, { root, signal, uncontained, sessionId, recoveryRoot, timeoutMs, validateAuthorization = () => {}, onState = null, requiredExecutionProfile = null }) {
 	const cwd = uncontained
 		? path.resolve(root, args.cwd ?? ".")
 		: await scopedPath(root, args.cwd ?? ".", true);
  const deadlines = require('../subagents/executionDeadline');
  const deadline = deadlines.getExecutionDeadline(sessionId);
  const commandSignal = deadlines.combineSignals(signal, deadline?.signal);
- const runCommand = () => {
+ const runCommand = async () => {
   validateAuthorization();
+  if (requiredExecutionProfile) {
+   if (requiredExecutionProfile !== 'bwrap_workspace' || uncontained || !root) throw new Error('Execution blocked: bwrap-bound command cannot run on the host.');
+   const inspection = await require('../workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, require('../toolPermissions').workspacePath);
+   if (inspection.reviewRequired) throw new Error('Execution blocked: Command paths require explicit review.');
+   validateAuthorization();
+  }
   const remaining = deadline?.remainingMs() ?? Infinity;
   if (remaining <= 0) deadline.fire();
   return executeCommand(args, cwd, commandSignal, uncontained ? undefined : root, timeoutMs, validateAuthorization, deadline, onState);
@@ -882,7 +888,7 @@ async function runScopedCommand(name, args, { root, signal, uncontained, session
 	return { result, cwd };
 }
 
-async function runVerification(args, { root, signal, uncontained, sessionId, recoveryRoot, validateAuthorization }) {
+async function runVerification(args, { root, signal, uncontained, sessionId, recoveryRoot, validateAuthorization, requiredExecutionProfile = null }) {
 	const timeoutMs = verificationTimeoutMs(args);
 	const { result, cwd } = await runScopedCommand("run_tests", args, {
 		root,
@@ -891,6 +897,7 @@ async function runVerification(args, { root, signal, uncontained, sessionId, rec
 		sessionId,
 		recoveryRoot,
 		validateAuthorization,
+		requiredExecutionProfile,
 		timeoutMs,
 	});
 	const cwdLabel = uncontained ? cwd : path.relative(root, cwd) || ".";
@@ -1084,6 +1091,19 @@ async function prepareGitCommit(root, signal) {
 	const parent = await runGit(root, ['rev-parse', '--verify', 'HEAD'], signal).catch(() => 'unborn');
 	return { fingerprint: require('node:crypto').createHash('sha256').update(head).update(parent).update(diff).digest('hex'),
 		stagedDiff: truncateGitOutput(diff) };
+}
+
+async function prepareGitPullReview(root, args, signal) {
+	try {
+		const remote = await requireGitRemote(root, args.remote ?? 'origin', signal);
+		const branch = await resolveSyncBranch(root, args.branch, signal);
+		return (await runGit(root, ['log', '--oneline', '-n', '20', `HEAD..refs/remotes/${remote}/${branch}`], signal)).trim() || null;
+	} catch { signal?.throwIfAborted(); return null; }
+}
+
+async function gitWorktreeDirty(root, signal) {
+	const status = await runGit(root, ['status', '--porcelain=v1'], signal);
+	return status.split('\n').some(line => line.length > 0 && !line.startsWith('??'));
 }
 
 // Branch switching refuses on a dirty worktree: any staged, unstaged, or
@@ -2218,12 +2238,12 @@ async function prepareFileDelete(root, value, { signal } = {}) {
 /**
  * Delete one authorized project file. Callers must already have passed the
  * permission/approval gate (guardTool): `approval.deleteFingerprint` is the
- * approved bytes, absent only in Full Access. Steps, in order:
+ * authorized bytes, absent only in Full Access. Steps, in order:
  *   1. Re-validate the target and re-hash it (never trust the approval view).
  *   2. Honor the optional expected_hash precondition.
  *   3. Reject any change since approval (fingerprint mismatch).
- *   4. Capture the before-image through the recovery store; a capture failure
- *      blocks the deletion (never silent, never unprotected).
+ *   4. Workspace Write consumes the guard's capture or explicit uncovered
+ *      deletion consent. Other modes retain their execution-time capture gate.
  *   5. Honor cancellation before the irreversible step, then re-hash once more
  *      and unlink only if the bytes are still exactly what was approved.
  *   6. Record the post-state (best-effort) so a later restore can tell this
@@ -2248,7 +2268,15 @@ async function executeDeleteProjectFile(root, args, { signal, recoveryCtx = {}, 
 	}
 
 	let checkpoint;
-	try {
+	const workspaceDelete = !fullAccess && approval?.mode === 'workspace_write';
+	if (workspaceDelete) {
+		const capture = require('../nativeExecutionPolicy').consumeDelete(approval, {
+			name: 'delete_project_file', args, sessionId: recoveryCtx.chatSessionId, project: { root_path: root },
+			mode: approval.mode, policyRevision: require('../lspExecutionContext').revision(recoveryCtx.chatSessionId),
+		});
+		if (!capture.covered && !capture.fallbackApproved) throw new Error('Execution blocked: Unprotected deletion requires explicit approval.');
+		checkpoint = capture.checkpoint;
+	} else try {
 		checkpoint = await recoveryStore.captureOperation({
 			root,
 			chatSessionId: recoveryCtx.chatSessionId ?? null,
@@ -2275,7 +2303,7 @@ async function executeDeleteProjectFile(root, args, { signal, recoveryCtx = {}, 
 
 	await fs.unlink(snapshot.abs);
 	try {
-		await recoveryStore.recordOpPostState(checkpoint.checkpointId, { [snapshot.rel]: { k: "absent" } });
+		if (checkpoint?.checkpointId) await recoveryStore.recordOpPostState(checkpoint.checkpointId, { [snapshot.rel]: { k: "absent" } });
 	} catch {
 		/* Best-effort: a missing post-state only makes a later restore stricter. */
 	}
@@ -2285,7 +2313,7 @@ async function executeDeleteProjectFile(root, args, { signal, recoveryCtx = {}, 
 		path: snapshot.rel,
 		size: snapshot.size,
 		sha256: snapshot.hash,
-		recoveryCheckpointId: checkpoint.checkpointId,
+		recoveryCheckpointId: checkpoint?.checkpointId ?? null,
 	};
 }
 
@@ -2515,6 +2543,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         if (require('../nativeExecutionPolicy').isProtected(name)) require('../nativeExecutionPolicy').consume(guardDecision, {
             name, args, sessionId, project, mode: permissionMode,
             policyRevision: require('../lspExecutionContext').revision(sessionId),
+            executionProfile: guardDecision?.executionProfile, commandUncontained: guardDecision?.commandUncontained, approved: guardDecision?.approved,
         });
         if (name === 'manage_native_tools') {
             const effective = require('../profileSettings').getSessionSettings(sessionId, null).effective;
@@ -2526,9 +2555,12 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         // uncontained process without a separate prompt.
         const uncontained = commandExecution ? guardDecision.commandUncontained
             : permissionMode === 'full_access' || guardDecision?.approved === true;
+        const requiredExecutionProfile = commandExecution ? guardDecision.executionProfile : null;
         const authorizationRevision = require('../lspExecutionContext').revision(sessionId);
         const validateAuthorization = () => {
             signal?.throwIfAborted();
+            if (commandExecution && requiredExecutionProfile === 'bwrap_workspace' &&
+                (uncontained || !project?.root_path)) throw new Error('Execution blocked: bwrap-bound command cannot run on the host.');
             validateToolAuthorization?.();
             if (sessionId && require('../lspExecutionContext').revision(sessionId) !== authorizationRevision) {
                 const error = new Error('Execution blocked: Permission revoked before execution.');
@@ -2620,10 +2652,11 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             if (args.background === true) {
                 if (!project?.root_path || !backgroundContext) throw new Error('Background commands require an active main workspace run.');
                 return require('../backgroundCommands').start({ runId: backgroundContext.runId, sessionId, workspace: root,
-                    authorization: { mode: permissionMode, policyRevision: authorizationRevision, uncontained, approved: true,
+                    authorization: { mode: permissionMode, policyRevision: authorizationRevision, uncontained, approved: guardDecision.approved,
+                        ...(guardDecision.executionProfile ? { executionProfile: guardDecision.executionProfile } : {}),
                         operationFingerprint: require('../advertisedTools').fingerprint([name, args]) } }, args.command, timeoutMs,
                     (commandSignal, onState) => runScopedCommand('execute_command', args, { root, signal: commandSignal, uncontained, sessionId,
-                        recoveryRoot: project.root_path, timeoutMs, validateAuthorization, onState }).then(value => value.result), validateAuthorization);
+                        recoveryRoot: project.root_path, timeoutMs, validateAuthorization, onState, requiredExecutionProfile }).then(value => value.result), validateAuthorization);
             }
 			// Every command has a consumed, scoped grant. Workspace consent
 			// retains the bwrap sandbox; only commandUncontained selects escape.
@@ -2638,6 +2671,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				sessionId,
 				recoveryRoot: project?.root_path,
 				validateAuthorization,
+				requiredExecutionProfile,
 				timeoutMs: verificationTimeoutMs(args),
 			});
 			return result;
@@ -2654,6 +2688,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				sessionId,
 				recoveryRoot: project?.root_path,
 				validateAuthorization,
+				requiredExecutionProfile,
 			});
 		}
 		if (name === "search_project_content") return await searchContent(root, args, signal);
@@ -2983,6 +3018,8 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 
 module.exports = {
 	prepareGitCommit,
+	gitWorktreeDirty,
+	prepareGitPullReview,
 	prepareGitPush,
 	// Deletion permission gate + execution share this exact validation, so the
 	// approved snapshot and the executed snapshot can never diverge silently.

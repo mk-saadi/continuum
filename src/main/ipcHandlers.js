@@ -530,6 +530,7 @@ function registerIpcHandlers({
             const fetchImpl = cloud ? createCloudFetch(target) : localEngineFetch;
 			let executionSteps = [];
             const childSessionsByToolCall = new Map();
+            const gitCommitReviewsByToolCall = new Map();
             let content = "";
             const contentChunks = [];
             const materializeContent = () => {
@@ -923,8 +924,12 @@ function registerIpcHandlers({
                         ? { serverName: 'native', toolName: name } : mcpManager.resolveTool(name, sessionId),
                     onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
-                        executionSteps = steps.map(step => childSessionsByToolCall.has(step.id)
-                            ? { ...step, childSessionId: childSessionsByToolCall.get(step.id) } : step);
+                        executionSteps = steps.map(step => {
+                            const linked = childSessionsByToolCall.has(step.id)
+                                ? { ...step, childSessionId: childSessionsByToolCall.get(step.id) } : step;
+                            const review = gitCommitReviewsByToolCall.get(step.id);
+                            return review ? { ...linked, args: { ...linked.args, ...review } } : linked;
+                        });
                         persist();
                         notify({ type: "step-update", messageId, executionSteps: displaySteps(executionSteps) });
                     },
@@ -1008,6 +1013,15 @@ function registerIpcHandlers({
                                 ...(!isAgent && !isMemory ? mcpManager.getApprovalFacts(target.serverName, target.toolName) : {}), signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
                             advertisedTools.validateEpoch(acceptedManifest);
+                            if (approval?.gitCommitReview) {
+                                gitCommitReviewsByToolCall.set(call.id, approval.gitCommitReview);
+                                const step = executionSteps.find(step => step?.id === call.id);
+                                if (step) {
+                                    step.args = { ...step.args, ...approval.gitCommitReview };
+                                    persist();
+                                    notify({ type: 'step-update', messageId, executionSteps: displaySteps(executionSteps) });
+                                }
+                            }
 							// Sub-agent observability: link the parent step to the child
 							// session as soon as the runtime opens it (before the
 							// child finishes), and re-assert on completion. The

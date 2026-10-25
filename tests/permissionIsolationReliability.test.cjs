@@ -151,7 +151,7 @@ test('LSP cursors cannot cross same-workspace callers or policy generations', as
  assert.equal((await dispatch(a, 'lsp_references', { cursor: second.nextCursor }, { executionContext: ca })).success, false);
 });
 
-test('end-to-end: one parent run keeps plan, steering, child isolation and scoped approval across revocation/recovery', { timeout: 10000 }, async () => {
+test('end-to-end: one parent run keeps plan, steering, child isolation and checkpoint-backed deletion across revocation/recovery', { timeout: 10000 }, async () => {
  const id = session('e2e-parent'), owner = sender(); let round = 0, runId, planId, approvedCount = 0;
  const parentPayloads = [], childResults = new Map();
  const send = owner.send;
@@ -237,7 +237,7 @@ test('end-to-end: one parent run keeps plan, steering, child isolation and scope
  };
  const cancelOne = new AbortController();
  const result = await invoke(owner, 'engine:chat', { requestId: 'e2e-request', sessionId: id, modelId: 'model', permissionMode: 'workspace_write', messages: [{ role: 'user', content: 'Run the authorization simulation.' }] });
- assert.match(result.text, /simulation complete/, JSON.stringify(result)); assert.equal(result.runId, runId); assert.equal(approvedCount, 1);
+ assert.match(result.text, /simulation complete/, JSON.stringify(result)); assert.equal(result.runId, runId); assert.equal(approvedCount, 0);
  assert.equal(require('../src/main/workspacePlan').updatePlan(id, { action: 'get' }).plan.steps[0].id, planId);
  assert.equal(fs.existsSync(path.join(root, 'child-illegal.txt')), false); assert.equal(fs.readFileSync(path.join(root, 'e2e-resumed.txt'), 'utf8'), 'authorized');
  assert.ok(parentPayloads.some(p => JSON.stringify(p.messages).includes('Preserve the isolation evidence.')));
@@ -280,7 +280,13 @@ test('independent child ceilings follow parent revocation without changing sibli
  children.deleteSession(a.id); children.deleteSession(b.id);
 });
 
-test('a mode change resolves a pending real IPC approval without performing the action', { timeout: 5000 }, async () => {
+test('a mode change resolves a pending uncovered-deletion IPC approval without performing the action', { timeout: 5000 }, async t => {
+ const recovery = require('../src/main/recoveryStore'), capture = recovery.captureOperation;
+ recovery.captureOperation = async opts => {
+  if (opts.required?.includes('pending-delete.txt')) throw new Error('fixture capture unavailable');
+  return capture(opts);
+ };
+ t.after(() => { recovery.captureOperation = capture; });
  const id = session('pending-approval'), owner = sender(); fs.writeFileSync(path.join(root, 'pending-delete.txt'), 'retain');
  let asked; const pendingApproval = new Promise(r => { asked = r; }); const send = owner.send; let round = 0;
  owner.send = (channel, payload) => { send(channel, payload); if (channel === 'engine:request-tool-approval' && !payload.resolved) asked(payload); };

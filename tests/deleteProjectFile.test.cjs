@@ -67,7 +67,7 @@ function sessionFor(root) {
 // Full real path: permission guard prompts (handler returns true) -> fingerprint
 // bound -> executor. Mirrors the IPC wiring where the user approves the card.
 async function approve(root, args, mode = 'workspace_write') {
-  return guardTool({ name: 'delete_project_file', args, project: { root_path: root },
+  return guardTool({ name: 'delete_project_file', args, sessionId: sessionFor(root), project: { root_path: root },
     permissionMode: mode, requestApproval: async () => true });
 }
 async function approvedDelete(root, args, mode = 'workspace_write') {
@@ -143,9 +143,9 @@ test('casual chat without a workspace is denied even in full access (no outside 
   }
 });
 
-test('deletion always prompts outside full_access and a denied prompt blocks it', async () => {
+test('Ask for Approval deletion prompts and denial blocks it', async () => {
   const root = makeWorkspace({ 'a.txt': 'hello\n' });
-  for (const mode of ['workspace_write', 'ask_approval']) {
+  for (const mode of ['ask_approval']) {
     let displayed;
     let requested = false;
     await assert.rejects(guardTool({ name: 'delete_project_file', args: { path: 'a.txt' },
@@ -251,20 +251,20 @@ test('content changed between approval and execution is a conflict, file preserv
 test('a change in the instant before unlink fails closed (TOCTOU re-check)', async () => {
   const root = makeWorkspace({ 'f.txt': 'original\n' });
   const approval = await approve(root, { path: 'f.txt' });
-  const original = recovery.captureOperation;
-  recovery.captureOperation = async function (opts) {
-    const result = await original.call(recovery, opts);
-    // Simulate a racing writer between the approved snapshot and the unlink.
-    fs.writeFileSync(path.join(root, 'f.txt'), 'raced in\n');
-    return result;
+  const original = fs.createReadStream;
+  let reads = 0;
+  fs.createReadStream = function (target, ...rest) {
+    // The executor's first read validates the fingerprint; its second is
+    // the final content recheck immediately before unlink.
+    if (target === path.join(root, 'f.txt') && ++reads === 2)
+      fs.writeFileSync(target, 'raced in\n');
+    return original.call(fs, target, ...rest);
   };
   let r;
   try {
     r = await executeAgentTool({ name: 'delete_project_file', arguments: { path: 'f.txt' },
       sessionId: sessionFor(root), permissionMode: 'workspace_write', permissionGranted: true, approval });
-  } finally {
-    recovery.captureOperation = original;
-  }
+  } finally { fs.createReadStream = original; }
   assert.equal(r.success, false);
   assert.equal(r.outcome, 'conflict');
   assert.match(r.error, /nothing was deleted/);
@@ -309,11 +309,11 @@ test('deletion captures the exact before-image and restore recreates the content
   assert.equal(fs.readFileSync(path.join(root, 'keep.txt'), 'utf8'), 'keep\n');
 });
 
-test('a file beyond the recovery limit is blocked, not deleted unprotected', async () => {
+test('Ask for Approval still blocks a file beyond the recovery limit', async () => {
   const root = makeWorkspace({ 'big.bin': 'seed\n' });
   const big = path.join(root, 'big.bin');
   fs.writeFileSync(big, Buffer.alloc(3 * 1024 * 1024, 7));
-  const r = await approvedDelete(root, { path: 'big.bin' });
+  const r = await approvedDelete(root, { path: 'big.bin' }, 'ask_approval');
   assert.equal(r.success, false);
   assert.equal(r.outcome, 'recovery_failed');
   assert.match(r.error, /Recovery capture failed/);
