@@ -863,7 +863,7 @@ test('missing sandbox fails closed without running Git directly', async () => {
     process.env.PATH = '/nonexistent-git-sandbox-test';
     const result = await childCall(root, 'git_status');
     assert.equal(result.success, false);
-    assert.match(result.error, /bwrap is not installed/);
+    assert.match(result.error, /bwrap is not installed|required runtime path unavailable: (?:sh|git)/);
   } finally {
     process.env.PATH = originalPath;
     fs.rmSync(root, { recursive: true, force: true });

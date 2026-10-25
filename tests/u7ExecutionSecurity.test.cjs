@@ -212,7 +212,7 @@ test('U7 authorized workspace process retains network isolation and excludes inh
     assert.equal(grant.commandUncontained, false);
     await dispatch(o, grant);
     assert.equal(invocation.file, 'bwrap'); assert.ok(invocation.argv.includes('--unshare-net'));
-    assert.deepEqual(Object.keys(invocation.settings.env).sort(), ['HOME','LANG','PATH','TMPDIR']);
+    assert.ok(Object.keys(invocation.settings.env).every(key => /^(?:HOME|LANG|PATH|TMPDIR|LC_[A-Z_]+|TERM|TZ)$/.test(key)));
     assert.equal(invocation.settings.env.NODE_OPTIONS, undefined); assert.equal(invocation.settings.env.SSH_AUTH_SOCK, undefined);
   } finally { runner.runForeground = original; }
 });

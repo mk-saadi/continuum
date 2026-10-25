@@ -712,10 +712,11 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   await fs.mkdir(sandboxHome, { recursive: true });
   await fs.mkdir(sandboxTmp, { recursive: true });
   file = 'bwrap';
+  const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp });
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
-   '--ro-bind', '/', '/', '--bind', sandboxTmp, '/tmp', '--bind', workspaceRoot, workspaceRoot, '--proc', '/proc', '--dev', '/dev',
+   ...filesystem.mounts,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
-  env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: sandboxHome, TMPDIR: sandboxTmp };
+  env = filesystem.env;
  } else {
   file = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh';
   argv = process.platform === 'win32' ? ['/d', '/s', '/c', `"${args.command}"`] : ['-c', args.command];
@@ -1025,7 +1026,7 @@ function optionalGitPath(value, name) {
 
 async function runGit(root, args, signal, { write = false, uncontained = false, network = false, askpass } = {}) {
 	root = await fs.realpath(root);
-	const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+	const env = uncontained ? Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))) : require('../sandboxFilesystem').environment();
 	Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' });
 	// SSH transport is unsupported by design (gh-CLI HTTPS only): never let a
 	// sandboxed git reach the ambient agent socket, even when one is configured.
@@ -1050,12 +1051,12 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 	let commandArgs = gitArgs;
 	if (!uncontained) {
 		if (process.platform !== 'linux') throw new Error('Git sandbox is unavailable on this platform.');
+		const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: root, network, writable: write, askpassDirectory: askpass ? path.dirname(askpass) : undefined });
+		Object.assign(env, filesystem.env);
 		command = 'bwrap';
 		commandArgs = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
 			...(network ? [] : ['--unshare-net']), '--cap-drop', 'ALL',
-			'--ro-bind', '/', '/', '--tmpfs', '/tmp', write ? '--bind' : '--ro-bind', root, root,
-			...(askpass ? ['--ro-bind', path.dirname(askpass), path.dirname(askpass)] : []),
-			'--proc', '/proc', '--dev', '/dev', '--chdir', root, 'git', ...gitArgs];
+			...filesystem.mounts, '--chdir', root, 'git', ...gitArgs];
 		Object.assign(env, { HOME: '/tmp', TMPDIR: '/tmp' });
 	}
 	return new Promise((resolve, reject) => {
