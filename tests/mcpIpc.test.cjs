@@ -5,23 +5,31 @@ const { EventEmitter } = require('node:events');
 const handlers = new Map();
 const originalLoad = Module._load;
 let memoryEnabled = true;
+let fixtureDirectory;
+test.after(() => { Module._load = originalLoad; });
 Module._load = function(name, ...args) {
-  if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
+  if (name === './localEngineFetch') return { localEngineFetch: (...params) => {
+    const endpoint = new URL(params[0]).pathname;
+    if (endpoint === '/props') return Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } }));
+    if (endpoint === '/apply-template') return Promise.resolve(Response.json({ prompt: params[1].body }));
+    if (endpoint === '/tokenize') return Promise.resolve(Response.json({ tokens: Array(100).fill(0) }));
+    return global.fetch(...params);
+  } };
   if (name === './promptBuilder') return { ...originalLoad.call(this, name, ...args), buildSessionSystemPrompt: () => ({ role: 'system', content: memoryEnabled ? '[BACKGROUND KNOWLEDGE & USER PREFERENCES]\nSaved fact' : '', memoryContext: true }) };
-  if (name === './profileSettings') return { getSessionSettings: () => ({ effective: { memoryEnabled, thinkingBudget: -1, reasoningEffort: 'low' },
+  if (name === './profileSettings') return { ...originalLoad.call(this, name, ...args), getSessionSettings: () => ({ effective: { memoryEnabled, thinkingBudget: -1, reasoningEffort: 'low' },
     params: { temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1, thinking_budget: -1, reasoning_effort: 'low' } }) };
   if (name === './samplingManager') return { getGlobalSamplingParams: () => ({ temperature: 0.7, top_p: 0.9, top_k: 40, repeat_penalty: 1.1, max_tokens: -1 }) };
-  if (name === 'electron') return { app: { isReady: () => true }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
+  if (name === 'electron') return { Notification: { isSupported: () => false }, app: { isReady: () => true, getPath: () => fixtureDirectory }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };
 const manager = require('../src/main/mcpManager');
 const { getToolContext } = require('../src/main/promptBuilder');
 const { registerIpcHandlers } = require('../src/main/ipcHandlers');
-Module._load = originalLoad;
 
 test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', async () => {
   const fs = require('node:fs/promises');
   const directory = await fs.mkdtemp(require('node:path').join(require('node:os').tmpdir(), 'mcp-ipc-'));
+  fixtureDirectory = directory;
   const database = require('../src/main/db');
   database.initDatabase(directory);
   const originalPath = manager.configPath;
@@ -36,7 +44,15 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
   const sender = new EventEmitter();
   const events = [];
   sender.isDestroyed = () => false;
-  sender.send = (channel, event) => events.push({ channel, ...event });
+  sender.send = (channel, value) => {
+    // Persist wire snapshots, matching the JSON-backed transcript representation.
+    events.push(JSON.parse(JSON.stringify({ channel, ...value })));
+    if (channel === 'engine:tool-limit-reached' && !value.resolved && value.requestId.startsWith('pause-'))
+      queueMicrotask(() => handlers.get('engine:tool-limit-response')({ sender }, { requestId: value.requestId, action: 'allow' }));
+    if (channel === 'engine:request-tool-approval' && !value.resolved)
+      queueMicrotask(() => handlers.get('engine:tool-approval-response')({ sender },
+        { requestId: value.requestId, approvalId: value.approvalId, action: 'allow' }));
+  };
   const event = { sender };
   const dispose = registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345 }),
     getLocalModelMetadata: () => ({ hasReasoning: true, supportsReasoningEffort: true,
@@ -74,15 +90,16 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     assert.ok(updates.some(event => event.executionSteps[0]?.status === 'running'));
     assert.equal(updates.at(-1).messageId, 'request1');
     assert.deepEqual(updates.at(-1).executionSteps, result.executionSteps);
-    assert.equal(updates.at(-1).content, 'Final answer [TASK COMPLETE]');
+    assert.equal(events.filter(e => e.channel === 'engine:stream-chunk').map(e => e.content).join(''), result.text);
     assert.equal(result.stats.totalTokens, 15);
     assert.equal(result.stats.scope, 'final');
     assert.deepEqual(result.stats, events.filter(e => e.type === 'stats').at(-1).stats);
     assert.equal(events.filter(e => e.type === 'thinking').at(-1).thinking.text, 'Final thought');
     assert.equal(executions.length, 1);
-    assert.equal(requests[0].tools.length, 6);
-    assert.ok(requests[0].tools.some(tool => tool.function.name === 'manage_mcp_servers'));
-    assert.ok(requests[0].tools.some(tool => tool.function.name === 'approve_mcp_mutation'));
+    assert.deepEqual(requests[0].tools.map(t => t.function.name),
+      getToolContext(manager.getTools(), true, null, undefined, 'model').tools.map(t => t.function.name));
+    assert.ok(requests[0].tools.some(tool => tool.function.name === 'find_and_prepare_mcp_tools'));
+    assert.ok(requests[0].tools.some(tool => tool.function.name === 'manage_native_tools'));
     assert.ok(!requests[0].tools.some(tool => tool.function.name === 'search_chat_history'));
     assert.equal(requests[1].messages.at(-1).role, 'tool');
     assert.equal(requests[1].messages.at(-1).tool_call_id, 'call1');
@@ -101,7 +118,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
       return Response.json({ choices: [{ finish_reason: historyRequests.length === 1 ? 'tool_calls' : 'stop',
         message: historyRequests.length === 1
           ? { content: null, tool_calls: [{ id: 'history1', type: 'function', function: {
-            name: 'search_memory', arguments: '{"query":""}',
+            name: 'search_memory', arguments: '{"query":"earlier discussion"}',
           } }] }
           : { content: 'No earlier discussion found. [TASK COMPLETE]' } }] });
     };
@@ -131,7 +148,8 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     const liveEvents = events.filter(value => value.requestId === 'xml-stream');
     const start = liveEvents.find(value => value.type === 'tool_start');
     assert.equal(start.functionName, name);
-    assert.equal(liveEvents.find(value => value.type === 'tool_chunk').content, 'Streaming arguments');
+    assert.ok(liveEvents.some(value => value.type === 'step-update' &&
+      value.executionSteps.some(step => step.args?.text === 'Streaming arguments')));
     assert.equal(xmlResult.executionSteps[0].id, start.id);
     assert.equal(xmlResult.executionSteps[0].status, 'complete');
     assert.ok(!xmlResult.text.includes('<tool_call>'));
@@ -154,16 +172,17 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
         rounds++;
         const messages = JSON.parse(options.body).messages;
         if (rounds > 1) assert.ok(messages.some(message => message.role === 'tool' && message.tool_call_id === 'pause-tool'));
-        return Response.json({ choices: [{ finish_reason: rounds === 1 ? 'tool_calls' : 'stop', message: rounds === 1
-          ? { tool_calls: [{ id: 'pause-tool', type: 'function', function: { name, arguments: '{"text":"pause test"}' } }] }
-          : { content: rounds > 30 ? '[TASK COMPLETE]' : 'Working.' } }] });
+        return Response.json({ choices: [{ finish_reason: rounds <= 30 ? 'tool_calls' : 'stop', message: rounds <= 30
+          ? { tool_calls: [{ id: rounds === 1 ? 'pause-tool' : `pause-tool-${rounds}`, type: 'function',
+            function: { name, arguments: JSON.stringify({ text: `pause test ${rounds}` }) } }] }
+          : { content: '[TASK COMPLETE]' } }] });
       };
       const pendingChat = handlers.get('engine:chat')(event, { requestId: `pause-${action}`, modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
-      if (action === 'cancel') await assert.rejects(pendingChat, { name: 'AbortError' });
+      if (action === 'cancel') await assert.rejects(pendingChat, { message: 'user-cancelled' });
       else await pendingChat;
       assert.equal(pauses, 1);
       assert.equal(rounds, action === 'continue' ? 31 : 30);
-      assert.equal(sender.listenerCount('destroyed'), 0);
+      assert.equal(sender.listenerCount('destroyed'), 1, 'only the MCP subscription listener remains');
       sender.send = send;
     }
 
@@ -204,9 +223,11 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     database.db.prepare("INSERT INTO sessions(id, model_id, project_id) VALUES ('project-chat', 'model', 'budget-project')").run();
     const beforeProject = executions.length;
     let projectRounds = 0;
-    global.fetch = async () => Response.json({ choices: [{ finish_reason: ++projectRounds === 1 ? 'tool_calls' : 'stop',
-      message: projectRounds === 1 ? { content: null, tool_calls: Array.from({ length: 6 }, (_, index) => ({
-        id: `project-${index}`, type: 'function', function: { name, arguments: '{"text":"project"}' },
+    global.fetch = async () => Response.json({ choices: [{ finish_reason: ++projectRounds <= 2 ? 'tool_calls' : 'stop',
+      message: projectRounds === 1 ? { tool_calls: [{ id: 'prepare-project', type: 'function', function: {
+        name: 'find_and_prepare_mcp_tools', arguments: '{"query":"fixture echo"}',
+      } }] } : projectRounds === 2 ? { content: null, tool_calls: Array.from({ length: 6 }, (_, index) => ({
+        id: `project-${index}`, type: 'function', function: { name, arguments: JSON.stringify({ text: `project ${index}` }) },
       })) } : { content: 'Done [TASK COMPLETE]' } }] });
     await handlers.get('engine:chat')(event, { requestId: 'project-budget', sessionId: 'project-chat', modelId: 'model',
       messages: [{ role: 'system', content: 'test' }] });
@@ -224,21 +245,24 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
       await manager.saveConfig({ mcpServers: { fixture: { command: 'fixture' }, onDemand: { command: 'dynamic' } } });
       assert.equal(manager.getStatus().servers.find(server => server.name === 'onDemand').status, 'disabled');
       require('../src/main/sessionManager').getOrCreateSession('lazy-chat', 'model');
+      // Establish the fake transport before the run's authorization epoch;
+      // tool selection remains lazy and scoped to this session.
+      await manager.manageServers('enable', ['onDemand'], 'lazy-chat');
       const dynamicName = manager.toolName('onDemand', 'dynamic_echo');
       let lazyRounds = 0;
       global.fetch = async (_url, options) => {
         const body = JSON.parse(options.body);
         lazyRounds++;
         if (lazyRounds === 1) {
-          assert.ok(body.tools.some(tool => tool.function.name === 'manage_mcp_servers'));
+          assert.ok(body.tools.some(tool => tool.function.name === 'find_and_prepare_mcp_tools'));
           assert.ok(!body.tools.some(tool => tool.function.name === dynamicName));
         }
         if (lazyRounds === 2) {
-          assert.ok(body.tools.some(tool => tool.function.name === dynamicName));
+          assert.ok(body.tools.some(tool => tool.function.name === dynamicName), JSON.stringify(body.messages.at(-1)));
           assert.equal(manager.getTools('other-chat').some(tool => tool.function.name === dynamicName), false);
         }
         const message = lazyRounds === 1
-          ? { tool_calls: [{ id: 'enable-dynamic', type: 'function', function: { name: 'manage_mcp_servers', arguments: '{"action":"enable","server_names":["onDemand"]}' } }] }
+          ? { tool_calls: [{ id: 'enable-dynamic', type: 'function', function: { name: 'find_and_prepare_mcp_tools', arguments: '{"query":"onDemand dynamic_echo"}' } }] }
           : lazyRounds === 2
             ? { tool_calls: [{ id: 'use-dynamic', type: 'function', function: { name: dynamicName, arguments: '{"text":"ready"}' } }] }
             : { content: 'Dynamic tool ready. [TASK COMPLETE]' };
@@ -247,7 +271,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
       const lazy = await handlers.get('engine:chat')(event, { requestId: 'lazy-mcp', sessionId: 'lazy-chat', modelId: 'model',
         messages: [{ role: 'system', content: 'test' }, { role: 'user', content: 'Use dynamic tools' }] });
       assert.equal(lazyRounds, 3);
-      assert.equal(lazy.executionSteps[0].toolName, 'manage_mcp_servers');
+      assert.equal(lazy.executionSteps[0].toolName, 'find_and_prepare_mcp_tools');
       assert.equal(lazy.executionSteps[1].toolName, 'dynamic_echo');
     } finally { manager.createConnection = originalConnection; }
 
@@ -260,8 +284,8 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
     const chat = handlers.get('engine:chat')(event, { requestId: 'cancel-me', modelId: 'model', messages: [{ role: 'system', content: 'test' }] });
     await pending;
     await handlers.get('engine:cancel-chat')(event, { requestId: 'cancel-me' });
-    await assert.rejects(chat, { name: 'AbortError' });
-    assert.equal(sender.listenerCount('destroyed'), 0);
+    await assert.rejects(chat, { message: 'user-cancelled' });
+    assert.equal(sender.listenerCount('destroyed'), 1, 'only the MCP subscription listener remains');
 
   } finally {
     database.closeDatabase();
@@ -272,7 +296,7 @@ test('IPC executes MCP tools, emits cards, and re-prompts with JSON output', asy
 
 test('preload config methods invoke trusted config handlers', async () => {
   const exposed = {};
-  const sender = { isDestroyed: () => false, send() {} };
+  const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send() {} });
   const event = { sender, trusted: true };
   const config = { mcpServers: { example: { command: 'node', args: ['server.js'] } } };
   const originalGet = manager.getConfig, originalSave = manager.saveConfig;
@@ -283,7 +307,13 @@ test('preload config methods invoke trusted config handlers', async () => {
   const load = Module._load;
   try {
     Module._load = function(name, ...args) {
-  if (name === './localEngineFetch') return { localEngineFetch: (...params) => global.fetch(...params) };
+  if (name === './localEngineFetch') return { localEngineFetch: (...params) => {
+    const endpoint = new URL(params[0]).pathname;
+    if (endpoint === '/props') return Promise.resolve(Response.json({ default_generation_settings: { n_ctx: 262144 } }));
+    if (endpoint === '/apply-template') return Promise.resolve(Response.json({ prompt: params[1].body }));
+    if (endpoint === '/tokenize') return Promise.resolve(Response.json({ tokens: Array(100).fill(0) }));
+    return global.fetch(...params);
+  } };
       if (name === 'electron') return {
         contextBridge: { exposeInMainWorld: (name, api) => { exposed[name] = api; } },
         ipcRenderer: { invoke: (channel, payload) => handlers.get(channel)(event, payload) },
