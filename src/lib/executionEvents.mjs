@@ -231,6 +231,7 @@ export function commandOutcome(step) {
   if (typeof result.exitCode === 'number') out.exitCode = result.exitCode;
   if (typeof result.stdout === 'string') out.stdout = result.stdout;
   if (typeof result.stderr === 'string') out.stderr = result.stderr;
+  if (result.modelOutputRedacted === true) out.modelOutputRedacted = true;
   return Object.keys(out).length ? out : null;
 }
 

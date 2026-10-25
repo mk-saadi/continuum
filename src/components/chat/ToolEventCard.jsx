@@ -651,6 +651,7 @@ function CommandOutcome({ outcome, testSummary }) {
 			<h4 className="flex items-center justify-between gap-2 font-medium text-[var(--text-secondary)]">
 				<span>
 					{testSummary ? "Test output" : "Output"}
+                    {outcome.modelOutputRedacted && " · redacted for model"}
 					{typeof outcome.exitCode === "number" && ` · exit ${outcome.exitCode}`}
 					{testSummary && (
 						<span className="ml-2 font-normal text-[var(--text-muted)]">

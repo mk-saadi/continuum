@@ -141,7 +141,7 @@ function truncate(text, maxCharacters) {
  * Cancellation is the one exception: it is rethrown as a real abort.
  */
 async function executeChildTool({ name, rawArguments, rootPath, signal, executionContext = null }) {
-  const toContent = value => typeof value === 'string' ? value : JSON.stringify(value) ?? String(value);
+  const toContent = value => require('../../lib/secretRedaction.cjs').redactSecrets(typeof value === 'string' ? value : JSON.stringify(value) ?? String(value));
   if (!CHILD_TOOL_NAMES.includes(name)) {
     return toContent(`Error: Tool "${name || ''}" is not available to this agent. `
       + `Allowed tools: ${CHILD_TOOL_NAMES.join(', ')}.`);

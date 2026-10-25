@@ -1,3 +1,4 @@
+import secretRedaction from './secretRedaction.cjs';
 import { validateImageDataUrl, INVALID_IMAGE_NOTICE } from './imageValidation.mjs';
 // Keep image bytes in image_url parts, never in tokenizer-facing text or UI logs.
 const DATA_IMAGE = /data:(image\/[a-zA-Z0-9.+-]+);base64,([^\s"'<>]*)/g;
@@ -13,7 +14,7 @@ function sniffMime(data) {
   return null;
 }
 
-export function formatToolResult(output, toolName = '') {
+function formatUnredactedToolResult(output, toolName = '') {
   const images = new Map();
   let removedMedia = false;
   const mediaTool = /(?:screenshot|read_media|image|capture)/i.test(toolName);
@@ -71,6 +72,27 @@ export function formatToolResult(output, toolName = '') {
     mediaDetected: true,
     displayResult: safe,
   };
+}
+
+// Model content is redacted separately; the user's original result remains intact.
+export function redactModelContent(value) {
+  if (typeof value === 'string') {
+    try { const parsed = JSON.parse(value); const safe = redactModelContent(parsed);
+      return JSON.stringify(parsed) === JSON.stringify(safe) ? value : JSON.stringify(safe); } catch {}
+    return secretRedaction.redactSecrets(value);
+  }
+  if (Array.isArray(value)) return value.map(redactModelContent);
+  if (!value || typeof value !== 'object' || value.type === 'image_url') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+    secretRedaction.isSecretName(key) && typeof item === 'string' ? '[redacted]' : redactModelContent(item)]));
+}
+export function formatToolResult(output, toolName = '') {
+  const formatted = formatUnredactedToolResult(output, toolName);
+  const content = redactModelContent(formatted.content);
+  const redacted = JSON.stringify(content) !== JSON.stringify(formatted.content);
+  const displayResult = redacted && formatted.displayResult && typeof formatted.displayResult === 'object' && !Array.isArray(formatted.displayResult)
+    ? { ...formatted.displayResult, modelOutputRedacted: true } : formatted.displayResult;
+  return { ...formatted, content, displayResult, redacted };
 }
 
 export function hasToolImages(messages) {
