@@ -30,108 +30,7 @@ const MODES = Object.freeze([...modes]);
 // heuristic remains exported for compatibility and is not an authorization gate.
 // ---------------------------------------------------------------------------
 
-const CAPABILITIES = Object.freeze({
-	LSP: 'lsp', // trusted bundled JS/TS process; exact feature-specific mode policy
-	READ: 'read', // reads files, searches, history, screenshots
-	WORKSPACE_WRITE: 'workspace_write', // create/edit/delete files in the workspace
-	LOCAL_EXECUTION: 'local_execution', // shell commands (sandboxed unless approved)
-	EXTERNAL_MUTATION: 'external_mutation', // generates or side-effects outside the workspace
-	MEMORY_WRITE: 'memory_write', // persists into assistant memory
-	PLAN_WRITE: 'plan_write', // updates the session-owned workspace task plan
-	PLAN_READ: 'plan_read', // reads same-project workspace task plans (read-only)
-	AGENT_SPAWN: 'agent_spawn', // spawns a sub-agent (child runs read-only)
-	FILE_DELETE: 'file_delete', // deletes one in-workspace file; always confirms, workspace-contained
-});
-
-// Built-in tool -> capability mapping. `native` is true for main-process tools
-// and false for MCP-hosted tools, which resolve dynamically in capabilityOf.
-const TOOL_CAPABILITIES = Object.freeze({
-	// LSP
-	...Object.fromEntries(['lsp_definition', 'lsp_references', 'lsp_document_symbols', 'lsp_workspace_symbols', 'lsp_hover', 'lsp_diagnostics'].map(name => [name, CAPABILITIES.LSP])),
-	// READ
-	manage_native_tools: CAPABILITIES.READ,
-	find_and_prepare_mcp_tools: CAPABILITIES.EXTERNAL_MUTATION,
-	get_recent_chat_history: CAPABILITIES.READ,
-    get_command_status: CAPABILITIES.READ,
-    stop_background_command: CAPABILITIES.READ,
-	search_project_content: CAPABILITIES.READ,
-	search_code: CAPABILITIES.READ,
-	read_project_file: CAPABILITIES.READ,
-	read_file: CAPABILITIES.READ,
-	list_directory: CAPABILITIES.READ,
-	take_screenshot: CAPABILITIES.READ,
-	search_memory: CAPABILITIES.READ,
-	web_search: CAPABILITIES.READ,
-	get_single_web_page_content: CAPABILITIES.READ,
-	extract_web_page_data: CAPABILITIES.READ,
-	use_skill: CAPABILITIES.READ,
-	propose_skill: CAPABILITIES.READ,
-	git_status: CAPABILITIES.READ,
-	git_diff: CAPABILITIES.READ,
-	git_log: CAPABILITIES.READ,
-	git_show: CAPABILITIES.READ,
-	git_branch: CAPABILITIES.READ,
-	git_blame: CAPABILITIES.READ,
-	// Staging stays in-workspace (contained like other writes). Committing
-	// creates persistent shared history, so it always confirms: modeled as an
-	// external mutation, which prompts in every mode except full_access.
-	git_stage: CAPABILITIES.WORKSPACE_WRITE,
-	git_unstage: CAPABILITIES.WORKSPACE_WRITE,
-	git_stash: CAPABILITIES.WORKSPACE_WRITE,
-	// Push publishes history beyond the workspace, so the whole sync tool
-	// prompts like a commit; fetch/pull refine that per-action in guardTool.
-	git_sync: CAPABILITIES.EXTERNAL_MUTATION,
-	git_commit: CAPABILITIES.EXTERNAL_MUTATION,
-	// Branch create/switch mutates refs and the worktree, so it stays a
-	// contained workspace write (sandboxed, never a read-only child tool).
-	// Commit-like history creation still prompts via EXTERNAL_MUTATION above.
-	git_create_branch: CAPABILITIES.WORKSPACE_WRITE,
-	git_switch: CAPABILITIES.WORKSPACE_WRITE,
-	// WORKSPACE_WRITE
-	write_project_file: CAPABILITIES.WORKSPACE_WRITE,
-	write_file: CAPABILITIES.WORKSPACE_WRITE,
-	str_replace_editor: CAPABILITIES.WORKSPACE_WRITE,
-	edit_project_files: CAPABILITIES.WORKSPACE_WRITE,
-	apply_patch: CAPABILITIES.WORKSPACE_WRITE,
-	move_project_file: CAPABILITIES.WORKSPACE_WRITE,
-	edit_file: CAPABILITIES.WORKSPACE_WRITE,
-	delete_file: CAPABILITIES.WORKSPACE_WRITE,
-	// Deletion is the most destructive in-workspace action: it is modeled as
-	// its own capability so it always confirms (except Full Access) and is
-	// denied without a workspace, while reusing the existing approval flow.
-	delete_project_file: CAPABILITIES.FILE_DELETE,
-	// LOCAL_EXECUTION
-	execute_command: CAPABILITIES.LOCAL_EXECUTION,
-	run_tests: CAPABILITIES.LOCAL_EXECUTION,
-	// EXTERNAL_MUTATION
-	generate_image: CAPABILITIES.EXTERNAL_MUTATION,
-	manage_mcp_servers: CAPABILITIES.EXTERNAL_MUTATION,
-	approve_mcp_mutation: CAPABILITIES.EXTERNAL_MUTATION,
-	// MEMORY_WRITE
-	save_memory: CAPABILITIES.MEMORY_WRITE,
-	// PLAN_WRITE
-	update_plan: CAPABILITIES.PLAN_WRITE,
-	// PLAN_READ (read-only, same-project)
-	get_project_plans: CAPABILITIES.PLAN_READ,
-	// AGENT_SPAWN
-	spawn_sub_agent: CAPABILITIES.AGENT_SPAWN,
-	delegate_task: CAPABILITIES.AGENT_SPAWN,
-});
-
-/**
- * Resolve the capability of a tool. Returns null for unknown tools so the
- * policy fails closed (deny outside ask_approval) instead of guessing.
- */
-function capabilityOf(name, native = true) {
-	if (typeof name !== 'string' || !name) return null;
-	if (native === false) {
-		// MCP tools are externally hosted. Workspace Write authorizes ordinary
-		// calls, with approval for Git publication and project file deletion.
-		// Ask for Approval prompts; Full Access bypasses approval gates.
-		return CAPABILITIES.EXTERNAL_MUTATION;
-	}
-	return TOOL_CAPABILITIES[name] ?? null;
-}
+const { CAPABILITIES, capabilityOf, baseDecision, decideToolApproval } = require('./toolApprovalPolicy');
 
 // ---------------------------------------------------------------------------
 // Mode resolution
@@ -262,93 +161,6 @@ function inside(root, target) {
 // deny); they never turn a coarse deny into an allow.
 // ---------------------------------------------------------------------------
 
-function baseDecision({ capability, mode, hasWorkspace, native }) {
-	if (capability === CAPABILITIES.LSP) return hasWorkspace && ['workspace_write', 'full_access'].includes(mode)
-		? { decision: 'allow' } : { decision: 'deny', reason: 'Execution blocked: LSP requires a workspace and Workspace Write or Full Access.' };
-	// Plan reads (like plan writes) are meaningless without a Workspace session
-	// to scope them to: a Casual Chat must never reach another chat's plan, in
-	// any mode. Checked before the per-mode branches so visibility and
-	// execution agree everywhere (including read_only and full_access).
-	if (!hasWorkspace && capability === CAPABILITIES.PLAN_READ) {
-		return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
-	}
-
-	// Full access is unrestricted (the OS sandbox/bwrap boundary still applies).
-	// A plan, however, has no meaning without a Workspace session to own it; a
-	// casual chat stays casual even in full access. File deletion is likewise
-	// meaningless without a workspace (there is nothing to delete into), so it
-	// stays denied rather than offering an outside-workspace escape.
-	if (mode === 'full_access') {
-		if (!hasWorkspace && (capability === CAPABILITIES.PLAN_WRITE || capability === CAPABILITIES.FILE_DELETE)) {
-			return {
-				decision: 'deny',
-				reason: capability === CAPABILITIES.FILE_DELETE
-					? 'Execution blocked: File deletion requires a project workspace.'
-					: 'Execution blocked: Task plans require a project workspace.',
-			};
-		}
-		return { decision: 'allow' };
-	}
-
-	// Read only: reads, agent spawns (children are read-only), and same-project
-	// plan reads (a workspace exists at this point).
-	if (mode === 'read_only') {
-		if (capability === CAPABILITIES.READ || capability === CAPABILITIES.AGENT_SPAWN ||
-			capability === CAPABILITIES.PLAN_READ) return { decision: 'allow' };
-		return { decision: 'deny', reason: 'Execution blocked: Chat is in Read Only mode.' };
-	}
-
-	// Unknown capability (a native tool the policy does not know): never run
-	// silently. Prompt in ask_approval, fail closed everywhere else.
-	if (capability === null) {
-		return mode === 'ask_approval'
-			? { decision: 'approve' }
-			: { decision: 'deny', reason: 'Execution blocked: This tool cannot be confined to the project workspace. Select Ask for Approval or Full Access.' };
-	}
-
-	// Reads, agent spawns and memory writes are safe in every non-read mode.
-	if (capability === CAPABILITIES.READ ||
-		capability === CAPABILITIES.AGENT_SPAWN ||
-		capability === CAPABILITIES.MEMORY_WRITE) {
-		return { decision: 'allow' };
-	}
-
-	// Casual chat (no project workspace): there is nothing to write into.
-	if (!hasWorkspace) {
-		if (capability === CAPABILITIES.WORKSPACE_WRITE) {
-			return { decision: 'deny', reason: 'Execution blocked: File writes require a project workspace.' };
-		}
-		if (capability === CAPABILITIES.FILE_DELETE) {
-			return { decision: 'deny', reason: 'Execution blocked: File deletion requires a project workspace.' };
-		}
-		if (capability === CAPABILITIES.PLAN_WRITE) {
-			return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
-		}
-		// Shell commands and external mutations have no workspace to contain
-		// them in casual mode -> always prompt.
-		return { decision: 'approve' };
-	}
-
-	// Workspace context: in-workspace work runs autonomously in both workspace
-	// modes. guardTool refines these with async containment checks: anything
-	// outside the workspace or system-affecting is approved in ask_approval and
-	// denied in workspace_write.
-	if (capability === CAPABILITIES.WORKSPACE_WRITE || capability === CAPABILITIES.LOCAL_EXECUTION ||
-		capability === CAPABILITIES.PLAN_WRITE || capability === CAPABILITIES.PLAN_READ) {
-		return { decision: 'allow' };
-	}
-
-	// External mutations: MCP tools run autonomously in workspace_write;
-	// Git publication is checked separately by evaluateTool. Everything else
-	// (image generation, MCP server management) prompts unless approved.
-	if (capability === CAPABILITIES.EXTERNAL_MUTATION) {
-		if (!native && mode === 'workspace_write') return { decision: 'allow' };
-		return { decision: 'approve' };
-	}
-
-	return { decision: 'approve' };
-}
-
 /**
  * Whether a tool is visible in the current permission context. Uses the same
  * policy table as guardTool so what the model sees always matches what it can
@@ -370,8 +182,8 @@ function isToolVisible(name, { permissionMode, project, native = true } = {}) {
 // ---------------------------------------------------------------------------
 // System-affecting command heuristic (prompt gating ONLY)
 //
-// Deliberately a coarse denylist deciding whether an in-workspace shell
-// command must request approval before running. It is NOT a security
+// Legacy coarse denylist retained for compatibility and future policy work.
+// All opaque commands currently ask outside Full Access. This is NOT a security
 // boundary: real containment comes from the bwrap sandbox and workspace path
 // checks. Commands that mutate the system outside the workspace cannot be
 // confined to it, so they ask for approval instead of failing outright.
@@ -399,8 +211,8 @@ function isSystemAffecting(command) {
 	// would see them ('sudo' true runs sudo; rm -rf "/home" deletes /home).
 	const normalized = command.trim().toLowerCase().replace(/["']/g, '');
 
-	// Global package installs. Local installs stay autonomous: they write into
-	// the workspace (node_modules, vendor) or the sandbox-local home.
+	// Distinguish global from local installs. Both still pass the separate
+	// opaque-command approval gate; this heuristic authorizes neither.
 	if (/\b(?:npm|pnpm|yarn|pipx?|pip\d+)\s+(?:install|add|i)\b[^|;&]*(?:\s-g\b|\s--global\b)/.test(normalized)) return true;
 	if (/\byarn\s+global\s+(?:add|install|upgrade)\b/.test(normalized)) return true;
 	// Publishing reaches outside the workspace (public registries).
@@ -511,12 +323,14 @@ async function requestApproval(kind, name, args, requestApprovalHandler, signal)
 // not remove workspace containment. guardTool issues a single-use capability.
 // ---------------------------------------------------------------------------
 
-async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName }) {
+async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName, annotations, serverTrusted = false }) {
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
-	if (native && require('./nativeExecutionPolicy').isCommand(name)) {
-		if (mode === 'read_only') throw Object.assign(new Error('Execution blocked: Chat is in Read Only mode.'), { code: 'PERMISSION_DENIED' });
+	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted };
+	let policy = decideToolApproval(policyInput);
+	if (policy.decision === 'block') throw Object.assign(new Error(policy.reason), { code: 'PERMISSION_DENIED' });
+	if (policy.route === 'command') {
 		if (typeof args.command !== 'string' || !args.command.trim() || args.command.includes('\0')) throw new Error('Invalid command.');
 		if (mode !== 'full_access' && (args.command.length > 4000 || (typeof args.cwd === 'string' && args.cwd.length > 4000)))
 			throw new Error('Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).');
@@ -533,40 +347,17 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 				uncontained = true;
 			}
 		}
-		await requestApproval('tool', name, { ...args, execution_scope: uncontained
+		const sandbox = await require('./workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained });
+		policy = decideToolApproval({ ...policyInput, sandbox });
+		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, execution_scope: uncontained
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
 			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal);
 		return { mode, approved: true, commandUncontained: uncontained };
 	}
-	if (mode === 'full_access') {
-		// Full access does not create a workspace: a task plan still needs the
-		// session to own a project, and file deletion has nothing to target.
-		// Keep this in step with baseDecision so visibility and execution never
-		// disagree.
-		const fullAccessCapability = capabilityOf(name, native);
-		if (fullAccessCapability === CAPABILITIES.LSP && !root) { const error = new Error('LSP requires a project workspace.'); error.code = 'PERMISSION_DENIED'; throw error; }
-		if (!root && (fullAccessCapability === CAPABILITIES.PLAN_WRITE || fullAccessCapability === CAPABILITIES.FILE_DELETE ||
-			fullAccessCapability === CAPABILITIES.PLAN_READ)) {
-			const error = new Error(fullAccessCapability === CAPABILITIES.FILE_DELETE
-				? 'Execution blocked: File deletion requires a project workspace.'
-				: 'Execution blocked: Task plans require a project workspace.');
-			error.code = 'PERMISSION_DENIED';
-			throw error;
-		}
-		return { mode, approved: true };
-	}
-	if (native && ((name === 'manage_mcp_servers' && args?.action === 'search') || (name === 'find_and_prepare_mcp_tools' && mode === 'read_only'))) return { mode, approved: false };
-	if (native && name === 'approve_mcp_mutation' && mode !== 'read_only') return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-	if (!native && mode !== 'read_only' && require('./mcpPermissionPolicy').requiresOutboundApproval(name, args)) {
-        return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-    }
-	if (mode === 'workspace_write' && root && ((native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(name)) || !native)) {
-		if (!native && (name === 'delete_project_file' || require('./mcpPermissionPolicy').requiresGitApproval(name, args, serverName))) {
-			return { mode, approved: await requestApproval('tool', name, args, approvalHandlerFn, signal) };
-		}
-		return { mode, approved: false };
-	}
-	if (native && name === 'git_sync' && mode !== 'read_only') {
+	if (policy.route === 'full_access') return { mode, approved: true };
+	if (policy.route === 'immediate') return { mode, approved: policy.decision === 'ask'
+		? await requestApproval('tool', name, args, approvalHandlerFn, signal) : false };
+	if (policy.route === 'git_sync') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
 		// Even fetch may invoke repository-controlled transport helpers. Ask
@@ -574,10 +365,10 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 		await requestApproval('tool', name, { ...args, action: args.action === 'push' ? 'prepare_push' : args.action,
 			execution_scope: 'Git remote operation with network access and repository configuration; may execute transport helpers. Push preparation reads remote state; publication requires a separate history review.' }, approvalHandlerFn, signal);
 		const snapshot = args.action === 'push' ? await require('./tools/agentTools').prepareGitPush(root, args, signal) : null;
-		if (snapshot) await requestApproval('tool', name, { action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
+		if (snapshot && decideToolApproval({ ...policyInput, stage: 'git_publication' }).decision === 'ask') await requestApproval('tool', name, { action: 'push', remote: snapshot.remote, branch: snapshot.branch, outgoing: snapshot.summary }, approvalHandlerFn, signal);
 		return { mode, approved: true, ...(snapshot ? { gitPushFingerprint: snapshot.fingerprint } : {}) };
 	}
-	if (name === 'git_commit' && mode !== 'read_only') {
+	if (policy.route === 'git_commit') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		const snapshot = await require('./tools/agentTools').prepareGitCommit(root, signal);
 		const approved = await requestApproval('tool', name, { ...args, staged_diff: snapshot.stagedDiff }, approvalHandlerFn, signal);
@@ -585,14 +376,8 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	}
 
 	const capability = capabilityOf(name, native);
-	const { decision, reason } = baseDecision({ capability, mode, hasWorkspace: Boolean(root), native });
-	if (decision === 'deny') {
-		const error = new Error(reason);
-		error.code = 'PERMISSION_DENIED';
-		throw error;
-	}
 
-	if (capability === CAPABILITIES.FILE_DELETE) {
+	if (policy.route === 'delete') {
 		// baseDecision already denied casual chats (no workspace) and read-only
 		// chats; a root exists here. Deletion always confirms — even for a
 		// contained in-workspace file — mirroring git_commit. The approval
@@ -629,7 +414,7 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			for (const target of targets) await workspacePath(root, target);
 		} catch (error) {
 			const message = String(error?.message ?? '');
-			if (message.startsWith('Execution blocked:') && mode === 'ask_approval') {
+			if (decideToolApproval({ ...policyInput, stage: 'containment', containment: { blocked: true, reason: message } }).decision === 'ask') {
 				// Workspace-relative writes stay contained; a write outside the
 				// workspace prompts the user instead of failing outright.
 				return { mode, approved: await requestApproval('outside', name, args, approvalHandlerFn, signal) };
@@ -644,7 +429,7 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 
 	// External mutations (image generation, MCP management, MCP-hosted tools)
 	// and unknown capabilities in ask_approval: one explicit approval prompt.
-	if (decision === 'approve') {
+	if (policy.decision === 'ask') {
 		const kind = native === true && name === 'generate_image' ? 'image' : 'tool';
 		return { mode, approved: await requestApproval(kind, name, args, approvalHandlerFn, signal) };
 	}
@@ -676,7 +461,8 @@ async function guardTool(options) {
  }
  // Git mutations may invoke repository-controlled filters/signers. Read-only
  // inspection uses fixed argv with helpers disabled; mutation is opaque.
- if (options.native !== false && require('./nativeExecutionPolicy').isOpaqueGit(options.name) && !result.approved) {
+ if (decideToolApproval({ tool: options.name, args: options.args, mode: result.mode, native: options.native,
+  workspaceRoot: projectRoot(options.project), stage: 'opaque_git', approved: result.approved }).decision === 'ask') {
   await requestApproval('tool', options.name, { ...options.args,
    execution_scope: 'Workspace Git mutation; repository configuration may execute filters or signing programs.' }, options.requestApproval, options.signal);
   result.approved = true;

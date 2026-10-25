@@ -1004,7 +1004,8 @@ function registerIpcHandlers({
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
 							let approval;
 							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, sessionId, project,
-                                native: isAgent || isMemory, serverName: target.serverName, signal: controller.signal,
+                                native: isAgent || isMemory, serverName: target.serverName,
+                                ...(!isAgent && !isMemory ? mcpManager.getApprovalFacts(target.serverName, target.toolName) : {}), signal: controller.signal,
                                 requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
                             advertisedTools.validateEpoch(acceptedManifest);
 							// Sub-agent observability: link the parent step to the child

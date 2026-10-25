@@ -2,6 +2,7 @@
 const { connectRemoteMcp } = require('./remoteMcp');
 const { limitFilesystemResult } = require('./filesystemToolLimits');
 const { requiresConfirmation, approvedMutations } = require('./safetyGuards');
+const { decideToolApproval } = require('./toolApprovalPolicy');
 const fs = require('node:fs/promises');
 const { watch } = require('node:fs');
 const { isDeepStrictEqual } = require('node:util');
@@ -615,6 +616,11 @@ class McpManager extends EventEmitter {
     }
     throw new Error('MCP tool is unavailable or disabled.');
   }
+  getApprovalFacts(serverName, toolName) {
+    const server = this.servers.get(serverName);
+    const tool = server?.tools.find(tool => tool.name === toolName);
+    return { annotations: tool?.annotations, serverTrusted: server?.definition?.trusted === true };
+  }
   async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false, approval } = {}) {
     const server = this.servers.get(serverName);
     if (!server?.enabled || server.status !== 'connected' || server.disabledTools.has(toolName) || !server.tools.some(t => t.name === toolName)) throw new Error('MCP tool is unavailable or disabled.');
@@ -628,20 +634,23 @@ class McpManager extends EventEmitter {
     if (sessionId) {
       permissionMode = contexts.currentMode(sessionId, permissionMode);
       if (approval && (approval.mode !== permissionMode || (Object.hasOwn(approval, 'policyRevision') && approval.policyRevision !== revision))) throw new Error('Execution blocked: Permission revoked since authorization.');
-      if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal });
+      if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal, ...this.getApprovalFacts(serverName, toolName) });
     }
-    if (['workspace_write', 'ask_approval'].includes(permissionMode) && toolName === 'delete_project_file' && !approval?.approved) {
-      throw new Error('Execution blocked: File deletion requires explicit approval.');
-    }
+    const policyInput = { tool: toolName, args, mode: permissionMode, native: false, serverName,
+      approved: Boolean(approval?.approved), permissionGranted, ...this.getApprovalFacts(serverName, toolName), stage: 'mcp_dispatch' };
+    // Preserve deletion/outbound enforcement before workspace lookup and SQL gating.
+    const deletion = decideToolApproval({ ...policyInput, dispatchPhase: 'deletion' });
+    if (deletion.decision === 'ask') throw new Error(`Execution blocked: ${deletion.reason}`);
     const payload = JSON.stringify(args);
-    if (permissionMode !== 'full_access' && require('./mcpPermissionPolicy').requiresOutboundApproval(toolName, args) && !approval?.approved) {
-      throw new Error('Execution blocked: Outbound or consequential mutation requires explicit user approval.');
-    }
+    const immediate = decideToolApproval(policyInput);
+    if (immediate.decision === 'ask') throw new Error(`Execution blocked: ${immediate.reason}`);
     const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
-    if (workspaceMcp && require('./mcpPermissionPolicy').requiresGitApproval(toolName, args, serverName) && !approval?.approved) {
-      throw new Error('Execution blocked: Git commit or push requires explicit approval.');
-    }
-    if (permissionMode !== 'full_access' && !workspaceMcp && !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload)) {
+    const dispatchPolicy = decideToolApproval({ ...policyInput, workspaceMcp,
+      mutationRequiresConfirmation: permissionMode !== 'full_access' && !workspaceMcp &&
+        !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload) });
+    if (dispatchPolicy.decision === 'ask' && dispatchPolicy.route !== 'mutation_challenge')
+      throw new Error(`Execution blocked: ${dispatchPolicy.reason}`);
+    if (dispatchPolicy.route === 'mutation_challenge') {
       const hash = require('./safetyGuards').mutationHash(sessionId, serverName, toolName, payload);
       // Delete synchronously before dispatch so concurrent calls cannot reuse approval.
       if (!approvedMutations.delete(require('./safetyGuards').mutationApprovalKey(sessionId, hash))) {

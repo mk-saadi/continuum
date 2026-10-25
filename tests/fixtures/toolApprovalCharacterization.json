@@ -1,0 +1,3488 @@
+{
+  "workspace_write": {
+    "apply_patch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "approve_mcp_mutation": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "delegate_task": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_project_file": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [
+        "deleteFingerprint"
+      ],
+      "promptActions": [
+        null
+      ]
+    },
+    "edit_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "edit_project_files": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "execute_command": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "extract_web_page_data": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "find_and_prepare_mcp_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "generate_image": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "get_command_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_project_plans": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_recent_chat_history": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_single_web_page_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_blame": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_commit": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [
+        "gitCommitFingerprint"
+      ],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_create_branch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_diff": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_log": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stage": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_stash": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_switch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_sync": {
+      "decision": "block",
+      "message": "action must be one of \"fetch\", \"pull\", or \"push\".",
+      "prompts": 0
+    },
+    "git_unstage": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "list_directory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_definition": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_diagnostics": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_document_symbols": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_hover": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_references": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_workspace_symbols": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "manage_mcp_servers": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "manage_native_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "move_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "propose_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "run_tests": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "save_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_code": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_project_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "spawn_sub_agent": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "stop_background_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "str_replace_editor": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "take_screenshot": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "unknown_tool": {
+      "decision": "block",
+      "message": "Execution blocked: This tool cannot be confined to the project workspace. Select Ask for Approval or Full Access.",
+      "prompts": 0
+    },
+    "update_plan": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "use_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "web_search": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:fetch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "fetch"
+      ]
+    },
+    "git_sync:pull": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "pull"
+      ]
+    },
+    "git_sync:push": {
+      "decision": "ask",
+      "prompts": 2,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [
+        "gitPushFingerprint"
+      ],
+      "promptActions": [
+        "prepare_push",
+        "push"
+      ]
+    },
+    "git_sync:invalid": {
+      "decision": "block",
+      "message": "action must be one of \"fetch\", \"pull\", or \"push\".",
+      "prompts": 0
+    },
+    "git_stash:list": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_stash:show": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "show"
+      ]
+    },
+    "git_stash:push": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "push"
+      ]
+    },
+    "git_stash:drop": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "drop"
+      ]
+    },
+    "git_stash:clear": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "clear"
+      ]
+    },
+    "shell:outside": {
+      "decision": "block",
+      "message": "Execution blocked: Path escapes the project root.",
+      "prompts": 0
+    },
+    "shell:system": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:install": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:invalid": {
+      "decision": "block",
+      "message": "Invalid command.",
+      "prompts": 0
+    },
+    "shell:oversized": {
+      "decision": "block",
+      "message": "Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).",
+      "prompts": 0
+    },
+    "write:outside": {
+      "decision": "block",
+      "message": "Execution blocked: Path escapes the project root.",
+      "prompts": 0
+    },
+    "write:symlink": {
+      "decision": "block",
+      "message": "Execution blocked: Symlink escapes the project root.",
+      "prompts": 0
+    },
+    "delete:missing": {
+      "decision": "block",
+      "message": "File does not exist: missing.",
+      "prompts": 0
+    },
+    "mcp:read_records:{}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:publish:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:push_files:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "custom"
+      ]
+    },
+    "mcp:unknown:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "workspace_write",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "workspace_write",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    }
+  },
+  "ask_approval": {
+    "apply_patch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "approve_mcp_mutation": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "delegate_task": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_project_file": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [
+        "deleteFingerprint"
+      ],
+      "promptActions": [
+        null
+      ]
+    },
+    "edit_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "edit_project_files": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "execute_command": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "extract_web_page_data": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "find_and_prepare_mcp_tools": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "generate_image": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "get_command_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_project_plans": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_recent_chat_history": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_single_web_page_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_blame": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_commit": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [
+        "gitCommitFingerprint"
+      ],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_create_branch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_diff": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_log": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stage": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_stash": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_switch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_sync": {
+      "decision": "block",
+      "message": "action must be one of \"fetch\", \"pull\", or \"push\".",
+      "prompts": 0
+    },
+    "git_unstage": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "list_directory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_definition": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_diagnostics": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_document_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_hover": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_references": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_workspace_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "manage_mcp_servers": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "manage_native_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "move_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "propose_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "run_tests": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "save_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_code": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_project_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "spawn_sub_agent": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "stop_background_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "str_replace_editor": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "take_screenshot": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "unknown_tool": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "update_plan": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "use_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "web_search": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:fetch": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "fetch"
+      ]
+    },
+    "git_sync:pull": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "pull"
+      ]
+    },
+    "git_sync:push": {
+      "decision": "ask",
+      "prompts": 2,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [
+        "gitPushFingerprint"
+      ],
+      "promptActions": [
+        "prepare_push",
+        "push"
+      ]
+    },
+    "git_sync:invalid": {
+      "decision": "block",
+      "message": "action must be one of \"fetch\", \"pull\", or \"push\".",
+      "prompts": 0
+    },
+    "git_stash:list": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "git_stash:show": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "show"
+      ]
+    },
+    "git_stash:push": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "push"
+      ]
+    },
+    "git_stash:drop": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "drop"
+      ]
+    },
+    "git_stash:clear": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "clear"
+      ]
+    },
+    "shell:outside": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:system": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:install": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": false,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:invalid": {
+      "decision": "block",
+      "message": "Invalid command.",
+      "prompts": 0
+    },
+    "shell:oversized": {
+      "decision": "block",
+      "message": "Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).",
+      "prompts": 0
+    },
+    "write:outside": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "write:symlink": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "delete:missing": {
+      "decision": "block",
+      "message": "File does not exist: missing.",
+      "prompts": 0
+    },
+    "mcp:read_records:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:publish:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:push_files:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "custom"
+      ]
+    },
+    "mcp:unknown:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    }
+  },
+  "read_only": {
+    "apply_patch": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "approve_mcp_mutation": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "delegate_task": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "delete_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "edit_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "edit_project_files": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "execute_command": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "extract_web_page_data": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "find_and_prepare_mcp_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "generate_image": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "get_command_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_project_plans": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_recent_chat_history": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_single_web_page_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_blame": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_commit": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_create_branch": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_diff": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_log": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stage": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_switch": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_sync": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_unstage": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "list_directory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_definition": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_diagnostics": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_document_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_hover": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_references": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_workspace_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "manage_mcp_servers": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "manage_native_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "move_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "propose_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "run_tests": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "save_memory": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "search_code": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_project_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "spawn_sub_agent": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "stop_background_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "str_replace_editor": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "take_screenshot": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "unknown_tool": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "update_plan": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "use_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "web_search": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "read_only",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "write_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_sync:fetch": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_sync:pull": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_sync:push": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_sync:invalid": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash:list": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash:show": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash:push": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash:drop": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "git_stash:clear": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "shell:outside": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "shell:system": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "shell:install": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "shell:invalid": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "shell:oversized": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "write:outside": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "write:symlink": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "delete:missing": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:read_records:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:publish:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:push_files:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:unknown:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    },
+    "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Chat is in Read Only mode.",
+      "prompts": 0
+    }
+  },
+  "full_access": {
+    "apply_patch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "approve_mcp_mutation": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delegate_task": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "edit_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "edit_project_files": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "execute_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "extract_web_page_data": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "find_and_prepare_mcp_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "generate_image": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_command_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_project_plans": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_recent_chat_history": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_single_web_page_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_blame": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_commit": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_create_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_diff": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_log": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stage": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_switch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_unstage": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "list_directory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_definition": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_diagnostics": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_document_symbols": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_hover": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_references": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_workspace_symbols": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "manage_mcp_servers": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "manage_native_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "move_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "propose_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "run_tests": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "save_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_code": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_project_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "spawn_sub_agent": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "stop_background_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "str_replace_editor": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "take_screenshot": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "unknown_tool": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "update_plan": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "use_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "web_search": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:fetch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:pull": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:push": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_sync:invalid": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash:list": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash:show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash:push": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash:drop": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stash:clear": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "shell:outside": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "shell:system": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "shell:install": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "shell:invalid": {
+      "decision": "block",
+      "message": "Invalid command.",
+      "prompts": 0
+    },
+    "shell:oversized": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write:outside": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write:symlink": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete:missing": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:read_records:{}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:publish:{}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:push_files:{}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:unknown:{}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "full_access",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": []
+    }
+  },
+  "casual": {
+    "apply_patch": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "approve_mcp_mutation": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "delegate_task": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "delete_file": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "delete_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: File deletion requires a project workspace.",
+      "prompts": 0
+    },
+    "edit_file": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "edit_project_files": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "execute_command": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "extract_web_page_data": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "find_and_prepare_mcp_tools": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "generate_image": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "get_command_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_project_plans": {
+      "decision": "block",
+      "message": "Execution blocked: Task plans require a project workspace.",
+      "prompts": 0
+    },
+    "get_recent_chat_history": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "get_single_web_page_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_blame": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_branch": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_commit": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_create_branch": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_diff": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_log": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_show": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_stage": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_status": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "git_switch": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_sync": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_unstage": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "list_directory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "lsp_definition": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_diagnostics": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_document_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_hover": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_references": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "lsp_workspace_symbols": {
+      "decision": "block",
+      "message": "Execution blocked: LSP requires a workspace and Workspace Write or Full Access.",
+      "prompts": 0
+    },
+    "manage_mcp_servers": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "manage_native_tools": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "move_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "propose_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "read_project_file": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "run_tests": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "save_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_code": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_memory": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "search_project_content": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "spawn_sub_agent": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "stop_background_command": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "str_replace_editor": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "take_screenshot": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "unknown_tool": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "update_plan": {
+      "decision": "block",
+      "message": "Execution blocked: Task plans require a project workspace.",
+      "prompts": 0
+    },
+    "use_skill": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "web_search": {
+      "decision": "allow",
+      "prompts": 0,
+      "mode": "ask_approval",
+      "approved": false,
+      "fingerprints": [],
+      "promptActions": []
+    },
+    "write_file": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "write_project_file": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_sync:fetch": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_sync:pull": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_sync:push": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_sync:invalid": {
+      "decision": "block",
+      "message": "Git tools require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash:list": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash:show": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash:push": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash:drop": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "git_stash:clear": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "shell:outside": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:system": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:install": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "commandUncontained": true,
+      "fingerprints": [],
+      "promptActions": [
+        "list"
+      ]
+    },
+    "shell:invalid": {
+      "decision": "block",
+      "message": "Invalid command.",
+      "prompts": 0
+    },
+    "shell:oversized": {
+      "decision": "block",
+      "message": "Execution blocked: Command or cwd exceeds the reviewable approval limit (4000 characters).",
+      "prompts": 0
+    },
+    "write:outside": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "write:symlink": {
+      "decision": "block",
+      "message": "Execution blocked: File writes require a project workspace.",
+      "prompts": 0
+    },
+    "delete:missing": {
+      "decision": "block",
+      "message": "Execution blocked: File deletion requires a project workspace.",
+      "prompts": 0
+    },
+    "mcp:read_records:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:publish:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:push_files:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        "custom"
+      ]
+    },
+    "mcp:unknown:{}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    },
+    "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "ask",
+      "prompts": 1,
+      "mode": "ask_approval",
+      "approved": true,
+      "fingerprints": [],
+      "promptActions": [
+        null
+      ]
+    }
+  },
+  "dispatch": {
+    "workspace_write:mcp:read_records:{}": {
+      "decision": "allow"
+    },
+    "workspace_write:mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "workspace_write:mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:publish:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: File deletion requires explicit approval."
+    },
+    "workspace_write:mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:push_files:{}": {
+      "decision": "allow"
+    },
+    "workspace_write:mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:unknown:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "workspace_write:mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow"
+    },
+    "ask_approval:mcp:read_records:{}": {
+      "decision": "allow"
+    },
+    "ask_approval:mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "ask_approval:mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:publish:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: File deletion requires explicit approval."
+    },
+    "ask_approval:mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:push_files:{}": {
+      "decision": "allow"
+    },
+    "ask_approval:mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:unknown:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "ask_approval:mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow"
+    },
+    "read_only:mcp:read_records:{}": {
+      "decision": "allow"
+    },
+    "read_only:mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "read_only:mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:publish:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:push_files:{}": {
+      "decision": "allow"
+    },
+    "read_only:mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:unknown:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "read_only:mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:read_records:{}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:publish:{}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:push_files:{}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:unknown:{}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "allow"
+    },
+    "full_access:mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow"
+    },
+    "undefined:mcp:read_records:{}": {
+      "decision": "allow"
+    },
+    "undefined:mcp:write_file:{\"path\":\"file\",\"content\":\"hello\"}": {
+      "decision": "allow"
+    },
+    "undefined:mcp:send_message:{\"text\":\"hello\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:publish:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:read_records:{\"script\":\"return 1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:delete_project_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:delete_file:{\"path\":\"file.txt\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:push_files:{}": {
+      "decision": "allow"
+    },
+    "undefined:mcp:get_data:{\"action\":\"custom\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:unknown:{}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval."
+    },
+    "undefined:mcp:query:{\"query\":\"SELECT * FROM records\"}": {
+      "decision": "allow"
+    }
+  }
+}

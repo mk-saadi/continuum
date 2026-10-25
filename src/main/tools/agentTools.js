@@ -469,7 +469,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_commit",
-		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Requires specific user approval in every writable mode; repository configuration may execute programs.",
+		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Requires specific user approval except in Full Access; repository configuration may execute programs.",
 		{ message: string("Non-empty commit message (at most 2000 characters)") },
 		["message"],
 	),
@@ -493,7 +493,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_sync",
-		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Every remote operation requires approval in every writable mode. Push first approves remote preparation, then reviews outgoing history before publication.",
+		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Every remote operation requires approval except in Full Access. Push first approves remote preparation, then reviews outgoing history before publication.",
 		{
 			action: { type: "string", enum: ["fetch", "pull", "push"], description: "fetch reads remote history, pull fast-forwards the current branch, push publishes it" },
 			remote: string("Configured remote name (defaults to origin); never a URL"),

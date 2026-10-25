@@ -4,8 +4,7 @@
 // output, checkpoints and renderer arguments cannot mint these grants.
 const { createHash } = require('node:crypto');
 const grants = new WeakMap();
-const isCommand = name => name === 'execute_command' || name === 'run_tests';
-const isOpaqueGit = name => ['git_stage', 'git_unstage', 'git_stash', 'git_commit', 'git_create_branch', 'git_switch'].includes(name);
+const { isCommand, isOpaqueGit } = require('./nativeExecutionKinds');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function scope({ name, args, sessionId, project, mode, policyRevision }) {
   return digest([name, args, sessionId ?? null, project?.root_path ?? null, mode, policyRevision ?? null]);
