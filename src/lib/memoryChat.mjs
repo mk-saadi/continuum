@@ -36,7 +36,7 @@ import { CASUAL_FILE_OPS_REMINDER, CASUAL_SUBAGENT_PATTERN_REMINDER, FILE_OPS_TO
 export { mergeSystemMessages };
 
 // Strip application metadata and normalize both native and OpenAI tool calls.
-export function sanitizeChatMessages(messages, decodeImage) {
+export function sanitizeChatMessages(messages, decodeImage, options = {}) {
   messages = mergeSystemMessages(messages);
   const reservedIds = new Set(messages.flatMap(message =>
     (message.tool_calls ?? message.toolCalls ?? []).map(call => call.id).filter(Boolean)));
@@ -52,7 +52,7 @@ export function sanitizeChatMessages(messages, decodeImage) {
     const { role } = message;
     if (role === 'tool') {
       const call = message.tool_call_id ? pending.find(call => call.id === message.tool_call_id) : pending[0];
-      message = { ...message, content: formatToolResult(message.content, call?.function?.name).content };
+      message = { ...message, content: formatToolResult(message.content, call?.function?.name, options).content };
     }
     const imageParts = ['user', 'tool'].includes(role) && Array.isArray(message.content) && message.content.length > 0 &&
       message.content.every(part => (part?.type === 'text' && typeof part.text === 'string') ||
@@ -465,7 +465,7 @@ export async function runMemoryChat({
   onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }), guardToolContent = content => content,
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
   casualMode = false, onToolLimit = async () => false,
-  projectId = null, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
+  projectId = null, workspaceRoot, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
   toolFailureCircuitBreaker = null, onCircuitBreak = () => {}, onPhase = () => {},
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
   // Phase 2.1 live steering hooks. The caller (engine:chat) owns the run-scoped
@@ -547,7 +547,7 @@ export async function runMemoryChat({
     for (const event of batch) {
       const step = executionSteps.find(step => step.toolName === 'execute_command' && step.result?.command_id === event.id);
       if (step && event.result) {
-        step.result = formatToolResult(event.result, 'execute_command').displayResult;
+        step.result = formatToolResult(event.result, 'execute_command', { workspaceRoot }).displayResult;
         step.status = event.result.status === 'completed' ? 'complete' : 'error';
       }
     }
@@ -679,7 +679,7 @@ export async function runMemoryChat({
     }
     if (finalResponseOnly) tools = [];
     const requestPayload = {
-      model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage)) : sanitizeChatMessages(history, decodeImage), tools,
+      model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage, { workspaceRoot })) : sanitizeChatMessages(history, decodeImage, { workspaceRoot }), tools,
       tool_choice: finalResponseOnly ? 'none' : 'auto',
       cache_prompt: true,
       ...reasoningRequestFields(activeReasoning, cloud),
@@ -710,7 +710,7 @@ export async function runMemoryChat({
           const target = [...prefix, ...retrieval, ...retained];
           rebuiltHistory = target;
           return { ...requestPayload, messages: imagesInUserRole
-            ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage)) : sanitizeChatMessages(target, decodeImage) };
+            ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage, { workspaceRoot })) : sanitizeChatMessages(target, decodeImage, { workspaceRoot }) };
         } });
       signal?.throwIfAborted();
       if (result?.compressed) {
@@ -755,7 +755,7 @@ export async function runMemoryChat({
         delete requestPayload.reasoning_effort;
         delete requestPayload.reasoning_budget_tokens;
         delete requestPayload.reasoning;
-        Object.assign(requestPayload, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage)) : sanitizeChatMessages(history, decodeImage), tools,
+        Object.assign(requestPayload, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage, { workspaceRoot })) : sanitizeChatMessages(history, decodeImage, { workspaceRoot }), tools,
           temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
           repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens },
           reasoningRequestFields(activeReasoning, cloud));
@@ -963,7 +963,7 @@ export async function runMemoryChat({
         signal?.throwIfAborted();
         let result = output;
         if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
-        formatted = formatToolResult(output, entry.call.function.name);
+        formatted = formatToolResult(output, entry.call.function.name, { workspaceRoot });
         entry.step.result = formatted.displayResult;
         const failure = failedToolReason?.(output, entry.call.function.name);
         entry.step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
@@ -987,7 +987,7 @@ export async function runMemoryChat({
         publishSteps(true);
       }
       signal?.throwIfAborted();
-      formatted ??= formatToolResult(output, entry.call.function.name);
+      formatted ??= formatToolResult(output, entry.call.function.name, { workspaceRoot });
       history.push({ role: 'tool', tool_call_id: entry.call.id, content: guardToolContent(formatted.content) });
       toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
       if (projectId && failedToolReason) {

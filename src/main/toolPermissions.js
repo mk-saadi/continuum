@@ -254,24 +254,39 @@ function isSystemAffecting(command) {
 // Approval
 // ---------------------------------------------------------------------------
 
-function requestToolApproval({ controller, sender, requestId, sessionId, name, args }) {
-	return new Promise(resolve => {
-		const approvalId = require('node:crypto').randomUUID();
-		const finish = allowed => {
-			if (!controller.toolApprovals?.delete(approvalId)) return;
-			clearTimeout(timer);
-			controller.signal.removeEventListener('abort', stop);
-			if (!sender.isDestroyed()) sender.send('engine:request-tool-approval', { requestId, sessionId, approvalId, resolved: true });
-			resolve(allowed);
-		};
-		const stop = () => finish(false);
-		const timer = setTimeout(stop, 120000);
-		controller.toolApprovals ??= new Map();
-		controller.toolApprovals.set(approvalId, finish);
-		controller.signal.addEventListener('abort', stop, { once: true });
-		if (controller.signal.aborted || sender.isDestroyed()) return stop();
-		sender.send('engine:request-tool-approval', { requestId, sessionId, approvalId, name, args });
-	});
+function requestToolApproval({ controller, sender, requestId, sessionId, name, args, policy }) {
+  return new Promise(resolve => {
+    const rules = require('./rememberedToolRules');
+    const contexts = require('./lspExecutionContext');
+    const revision = contexts.revision(sessionId);
+    const projectId = require('./db').isInitialized?.() ? sessionProject(sessionId)?.id : null;
+    const rememberable = Boolean(policy?.rememberable && projectId && sessionId);
+    const approvalId = require('node:crypto').randomUUID();
+    let untrack = () => {};
+    const finish = choice => {
+      if (!controller.toolApprovals?.has(approvalId)) return;
+      let result = choice === true || choice === 'allow';
+      if (['chat', 'project'].includes(choice)) {
+        if (!rememberable || contexts.revision(sessionId) !== revision) throw new Error('This approval cannot be remembered.');
+        result = rules.save({ projectId, sessionId, tool: name, policy, choice, pendingEntry: entry });
+      }
+      controller.toolApprovals.delete(approvalId);
+      untrack(); clearTimeout(timer);
+      controller.signal.removeEventListener('abort', stop);
+      if (!sender.isDestroyed()) sender.send('engine:request-tool-approval', { requestId, sessionId, approvalId, resolved: true });
+      resolve(result);
+    };
+    const stop = () => finish(false);
+    const entry = { sessionId, stop };
+    const timer = setTimeout(stop, 120000);
+    controller.toolApprovals ??= new Map();
+    controller.toolApprovals.set(approvalId, finish);
+    untrack = rules.track(entry);
+    controller.signal.addEventListener('abort', stop, { once: true });
+    if (controller.signal.aborted || sender.isDestroyed()) return stop();
+    sender.send('engine:request-tool-approval', { requestId, sessionId, approvalId, name, args,
+      rememberable, ...(rememberable ? { rememberLabel: policy.rememberLabel } : {}) });
+  });
 }
 
 function approvalDeniedMessage(kind) {
@@ -297,11 +312,11 @@ function sanitizeParams(params) {
 	return out;
 }
 
-async function requestApproval(kind, name, args, requestApprovalHandler, signal) {
+async function requestApproval(kind, name, args, requestApprovalHandler, signal, policy) {
 	let approved = false;
 	try {
 		approved = Boolean(requestApprovalHandler) &&
-			Boolean(await requestApprovalHandler({ name, args: sanitizeParams(args) }));
+			Boolean(await requestApprovalHandler({ name, args: sanitizeParams(args), policy }));
 	} catch {
 		approved = false;
 	}
@@ -327,7 +342,11 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
-	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted };
+	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted, remembered: require('./rememberedToolRules').list(project?.id, sessionId) };
+	if (name === 'generate_image' && native && mode === 'workspace_write' && root && require('./db').isInitialized?.()) {
+		const provider = require('./cloudProviders').getActiveMediaModel('image');
+		if (provider) { policyInput.imageProviderKey = require('./rememberedToolRules').providerKey(provider); policyInput.imageProviderLabel = provider.name; }
+	}
 	if (native && name === 'git_switch' && mode === 'workspace_write' && root)
 		policyInput.gitWorktreeDirty = await require('./tools/agentTools').gitWorktreeDirty(root, signal);
 	let policy = decideToolApproval(policyInput);
@@ -356,20 +375,20 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			const packageOperation = require('./workspaceCommandPolicy').isPackageOperation(args.command);
 			const inspection = systemAffecting || packageOperation ? { resolvedPaths: [cwd], reviewRequired: true }
 				: await require('./workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, workspacePath);
-			commandFacts = { containment: { contained: true }, resolvedPaths: inspection.resolvedPaths, commandReviewRequired: inspection.reviewRequired,
+			commandFacts = { resolvedCwd: cwd, containment: { contained: true }, resolvedPaths: inspection.resolvedPaths, commandReviewRequired: inspection.reviewRequired,
 				systemAffecting, packageOperation };
 		}
 		const sandbox = await require('./workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained });
 		policy = decideToolApproval({ ...policyInput, ...commandFacts, sandbox, uncontained });
 		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, execution_scope: uncontained
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
-			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal);
-		return { mode, approved: policy.decision === 'ask', commandUncontained: uncontained,
+			: 'Opaque process: workspace writes, read-only host filesystem, isolated network and restricted environment.' }, approvalHandlerFn, signal, policy);
+		return { mode, approved: policy.decision === 'ask' || Boolean(policy.savedRule), commandUncontained: uncontained, savedRule: policy.savedRule,
 			...(policy.decision === 'allow' ? { executionProfile: 'bwrap_workspace' } : {}) };
 	}
 	if (policy.route === 'full_access') return { mode, approved: true };
 	if (policy.route === 'immediate') return { mode, approved: policy.decision === 'ask'
-		? await requestApproval('tool', name, args, approvalHandlerFn, signal) : false };
+		? await requestApproval('tool', name, args, approvalHandlerFn, signal, policy) : Boolean(policy.savedRule), savedRule: policy.savedRule };
 	if (policy.route === 'git_sync') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
@@ -466,9 +485,9 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	// and unknown capabilities in ask_approval: one explicit approval prompt.
 	if (policy.decision === 'ask') {
 		const kind = native === true && name === 'generate_image' ? 'image' : 'tool';
-		return { mode, approved: await requestApproval(kind, name, args, approvalHandlerFn, signal) };
+		return { mode, approved: await requestApproval(kind, name, args, approvalHandlerFn, signal, policy), imageProviderKey: policyInput.imageProviderKey };
 	}
-	return { mode, approved: false };
+	return { mode, approved: Boolean(policy.savedRule), savedRule: policy.savedRule, imageProviderKey: policyInput.imageProviderKey };
 }
 
 // Policy is re-read for every call; a pending approval is invalid after any
@@ -478,12 +497,17 @@ async function guardTool(options) {
  options = { ...options, args: structuredClone(options.args ?? {}) };
  const contexts = require('./lspExecutionContext');
  const { sessionId } = options;
- const revision = contexts.revision(sessionId);
+ let revision = contexts.revision(sessionId);
  const permissionMode = sessionId ? contexts.currentMode(sessionId, options.permissionMode) : options.permissionMode;
  const handler = options.requestApproval;
  if (handler) options.requestApproval = async payload => {
   const allowed = await handler(payload);
   options.signal?.throwIfAborted();
+  if (require('./rememberedToolRules').consumeReceipt(allowed)) {
+   if (contexts.revision(sessionId) !== allowed.revision) return false;
+   revision = allowed.revision;
+   return allowed.allowed;
+  }
   if (sessionId && contexts.revision(sessionId) !== revision) return false;
   return allowed;
  };
@@ -508,11 +532,12 @@ async function guardTool(options) {
   const error = new Error('Execution blocked: Permission changed while authorizing this operation.');
   error.code = 'PERMISSION_REVOKED'; throw error;
  }
+ require('./rememberedToolRules').used(result.savedRule, sessionId);
  const { deleteCapture, ...publicResult } = result;
  const decision = { ...publicResult, ...(sessionId ? { policyRevision: revision } : {}) };
  if (deleteCapture) require('./nativeExecutionPolicy').issueDelete(decision, deleteCapture, options);
- return options.native !== false && require('./nativeExecutionPolicy').isProtected(options.name)
-  ? require('./nativeExecutionPolicy').issue(decision, options) : decision;
+ return (decision.savedRule || (options.native !== false && require('./nativeExecutionPolicy').isProtected(options.name)))
+  ? require('./nativeExecutionPolicy').issue(decision, { ...options, serverName: options.native === false ? options.serverName : undefined }) : decision;
 }
 
 module.exports = {

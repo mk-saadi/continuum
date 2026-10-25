@@ -244,7 +244,10 @@ contextBridge.exposeInMainWorld('chatAPI', {
     ipcRenderer.on('engine:stream-chunk', listener);
     return () => ipcRenderer.removeListener('engine:stream-chunk', listener);
   },
-  respondToToolApproval: (requestId, approvalId, action) => ipcRenderer.invoke('engine:tool-approval-response', { requestId, approvalId, action }),
+  listToolRules: (projectId, sessionId) => ipcRenderer.invoke('tool-rules:list', { projectId, sessionId }),
+  deleteToolRule: (projectId, id, sessionId) => ipcRenderer.invoke('tool-rules:delete', { projectId, id, sessionId }),
+  deleteAllToolRules: projectId => ipcRenderer.invoke('tool-rules:delete-all', { projectId }),
+  respondToToolApproval: (requestId, approvalId, action) => ipcRenderer.invoke('engine:tool-approval-response', { requestId, approvalId, choice: action }),
   onToolApproval: callback => {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on('engine:request-tool-approval', listener);

@@ -452,11 +452,15 @@ function registerIpcHandlers({
             if (!['continue', 'stop'].includes(action)) throw new Error('Invalid loop action.');
             requests.get(sender)?.get(requestId)?.resumeLoop?.(action === 'continue');
         },
-        "engine:tool-approval-response": ({ requestId, approvalId, action }, _notify, sender) => {
-            if (!['allow', 'deny'].includes(action)) throw new Error('Invalid tool approval action.');
+        "tool-rules:list": ({ projectId, sessionId }) => require('./rememberedToolRules').list(projectId, sessionId),
+        "tool-rules:delete": ({ projectId, id, sessionId }) => require('./rememberedToolRules').remove(projectId, id, sessionId),
+        "tool-rules:delete-all": ({ projectId }) => require('./rememberedToolRules').removeAll(projectId),
+        "engine:tool-approval-response": ({ requestId, approvalId, action, choice }, _notify, sender) => {
+            action = choice ?? action;
+            if (!['allow', 'deny', 'chat', 'project'].includes(action)) throw new Error('Invalid tool approval action.');
             const finish = requests.get(sender)?.get(requestId)?.toolApprovals?.get(approvalId);
             if (!finish) throw new Error('Tool approval is no longer pending.');
-            finish(action === 'allow');
+            finish(action);
         },
         "engine:ask-user-response": ({ requestId, questionId, answer }, _notify, sender) => {
             if (typeof requestId !== 'string' || typeof questionId !== 'string' ||
@@ -532,6 +536,7 @@ function registerIpcHandlers({
 			let executionSteps = [];
             const childSessionsByToolCall = new Map();
             const gitCommitReviewsByToolCall = new Map();
+            const savedRulesByToolCall = new Map();
             let content = "";
             const contentChunks = [];
             const materializeContent = () => {
@@ -684,6 +689,7 @@ function registerIpcHandlers({
 				const text = await runMemoryChat({
                     onAdvertisedTools: schemas => advertisedTools.record(schemas),
                         projectId: usageProjectId,
+                        workspaceRoot: backgroundContext?.workspace,
                         takeCommandCompletions: backgroundContext ? () => require('./backgroundCommands').take(backgroundContext) : null,
                         markCommandCompletions: backgroundContext ? (ids, accepted) => require('./backgroundCommands').acknowledge(backgroundContext, ids, accepted) : null,
                         projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
@@ -891,7 +897,7 @@ function registerIpcHandlers({
                             try {
                                 approval = await guardTool({ name: 'find_and_prepare_mcp_tools', args: { query: serverName },
                                     permissionMode: mode, sessionId, project, signal: controller.signal,
-                                    requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+                                    requestApproval: ({ name, args, policy }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args, policy }) });
                             } catch (error) {
                                 if (['APPROVAL_DENIED', 'PERMISSION_DENIED'].includes(error.code)) return null;
                                 throw error;
@@ -926,8 +932,9 @@ function registerIpcHandlers({
                     onToolStream: event => notify({ ...event, messageId }),
                     onExecutionSteps: steps => {
                         executionSteps = steps.map(step => {
-                            const linked = childSessionsByToolCall.has(step.id)
+                            let linked = childSessionsByToolCall.has(step.id)
                                 ? { ...step, childSessionId: childSessionsByToolCall.get(step.id) } : step;
+                            if (savedRulesByToolCall.has(step.id)) linked = { ...linked, savedRule: savedRulesByToolCall.get(step.id) };
                             const review = gitCommitReviewsByToolCall.get(step.id);
                             return review ? { ...linked, args: { ...linked.args, ...review } } : linked;
                         });
@@ -1012,8 +1019,17 @@ function registerIpcHandlers({
 							if (!isAskUser) approval = await guardTool({ name: target.toolName, args, permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, sessionId, project,
                                 native: isAgent || isMemory, serverName: target.serverName,
                                 ...(!isAgent && !isMemory ? mcpManager.getApprovalFacts(target.serverName, target.toolName) : {}), signal: controller.signal,
-                                requestApproval: ({ name, args }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args }) });
+                                requestApproval: ({ name, args, policy }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args, policy }) });
                             advertisedTools.validateEpoch(acceptedManifest);
+                            if (approval?.savedRule) {
+                                savedRulesByToolCall.set(call.id, { ...approval.savedRule, projectId: project.id, sessionId });
+                                const step = executionSteps.find(step => step?.id === call.id);
+                                if (step) {
+                                    step.savedRule = { ...approval.savedRule, projectId: project.id, sessionId };
+                                    persist();
+                                    notify({ type: 'step-update', messageId, executionSteps: displaySteps(executionSteps) });
+                                }
+                            }
                             if (approval?.gitCommitReview) {
                                 gitCommitReviewsByToolCall.set(call.id, approval.gitCommitReview);
                                 const step = executionSteps.find(step => step?.id === call.id);
@@ -1098,7 +1114,7 @@ function registerIpcHandlers({
 								}
 							}
 							const failed = Boolean(failedToolReason(output, call.name));
-							result = truncateToolOutput((await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name).displayResult);
+							result = truncateToolOutput((await import('../lib/toolResultFormatter.mjs')).formatToolResult(result, call.name, { workspaceRoot: backgroundContext?.workspace }).displayResult);
 							notify({
 								type: "tool",
 								id,

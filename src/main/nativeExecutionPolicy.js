@@ -7,8 +7,8 @@ const grants = new WeakMap();
 const deleteGrants = new WeakMap();
 const { isCommand, isOpaqueGit } = require('./nativeExecutionKinds');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-function scope({ name, args, sessionId, project, mode, policyRevision, executionProfile, commandUncontained, approved, deleteFingerprint }) {
-  return digest([name, args, sessionId ?? null, project?.root_path ?? null, mode, policyRevision ?? null, executionProfile ?? null,
+function scope({ name, args, sessionId, project, mode, policyRevision, executionProfile, commandUncontained, approved, deleteFingerprint, serverName, savedRule, imageProviderKey }) {
+  return digest([name, args, savedRule ? (serverName ?? null) : null, savedRule?.id ?? null, imageProviderKey ?? null, sessionId ?? null, project?.root_path ?? null, mode, policyRevision ?? null, executionProfile ?? null,
     isCommand(name) ? [commandUncontained ?? null, approved ?? null] : null,
     name === 'delete_project_file' ? deleteFingerprint ?? null : null]);
 }
@@ -37,4 +37,4 @@ function consumeDelete(decision, options) {
     throw new Error('Execution blocked: A current, specific deletion authorization is required.');
   return grant.capture;
 }
-module.exports = { issueDelete, consumeDelete, isCommand, isOpaqueGit, isProtected: name => isCommand(name) || isOpaqueGit(name) || name === 'git_sync', issue, consume };
+module.exports = { issueDelete, consumeDelete, isCommand, isOpaqueGit, isProtected: name => isCommand(name) || isOpaqueGit(name) || name === 'git_sync' || name === 'generate_image', issue, consume };

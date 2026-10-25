@@ -16,12 +16,15 @@ function imageExtension(contentType, bytes) {
   throw new Error('Image provider returned an unsupported image format.');
 }
 
-async function generateImage({ prompt, signal, fetchImpl = fetch } = {}) {
+async function generateImage({ prompt, signal, expectedProviderKey, fetchImpl = fetch } = {}) {
   if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 10000 || prompt.includes('\0')) {
     throw new Error('Image prompt must be between 1 and 10,000 characters.');
   }
   const provider = require('../cloudProviders').getActiveMediaModel('image');
   if (!provider) throw new Error('Choose and save a Default Image Model for Tools in Settings → Cloud Providers → Media Models.');
+
+  if (expectedProviderKey && require('../rememberedToolRules').providerKey(provider) !== expectedProviderKey)
+    throw new Error('Execution blocked: Image provider changed since authorization.');
 
   let endpoint;
   if (provider.apiType === 'openrouter') endpoint = 'https://openrouter.ai/api/v1/images/generations';

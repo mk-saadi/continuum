@@ -86,6 +86,21 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS idx_project_files_project ON project_files(project_id);
 
+  CREATE TABLE IF NOT EXISTS project_tool_rules (
+    id TEXT PRIMARY KEY NOT NULL,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    tool TEXT NOT NULL,
+    rule_key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TEXT,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    created_by_session TEXT,
+    UNIQUE(project_id, rule_key)
+  );
+  CREATE TRIGGER IF NOT EXISTS project_tool_rules_cap BEFORE INSERT ON project_tool_rules
+    WHEN (SELECT COUNT(*) FROM project_tool_rules WHERE project_id = NEW.project_id) >= 200
+    BEGIN SELECT RAISE(ABORT, 'Project tool rule limit (200) reached.'); END;
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY NOT NULL,
     title TEXT,

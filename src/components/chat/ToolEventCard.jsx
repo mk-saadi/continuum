@@ -1,3 +1,4 @@
+import SavedToolRule from '../SavedToolRule';
 import React, { useState } from "react";
 import { useRowUiState } from "../../hooks/useRowUiState.js";
 import { FiCheck, FiChevronRight, FiClock, FiCopy, FiTool, FiX } from "react-icons/fi";
@@ -376,6 +377,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					: `min-w-0 overflow-hidden rounded-lg border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
 			}
 		>
+            <SavedToolRule rule={step.savedRule} />
 			<button
 				type="button"
 				aria-expanded={expanded}

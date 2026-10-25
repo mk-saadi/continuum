@@ -867,7 +867,15 @@ async function runScopedCommand(name, args, { root, signal, uncontained, session
   if (requiredExecutionProfile) {
    if (requiredExecutionProfile !== 'bwrap_workspace' || uncontained || !root) throw new Error('Execution blocked: bwrap-bound command cannot run on the host.');
    const inspection = await require('../workspaceCommandPolicy').inspectWorkspaceCommand(root, cwd, args.command, require('../toolPermissions').workspacePath);
-   if (inspection.reviewRequired) throw new Error('Execution blocked: Command paths require explicit review.');
+   if (inspection.reviewRequired) {
+    const p = require('../toolPermissions');
+    const policy = require('../toolApprovalPolicy').decideToolApproval({ tool: name, args, mode: 'workspace_write',
+      workspaceRoot: root, resolvedCwd: cwd, containment: { contained: true },
+      systemAffecting: p.isSystemAffecting(args.command), packageOperation: require('../workspaceCommandPolicy').isPackageOperation(args.command),
+      commandReviewRequired: true, sandbox: await require('../workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained: false }),
+      remembered: require('../rememberedToolRules').list(p.sessionProject(sessionId)?.id, sessionId) });
+    if (policy.decision !== 'allow' || !policy.savedRule) throw new Error('Execution blocked: Command paths require explicit review.');
+   }
    validateAuthorization();
   }
   const remaining = deadline?.remainingMs() ?? Infinity;
@@ -2544,6 +2552,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         if (require('../nativeExecutionPolicy').isProtected(name)) require('../nativeExecutionPolicy').consume(guardDecision, {
             name, args, sessionId, project, mode: permissionMode,
             policyRevision: require('../lspExecutionContext').revision(sessionId),
+            savedRule: guardDecision?.savedRule, imageProviderKey: guardDecision?.imageProviderKey,
             executionProfile: guardDecision?.executionProfile, commandUncontained: guardDecision?.commandUncontained, approved: guardDecision?.approved,
         });
         if (name === 'manage_native_tools') {
@@ -2597,7 +2606,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		if (name === "web_search") return await require("./webDiscovery").searchWeb({ query: args.query, max_results: args.max_results, signal });
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId, budgetScope });
-		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal });
+		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal, expectedProviderKey: guardDecision?.imageProviderKey });
 		// Durable, session-owned task state: no filesystem or workspace access
 		// is needed, so this resolves before the root checks below. Permission,
 		// workspace scoping, and casual-session rejection are enforced by the

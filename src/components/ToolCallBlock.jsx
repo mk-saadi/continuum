@@ -1,3 +1,4 @@
+import SavedToolRule from './SavedToolRule';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { FiChevronRight, FiTool } from 'react-icons/fi';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -74,6 +75,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
   };
   return (
     <div aria-label="Tool executions" className="min-w-0 overflow-hidden rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs">
+      <SavedToolRule rule={step.savedRule} />
       <button type="button" aria-expanded={expanded} aria-controls={detailsId}
         onClick={() => setUserExpanded(!expanded)}
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]">

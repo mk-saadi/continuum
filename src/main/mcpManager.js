@@ -637,14 +637,20 @@ class McpManager extends EventEmitter {
       if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal, ...this.getApprovalFacts(serverName, toolName) });
     }
     const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
-    const policyInput = { workspaceMcp, tool: toolName, args, mode: permissionMode, native: false, serverName,
-      approved: Boolean(approval?.approved), permissionGranted, ...this.getApprovalFacts(serverName, toolName), stage: 'mcp_dispatch' };
+    const policyInput = { workspaceMcp, workspaceRoot: workspaceMcp || null,
+      remembered: require('./rememberedToolRules').list(require('./toolPermissions').sessionProject(sessionId)?.id, sessionId), tool: toolName, args, mode: permissionMode, native: false, serverName,
+      approved: Boolean(approval?.approved) && !approval?.savedRule, permissionGranted, ...this.getApprovalFacts(serverName, toolName), stage: 'mcp_dispatch' };
     // Preserve independent deletion/outbound enforcement before SQL gating.
     const deletion = decideToolApproval({ ...policyInput, dispatchPhase: 'deletion' });
     if (deletion.decision === 'ask') throw new Error(`Execution blocked: ${deletion.reason}`);
     const payload = JSON.stringify(args);
     const immediate = decideToolApproval(policyInput);
     if (immediate.decision === 'ask') throw new Error(`Execution blocked: ${immediate.reason}`);
+    if (immediate.savedRule) {
+      require('./nativeExecutionPolicy').consume(approval, { name: toolName, serverName, args, sessionId,
+        project: require('./toolPermissions').sessionProject(sessionId), mode: permissionMode, policyRevision: revision,
+        savedRule: approval?.savedRule, approved: approval?.approved });
+    }
     const dispatchPolicy = decideToolApproval({ ...policyInput, workspaceMcp,
       mutationRequiresConfirmation: permissionMode !== 'full_access' && !workspaceMcp &&
         !(permissionGranted && permissionMode === 'ask_approval') && requiresConfirmation(payload) });

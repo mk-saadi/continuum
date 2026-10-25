@@ -21,3 +21,9 @@ Workspace-resident secrets such as `.env`, project registry configuration and so
 The admitted system runtime trees are trusted and readable, including any locally installed content under `/usr`. Explicit runtime paths are also readable. Do not store credentials in runtime installation directories. Application-data masks take precedence over runtime/workspace mounts. Mount and socket checks are subject to host filesystem races; other processes should not mutate mount sources during launch.
 
 Recovery preserves eligible workspace files around commands, subject to its documented exclusions and capture limits. It cannot undo disclosure to a model/network peer or restore all installed dependencies.
+
+## Redaction boundaries
+
+Tool results entering the parent model, replayed tool messages, child-agent tool results, and selected work-log digest fields use the shared secret redactor. Generic token filtering preserves recognized paths; explicit secret signatures still redact inside paths.
+
+Rolling-summary generation, Workspace compact-candidate generation (including intermediate reductions), checkpoint generation, and memory injection do not have a shared secret-redaction pass. Child compaction inherits already-redacted tool text, but does not independently redact its other inputs. Replayed summaries are also not independently redacted. User-typed text and stored memory are user content; this tool-output safeguard does not rewrite them. Workspace compact candidates separately reject sensitive command metadata rather than silently changing exact evidence. These boundaries are outside the tool-output redaction scope.

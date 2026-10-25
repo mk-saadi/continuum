@@ -2,7 +2,8 @@
 // Trusted runtime state only. No model arguments, persisted grants, or executable configuration.
 const sessions = new Map();
 let policyRevision = 0;
-const revision = sessionId => sessions.get(sessionId)?.revision ?? null;
+const inactiveRevisions = new Map();
+const revision = sessionId => sessions.get(sessionId)?.revision ?? inactiveRevisions.get(sessionId) ?? null;
 const trusted = new WeakSet();
 const children = new WeakMap();
 const eligible = mode => mode === 'workspace_write' || mode === 'full_access';
@@ -73,6 +74,13 @@ function forTool(sessionId, fallback) {
   const context = Object.freeze({ sessionId, get permissionMode() { return sessions.has(sessionId) ? currentMode(sessionId) : 'read_only'; } });
   trusted.add(context); return context;
 }
-function forget(sessionId) { sessions.delete(sessionId); }
+function invalidateRules(sessionIds) {
+  for (const id of sessionIds) {
+    const state = sessions.get(id);
+    if (state) state.revision = ++policyRevision;
+    else inactiveRevisions.set(id, ++policyRevision);
+  }
+}
+function forget(sessionId) { sessions.delete(sessionId); inactiveRevisions.delete(sessionId); require('./rememberedToolRules').forget(sessionId); }
 function isTrusted(context) { return context != null && trusted.has(context); }
-module.exports = { revision, childMode, eligible, createContext, forTool, currentMode, setMode, authorizeChild, childContext, forgetChild, setChildMode, forget, isTrusted };
+module.exports = { invalidateRules, revision, childMode, eligible, createContext, forTool, currentMode, setMode, authorizeChild, childContext, forgetChild, setChildMode, forget, isTrusted };

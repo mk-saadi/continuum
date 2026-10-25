@@ -75,20 +75,20 @@ function formatUnredactedToolResult(output, toolName = '') {
 }
 
 // Model content is redacted separately; the user's original result remains intact.
-export function redactModelContent(value) {
+export function redactModelContent(value, options = {}) {
   if (typeof value === 'string') {
-    try { const parsed = JSON.parse(value); const safe = redactModelContent(parsed);
+    try { const parsed = JSON.parse(value); const safe = redactModelContent(parsed, options);
       return JSON.stringify(parsed) === JSON.stringify(safe) ? value : JSON.stringify(safe); } catch {}
-    return secretRedaction.redactSecrets(value);
+    return secretRedaction.redactSecrets(value, options);
   }
-  if (Array.isArray(value)) return value.map(redactModelContent);
+  if (Array.isArray(value)) return value.map(item => redactModelContent(item, options));
   if (!value || typeof value !== 'object' || value.type === 'image_url') return value;
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
-    secretRedaction.isSecretName(key) && typeof item === 'string' ? '[redacted]' : redactModelContent(item)]));
+    (secretRedaction.isSecretName(key) || /^authorization$/i.test(key)) && typeof item === 'string' ? '[redacted]' : redactModelContent(item, options)]));
 }
-export function formatToolResult(output, toolName = '') {
+export function formatToolResult(output, toolName = '', options = {}) {
   const formatted = formatUnredactedToolResult(output, toolName);
-  const content = redactModelContent(formatted.content);
+  const content = redactModelContent(formatted.content, options);
   const redacted = JSON.stringify(content) !== JSON.stringify(formatted.content);
   const displayResult = redacted && formatted.displayResult && typeof formatted.displayResult === 'object' && !Array.isArray(formatted.displayResult)
     ? { ...formatted.displayResult, modelOutputRedacted: true } : formatted.displayResult;

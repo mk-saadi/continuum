@@ -223,6 +223,7 @@ function workspaceMcpApproval(input) {
     return 'SQL mutation requires explicit user approval.';
   if (annotations?.destructiveHint === true) return 'The connected tool declares destructive effects.';
   if (serverTrusted === true && annotations?.readOnlyHint === true) return null;
+  if (input.hardOnly) return null;
   return requiresOutboundApproval(tool, args) ? 'Outbound or consequential mutation requires explicit user approval.' : null;
 }
 function workspaceGitApproval(tool, args, input) {
@@ -249,7 +250,7 @@ function workspaceGitApproval(tool, args, input) {
  * @param {object} [input.sandbox] { bwrapAvailable, netUnshared, profile }; auto execution requires the isolated workspace profile.
  * @returns {{decision:'allow'|'ask'|'block', reason:string, route?:string}}
  */
-function decideToolApproval(input) {
+function rawDecision(input) {
   const { tool, args = {}, mode, workspaceRoot, native = true, serverName = '',
     stage = 'evaluate', containment, approved = false } = input;
   const allow = (route) => ({ decision: 'allow', reason: '', ...(route ? { route } : {}) });
@@ -346,6 +347,58 @@ function decideToolApproval(input) {
   if (result.decision === 'allow' && native && isOpaqueGit(tool))
     return ask('Workspace Git mutation may execute repository-configured programs.', 'opaque_git');
   return result;
+}
+
+// Rememberability is derived only from authoritative main-process facts. The
+// whitelist deliberately excludes ambiguous shell syntax, flags and paths.
+function rememberDetails(input) {
+  const { tool, args = {}, workspaceRoot, native = true } = input;
+  if (input.mode !== 'workspace_write' || !workspaceRoot ||
+      input.containment?.blocked || input.uncontained) return null;
+  if (native && isCommand(tool)) {
+    const command = args.command;
+    if (typeof command !== 'string' || /[;&|`$()><\r\n\0]/.test(command)) return null;
+    const normalized = command.trim().replace(/\s+/g, ' ');
+    // Only local package identifiers and these explicitly local operations.
+    if (!/^(?:npm (?:install|ci)|pnpm (?:install|add)|yarn (?:install|add))(?: [@a-zA-Z0-9_][@a-zA-Z0-9_.-]*)*$/.test(normalized) ||
+        /(?:^| )-/.test(normalized) || input.systemAffecting !== false ||
+        input.containment?.contained !== true || !input.resolvedCwd ||
+        input.sandbox?.bwrapAvailable !== true || input.sandbox?.netUnshared !== true ||
+        input.sandbox?.profile !== 'bwrap_workspace') return null;
+    return { rememberKey: JSON.stringify(['shell', tool, normalized, input.resolvedCwd]), rememberLabel: normalized };
+  }
+  if (native && tool === 'generate_image' && input.imageProviderKey)
+    return { rememberKey: JSON.stringify([tool, input.imageProviderKey]), rememberLabel: `Generate images with ${input.imageProviderLabel || input.imageProviderKey}` };
+  if (!native && input.serverName && tool !== 'delete_project_file' &&
+      workspaceMcpApproval(input) && !workspaceMcpApproval({ ...input, hardOnly: true })) {
+    // A heuristic-only ask must not remember executable or consequential
+    // arguments hidden under an otherwise ordinary option object either.
+    const pending = [args];
+    let inspected = 0;
+    while (pending.length) {
+      const value = pending.pop();
+      if (!value || typeof value !== 'object') continue;
+      if (++inspected > 1000) return null;
+      const hard = Object.fromEntries(Object.entries(value).filter(([key]) => !/^(?:payload|body|request|requests|steps|actions)$/i.test(key)));
+      if (requiresGitApproval(tool, hard, input.serverName) || !['read', 'known-mutation'].includes(classifyEffect(tool, hard))) return null;
+      for (const child of Object.values(value)) if (child && typeof child === 'object') pending.push(child);
+    }
+    if (requiresConfirmation(JSON.stringify(args))) return null;
+    return { rememberKey: JSON.stringify(['mcp', input.serverName, tool]), rememberLabel: `${input.serverName}: ${tool}` };
+  }
+  return null;
+}
+function decideToolApproval(input) {
+  const result = rawDecision(input);
+  if (result.decision !== 'ask') return result;
+  // Auxiliary stages never mint broad approvals.
+  const details = result.route !== 'mutation_challenge' && (!input.stage || ['evaluate', 'base', 'mcp_dispatch'].includes(input.stage))
+    ? rememberDetails(input) : null;
+  if (!details) return { ...result, rememberable: false };
+  const rule = input.remembered?.find(rule => rule.rule_key === details.rememberKey);
+  return rule ? { decision: 'allow', reason: `allowed by saved rule: ${rule.label}`,
+    ...(result.route ? { route: result.route } : {}), savedRule: { id: rule.id, label: rule.label, scope: rule.scope } }
+    : { ...result, rememberable: true, ...details };
 }
 
 // Compatibility for visibility and existing consumers of the capability table.

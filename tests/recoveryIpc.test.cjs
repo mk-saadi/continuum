@@ -61,6 +61,7 @@ const toolCall = (root, name, args = {}, tag = '') =>
   tools.executeAgentTool({ name, arguments: args, sessionId: chatFor(root, tag), permissionMode: 'workspace_write' });
 
 test.after(() => {
+  Module._load = load;
   try { db.closeDatabase(); } catch {}
   for (const root of workspaces) fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(dbDir, { recursive: true, force: true });
@@ -350,7 +351,8 @@ test('recovery IPC channels are registered and round-trip', async () => {
     const pinned = await seen.get('recovery:pin')({ sender }, { sessionId: sid, checkpointId: history.mine[0].id, pinned: true });
     assert.equal(pinned.pinned, true);
   } finally {
-    Module._load = load;
+    // Keep the suite's Electron paths available for lazy sandbox setup.
+    Module._load = onlyElectron;
     dispose();
   }
 });
@@ -508,7 +510,7 @@ test('diff review IPC channels are registered', async () => {
       /Not a git repository/,
     );
   } finally {
-    Module._load = load;
+    Module._load = onlyElectron;
     dispose();
   }
 });
