@@ -37,12 +37,16 @@ function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = 
   }
   if (workspace) bind(workspace, workspace, writable);
   // Hidden data is an empty read-only mount, not writable scratch space.
+  const masked = [];
   for (const p of [...new Set(maskedPaths)].sort((a, b) => a.length - b.length)) {
-    if ((workspace && inside(workspace, p)) || [...system, ...runtimes].some(e => inside(e.source, p))) argv.push('--tmpfs', p, '--remount-ro', p);
+    if (masked.some(parent => inside(parent, p))) continue;
+    if ((workspace && inside(workspace, p)) || [...system, ...runtimes].some(e => inside(e.source, p))) {
+      argv.push('--tmpfs', p, '--remount-ro', p); masked.push(p);
+    }
   }
   if (home) bind(home, '/sandbox-home', true);
   if (askpassDirectory) bind(askpassDirectory, askpassDirectory);
-  argv.push('--proc', '/proc', '--dev', '/dev');
+  argv.push('--proc', '/proc', '--dev', '/dev', '--remount-ro', '/');
   return argv;
 }
 function environment(host = process.env, { home = '/sandbox-home', pathValue = '/usr/local/bin:/usr/bin:/bin' } = {}) {
@@ -57,6 +61,16 @@ function assertNoSockets(directory) {
     const stat = fs.lstatSync(p);
     if (stat.isSocket()) throw new Error(`Sandbox socket path is not permitted: ${p}`);
     if (stat.isDirectory()) for (const child of fs.readdirSync(p)) pending.push(path.join(p, child));
+  }
+}
+// The kernel's active Unix socket table also covers sockets in system runtime
+// trees without recursively walking hundreds of thousands of /usr files.
+function assertNoExposedHostSockets(roots) {
+  let table;
+  try { table = fs.readFileSync('/proc/net/unix', 'utf8'); } catch { throw unavailable('/proc/net/unix'); }
+  for (const line of table.split('\n').slice(1)) {
+    const socket = line.match(/^(?:\S+\s+){7}(\/.*)$/)?.[1];
+    if (socket && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
   }
 }
 function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env }) {
@@ -83,7 +97,7 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     for (const dir of [...extras.map(p => path.join(p, 'bin')), ...(hostEnv.PATH || '/usr/bin:/bin').split(path.delimiter)]) {
       if (!path.isAbsolute(dir)) continue;
       const candidate = path.join(dir, name);
-      try { fs.accessSync(candidate, fs.constants.X_OK); found = resolveEntry(candidate, true).source; break; } catch {}
+      try { fs.accessSync(candidate, fs.constants.X_OK); const resolved = resolveEntry(candidate, true).source; if (!fs.statSync(resolved).isFile()) continue; found = resolved; break; } catch {}
     }
     if (!found) { if (name === 'sh' || name === 'git') throw unavailable(name); continue; }
     if (system.some(e => inside(e.source, found))) continue;
@@ -116,6 +130,7 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     runtimes.push({ source: validated, destination: validated });
     bins.push(path.join(validated, 'bin'), parent);
   }
+  assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)]);
   return { mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
 }

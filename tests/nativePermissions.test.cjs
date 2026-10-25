@@ -45,8 +45,8 @@ test('native tool guard prevents writes and model self-approval, full access can
       const env = await run('execute_command', { command: 'echo "$HOME|$TMPDIR"' }, 'workspace_write');
       assert.equal(env.exitCode, 0, env.stderr);
       assert.deepEqual(env.stdout.trim().split('|'), [
-        path.join(root, '.llm_workspace', 'sandbox', 'home'),
-        path.join(root, '.llm_workspace', 'sandbox', 'tmp'),
+        '/sandbox-home',
+        '/tmp',
       ]);
       const writable = await run('execute_command', { command: 'touch "$HOME/marker" "$TMPDIR/marker"' }, 'workspace_write');
       assert.equal(writable.exitCode, 0, writable.stderr);

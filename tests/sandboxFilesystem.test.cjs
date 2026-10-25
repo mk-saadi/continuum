@@ -68,7 +68,7 @@ test('real contained filesystem hides synthetic secrets, aliases and proc tricks
   fs.writeFileSync(path.join(workspace, '.env'), 'PROJECT_SECRET=legitimate');
   for (const network of [false, true]) {
     const plan = resolveFilesystem({ ...options, network });
-    const r = launch(plan, `test ! -e '${outside}/secret'; test ! -e alias/secret; test ! -e private-data/memory_palace.db; test ! -e private-data/memory_palace.db-wal; test ! -e .llm_workspace/private; test ! -e /proc/self/root${outside}/secret; test ! -e /proc/${process.pid}/root; test ! -e /run; test ! -e /mnt; test ! -e /media; test ! -e /etc/shadow; test -r .env; echo ok > written; echo ok > "$HOME/test"; echo ok > /tmp/test; test -r /etc/ssl/certs/ca-certificates.crt; node -e 'console.log("node-ok")'; python3 -c 'print("python-ok")'; git --version; locale`, !network);
+    const r = launch(plan, `test ! -e '${outside}/secret'; test ! -e alias/secret; test ! -e private-data/memory_palace.db; test ! -e private-data/memory_palace.db-wal; test ! -e .llm_workspace/private; test ! -e /proc/self/root${outside}/secret; test ! -e /proc/${process.pid}/root; test ! -e /run; test ! -e /mnt; test ! -e /media; test ! -e /etc/shadow; test -r .env; echo ok > written; echo ok > "$HOME/test"; echo ok > /tmp/test; test -r /etc/ssl/certs/ca-certificates.crt; node -e 'console.log("node-ok")'; python3 -c 'print("python-ok")'; git --version; npm --version; locale`, !network);
     assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /node-ok/); assert.match(r.stdout, /python-ok/);
   }
 });
@@ -104,4 +104,22 @@ test('Volta resolver binds actual image and leaves shim/home unmounted', () => {
   fs.writeFileSync(path.join(image, 'bin/node'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   const plan = resolveFilesystem({ ...options, hostEnv: { PATH: `${volta}:/usr/bin:/bin` } });
   assert.ok(plan.mounts.includes(image)); assert.ok(!plan.mounts.includes(volta));
+});
+
+test('nested protected data masks collapse before scratch rebinds', t => {
+  const nested = path.join(internal, 'app-data'); fs.mkdirSync(nested); fs.writeFileSync(path.join(nested, 'memory_palace.db'), 'synthetic-secret');
+  if (!available(t)) return;
+  const plan = resolveFilesystem({ ...options, config: { appDataDirectory: nested } });
+  const r = launch(plan, 'test ! -e .llm_workspace/app-data/memory_palace.db; echo ok > "$HOME/nested-test"; echo ok > /tmp/nested-test', true);
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test('active filesystem sockets in admitted system runtime trees reject setup', () => {
+  const original = fs.readFileSync;
+  fs.readFileSync = function(p, ...args) {
+    if (p === '/proc/net/unix') return 'Num RefCount Protocol Flags Type St Inode Path\n000: 00000002 00000000 00010000 0001 01 123 /usr/local/runtime-service.sock\n';
+    return original.call(this, p, ...args);
+  };
+  try { assert.throws(() => resolveFilesystem(options), /socket path is not permitted: \/usr\/local/); }
+  finally { fs.readFileSync = original; }
 });
