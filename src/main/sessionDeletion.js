@@ -5,7 +5,7 @@
 const pending = new Map();
 function assertAvailable(sessionId) {
   if (pending.has(sessionId) || require('./db').db.prepare('SELECT 1 FROM deleted_sessions WHERE id = ?').get(sessionId))
-    throw new Error('Conversation was permanently deleted or is being deleted.');
+    throw Object.assign(new Error('Conversation was permanently deleted or is being deleted.'), { code: 'deleted-conversation' });
 }
 function deleteConversation(sessionId, sender, ownsController) {
   if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.includes('\0')) throw new TypeError('Invalid sessionId.');
@@ -19,6 +19,7 @@ function deleteConversation(sessionId, sender, ownsController) {
   void (async () => {
     require('./sessionManager').loadSession(sessionId); // Validate before revocation.
     require('./lspExecutionContext').forget(sessionId);
+    require('./promptMeasurement').invalidateMeasuredContext(sessionId);
     controller?.abort(Object.assign(new Error('Conversation deletion requested.'), { code: 'deleted-conversation' }));
     await require('./compressionEngine').cancelSessionCompression(sessionId);
     await require('./subagents/continuationManager').forgetParent(sessionId);

@@ -4,8 +4,8 @@
 // Idle compaction targets the *projected* prompt at a kind-specific fraction
 // of the window (40% workspace, 50% casual; trigger stays at 75%), instead of
 // a DB-only message total that omitted the fixed prompt costs. Idle summaries
-// are capped at 512 tokens and the abort signal is threaded through the whole
-// call chain. When a bloated casual summary alone pins the floor above
+// are capped at 1024 tokens and the abort signal is threaded through the whole
+// call chain. C5 replaces bloated casual summaries through validation;
 // target, the summary is dropped (history preserved) with an explicit flag
 // for the user notice.
 //
@@ -115,7 +115,7 @@ test('synthetic 100K context crosses the 75% trigger and compacts to the project
   assert.equal(result.compressed, true);
   assert.ok(result.archivedCount > 0);
   assert.ok(calls >= 1);
-  for (const opts of seenOpts) assert.equal(opts?.maxTokens, 512, 'every idle summary capped at 512 tokens');
+  for (const opts of seenOpts) assert.equal(opts?.maxTokens, 1024, 'every idle summary capped at 1024 tokens');
   assert.ok(Number.isSafeInteger(result.projectedTokens));
   assert.ok(result.projectedTokens <= 0.50 * LIMIT, `projected ${result.projectedTokens} within 50% casual target`);
   assert.equal(result.overTarget, undefined, 'on-target commit carries no over-target flag');
@@ -197,72 +197,26 @@ test('W3 retires legacy path: workspace sessions compact to the 40% target', asy
   assert.deepEqual(sessions.loadSession(id).messages, before);
 });
 
-test('casual summary overflow drops the summary when that regains the target', async () => {
-  const id = freshId('drop');
-  sessions.getOrCreateSession(id, MODEL);
-  seedMessages(id, 12, 800);
-  // Size the window from the measured floor: the ambient tool schemas ride
-  // every projection, so the drop math must account for them, not assume
-  // tools:null. floorNull covers system + tail + real schemas.
-  const tools = engine.resolveProjectionTools(id, MODEL, {});
-  const tailProbe = sessions.getActiveMessages(id).slice(-10);
-  const floorNull = engine.projectIdlePrompt({ sessionId: id, modelId: MODEL,
-    summaryText: null, briefSection: null, checkpointSection: null,
-    retainedMessages: tailProbe, tools }).total;
-  const LIMIT = Math.ceil((floorNull + 500) / 0.48);
-  // A bloated stored summary: pushes usage over the 75% trigger and the
-  // floor over target, while the floor without it still fits.
-  const summaryToks = Math.ceil(0.75 * LIMIT) - 2400 + 100;
-  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run(id, 'S'.repeat(summaryToks * 4));
-  const usage = sessions.getContextUsage(id, MODEL);
-  assert.ok(usage.totalTokens > 0.75 * LIMIT, `precondition: ${usage.totalTokens} above trigger`);
-  const beforeIds = sessions.loadSession(id).messages.map((row) => row.id);
-  const result = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async (old) => old,
-  });
-  assert.equal(result.compressed, true);
-  assert.equal(result.summaryDropped, true, 'explicit drop flag for the user notice');
-  assert.equal(result.reason, 'summary-overflow-dropped');
-  assert.ok(result.projectedTokens <= 0.50 * LIMIT);
-  assert.equal(sessions.getSessionSummary(id), null, 'summary removed from context');
-  const rows = sessions.loadSession(id).messages;
-  assert.deepEqual(rows.map((row) => row.id), beforeIds, 'history preserved, nothing deleted');
-  assert.deepEqual(tailIds(id), beforeIds.slice(-10), 'protected tail intact');
-  // Context regained: no immediate retrigger, summary stays cleared.
-  const again = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Must not run.',
-  });
-  assert.equal(again.compressed, false);
-  assert.equal(sessions.getSessionSummary(id), null);
+test('C5 idle never drops an essential old summary merely to meet a target', async () => {
+  const id = freshId('preserve-summary'); sessions.getOrCreateSession(id, MODEL); seedMessages(id, 12, 800);
+  const old = 'Important preserved context. '.repeat(1500);
+  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run(id, old);
+  const before = sessions.loadSession(id).messages.map(row => row.content);
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 16000,
+    llmSummarizeCallback: async previous => previous });
+  assert.equal(result.summaryDropped, undefined);
+  assert.equal(sessions.getSessionSummary(id), old);
+  assert.deepEqual(sessions.loadSession(id).messages.map(row => row.content), before);
 });
 
-test('summary overflow with nothing archivable still regains context', async () => {
-  const id = freshId('drop-short');
-  sessions.getOrCreateSession(id, MODEL);
-  seedMessages(id, 5, 400);
-  // Same dynamic sizing as above: 5 short messages plus a summary big enough
-  // to trip the trigger, while the schema-inclusive floor without it fits.
-  const tools = engine.resolveProjectionTools(id, MODEL, {});
-  const floorNull = engine.projectIdlePrompt({ sessionId: id, modelId: MODEL,
-    summaryText: null, briefSection: null, checkpointSection: null,
-    retainedMessages: sessions.getActiveMessages(id), tools }).total;
-  const LIMIT = Math.ceil((floorNull + 500) / 0.48);
-  const summaryToks = Math.ceil(0.75 * LIMIT) - 500 + 100;
-  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run(id, 'L'.repeat(summaryToks * 4));
-  assert.ok(sessions.getContextUsage(id, MODEL).totalTokens > 0.75 * LIMIT);
-  const result = await engine.checkAndCompressContext({
-    sessionId: id, modelId: MODEL, contextWindowLimit: LIMIT,
-    llmSummarizeCallback: async () => 'Must not run.',
-  });
-  assert.equal(result.compressed, false, 'nothing archived');
-  assert.equal(result.archivedCount, 0);
-  assert.equal(result.summaryDropped, true);
-  assert.equal(result.reason, 'summary-overflow-dropped');
-  assert.ok(result.projectedTokens <= 0.50 * LIMIT);
-  assert.equal(sessions.getSessionSummary(id), null);
-  assert.equal(sessions.loadSession(id).messages.length, 5, 'all messages preserved');
+test('C5 oversized summary with no eligible messages is replaced, never dropped', async () => {
+  const id = freshId('reduce-summary'); sessions.getOrCreateSession(id, MODEL); seedMessages(id, 5, 400);
+  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run(id, 'Earlier essential memory. '.repeat(3000));
+  const result = await engine.checkAndCompressContext({ sessionId: id, modelId: MODEL, contextWindowLimit: 32768,
+    force: true, llmSummarizeCallback: async (old, batch) => { assert.equal(batch.length, 0); assert.match(old, /essential memory/); return 'Earlier essential memory retained concisely.'; } });
+  assert.equal(result.compressed, true); assert.equal(result.archivedCount, 0);
+  assert.equal(result.summaryDropped, undefined); assert.equal(sessions.getSessionSummary(id), 'Earlier essential memory retained concisely.');
+  assert.equal(sessions.loadSession(id).messages.length, 5);
 });
 
 test('projection accounts for summaries, memories, briefs, worklog, and the protected tail', async () => {
@@ -373,11 +327,11 @@ test('forced compaction behavior remains intact', async () => {
   assert.equal(result.compressed, true);
   assert.equal(result.archivedCount, active.length - 10, 'forced archives every candidate');
   assert.ok(!('projectedTokens' in result), 'forced result carries no idle projection');
-  assert.equal(seenArgs[0].length, 2, 'forced summarize call shape unchanged');
+  assert.equal(seenArgs[0].length, 4, 'forced summary receives an owned cancellation signal and cap');
   assert.ok(sessions.loadSession(id).messages.slice(-10).every((row) => !row.archived));
 });
 
-test('idle summary requests enforce the 512-token cap and receive the abort signal', async () => {
+test('idle summary requests enforce the 1024-token cap and receive the abort signal', async () => {
   const id = freshId('cap');
   sessions.getOrCreateSession(id, MODEL);
   seedMessages(id, 20, 400);
@@ -393,8 +347,9 @@ test('idle summary requests enforce the 512-token cap and receive the abort sign
   assert.equal(result.compressed, true);
   assert.ok(seen.length >= 1);
   for (const call of seen) {
-    assert.equal(call.maxTokens, 512);
-    assert.equal(call.signal, controller.signal, 'caller abort signal reaches the provider request');
+    assert.equal(call.maxTokens, 1024);
+    assert.ok(call.signal instanceof AbortSignal, 'owned cancellation signal reaches the provider request');
+    assert.equal(call.signal.aborted, false);
   }
 });
 

@@ -88,7 +88,9 @@ function trimToolResult(content, { task = '', contextLength = 32768, maxCharacte
   }
   const notice = `\n[Context excerpt: ${content.length} original characters; omitted text retained in raw child history.]\n`;
   const excerpt = `${sections[0]}${notice}${slice(matches.join('\n'), 0, Math.floor(cap * .4))}\n${sections[1]}`;
-  return data ? JSON.stringify({ ...data, content: excerpt, context_trimmed: true, original_result_chars: content.length }) : excerpt;
+  const projected = data ? JSON.stringify({ ...data, content: excerpt, context_trimmed: true, original_result_chars: content.length }) : excerpt;
+  // Metadata can outweigh the source excerpt for a small bounded file page.
+  return projected.length < content.length ? projected : content;
 }
 
 // Stable identity signature for a transcript message, used ONLY to re-attach a

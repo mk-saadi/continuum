@@ -1,0 +1,2140 @@
+{
+  "phase": "C6-D",
+  "date": "2026-10-26",
+  "timezone": "Asia/Dhaka",
+  "status": "controlled-verification-passed; real-model-acceptance-unverified",
+  "reportedObservation": {
+    "beforeEstimatedTokens": 80586,
+    "afterEstimatedTokens": 29184,
+    "nextPreparedEstimatedTokens": 31877,
+    "difference": 2693,
+    "configuredCapacity": 90000,
+    "reportedVerifiedRuntimeCapacity": 90112,
+    "usableInput": 88960,
+    "originalSerializedBodiesAvailable": false,
+    "causalAttribution": "unavailable; distinct snapshots"
+  },
+  "preservation": {
+    "startingStatus": [
+      " M main.js",
+      " M src/App.jsx",
+      " M src/components/ContextPanel.jsx",
+      " M src/components/MemoryPalace.jsx",
+      " M src/components/settings/NotificationSettings.jsx",
+      " M src/context/TabContext.jsx",
+      " M src/lib/compactionActivity.mjs",
+      " M src/lib/memoryChat.mjs",
+      " M src/main/compressionEngine.js",
+      " M src/main/configManager.js",
+      " M src/main/contextBudget.js",
+      " M src/main/db.js",
+      " M src/main/engineManager.js",
+      " M src/main/ipcHandlers.js",
+      " M src/main/localEngineFetch.js",
+      " M src/main/promptBuilder.js",
+      " M src/main/promptMeasurement.js",
+      " M src/main/sessionDeletion.js",
+      " M src/main/subagents/providers/localProvider.js",
+      " M src/main/taskBriefs.js",
+      " M src/main/taskCheckpoints.js",
+      " M src/main/tools/agentTools.js",
+      " M src/main/workspaceCompactCandidate.js",
+      " M src/main/workspaceCompaction.js",
+      " M src/main/workspaceCompactionActivity.js",
+      " M src/main/workspaceGenerationRuntime.js",
+      " M src/preload.js",
+      " M tests/agentTools.test.cjs",
+      " M tests/contextOverflowRecovery.test.cjs",
+      " M tests/engineLaunch.test.cjs",
+      " M tests/idleCompactionProjection.test.cjs",
+      " M tests/workspaceCompactCandidate.test.cjs",
+      " M tests/workspaceGenerationRuntime.test.cjs",
+      " M tests/workspaceSafeCompaction.test.cjs",
+      "?? docs/c5-casual-context-recovery-evidence.json",
+      "?? docs/c5-casual-context-recovery-report.md",
+      "?? docs/c6a-compaction-contract-evidence.json",
+      "?? docs/c6a-compaction-contract-reliability.md",
+      "?? docs/c6b-workspace-context-selection-evidence.json",
+      "?? docs/c6b-workspace-context-selection-report.md",
+      "?? docs/c6c-real-model-compaction-acceptance.md",
+      "?? docs/c6c-real-model-compaction-evidence.json",
+      "?? docs/e1-file-editing-reliability-evidence.json",
+      "?? docs/e1-file-editing-reliability-report.md",
+      "?? docs/s1-engine-startup-lifecycle-evidence.json",
+      "?? docs/s1-engine-startup-lifecycle-report.md",
+      "?? docs/w7-compaction-truncation-diagnosis.md",
+      "?? docs/w7-compaction-truncation-evidence.json",
+      "?? src/components/NotificationSoundLifecycle.jsx",
+      "?? src/lib/notificationSounds.mjs",
+      "?? src/main/casualSummary.js",
+      "?? src/main/engineLifecycle.js",
+      "?? src/main/localRequestLifecycle.js",
+      "?? src/main/structuredOutput.js",
+      "?? src/main/tools/fileEditMatcher.js",
+      "?? src/main/workspaceEvidence.js",
+      "?? tests/c5CasualRecovery.test.cjs",
+      "?? tests/c6aCompactionStatus.ui.cjs",
+      "?? tests/c6aMeasurement.test.cjs",
+      "?? tests/c6aStructuredOutput.test.cjs",
+      "?? tests/c6bContextSelection.test.cjs",
+      "?? tests/c6cAcceptance.test.cjs",
+      "?? tests/e1FileEditing.test.cjs",
+      "?? tests/e1FileEditingNative.test.cjs",
+      "?? tests/fixtures/c6b-taskBriefs-before.cjs",
+      "?? tests/fixtures/c6bIncrementalCapture.cjs",
+      "?? tests/fixtures/c6bRequestCapture.cjs",
+      "?? tests/notificationSoundPrefs.test.cjs",
+      "?? tests/notificationSounds.test.mjs",
+      "?? tests/s1EngineLifecycle.test.cjs",
+      "?? tests/s1StartupLifecycle.test.cjs",
+      "?? tests/s1StartupLifecycle.ui.cjs",
+      "?? tests/w7CasualRecovery.test.cjs"
+    ],
+    "startingTrackedDiffSha256": "93f33a4e23a690e534b8e778562011088b30eecb157aad418a63d1b35e55c97e",
+    "baselineTests": "four suite files passed before editing",
+    "committed": false,
+    "liveChatsModified": false,
+    "modelLoadedOrTerminated": false
+  },
+  "comparison": [
+    {
+      "afterTools": 4,
+      "scope": "identical-final-provider-request; only checkpoint bookkeeping restored for before",
+      "before": {
+        "payloadHash": "2abb81889d07131fff503d774279b7184f93ae284db9f84e81b6933d527adef0",
+        "serializedBytes": 34769,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 973,
+              "estimatedTokens": 325
+            },
+            "taskReferences": {
+              "bytes": 143,
+              "estimatedTokens": 48
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 11782,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 21320,
+            "estimatedTokens": 7107
+          },
+          "checkpoint": {
+            "bytes": 2781,
+            "estimatedTokens": 927
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      },
+      "after": {
+        "payloadHash": "fe317a220ef2e8251c9f5c16ad4218129951a9d4f025411c30c30800d3835d39",
+        "serializedBytes": 34320,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 973,
+              "estimatedTokens": 325
+            },
+            "taskReferences": {
+              "bytes": 67,
+              "estimatedTokens": 23
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 11632,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 21320,
+            "estimatedTokens": 7107
+          },
+          "checkpoint": {
+            "bytes": 2332,
+            "estimatedTokens": 778
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      }
+    },
+    {
+      "afterTools": 6,
+      "scope": "identical-final-provider-request; only checkpoint bookkeeping restored for before",
+      "before": {
+        "payloadHash": "b01b2a8009d6d8534e0af5605922a03560a4688ad9ad8d3688b4f787f82c1ad3",
+        "serializedBytes": 35725,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 1597,
+              "estimatedTokens": 533
+            },
+            "taskReferences": {
+              "bytes": 143,
+              "estimatedTokens": 48
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 12101,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 21536,
+            "estimatedTokens": 7179
+          },
+          "checkpoint": {
+            "bytes": 3521,
+            "estimatedTokens": 1174
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      },
+      "after": {
+        "payloadHash": "2a09b75f34b963d49a271aef3952bfbe27e4f539e1709c0ad8f96490b334fceb",
+        "serializedBytes": 35250,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 1597,
+              "estimatedTokens": 533
+            },
+            "taskReferences": {
+              "bytes": 67,
+              "estimatedTokens": 23
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 11942,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 21536,
+            "estimatedTokens": 7179
+          },
+          "checkpoint": {
+            "bytes": 3046,
+            "estimatedTokens": 1016
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      }
+    },
+    {
+      "afterTools": 8,
+      "scope": "identical-final-provider-request; only checkpoint bookkeeping restored for before",
+      "before": {
+        "payloadHash": "17aee390d3c558bd8e39a9b59fd38b596b89ab78cc15411d0810538373b83608",
+        "serializedBytes": 40920,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 2521,
+              "estimatedTokens": 841
+            },
+            "taskReferences": {
+              "bytes": 143,
+              "estimatedTokens": 48
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 13832,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 25651,
+            "estimatedTokens": 8551
+          },
+          "checkpoint": {
+            "bytes": 4601,
+            "estimatedTokens": 1534
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      },
+      "after": {
+        "payloadHash": "e595f4484842adc5a461b416643081bd2cac12055d46dd310aaac2091d5e78d6",
+        "serializedBytes": 40419,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 2521,
+              "estimatedTokens": 841
+            },
+            "taskReferences": {
+              "bytes": 67,
+              "estimatedTokens": 23
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 13665,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9137,
+            "estimatedTokens": 3046
+          },
+          "toolSchemas": {
+            "bytes": 556,
+            "estimatedTokens": 186
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 582,
+            "estimatedTokens": 194
+          },
+          "recentTurns": {
+            "bytes": 165,
+            "estimatedTokens": 55
+          },
+          "protectedToolRounds": {
+            "bytes": 25651,
+            "estimatedTokens": 8551
+          },
+          "checkpoint": {
+            "bytes": 4100,
+            "estimatedTokens": 1367
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 228,
+            "estimatedTokens": 76
+          }
+        }
+      }
+    }
+  ],
+  "coding": {
+    "inference": "scripted controlled provider",
+    "measurement": "approximate-full-request",
+    "toolExecutions": [
+      {
+        "id": "coding-1",
+        "name": "read_project_file"
+      },
+      {
+        "id": "coding-2",
+        "name": "run_tests"
+      },
+      {
+        "id": "coding-3",
+        "name": "str_replace_editor"
+      },
+      {
+        "id": "coding-4",
+        "name": "read_project_file"
+      },
+      {
+        "id": "coding-5",
+        "name": "run_tests"
+      },
+      {
+        "id": "coding-6",
+        "name": "read_project_file"
+      },
+      {
+        "id": "coding-7",
+        "name": "get_recent_chat_history"
+      },
+      {
+        "id": "coding-8",
+        "name": "read_project_file"
+      }
+    ],
+    "compactions": [
+      {
+        "beforeComposition": {
+          "payloadHash": "61b15cd888e9f89c8bae18ad17556a61a34ee48c07ab7de20ec34116d8a4a09c",
+          "serializedBytes": 54190,
+          "checkpointDetails": [],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 18384,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9133,
+              "estimatedTokens": 3045
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 43522,
+              "estimatedTokens": 14508
+            },
+            "checkpoint": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 232,
+              "estimatedTokens": 78
+            }
+          }
+        },
+        "sessionModelId": "fixture-model",
+        "provider": "local",
+        "modelId": "fixture-model",
+        "beforeTokens": 18384,
+        "effectiveCapacityTokens": 65536,
+        "usableInputTokens": 64384,
+        "reservedOutputTokens": 1024,
+        "safetyTokens": 128,
+        "nativeSchemaTokens": 186,
+        "activatedMcpSchemaTokens": 0,
+        "componentMeasurementMethod": "serialized-utf8-bytes/3-estimate-not-additive",
+        "triggerTokens": 57945,
+        "measurementMethod": "approximate-full-request",
+        "protectedLiveTailTokens": 7109,
+        "generation": {
+          "sessionId": "c6c-coding",
+          "provider": "local",
+          "stage": "validated",
+          "retries": 0,
+          "failures": [],
+          "committed": false,
+          "snapshotVersion": "afd56c2b3a3bc829e5bb0b4f667503bc7a8751f4eff6d007c291aeb7551b107b",
+          "sourceMessageIds": [
+            1,
+            2
+          ],
+          "newSourceMessageIds": [
+            1,
+            2
+          ],
+          "reusedSourceCount": 0,
+          "newEvidenceCount": 2,
+          "reasoning": {
+            "family": "local",
+            "source": "unknown",
+            "reasoning": null,
+            "efforts": [],
+            "canDisable": null,
+            "budget": {
+              "supported": null,
+              "min": 0,
+              "max": null
+            },
+            "intent": {
+              "mode": "off"
+            },
+            "effective": {
+              "mode": "auto",
+              "effort": null,
+              "budget": null
+            },
+            "unsupported": true,
+            "warnings": [
+              "Disable is not supported for this model."
+            ],
+            "settings": {
+              "thinkingBudget": -1,
+              "reasoningEffort": null
+            }
+          },
+          "inputTokens": 2088,
+          "measurement": "approximate-full-request",
+          "outputBudget": 6144,
+          "reservedGenerationTokens": 6144,
+          "attempts": [
+            {
+              "stage": "final",
+              "attempt": 0,
+              "candidateInputTokens": 2094,
+              "candidateInputTokenMethod": "approximate-full-request",
+              "configuredOutputTokens": 6144,
+              "finishReason": "stop",
+              "actualOutputTokens": null,
+              "rejectionPoint": null,
+              "timeToFirstTokenMs": null,
+              "backendTimings": null,
+              "promptProcessingMs": null,
+              "generationDurationMs": null,
+              "providerGenerationTokensPerSecond": null,
+              "reasoningControlStatus": "not-verified",
+              "hiddenReasoningTokens": null,
+              "visibleOutputTokensEstimate": 188,
+              "stream": null,
+              "elapsedMs": 0.4895299999999452,
+              "providerOutputTokensPerSecond": null
+            }
+          ],
+          "normalization": "unchanged",
+          "generatedTokens": 188,
+          "generatedTokenMethod": "approximate-full-request",
+          "providerOutputTokens": null,
+          "validationMs": 0.5487799999999652,
+          "validatedTokens": 1156,
+          "tokenMethod": "approximate-full-request",
+          "protectedBriefTokens": 81,
+          "protectedBriefTokenMethod": "existing-task-brief-estimate",
+          "under5k": true,
+          "withProtectedBriefsTokens": 1237,
+          "targetStatus": "reducible-candidate-under-target",
+          "generationStages": 1,
+          "correctionAttempts": 0,
+          "candidateId": null
+        },
+        "prospectiveTokens": 11632,
+        "prospectiveMeasurementMethod": "approximate-full-request",
+        "sqliteCommitMs": 11.966460999999981,
+        "postCommitMeasurementMs": 3.1821280000000343,
+        "afterComposition": {
+          "payloadHash": "fe317a220ef2e8251c9f5c16ad4218129951a9d4f025411c30c30800d3835d39",
+          "serializedBytes": 34320,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 973,
+                "estimatedTokens": 325
+              },
+              "taskReferences": {
+                "bytes": 67,
+                "estimatedTokens": 23
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 102,
+                "estimatedTokens": 34
+              },
+              "research": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              },
+              "outstandingRequirements": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 11632,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9137,
+              "estimatedTokens": 3046
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 21320,
+              "estimatedTokens": 7107
+            },
+            "checkpoint": {
+              "bytes": 2332,
+              "estimatedTokens": 778
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 228,
+              "estimatedTokens": 76
+            }
+          }
+        },
+        "softTarget": {
+          "targetTokens": 17000,
+          "preferredRange": [
+            15000,
+            17000
+          ],
+          "status": "within-soft-target",
+          "hardLimitTokens": 64384,
+          "additionalGenerationRequested": false
+        },
+        "commitOutcome": "committed-and-verified",
+        "actualBudgetContract": {
+          "provider": "local",
+          "modelId": null,
+          "runtimeIdentity": null,
+          "configuredContextTokens": null,
+          "runtimeSlots": null,
+          "runtimeContextTokens": 65536,
+          "advertisedContextTokens": null,
+          "capacityTokens": 65536,
+          "reservedOutputTokens": 1024,
+          "reservedSafetyTokens": 128,
+          "usableInputTokens": 64384,
+          "autoCompactionThresholdRatio": 0.9,
+          "autoCompactionTriggerTokens": 57945,
+          "currentInputTokens": 11632,
+          "measurementMethod": "approximate-full-request",
+          "capacityMethod": "runtime-reported",
+          "capacityConfidence": "verified",
+          "measurementConfidence": "estimated"
+        },
+        "actualTokens": 11632,
+        "actualMeasurementMethod": "approximate-full-request",
+        "reductionTokens": 6752,
+        "durationMs": 128.11925699999995,
+        "acceptanceWallMilliseconds": 129.73292700000002
+      },
+      {
+        "beforeComposition": {
+          "payloadHash": "d4cf51ab0cb3e96747eb46e2d095acc157f00d09af334931610edae42e421a9d",
+          "serializedBytes": 55860,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 973,
+                "estimatedTokens": 325
+              },
+              "taskReferences": {
+                "bytes": 67,
+                "estimatedTokens": 23
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 102,
+                "estimatedTokens": 34
+              },
+              "research": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              },
+              "outstandingRequirements": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 18940,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9137,
+              "estimatedTokens": 3046
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 42856,
+              "estimatedTokens": 14286
+            },
+            "checkpoint": {
+              "bytes": 2332,
+              "estimatedTokens": 778
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 232,
+              "estimatedTokens": 78
+            }
+          }
+        },
+        "sessionModelId": "fixture-model",
+        "provider": "local",
+        "modelId": "fixture-model",
+        "beforeTokens": 18940,
+        "effectiveCapacityTokens": 65536,
+        "usableInputTokens": 64384,
+        "reservedOutputTokens": 1024,
+        "safetyTokens": 128,
+        "nativeSchemaTokens": 186,
+        "activatedMcpSchemaTokens": 0,
+        "componentMeasurementMethod": "serialized-utf8-bytes/3-estimate-not-additive",
+        "triggerTokens": 57945,
+        "measurementMethod": "approximate-full-request",
+        "protectedLiveTailTokens": 7181,
+        "generation": {
+          "sessionId": "c6c-coding",
+          "provider": "local",
+          "stage": "validated",
+          "retries": 0,
+          "failures": [],
+          "committed": false,
+          "snapshotVersion": "1a066566979290c286428a6792d4a9851fe104fb577ab8f42f2b4047ed84a286",
+          "sourceMessageIds": [
+            1,
+            2
+          ],
+          "newSourceMessageIds": [
+            1,
+            2
+          ],
+          "reusedSourceCount": 0,
+          "newEvidenceCount": 2,
+          "reasoning": {
+            "family": "local",
+            "source": "unknown",
+            "reasoning": null,
+            "efforts": [],
+            "canDisable": null,
+            "budget": {
+              "supported": null,
+              "min": 0,
+              "max": null
+            },
+            "intent": {
+              "mode": "off"
+            },
+            "effective": {
+              "mode": "auto",
+              "effort": null,
+              "budget": null
+            },
+            "unsupported": true,
+            "warnings": [
+              "Disable is not supported for this model."
+            ],
+            "settings": {
+              "thinkingBudget": -1,
+              "reasoningEffort": null
+            }
+          },
+          "inputTokens": 2317,
+          "measurement": "approximate-full-request",
+          "outputBudget": 6144,
+          "reservedGenerationTokens": 6144,
+          "attempts": [
+            {
+              "stage": "final",
+              "attempt": 0,
+              "candidateInputTokens": 2323,
+              "candidateInputTokenMethod": "approximate-full-request",
+              "configuredOutputTokens": 6144,
+              "finishReason": "stop",
+              "actualOutputTokens": null,
+              "rejectionPoint": null,
+              "timeToFirstTokenMs": null,
+              "backendTimings": null,
+              "promptProcessingMs": null,
+              "generationDurationMs": null,
+              "providerGenerationTokensPerSecond": null,
+              "reasoningControlStatus": "not-verified",
+              "hiddenReasoningTokens": null,
+              "visibleOutputTokensEstimate": 188,
+              "stream": null,
+              "elapsedMs": 0.17366400000014437,
+              "providerOutputTokensPerSecond": null
+            }
+          ],
+          "normalization": "unchanged",
+          "generatedTokens": 188,
+          "generatedTokenMethod": "approximate-full-request",
+          "providerOutputTokens": null,
+          "validationMs": 0.2531169999999747,
+          "validatedTokens": 1598,
+          "tokenMethod": "approximate-full-request",
+          "protectedBriefTokens": 81,
+          "protectedBriefTokenMethod": "existing-task-brief-estimate",
+          "under5k": true,
+          "withProtectedBriefsTokens": 1679,
+          "targetStatus": "reducible-candidate-under-target",
+          "generationStages": 1,
+          "correctionAttempts": 0,
+          "candidateId": null
+        },
+        "prospectiveTokens": 11942,
+        "prospectiveMeasurementMethod": "approximate-full-request",
+        "sqliteCommitMs": 12.97440500000016,
+        "postCommitMeasurementMs": 0.39852799999994204,
+        "afterComposition": {
+          "payloadHash": "2a09b75f34b963d49a271aef3952bfbe27e4f539e1709c0ad8f96490b334fceb",
+          "serializedBytes": 35250,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 1597,
+                "estimatedTokens": 533
+              },
+              "taskReferences": {
+                "bytes": 67,
+                "estimatedTokens": 23
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 102,
+                "estimatedTokens": 34
+              },
+              "research": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              },
+              "outstandingRequirements": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 11942,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9137,
+              "estimatedTokens": 3046
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 21536,
+              "estimatedTokens": 7179
+            },
+            "checkpoint": {
+              "bytes": 3046,
+              "estimatedTokens": 1016
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 228,
+              "estimatedTokens": 76
+            }
+          }
+        },
+        "softTarget": {
+          "targetTokens": 17000,
+          "preferredRange": [
+            15000,
+            17000
+          ],
+          "status": "within-soft-target",
+          "hardLimitTokens": 64384,
+          "additionalGenerationRequested": false
+        },
+        "commitOutcome": "committed-and-verified",
+        "actualBudgetContract": {
+          "provider": "local",
+          "modelId": null,
+          "runtimeIdentity": null,
+          "configuredContextTokens": null,
+          "runtimeSlots": null,
+          "runtimeContextTokens": 65536,
+          "advertisedContextTokens": null,
+          "capacityTokens": 65536,
+          "reservedOutputTokens": 1024,
+          "reservedSafetyTokens": 128,
+          "usableInputTokens": 64384,
+          "autoCompactionThresholdRatio": 0.9,
+          "autoCompactionTriggerTokens": 57945,
+          "currentInputTokens": 11942,
+          "measurementMethod": "approximate-full-request",
+          "capacityMethod": "runtime-reported",
+          "capacityConfidence": "verified",
+          "measurementConfidence": "estimated"
+        },
+        "actualTokens": 11942,
+        "actualMeasurementMethod": "approximate-full-request",
+        "reductionTokens": 6998,
+        "durationMs": 112.34574599999996,
+        "acceptanceWallMilliseconds": 113.49238700000001
+      },
+      {
+        "beforeComposition": {
+          "payloadHash": "d7e94231577e3af536169fbd2ae5c17d340a90c84a5861ddb53051ab5aeebec6",
+          "serializedBytes": 60905,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 1597,
+                "estimatedTokens": 533
+              },
+              "taskReferences": {
+                "bytes": 67,
+                "estimatedTokens": 23
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 102,
+                "estimatedTokens": 34
+              },
+              "research": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              },
+              "outstandingRequirements": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 20622,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9137,
+              "estimatedTokens": 3046
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 47187,
+              "estimatedTokens": 15729
+            },
+            "checkpoint": {
+              "bytes": 3046,
+              "estimatedTokens": 1016
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 232,
+              "estimatedTokens": 78
+            }
+          }
+        },
+        "sessionModelId": "fixture-model",
+        "provider": "local",
+        "modelId": "fixture-model",
+        "beforeTokens": 20622,
+        "effectiveCapacityTokens": 65536,
+        "usableInputTokens": 64384,
+        "reservedOutputTokens": 1024,
+        "safetyTokens": 128,
+        "nativeSchemaTokens": 186,
+        "activatedMcpSchemaTokens": 0,
+        "componentMeasurementMethod": "serialized-utf8-bytes/3-estimate-not-additive",
+        "triggerTokens": 57945,
+        "measurementMethod": "approximate-full-request",
+        "protectedLiveTailTokens": 8552,
+        "generation": {
+          "sessionId": "c6c-coding",
+          "provider": "local",
+          "stage": "validated",
+          "retries": 0,
+          "failures": [],
+          "committed": false,
+          "snapshotVersion": "da6620d81a2dafda77df5d2b1e4508433dd5785df48dadf901d6e3c9eef70392",
+          "sourceMessageIds": [
+            1,
+            2
+          ],
+          "newSourceMessageIds": [
+            1,
+            2
+          ],
+          "reusedSourceCount": 0,
+          "newEvidenceCount": 2,
+          "reasoning": {
+            "family": "local",
+            "source": "unknown",
+            "reasoning": null,
+            "efforts": [],
+            "canDisable": null,
+            "budget": {
+              "supported": null,
+              "min": 0,
+              "max": null
+            },
+            "intent": {
+              "mode": "off"
+            },
+            "effective": {
+              "mode": "auto",
+              "effort": null,
+              "budget": null
+            },
+            "unsupported": true,
+            "warnings": [
+              "Disable is not supported for this model."
+            ],
+            "settings": {
+              "thinkingBudget": -1,
+              "reasoningEffort": null
+            }
+          },
+          "inputTokens": 2436,
+          "measurement": "approximate-full-request",
+          "outputBudget": 6144,
+          "reservedGenerationTokens": 6144,
+          "attempts": [
+            {
+              "stage": "final",
+              "attempt": 0,
+              "candidateInputTokens": 2442,
+              "candidateInputTokenMethod": "approximate-full-request",
+              "configuredOutputTokens": 6144,
+              "finishReason": "stop",
+              "actualOutputTokens": null,
+              "rejectionPoint": null,
+              "timeToFirstTokenMs": null,
+              "backendTimings": null,
+              "promptProcessingMs": null,
+              "generationDurationMs": null,
+              "providerGenerationTokensPerSecond": null,
+              "reasoningControlStatus": "not-verified",
+              "hiddenReasoningTokens": null,
+              "visibleOutputTokensEstimate": 188,
+              "stream": null,
+              "elapsedMs": 0.11452500000018517,
+              "providerOutputTokensPerSecond": null
+            }
+          ],
+          "normalization": "unchanged",
+          "generatedTokens": 188,
+          "generatedTokenMethod": "approximate-full-request",
+          "providerOutputTokens": null,
+          "validationMs": 0.9911250000000109,
+          "validatedTokens": 2158,
+          "tokenMethod": "approximate-full-request",
+          "protectedBriefTokens": 81,
+          "protectedBriefTokenMethod": "existing-task-brief-estimate",
+          "under5k": true,
+          "withProtectedBriefsTokens": 2239,
+          "targetStatus": "reducible-candidate-under-target",
+          "generationStages": 1,
+          "correctionAttempts": 0,
+          "candidateId": null
+        },
+        "prospectiveTokens": 13665,
+        "prospectiveMeasurementMethod": "approximate-full-request",
+        "sqliteCommitMs": 8.307468000000199,
+        "postCommitMeasurementMs": 0.26981099999989056,
+        "afterComposition": {
+          "payloadHash": "e595f4484842adc5a461b416643081bd2cac12055d46dd310aaac2091d5e78d6",
+          "serializedBytes": 40419,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 2521,
+                "estimatedTokens": 841
+              },
+              "taskReferences": {
+                "bytes": 67,
+                "estimatedTokens": 23
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 102,
+                "estimatedTokens": 34
+              },
+              "research": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              },
+              "outstandingRequirements": {
+                "bytes": 2,
+                "estimatedTokens": 1
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 13665,
+          "measurementMethod": "approximate-full-request",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 9137,
+              "estimatedTokens": 3046
+            },
+            "toolSchemas": {
+              "bytes": 556,
+              "estimatedTokens": 186
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 582,
+              "estimatedTokens": 194
+            },
+            "recentTurns": {
+              "bytes": 165,
+              "estimatedTokens": 55
+            },
+            "protectedToolRounds": {
+              "bytes": 25651,
+              "estimatedTokens": 8551
+            },
+            "checkpoint": {
+              "bytes": 4100,
+              "estimatedTokens": 1367
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 228,
+              "estimatedTokens": 76
+            }
+          }
+        },
+        "softTarget": {
+          "targetTokens": 17000,
+          "preferredRange": [
+            15000,
+            17000
+          ],
+          "status": "within-soft-target",
+          "hardLimitTokens": 64384,
+          "additionalGenerationRequested": false
+        },
+        "commitOutcome": "committed-and-verified",
+        "actualBudgetContract": {
+          "provider": "local",
+          "modelId": null,
+          "runtimeIdentity": null,
+          "configuredContextTokens": null,
+          "runtimeSlots": null,
+          "runtimeContextTokens": 65536,
+          "advertisedContextTokens": null,
+          "capacityTokens": 65536,
+          "reservedOutputTokens": 1024,
+          "reservedSafetyTokens": 128,
+          "usableInputTokens": 64384,
+          "autoCompactionThresholdRatio": 0.9,
+          "autoCompactionTriggerTokens": 57945,
+          "currentInputTokens": 13665,
+          "measurementMethod": "approximate-full-request",
+          "capacityMethod": "runtime-reported",
+          "capacityConfidence": "verified",
+          "measurementConfidence": "estimated"
+        },
+        "actualTokens": 13665,
+        "actualMeasurementMethod": "approximate-full-request",
+        "reductionTokens": 6957,
+        "durationMs": 121.83334600000012,
+        "acceptanceWallMilliseconds": 123.768687
+      }
+    ],
+    "testRuns": [
+      {
+        "id": "coding-2",
+        "exitCode": 1
+      },
+      {
+        "id": "coding-5",
+        "exitCode": 0
+      }
+    ],
+    "generations": [
+      {
+        "inputEstimate": 2094,
+        "reservedOutput": 6144,
+        "controlledDraftConstructionMs": 0.1643860000000359,
+        "newSourceIds": [
+          1,
+          2
+        ]
+      },
+      {
+        "inputEstimate": 2323,
+        "reservedOutput": 6144,
+        "controlledDraftConstructionMs": 0.11527499999988322,
+        "newSourceIds": [
+          1,
+          2
+        ]
+      },
+      {
+        "inputEstimate": 2442,
+        "reservedOutput": 6144,
+        "controlledDraftConstructionMs": 0.07619300000010298,
+        "newSourceIds": [
+          1,
+          2
+        ]
+      }
+    ],
+    "requests": [
+      {
+        "afterTools": 0,
+        "serializedBytes": 10660,
+        "inputEstimate": 3618,
+        "criticalFactVisible": false
+      },
+      {
+        "afterTools": 1,
+        "serializedBytes": 31642,
+        "inputEstimate": 10676,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 2,
+        "serializedBytes": 32866,
+        "inputEstimate": 11148,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 3,
+        "serializedBytes": 33208,
+        "inputEstimate": 11326,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 4,
+        "serializedBytes": 34320,
+        "inputEstimate": 11632,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 5,
+        "serializedBytes": 34878,
+        "inputEstimate": 11882,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 6,
+        "serializedBytes": 35250,
+        "inputEstimate": 11942,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 7,
+        "serializedBytes": 39923,
+        "inputEstimate": 13564,
+        "criticalFactVisible": true
+      },
+      {
+        "afterTools": 8,
+        "serializedBytes": 40419,
+        "inputEstimate": 13665,
+        "criticalFactVisible": true
+      }
+    ],
+    "originalResultsRetrieved": 4,
+    "duplicateExecutions": 0,
+    "sameRunId": "c6c-same-run",
+    "outcome": "pass"
+  },
+  "initialFocusedRegressions": [
+    {
+      "suite": "tests/c5CasualRecovery.test.cjs",
+      "exitCode": 0,
+      "durationMs": 3058.79,
+      "tail": [
+        "1..18",
+        "# tests 18",
+        "# suites 0",
+        "# pass 18",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 2902.568829"
+      ]
+    },
+    {
+      "suite": "tests/c6aMeasurement.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1284.52,
+      "tail": [
+        "1..1",
+        "# tests 1",
+        "# suites 0",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 1242.696448"
+      ]
+    },
+    {
+      "suite": "tests/c6aStructuredOutput.test.cjs",
+      "exitCode": 0,
+      "durationMs": 2268.45,
+      "tail": [
+        "1..17",
+        "# tests 17",
+        "# suites 0",
+        "# pass 17",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 2218.970028"
+      ]
+    },
+    {
+      "suite": "tests/c6bContextSelection.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1518.31,
+      "tail": [
+        "1..16",
+        "# tests 16",
+        "# suites 0",
+        "# pass 16",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 1352.345309"
+      ]
+    },
+    {
+      "suite": "tests/c6cAcceptance.test.cjs",
+      "exitCode": 1,
+      "durationMs": 761.75,
+      "tail": [
+        "1..1",
+        "# tests 1",
+        "# suites 0",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 633.59874"
+      ]
+    },
+    {
+      "suite": "tests/workspaceCompactCandidate.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1201.77,
+      "tail": [
+        "1..55",
+        "# tests 55",
+        "# suites 0",
+        "# pass 55",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 1117.341062"
+      ]
+    },
+    {
+      "suite": "tests/workspaceSafeCompaction.test.cjs",
+      "exitCode": 0,
+      "durationMs": 3432.17,
+      "tail": [
+        "1..38",
+        "# tests 38",
+        "# suites 0",
+        "# pass 38",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 3265.553276"
+      ]
+    },
+    {
+      "suite": "tests/workspaceAdvancedCompaction.test.cjs",
+      "exitCode": 0,
+      "durationMs": 9675.05,
+      "tail": [
+        "1..25",
+        "# tests 25",
+        "# suites 0",
+        "# pass 25",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 9508.685639"
+      ]
+    },
+    {
+      "suite": "tests/workspaceGenerationRuntime.test.cjs",
+      "exitCode": 0,
+      "durationMs": 83.62,
+      "tail": [
+        "1..15",
+        "# tests 15",
+        "# suites 0",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 47.264228"
+      ]
+    },
+    {
+      "suite": "tests/workspaceCompactionActivity.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1021.5,
+      "tail": [
+        "1..26",
+        "# tests 26",
+        "# suites 0",
+        "# pass 26",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 943.697868"
+      ]
+    },
+    {
+      "suite": "tests/workspaceCheckpoints.test.cjs",
+      "exitCode": 0,
+      "durationMs": 393.69,
+      "tail": [
+        "1..4",
+        "# tests 4",
+        "# suites 0",
+        "# pass 4",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 268.89963"
+      ]
+    },
+    {
+      "suite": "tests/w7CasualRecovery.test.cjs",
+      "exitCode": 0,
+      "durationMs": 257.08,
+      "tail": [
+        "1..2",
+        "# tests 2",
+        "# suites 0",
+        "# pass 2",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 189.85878"
+      ]
+    },
+    {
+      "suite": "tests/contextCompaction.test.cjs",
+      "exitCode": 0,
+      "durationMs": 458.57,
+      "tail": [
+        "Context compaction migration, retention, threshold, rolling summary, regeneration, and rollback checks passed."
+      ]
+    },
+    {
+      "suite": "tests/contextOverflowRecovery.test.cjs",
+      "exitCode": 0,
+      "durationMs": 687.37,
+      "tail": [
+        "1..10",
+        "# tests 10",
+        "# suites 0",
+        "# pass 10",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 558.366551"
+      ]
+    },
+    {
+      "suite": "tests/contextRecoveryReliability.test.cjs",
+      "exitCode": 0,
+      "durationMs": 196.68,
+      "tail": [
+        "1..14",
+        "# tests 14",
+        "# suites 0",
+        "# pass 14",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 160.600121"
+      ]
+    },
+    {
+      "suite": "tests/idleCompactionProjection.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1050.51,
+      "tail": [
+        "1..18",
+        "# tests 18",
+        "# suites 0",
+        "# pass 18",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 918.569106"
+      ]
+    },
+    {
+      "suite": "tests/subagentLongHorizonCompaction.test.cjs",
+      "exitCode": 0,
+      "durationMs": 22364.7,
+      "tail": [
+        "1..2",
+        "# tests 2",
+        "# suites 0",
+        "# pass 2",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 22238.975945"
+      ]
+    },
+    {
+      "suite": "tests/workLog.test.cjs",
+      "exitCode": 0,
+      "durationMs": 347.74,
+      "tail": [
+        "1..18",
+        "# tests 18",
+        "# suites 0",
+        "# pass 18",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 224.528562"
+      ]
+    },
+    {
+      "suite": "tests/c6dPerformance.test.cjs",
+      "exitCode": 0,
+      "durationMs": 76.01,
+      "tail": [
+        "1..5",
+        "# tests 5",
+        "# suites 0",
+        "# pass 5",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 40.669464"
+      ]
+    }
+  ],
+  "additionalFinalRegressions": [
+    {
+      "suite": "tests/c6bContextSelection.test.cjs",
+      "exitCode": 0,
+      "durationMs": 1528.75,
+      "tail": [
+        "1..16",
+        "# tests 16",
+        "# suites 0",
+        "# pass 16",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 1330.894256"
+      ]
+    },
+    {
+      "suite": "tests/workspaceGenerationRuntime.test.cjs",
+      "exitCode": 0,
+      "durationMs": 85.82,
+      "tail": [
+        "1..15",
+        "# tests 15",
+        "# suites 0",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 50.10824"
+      ]
+    },
+    {
+      "suite": "tests/workspaceSafeCompaction.test.cjs",
+      "exitCode": 0,
+      "durationMs": 3233.39,
+      "tail": [
+        "1..38",
+        "# tests 38",
+        "# suites 0",
+        "# pass 38",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 3092.462094"
+      ]
+    },
+    {
+      "suite": "tests/workspaceBudgetVerification.test.cjs",
+      "exitCode": 1,
+      "durationMs": 436.72,
+      "tail": [
+        "1..5",
+        "# tests 5",
+        "# suites 0",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 301.581999"
+      ]
+    },
+    {
+      "suite": "tests/contextC3LiveProtection.test.cjs",
+      "exitCode": 1,
+      "durationMs": 355.9,
+      "tail": [
+        "1..5",
+        "# tests 5",
+        "# suites 0",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 235.004495"
+      ]
+    },
+    {
+      "suite": "tests/h1DeletionIpc.test.cjs",
+      "exitCode": 1,
+      "durationMs": 17667.84,
+      "tail": [
+        "1..2",
+        "# tests 2",
+        "# suites 0",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 1",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 17594.091365"
+      ]
+    },
+    {
+      "suite": "tests/reasoningControls.test.cjs",
+      "exitCode": 0,
+      "durationMs": 82.22,
+      "tail": [
+        "1..17",
+        "# tests 17",
+        "# suites 0",
+        "# pass 17",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 45.498636"
+      ]
+    },
+    {
+      "suite": "tests/reasoningRuntime.test.cjs",
+      "exitCode": 0,
+      "durationMs": 72.93,
+      "tail": [
+        "1..7",
+        "# tests 7",
+        "# suites 0",
+        "# pass 7",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 36.031171"
+      ]
+    }
+  ],
+  "finalReruns": [
+    {
+      "log": "/tmp/continuum-c6d/c5-final2.log",
+      "counts": {
+        "tests": 18,
+        "pass": 18,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/w4-final.log",
+      "counts": {
+        "tests": 25,
+        "pass": 25,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/c6a-final.log",
+      "counts": {
+        "tests": 17,
+        "pass": 17,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/w2-final.log",
+      "counts": {
+        "tests": 55,
+        "pass": 55,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/w7-final.log",
+      "counts": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/c6d-final.log",
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    },
+    {
+      "log": "/tmp/continuum-c6d/w3-last.log",
+      "counts": {
+        "tests": 38,
+        "pass": 38,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "failingTests": []
+    }
+  ],
+  "reasoning": {
+    "ordinaryChatSettingsUnchanged": true,
+    "compactionPolicy": [
+      "off when supported",
+      "small supported budget respecting minimum",
+      "lowest advertised supported effort",
+      "unsupported/unverified otherwise"
+    ],
+    "localDisableRequest": "chat_template_kwargs.enable_thinking=false preserved",
+    "backendHonorsDisable": "unverified; emitted reasoning flagged without retry",
+    "maxTokensIsSeparateHiddenBudget": false
+  },
+  "build": {
+    "passed": true,
+    "tail": [
+      "dist/assets/index-MEaa4mm9.js                                     1,634.20 kB \u2502 gzip: 474.41 kB",
+      "",
+      "(!) Some chunks are larger than 500 kB after minification. Consider:",
+      "- Using dynamic import() to code-split the application",
+      "- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks",
+      "- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
+      "\u2713 built in 7.71s"
+    ]
+  },
+  "diffCheck": "passed",
+  "realModel": {
+    "performed": false,
+    "runningLlamaServerFound": false,
+    "prefillMs": null,
+    "timeToFirstTokenMs": null,
+    "generationMs": null,
+    "reasoningTokens": null,
+    "tokensPerSecond": null
+  },
+  "limitations": [
+    "No real serialized source for reported 29K/31K observations",
+    "Category tokens estimated; complete counts retain their own measurement method",
+    "Merged legacy sections can remain within system overhead; mixed task/constraint briefs grouped",
+    "Intermediate validation time included in stage elapsed, not isolated",
+    "No proven real-model speedup or real 15\u201317K result",
+    "Two previously documented assertion failures and H1 cancellation remain"
+  ],
+  "filesChanged": [
+    {
+      "path": "main.js",
+      "sha256": "a0edbd59f184a84e3a8fc60672b4023b1fed4622bd4ade9f74d00cbab6ff23f3"
+    },
+    {
+      "path": "src/main/casualSummary.js",
+      "sha256": "9747e7ce82cb32bc8b522b1c3bbea83f9b6ccc9bb6d88f09f1b473d0a5733224"
+    },
+    {
+      "path": "src/main/compactionPerformance.js",
+      "sha256": "000f6c63ec4a3c02c7352466532976e1d7831e021229e92c70b5726feac84cc4"
+    },
+    {
+      "path": "src/main/reasoningRuntime.js",
+      "sha256": "ace29b70e36b8888bdfbe985051bb1f1136b1ca0450bf61ffb983817e87dad03"
+    },
+    {
+      "path": "src/main/ipcHandlers.js",
+      "sha256": "6d0ff3f18c75d94240f987c39dd89f6b435dc6a050a96e8d089d0d843b31b7a5"
+    },
+    {
+      "path": "src/main/taskCheckpoints.js",
+      "sha256": "d53e3359d073fb30393d50e8f55ef61594b476313fb3bea711da9923bfc909e5"
+    },
+    {
+      "path": "src/main/workspaceCompactCandidate.js",
+      "sha256": "4f265a4fac0385806f2d0606dbd79caae9c9e723f32e5752308ac681784913eb"
+    },
+    {
+      "path": "src/main/workspaceCompaction.js",
+      "sha256": "268d7c932437efd89a7f76e679af28cfa294778386e5e74132830dd62d46a93d"
+    },
+    {
+      "path": "src/main/workspaceGenerationRuntime.js",
+      "sha256": "84191b5d3804f175cd6fe27b2d8d657ecbe2c227274b735a9fdb5d97ccb90a51"
+    },
+    {
+      "path": "tests/c6cAcceptance.test.cjs",
+      "sha256": "b098d08cea6778517a66a357a5f8af037575e2c78493dd124e1c9d25694e54f1"
+    },
+    {
+      "path": "tests/c6dPerformance.test.cjs",
+      "sha256": "169fe418cf9c3a05ace917b9ea5ec200ce45d5448f691e96be91e683190a881d"
+    },
+    {
+      "path": "tests/fixtures/c6dRequestCapture.cjs",
+      "sha256": "e4dced5d33ce40d3ec5988154d4018fd2fbf1565af76d86f80dcd70db3588df3"
+    }
+  ]
+}

@@ -262,7 +262,7 @@ function incompleteToolResponse(finishReason, partialCompletion = {}) {
   return error;
 }
 
-export async function readCompletion(response, onText, signal, now, onThinking, abortLoop = () => {}, onToolStream = () => {}) {
+export async function readCompletion(response, onText, signal, now, onThinking, abortLoop = () => {}, onToolStream = () => {}, onProgress = () => {}) {
   const reasoningDetector = createRepetitionDetector();
   const contentDetector = createRepetitionDetector();
   let loopDetected = false;
@@ -324,6 +324,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     usage = mergeMetrics(usage, chunk.usage ?? chunk.usageMetadata);
     timings = mergeMetrics(timings, chunk.timings);
     const choice = chunk.choices?.find((entry) => entry.index === 0) ?? chunk.choices?.[0];
+    onProgress({ usage, delta: choice?.delta ?? {} });
     if (!choice) return;
     if (choice.finish_reason) finishReason = choice.finish_reason;
     const delta = choice.delta ?? {};
@@ -466,7 +467,7 @@ export async function runMemoryChat({
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
   casualMode = false, onToolLimit = async () => false,
   projectId = null, workspaceRoot, rewindFailedTurnRange, failedToolReason, onContextRewind = () => {}, projectToolLoopGuard = null,
-  toolFailureCircuitBreaker = null, onCircuitBreak = () => {}, onPhase = () => {},
+  toolFailureCircuitBreaker = null, onCircuitBreak = () => {}, onPhase = () => {}, onLiveUsage = () => {},
   now = () => performance.now(), toolImageMode = 'auto', decodeImage,
   // Phase 2.1 live steering hooks. The caller (engine:chat) owns the run-scoped
   // queue and passes bound callbacks; this loop only asks at model-request
@@ -678,7 +679,7 @@ export async function runMemoryChat({
         localModel, contextSize: activeReasoningContext });
     }
     if (finalResponseOnly) tools = [];
-    const requestPayload = {
+    let requestPayload = {
       model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage, { workspaceRoot })) : sanitizeChatMessages(history, decodeImage, { workspaceRoot }), tools,
       tool_choice: finalResponseOnly ? 'none' : 'auto',
       cache_prompt: true,
@@ -713,7 +714,7 @@ export async function runMemoryChat({
             ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage, { workspaceRoot })) : sanitizeChatMessages(target, decodeImage, { workspaceRoot }) };
         } });
       signal?.throwIfAborted();
-      if (result?.compressed) {
+      if (result?.compressed || result?.optionalContinued) {
         history.splice(0, history.length, ...rebuiltHistory);
         prefixLength = history.length - result.tail.length;
         Object.assign(requestPayload, result.payload);
@@ -737,28 +738,37 @@ export async function runMemoryChat({
         // Only the historical prefix is rebuilt. This run's fully paired tool
         // transcript/continuations survive; never replay tool execution.
         const tail = history.slice(prefixLength);
-        const rebuilt = await recoverContext({ contextWindowLimit, signal: requestSignal });
+        let prepared;
+        // Build the exact request before storage activation, including RAG,
+        // tools, sampling and this run's paired tail. Reuse it after commit.
+        const prepareRecovery = async ({ messages }) => {
+          const prefix = messages.map(message => ({ ...message }));
+          await addRetrievedContext(prefix);
+          const nextTools = finalResponseOnly ? [] : getChatTools ? await getChatTools() : tools;
+          const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
+          const nextReasoning = getReasoning ? await getReasoning({ contextSize: contextWindowLimit })
+            : !reasoning ? legacyLocalReasoning({ reasoningEffort, thinkingBudget: updated.thinking_budget, localModel, contextSize: contextWindowLimit }) : activeReasoning;
+          const nextHistory = [...prefix, ...tail];
+          const next = { ...requestPayload };
+          delete next.reasoning_effort; delete next.reasoning_budget_tokens; delete next.reasoning;
+          Object.assign(next, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(nextHistory, decodeImage, { workspaceRoot })) : sanitizeChatMessages(nextHistory, decodeImage, { workspaceRoot }), tools: nextTools,
+            temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
+            repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens }, reasoningRequestFields(nextReasoning, cloud));
+          requestSignal.throwIfAborted();
+          prepared = { prefix, nextHistory, nextTools, nextReasoning, payload: next };
+          return next;
+        };
+        const rebuilt = await recoverContext({ contextWindowLimit, signal: requestSignal, prepareRecovery });
         if (!rebuilt) return null;
-        const prefix = rebuilt.messages.map(message => ({ ...message }));
-        await addRetrievedContext(prefix);
+        if (!prepared) await prepareRecovery(rebuilt);
         requestSignal.throwIfAborted();
-        history.splice(0, history.length, ...prefix, ...tail);
-        prefixLength = prefix.length;
-        if (getChatTools && !finalResponseOnly) tools = await getChatTools();
-        if (finalResponseOnly) tools = [];
+        history.splice(0, history.length, ...prepared.nextHistory);
+        prefixLength = prepared.prefix.length;
+        tools = prepared.nextTools;
         allowedNames = new Set(tools.map(tool => tool.function.name));
-        const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
         activeReasoningContext = contextWindowLimit;
-        if (getReasoning) activeReasoning = await getReasoning({ contextSize: contextWindowLimit });
-        else if (!reasoning) activeReasoning = legacyLocalReasoning({ reasoningEffort, thinkingBudget: updated.thinking_budget,
-          localModel, contextSize: contextWindowLimit });
-        delete requestPayload.reasoning_effort;
-        delete requestPayload.reasoning_budget_tokens;
-        delete requestPayload.reasoning;
-        Object.assign(requestPayload, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage, { workspaceRoot })) : sanitizeChatMessages(history, decodeImage, { workspaceRoot }), tools,
-          temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
-          repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens },
-          reasoningRequestFields(activeReasoning, cloud));
+        activeReasoning = prepared.nextReasoning;
+        requestPayload = prepared.payload;
         recordAdvertisement();
         return requestPayload;
       } : undefined,
@@ -820,6 +830,25 @@ export async function runMemoryChat({
       },
     });
     let result;
+    // Providers usually publish token counters only at request completion.
+    // Use a rough text estimate in between, excluding image payloads. These
+    // snapshots are display-only; onStats still owns measured accounting.
+    let outputCharacters = 0, lastLiveUpdate = -Infinity;
+    const promptCharacters = cloud ? JSON.stringify(requestPayload, (key, value) =>
+      ['image_url', 'image', 'data'].includes(key) ? undefined : value).length : 0;
+    const publishLiveUsage = ({ usage, delta = {} } = {}) => {
+      outputCharacters += (delta.content?.length ?? 0) + (delta.reasoning_content?.length ?? delta.reasoning?.length ?? 0)
+        + (delta.tool_calls ?? []).reduce((sum, call) => sum + (call.function?.arguments?.length ?? 0), 0);
+      if (now() - lastLiveUpdate < 200) return;
+      lastLiveUpdate = now();
+      const current = phaseStats({ usage, startTime: phaseStart, endTime: now() });
+      const promptTokens = current.promptTokens ?? Math.ceil(promptCharacters / 4);
+      const completionTokens = current.completionTokens ?? Math.ceil(outputCharacters / 4);
+      onLiveUsage({ phases, current: { ...current, promptTokens, completionTokens,
+        uncachedInputTokens: current.uncachedInputTokens ?? promptTokens,
+        providerCost: current.providerCost ?? null } });
+    };
+    if (cloud) publishLiveUsage();
     try { result = await readCompletion(response, thinking.text, requestSignal, now, thinking.reasoning, () => loopController.abort(), event => {
       let step = executionSteps.find(step => step.id === event.id);
       if (event.type === 'tool_start') {
@@ -834,7 +863,7 @@ export async function runMemoryChat({
       }
       onToolStream(event);
       publishSteps();
-    }); }
+    }, cloud ? publishLiveUsage : undefined); }
     catch (error) {
       const partial = error.partialCompletion || { endTime: now() };
       phases.push({ ...phaseStats({ ...partial, startTime: phaseStart }), raw: { usage: partial.usage, timings: partial.timings } });
@@ -988,7 +1017,9 @@ export async function runMemoryChat({
       }
       signal?.throwIfAborted();
       formatted ??= formatToolResult(output, entry.call.function.name, { workspaceRoot });
-      history.push({ role: 'tool', tool_call_id: entry.call.id, content: guardToolContent(formatted.content) });
+      const guarded = guardToolContent(formatted.content);
+      const evidenceNotice = projectId && JSON.stringify(guarded) !== JSON.stringify(formatted.content) ? `\n[Stored evidence: tool call ${entry.call.id}. Retrieve original via get_recent_chat_history with source_step_id=${JSON.stringify(entry.call.id)}; activate native memory tools if needed. Historical observation may be stale.]` : '';
+      history.push({ role: 'tool', tool_call_id: entry.call.id, content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded });
       toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
       if (projectId && failedToolReason) {
         if (failedToolReason(output, entry.call.function.name)) batchFailures++;

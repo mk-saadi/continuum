@@ -351,3 +351,48 @@ test('W3 defers a pending child barrier while the current request still fits ins
     assert.equal(f.owner.signal.aborted, false);
   } finally { children.listChildren = original; }
 });
+
+function optionalFailure(f, { finalTokens = 82169, estimated = false, mutate = () => {} } = {}) {
+  let calls = 0;
+  return { ...f.options, force: false,
+    inject: stage => { if (stage === 'optional-fallback-build') mutate(); },
+    generate: async () => ({ choices: [{ finish_reason: 'stop', message: { content: '{bad Gemma JSON}' } }] }),
+    measure: async request => {
+      const tokens = ++calls === 1 ? 82169 : request.messages[0]?.content?.includes('Create a Workspace') ? 1000 : finalTokens;
+      const method = estimated ? 'approximate-full-request' : 'server-template-tokenizer';
+      const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 90112, payload: request, currentInputTokens: tokens, measurementMethod: method });
+      return { tokens, method, budgetContract, limit: 90112, budget: budgetContract.usableInputTokens };
+    } };
+}
+test('C6-A optional invalid candidate safely continues only after final exact fit, with original pairs and no checkpoint', async () => {
+  const f = fixture(), original = history(f.id);
+  const result = await service.compactAtBoundary(optionalFailure(f));
+  assert.equal(result.optionalContinued, true); assert.equal(result.compressed, false);
+  assert.equal(result.diagnostics.beforeTokens, 82169); assert.equal(result.diagnostics.triggerTokens, 80064);
+  assert.equal(result.diagnostics.usableInputTokens, 88960);
+  assert.deepEqual(result.tail, f.tail); assert.equal(service.paired(result.payload.messages), true);
+  assert.equal(history(f.id), original); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+  await result.validateDispatch();
+  require('./../src/main/lspExecutionContext').invalidateRules([f.id]);
+  await assert.rejects(result.validateDispatch(), /runtime-state-changed/);
+});
+for (const [name, change, code] of [
+  ['oversized', { finalTokens: 90000 }, 'prospective-context-overflow'],
+  ['estimated', { estimated: true }, 'optional-fallback-measurement-unavailable'],
+]) test(`C6-A optional fallback rejects ${name} final request`, async () => {
+  const f = fixture(), original = history(f.id);
+  await assert.rejects(service.compactAtBoundary(optionalFailure(f, change)), { code });
+  assert.equal(history(f.id), original); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+for (const name of ['cancel', 'delete', 'source', 'permission', 'owner']) test(`C6-A ${name} during fallback prevents dispatch`, async () => {
+  const f = fixture();
+  const mutate = () => {
+    if (name === 'cancel') f.owner.abort(Object.assign(new Error('stop'), { code: 'user-cancelled' }));
+    if (name === 'delete') db.prepare('INSERT INTO deleted_sessions(id) VALUES (?)').run(f.id);
+    if (name === 'source') db.prepare('UPDATE messages SET content = content || ? WHERE id=?').run('changed', f.persistence.messageId);
+    if (name === 'permission') require('../src/main/lspExecutionContext').invalidateRules([f.id]);
+    if (name === 'owner') engine.activeStreams.set(f.id, new AbortController());
+  };
+  await assert.rejects(service.compactAtBoundary(optionalFailure(f, { mutate })));
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});

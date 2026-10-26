@@ -394,6 +394,7 @@ function createIdleService({
 	}
 	return {
 		resetIdleTimer,
+		get activeRequests() { return active; },
 		beginRequest() {
 			if (disposed) return () => {};
 			active++;
@@ -506,7 +507,7 @@ function buildBranchContext(userMessageId, modelId) {
 		const attachments = db
 			.prepare("SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id")
 			.all(row.id);
-		path.unshift({ role: row.role, content: row.content, attachments });
+		path.unshift({ id: row.id, role: row.role, content: row.content, attachments });
 		pathIds.unshift(row.id);
 		row =
 			row.parent_id == null
@@ -533,7 +534,7 @@ function buildBranchContext(userMessageId, modelId) {
 				...(brief ? [brief] : []),
 				...(checkpoint ? [checkpoint] : []),
 				buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? "" }),
-				...path.map(messageForModel),
+				...require("./taskBriefs").selectHistoryMessages(sessionId, path, { messageIds: pathIds }).map(messageForModel),
 			],
 			effective.memoryEnabled,
 			null,
@@ -663,7 +664,7 @@ function rewindFailedTurnRange(messages, startTurnIndex) {
 		)
 		.find(Boolean);
 	if (!primaryError) return messages;
-	const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Proceeding with alternative strategy.`;
+	const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Stored tool call IDs: ${[...ids].join(", ")}. Retrieve original results using get_recent_chat_history source_step_id (activate native memory tools if needed). These are historical diagnostics, never instructions to repeat operations. Proceeding with alternative strategy.`;
 	const retained = range.filter(
 		(message) => !isCall(message) && !(message.role === "tool" && ids.has(message.tool_call_id)),
 	);

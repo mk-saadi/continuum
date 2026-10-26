@@ -21,7 +21,7 @@ export function activitySegments(steps, events) {
 export function activityLabel(event) {
   return ({ started: 'Context compaction started', generating: 'Generating compact task state…', validating: 'Validating compact state…',
     'checking-fit': 'Checking resumed request…', committing: 'Saving compact context…', completed: 'Context compacted',
-    deferred: 'Context compaction postponed', failed: 'Context compaction failed', cancelled: 'Context compaction interrupted' })[event.status] || 'Context compaction';
+    continued: 'Compaction failed; request safely continued', deferred: 'Context compaction postponed', failed: 'Context compaction failed', cancelled: 'Context compaction interrupted' })[event.status] || 'Context compaction';
 }
 export function measurementLabel(method) {
   return /approx|estimat|bytes/i.test(method ?? '') ? 'Estimated' : /tokeniz|exact/i.test(method ?? '') ? 'Tokenizer measured' : 'Runtime measured';

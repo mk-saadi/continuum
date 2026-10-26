@@ -93,6 +93,7 @@ function templateIncludesSchema(prompt, schema) {
 // verification measure a prospective prompt without sending it.
 function createPromptMeasurer(fetchImpl) {
   const counts = new Map();
+  const pending = new Map();
   async function measure(url, payload, options = {}, knownLimit) {
     const runtimeAtStart = runtimeIdentityFor(url);
     const signal = options.signal;
@@ -130,7 +131,7 @@ function createPromptMeasurer(fetchImpl) {
     // props. Cache is bounded; unavailable props and images are never cached.
     const identity = typeof props?.model_path === 'string' && typeof props?.chat_template === 'string' && JSON.stringify([props.model_path, props.chat_template, props.default_generation_settings?.n_ctx]);
     const key = !multimodal && identity && createHash('sha256').update(url + (options.runtimeIdentity ?? runtimeAtStart ?? '') + identity + JSON.stringify(payload)).digest('hex');
-    if (!multimodal && key && counts.has(key)) { ({ tokens, method, note } = counts.get(key)); }
+    if (!multimodal && key && counts.has(key) && (counts.get(key).expiresAt ?? Infinity) > Date.now()) { ({ tokens, method, note } = counts.get(key)); }
     else if (!multimodal) {
       try {
         // Strict templates (e.g. Qwen) accept a single leading system turn
@@ -156,13 +157,14 @@ function createPromptMeasurer(fetchImpl) {
         if (!payload.messages.some(message => message.role === 'user')) note = 'no-user-message';
         else if (error?.status === 500 && /no user query|system message must be/i.test(error?.responseBody ?? '')) note = 'template-rejected-prompt-shape';
         else if (/tools absent from template/i.test(error?.message ?? '')) note = 'tools-absent-from-template';
+        else if ([404, 405, 501].includes(error?.status)) note = 'tokenizer-operation-unsupported';
         else note = 'tokenizer-measurement-failed';
       }
     }
     tokens ??= approximateTokens(payload);
-    if (!multimodal && key && !counts.has(key)) {
+    if (!multimodal && key && method !== 'server-template-tokenizer' && (counts.get(key)?.expiresAt ?? 0) <= Date.now()) {
       if (counts.size >= 64) counts.delete(counts.keys().next().value);
-      counts.set(key, { tokens, method, note });
+      counts.set(key, { tokens, method, note, expiresAt: Date.now() + 1000 });
     }
     if (runtimeAtStart !== runtimeIdentityFor(url)) throw new ContextBudgetError('backend changed during measurement');
     const budgetContract = createRuntimeBudget({ modelId: payload.model,
@@ -171,11 +173,21 @@ function createPromptMeasurer(fetchImpl) {
       runtimeContextTokens, runtimeSlots: Number.isSafeInteger(props?.total_slots) && props.total_slots > 0 ? props.total_slots : null, fallbackCeilingTokens: knownLimit ?? 8192, payload, currentInputTokens: tokens, measurementMethod: method });
     const imageCount = payload.messages.reduce((n, message) => n + (Array.isArray(message.content)
       ? message.content.filter(part => part?.type === 'image_url').length : 0), 0);
-    return { tokens, method, limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,
+    return { tokens, method, measurementStatus: method === 'server-template-tokenizer' ? 'verified' : note === 'tokenizer-operation-unsupported' ? 'unsupported' : note === 'tokenizer-measurement-failed' ? 'temporarily-unavailable' : 'estimated', limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,
       budgetContract, imageCount, imageAllowanceTokens: imageCount * 4096,
       ...(multimodal ? { note: 'image-tokens-estimated' } : note ? { note } : {}) };
   }
-  return measure;
+  return (url, payload, options = {}, knownLimit) => {
+    // Coalesce only callers sharing cancellation ownership.
+    const key = JSON.stringify([url, payload, options.contextWindowLimit, options.runtimeIdentity, knownLimit]);
+    const existing = pending.get(key);
+    if (existing && existing.signal === options.signal) return existing.promise;
+    const promise = measure(url, payload, options, knownLimit).finally(() => {
+      if (pending.get(key)?.promise === promise) pending.delete(key);
+    });
+    pending.set(key, { signal: options.signal, promise });
+    return promise;
+  };
 }
 function createContextGuardedFetch(fetchImpl) {
   const measure = createPromptMeasurer(fetchImpl);
@@ -197,7 +209,7 @@ function createContextGuardedFetch(fetchImpl) {
       try { rebuilt = await contextRecovery({ payload, contextWindowLimit: knownLimit ?? contextWindowLimit ?? 8192, reason }); }
       catch (error) {
         options.signal?.throwIfAborted();
-        if (error?.name === 'AbortError' || error?.code === 'CONTEXT_BUDGET_EXCEEDED' || error?.code === 'SUBAGENT_BUDGET_EXCEEDED') throw error;
+        if (error?.name === 'AbortError' || (typeof error?.code === 'string' && error.code.startsWith('casual-')) || error?.code === 'CONTEXT_BUDGET_EXCEEDED' || error?.code === 'SUBAGENT_BUDGET_EXCEEDED') throw error;
         throw new ContextBudgetError(`summarization/rebuild failed: ${error.message}`);
       }
       options.signal?.throwIfAborted();

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { formatUsd } from '../lib/costFormat.mjs';
+import { activeReplyVariant } from '../lib/messageIdentity.mjs';
 import {
 	LuActivity,
 	LuBot,
@@ -124,6 +126,21 @@ export default function RightSidebar({
 	runtime = null,
 }) {
 	const sections = isWorkspace ? WORKSPACE_SECTIONS : CASUAL_SECTIONS;
+    const latestResponse = [...(runtime?.messages ?? [])].reverse().find(message => message.role === 'assistant');
+    const responseCost = runtime?.streaming ? runtime?.liveResponseCost
+        : latestResponse ? activeReplyVariant(latestResponse).stats?.cost : null;
+    const [sessionSpend, setSessionSpend] = useState(null);
+    useEffect(() => {
+        let active = true;
+        if (!open || !sessionId || !window.api?.getSessionCost) return;
+        const refresh = () => window.api.getSessionCost(sessionId)
+            .then(cost => { if (active) setSessionSpend({ sessionId, ...cost }); })
+            .catch(() => { if (active) setSessionSpend(null); });
+        refresh();
+        const timer = runtime?.streaming ? setInterval(refresh, 2000) : null;
+        return () => { active = false; if (timer) clearInterval(timer); };
+    }, [open, sessionId, runtime?.streaming, latestResponse?.stats?.cost?.total]);
+    const chatSpend = sessionSpend?.sessionId === sessionId ? sessionSpend : null;
 	const tabs = useRef([]);
 	const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
 	const [prompt, setPrompt] = useState("");
@@ -869,6 +886,32 @@ export default function RightSidebar({
 					</button>
 				</header>
 
+                <div className="mx-4 mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" aria-label="Response cost">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-[var(--text-secondary)]">{runtime?.streaming ? 'Live response estimate' : 'Latest response cost'}</span>
+                            <span className="font-semibold tabular-nums text-[var(--accent)]">
+                                {!cloudChat ? 'Local · no charge' : formatUsd(responseCost?.total)}
+                            </span>
+                        </div>
+                        {cloudChat && <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                            {runtime?.streaming ? responseCost?.total == null
+                                ? 'Waiting for pricing or provider usage.'
+                                : runtime?.liveResponseCost?.partial
+                                ? 'Partial estimate; some requests have no pricing.'
+                                : 'Estimated tokens while generating. Final usage may change the charge.'
+                                : 'USD · Cost of the latest response, including tool follow-ups.'}
+                        </p>}
+                        <div className="mt-3 border-t border-[var(--border)] pt-3">
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-[var(--text-secondary)]">Total spent in this chat</span>
+                                <span className="font-semibold tabular-nums">{chatSpend?.partial && chatSpend.total != null ? '≥ ' : ''}{formatUsd(chatSpend?.total)}</span>
+                            </div>
+                            <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                                {chatSpend?.partial ? 'Known subtotal; some turns have no complete cost record.'
+                                    : 'Recorded USD spend, including agent runs. Kept after compaction.'}
+                            </p>
+                        </div>
+                </div>
 				{!isWorkspace && renderResetBlock(false)}
 
 				<div

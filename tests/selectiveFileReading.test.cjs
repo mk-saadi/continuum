@@ -91,14 +91,14 @@ test('1-7. schema, compatibility, defaults, page cap, and existing limits', asyn
 	assert.equal(definition.parameters.properties.start_line.minimum, 1);
 	assert.equal(definition.parameters.properties.end_line.minimum, 1);
 
-	// Existing whole-file read is byte-for-byte compatible.
+	// Small default pages retain exact source bytes with R2 navigation metadata.
 	const full = await call(root, 'read_project_file', { relative_path: 'full.txt' });
 	assert.equal(full.success, true);
 	assert.equal(full.content, 'line one\nline two\n');
 	assert.equal(full.content_hash, wireHash('line one\nline two\n'));
 	assert.equal(full.size_bytes, Buffer.byteLength('line one\nline two\n'));
-	assert.equal(Object.hasOwn(full, 'total_lines'), false);
-	assert.equal(Object.hasOwn(full, 'actual_start_line'), false);
+	assert.equal(full.total_lines, 2);
+	assert.equal(full.actual_start_line, 1);
 
 	// Existing conditional unchanged read is unchanged.
 	const unchanged = await call(root, 'read_project_file', {
@@ -108,11 +108,12 @@ test('1-7. schema, compatibility, defaults, page cap, and existing limits', asyn
 	assert.equal(unchanged.not_modified, true);
 	assert.equal(Object.hasOwn(unchanged, 'content'), false);
 
-	// Existing whole-file 20,000-character bound is unchanged.
+	// R2 refuses to label a partial long line complete.
 	const large = await call(root, 'read_project_file', { relative_path: 'large.txt' });
-	assert.equal(large.truncated, true);
-	assert.equal(large.content.length, 20019);
-	assert.ok(large.content.endsWith('\n[Output truncated]'));
+	assert.equal(large.code, 'LINE_TOO_LONG');
+	assert.equal(large.content_truncated, true);
+	assert.equal(large.next_char_start, 0);
+	assert.equal(Object.hasOwn(large, 'content'), false);
 
 	const pageRoot = makeWorkspace({ 'many.txt': numbered(1000) });
 	const page = await call(pageRoot, 'read_project_file', { relative_path: 'many.txt', start_line: 1, end_line: 10 });
@@ -340,22 +341,22 @@ test('28-34. path policy, permissions, child isolation, and no write side effect
 	fs.writeFileSync(path.join(base, 'outside.txt'), 'outside one\noutside two\n');
 	fs.symlinkSync(path.join(base, 'outside.txt'), path.join(root, 'outside-link.txt'));
 
-	// Range reads use exactly the existing readablePath policy: relative paths
-	// resolve from the workspace, while the reader's intentionally broader
-	// outside read behavior is unchanged (no new path surface is introduced).
+	// R2 enforces workspace containment on default and ranged reads.
 	const inside = await call(root, 'read_project_file', { relative_path: 'inside.txt', start_line: 25, end_line: 26 });
 	assert.equal(inside.success, true);
 	assert.equal(inside.content, 'line 25\nline 26\n');
 
 	const traversalFull = await call(root, 'read_project_file', { relative_path: '../outside.txt' });
 	const traversalRange = await call(root, 'read_project_file', { relative_path: '../outside.txt', start_line: 2, end_line: 2 });
-	assert.equal(traversalRange.content, 'outside two\n');
-	assert.equal(traversalRange.content_hash, traversalFull.content_hash);
+	assert.equal(traversalFull.success, false);
+	assert.equal(traversalRange.success, false);
+	assert.equal(Object.hasOwn(traversalRange, 'content_hash'), false);
 
 	const linkFull = await call(root, 'read_project_file', { relative_path: 'outside-link.txt' });
 	const linkRange = await call(root, 'read_project_file', { relative_path: 'outside-link.txt', start_line: 1, end_line: 1 });
-	assert.equal(linkRange.content, 'outside one\n');
-	assert.equal(linkRange.content_hash, linkFull.content_hash);
+	assert.equal(linkFull.success, false);
+	assert.equal(linkRange.success, false);
+	assert.equal(Object.hasOwn(linkRange, 'content_hash'), false);
 
 	const absoluteRange = await call(root, 'read_project_file', { relative_path: path.join(root, 'inside.txt'), start_line: 1, end_line: 1 });
 	assert.equal(absoluteRange.success, true);

@@ -2,7 +2,7 @@
 // Reasoning is not a renderer-supplied wire parameter. The selected intent is
 // persisted through the settings APIs, and the main process resolves it against
 // the actual model/provider when it builds each request.
-export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, permissionMode, signal, onText, onStats, onTool, onThinking, onIndexing, onExecutionSteps, onPhase, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
+export async function runDesktopChat({ activeChatProvider, modelId, modelName, displayName, messages, permissionMode, signal, onText, onStats, onLiveCost, onTool, onThinking, onIndexing, onExecutionSteps, onPhase, onMessageCreated, messageId, sessionId, regenerate = false, branchMessageId, newContent, memoryEnabled = true }) {
   onIndexing?.(null);
   const api = window.chatAPI;
   if (!api) throw new Error('Chat is available in the desktop app.');
@@ -37,6 +37,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   };
   const unsubscribe = api.onEvent(event => {
     if (event.requestId !== requestId || (signal?.aborted && !['step-update', 'message-created', 'stats'].includes(event.type))) return;
+    if (event.type === 'live-cost') { onLiveCost?.(event.cost); return; }
     if (event.type === 'message-created') { onMessageCreated?.(event.messageId); return; }
     if (event.type === 'step-update') executionSteps = liveSteps = event.executionSteps;
     else if (event.type === 'tool_start') {

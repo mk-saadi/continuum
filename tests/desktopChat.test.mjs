@@ -240,3 +240,23 @@ test('permission choice reaches normal and regenerated requests', async () => {
     assert.deepEqual(requests.map(request => request.permissionMode), ['read_only', 'read_only', 'workspace_write', 'workspace_write', 'ask_approval', 'ask_approval', 'full_access', 'full_access']);
   } finally { globalThis.window = oldWindow; }
 });
+
+test('live costs are scoped to the active request and do not replace settled stats', async () => {
+  const oldWindow = globalThis.window;
+  const costs = [], stats = [];
+  let listener;
+  globalThis.window = { chatAPI: {
+    onEvent: callback => { listener = callback; return () => {}; },
+    run: async ({ requestId }) => {
+      listener({ requestId: 'other', type: 'live-cost', cost: { total: 999 } });
+      listener({ requestId, type: 'live-cost', cost: { total: 0.003, estimated: true } });
+      listener({ requestId, type: 'live-cost', cost: { total: 0.005, estimated: true } });
+      return { stats: { cost: { total: 0.004 } } };
+    },
+  } };
+  try {
+    await runDesktopChat({ onLiveCost: cost => costs.push(cost.total), onStats: value => stats.push(value) });
+    assert.deepEqual(costs, [0.003, 0.005]);
+    assert.deepEqual(stats, [{ cost: { total: 0.004 } }]);
+  } finally { globalThis.window = oldWindow; }
+});

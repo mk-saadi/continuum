@@ -42,12 +42,12 @@ function readStoredState() {
 }
 
 export function TabProvider({ children }) {
-  // Restore synchronously during the first render so the very first paint
-  // already shows the previous session layout — no empty-shell flash.
+  // Parse identities synchronously; mount chat panes only after validating
+  // durable references, so restoration cannot race session measurement.
   const [state, setState] = useState(() => readStoredState() ?? singleTab(newDefaultTab()));
-  const hydrated = useRef(false);
   // Latest committed state, kept current for the unload backstop and for the
   // close handlers, which need the live tab list before the next render.
+  const [restored, setRestored] = useState(false);
   const stateRef = useRef(state);
   // The last tab-state payload known to be on disk. Seeded with the state we
   // just restored/created so mounting never rewrites unchanged storage, and
@@ -135,39 +135,49 @@ export function TabProvider({ children }) {
     }
   }, [state]);
 
-  // Validate restored tabs against the database, then drop the orphaned ones.
-  // Runs after first paint so a chat sidebar render never waits on this.
+  // Validate restored tabs before their panes can perform session work.
+  // Each effect invocation owns its completion flag (including StrictMode).
   useEffect(() => {
-    if (hydrated.current) return;
-    hydrated.current = true;
     let active = true;
     (async () => {
       const parsed = readStoredState();
-      if (!parsed) return;
+      if (!parsed) { if (active) setRestored(true); return; }
       let live = null;
+      let deleted = new Set();
       try {
         // Shares the in-flight listing with mounting panes (dedup only; errors
         // still fall through to keeping tabs).
+        deleted = new Set(await window.memoryPalace?.validateSessionReferences?.(parsed.tabs.map(tab => tab.sessionId)) ?? []);
         const groups = await fetchSessionGroups(window.memoryPalace);
         live = new Set(groups?.flatMap(group => group.sessions ?? []).map(session => session.id));
       } catch {
+        if (active && deleted.size) commit(current => {
+          const tabs = current.tabs.filter(tab => !deleted.has(tab.sessionId));
+          return tabs.length ? { ...current, tabs, activeTabId: tabs.some(tab => tab.id === current.activeTabId) ? current.activeTabId : tabs[0].id } : singleTab(newDefaultTab());
+        });
+        if (active) setRestored(true);
         return; // Unknown: keep tabs rather than discard the user's workspace.
       }
       if (!active || !live) return;
       commit(current => dropOrphanTabs(
-        { tabs: current.tabs, activeTabId: current.activeTabId },
+        { tabs: current.tabs.filter(tab => !deleted.has(tab.sessionId)), activeTabId: current.activeTabId },
         sessionId => live.has(sessionId),
       ) ?? singleTab(newDefaultTab()));
+      setRestored(true);
     })();
     return () => { active = false; };
   }, [commit]);
 
-  useEffect(() => window.memoryPalace?.onSessionDeleted?.(({ sessionId }) => {
-    commit(current => {
+  useEffect(() => {
+    const discard = ({ sessionId }) => commit(current => {
       const tab = current.tabs.find(item => item.sessionId === sessionId);
       return tab ? closeTabState(current, tab.id, newDefaultTab) : current;
     });
-  }), [commit]);
+    const off = window.memoryPalace?.onSessionDeleted?.(discard);
+    const unavailable = event => discard(event.detail);
+    window.addEventListener('continuum-session-unavailable', unavailable);
+    return () => { off?.(); window.removeEventListener('continuum-session-unavailable', unavailable); };
+  }, [commit]);
 
   // Best-effort flush when the window is going away. The persistence effect
   // above already writes on every committed change, so this only matters if
@@ -193,7 +203,7 @@ export function TabProvider({ children }) {
   const value = useMemo(() => ({ ...state, activeTab: state.tabs.find(tab => tab.id === state.activeTabId),
     updateTab, openTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved }),
     [state, updateTab, openTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved]);
-  return <TabContext.Provider value={value}>{children}</TabContext.Provider>;
+  return <TabContext.Provider value={value}>{restored ? children : null}</TabContext.Provider>;
 }
 
 export function useTabs() {

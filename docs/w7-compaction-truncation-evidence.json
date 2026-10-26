@@ -1,0 +1,321 @@
+{
+  "work": "W7",
+  "date": "2026-10-26",
+  "scope": "deterministic isolated fixtures; no live model inference or live database writes",
+  "rootCause": {
+    "certain": "output-truncated is raised on explicit length/max_tokens/model_length completion metadata, before JSON parsing or activation",
+    "defects": [
+      "Final output allowance could shrink to 1024 before staged reduction triggered",
+      "Optional local reasoning shared the generation allowance",
+      "No concise output target; truncation retries reused output cap without specific size correction",
+      "Intermediate output is limited to 4096 and final generation to 6144"
+    ],
+    "liveAttribution": "Original response envelope and usage unavailable; actual failing stage, token allowance, and reasoning share cannot be recovered from the reported prepared-context meter."
+  },
+  "controlledBeforeAfter": {
+    "fixture": "W7 reported input controlled before-after",
+    "before": {
+      "inputTokens": 32486,
+      "outputBudget": 2458,
+      "finishReason": "length",
+      "actualOutputTokens": 2458,
+      "attempts": 1
+    },
+    "after": {
+      "stages": 3,
+      "outputBudget": 6144,
+      "attempts": [
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "configuredOutputTokens": 4096,
+          "finishReason": "stop",
+          "actualOutputTokens": 700,
+          "rejectionPoint": null,
+          "stream": null,
+          "elapsedMs": 0
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "configuredOutputTokens": 4096,
+          "finishReason": "stop",
+          "actualOutputTokens": 700,
+          "rejectionPoint": null,
+          "stream": null,
+          "elapsedMs": 0
+        },
+        {
+          "stage": "final",
+          "attempt": 0,
+          "configuredOutputTokens": 6144,
+          "finishReason": "stop",
+          "actualOutputTokens": 700,
+          "rejectionPoint": null,
+          "stream": null,
+          "elapsedMs": 0
+        }
+      ]
+    },
+    "provenance": "deterministic provider and token measurement; not live Qwen"
+  },
+  "boundedCorrection": {
+    "fixture": "W7 bounded truncation correction",
+    "attempts": [
+      {
+        "stage": "final",
+        "attempt": 0,
+        "configuredOutputTokens": 6144,
+        "finishReason": "length",
+        "actualOutputTokens": 6144,
+        "rejectionPoint": "output-truncated",
+        "stream": null,
+        "elapsedMs": 0
+      },
+      {
+        "stage": "final",
+        "attempt": 1,
+        "configuredOutputTokens": 6144,
+        "finishReason": "stop",
+        "actualOutputTokens": 700,
+        "rejectionPoint": null,
+        "stream": null,
+        "elapsedMs": 0
+      }
+    ]
+  },
+  "runtime": {
+    "configuredTotalTokens": 70000,
+    "verifiedPerRequestTokens": 35072,
+    "reportedSlots": 2,
+    "usableInputTokens": 33920,
+    "triggerTokens": 30528,
+    "paddingReconstruction": {
+      "alignmentAssumption": 256,
+      "roundedTotalTokens": 70144,
+      "perRequestTokens": 35072
+    },
+    "originalProcessSlotCountVerified": false,
+    "parallelismChanged": false
+  },
+  "slowGeneration": {
+    "clock": "virtual",
+    "progressIntervalMs": 30000,
+    "completedStreamSimulatedMs": 330000,
+    "multiStageSimulatedMs": 2400000,
+    "inactivityTimeoutMs": 600000,
+    "totalWallClockDeadline": null
+  },
+  "startup": {
+    "sourceFinding": "Tracked /props and /apply-template probes can occur while loading and report ECONNREFUSED as server-unavailable",
+    "controlledProbeRefusals": 2,
+    "thenSuccessfulProbe": true,
+    "serverTerminatedAttribution": false,
+    "liveOriginalEventCauseVerified": false,
+    "suppressionAdded": false
+  },
+  "regressions": [
+    {
+      "suite": "w7-candidate.log",
+      "passed": true,
+      "tests": 51,
+      "durationMs": 1042.100626,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "w7-runtime.log",
+      "passed": true,
+      "tests": 14,
+      "durationMs": 61.584302,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "e1FileEditing.test.cjs.log",
+      "passed": true,
+      "tests": 22,
+      "durationMs": 22.672448,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "e1FileEditingNative.test.cjs.log",
+      "passed": true,
+      "tests": 7,
+      "durationMs": 71.443788,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "engineLaunch.test.cjs.log",
+      "passed": true,
+      "tests": null,
+      "durationMs": null,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "notificationSoundPrefs.test.cjs.log",
+      "passed": true,
+      "tests": 2,
+      "durationMs": 10.38188,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "notificationSounds.test.mjs.log",
+      "passed": true,
+      "tests": 5,
+      "durationMs": 12.089067,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "s1EngineLifecycle.test.cjs.log",
+      "passed": true,
+      "tests": 7,
+      "durationMs": 25.834639,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "s1StartupLifecycle.test.cjs.log",
+      "passed": true,
+      "tests": 5,
+      "durationMs": 175.356857,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceAdvancedCompaction.test.cjs.log",
+      "passed": true,
+      "tests": 25,
+      "durationMs": 22455.24735,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceBudgetVerification.test.cjs.log",
+      "passed": true,
+      "tests": 5,
+      "durationMs": 284.633426,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceCheckpoints.test.cjs.log",
+      "passed": true,
+      "tests": 4,
+      "durationMs": 213.164367,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceCompactionActivity.test.cjs.log",
+      "passed": true,
+      "tests": 26,
+      "durationMs": 917.47194,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceSafeCompaction.test.cjs.log",
+      "passed": true,
+      "tests": 30,
+      "durationMs": 2543.495606,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    },
+    {
+      "suite": "workspaceTaskBriefs.test.cjs.log",
+      "passed": true,
+      "tests": 10,
+      "durationMs": 135.2282,
+      "runner": "node <test-file> (direct TAP or assertion script)"
+    }
+  ],
+  "assertionCountForTapSuites": 213,
+  "checks": {
+    "build": "passed; existing Vite >500 kB chunk advisory",
+    "diffWhitespace": "passed",
+    "syntax": "node --check passed for both changed production modules"
+  },
+  "preservation": {
+    "preexistingWorkPreserved": true,
+    "commitPushStashResetClean": false,
+    "liveDatabaseModified": false,
+    "liveModelTerminated": false
+  },
+  "remaining": [
+    "Repeat original Qwen workload and inspect new content-free attempt records",
+    "Confirm installed llama.cpp/Qwen template honors enable_thinking=false",
+    "Capture original process -c/-np and /props for exact slot allocation attribution",
+    "Measure real inference latency and actual completion/reasoning token usage"
+  ],
+  "reference": "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md",
+  "casualChatAdditionalFinding": {
+    "scope": "investigation, deterministic tests and follow-up recommendation only; no production changes",
+    "distinctFromWorkspaceOutputTruncation": true,
+    "observed": {
+      "headerApproximateInputTokens": 61500,
+      "headerUsableInputTokens": 33920,
+      "errorMeasuredInputTokens": 55676,
+      "errorUsableInputTokens": 34432,
+      "configuredTotalTokens": 70000
+    },
+    "budgetReconciliation": {
+      "verifiedCapacity": 35072,
+      "headerOutputReserve": 1024,
+      "summaryOutputReserve": 512,
+      "safetyReserve": 128,
+      "difference": 512,
+      "liveRequestKindConfirmed": false
+    },
+    "sourceFinding": "Outer guarded Casual request attempts recovery; forced recovery selects all eligible older rows in one summary request. Nested summary fetch has no recovery hook or measured input chunking.",
+    "reproduction": {
+      "runtimeCapacity": 35072,
+      "eligibleOlderRows": 20,
+      "protectedRecentRows": 10,
+      "outerMeasuredTokens": 61500,
+      "summaryMeasuredTokens": 55676,
+      "outerRecoveryAttempts": 1,
+      "inferenceDispatches": 0,
+      "error": "CONTEXT_BUDGET_EXCEEDED: 55676 server-template-tokenizer input tokens; budget 34432",
+      "rawHistoryUnchangedOnFailure": true,
+      "compressionFlagReleased": true,
+      "syntheticFittingSummaryArchivedRows": 20,
+      "originalRowsRetained": 30,
+      "liveModelSuccessClaimed": false
+    },
+    "idleRisks": [
+      "10-second deferred work is not a submission gate",
+      "Unchanged attempted prompt identity suppresses another idle attempt after failure",
+      "Initial summaries can regenerate growing prefixes; no explicit aggregate stage/token cap",
+      "Estimated projected target and bounded passes do not certify actual next-request fit"
+    ],
+    "followUp": "Separate bounded, measured Casual summary reduction pipeline with strict completion validation, precise outcome reporting and atomic promotion; do not expand W7",
+    "productionChanges": false,
+    "regressions": [
+      {
+        "suite": "w7CasualRecovery.test.cjs",
+        "tests": 2,
+        "failed": 0,
+        "durationMs": 187.917307,
+        "runner": "node <test-file>"
+      },
+      {
+        "suite": "contextOverflowRecovery.test.cjs",
+        "tests": 10,
+        "failed": 0,
+        "durationMs": 558.922305,
+        "runner": "node <test-file>"
+      },
+      {
+        "suite": "contextRecoveryReliability.test.cjs",
+        "tests": 14,
+        "failed": 0,
+        "durationMs": 178.900981,
+        "runner": "node <test-file>"
+      },
+      {
+        "suite": "idleCompactionProjection.test.cjs",
+        "tests": 18,
+        "failed": 0,
+        "durationMs": 1020.151215,
+        "runner": "node <test-file>"
+      }
+    ],
+    "additionalTestsPassed": 44,
+    "checks": {
+      "diffWhitespace": "passed",
+      "build": "Prior W7 build passed; no new production changes, not rerun"
+    }
+  }
+}

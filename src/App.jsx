@@ -1,3 +1,4 @@
+import NotificationSoundLifecycle from './components/NotificationSoundLifecycle.jsx';
 import ProjectsView from "./components/ProjectsView";
 import ProjectWorkspace from "./components/ProjectWorkspace";
 import ProjectModal from "./components/ProjectModal";
@@ -574,6 +575,7 @@ export { TabPane };
 export default function App() {
 	return (
 		<CompressionEventsProvider>
+            <NotificationSoundLifecycle />
 			<TabProvider>
 				<UIStateProvider>
 					<AppContent />

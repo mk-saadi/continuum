@@ -2,11 +2,11 @@
 // Content-free activity projection. Never owns checkpoint activation or execution.
 const { randomUUID } = require('node:crypto');
 const { db } = require('./db');
-const terminal = new Set(['completed', 'deferred', 'failed', 'cancelled']);
+const terminal = new Set(['completed', 'deferred', 'failed', 'cancelled', 'continued']);
 const statuses = new Set(['started', 'generating', 'validating', 'checking-fit', 'committing', ...terminal]);
 const pending = new Map();
 const fields = ['beforeTokens', 'afterTokens', 'usableInputTokens', 'triggerTokens', 'measurementMethod', 'afterMeasurementMethod', 'generationStages', 'checkpointId', 'continued', 'sourceVersion'];
-const safeCodes = new Set(['user-cancelled', 'unexpected-abort', 'renderer-destroyed', 'ipc-disposed', 'generation-inactivity-timeout', 'archive-conflict', 'budget-exceeded', 'cancelled-run', 'candidate-busy', 'capacity-changed', 'compaction-busy', 'compaction-disabled-context-overflow', 'compaction-error', 'concurrent-state-change', 'context-overflow', 'deleted-conversation', 'empty-response', 'generation-stage-budget', 'generation-time-budget', 'generation-token-budget', 'incomplete-response', 'incomplete-tool-pair', 'intermediate-size-budget', 'interrupted-before-verified-commit', 'interrupted-commit-unverified', 'invalid-background-state', 'invalid-json', 'invalid-reference', 'invalid-safe-point', 'invalid-source-evidence', 'irreducible-context-overflow', 'missing-required-data', 'missing-task-brief', 'missing-task-brief-reference', 'model-unavailable', 'no-meaningful-reduction', 'no-reducible-history', 'not-safe-to-compact-yet', 'operation-state-changed', 'output-truncated', 'pending-background-operation', 'pending-child-operation', 'pending-tool-operation', 'post-commit-mismatch', 'prospective-context-overflow', 'provider-error', 'runtime-state-changed', 'schema-invalid', 'sensitive-candidate-data', 'stale-candidate', 'stale-task-brief', 'tool-round-not-durable', 'unfinished-assistant', 'unknown-cloud-capacity', 'unsupported-completion-claim', 'unsupported-file-claim', 'workspace-only']);
+const safeCodes = new Set(['optional-fallback-measurement-unavailable', 'owning-request-required', 'user-cancelled', 'unexpected-abort', 'renderer-destroyed', 'ipc-disposed', 'generation-inactivity-timeout', 'archive-conflict', 'budget-exceeded', 'cancelled-run', 'candidate-busy', 'capacity-changed', 'compaction-busy', 'compaction-disabled-context-overflow', 'compaction-error', 'concurrent-state-change', 'context-overflow', 'deleted-conversation', 'empty-response', 'generation-stage-budget', 'generation-time-budget', 'generation-token-budget', 'incomplete-response', 'incomplete-tool-pair', 'intermediate-size-budget', 'interrupted-before-verified-commit', 'interrupted-commit-unverified', 'invalid-background-state', 'invalid-json', 'invalid-reference', 'invalid-safe-point', 'invalid-source-evidence', 'irreducible-context-overflow', 'missing-required-data', 'missing-task-brief', 'missing-task-brief-reference', 'model-unavailable', 'no-meaningful-reduction', 'no-reducible-history', 'not-safe-to-compact-yet', 'operation-state-changed', 'output-truncated', 'pending-background-operation', 'pending-child-operation', 'pending-tool-operation', 'post-commit-mismatch', 'prospective-context-overflow', 'provider-error', 'runtime-state-changed', 'schema-invalid', 'sensitive-candidate-data', 'stale-candidate', 'stale-task-brief', 'tool-round-not-durable', 'unfinished-assistant', 'unknown-cloud-capacity', 'unsupported-completion-claim', 'unsupported-file-claim', 'workspace-only']);
 function safeCode(code) { return safeCodes.has(code) ? code : 'compaction-error'; }
 function install(connection) {
   connection.exec(`CREATE TABLE IF NOT EXISTS workspace_compaction_activity (
@@ -22,7 +22,7 @@ function install(connection) {
     BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;`);
   // A current checkpoint proves activation, not post-commit verification. Never
   // infer success from it after a crash. Preserve state and label uncertainty.
-  for (const row of connection.prepare("SELECT * FROM workspace_compaction_activity WHERE status NOT IN ('completed','deferred','failed','cancelled')").all()) {
+  for (const row of connection.prepare("SELECT * FROM workspace_compaction_activity WHERE status NOT IN ('completed','deferred','failed','cancelled','continued')").all()) {
     const checkpoints = connection.prepare('SELECT id, checkpoint_json FROM workspace_checkpoints WHERE session_id = ?').all(row.session_id);
     const metadata = JSON.parse(row.metadata);
     const activated = checkpoints.some(c => {
@@ -51,7 +51,7 @@ function create({ sessionId, runId, messageId, anchorStepId, broadcast = () => {
       const record = db.transaction(() => {
         const row = db.prepare('SELECT * FROM workspace_compaction_activity WHERE id=?').get(id);
         if (!row) return null; // Deleted owners are never recreated.
-        if (terminal.has(row.status) && !(row.status === 'completed' && status === 'completed' && values.continued === true)) return null;
+        if (terminal.has(row.status) && !(['completed', 'continued'].includes(row.status) && status === row.status && values.continued === true)) return null;
         const metadata = JSON.parse(row.metadata);
         for (const key of fields) if (values[key] !== undefined) metadata[key] = values[key];
         const code = values.code ? safeCode(values.code) : row.code;

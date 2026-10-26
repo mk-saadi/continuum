@@ -55,20 +55,36 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   // Live per-request telemetry for the active turn (cleared on turn end).
   const [liveTelemetry, setLiveTelemetry] = useState(null);
   const measureGeneration = useRef(0);
+  const deletedSessions = useRef(new Set());
+  const discardSession = useCallback(id => {
+    deletedSessions.current.add(id);
+    measureGeneration.current += 1;
+    generation.current += 1;
+    window.dispatchEvent(new CustomEvent('continuum-session-unavailable', { detail: { sessionId: id } }));
+  }, []);
+  useEffect(() => api?.onSessionDeleted?.(({ sessionId: id }) => {
+    deletedSessions.current.add(id);
+    if (id === sessionId) { measureGeneration.current += 1; generation.current += 1; }
+  }), [api, sessionId]);
 
   const measure = useCallback(async () => {
-    if (!api?.measureContext || !modelId) return;
+    if (!api?.measureContext || !modelId || !isActive || (!isCloud && !engineReady) || deletedSessions.current.has(sessionId)) return;
     const version = ++measureGeneration.current;
     setMeasured(null);
     try {
       const result = await api.measureContext(sessionId, modelId, { cloud: isCloud, permissionMode });
+      if (version !== measureGeneration.current) return;
+      if (result?.cancelled) {
+        if (result.code === 'deleted-conversation') discardSession(sessionId);
+        return;
+      }
       if (!acceptsContextMeasurement(version, measureGeneration.current, result, sessionId, modelId)) return;
       setMeasured(result);
       setMeasureError('');
     } catch (err) {
       if (version === measureGeneration.current) setMeasureError(err?.message ?? String(err));
     }
-  }, [api, sessionId, modelId, isCloud, permissionMode, configuredLimit, activeModelConfig?.parallel, activeModelConfig?.runtimeIdentity]);
+  }, [api, sessionId, modelId, isCloud, isActive, engineReady, discardSession, permissionMode, configuredLimit, activeModelConfig?.parallel, activeModelConfig?.runtimeIdentity]);
 
   const noteLivePhase = useCallback((event) => {
     if (!event || event.sessionId !== sessionId) return;
@@ -108,7 +124,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   const request = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (!api || !modelId) return;
+    if (!api || !modelId || deletedSessions.current.has(sessionId)) return;
     const version = generation.current;
     const requestId = ++request.current;
     try {
@@ -176,6 +192,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   useEffect(() => {
     const prev = engineIdentity.current;
     engineIdentity.current = { ready: engineReady, port: enginePort };
+    // A new session/config changes `measure` too. Its session effect already
+    // started the current request; only an actual engine transition invalidates it.
+    if (prev.ready === engineReady && prev.port === enginePort) return;
     measureGeneration.current += 1;
     setMeasured(null);
     if (!engineReady) return;
@@ -213,9 +232,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   }, [toast]);
 
   const schedule = useCallback(() => {
-    if (!api || !modelId || isCloud || configuredLimit === null) return;
+    if (!api || !modelId || isCloud || !engineReady || deletedSessions.current.has(sessionId) || configuredLimit === null) return;
     api.scheduleIdleCompression(sessionId, modelId, configuredLimit).catch((err) => setError(err.message));
-  }, [api, modelId, sessionId, configuredLimit, isCloud]);
+  }, [api, modelId, sessionId, configuredLimit, isCloud, engineReady]);
 
   const prepareMessages = useCallback(async (text, regenerate = false, attachments = []) => {
     if (!api) throw new Error('Memory Palace is available in the desktop app.');

@@ -299,6 +299,16 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_task_briefs_session ON workspace_task_briefs(session_id, id);
   CREATE INDEX IF NOT EXISTS idx_task_briefs_message ON workspace_task_briefs(message_id);
 
+  -- C6-B host-authored lifecycle facts; never written by model classification.
+  CREATE TABLE IF NOT EXISTS workspace_brief_lifecycle (
+    brief_id INTEGER PRIMARY KEY REFERENCES workspace_task_briefs(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (state IN ('active','persistent','completed','superseded')),
+    source_message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    dependencies_json TEXT NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_brief_lifecycle_session ON workspace_brief_lifecycle(session_id);
+
   -- Workspace turn digests: small deterministic work records built from a
   -- turn's persisted tool events (see src/main/turnDigest.js), attached to
   -- the user request that triggered the turn. digest_json carries the full
@@ -479,6 +489,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       })) {
         if (!subagentColumns.has(name)) connection.exec(`ALTER TABLE subagent_runs ADD COLUMN ${name} ${type}`);
       }
+      require('./sessionCosts').install(connection);
       connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_parent_time ON subagent_runs(parent_session_id, completed_at)');
       connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_completed_at ON subagent_runs(completed_at)');
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {

@@ -21,8 +21,21 @@ const { db } = require("./db");
 const { attachmentName } = require("./fileUploads");
 
 const SECTION_MARKER = "[WORKSPACE TASK BRIEF]";
+const BACK_REFERENCE = /\b(earlier|previous|same requirements|remaining|you (?:listed|suggested)|those tests|last change|continue)\b/i;
 const SECTION_END = "[END OF WORKSPACE TASK BRIEF]";
 const KINDS = Object.freeze(["original", "instruction", "revision"]);
+
+// Directives must occupy the leading lines of the user's message, outside
+// quoted/fenced examples. Ordinary prose and embedded examples do not classify.
+function lifecycleDirectives(content) {
+  const directives = [];
+  for (const line of String(content).split(/\r?\n/)) {
+    const match = /^\[workspace-brief #(\d+) state=(active|persistent|completed|superseded)\]$/.exec(line);
+    if (!match) break;
+    directives.push({ briefId: Number(match[1]), state: match[2] });
+  }
+  return directives;
+}
 
 function requireSessionId(sessionId) {
 	if (typeof sessionId !== "string" || !sessionId.trim() || sessionId.includes("\0")) {
@@ -127,7 +140,7 @@ function captureBriefForUserMessage(sessionId, messageId, content, files) {
 	const existing = db
 		.prepare("SELECT COUNT(*) AS n FROM workspace_task_briefs WHERE session_id = ?")
 		.get(sessionId).n;
-	return insertBrief({
+	const briefId = insertBrief({
 		sessionId,
 		messageId,
 		kind: existing === 0 ? "original" : "instruction",
@@ -135,6 +148,11 @@ function captureBriefForUserMessage(sessionId, messageId, content, files) {
 		attachments: snapshotBriefAttachments(files),
 		supersedesId: null,
 	});
+  // Explicit user-authored lifecycle directives only; no natural-language or
+  // LLM inference of completion. Originals remain immutable.
+  for (const directive of lifecycleDirectives(content))
+    recordLifecycle(sessionId, directive.briefId, { state: directive.state, sourceMessageId: messageId });
+  return briefId;
 }
 
 // Capture for an edit (db.branchUserMessage). The prior row is retained; the
@@ -250,13 +268,115 @@ function getBriefsForMessageIds(sessionId, messageIds) {
 		.map(rowToBrief);
 }
 
-// Stable identity of the injected set for compression snapshot/commit
-// validation. Append-only rows make the sorted ID list sufficient: any newly
-// applicable instruction changes it, while archival flags do not.
+// Only trusted host callers may record explicit user lifecycle decisions. There
+// is intentionally no model tool for declaring a requirement completed/revoked.
+function recordLifecycle(sessionId, briefId, { state, sourceMessageId, dependencies = [] }) {
+  require('./sessionDeletion').assertAvailable(sessionId);
+  const applicable = getApplicableBriefs(sessionId);
+  if (!applicable.some(b => b.id === briefId) ||
+      !['active', 'persistent', 'completed', 'superseded'].includes(state) ||
+      !Array.isArray(dependencies) || dependencies.some(id => !applicable.some(b => b.id === id)))
+    throw new Error('Invalid brief lifecycle reference.');
+  const source = db.prepare("SELECT role, content FROM messages WHERE session_id = ? AND id = ?").get(sessionId, sourceMessageId);
+  if (source?.role !== 'user' || !lifecycleDirectives(source.content).some(d => d.briefId === briefId && d.state === state) || !activeMessageIds(sessionId).has(sourceMessageId))
+    throw new Error('Lifecycle facts require an on-branch user source.');
+  db.prepare(`INSERT INTO workspace_brief_lifecycle VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(brief_id) DO UPDATE SET state=excluded.state,
+    source_message_id=excluded.source_message_id, dependencies_json=excluded.dependencies_json`)
+    .run(briefId, sessionId, state, sourceMessageId, JSON.stringify(dependencies));
+}
+
+// Coverage permits replacing old requests with validated working state; it is
+// not a lifecycle decision or permission grant. Verify content and branch bindings.
+function coveredBriefMessages(sessionId, projection = null) {
+  const checkpoint = projection?.checkpoint ?? require('./taskCheckpoints').getLatestCheckpoint(sessionId)?.checkpoint;
+  if (checkpoint?.lifecycle !== 'w3-current' || checkpoint.version !== 2) return new Set();
+  const path = activeMessageIds(sessionId), covered = new Set(), seen = new Set();
+  const crypto = require('node:crypto');
+  for (const ref of checkpoint.sourceCoverage ?? []) {
+    if (!Number.isSafeInteger(ref.messageId) || seen.has(ref.messageId)) return new Set();
+    seen.add(ref.messageId);
+    const m = db.prepare('SELECT * FROM messages WHERE session_id = ? AND id = ?').get(sessionId, ref.messageId);
+    const digest = m && crypto.createHash('sha256').update(JSON.stringify([m.id, m.role, m.content, m.execution_steps])).digest('hex');
+    if (!m || !path.has(m.id) || digest !== ref.digest) return new Set();
+    if (m.archived || projection?.archiveIds?.includes(m.id)) covered.add(m.id);
+  }
+  const taskReferences = new Map((checkpoint.taskReferences ?? []).map(ref => [ref.briefId, ref]));
+  for (const brief of getApplicableBriefs(sessionId)) {
+    if (!covered.has(brief.message_id)) continue;
+    const ref = taskReferences.get(brief.id);
+    const digest = crypto.createHash('sha256').update(JSON.stringify([brief.content_text, brief.attachments_json])).digest('hex');
+    if (!ref || ref.messageId !== brief.message_id || ref.digest !== digest) covered.delete(brief.message_id);
+  }
+  return covered;
+}
+
+// Deterministic extraction keeps explicit restrictions independently of model
+// summaries. A whole sentence/line is preserved, never an LLM paraphrase.
+function constraintText(text) {
+  let requirementSection = false;
+  return String(text).split(/(?<=[.!?])\s+|\n/).filter(line => {
+    if (/^\s*(?:#+\s*)?(?:persistent\s+)?(?:requirements|constraints|rules|polic(?:y|ies)|restrictions)\s*:?\s*$/i.test(line)) requirementSection = true;
+    else if (/^\s*#+\s/.test(line)) requirementSection = false;
+    return requirementSection || /\b(do not|don't|never|must|preserve|always|constraint|required|only|without|keep|ensure|use|avoid|prefer|retain|should|no|every|whenever|throughout|standing)\b/i.test(line);
+  }).join('\n');
+}
+
+function selectModelBriefs(sessionId, candidates = getApplicableBriefs(sessionId), projection = null) {
+  if (!candidates.length) return [];
+  const path = activeMessageIds(sessionId);
+  const facts = new Map(db.prepare('SELECT * FROM workspace_brief_lifecycle WHERE session_id = ?').all(sessionId)
+    .filter(f => path.has(f.source_message_id) && candidates.some(b => b.message_id === f.source_message_id)).map(f => [f.brief_id, f]));
+  const selected = new Set();
+  const covered = coveredBriefMessages(sessionId, projection);
+  const latest = candidates.at(-1);
+  // Uncovered legacy instructions remain protected. Coverage is representation,
+  // never a guessed lifecycle transition.
+  for (const b of candidates) {
+    const state = facts.get(b.id)?.state;
+    // Completion is not revocation of a potentially persistent constraint.
+    const uncertainConstraint = state === 'completed' && /\b(do not|don't|never|must|preserve|always|constraint|required)\b/i.test(b.content_text);
+    if ((!state && !covered.has(b.message_id)) || ['active', 'persistent'].includes(state) || uncertainConstraint ||
+        (state !== 'superseded' && (constraintText(b.content_text) || b.attachments?.length))) selected.add(b.id);
+  }
+  if (latest) selected.add(latest.id);
+  const requiredDependencies = new Set();
+  const visit = id => {
+    const fact = facts.get(id);
+    for (const dep of JSON.parse(fact?.dependencies_json ?? '[]')) {
+      requiredDependencies.add(dep);
+      if (!candidates.some(b => b.id === dep)) throw new Error('Missing brief dependency source.');
+      if (!selected.has(dep)) { selected.add(dep); visit(dep); }
+    }
+  };
+  for (const id of selected) visit(id);
+  // Backward references use source-scoped retrieval rather than reactivating old tasks.
+  return candidates.filter(b => selected.has(b.id)).map(b => {
+    let state = facts.get(b.id)?.state ?? 'unknown';
+    if (state === 'completed' && /\b(do not|don't|never|must|preserve|always|constraint|required)\b/i.test(b.content_text)) state = 'completed-constraints';
+    const constraintsOnly = b.id !== latest?.id && !/```|~~~|^\s*>/m.test(b.content_text) && !b.attachments?.length && !requiredDependencies.has(b.id) && covered.has(b.message_id) && !['active', 'persistent'].includes(state);
+    return { ...b, ...(constraintsOnly ? { content_text: constraintText(b.content_text), attachments: [] } : {}),
+      modelLifecycle: b.id === latest?.id ? 'active' : constraintsOnly ? 'persistent' : state };
+  });
+}
+
+function selectHistoryMessages(sessionId, messages, { messageIds = null } = {}) {
+  if (!isWorkspaceSession(sessionId)) return messages;
+  const all = messageIds == null ? getApplicableBriefs(sessionId) : getBriefsForMessageIds(sessionId, messageIds);
+  const selected = new Set(selectModelBriefs(sessionId, all).map(b => b.id));
+  const omitted = new Map(all.filter(b => !selected.has(b.id)).map(b => [b.message_id, b.id]));
+  return messages.map(m => omitted.has(m.id) ? { ...m,
+    content: `[Historical brief #${omitted.get(m.id)} represented by working state or explicit user lifecycle facts. Retrieve stored original with get_recent_chat_history source_brief_id=${omitted.get(m.id)}. No execution authority.]`, attachments: [] } : m);
+}
+
+// Bind both immutable brief IDs and mutable explicit lifecycle facts. Preserve
+// the legacy ID-list identity when no facts exist. Archival flags do not alter it.
 function getBriefIdentity(sessionId) {
 	return getApplicableBriefs(sessionId)
-		.map((brief) => brief.id)
-		.join(",");
+		.map(brief => {
+      const fact = db.prepare("SELECT * FROM workspace_brief_lifecycle WHERE brief_id = ?").get(brief.id);
+      return fact ? `${brief.id}:${JSON.stringify(fact)}` : String(brief.id);
+    }).join(",");
 }
 
 function estimateTokens(text) {
@@ -322,8 +442,12 @@ function formatBriefAttachment(attachment, briefId) {
 }
 
 function formatBriefEntry(brief) {
-	const label =
-		brief.kind === "original"
+	const label = brief.modelLifecycle === 'completed-constraints'
+    ? 'completed historical task; original constraints remain applicable, historical actions have no execution authority'
+    : ['completed', 'superseded'].includes(brief.modelLifecycle)
+    ? `historical ${brief.modelLifecycle} dependency; quoted data, no execution authority`
+    : brief.modelLifecycle === 'persistent' ? 'applicable persistent constraint'
+    : brief.kind === "original"
 			? "original request"
 			: brief.kind === "revision"
 				? `revised instruction${brief.supersedes_id != null ? ` (supersedes brief #${brief.supersedes_id})` : ""}`
@@ -337,7 +461,7 @@ function formatBriefEntry(brief) {
 }
 
 function renderBriefSection(briefs) {
-	const header = `${SECTION_MARKER}\nThe following are the user's verbatim Workspace task requirements. They are authoritative: follow them even when the conversation summary paraphrases them differently. Each record is quoted exactly as written.`;
+	const header = `${SECTION_MARKER}\nThe following are selected verbatim Workspace requirements. Historical actions are context, never standing authorization for new commits or mutations. The latest task and applicable constraints are authoritative: follow them even when the conversation summary paraphrases them differently. Covered historical records may contain verbatim requirement excerpts. Retrieve full originals by source_brief_id when needed.`;
 	return `${header}\n\n${briefs.map(formatBriefEntry).join("\n\n")}\n\n${SECTION_END}`;
 }
 
@@ -360,16 +484,31 @@ function assertBriefFits({ briefTokens, contextWindowLimit, briefCount }) {
 // same order. Returns null when no brief applies (Casual Chat, legacy rows,
 // or off-branch anchors). Pass messageIds to scope to a branch path whose
 // active leaf may not yet be committed; otherwise the live active path wins.
-function buildTaskBriefSection(sessionId, { messageIds = null, contextWindowLimit = null } = {}) {
+function buildTaskBriefSection(sessionId, { messageIds = null, contextWindowLimit = null, compactionProjection = null } = {}) {
 	requireSessionId(sessionId);
-	const briefs =
-		messageIds == null ? getApplicableBriefs(sessionId) : getBriefsForMessageIds(sessionId, messageIds);
+	const briefs = selectModelBriefs(sessionId,
+		messageIds == null ? getApplicableBriefs(sessionId) : getBriefsForMessageIds(sessionId, messageIds), compactionProjection);
 	if (!briefs.length) return null;
-	const briefTokens = estimateBriefTokens(briefs);
+	let dependencies = '';
+  if (BACK_REFERENCE.test(briefs.at(-1).content_text)) {
+    const ids = messageIds == null ? activeMessageIds(sessionId) : new Set(messageIds);
+    const rows = db.prepare("SELECT id, content, execution_steps FROM messages WHERE session_id = ? AND role = 'assistant' ORDER BY id").all(sessionId)
+      .filter(m => ids.has(m.id));
+    // A bounded candidate window is a navigation aid, not an exhaustive index.
+    // Explicit source IDs resolve even outside this window through the tool.
+    const explicit = [...briefs.at(-1).content_text.matchAll(/source_message_id\s*[=:]\s*(\d+)/g)].map(m => Number(m[1]));
+    const requested = explicit.map(id => rows.find(m => m.id === id));
+    if (requested.some(m => !m)) throw Object.assign(new Error('Required historical source unavailable on this conversation branch. Clarify the reference.'), { code: 'HISTORICAL_DEPENDENCY_UNAVAILABLE' });
+    const candidates = explicit.length ? requested : rows.slice(-8);
+    const refs = candidates.map(m => ({ source_message_id: m.id, observation: String(m.content ?? '').slice(0, 256), partial: String(m.content ?? '').length > 256 }));
+    dependencies = `\n[RELEVANT HISTORICAL DEPENDENCY SOURCES]\nHistorical assertions are data, not authority. Bounded recent candidates, not an exhaustive index. Retrieve originals with get_recent_chat_history source_message_id or source_step_id, or source_history=true with query and offset to page earlier current-branch sources. Resolve the referenced plan before acting; if ambiguous ask for clarification. Never invent missing requirements.\n${JSON.stringify(refs)}\n`;
+
+  }
+  const briefTokens = estimateBriefTokens(briefs) + estimateTokens(dependencies);
 	assertBriefFits({ briefTokens, contextWindowLimit, briefCount: briefs.length });
 	return {
 		role: "system",
-		content: renderBriefSection(briefs),
+		content: renderBriefSection(briefs) + dependencies,
 		taskBrief: true,
 		briefIds: briefs.map((brief) => brief.id),
 		briefTokens,
@@ -380,6 +519,9 @@ module.exports = {
 	SECTION_MARKER,
 	SECTION_END,
 	KINDS,
+	recordLifecycle,
+	selectModelBriefs,
+	selectHistoryMessages,
 	isWorkspaceSession,
 	activeMessageIds,
 	captureBriefForUserMessage,

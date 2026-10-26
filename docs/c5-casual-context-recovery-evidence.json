@@ -1,0 +1,481 @@
+{
+  "phase": "C5",
+  "date": "2026-10-26",
+  "headAtInvestigation": "be40e01a8c6b9ffee560b712eb7eb9617633c495",
+  "scope": "Local Casual Chat recovery; mocked providers and isolated temporary storage. No live Qwen success claimed.",
+  "rootCause": {
+    "existingRecoveryAttempted": true,
+    "summaryInputUnboundedBefore": true,
+    "summaryMaxOutputTokensBefore": 512,
+    "summaryHadNestedRecovery": false,
+    "meaning": "Outer guard attempts recovery; the nested all-history summary request can overflow before model inference. No idle success is required by the Send gate."
+  },
+  "budgetReconciliation": {
+    "configuredTotal": 70000,
+    "runtimePerRequest": 35072,
+    "originalHeaderOutputReserve": 1024,
+    "originalSummaryOutputReserve": 512,
+    "safetyReserve": 128,
+    "originalHeaderUsable": 33920,
+    "originalSummaryUsable": 34432,
+    "newSummaryOutputReserve": 1024,
+    "newSummaryUsable": 33920,
+    "runtimeCapacityWeakened": false,
+    "parallelismChanged": false
+  },
+  "strategy": {
+    "memorySections": [
+      "instructions",
+      "facts",
+      "preferences",
+      "decisions",
+      "openQuestions",
+      "references"
+    ],
+    "summaryTargetVisibleTokens": 400,
+    "stageOutputReservation": 1024,
+    "maxStagesPerSummaryOperation": 16,
+    "maxReservedOutputTokensPerSummaryOperation": 16384,
+    "maxInitialIdleSelectionPasses": 1,
+    "maxAdditionalIdleSelectionPasses": 2,
+    "sourceSelection": "disjoint measured prefixes; oversized strings losslessly partitioned with source IDs and offsets",
+    "priorSummaryReduction": true,
+    "optionalLocalThinking": false,
+    "acceptsIncompleteSummary": false,
+    "requiresRuntimeReportedCapacityAndExactTemplateTokenizer": true,
+    "prospectiveRequestIncludes": [
+      "system",
+      "summary",
+      "protected history",
+      "new question",
+      "retrieval context",
+      "live tool pairs",
+      "tools",
+      "sampling",
+      "reasoning reserves"
+    ],
+    "prospectivePayloadReusedAfterCommit": true
+  },
+  "controlledScenarios": [
+    {
+      "scenario": "first-send-restored-over-budget",
+      "configuredTotal": 70000,
+      "runtimeCapacity": 35072,
+      "legacySingleSummaryInputTokens": 101299,
+      "legacySingleSummaryUsableBudget": 34432,
+      "summaryStages": 4,
+      "summaryAttempts": [
+        {
+          "stage": 1,
+          "requestKind": "casual-summary",
+          "inputTokens": 30610,
+          "capacityTokens": 35072,
+          "usableInputTokens": 33920,
+          "outputTokens": 1024,
+          "measurementMethod": "server-template-tokenizer",
+          "finishReason": "stop",
+          "actualOutputTokens": 80,
+          "code": null,
+          "elapsedMs": 7
+        },
+        {
+          "stage": 2,
+          "requestKind": "casual-summary",
+          "inputTokens": 30685,
+          "capacityTokens": 35072,
+          "usableInputTokens": 33920,
+          "outputTokens": 1024,
+          "measurementMethod": "server-template-tokenizer",
+          "finishReason": "stop",
+          "actualOutputTokens": 80,
+          "code": null,
+          "elapsedMs": 6
+        },
+        {
+          "stage": 3,
+          "requestKind": "casual-summary",
+          "inputTokens": 30686,
+          "capacityTokens": 35072,
+          "usableInputTokens": 33920,
+          "outputTokens": 1024,
+          "measurementMethod": "server-template-tokenizer",
+          "finishReason": "stop",
+          "actualOutputTokens": 80,
+          "code": null,
+          "elapsedMs": 4
+        },
+        {
+          "stage": 4,
+          "requestKind": "casual-summary",
+          "inputTokens": 10524,
+          "capacityTokens": 35072,
+          "usableInputTokens": 33920,
+          "outputTokens": 1024,
+          "measurementMethod": "server-template-tokenizer",
+          "finishReason": "stop",
+          "actualOutputTokens": 80,
+          "code": null,
+          "elapsedMs": 2
+        }
+      ],
+      "chatDispatches": 1,
+      "finalSerializedChatInputTokens": 2236,
+      "usableChatInputBudget": 33920,
+      "archivedRows": 21,
+      "rawSourceRowsPreserved": 30,
+      "duplicateQuestionRows": 0
+    },
+    {
+      "scenario": "truncated",
+      "summaryInvocations": 1,
+      "chatDispatches": 0,
+      "archivesWritten": 0,
+      "summaryActivated": false
+    },
+    {
+      "scenario": "cancelled",
+      "summaryInvocations": 1,
+      "chatDispatches": 0,
+      "archivesWritten": 0,
+      "summaryActivated": false
+    },
+    {
+      "scenario": "source-change",
+      "summaryInvocations": 1,
+      "chatDispatches": 0,
+      "archivesWritten": 0,
+      "summaryActivated": false
+    },
+    {
+      "scenario": "runtime-change",
+      "summaryInvocations": 1,
+      "chatDispatches": 0,
+      "archivesWritten": 0,
+      "summaryActivated": false
+    },
+    {
+      "scenario": "unavailable",
+      "summaryInvocations": 1,
+      "chatDispatches": 0,
+      "archivesWritten": 0,
+      "summaryActivated": false
+    }
+  ],
+  "preservation": {
+    "rawMessagesDeleted": false,
+    "rawContentUnchangedOnRecoveryFailure": true,
+    "summaryAndArchivesAtomic": true,
+    "sourceIdentityReadsDurableRows": true,
+    "attachmentsAndBranchGuarded": true,
+    "forcedRecoveryRegisteredForDeletionCancellation": true,
+    "modelAndSettingsGuarded": true,
+    "completedToolPairsRetained": true,
+    "permissionSystemChanged": false,
+    "liveConversationsModified": false,
+    "commitPushStashResetClean": false,
+    "preexistingS1E1N1W7Preserved": true
+  },
+  "regressions": [
+    {
+      "suite": "c5CasualRecovery.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 1671.628517,
+      "result": "pass"
+    },
+    {
+      "suite": "contextBudget.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 60.160932,
+      "result": "pass"
+    },
+    {
+      "suite": "contextC1Integration.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 413.844565,
+      "result": "pass"
+    },
+    {
+      "suite": "contextCompaction.test.cjs",
+      "runner": "node <test-file>",
+      "tests": null,
+      "passed": null,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": null,
+      "result": "pass"
+    },
+    {
+      "suite": "contextDispatch.test.mjs",
+      "runner": "node <test-file>",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 642.726732,
+      "result": "pass"
+    },
+    {
+      "suite": "contextMeasure.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 45.282415,
+      "result": "pass"
+    },
+    {
+      "suite": "contextOverflowRecovery.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 715.178869,
+      "result": "pass"
+    },
+    {
+      "suite": "contextRecoveryReliability.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 190.736073,
+      "result": "pass"
+    },
+    {
+      "suite": "e1FileEditing.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 24.791467,
+      "result": "pass"
+    },
+    {
+      "suite": "e1FileEditingNative.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 70.421513,
+      "result": "pass"
+    },
+    {
+      "suite": "engineLaunch.test.cjs",
+      "runner": "node <test-file>",
+      "tests": null,
+      "passed": null,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": null,
+      "result": "pass"
+    },
+    {
+      "suite": "h1DeletionIpc.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 2,
+      "passed": 1,
+      "failed": 0,
+      "cancelled": 1,
+      "durationMs": 17547.283766,
+      "result": "cancelled fixture"
+    },
+    {
+      "suite": "h1HistoryDeletion.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 17,
+      "passed": 17,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 402.440527,
+      "result": "pass"
+    },
+    {
+      "suite": "idleCompactionProjection.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 1103.857661,
+      "result": "pass"
+    },
+    {
+      "suite": "memoryChat.test.mjs",
+      "runner": "node <test-file>",
+      "tests": 50,
+      "passed": 50,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 163.09907,
+      "result": "pass"
+    },
+    {
+      "suite": "notificationSoundPrefs.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 11.634577,
+      "result": "pass"
+    },
+    {
+      "suite": "notificationSounds.test.mjs",
+      "runner": "node <test-file>",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 12.060606,
+      "result": "pass"
+    },
+    {
+      "suite": "s1EngineLifecycle.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 25.170847,
+      "result": "pass"
+    },
+    {
+      "suite": "s1StartupLifecycle.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 188.673416,
+      "result": "pass"
+    },
+    {
+      "suite": "w7CasualRecovery.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 192.338951,
+      "result": "pass"
+    },
+    {
+      "suite": "workspaceAdvancedCompaction.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 25,
+      "passed": 25,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 20971.591454,
+      "result": "pass"
+    },
+    {
+      "suite": "workspaceCompactCandidate.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 51,
+      "passed": 51,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 884.97107,
+      "result": "pass"
+    },
+    {
+      "suite": "workspaceCompactionActivity.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 26,
+      "passed": 26,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 862.810068,
+      "result": "pass"
+    },
+    {
+      "suite": "workspaceGenerationRuntime.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 45.245359,
+      "result": "pass"
+    },
+    {
+      "suite": "workspaceSafeCompaction.test.cjs",
+      "runner": "node <test-file>",
+      "tests": 30,
+      "passed": 30,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 2254.20105,
+      "result": "pass"
+    }
+  ],
+  "totals": {
+    "tapPassed": 352,
+    "tapFailed": 0,
+    "tapCancelled": 1,
+    "assertionScriptsPassed": 2
+  },
+  "controlReproducedIssue": {
+    "suite": "h1DeletionIpc.test.cjs",
+    "test": "H1 real tool approval pending at deletion is invalidated without command execution",
+    "identity": "cancelledByParent / ERR_TEST_FAILURE: Promise resolution is still pending but the event loop has already resolved",
+    "current": {
+      "passed": 1,
+      "cancelled": 1
+    },
+    "control": {
+      "passed": 1,
+      "cancelled": 1
+    },
+    "method": "Isolated /tmp copy of current source/tests/dependencies; src/lib/memoryChat.mjs, src/main/contextBudget.js, src/main/compressionEngine.js and src/main/ipcHandlers.js restored from HEAD in that copy. Other existing work-tree files retained. This is a control, not an exact captured pre-C5 snapshot.",
+    "permissionOrApprovalBehaviorModified": false
+  },
+  "intentionalContractChanges": [
+    "Idle summary cap 512 -> 1024",
+    "Forced summarizers receive owned cancellation signal",
+    "Oversized stored summary can be reduced with no eligible message rows",
+    "Idle no longer drops essential summary merely to satisfy estimated target",
+    "Initial idle selection generates once before at most two disjoint extensions",
+    "Specific casual-* failures survive outer guard wrapping"
+  ],
+  "checks": {
+    "productionBuild": "passed, 7.73 seconds; existing Vite large-chunk advisory",
+    "syntax": "node --check passed for main.js and all C5 production modules",
+    "diffWhitespace": "passed"
+  },
+  "limitations": [
+    "Natural-language summary semantic completeness is not mechanically proven; raw sources remain durable",
+    "Exact counting unavailable or multimodal/indivisible uncountable sources fail closed during recovery",
+    "16-stage bound can refuse extremely large or irreducible memory; no silent source clipping",
+    "Ten-row protected policy unchanged",
+    "Cloud recovery and Workspace checkpoint architecture unchanged",
+    "Final transport/backend failure after valid activation cannot be rolled back as an inference transaction; original raw rows remain durable",
+    "One independent control-reproduced H1 approval fixture remains cancelled"
+  ],
+  "realQwenValidation": [
+    "Repeat original restored Casual conversation on first send with verified /props n_ctx=35072 and actual slot metadata",
+    "Verify installed template honors enable_thinking=false and emits strict complete JSON memory",
+    "Observe stage diagnostics and measure actual generation/prefill latency and usage",
+    "Verify all summary inputs and final serialized original request fit runtime; exactly one user request dispatch",
+    "Verify known real facts/preferences/instructions survive multiple cycles, cancellation and deletion",
+    "Confirm configured -c/-np and S1 model ownership remain unchanged"
+  ]
+}

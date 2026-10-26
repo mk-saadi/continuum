@@ -622,6 +622,8 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 				archivedCount: result.archivedCount ?? 0,
 				checkpointId: result.checkpointId ?? null,
 			});
+		} else if (result.deferred || result.reason === 'owning-request-required' || result.optionalContinued) {
+			setLastAttempt(null);
 		} else if (result.error || result.reason) {
 			setLastAttempt({ ok: false, error: result.error ?? result.reason });
 		} else {

@@ -109,12 +109,20 @@ async function compactAtBoundary(options) {
   const promise = perform({ ...options, progress }).then(result => {
     if (activity) {
       const d = result.diagnostics ?? {};
-      activity.update(result.compressed ? 'completed' : 'deferred', {
+      activity.update(result.compressed ? 'completed' : result.optionalContinued ? 'checking-fit' : 'deferred', {
         code: result.reason, afterTokens: result.compressed ? d.actualTokens : undefined,
         afterMeasurementMethod: result.compressed ? d.actualMeasurementMethod : undefined,
         checkpointId: result.checkpointId, generationStages: d.generation?.staged?.segments?.length != null ? d.generation.staged.segments.length + 1 : 1,
       });
-      if (result.compressed) result.markContinued = () => activity.update('completed', { continued: true });
+      if (result.optionalContinued) {
+        const validate = result.validateDispatch;
+        result.validateDispatch = async () => {
+          try { return await validate(); } catch (error) {
+            activity.update(options.owner?.signal.aborted ? 'cancelled' : 'failed', { code: error.code }); throw error;
+          }
+        };
+      }
+      if (result.compressed || result.optionalContinued) result.markContinued = () => activity.update(result.compressed ? 'completed' : 'continued', { continued: true });
     }
     return result;
   }, error => {
@@ -125,7 +133,7 @@ async function compactAtBoundary(options) {
   try { return await promise; } finally { inflight.delete(sessionId); }
 }
 async function perform({ sessionId, modelId, owner, messageId, payload, tail, buildRequest, measure, generate,
-  isCurrent, mcpToolNames = [], force = false, signal = owner.signal, inject = () => {}, progress = () => {} }) {
+  isCurrent, mcpToolNames = [], force = false, signal = owner.signal, inject = () => {}, progress = () => {}, softTargetTokens = 17000, reasoningTarget = null, localModel = null }) {
   const started = performance.now();
   const guard = () => { signal.throwIfAborted(); if (!isCurrent()) fail('runtime-state-changed'); };
   guard();
@@ -136,7 +144,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     return { compressed: false, reason: 'compaction-disabled' };
   }
   const component = value => value?.length ? Math.ceil(Buffer.byteLength(JSON.stringify(value), 'utf8') / 3) : 0;
-  const diagnostics = { sessionModelId: modelId, provider: before.budgetContract.provider ?? 'local', modelId: before.budgetContract.modelId ?? modelId, beforeTokens: before.tokens, effectiveCapacityTokens: before.limit, usableInputTokens: before.budget,
+  const diagnostics = { beforeComposition: require('./compactionPerformance').requestComposition(payload, before), sessionModelId: modelId, provider: before.budgetContract.provider ?? 'local', modelId: before.budgetContract.modelId ?? modelId, beforeTokens: before.tokens, effectiveCapacityTokens: before.limit, usableInputTokens: before.budget,
     reservedOutputTokens: before.budgetContract.reservedOutputTokens, safetyTokens: before.budgetContract.reservedSafetyTokens,
     nativeSchemaTokens: component(payload.tools?.filter(t => !mcpToolNames.includes(t.function.name))),
     activatedMcpSchemaTokens: component(payload.tools?.filter(t => mcpToolNames.includes(t.function.name))),
@@ -183,8 +191,37 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   progress('generating', { sourceVersion: captured.version });
   inject('generation-start');
   const generated = await w2.generateWorkspaceCompactCandidate({ sessionId, modelId, generate, measure,
-    capacityTokens: before.limit, provider: before.budgetContract.provider ?? 'local', signal, persist: false, safePoint: token, isCurrent, onProgress: progress });
-  if (!generated.ok) fail(generated.code);
+    reasoningTarget, localModel, capacityTokens: before.limit, provider: before.budgetContract.provider ?? 'local', signal, persist: false, safePoint: token, isCurrent, onProgress: progress });
+  if (!generated.ok) {
+    // Only candidate-generation/validation failures qualify. A pressure
+    // estimate never authorizes dispatch; rebuild and measure independently.
+    const eligible = new Set(['invalid-json', 'schema-invalid', 'missing-required-data', 'invalid-reference',
+      'missing-task-brief-reference', 'unsupported-completion-claim', 'unsupported-file-claim',
+      'output-truncated', 'empty-response', 'incomplete-response', 'provider-error']);
+    if (force || !eligible.has(generated.code)) { capabilities.delete(token); fail(generated.code); }
+    try {
+      const current = () => { guard(); w2.assertCurrent(sessionId, captured, signal); validateSafePoint(token, w2.snapshot(sessionId)); };
+      current();
+      progress('checking-fit'); inject('optional-fallback-build');
+      const original = await buildRequest(null, tail);
+      if (!paired(original.messages)) fail('incomplete-tool-pair');
+      const verify = async () => {
+        current();
+        const fit = await measure(original);
+        current();
+        if (budgetIdentity(before) !== budgetIdentity(fit)) fail('capacity-changed');
+        // Cloud adapters currently provide conservative estimates only; they
+        // cannot authorize this exceptional fallback.
+        if (!Number.isSafeInteger(fit.tokens) || fit.tokens < 0 || !Number.isSafeInteger(fit.budget) || fit.budget < 0 || fit.method !== 'server-template-tokenizer' || fit.budgetContract.capacityMethod !== 'runtime-reported') fail('optional-fallback-measurement-unavailable');
+        if (fit.tokens > fit.budget) fail('prospective-context-overflow');
+        return fit;
+      };
+      const fit = await verify();
+      Object.assign(diagnostics, { generation: generated.diagnostics, actualTokens: fit.tokens, actualMeasurementMethod: fit.method });
+      return { compressed: false, optionalContinued: true, reason: generated.code, payload: original, tail,
+        diagnostics, validateDispatch: verify };
+    } catch (error) { capabilities.delete(token); throw error; }
+  }
   Object.assign(diagnostics, { generation: generated.diagnostics });
   guard();
   // W2 uses the exact pre-generation snapshot, not a subsequently refreshed one.
@@ -200,6 +237,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   if (!paired(prospective.messages)) fail('incomplete-tool-pair');
   const fit = await measure(prospective);
   diagnostics.prospectiveTokens = fit.tokens;
+  diagnostics.prospectiveSoftTarget = require('./compactionPerformance').softTarget(fit.tokens, fit.budget, softTargetTokens);
   diagnostics.prospectiveMeasurementMethod = fit.method;
   if (budgetIdentity(before) !== budgetIdentity(fit)) fail('capacity-changed');
   if (fit.tokens > fit.budget) fail('prospective-context-overflow');
@@ -209,6 +247,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   let checkpointId;
   progress('committing');
   inject('transaction-start');
+  const commitStarted = performance.now();
   db.transaction(() => {
     guard(); w2.assertCurrent(sessionId, captured, signal); validateSafePoint(token, w2.snapshot(sessionId));
     inject('candidate-promotion');
@@ -219,6 +258,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     for (const id of archiveIds) if (archive.run(id, sessionId).changes !== 1) fail('archive-conflict');
     inject('message-archival'); inject('transaction-commit');
   }).immediate();
+  diagnostics.sqliteCommitMs = performance.now() - commitStarted;
   progress('committing', { checkpointId });
   require('./promptMeasurement').invalidateMeasuredContext(sessionId);
   // A completed SQLite commit cannot roll back itself. Compensate only when
@@ -227,7 +267,11 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   try {
     inject('post-commit-build');
     const actual = await buildRequest(null, retained);
+    const measurementStarted = performance.now();
     const actualFit = await measure(actual);
+    diagnostics.postCommitMeasurementMs = performance.now() - measurementStarted;
+    diagnostics.afterComposition = require('./compactionPerformance').requestComposition(actual, actualFit);
+    diagnostics.softTarget = require('./compactionPerformance').softTarget(actualFit.tokens, actualFit.budget, softTargetTokens);
     guard(); w2.assertCurrent(sessionId, committed, signal);
     validateSafePoint(token, committed);
     if (!paired(actual.messages)) fail('incomplete-tool-pair');

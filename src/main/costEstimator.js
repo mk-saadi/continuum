@@ -151,7 +151,16 @@ function costColumns(estimate, providerReportedCost = null) {
   };
 }
 
+// tokenUsage accepts evidence names; subagent_runs uses SQL column names.
+// Keep the conversion here so both writers persist the same estimate.
+function costEvidence(estimate) {
+  return Object.fromEntries(Object.entries(costColumns(estimate)).map(([key, value]) => {
+    const name = key.slice(4);
+    return [name[0].toLowerCase() + name.slice(1), value];
+  }));
+}
+
 module.exports = {
   resolveTurnPricingSync, resolveTurnPricingAsync, unavailablePricing,
-  usageFromStats, usageFromChildUsage, estimateFromStats, estimateFromChild, costColumns,
+  usageFromStats, usageFromChildUsage, estimateFromStats, estimateFromChild, costColumns, costEvidence,
 };

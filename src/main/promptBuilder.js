@@ -204,7 +204,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
     // normal preparation for the same history snapshot. Throws
     // ContextBudgetError (brief preserved in storage) when a limit is given
     // and the preserved brief cannot fit it.
-    const brief = require('./taskBriefs').buildTaskBriefSection(sessionId, { contextWindowLimit });
+    const brief = require('./taskBriefs').buildTaskBriefSection(sessionId, { contextWindowLimit, compactionProjection });
     // Current applicable checkpoint (labeled current/stale); the brief above
     // stays authoritative and is never replaced by it.
     const checkpoint = compactionProjection?.checkpoint
@@ -232,7 +232,7 @@ function rebuildChatMessages({ sessionId, modelId, excludeMessageIds = [], deleg
       ...(summary && !checkpoint?.workspaceCompactState ? [{ role: 'system', content: `[EARLIER CONVERSATION SUMMARY]:\n${summary}` }] : []),
       buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable, userText }),
       ...workspaceContinuation(checkpoint, active),
-      ...active.map(messageForModel),
+      ...require("./taskBriefs").selectHistoryMessages(sessionId, active).map(messageForModel),
       ...(workLog ? [workLog] : []),
       ...(plan ? [plan] : []),
     ], effective.memoryEnabled, null, richLevel);
@@ -289,9 +289,9 @@ function prepareChatMessages({
 			// persisted source of truth as the rebuild path, so a compaction
 			// cannot leave the resumed prompt without the plan.
 			const plan = require("./workspacePlan").buildPlanSection(sessionId, { contextWindowLimit });
-			const activeSessionMessages = (
+			const activeSessionMessages = require("./taskBriefs").selectHistoryMessages(sessionId, (
 				regenerateLast ? getActiveMessages(sessionId).slice(0, -1) : getActiveMessages(sessionId)
-			)
+			))
 				.filter((message) => !message.is_summarized && !message.archived &&
                     !(message.role === 'assistant' && message.status === 'interrupted' && !message.content))
 				.map(messageForModel);

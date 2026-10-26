@@ -46,10 +46,10 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 				const meta = row.type === "hunk" || row.type === "note";
 				const added = (unified || side === "right") && (row.type === "add" || row.type === "change");
 				const removed = (unified || side === "left") && (row.type === "del" || row.type === "change");
-				const tone = meta ? "bg-[var(--surface-hover)] text-[var(--text-secondary)]" : added ? "bg-emerald-500/10" : removed ? "bg-rose-500/10" : "";
+				const tone = meta ? "bg-[var(--surface-hover)] text-[var(--text-secondary)]" : added ? "bg-[var(--success)]/10" : removed ? "bg-[var(--error)]/10" : "";
 				return <div key={index} className={`flex min-h-[22px] ${tone}`}>
 					<span aria-hidden="true" className="sticky left-0 w-12 shrink-0 select-none border-r border-[var(--code-border)] bg-[var(--code-bg)] px-2 text-right text-[var(--text-muted)] tabular-nums">{meta ? "" : row[`${side}No`]}</span>
-					<span aria-hidden="true" className={`w-5 shrink-0 select-none text-center ${added ? "text-emerald-500" : removed ? "text-rose-500" : ""}`}>{added ? "+" : removed ? (unified ? "-" : "−") : ""}</span>
+					<span aria-hidden="true" className={`w-5 shrink-0 select-none text-center ${added ? "text-[var(--success)]" : removed ? "text-[var(--error)]" : ""}`}>{added ? "+" : removed ? (unified ? "-" : "−") : ""}</span>
 					<span className="pr-4 whitespace-pre">{meta ? row.text : renderToken(token, index, stylesheet)}</span>
 				</div>;
 			})}
@@ -58,7 +58,7 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 });
 
 const STATUS_TONE = {
-	modified: "text-amber-500",
+	modified: "text-[var(--warning)]",
 	added: "text-[var(--accent-bright)]",
 	deleted: "text-[var(--error)]",
 	renamed: "text-[var(--accent-bright)]",
@@ -67,7 +67,7 @@ const STATUS_TONE = {
 
 const FLAG_TONE = {
 	staged: "bg-[var(--accent)]/15 text-[var(--accent-bright)]",
-	unstaged: "bg-amber-500/15 text-amber-500",
+	unstaged: "bg-[var(--warning)]/15 text-[var(--warning)]",
 	untracked: "bg-[var(--surface-hover)] text-[var(--text-secondary)]",
 };
 
@@ -452,8 +452,8 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										) : effectiveView === "split" ? (
 											<div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)]" aria-label="Side-by-side diff">
 												<div className="grid shrink-0 grid-cols-2 divide-x divide-[var(--code-border)] border-b border-[var(--code-border)] bg-[var(--surface-hover)] text-[11px] font-medium text-[var(--text-secondary)]">
-													<div className="px-3 py-2">Original <span className="text-rose-500">− removed</span></div>
-													<div className="px-3 py-2">Updated <span className="text-emerald-500">+ added</span></div>
+													<div className="px-3 py-2">Original <span className="text-[var(--error)]">− removed</span></div>
+													<div className="px-3 py-2">Updated <span className="text-[var(--success)]">+ added</span></div>
 												</div>
 												<div className="min-h-0 flex-1 overflow-y-auto">
 													<div className="grid grid-cols-2 divide-x divide-[var(--code-border)]">
@@ -484,7 +484,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 												Covered by checkpoint #{covering.checkpointId} ({covering.kind}).
 											</p>
 										) : covering && covering.checkpointId == null ? (
-											<p className="text-[11px] font-medium text-amber-500">
+											<p className="text-[11px] font-medium text-[var(--warning)]">
 												No recovery checkpoint covers {selectedPath} yet — it was never captured, so revert is unavailable.
 											</p>
 										) : null}
@@ -497,8 +497,8 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													{preview.strategy === "preview" ? " (no changes made)" : ""}
 												</p>
 												{safetyInfo && (
-													<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-amber-500/50"}`} aria-label="Revert safety verdict">
-														<p className={`font-medium ${safetyInfo.tone === "refused" ? "text-[var(--error)]" : "text-amber-500"}`}>
+													<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-[var(--warning)]/50"}`} aria-label="Revert safety verdict">
+														<p className={`font-medium ${safetyInfo.tone === "refused" ? "text-[var(--error)]" : "text-[var(--warning)]"}`}>
 															{safetyInfo.title}
 														</p>
 														<p className="text-[var(--text-secondary)]">{safetyInfo.explanation}</p>
@@ -537,12 +537,12 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													Overwrite conflicts: {force ? "on" : "off"} · Risky content authorized: {riskyConfirmed ? "yes" : safetyInfo == null ? "not needed" : "no"}
 												</p>
 												{safetyInfo && !confirmRiskyReady && (
-													<p className="text-[11px] font-medium text-amber-500">
+													<p className="text-[11px] font-medium text-[var(--warning)]">
 														Check the authorization box in the preview above first.
 													</p>
 												)}
 												{safetyInfo?.needsForce && !force && (
-													<p className="text-[11px] font-medium text-amber-500">
+													<p className="text-[11px] font-medium text-[var(--warning)]">
 														This refused revert also needs the overwrite checkbox above.
 													</p>
 												)}

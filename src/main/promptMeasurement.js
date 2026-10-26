@@ -27,10 +27,16 @@ function payloadHash(value) {
 function clearCache() {
   cache.clear();
   measurers = new WeakMap();
+  for (const entry of pendingMeasurements.values())
+    entry.controller.abort(Object.assign(new Error('Measurement backend changed.'), { code: 'stale-measurement' }));
 }
 
 function invalidateMeasuredContext(sessionId, modelId = null) {
   measurers = new WeakMap();
+  for (const entry of pendingMeasurements.values()) {
+    if (entry.sessionId === sessionId && (modelId === null || entry.modelId === modelId))
+      entry.controller.abort(Object.assign(new Error('Context measurement invalidated.'), { code: 'stale-measurement' }));
+  }
   const prefix = modelId === null ? `${sessionId}::` : `${sessionId}::${modelId}::`;
   for (const key of [...cache.keys()]) {
     if (key.startsWith(prefix)) cache.delete(key);
@@ -65,7 +71,7 @@ function samplingCaps(sessionId, modelId) {
   }
 }
 
-async function measurePreparedContext({
+async function measurePreparedContextOnce({
   sessionId,
   modelId,
   cloud = false,
@@ -75,6 +81,7 @@ async function measurePreparedContext({
   fetchImpl = null,
   contextWindowLimit = null,
   mcpToolsOverride = null,
+  signal = null,
 } = {}) {
   if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.includes('\0')) {
     throw new TypeError('sessionId must be a non-empty string without null characters.');
@@ -82,6 +89,8 @@ async function measurePreparedContext({
   if (typeof modelId !== 'string' || !modelId.trim() || modelId.includes('\0')) {
     throw new TypeError('modelId must be a non-empty string without null characters.');
   }
+  signal?.throwIfAborted();
+  require('./sessionDeletion').assertAvailable(sessionId);
   const { rebuildChatMessages, getToolContext } = require('./promptBuilder');
   const { effectiveMode, sessionProject } = require('./toolPermissions');
   const { approximateTokens, createPromptMeasurer } = require('./contextBudget');
@@ -152,13 +161,14 @@ async function measurePreparedContext({
     if (!measurer) { measurer = createPromptMeasurer(fetcher); measurers.set(fetcher, measurer); }
     try {
       const measured = await measurer(`http://127.0.0.1:${engine.port}/v1/chat/completions`,
-        payload, { contextWindowLimit: contextWindowLimit ?? engine.contextLength ?? 8192, runtimeIdentity: backendId });
+        payload, { signal, contextWindowLimit: contextWindowLimit ?? engine.contextLength ?? 8192, runtimeIdentity: backendId });
       result = { ...base, tokens: measured.tokens, method: measured.method,
         limit: measured.limit, budget: measured.budget, budgetContract: measured.budgetContract,
         imageCount: measured.imageCount, imageAllowanceTokens: measured.imageAllowanceTokens,
         ...(measured.note ? { note: measured.note } : {}),
         confidence: measured.method === 'server-template-tokenizer' ? 'measured' : 'estimated' };
     } catch (error) {
+      if (signal?.aborted) throw signal.reason;
       if (error?.code === 'CONTEXT_BUDGET_EXCEEDED') throw error;
       const tokens = approximateTokens(payload);
       result = { ...base, tokens, method: 'approximate-full-request', confidence: 'estimated',
@@ -192,8 +202,9 @@ async function measurePreparedContext({
     result.limit = result.budgetContract.capacityTokens;
     result.budget = result.budgetContract.usableInputTokens;
   }
+  signal?.throwIfAborted();
   if (stateIdentity !== preparedStateIdentity(sessionId, modelId, mcpToolsOverride) || historyIdentity !== payloadHash(require('./sessionManager').getActiveMessages(sessionId)))
-    throw new Error('Prompt history changed during measurement; refresh the current request.');
+    throw Object.assign(new Error('Prompt history changed during measurement; refresh the current request.'), { code: 'stale-measurement' });
   // Full-request total comes from the established measurer. Components are
   // explicitly estimates and overlap; they must never be summed as exact tokens.
   const component = value => value.length ? Math.ceil(JSON.stringify(value).length / 4) : 0;
@@ -216,6 +227,32 @@ async function measurePreparedContext({
   require('./sessionDeletion').assertAvailable(sessionId);
   cache.set(key, { hash, result });
   return result;
+}
+
+// Share only identical snapshots/configurations. A changed history gets its own
+// measurement; the obsolete one still has to pass the final source check.
+const pendingMeasurements = new Map();
+const measurementOwners = new WeakMap();
+let nextOwner = 0;
+function ownerId(value) {
+  if (!value) return null;
+  if (!measurementOwners.has(value)) measurementOwners.set(value, ++nextOwner);
+  return measurementOwners.get(value);
+}
+function measurePreparedContext(options = {}) {
+  const { fetchImpl, signal, ...serializable } = options;
+  let key;
+  try {
+    key = payloadHash({ ...serializable, fetchOwner: ownerId(fetchImpl), signalOwner: ownerId(signal), state: preparedStateIdentity(options.sessionId, options.modelId, options.mcpToolsOverride) });
+  } catch (error) { return Promise.reject(error); }
+  const pending = pendingMeasurements.get(key);
+  if (pending && pending.fetchImpl === fetchImpl) return pending.promise;
+  const entry = { fetchImpl, sessionId: options.sessionId, modelId: options.modelId, controller: new AbortController() };
+  entry.promise = measurePreparedContextOnce({ ...options, signal: signal ? AbortSignal.any([signal, entry.controller.signal]) : entry.controller.signal }).finally(() => {
+    if (pendingMeasurements.get(key) === entry) pendingMeasurements.delete(key);
+  });
+  pendingMeasurements.set(key, entry);
+  return entry.promise;
 }
 
 function preparedConfigurationIdentity(sessionId, modelId) {

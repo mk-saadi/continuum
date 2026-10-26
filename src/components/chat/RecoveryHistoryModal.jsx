@@ -12,7 +12,7 @@ const KIND_TONE = {
 };
 
 const STATUS_TONE = {
-	modified: "text-amber-500",
+	modified: "text-[var(--warning)]",
 	created: "text-[var(--accent-bright)]",
 	deleted: "text-[var(--error)]",
 	renamed: "text-[var(--accent-bright)]",
@@ -281,9 +281,9 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 			onClick={(event) => {
 				if (event.target === dialogRef.current && !busy) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[860px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
 		>
-			<div className="flex max-h-[85dvh] flex-col">
+			<div className="flex h-full min-h-0 flex-col">
 				<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-3">
 					<LuHistory aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
 					<h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
@@ -298,7 +298,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 						<FiX aria-hidden="true" />
 					</button>
 				</header>
-				<div className="min-h-0 flex-1 space-y-3 overflow-auto p-4 text-xs">
+				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-xs">
 					{error && (
 						<p role="alert" className="text-[var(--error)]">
 							{error}
@@ -309,6 +309,8 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 							{notice}
 						</p>
 					)}
+					<div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-3 md:grid-rows-1 md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]">
+					<aside aria-label="Checkpoint history" className="min-h-0 space-y-3 overflow-y-auto rounded-xl border border-[var(--subtle-border)] p-3">
 					{!history ? (
 						<p className="text-[var(--text-muted)]">Loading recovery history…</p>
 					) : history.mine.length === 0 && history.other.length === 0 ? (
@@ -338,8 +340,10 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 							)}
 						</>
 					)}
+					</aside>
+					{!detail && <p className="p-3 text-[var(--text-muted)]">{selectedId == null ? "Select a checkpoint to review its files." : error ? "Checkpoint details unavailable." : "Loading checkpoint details…"}</p>}
 					{detail && (
-						<section aria-label="Checkpoint details" className="space-y-2 rounded-xl border border-[var(--subtle-border)] p-3">
+						<section aria-label="Checkpoint details" className="flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto rounded-xl border border-[var(--subtle-border)] p-3">
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)] tabular-nums">
 								<span>Checkpoint #{detail.id} · {detail.kind} · {formatTime(detail.createdAt)}</span>
 								{detail.originChat && <span>from {detail.originChat}</span>}
@@ -353,7 +357,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 								</button>
 							</div>
 							{!detail.coverage.complete && (
-								<p className="text-[11px] font-medium text-amber-500">
+								<p className="text-[11px] font-medium text-[var(--warning)]">
 									Partial capture: {(detail.coverage.skipped ?? []).length} path(s) skipped
 									{(detail.coverage.excluded ?? []).length ? `, ${(detail.coverage.excluded ?? []).length} excluded by policy` : ''}.
 									This checkpoint cannot fully roll back the workspace.
@@ -366,9 +370,11 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 								</p>
 							)}
 							<p className="text-[11px] text-[var(--text-muted)] tabular-nums">
-								{detail.totalPaths} path{detail.totalPaths === 1 ? '' : 's'} recorded{detail.truncated ? ' (list truncated for display)' : ''}.
+								{detail.totalPaths} path{detail.totalPaths === 1 ? '' : 's'} recorded{detail.truncated ? ' (project file list truncated for display)' : ''}.
+								{detail.hiddenPaths > 0 && ` ${detail.hiddenPaths} generated or dependency paths hidden. Showing project files only.`}
 							</p>
-							<ul className="max-h-64 space-y-1 overflow-auto rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-2">
+							<ul className="min-h-48 flex-1 shrink-0 space-y-2 overflow-auto rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-2">
+								{detail.paths.length === 0 && <li className="p-3 text-[var(--text-muted)]">No project files in this checkpoint.</li>}
 								{detail.paths.map((item) => (
 									<li key={item.path} className="min-w-0 text-[11px]">
 										<span className="flex min-w-0 items-baseline gap-2">
@@ -430,13 +436,13 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									{previewUnchanged > 0 && <p className="text-[var(--text-muted)]">{previewUnchanged} already matching — no change needed.</p>}
 									{previewPaths(preview.removed).length > 0 && <p className="text-[var(--text-secondary)]">Would remove: {previewPaths(preview.removed).join(', ')}</p>}
 									{preview.skipped.length > 0 && (
-										<p className="text-amber-500">
+										<p className="text-[var(--warning)]">
 											Would skip: {preview.skipped.map((s) => `${s.path} (${s.reason})`).join(', ')}
 										</p>
 									)}
 									{safetyInfo && (
-										<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === 'refused' ? 'border-[var(--error)]/50' : 'border-amber-500/50'}`} aria-label="Restore safety verdict">
-											<p className={`font-medium ${safetyInfo.tone === 'refused' ? 'text-[var(--error)]' : 'text-amber-500'}`}>
+										<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === 'refused' ? 'border-[var(--error)]/50' : 'border-[var(--warning)]/50'}`} aria-label="Restore safety verdict">
+											<p className={`font-medium ${safetyInfo.tone === 'refused' ? 'text-[var(--error)]' : 'text-[var(--warning)]'}`}>
 												{safetyInfo.title}
 											</p>
 											<p className="text-[var(--text-secondary)]">{safetyInfo.explanation}</p>
@@ -497,12 +503,12 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										Overwrite conflicts: {force ? 'on' : 'off'} · Risky content authorized: {riskyConfirmed ? 'yes' : safetyInfo == null ? 'not needed' : 'no'}
 									</p>
 									{safetyInfo && !confirmRiskyReady && (
-										<p className="text-[11px] font-medium text-amber-500">
+										<p className="text-[11px] font-medium text-[var(--warning)]">
 											Check the authorization box in the preview above first.
 										</p>
 									)}
 									{safetyInfo?.needsForce && !force && (
-										<p className="text-[11px] font-medium text-amber-500">
+										<p className="text-[11px] font-medium text-[var(--warning)]">
 											This refused restore also needs the overwrite checkbox above.
 										</p>
 									)}
@@ -528,6 +534,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 							)}
 						</section>
 					)}
+					</div>
 				</div>
 			</div>
 		</dialog>

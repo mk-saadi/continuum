@@ -19,7 +19,7 @@ pre {
 @source "./";
 
 /* Named dark palettes also activate Tailwind dark: utilities. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="lilac-dark"], [data-theme="lilac-dark"] *, [data-theme="matcha-dark"], [data-theme="matcha-dark"] *, [data-theme="ember-dark"], [data-theme="ember-dark"] *, [data-theme="tokyo-dark"], [data-theme="tokyo-dark"] *, [data-theme="gruvbox-dark"], [data-theme="gruvbox-dark"] *, [data-theme="solarized-dark"], [data-theme="solarized-dark"] *, [data-theme="mochi-dark"], [data-theme="mochi-dark"] *, [data-theme="midnight-find"], [data-theme="midnight-find"] *, [data-theme="papaya-dark"], [data-theme="papaya-dark"] *,[data-theme="onyx-dark"], [data-theme="onyx-dark"] *)) {
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="lilac-dark"], [data-theme="lilac-dark"] *, [data-theme="matcha-dark"], [data-theme="matcha-dark"] *, [data-theme="ember-dark"], [data-theme="ember-dark"] *, [data-theme="tokyo-dark"], [data-theme="tokyo-dark"] *, [data-theme="gruvbox-dark"], [data-theme="gruvbox-dark"] *, [data-theme="solarized-dark"], [data-theme="solarized-dark"] *, [data-theme="mochi-dark"], [data-theme="mochi-dark"] *, [data-theme="midnight-find"], [data-theme="midnight-find"] *, [data-theme="papaya-dark"], [data-theme="papaya-dark"] *, [data-theme="onyx-dark"], [data-theme="onyx-dark"] *)) {
 }
 
 /* Original Dark Palette: Solarized Cyan/Teal (Refined with distinct elevations) */
@@ -39,6 +39,8 @@ pre {
 	--subtle-border: #e5e5e5;
 	--control-border: #a3a3a3;
 	--error: #d92d3a;
+	--success: #12805c;
+	--warning: #a16207;
 	--shadow: rgba(0, 0, 0, 0.12);
 	--surface: #fafafa;
 	--surface-raised: #ffffff;
@@ -91,6 +93,8 @@ pre {
 	--subtle-border: #262626;
 	--control-border: #4a4a4a;
 	--error: #ff6b6b;
+	--success: #4ade80;
+	--warning: #fbbf24;
 	--shadow: rgba(0, 0, 0, 0.5);
 	--surface: #1f1f1f;
 	--surface-raised: #292929;
@@ -157,6 +161,8 @@ pre {
 	--window-shadow: #09040c55;
 
 	--error: #f0788a;
+	--success: #9bcba9;
+	--warning: #e5a17f;
 	--error-soft: #f18c9a;
 	--error-strong: #ff9ba8;
 	--danger-hover: #d95c73;
@@ -220,6 +226,8 @@ pre {
 	--window-shadow: #69425520;
 
 	--error: #c74760;
+	--success: #3f7d5c;
+	--warning: #ad624f;
 	--error-soft: #d9687f;
 	--error-strong: #b52f4b;
 	--danger-hover: #98253f;
@@ -269,6 +277,8 @@ pre {
 	--subtle-border: #e8d7f7;
 	--control-border: #c9aee2;
 	--error: #ca506d;
+	--success: #2e7d5e;
+	--warning: #a3742c;
 	--shadow: rgba(109, 69, 131, 0.11);
 	--surface: #ffffff;
 	--surface-raised: #fcfaff;
@@ -321,6 +331,8 @@ pre {
 	--subtle-border: #382c49;
 	--control-border: #5b4a73;
 	--error: #ed7c91;
+	--success: #a9d5bb;
+	--warning: #f0af94;
 	--shadow: rgba(9, 5, 18, 0.48);
 	--surface: #251e30;
 	--surface-raised: #2e263d;
@@ -374,6 +386,8 @@ pre {
 	--subtle-border: #d2ebd8;
 	--control-border: #a3ccaa;
 	--error: #c35060;
+	--success: #1e755e;
+	--warning: #a66d4f;
 	--shadow: rgba(41, 104, 84, 0.09);
 	--surface: #ffffff;
 	--surface-raised: #f8fdf9;
@@ -426,6 +440,8 @@ pre {
 	--subtle-border: #252e28;
 	--control-border: #3e4d44;
 	--error: #f58593;
+	--success: #8bf6bb;
+	--warning: #f0c08a;
 	--shadow: rgba(0, 0, 0, 0.4);
 	--surface: #1a201c;
 	--surface-raised: #232b26;
@@ -492,6 +508,8 @@ pre {
 	--window-shadow: #28373126;
 
 	--error: #b84742;
+	--success: #527c60;
+	--warning: #a45635;
 	--error-soft: #cd7065;
 	--error-strong: #993630;
 	--danger-hover: #842b27;
@@ -541,6 +559,8 @@ pre {
 	--subtle-border: #2b3246;
 	--control-border: #4d5b7c;
 	--error: #f1848e;
+	--success: #a7d3ba;
+	--warning: #f0b188;
 	--shadow: rgba(8, 12, 23, 0.48);
 	--surface: #1b2131;
 	--surface-raised: #232a3f;
@@ -593,6 +613,8 @@ pre {
 	--subtle-border: #292e42;
 	--control-border: #4a5378;
 	--error: #f7768e;
+	--success: #9ece6a;
+	--warning: #e0af68;
 	--shadow: rgba(8, 9, 14, 0.5);
 	--surface: #1f2335;
 	--surface-raised: #24283b;
@@ -645,6 +667,8 @@ pre {
 	--subtle-border: #cbcfe0;
 	--control-border: #9aa1c2;
 	--error: #d92a5a;
+	--success: #587539;
+	--warning: #b15c00;
 	--shadow: rgba(55, 96, 191, 0.12);
 	--surface: #eef0f6;
 	--surface-raised: #f7f8fb;
@@ -697,6 +721,8 @@ pre {
 	--subtle-border: #2b2c2c;
 	--control-border: #55524e;
 	--error: #fb4934;
+	--success: #b8bb26;
+	--warning: #fabd2f;
 	--shadow: rgba(0, 0, 0, 0.55);
 	--surface: #232526;
 	--surface-raised: #2b2d2e;
@@ -749,6 +775,8 @@ pre {
 	--subtle-border: #ebdbb2;
 	--control-border: #bdae93;
 	--error: #cc241d;
+	--success: #79740e;
+	--warning: #b57614;
 	--shadow: rgba(60, 56, 54, 0.12);
 	--surface: #fdf9e0;
 	--surface-raised: #fffcee;
@@ -801,6 +829,8 @@ pre {
 	--subtle-border: #eae3cd;
 	--control-border: #c4bda5;
 	--error: #dc322f;
+	--success: #6d7d00;
+	--warning: #cb4b16;
 	--shadow: rgba(88, 110, 117, 0.14);
 	--surface: #fdf6e3;
 	--surface-raised: #fffbee;
@@ -853,6 +883,8 @@ pre {
 	--subtle-border: #0e3d4a;
 	--control-border: #1e6375;
 	--error: #dc322f;
+	--success: #859900;
+	--warning: #b58900;
 	--shadow: rgba(0, 0, 0, 0.5);
 	--surface: #073642;
 	--surface-raised: #0d404d;
@@ -919,6 +951,8 @@ pre {
 	--window-shadow: #07081488;
 
 	--error: #eb5e73;
+	--success: #7ca094;
+	--warning: #daa541;
 	--error-soft: #f6a2ae;
 	--error-strong: #d94b60;
 	--danger-hover: #c93f55;
@@ -982,6 +1016,8 @@ pre {
 	--window-shadow: #23243d26;
 
 	--error: #d94b60;
+	--success: #568a7b;
+	--warning: #8a6d1f;
 	--error-soft: #eb5e73;
 	--error-strong: #a83244;
 	--danger-hover: #932c3c;
@@ -1045,6 +1081,8 @@ pre {
 	--window-shadow: #40241226;
 
 	--error: #c22a5c;
+	--success: #5f8f1e;
+	--warning: #b8841a;
 	--error-soft: #e8568a;
 	--error-strong: #9c1c47;
 	--danger-hover: #861639;
@@ -1129,6 +1167,8 @@ pre {
 	--window-shadow: #030c0a8c;
 
 	--error: #ff5c8a;
+	--success: #b9f227;
+	--warning: #ffd166;
 	--error-soft: #ff9cb6;
 	--error-strong: #e63f70;
 	--danger-hover: #cc2f5e;
@@ -1213,6 +1253,8 @@ pre {
 	--window-shadow: #0b0c0e1f;
 
 	--error: #c02b45;
+	--success: #1c8a6b;
+	--warning: #a67c1a;
 	--error-soft: #e0566e;
 	--error-strong: #9c1f36;
 	--danger-hover: #851a2d;
@@ -1297,6 +1339,8 @@ pre {
 	--window-shadow: #000000cc;
 
 	--error: #ff6b81;
+	--success: #7fe0c0;
+	--warning: #ffd27f;
 	--error-soft: #ffa3b0;
 	--error-strong: #e04a62;
 	--danger-hover: #c73b52;

@@ -65,9 +65,15 @@ const agentTools = [
 	),
 	define(
 		"get_recent_chat_history",
-		"Retrieve up to 10 recent dialogue messages across chats, newest first. Choose a limit from 1 to 10 (default 5). Use search_memory for broader historical searches.",
+		"Retrieve recent dialogue across chats (limit 1-10), or original stored Workspace evidence using source_message_id, source_step_id, or source_brief_id. Source retrieval is current-conversation only, paged with offset/length (max 8000 characters); it never reruns tools.",
 		{
 			query: string("Optional short, broad 1-2 word keywords"),
+            source_history: { type: 'boolean', description: 'List current-branch stored source candidates, including archived history; optional query, offset pages eight candidates. Use source IDs to retrieve originals.' },
+            source_message_id: { type: 'integer', description: 'Retrieve stored evidence in this Workspace conversation by message ID.' },
+            source_step_id: string('Stored tool call ID; returns original result without rerunning the operation.'),
+            source_brief_id: { type: 'integer', description: 'Retrieve an original task brief in this conversation.' },
+            offset: { type: 'integer', minimum: 0 },
+            length: { type: 'integer', minimum: 1, maximum: 8000 },
 			limit: {
 				type: "number",
 				default: 5,
@@ -274,11 +280,12 @@ const agentTools = [
 	),
 	define(
 		"str_replace_editor",
-		"Replace exactly one contiguous block of complete lines in a project file, ignoring leading/trailing whitespace and carriage returns when matching. Include surrounding lines to make the match unique.",
+		"Replace one unique block. Prefer exact text; safe indentation and blank-line differences are tolerated. Include unchanged context for repeated code, keep blocks small, respect ambiguity/version errors, and read only a relevant range after failure. Use apply_patch when replacement is unsuitable.",
 		{
 			relative_path: string("Project-relative file path"),
-			old_str: string("Complete lines to replace; blank lines and internal spacing must match"),
-			new_str: string("Replacement text, written verbatim"),
+			old_str: string("Copy a small unique target from actual source; add unchanged context if ambiguous"),
+			new_str: string("Replacement text; tolerant matches preserve local line endings and consistent indentation shifts"),
+            expected_content_hash: string("Optional SHA-256 revision from read_project_file; conflicts reject safely"),
 		},
 		["relative_path", "old_str", "new_str"],
 	),
@@ -299,13 +306,13 @@ const agentTools = [
 	define(
 		"read_project_file",
 		[
-			"Read files by absolute or project-relative path; images return vision content, PDFs text, and large text is truncated.",
-			"Pass 1-based start_line/end_line for one page (default 200 lines, max 400); reads return sha256, byte size, and line coverage.",
-			"if_content_hash skips unchanged content; expected_content_hash gates a page's version. A hash match proves bytes unchanged, not correctness.",
+			"Read text in bounded pages (200 lines, max 400 and 20,000 source characters); images return vision content, PDFs text.",
+			"Use inclusive 1-based start_line/end_line; next_start_line continues, content_truncated marks caps. Read E2 ranges, copy exact text, then edit narrowly.",
+			"if_content_hash skips unchanged text; expected_content_hash detects stale pages; refresh on FILE_REVISION_CHANGED. char_start windows one long line in zero-based Unicode code points.",
 		].join(" "),
 		{
 			relative_path: string(
-				"Absolute or project-relative file path",
+				"Absolute or project-relative file path within the authorized workspace",
 			),
 			start_line: {
 				type: "integer",
@@ -317,6 +324,7 @@ const agentTools = [
 				minimum: 1,
 				description: "1-based inclusive last line.",
 			},
+			char_start: { type: "integer", minimum: 0, description: "Zero-based Unicode code-point offset; requires start_line=end_line. Follow next_char_start with the same revision." },
 			if_content_hash: {
 				type: "string",
 				pattern: "^(?:sha256:)?[a-fA-F0-9]{64}$",
@@ -376,16 +384,16 @@ const agentTools = [
 	),
 	define(
 		"edit_project_files",
-		"Apply small surgical replacements across one or more project files, all-or-nothing: every edit is validated first (contained path, unique match), then all are written together; if any edit fails validation, nothing is written. Multiple edits may target the same file — they are applied in the order given, so a later edit's old_str is matched against the result of the earlier ones. Use write_project_file for a whole-file rewrite and apply_patch for a unified diff.",
+		"Apply small surgical replacements across one or more project files, all-or-nothing: every edit is validated first (contained path, unique match), then all are written together; if any edit fails validation, nothing is written. Multiple edits may target the same file — they are applied in the order given, so a later edit's old_str is matched against the result of the earlier ones. Copy old_str from source, not memory. Correct only the reported failing operation before retrying the batch. Use apply_patch for structural edits.",
 		{
 			edits: {
 				type: "array",
-				description: "1 to 20 surgical replacements, applied in order; several may target the same file",
+				description: "1–20 edits; each requires relative_path, old_str, new_str. Split larger batches.",
 				items: {
 					type: "object",
 					properties: {
 						relative_path: string("Project-relative file path"),
-						old_str: string("Complete lines to replace; blank lines and internal spacing must match"),
+						old_str: string("Copy a small unique target from actual source; add unchanged context if ambiguous"),
 						new_str: string("Replacement text, written verbatim"),
 					},
 					required: ["relative_path", "old_str", "new_str"],
@@ -1550,46 +1558,31 @@ async function executeGitTool(root, name, args, signal, uncontained = false, app
 	}
 	throw new Error("Unknown agent tool.");
 }
-async function executeStrReplaceEditor(target, { old_str, new_str }, recoveryCtx = {}) {
+async function readEditableFile(target) {
+    const stat = await fs.stat(target);
+    if (!stat.isFile() || stat.size > 2 * 1024 * 1024) throw new Error('Editing requires a regular text file up to 2 MiB.');
+    const bytes = await fs.readFile(target);
+    if (bytes.length > 2 * 1024 * 1024) throw new Error('File exceeds editing size limit.');
+    if (bytes.includes(0)) throw new Error('Refusing binary file.');
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+}
+
+async function executeStrReplaceEditor(target, { old_str, new_str, expected_content_hash }, recoveryCtx = {}) {
 	requireText(old_str, "old_str", true);
 	requireText(new_str, "new_str", true);
 	if (!old_str)
 		throw new Error("old_str must not be empty. Provide surrounding lines to identify a unique block.");
 
-	const content = await fs.readFile(target, "utf8");
-	const lines = content.split("\n");
-	const normalize = (line) => line.replace(/\r/g, "").trim();
-	const normalizedLines = lines.map(normalize);
-	const oldLines = old_str.split("\n").map(normalize);
-	let match = -1;
-	for (let start = 0; start <= lines.length - oldLines.length; start++) {
-		if (!oldLines.every((line, offset) => line === normalizedLines[start + offset])) continue;
-		if (match !== -1) {
-			throw new Error(
-				"old_str is not unique after whitespace normalization. Provide more surrounding lines for uniqueness.",
-			);
-		}
-		match = start;
-	}
-	if (match === -1) {
-		throw new Error(
-			"old_str was not found after whitespace normalization. Provide complete surrounding lines; blank lines and internal spacing must match.",
-		);
-	}
-
-	// Use original offsets so surrounding text and mixed line endings stay intact.
-	let start = 0;
-	for (let index = 0; index < match; index++) start += lines[index].length + 1;
-	const last = match + oldLines.length - 1;
-	let end = start;
-	for (let index = match; index < last; index++) end += lines[index].length + 1;
-	end += lines[last].length;
-	// The final line separator belongs to the surrounding content.
-	if (last < lines.length - 1 && lines[last].endsWith("\r")) end--;
+	const content = await readEditableFile(target);
+	if (expected_content_hash && normalizeContentHash(expected_content_hash, "expected_content_hash") !== contentHashOfBytes(Buffer.from(content))) {
+        const error = new Error("stale-file: file changed since the supplied revision; inspect a relevant range before retrying."); error.code = "STALE_FILE"; error.editDetails = {category:"stale-file", changed_since_read:true, target_exists:true, zero_writes:true, suggested_action:"Read the current source range and rebuild this edit against its current revision."}; throw error;
+    }
+	const { start, end, ...matchInfo } = locateReplacement(content, old_str, target);
+	const replacement = replacementText(content, old_str, new_str, { start, end, ...matchInfo });
 	// Atomic temp+rename (not bare writeFile): an interrupted write must
 	// never leave a half-written file behind.
 	const write = async () => {
-		await atomicWriteFile(target, content.slice(0, start) + new_str + content.slice(end));
+		await atomicWriteFile(target, content.slice(0, start) + replacement + content.slice(end), { expectedHash: contentHashOfBytes(Buffer.from(content)), displayPath: target });
 		return { success: true };
 	};
 	if (!recoveryCtx.root || !recoveryCtx.rel) return write();
@@ -1628,7 +1621,7 @@ async function atomicWriteFile(target, content, { expectedHash = null, displayPa
 			} catch (error) {
 				if (error.code !== "ENOENT") throw error;
 			}
-			if (current?.contentHash !== expectedHash) {
+			if (expectedHash === 'missing' ? current !== null : current?.contentHash !== expectedHash) {
 				const error = new Error(
 					`File changed since it was read; refusing to overwrite ${displayPath ?? target}. ` +
 					`Expected ${expectedHash}, found ${current?.contentHash ?? "missing"}. ` +
@@ -1647,41 +1640,8 @@ async function atomicWriteFile(target, content, { expectedHash = null, displayPa
 	}
 }
 
-// Shared surgical-replacement matcher (same whitespace-normalized, uniqueness-
-// enforcing semantics as executeStrReplaceEditor), factored so multi-file
-// edits can validate every replacement before writing anything.
-function locateReplacement(content, old_str) {
-	requireText(old_str, "old_str", true);
-	if (!old_str)
-		throw new Error("old_str must not be empty. Provide surrounding lines to identify a unique block.");
-	const lines = content.split("\n");
-	const normalize = (line) => line.replace(/\r/g, "").trim();
-	const normalizedLines = lines.map(normalize);
-	const oldLines = old_str.split("\n").map(normalize);
-	let match = -1;
-	for (let start = 0; start <= lines.length - oldLines.length; start++) {
-		if (!oldLines.every((line, offset) => line === normalizedLines[start + offset])) continue;
-		if (match !== -1) {
-			throw new Error(
-				"old_str is not unique after whitespace normalization. Provide more surrounding lines for uniqueness.",
-			);
-		}
-		match = start;
-	}
-	if (match === -1) {
-		throw new Error(
-			"old_str was not found after whitespace normalization. Provide complete surrounding lines; blank lines and internal spacing must match.",
-		);
-	}
-	let start = 0;
-	for (let index = 0; index < match; index++) start += lines[index].length + 1;
-	const last = match + oldLines.length - 1;
-	let end = start;
-	for (let index = match; index < last; index++) end += lines[index].length + 1;
-	end += lines[last].length;
-	if (last < lines.length - 1 && lines[last].endsWith("\r")) end--;
-	return { start, end };
-}
+// Shared graduated matcher used by single and batch replacements.
+const { locateReplacement, replacementText } = require('./fileEditMatcher');
 
 // Workspace file recovery (Phase 1): capture before-images before the first
 // irreversible mutation. Capture failures block the operation (never silent);
@@ -1717,6 +1677,9 @@ async function withFileRecovery(root, { chatSessionId = null, toolName, op = nul
 		}
 		return result;
 	} catch (error) {
+		if (["str_replace_editor", "edit_project_files", "apply_patch"].includes(toolName))
+            error.editDetails = { ...error.editDetails, recoveryCheckpointId: checkpoint.checkpointId };
+        if (error.skipRecoveryRollback || (error.code === "STALE_FILE" && paths.length === 1)) throw error;
 		let rollback;
 		let undoCheckpointId = null;
 		let safetyNote = '';
@@ -1920,13 +1883,15 @@ function parseOptionalReadLine(value, name) {
 }
 
 // Resolve the optional line arguments into one bounded page. Omitted values
-// keep the legacy whole-file read; supplying either line argument opts into
-// ranged mode. A missing start defaults to 1 and a missing end to one default
-// page. The maximum page length is enforced before any file I/O.
+// use a bounded initial text page. A missing start defaults to 1 and a
+// missing end to one default page. The maximum page length is enforced before any file I/O.
 function resolveReadRange(args) {
 	const startArg = parseOptionalReadLine(args.start_line, "start_line");
 	const endArg = parseOptionalReadLine(args.end_line, "end_line");
-	if (startArg === null && endArg === null) return null;
+	const charStart = args.char_start;
+	if (charStart !== undefined && (!Number.isSafeInteger(charStart) || charStart < 0 || startArg === null || endArg !== startArg)) {
+		throw typedReadError("INVALID_LINE_RANGE", "char_start requires a nonnegative safe integer and equal start_line/end_line.");
+	}
 	const startLine = startArg ?? 1;
 	const requestedEndLine = endArg
 		?? Math.min(startLine + READ_DEFAULT_PAGE_LINES - 1, READ_MAX_LINE_NUMBER);
@@ -1936,6 +1901,7 @@ function resolveReadRange(args) {
 	const endLine = Math.min(requestedEndLine, startLine + READ_MAX_PAGE_LINES - 1);
 	return {
 		startLine,
+		charStart,
 		endLine,
 		requestedEndLine,
 		endProvided: endArg !== null,
@@ -1950,6 +1916,8 @@ function versionMismatchResult(display, expectedHash, current, extra = {}) {
 	return {
 		success: false,
 		code: "STALE_FILE",
+		reason: "FILE_REVISION_CHANGED",
+		relative_path: display,
 		outcome: "version_mismatch",
 		path: display,
 		expected_content_hash: expectedHash,
@@ -1972,7 +1940,8 @@ function versionMismatchResult(display, expectedHash, current, extra = {}) {
  * across the scan; the caller performs a small bounded retry. A file that keeps
  * changing is reported as an explicit error rather than a fabricated snapshot.
  */
-async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPUT_CHARS } = {}) {
+async function readTextRangeOnce(abs, range, { signal, authorizedRoot, maxChars = READ_MAX_OUTPUT_CHARS } = {}) {
+	if (authorizedRoot && !inside(authorizedRoot, await fs.realpath(abs))) throw new Error("Read path escapes the authorized workspace.");
 	const pathBefore = await fs.stat(abs);
 	if (!pathBefore.isFile()) throw new Error("Read target must be a regular file.");
 	const handle = await fs.open(abs, "r");
@@ -1999,17 +1968,33 @@ async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPU
 		let stopReason = null;
 		let oversized = null;
 		let overflow = null;
+		let decoder, windowText = "", pointCount = 0, windowPoints = 0, windowClosed = false;
+		const windowMode = range.charStart !== undefined;
+		const consumeWindow = text => {
+			for (const point of text) {
+				if (pointCount >= range.charStart && !windowClosed) {
+					if (windowText.length + point.length <= maxChars) { windowText += point; windowPoints++; }
+					else windowClosed = true;
+				}
+				pointCount++;
+			}
+		};
 
 		const beginLine = () => {
 			lineActive = true;
 			lineParts = [];
 			lineBytes = 0;
 			lineTooLong = false;
+			if (windowMode) decoder = new (require("node:string_decoder").StringDecoder)("utf8");
 		};
 
 		const append = (bytes) => {
 			if (!lineActive) return;
 			lineBytes += bytes.length;
+			if (windowMode) {
+				if (newlineCount + 1 === range.startLine) consumeWindow(decoder.write(bytes));
+				return;
+			}
 			if (stopped || lineTooLong) return;
 			if (lineBytes > lineByteLimit) {
 				lineTooLong = true;
@@ -2023,7 +2008,10 @@ async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPU
 			if (!lineActive) return;
 			const lineNumber = newlineCount + 1;
 			const inRange = lineNumber >= range.startLine && lineNumber <= range.endLine;
-			if (inRange && !stopped) {
+			if (inRange && windowMode) {
+				consumeWindow(decoder.end());
+				collected.push(windowText);
+			} else if (inRange && !stopped) {
 				if (lineTooLong) {
 					overflow = { line: lineNumber, bytes: lineBytes };
 					if (!collected.length) {
@@ -2097,12 +2085,13 @@ async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPU
 		}
 		if (
 			after.dev !== before.dev || after.ino !== before.ino ||
-			after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+			after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs ||
 			pathAfter.dev !== before.dev || pathAfter.ino !== before.ino ||
-			pathAfter.size !== before.size || pathAfter.mtimeMs !== before.mtimeMs
+			pathAfter.size !== before.size || pathAfter.mtimeMs !== before.mtimeMs || pathAfter.ctimeMs !== before.ctimeMs
 		) {
 			return { unstable: true };
 		}
+		if (authorizedRoot && !inside(authorizedRoot, await fs.realpath(abs))) throw new Error("Read path escapes the authorized workspace.");
 		const totalLines = newlineCount + (sawBytes && !lastByteWasNewline ? 1 : 0);
 		return {
 			unstable: false,
@@ -2114,6 +2103,7 @@ async function readTextRangeOnce(abs, range, { signal, maxChars = READ_MAX_OUTPU
 			stopReason,
 			oversized,
 			overflow,
+			...(windowMode ? { charStart: range.charStart, nextCharStart: range.charStart + windowPoints < pointCount ? range.charStart + windowPoints : null, totalChars: pointCount } : {}),
 		};
 	} finally {
 		await handle.close().catch(() => {});
@@ -2351,6 +2341,7 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 	const byTarget = new Map();
 	for (let index = 0; index < edits.length; index++) {
 		const edit = edits[index];
+        try {
 		if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
 			throw new Error(`Edit ${index} must be an object with relative_path, old_str, and new_str.`);
 		}
@@ -2362,20 +2353,38 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 		if (!entry) {
 			let content;
 			try {
-				content = await fs.readFile(target, "utf8");
+				content = await readEditableFile(target);
 			} catch (error) {
-				if (error.code === "ENOENT") throw new Error(`Edit ${index}: file does not exist: ${relative_path}.`);
+				if (error.code === "ENOENT") throw Object.assign(new Error(`Edit ${index}: file does not exist: ${relative_path}.`), {code:"ENOENT"});
 				throw error;
 			}
 			if (content.includes("\0")) throw new Error(`Edit ${index}: refusing binary file: ${relative_path}.`);
-			entry = { target, relative_path, content };
+			entry = { target, relative_path, content, original: content, expectedHash: contentHashOfBytes(Buffer.from(content)) };
 			byTarget.set(target, entry);
 		}
-		const { start, end } = locateReplacement(entry.content, old_str);
-		entry.content = entry.content.slice(0, start) + new_str + entry.content.slice(end);
+		let match;
+        try { match = locateReplacement(entry.content, old_str, target); }
+        catch (error) {
+            error.editDetails = { ...error.editDetails, code: error.editDetails?.category === 'ambiguous-match' ? 'EDIT_TARGET_AMBIGUOUS' : 'EDIT_TARGET_NOT_FOUND',
+                batch_size: edits.length, edit_index: index, edit_number: index + 1, path: relative_path,
+                target_exists: true, zero_writes: true, changed_since_read: null,
+                suggested_action: `Read the reported source range; correct edit ${index + 1} of ${edits.length} with a smaller unique replacement. Retry the corrected batch; no files modified.` };
+            throw error;
+        }
+		const { start, end } = match;
+		entry.content = entry.content.slice(0, start) + replacementText(entry.content, old_str, new_str, match) + entry.content.slice(end);
+        } catch(error) {
+            error.editDetails = { batch_size: edits.length, edit_index: index, edit_number: index+1,
+                path: edit?.relative_path, category: error.code === 'ENOENT' ? 'missing-file' : 'edit-preflight',
+                target_exists: error.code === 'ENOENT' ? false : null, changed_since_read: null,
+                strategies_attempted: [], candidates: [], zero_writes: true,
+                suggested_action: 'Correct the reported operation and retry the batch. No files modified.', ...error.editDetails };
+            throw error;
+        }
 	}
 	// One entry per distinct file, in first-seen order.
-	const planned = [...byTarget.values()].map(({ target, relative_path, content }) => ({
+	const planned = [...byTarget.values()].map(({ target, relative_path, content, original, expectedHash }) => ({
+        original, expectedHash,
 		target,
 		relative_path,
 		updated: content,
@@ -2385,7 +2394,25 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 	// disk error mid-sequence must still leave a complete recovery point
 	// (plus a best-effort rollback) rather than a half-written batch.
 	const writeAll = async () => {
-		for (const { target, updated } of planned) await atomicWriteFile(target, updated);
+		const completed = [];
+        try {
+            for (const entry of planned) {
+                await atomicWriteFile(entry.target, entry.updated, { expectedHash: entry.expectedHash });
+                completed.push(entry);
+            }
+        } catch (error) {
+            // Restore only bytes written by this batch. Never force a recovery
+            // snapshot over another writer's intervening content.
+            const conflicts = [];
+            for (const entry of completed.reverse()) {
+                try { await atomicWriteFile(entry.target, entry.original, { expectedHash: contentHashOfBytes(Buffer.from(entry.updated)) }); }
+                catch { conflicts.push(entry.relative_path); }
+            }
+            error.skipRecoveryRollback = true;
+            error.editDetails = { code: error.code || 'EDIT_WRITE_FAILED', zero_writes: completed.length === 0, net_modifications: conflicts.length ? null : false, written_paths: completed.map(e => e.relative_path), committed_paths: conflicts, rollback_failed_paths: conflicts, recovery_status: conflicts.length ? 'review-checkpoint' : 'rolled-back' };
+            if (conflicts.length) error.message += ` Concurrent rollback conflicts preserved: ${conflicts.join(', ')}. Use the recovery checkpoint to review.`;
+            throw error;
+        }
 		return { success: true, edited: planned.map(({ relative_path }) => relative_path) };
 	};
 	return withFileRecovery(root, {
@@ -2453,7 +2480,9 @@ function parseUnifiedPatch(patch) {
 }
 
 async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {}) {
-	const parsed = parseUnifiedPatch(patch);
+	let parsed;
+    try { parsed = parseUnifiedPatch(patch); }
+    catch(error) { error.editDetails={code:'PATCH_ARGUMENT_INVALID',zero_writes:true,suggested_action:'Correct the unified diff headers and hunks; no files modified.'};throw error; }
 	// Phase 1 — validate everything before touching the filesystem.
 	const planned = [];
 	for (const file of parsed) {
@@ -2461,10 +2490,12 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 		const creating = file.oldName === "/dev/null";
 		const target = await resolveWriteTarget(root, creating ? file.newName : file.oldName, uncontained);
 		let lines = [];
+        let original = null;
 		if (!creating) {
 			let content;
 			try {
-				content = await fs.readFile(target, "utf8");
+				content = await readEditableFile(target);
+                original = content;
 			} catch (error) {
 				if (error.code === "ENOENT") throw new Error(`File does not exist: ${file.oldName}.`);
 				throw error;
@@ -2475,16 +2506,25 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 		// Apply hunks against a working copy, tracking the line offset so
 		// later hunks in the same file land correctly.
 		let offset = 0;
-		for (const hunk of file.hunks) {
+		for (const [hunkIndex, hunk] of file.hunks.entries()) {
 			const needle = hunk.oldLines;
 			let at = -1;
 			if (needle.length) {
 				for (let start = 0; start <= lines.length - needle.length; start++) {
 					if (!needle.every((line, i) => line === lines[start + i])) continue;
-					if (at !== -1) throw new Error(`Hunk is ambiguous in ${file.oldName} (${hunk.header.trim()}); add more context lines.`);
+					if (at !== -1) require('./editDiagnostics').throwDetails({code:'PATCH_CONTEXT_AMBIGUOUS',path:file.oldName,hunk_index:hunkIndex,hunk_number:hunkIndex+1,zero_writes:true,candidates:[{start_line:at+1,end_line:at+needle.length},{start_line:start+1,end_line:start+needle.length}],suggested_action:'Add unique unchanged context to this hunk. No files modified.'});
 					at = start;
 				}
-				if (at === -1) throw new Error(`Hunk does not match ${file.oldName} (${hunk.header.trim()}); context must match exactly.`);
+				if (at === -1) {
+                    const expected = Number(hunk.header.match(/-(\d+)/)?.[1] || 1);
+                    const start = Math.max(0, Math.min(lines.length - 1, expected - 3));
+                    require('./editDiagnostics').throwDetails({ code: 'PATCH_CONTEXT_MISMATCH', path: file.oldName,
+                        hunk_index: hunkIndex, hunk_number: hunkIndex + 1, expected_old_range: hunk.header.trim(),
+                        expected_context: needle.slice(0,12).join('\n').slice(0,1000),
+                        nearby_source: [{start_line:start+1,end_line:Math.min(lines.length,start+12),excerpt:lines.slice(start,start+12).join('\n').slice(0,1000)}],
+                        changed_since_read: null, target_exists: !creating, zero_writes: true, applied_files: [],
+                        suggested_action: `Read lines ${start+1}–${Math.min(lines.length,start+12)} and regenerate only hunk ${hunkIndex+1}; preserve existing intervening declarations and children. No files modified.` });
+                }
 			} else {
 				at = Math.max(0, Math.min(lines.length, offset));
 			}
@@ -2492,18 +2532,38 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 			offset += hunk.newLines.length - needle.length;
 			lines = next;
 		}
-		planned.push({ target, relative: creating ? file.newName : file.oldName, content: lines.join("\n"), creating });
+		planned.push({ target, relative: creating ? file.newName : file.oldName, content: lines.join("\n"), original, creating });
 	}
 	// Phase 2 — all validated, write atomically per file. Every affected
 	// file (including about-to-be-created ones, recorded as absent) is
 	// captured before the first mutation.
-	const writeAll = async () => {
-		for (const { target, content, creating } of planned) {
-			if (creating) await fs.mkdir(path.dirname(target), { recursive: true });
-			await atomicWriteFile(target, content);
-		}
-		return { success: true, files: planned.map(({ relative }) => relative) };
-	};
+ const writeAll = async () => {
+        const completed=[];
+        try {
+            for (const entry of planned) {
+                if (entry.creating) await fs.mkdir(path.dirname(entry.target), {recursive:true});
+                await atomicWriteFile(entry.target, entry.content, {expectedHash: entry.creating ? 'missing' : contentHashOfBytes(Buffer.from(entry.original))});
+                completed.push(entry);
+            }
+        } catch(error) {
+            const conflicts=[];
+            for(const entry of completed.slice().reverse()) {
+                try {
+                    if(entry.creating) {
+                        const current=await currentFileState(entry.target);
+                        if(current?.contentHash!==contentHashOfBytes(Buffer.from(entry.content)))throw new Error('Concurrent change');
+                        await fs.unlink(entry.target);
+                    } else await atomicWriteFile(entry.target,entry.original,{expectedHash:contentHashOfBytes(Buffer.from(entry.content))});
+                } catch {conflicts.push(entry.relative);}
+            }
+            error.skipRecoveryRollback=true;
+            error.editDetails={code:error.code || 'PATCH_WRITE_FAILED',zero_writes:completed.length===0,net_modifications:conflicts.length?null:false,
+                written_paths:completed.map(e=>e.relative),committed_paths:conflicts,rollback_failed_paths:conflicts,
+                recovery_status:conflicts.length?'review-checkpoint':'rolled-back',suggested_action:'Refresh current file versions and review the retained recovery checkpoint before retrying.'};
+            throw error;
+        }
+        return {success:true,files:planned.map(e=>e.relative)};
+    };
 	return withFileRecovery(root, {
 		chatSessionId: recoveryCtx.chatSessionId ?? null,
 		toolName: "apply_patch",
@@ -2511,7 +2571,9 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 	}, writeAll);
 }
 
-async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null, validateMcpActivation = null, validateToolAuthorization = null }) {	try {
+async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null, validateMcpActivation = null, validateToolAuthorization = null }) {
+    let editArgs;
+    try {
         if (sessionId && require('../db').isInitialized?.()) require('../sessionDeletion').assertAvailable(sessionId);
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
 		if (!definition) throw new Error("Unknown agent tool.");
@@ -2522,6 +2584,11 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
           return await executeLspTool(name, args, context, signal);
         }
 		const args = typeof rawArguments === "string" ? JSON.parse(rawArguments) : structuredClone(rawArguments);
+        editArgs = args;
+        if (name === 'edit_project_files') {
+            const details = require('./editDiagnostics').argumentError(args);
+            if (details) require('./editDiagnostics').throwDetails(details);
+        }
 		if (!args || typeof args !== "object" || Array.isArray(args))
 			throw new Error("Tool arguments must be an object.");
 		if (name === 'spawn_sub_agent' && Object.hasOwn(args, 'target_files'))
@@ -2611,7 +2678,11 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			approvedMutations.add(require('../safetyGuards').mutationApprovalKey(sessionId, args.hash));
 			return { success: true, hash: args.hash };
 		}
-		if (name === "get_recent_chat_history") return getRecentChatHistory(args, sessionId);
+		if (name === "get_recent_chat_history") {
+            if (['source_history', 'source_message_id', 'source_step_id', 'source_brief_id'].some(key => Object.hasOwn(args, key)))
+                return require('../workspaceEvidence').retrieve(sessionId, args);
+            return getRecentChatHistory(args, sessionId);
+        }
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
 		if (name === "web_search") return await require("./webDiscovery").searchWeb({ query: args.query, max_results: args.max_results, signal });
 		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
@@ -2735,7 +2806,9 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				fullAccess: permissionMode === "full_access",
 			});
 		}
-		const target = ["read_project_file", "list_directory"].includes(name)
+		const target = name === "read_project_file"
+			? await readablePath(root, await scopedPath(await fs.realpath(root), args.relative_path ?? ".", true))
+			: name === "list_directory"
 			? await readablePath(root, args.relative_path ?? ".")
 			: uncontained ? path.resolve(root, args.relative_path ?? ".") : await scopedPath(root, args.relative_path ?? ".", true);
 		if (!["read_project_file", "list_directory", "move_project_file", "edit_project_files", "apply_patch"].includes(name)) require("../gitMetadata").assertWritable(root, target);
@@ -2763,6 +2836,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 					"Provide either if_content_hash (skip unchanged content) or expected_content_hash (version gate), not both.",
 				);
 			}
+			const requestedRange = args.start_line !== undefined || args.end_line !== undefined || args.char_start !== undefined;
 			const range = resolveReadRange(args);
 			if (!(await fs.stat(target)).isFile()) throw new Error("Read target must be a regular file.");
 			const display = relativeDisplayPath(root, target, args.relative_path);
@@ -2773,17 +2847,19 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 				".webp": "image/webp",
 				".gif": "image/gif",
 			}[path.extname(target).toLowerCase()];
-			if (range && (mime || path.extname(target).toLowerCase() === ".pdf")) {
+			if (requestedRange && (mime || path.extname(target).toLowerCase() === ".pdf")) {
 				throw typedReadError(
 					"LINE_RANGE_UNSUPPORTED",
 					"Line ranges are not supported for image or PDF reads; read the file without start_line/end_line.",
 				);
 			}
-			if (range) {
-				const scan = await readTextRangeStable(target, range, { signal });
+			if (!mime && path.extname(target).toLowerCase() !== ".pdf") {
+				const scan = await readTextRangeStable(target, range, { signal, authorizedRoot: await fs.realpath(root) });
+				validateAuthorization();
 				const base = {
 					success: true,
 					path: display,
+					relative_path: display,
 					content_hash: scan.contentHash,
 					size_bytes: scan.sizeBytes,
 				};
@@ -2799,11 +2875,18 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 						},
 					);
 				}
+				if (scan.totalLines === 0 && !requestedRange) return {
+					...base, ...(requestedHash === scan.contentHash ? {} : { content: "" }),
+					start_line: 0, end_line: 0, total_lines: 0,
+					has_more: false, next_start_line: null, content_truncated: false, line_numbers: [],
+					...(requestedHash ? { not_modified: requestedHash === scan.contentHash } : {}),
+				};
 				if (scan.totalLines < 1 || range.startLine > scan.totalLines) {
 					return {
 						...base,
 						success: false,
 						code: "LINE_RANGE_OUT_OF_BOUNDS",
+						has_more: false, next_start_line: null, content_truncated: false,
 						outcome: "line_range_out_of_bounds",
 						start_line: range.startLine,
 						end_line: range.requestedEndLine,
@@ -2818,6 +2901,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 					return {
 						...base,
 						not_modified: true,
+						content_truncated: false,
 						start_line: range.startLine,
 						end_line: effectiveEnd,
 						total_lines: scan.totalLines,
@@ -2832,7 +2916,11 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 						code: "LINE_TOO_LONG",
 						outcome: "line_too_long",
 						start_line: range.startLine,
-						end_line: range.requestedEndLine,
+						end_line: null,
+						content_truncated: true,
+						has_more: true,
+						next_start_line: scan.oversized.line,
+						next_char_start: 0,
 						total_lines: scan.totalLines,
 						line_number: scan.oversized.line,
 						line_bytes: scan.oversized.bytes,
@@ -2842,7 +2930,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 							: null,
 						error: `Line ${scan.oversized.line} in ${display} is too long to return within the ` +
 							`${READ_MAX_OUTPUT_CHARS.toLocaleString()}-character output limit. ` +
-							"Continue after that line or inspect it with a different tool.",
+							"Read that single line with start_line=end_line and char_start:0; follow next_char_start.",
 					};
 					if (scan.oversized.chars !== undefined) oversized.line_chars = scan.oversized.chars;
 					return oversized;
@@ -2860,11 +2948,20 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 					has_more: hasMore,
 					next_start_line: hasMore ? actualEnd + 1 : null,
 					content: scan.content,
+					line_numbers: Array.from({ length: scan.collectedLines }, (_, i) => range.startLine + i),
+					content_truncated: scan.stopReason === "output_limit" || actualEnd < Math.min(range.requestedEndLine, scan.totalLines),
+					...(scan.charStart !== undefined ? {
+						char_start: scan.charStart, next_char_start: scan.nextCharStart, total_chars: scan.totalChars,
+						partial_line: scan.charStart > 0 || scan.nextCharStart !== null,
+						content_truncated: scan.nextCharStart !== null,
+						has_more: scan.nextCharStart !== null || hasMore,
+						next_start_line: scan.nextCharStart !== null ? range.startLine : (hasMore ? actualEnd + 1 : null),
+					} : {}),
 				};
 				if (range.endProvided && range.requestedEndLine !== actualEnd) {
 					result.requested_end_line = range.requestedEndLine;
 				}
-				if (range.pageCapped || scan.stopReason === "output_limit") {
+				if (scan.charStart === undefined && result.content_truncated) {
 					result.truncated = true;
 					result.truncation_reason = scan.stopReason === "output_limit" ? "output_limit" : "page_limit";
 				}
@@ -3011,6 +3108,8 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		});
 	} catch (error) {
 		const result = { success: false, error: error.message };
+        if (error.editDetails) Object.assign(result, error.editDetails);
+        if (error.editDetails && result.path === undefined && editArgs?.relative_path) result.path = editArgs.relative_path;
         if (["execute_command", "run_tests"].includes(name)) {
             if (["PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED"].includes(error?.code)) result.status = 'permission_denied';
             else if (error?.code === 'SUBAGENT_DEADLINE_EXCEEDED') result.status = 'agent_deadline_exceeded';
@@ -3020,6 +3119,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 			"INVALID_LINE_RANGE", "LINE_RANGE_OUT_OF_BOUNDS", "LINE_RANGE_UNSUPPORTED",
 			"LINE_TOO_LONG", "FILE_CHANGED_DURING_READ", "INVALID_CONTENT_HASH_MODE"].includes(error?.code)) result.code = error.code;
 		if (error?.currentContentHash !== undefined) {
+            if (["str_replace_editor","edit_project_files","apply_patch"].includes(name)) result.changed_since_read = true;
 			result.current_content_hash = error.currentContentHash;
 			result.size_bytes = error.currentSizeBytes ?? null;
 		}

@@ -1,0 +1,307 @@
+{
+  "phase": "R2",
+  "date": "2026-10-27",
+  "baseline_status_porcelain_v1": [
+    " M main.js",
+    " M src/App.jsx",
+    " M src/components/ContextPanel.jsx",
+    " M src/components/MemoryPalace.jsx",
+    " M src/components/chat/DiffReviewModal.jsx",
+    " M src/components/settings/NotificationSettings.jsx",
+    " M src/context/TabContext.jsx",
+    " M src/index.css",
+    " M src/lib/compactionActivity.mjs",
+    " M src/lib/memoryChat.mjs",
+    " M src/main/compressionEngine.js",
+    " M src/main/configManager.js",
+    " M src/main/contextBudget.js",
+    " M src/main/costEstimator.js",
+    " M src/main/db.js",
+    " M src/main/engineManager.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/localEngineFetch.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/promptMeasurement.js",
+    " M src/main/reasoningRuntime.js",
+    " M src/main/sessionDeletion.js",
+    " M src/main/sessionManager.js",
+    " M src/main/subagents/providers/localProvider.js",
+    " M src/main/taskBriefs.js",
+    " M src/main/taskCheckpoints.js",
+    " M src/main/toolSchemaValidation.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/workspaceCompactCandidate.js",
+    " M src/main/workspaceCompaction.js",
+    " M src/main/workspaceCompactionActivity.js",
+    " M src/main/workspaceGenerationRuntime.js",
+    " M src/preload.js",
+    " M tests/agentTools.test.cjs",
+    " M tests/contextOverflowRecovery.test.cjs",
+    " M tests/engineLaunch.test.cjs",
+    " M tests/idleCompactionProjection.test.cjs",
+    " M tests/workspaceCompactCandidate.test.cjs",
+    " M tests/workspaceGenerationRuntime.test.cjs",
+    " M tests/workspaceSafeCompaction.test.cjs",
+    "?? docs/c5-casual-context-recovery-evidence.json",
+    "?? docs/c5-casual-context-recovery-report.md",
+    "?? docs/c6a-compaction-contract-evidence.json",
+    "?? docs/c6a-compaction-contract-reliability.md",
+    "?? docs/c6b-workspace-context-selection-evidence.json",
+    "?? docs/c6b-workspace-context-selection-report.md",
+    "?? docs/c6c-real-model-compaction-acceptance.md",
+    "?? docs/c6c-real-model-compaction-evidence.json",
+    "?? docs/c6d-compaction-performance-evidence.json",
+    "?? docs/c6d-compaction-performance-report.md",
+    "?? docs/c6e-lightweight-workspace-context-evidence.json",
+    "?? docs/c6e-lightweight-workspace-context-report.md",
+    "?? docs/e1-file-editing-reliability-evidence.json",
+    "?? docs/e1-file-editing-reliability-report.md",
+    "?? docs/e2-editing-reliability-evidence.json",
+    "?? docs/e2-editing-reliability-report.md",
+    "?? docs/s1-engine-startup-lifecycle-evidence.json",
+    "?? docs/s1-engine-startup-lifecycle-report.md",
+    "?? docs/w7-compaction-truncation-diagnosis.md",
+    "?? docs/w7-compaction-truncation-evidence.json",
+    "?? scripts/e2-editing-replay.cjs",
+    "?? src/components/NotificationSoundLifecycle.jsx",
+    "?? src/lib/notificationSounds.mjs",
+    "?? src/main/casualSummary.js",
+    "?? src/main/compactionPerformance.js",
+    "?? src/main/engineLifecycle.js",
+    "?? src/main/localRequestLifecycle.js",
+    "?? src/main/structuredOutput.js",
+    "?? src/main/tools/editDiagnostics.js",
+    "?? src/main/tools/fileEditMatcher.js",
+    "?? src/main/workspaceEvidence.js",
+    "?? tests/c5CasualRecovery.test.cjs",
+    "?? tests/c6aCompactionStatus.ui.cjs",
+    "?? tests/c6aMeasurement.test.cjs",
+    "?? tests/c6aStructuredOutput.test.cjs",
+    "?? tests/c6bContextSelection.test.cjs",
+    "?? tests/c6cAcceptance.test.cjs",
+    "?? tests/c6dPerformance.test.cjs",
+    "?? tests/c6eLightweightContext.test.cjs",
+    "?? tests/e1FileEditing.test.cjs",
+    "?? tests/e1FileEditingNative.test.cjs",
+    "?? tests/e2EditingReliability.test.cjs",
+    "?? tests/fixtures/c6b-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6bIncrementalCapture.cjs",
+    "?? tests/fixtures/c6bRequestCapture.cjs",
+    "?? tests/fixtures/c6dRequestCapture.cjs",
+    "?? tests/fixtures/c6e-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6eBaselinePreload.cjs",
+    "?? tests/fixtures/c6eCheckpointBefore.cjs",
+    "?? tests/notificationSoundPrefs.test.cjs",
+    "?? tests/notificationSounds.test.mjs",
+    "?? tests/responseCostPersistence.test.cjs",
+    "?? tests/s1EngineLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.ui.cjs",
+    "?? tests/w7CasualRecovery.test.cjs"
+  ],
+  "baseline_implementation_sha256": "609a870647c16f1393a904f9aba723a31dbeb32853eb217f78970724d100ace1",
+  "metrics": {
+    "before": {
+      "fixture": {
+        "lines": 2000,
+        "bytes": 77786
+      },
+      "records": {
+        "default": {
+          "tool_calls": 1,
+          "model_visible_source_characters": 20019,
+          "serialized_result_characters": 23080,
+          "serialized_result_utf8_bytes": 24811,
+          "unrelated_lines": 507,
+          "selected_lines_delivered": 71,
+          "file_bytes_internally_read": 77786,
+          "start_line": null,
+          "end_line": null,
+          "next_start_line": null,
+          "content_hash": "sha256:e488f74c1a7eacbcd26c8fc8740fa86a90bd30246aa02e313db89cb119574a39",
+          "total_lines": null,
+          "content_truncated": null
+        },
+        "selected_450_520": {
+          "tool_calls": 1,
+          "model_visible_source_characters": 2485,
+          "serialized_result_characters": 3131,
+          "serialized_result_utf8_bytes": 3344,
+          "unrelated_lines": 0,
+          "selected_lines_delivered": 71,
+          "file_bytes_internally_read": 77786,
+          "start_line": 450,
+          "end_line": 520,
+          "next_start_line": 521,
+          "content_hash": "sha256:e488f74c1a7eacbcd26c8fc8740fa86a90bd30246aa02e313db89cb119574a39",
+          "total_lines": 2000,
+          "content_truncated": null
+        }
+      },
+      "pagination": {
+        "boundary_correct": true,
+        "revision_equal": true
+      },
+      "schema_json_characters": 1179,
+      "tokenizer_measured": false
+    },
+    "after": {
+      "fixture": {
+        "lines": 2000,
+        "bytes": 77786
+      },
+      "records": {
+        "default": {
+          "tool_calls": 1,
+          "model_visible_source_characters": 6784,
+          "serialized_result_characters": 8834,
+          "serialized_result_utf8_bytes": 9434,
+          "unrelated_lines": 200,
+          "selected_lines_delivered": 0,
+          "file_bytes_internally_read": 77786,
+          "start_line": 1,
+          "end_line": 200,
+          "next_start_line": 201,
+          "content_hash": "sha256:e488f74c1a7eacbcd26c8fc8740fa86a90bd30246aa02e313db89cb119574a39",
+          "total_lines": 2000,
+          "content_truncated": false
+        },
+        "selected_450_520": {
+          "tool_calls": 1,
+          "model_visible_source_characters": 2485,
+          "serialized_result_characters": 3486,
+          "serialized_result_utf8_bytes": 3699,
+          "unrelated_lines": 0,
+          "selected_lines_delivered": 71,
+          "file_bytes_internally_read": 77786,
+          "start_line": 450,
+          "end_line": 520,
+          "next_start_line": 521,
+          "content_hash": "sha256:e488f74c1a7eacbcd26c8fc8740fa86a90bd30246aa02e313db89cb119574a39",
+          "total_lines": 2000,
+          "content_truncated": false
+        }
+      },
+      "pagination": {
+        "boundary_correct": true,
+        "revision_equal": true
+      },
+      "schema_json_characters": 1454,
+      "tokenizer_measured": false
+    }
+  },
+  "schema_overhead": {
+    "json_characters": 275,
+    "actual_tokenizer_tokens": null,
+    "inference_savings_measured": false
+  },
+  "regression": {
+    "initial_baseline": {
+      "tests": 7,
+      "pass": 6,
+      "fail": 1
+    },
+    "selective_baseline": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0
+    },
+    "expanded_baseline": {
+      "tests": 9,
+      "pass": 7,
+      "fail": 2
+    },
+    "final": {
+      "tests": 19,
+      "pass": 16,
+      "fail": 3
+    },
+    "r2_groups": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0
+    },
+    "unchanged_failure_identities": [
+      {
+        "file": "tests/unifiedToolArchitecture.test.cjs",
+        "before": [
+          "compaction preserves every structural field and validator compiles the complete registry"
+        ],
+        "after": [
+          "compaction preserves every structural field and validator compiles the complete registry"
+        ]
+      },
+      {
+        "file": "tests/childAgentLoop.test.cjs",
+        "before": [
+          "spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+        ],
+        "after": [
+          "spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+        ]
+      },
+      {
+        "file": "tests/filesystemToolLimits.test.cjs",
+        "before": [
+          "MCP execution applies the cap before serialization"
+        ],
+        "after": [
+          "MCP execution applies the cap before serialization"
+        ]
+      }
+    ],
+    "new_failures": [],
+    "build": {
+      "command": "npm run build",
+      "passed": true,
+      "warning": "Large chunks after minification"
+    },
+    "diff_check": {
+      "command": "git diff --check",
+      "passed": true
+    },
+    "passing_focused_final": {
+      "tests": 16,
+      "pass": 16,
+      "fail": 0
+    }
+  },
+  "intentional_compatibility_changes": [
+    "Default source reads now return bounded pages with additional metadata.",
+    "Outside-workspace reads now reject, including absolute paths and escaping symlinks.",
+    "Oversized lines require Unicode code-point windows instead of silent default clipping."
+  ],
+  "limits": {
+    "default_lines": 200,
+    "maximum_lines": 400,
+    "source_utf16_units": 20000,
+    "chunk_bytes": 65536,
+    "snapshot_attempts": 3,
+    "whole_file_scanned_per_page": true,
+    "serialized_json_cap_is_source_cap": false,
+    "real_model_tested": false
+  },
+  "r2_files": [
+    "src/main/tools/agentTools.js",
+    "src/main/subagents/contextRecovery.js",
+    "tests/agentTools.test.cjs",
+    "tests/selectiveFileReading.test.cjs",
+    "tests/r2LargeFileReading.test.cjs",
+    "scripts/r2-reading-metrics.cjs",
+    "docs/r2-large-file-pagination-report.md",
+    "docs/r2-large-file-pagination-evidence.json"
+  ],
+  "commands": {
+    "baseline": "node --test tests/agentTools.test.cjs tests/e1FileEditing*.test.cjs tests/e2EditingReliability.test.cjs tests/u7ExecutionSecurity.test.cjs tests/unifiedToolArchitecture.test.cjs tests/toolSchemaValidation.test.cjs tests/contextBudget.test.cjs",
+    "expanded_baseline": "node --require /tmp/continuum-r2/baseline-preload.cjs --test tests/permissionIsolationReliability.test.cjs tests/nativePermissions.test.cjs tests/permissionPolicy.test.cjs tests/toolPermissions.test.cjs tests/filesystemToolLimits.test.cjs tests/workspaceGenerationRuntime.test.cjs tests/childAgentLoop.test.cjs tests/toolArgumentLimit.test.mjs tests/toolResultFormatter.test.mjs",
+    "final": "node --test tests/agentTools.test.cjs tests/e1FileEditing*.test.cjs tests/e2EditingReliability.test.cjs tests/u7ExecutionSecurity.test.cjs tests/unifiedToolArchitecture.test.cjs tests/contextBudget.test.cjs tests/selectiveFileReading*.cjs tests/r2LargeFileReading.test.cjs tests/permissionIsolationReliability.test.cjs tests/nativePermissions.test.cjs tests/permissionPolicy.test.cjs tests/toolPermissions.test.cjs tests/filesystemToolLimits.test.cjs tests/workspaceGenerationRuntime.test.cjs tests/childAgentLoop.test.cjs tests/toolArgumentLimit.test.mjs tests/toolResultFormatter.test.mjs",
+    "metrics": "node scripts/r2-reading-metrics.cjs"
+  },
+  "safety": {
+    "temporary_fixtures_only": true,
+    "live_data_modified": false,
+    "models_invoked_or_changed": false,
+    "git_history_modified": false,
+    "existing_work_preserved": true
+  }
+}

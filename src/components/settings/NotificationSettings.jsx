@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { LuBell } from "react-icons/lu";
-import { SettingsCard, SettingsCheckRow, SettingsMessage } from "./SettingsSection";
+import { SettingsCard, SettingsCheckRow, SettingsMessage, SettingsButton } from "./SettingsSection";
+
+import { notificationSounds, defaultSoundPrefs } from '../../lib/notificationSounds.mjs';
 
 const eventChoices = [
 	["completion", "Task completion"],
@@ -34,7 +36,9 @@ export default function NotificationSettings() {
 		setSaving(true);
 		setError("");
 		try {
-			setPrefs(await window.api.setNotificationPrefs(patch));
+			const next = await window.api.setNotificationPrefs(patch);
+            setPrefs(next);
+            notificationSounds.setPrefs(next.notificationSounds);
 		} catch (cause) {
 			setError(cause.message);
 		} finally {
@@ -44,7 +48,8 @@ export default function NotificationSettings() {
 
 	const disabled = !prefs || saving;
 	return (
-		<SettingsCard
+		<>
+        <SettingsCard
 			icon={LuBell}
 			title="Desktop notifications"
 			description="Choose when Continuum should send an OS notification for agent work."
@@ -86,6 +91,27 @@ export default function NotificationSettings() {
 				</div>
 			</fieldset>
 			<SettingsMessage>{error}</SettingsMessage>
-		</SettingsCard>
+        </SettingsCard>
+        <SettingsCard icon={LuBell} title="Notification Sounds" description="Short, gentle chimes for agent work, including background tabs.">
+            <SettingsCheckRow role="switch" label="Enable notification sounds" checked={prefs?.notificationSounds?.enabled ?? true} disabled={disabled}
+                onChange={e => update({ notificationSounds: { enabled: e.target.checked } })} />
+            <label className="mt-3 block text-xs">
+                Volume — {prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}%
+                <input className="mt-2 w-full accent-[var(--accent)]" type="range" min="0" max="100" step="1"
+                    aria-label="Notification sound volume" disabled={disabled}
+                    value={prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}
+                    onChange={e => update({ notificationSounds: { volume: Number(e.target.value) } })} />
+            </label>
+            {[["completed", "Task completed"], ["interrupted", "Task interrupted"], ["inputRequired", "User input required"]].map(([key, label]) => (
+                <div key={key} className="mt-2 flex items-center justify-between gap-2">
+                    <SettingsCheckRow label={label} checked={prefs?.notificationSounds?.[key] ?? true} disabled={disabled}
+                        onChange={e => update({ notificationSounds: { [key]: e.target.checked } })} />
+                    <SettingsButton aria-label={`Preview ${label.toLowerCase()} sound`}
+                        disabled={disabled || prefs?.notificationSounds?.enabled === false || prefs?.notificationSounds?.[key] === false || prefs?.notificationSounds?.volume === 0}
+                        onClick={() => { notificationSounds.setPrefs(prefs.notificationSounds); void notificationSounds.play(key); }}>Preview</SettingsButton>
+                </div>
+            ))}
+        </SettingsCard>
+        </>
 	);
 }

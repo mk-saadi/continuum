@@ -1,0 +1,731 @@
+{
+  "phase": "C6-A",
+  "date": "2026-10-26",
+  "realModelInferenceRun": false,
+  "acceptance": "Implementation fixture-verified; real-model and arbitrary natural-language semantic completeness remain unverified.",
+  "preservation": {
+    "initialStatusPorcelainV1": [
+      " M main.js",
+      " M src/App.jsx",
+      " M src/components/MemoryPalace.jsx",
+      " M src/components/settings/NotificationSettings.jsx",
+      " M src/context/TabContext.jsx",
+      " M src/lib/memoryChat.mjs",
+      " M src/main/compressionEngine.js",
+      " M src/main/configManager.js",
+      " M src/main/contextBudget.js",
+      " M src/main/engineManager.js",
+      " M src/main/ipcHandlers.js",
+      " M src/main/localEngineFetch.js",
+      " M src/main/promptMeasurement.js",
+      " M src/main/sessionDeletion.js",
+      " M src/main/subagents/providers/localProvider.js",
+      " M src/main/tools/agentTools.js",
+      " M src/main/workspaceCompactCandidate.js",
+      " M src/main/workspaceGenerationRuntime.js",
+      " M src/preload.js",
+      " M tests/agentTools.test.cjs",
+      " M tests/contextOverflowRecovery.test.cjs",
+      " M tests/engineLaunch.test.cjs",
+      " M tests/idleCompactionProjection.test.cjs",
+      " M tests/workspaceCompactCandidate.test.cjs",
+      " M tests/workspaceGenerationRuntime.test.cjs",
+      "?? docs/c5-casual-context-recovery-evidence.json",
+      "?? docs/c5-casual-context-recovery-report.md",
+      "?? docs/e1-file-editing-reliability-evidence.json",
+      "?? docs/e1-file-editing-reliability-report.md",
+      "?? docs/s1-engine-startup-lifecycle-evidence.json",
+      "?? docs/s1-engine-startup-lifecycle-report.md",
+      "?? docs/w7-compaction-truncation-diagnosis.md",
+      "?? docs/w7-compaction-truncation-evidence.json",
+      "?? src/components/NotificationSoundLifecycle.jsx",
+      "?? src/lib/notificationSounds.mjs",
+      "?? src/main/casualSummary.js",
+      "?? src/main/engineLifecycle.js",
+      "?? src/main/localRequestLifecycle.js",
+      "?? src/main/tools/fileEditMatcher.js",
+      "?? tests/c5CasualRecovery.test.cjs",
+      "?? tests/e1FileEditing.test.cjs",
+      "?? tests/e1FileEditingNative.test.cjs",
+      "?? tests/notificationSoundPrefs.test.cjs",
+      "?? tests/notificationSounds.test.mjs",
+      "?? tests/s1EngineLifecycle.test.cjs",
+      "?? tests/s1StartupLifecycle.test.cjs",
+      "?? tests/s1StartupLifecycle.ui.cjs",
+      "?? tests/w7CasualRecovery.test.cjs"
+    ],
+    "initialTrackedDiffSha256": "16f53a3360ab16d7d8f14d7af70f145e0ad8bc530a7f3733094f960b1f736778",
+    "initialBaseline": {
+      "command": "node --test tests/c5CasualRecovery.test.cjs tests/w7CasualRecovery.test.cjs tests/workspace*Compaction.test.cjs tests/workspaceCompactCandidate.test.cjs tests/workspaceGenerationRuntime.test.cjs tests/contextMeasure.test.cjs tests/contextBudget.test.cjs tests/idleCompactionProjection.test.cjs",
+      "fileSuites": 9,
+      "passed": 9,
+      "failed": 0
+    },
+    "originalComparison": "HEAD plus recorded initial tracked diff reconstructed under /tmp/c6a-baseline/original; existing untracked fixtures copied. Initial untracked Casual contents were inspected but not separately snapshotted. No live database or model state modified."
+  },
+  "changedFiles": [
+    "src/main/structuredOutput.js",
+    "src/main/casualSummary.js",
+    "src/main/contextBudget.js",
+    "src/main/workspaceCompactCandidate.js",
+    "src/main/workspaceGenerationRuntime.js",
+    "src/main/workspaceCompaction.js",
+    "src/main/workspaceCompactionActivity.js",
+    "src/main/compressionEngine.js",
+    "src/main/ipcHandlers.js",
+    "src/lib/memoryChat.mjs",
+    "src/lib/compactionActivity.mjs",
+    "src/components/ContextPanel.jsx",
+    "tests/c6aStructuredOutput.test.cjs",
+    "tests/c6aMeasurement.test.cjs",
+    "tests/c6aCompactionStatus.ui.cjs",
+    "tests/workspaceCompactCandidate.test.cjs",
+    "tests/workspaceSafeCompaction.test.cjs",
+    "tests/workspaceGenerationRuntime.test.cjs",
+    "docs/c6a-compaction-contract-reliability.md",
+    "docs/c6a-compaction-contract-evidence.json"
+  ],
+  "failureClasses": [
+    {
+      "id": "A",
+      "cause": "Prompt-only Casual contract; strict JSON/root count; no correction",
+      "fixtures": [
+        "c6aStructuredOutput.test.cjs",
+        "c5CasualRecovery.test.cjs"
+      ],
+      "result": "deterministic syntax normalization; one measured correction; no malformed/incomplete activation"
+    },
+    {
+      "id": "B",
+      "cause": "Completion source prompt/category mismatch and missing intermediate retry class",
+      "fixtures": [
+        "workspaceCompactCandidate.test.cjs"
+      ],
+      "result": "diagnostics use research/tests; successful completion evidence stays strict; category/index/evidence feedback in intermediate and final stages"
+    },
+    {
+      "id": "C",
+      "cause": "All candidate failures aborted owning request",
+      "fixtures": [
+        "workspaceSafeCompaction.test.cjs"
+      ],
+      "pressureCase": {
+        "beforeTokens": 82169,
+        "usableInputTokens": 88960,
+        "triggerTokens": 80064
+      },
+      "result": "allowlisted optional candidate failure independently verifies rebuilt original request; no checkpoint; fatal invariants and overflow still refuse"
+    },
+    {
+      "id": "D",
+      "cause": "Indefinite estimated cache and idle identity suppression; idle deferral projected as failure",
+      "fixtures": [
+        "c6aMeasurement.test.cjs",
+        "c6aCompactionStatus.ui.cjs"
+      ],
+      "result": "non-sliding 1000ms estimate expiry; coalesced counts; 30000ms idle dedupe; deferred/continued projections"
+    }
+  ],
+  "contracts": {
+    "normalization": [
+      "unchanged",
+      "repaired",
+      "corrected",
+      "rejected"
+    ],
+    "casualRequiredFields": [
+      "instructions",
+      "facts",
+      "preferences",
+      "decisions",
+      "openQuestions",
+      "references"
+    ],
+    "casualOptionalFields": [],
+    "casualAllowedExtraMetadata": {
+      "schemaVersion": 1
+    },
+    "casualArrayItemCap": 200,
+    "casualSerializedCharacterCap": 12000,
+    "casualMaxStages": 16,
+    "casualCorrectionAttemptsPerStage": 1,
+    "casualOutputTokensPerAttempt": 1024,
+    "workspaceCorrectionAttemptsPerStage": 1,
+    "workspaceReservedGenerationTokenCap": 32768,
+    "optionalFallbackRequires": [
+      "recoverable candidate failure allowlist",
+      "not forced recovery",
+      "unchanged source snapshot",
+      "valid owning capability/run",
+      "unchanged permissions/operations",
+      "not cancelled/deleted",
+      "paired tools",
+      "rebuilt original request",
+      "integer server-template-tokenizer counts",
+      "runtime-reported stable budget",
+      "fits usable input",
+      "repeated final dispatch validation"
+    ]
+  },
+  "provider": {
+    "installedBinaryVersion": "0.4.0-dev build 10899 commit d7680c67b",
+    "localTransportField": "response_format: {type: json_object, schema: ...}",
+    "evidence": [
+      "llama-server --version",
+      "llama-server --help exposes grammar/JSON-schema options",
+      "workspaceGenerationRuntime transport test validates request passthrough and explicit unsupported-schema fallback"
+    ],
+    "documentation": "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-v1chatcompletions-openai-compatible-chat-completions-api",
+    "cloud": "No assumed schema dialect; existing adapters retained",
+    "compatibilityLimitation": "No live model/template inference validation",
+    "runningLlamaServerAvailable": false
+  },
+  "correctionAttemptsBeforeAfter": [
+    {
+      "case": "Casual fence",
+      "before": 0,
+      "after": 0,
+      "beforeOutcome": "rejected",
+      "afterOutcome": "repaired without regeneration"
+    },
+    {
+      "case": "Casual wrong required type",
+      "before": 0,
+      "afterMax": 1
+    },
+    {
+      "case": "Workspace intermediate unsupported completion",
+      "before": 0,
+      "afterMax": 1
+    },
+    {
+      "case": "Workspace final unsupported completion",
+      "beforeMax": 1,
+      "afterMax": 1,
+      "feedback": "generic code to category/index/evidence contract"
+    }
+  ],
+  "regression": {
+    "runner": "Each listed test file executed directly with node; isolated disposable DB fixtures. Exact file results below.",
+    "files": 36,
+    "totals": {
+      "tests": 459,
+      "pass": 457,
+      "fail": 2,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "runs": [
+      {
+        "file": "tests/c6aMeasurement.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/c6aStructuredOutput.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/c5CasualRecovery.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/w7CasualRecovery.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 55,
+          "pass": 55,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 38,
+          "pass": 38,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 25,
+          "pass": 25,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exitCode": 1,
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ]
+      },
+      {
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextBudget.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextMeasure.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextC1.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 24,
+          "pass": 24,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextC1Integration.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextC1Ui.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextC3LiveProtection.test.cjs",
+        "exitCode": 1,
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [
+          "status-only transition during summary generation rolls back all archival and summary writes"
+        ]
+      },
+      {
+        "file": "tests/contextCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {},
+        "failures": []
+      },
+      {
+        "file": "tests/contextOverflowRecovery.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextRecoveryReliability.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextPanel.test.cjs",
+        "exitCode": 0,
+        "counts": {},
+        "failures": []
+      },
+      {
+        "file": "tests/contextInspection.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextTelemetry.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/idleCompactionProjection.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/compressionLifecycle.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/h1HistoryDeletion.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/s1EngineLifecycle.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/s1StartupLifecycle.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/contextDispatch.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/memoryChat.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 50,
+          "pass": 50,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/liveSteeringLoop.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceAutonomy.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/projectToolLoopGuard.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      },
+      {
+        "file": "tests/workspaceStages.test.mjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": []
+      }
+    ],
+    "unchangedFailures": [
+      {
+        "file": "tests/contextC3LiveProtection.test.cjs",
+        "test": "status-only transition during summary generation rolls back all archival and summary writes",
+        "originalAndCurrent": "expected /Messages changed/; actual casual-source-changed"
+      },
+      {
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "test": "concurrent history change during measurement invalidates without partial persistence",
+        "originalAndCurrent": "expected /Session history changed during compression/; actual casual-source-changed"
+      }
+    ],
+    "separateResults": [
+      {
+        "suite": "tests/h1DeletionIpc.test.cjs",
+        "originalAndCurrent": "First test passes; second cancelled due unresolved mock approval promise. Unrestricted retry stalled and was stopped."
+      },
+      {
+        "suite": "tests/cloudProviders.test.cjs",
+        "result": "20 passed outside sandbox; sandbox EPERM on loopback bind"
+      },
+      {
+        "suite": "tests/c6aCompactionStatus.ui.cjs",
+        "result": "passed",
+        "states": [
+          "deferred",
+          "failed",
+          "cleared failure",
+          "optional continued",
+          "recovered"
+        ]
+      },
+      {
+        "suite": "tests/compactionActivity.ui.cjs",
+        "result": "passed after creating fixture screenshot directory"
+      },
+      {
+        "suite": "tests/s1StartupLifecycle.ui.cjs",
+        "result": "passed"
+      },
+      {
+        "suite": "tests/contextPanel.ui.cjs",
+        "originalAndCurrent": "failed no token-savings claims in status"
+      },
+      {
+        "suite": "tests/cloudContext.ui.cjs",
+        "originalAndCurrent": "failed Cloud limit missing; initial incorrect Node runner excluded from valid results"
+      }
+    ]
+  },
+  "checks": {
+    "npm run build": {
+      "result": "passed",
+      "advisory": "large output chunks"
+    },
+    "git diff --check": {
+      "result": "passed"
+    }
+  },
+  "limitations": [
+    "No real Gemma/Qwen inference; concrete manual procedure in report.",
+    "Structural and pattern-based source checks do not prove arbitrary natural-language factual completeness or correctness.",
+    "Unknown cloud capacity or estimated-only measurements cannot authorize exceptional optional fallback.",
+    "Backend schema/template compatibility is validated only at fixture transport boundary; explicit incompatibility falls back safely.",
+    "Original error-text/UI/H1 fixture failures remain unchanged; full repository not claimed green."
+  ],
+  "artifactHashes": {
+    "src/main/structuredOutput.js": "cca53ef8e94f1d6bd5d48129ce3ab3f2e4cbf9621760617f91c52139d775f796",
+    "src/main/casualSummary.js": "98336ebd8aa6a04a13fe9a6a900b41e67ae7186ba16c7aa40e2a803b26a52b0f",
+    "src/main/contextBudget.js": "57c51da2b2f395ac6ebb84b4cca6a9161638fb2cd80f785a1af307bf6ec8bc18",
+    "src/main/workspaceCompactCandidate.js": "6addafe52e0dea205402ccea6c95a9d40abee1fd9e2d0873d66c455d5f3094fc",
+    "src/main/workspaceGenerationRuntime.js": "4b36c5950339362a6f1aa3dcca7133ae27fd6002eae0e74c55c8d26134df14d7",
+    "src/main/workspaceCompaction.js": "75f4e635638bcafbb5117b7ebd44a0eb725a30c59d043b776019036f680afa69",
+    "src/main/workspaceCompactionActivity.js": "360af352d298163107eb2bacb179458164a3685d7084adc036d865bef312b85d",
+    "src/main/compressionEngine.js": "5bcfb021fcac1ca95762beb74fe3fade8f4f94005b2b3595b1f70ff030578ae9",
+    "src/main/ipcHandlers.js": "d8cc876cabafa2dd77686eef36fd25e3481111316fec1e4b12817f8ed61ef115",
+    "src/lib/memoryChat.mjs": "4a4544f91d442452a9cd433c57aaa9ee4568ffa8675d031902993aead2ec1c1c",
+    "src/lib/compactionActivity.mjs": "b727d2ae9bf653edffbb91164e502f0f63dbf2ba20909674b5277cb5f6dfcab2",
+    "src/components/ContextPanel.jsx": "7a2749a8762014f8d2972f4214228b1db208385777b8c5eff8caec6a5036d884",
+    "tests/c6aStructuredOutput.test.cjs": "54da504fc82b60bc294a29404d38ce0e177c42898c0697f3be27e576eed592ff",
+    "tests/c6aMeasurement.test.cjs": "25f37acbda0b65240658e4e0a439cde7aedd55d2b71acffe652bbb621cac1f27",
+    "tests/c6aCompactionStatus.ui.cjs": "77594903772ad9c4bfb97844d54f3147e1c760b154ca39d528c688549c8a6e6a",
+    "tests/workspaceCompactCandidate.test.cjs": "406e37e11838f62d19f20a8418219b945130016d47ccc124bc08ddea00f22d28",
+    "tests/workspaceSafeCompaction.test.cjs": "480a28b8705a9b748f54868c5c283b15700c0de469f280b45ffff94ea5e90aa2",
+    "tests/workspaceGenerationRuntime.test.cjs": "7f3cea36bc733fc0d7d3d2e70587aaa7e9c7ff92646bde28ac38912a0fde0493",
+    "docs/c6a-compaction-contract-reliability.md": "e8107c0e9c7fcf7b60e17375d401c57020b0a7c266368c4eab4e157bb33d6714"
+  }
+}

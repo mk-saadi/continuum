@@ -1737,6 +1737,13 @@ function assertCheckpointInRoot(checkpointId, root) {
   return checkpoint;
 }
 
+// Display filtering only: capture, preview, safety checks and restore retain
+// their full scope, including paths explicitly written in generated folders.
+const RECOVERY_DETAIL_HIDDEN_DIRS = new Set([
+  '.git', '.llm_workspace', 'node_modules', 'release', 'dist', 'build',
+  'out', 'coverage', '.next', '.nuxt', '.output', '.cache', '.turbo',
+  '.vite', '.parcel-cache', '__pycache__', '.venv', 'venv',
+]);
 const DETAIL_PATH_CAP = 500;
 const DIFF_SIZE_CAP = 512 * 1024;
 const DIFF_FILES_CAP = 10;
@@ -1747,13 +1754,17 @@ const DIFF_FILES_CAP = 10;
 async function getCheckpointDetail(root, checkpointId) {
   const checkpoint = assertCheckpointInRoot(checkpointId, root);
   const manifestPaths = checkpoint.manifest.paths;
-  const rels = Object.keys(manifestPaths);
+  const allRels = Object.keys(manifestPaths);
+  // Filter before the cap so old release trees cannot crowd out source files.
+  const rels = allRels.filter((rel) => !rel.replace(/\\/g, '/').split('/').some(
+    (part) => RECOVERY_DETAIL_HIDDEN_DIRS.has(part),
+  ));
   const detail = {
     id: checkpoint.id, kind: checkpoint.kind, tool: checkpoint.tool_name,
     pinned: checkpoint.pinned === 1, createdAt: checkpoint.created_at,
     originChat: shortChatId(checkpoint.chat_session_id),
     coverage: checkpoint.coverage, op: checkpoint.op,
-    totalPaths: rels.length, truncated: rels.length > DETAIL_PATH_CAP,
+    totalPaths: allRels.length, hiddenPaths: allRels.length - rels.length, truncated: rels.length > DETAIL_PATH_CAP,
     paths: [],
   };
   let diffsUsed = 0;

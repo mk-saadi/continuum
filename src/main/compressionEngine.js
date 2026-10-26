@@ -32,7 +32,7 @@ const IDLE_ESTIMATOR_MARGIN_FRACTION = 0.02;
 const IDLE_MAX_EXTRA_PASSES = 2;
 // Idle summaries are capped like forced ones; an uncapped summary would grow
 // the context floor on every cycle (the floor can never compact away).
-const IDLE_SUMMARY_MAX_TOKENS = 512;
+const IDLE_SUMMARY_MAX_TOKENS = 1024;
 
 // Idle summarization wrapper: caps output like the forced path and threads
 // the abort signal through, using the same provider-compatible mechanism
@@ -243,6 +243,14 @@ function buildProspectivePrompt({ sessionId, modelId, summaryText, briefSection,
   return { messages, tools: Array.isArray(tools) ? tools : [] };
 }
 
+function sourceIdentity(sessionId) {
+  const { createHash } = require('node:crypto');
+  return createHash('sha256').update(JSON.stringify({
+    messages: db.prepare('SELECT * FROM messages WHERE session_id=? ORDER BY id').all(sessionId),
+    branch: db.prepare('SELECT active_leaf_id, model_id, project_id FROM sessions WHERE id=?').get(sessionId),
+    attachments: db.prepare('SELECT * FROM message_attachments WHERE message_id IN (SELECT id FROM messages WHERE session_id=?) ORDER BY id').all(sessionId),
+  })).digest('hex');
+}
 function releaseCompressionLock(sessionId) {
   db.transaction(() => {
     db.prepare('UPDATE sessions SET is_compressing = 0 WHERE id = ?').run(sessionId);
@@ -255,7 +263,19 @@ function checkAndCompressContext(options) {
   require('./sessionDeletion').assertAvailable(options.sessionId);
   const current = inFlight.get(options.sessionId);
   if (current) return current;
-  const promise = require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess(options));
+  // Every operation, including forced recovery, is owned by H1 cancellation.
+  const controller = new AbortController(), external = options.signal;
+  const abort = () => controller.abort(external.reason);
+  if (external?.aborted) abort();
+  else external?.addEventListener('abort', abort, { once: true });
+  const controllers = idleControllers.get(options.sessionId) ?? new Set();
+  controllers.add(controller); idleControllers.set(options.sessionId, controllers);
+  const promise = require('./dataAccess').withDataAccess(() => checkAndCompressWithAccess({ ...options, signal: controller.signal }))
+    .finally(() => {
+      external?.removeEventListener('abort', abort);
+      controllers.delete(controller);
+      if (!controllers.size && idleControllers.get(options.sessionId) === controllers) idleControllers.delete(options.sessionId);
+    });
   inFlight.set(options.sessionId, promise);
   promise.finally(() => { if (inFlight.get(options.sessionId) === promise) inFlight.delete(options.sessionId); }).catch(() => {});
   return promise;
@@ -313,6 +333,7 @@ async function compressContext({
   // path; direct calls and tests may omit it (floor gates only) or stub it.
   // Async: ({ messages, tools, limit, signal }) => ({ tokens, method, budget }).
   measurePrompt = null,
+  strictMeasurement = false,
   // Fidelity inputs for the prospective prompt; mirror rebuildChatMessages.
   delegationAvailable = true,
   userText = '',
@@ -362,6 +383,7 @@ async function compressContext({
     const applicableBriefs = require('./taskBriefs').getApplicableBriefs(sessionId);
     const activeMessages = getActiveMessages(sessionId);
     return {
+      sourceIdentity: sourceIdentity(sessionId),
       totalTokens: usage.totalTokens,
       messages: activeMessages,
       oldSummary: getSessionSummary(sessionId),
@@ -406,36 +428,7 @@ async function compressContext({
       if (!atCompactionPressure(contract)) return { compressed: false, archivedCount: 0 };
     }
     const tailMessages = snapshot.messages.slice(candidates.length);
-    if (candidates.length === 0) {
-      // Nothing archivable, but a bloated summary alone can still pin a short
-      // casual session above target. Same drop rule as the main path below:
-      // delete the summary only when that regains the target, so the session
-      // stays usable (tail retained, history preserved) instead of
-      // retriggering forever. Workspace sessions are excluded: their
-      // checkpoints bind to the summary.
-      if (!force && snapshot.oldSummary && !snapshot.isWorkspace) {
-        const projectionTools = resolveProjectionTools(sessionId, modelId, { tools });
-        const usageNow = getContextUsage(sessionId, modelId);
-        const target = idleTargetFor(contextWindowLimit, false);
-        const dropped = projectIdlePrompt({
-          sessionId, modelId, summaryText: null,
-          briefSection: require('./taskBriefs').buildTaskBriefSection(sessionId),
-          checkpointSection: null, retainedMessages: tailMessages, tools: projectionTools,
-          memoryTokens: usageNow.coreTokens, workLogTokens: usageNow.workLogTokens, planTokens: usageNow.planTokens,
-        });
-        if (dropped.total <= target) {
-          db.transaction(() => {
-            if (!isCurrent() || getActiveMessages(sessionId).some(message => message.status === 'in_progress')) return;
-            if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return;
-            if (getSessionSummary(sessionId) !== snapshot.oldSummary) {
-              throw new Error('Session summary changed during compression; retry later.');
-            }
-            db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-          }).immediate();
-          return { compressed: false, archivedCount: 0, summaryDropped: true,
-            reason: 'summary-overflow-dropped', projectedTokens: dropped.total };
-        }
-      }
+    if (!candidates.length && !snapshot.oldSummary) {
       return { compressed: false, archivedCount: 0, reason: 'protected-context-too-large' };
     }
 
@@ -452,7 +445,7 @@ async function compressContext({
       floorTokens: breakdown.systemTokens + breakdown.summaryTokens + breakdown.briefTokens
         + breakdown.checkpointTokens + breakdown.tailTokens + breakdown.toolTokens,
       budget, reserve, floorBreakdown: breakdown });
-    if (force) {
+    if (force || !candidates.length) {
       briefSection = require('./taskBriefs').buildTaskBriefSection(sessionId);
       // Estimate with the current checkpoint section; the candidate section
       // (same cap, same shape) replaces it in the post-generation gates.
@@ -475,13 +468,13 @@ async function compressContext({
       ? llmSummarizeCallback
       : idleSummarizer(llmSummarizeCallback, modelId, { signal });
     // Expand attachments for every pass, including idle selection extensions.
-    const summarize = (old, batch, ...args) => summarizeCallback(old,
-      batch.map(message => ({ ...message, content: messageForModel(message).content })), ...args);
-    let { newSummary, selectedCount, oldSummaryTokens } = await require('./compactionCore').summarizeCandidates({
+    const summarize = (old, batch) => summarizeCallback(old,
+      batch.map(message => ({ ...message, content: messageForModel(message).content })), modelId, { signal, maxTokens: 1024 });
+    let { newSummary, selectedCount, oldSummaryTokens } = candidates.length ? await require('./compactionCore').summarizeCandidates({
       candidates: candidates.map(message => ({ ...message, estimated_tokens: sourceTokens(message) })),
       oldSummary: snapshot.oldSummary, totalTokens: selectionTotal,
-      contextWindowLimit, force, signal, estimate: estimateTokens, summarize,
-    });
+      contextWindowLimit, force, signal, estimate: estimateTokens, summarize, maxPasses: 1,
+    }) : { newSummary: await summarize(snapshot.oldSummary, []), selectedCount: 0, oldSummaryTokens: estimateTokens(snapshot.oldSummary ?? '') };
 
     // Fixed prompt costs and retained messages can make 65% unattainable.
     // Do not replace context with a summary that saves no tokens.
@@ -503,7 +496,6 @@ async function compressContext({
     // verification behavior below.
     let projectedTokens = null;
     let overTarget = false;
-    let dropSummary = false;
     if (!force) {
       const idleBriefSection = require('./taskBriefs').buildTaskBriefSection(sessionId);
       const idleCheckpointSection = snapshot.isWorkspace
@@ -531,27 +523,7 @@ async function compressContext({
       // pass-capped path: the caller can see projectedTokens vs the kind
       // target instead of mistaking a capped commit for a full fit.
       overTarget = extension.projected.total > target;
-      // Casual summary overflow: the irreducible floor can be dominated by
-      // the stored summary itself — every cycle archives everything and the
-      // floor never moves. When deleting the summary regains the target,
-      // drop it (archived history stays searchable, the tail stays active)
-      // and say so explicitly, instead of retriggering forever. Never
-      // destroys information unless it achieves the goal: if the floor
-      // without the summary still misses, keep the summary and report
-      // over-target. Workspace sessions are excluded: their checkpoints
-      // bind to the summary, and the checkpoint carries the state instead.
-      if (overTarget && !snapshot.isWorkspace) {
-        // Projected against the selection this run actually commits, not an
-        // idealized fully-archived set: the drop must regain the target for
-        // the prompt that will really be sent next.
-        const dropped = projectWith(null, selectedCount);
-        if (dropped.total <= target) {
-          dropSummary = true;
-          newSummary = null;
-          projectedTokens = dropped.total;
-          overTarget = false;
-        }
-      }
+
     }
 
     // The preserved brief must survive compression, but it also consumes
@@ -624,12 +596,15 @@ async function compressContext({
           limit: contextWindowLimit, signal });
       } catch (error) {
         signal?.throwIfAborted();
+        if (strictMeasurement) throw error;
         measured = null;
       }
       signal?.throwIfAborted();
+      if (strictMeasurement && (!measured || !Number.isSafeInteger(measured.tokens) || !Number.isSafeInteger(measured.budget) || measured.budgetContract?.capacityMethod !== 'runtime-reported' || measured.method !== 'server-template-tokenizer'))
+        throw Object.assign(new Error('Casual recovery cannot verify the runtime prompt budget. Saved history is preserved.'), { code: 'casual-runtime-capacity-unavailable' });
       if (measured && typeof measured === 'object') {
         measuredMethod = typeof measured.method === 'string' ? measured.method : 'unavailable';
-        if (measured.method === 'server-template-tokenizer'
+        if ((strictMeasurement || measured.method === 'server-template-tokenizer')
           && Number.isSafeInteger(measured.tokens) && Number.isSafeInteger(measured.budget)
           && measured.tokens > measured.budget) {
           return { compressed: false, archivedCount: 0, reason: 'prospective-prompt-exceeds-budget',
@@ -639,7 +614,12 @@ async function compressContext({
       }
     }
 
+    signal?.throwIfAborted();
     const commit = db.transaction(() => {
+      signal?.throwIfAborted();
+      require('./sessionDeletion').assertAvailable(sessionId);
+      if (!isCurrent() || sourceIdentity(sessionId) !== snapshot.sourceIdentity)
+        throw Object.assign(new Error('Conversation context changed during Casual recovery (history, attachments or runtime). Retry from saved history.'), { code: 'casual-source-changed' });
       if (!force && (!isCurrent() || getActiveMessages(sessionId).some(message => message.status === 'in_progress')))
         throw new Error('Idle context changed or a message is in progress; archival cancelled.');
       if (!require('./profileSettings').getSessionSettings(sessionId, modelId).effective.compactionEnabled) return { count: 0, checkpointId: null };
@@ -707,15 +687,7 @@ async function compressContext({
         ORDER BY updated_at DESC, id DESC LIMIT 1
       `).get(sessionId);
       let summaryId = latest ? latest.id : null;
-      if (dropSummary) {
-        // Summary-overflow recovery (casual idle only): the stored summary
-        // itself kept the floor above target. Delete it atomically with the
-        // archival above; history stays archived and searchable, the tail
-        // stays active. Workspace never takes this path (its checkpoints
-        // bind to the summary), so summaryId use below is unaffected.
-        db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-        summaryId = null;
-      } else if (latest) {
+      if (latest) {
         db.prepare(`
           UPDATE session_summaries
           SET summary_text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
@@ -740,22 +712,17 @@ async function compressContext({
         });
       }
 
-      return { count: selectedCount, checkpointId };
+      return { count: selectedCount, checkpointId, activated: true };
     }).immediate();
     const archivedCount = commit.count;
     const checkpointId = commit.checkpointId;
 
-    if (!archivedCount) return { compressed: false, archivedCount: 0 };
+    if (!commit.activated || (!archivedCount && newSummary === snapshot.oldSummary)) return { compressed: false, archivedCount: 0 };
     const completed = { compressed: true, archivedCount, summarizedMessageIds: candidates.slice(0, selectedCount).map(message => message.id) };
     if (measuredMethod !== undefined) completed.measuredMethod = measuredMethod;
     if (checkpointId !== null && checkpointId !== undefined) completed.checkpointId = checkpointId;
     if (!force && projectedTokens !== null) completed.projectedTokens = projectedTokens;
-    if (dropSummary) {
-      // The notice channel: the renderer tells the user older summaries were
-      // removed from context (history preserved) and offers a fresh session.
-      completed.summaryDropped = true;
-      completed.reason = 'summary-overflow-dropped';
-    } else if (!force && overTarget) {
+    if (!force && overTarget) {
       completed.overTarget = true;
       completed.reason = 'projected-above-target';
     }
@@ -772,6 +739,11 @@ async function compressContext({
 }
 
 const idleAttempts = new Map();
+let shuttingDown = false;
+async function shutdownCompression() {
+  shuttingDown = true;
+  await Promise.allSettled([...new Set([...idleTimers.keys(), ...idleControllers.keys(), ...inFlight.keys()])].map(cancelSessionCompression));
+}
 
 async function cancelSessionCompression(sessionId) {
   await require('./workspaceCompactCandidate').cancelCandidates(sessionId);
@@ -784,11 +756,13 @@ async function cancelSessionCompression(sessionId) {
 }
 
 function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete = () => {}, llmCheckpointCallback = null, options = {}) {
+  if (shuttingDown) return;
   require('./sessionDeletion').assertAvailable(sessionId);
   validateOptions(sessionId, modelId, contextWindowLimit, llmSummarizeCallback);
   if (llmCheckpointCallback !== null && typeof llmCheckpointCallback !== 'function') throw new TypeError('llmCheckpointCallback must be a function when provided.');
   const previous = idleTimers.get(sessionId);
   if (previous) {
+    previous.compressionController?.abort();
     clearTimeout(previous);
     idleControllers.get(sessionId)?.delete(previous.compressionController);
   }
@@ -810,21 +784,24 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
 
   const timer = setTimeout(() => {
     idleTimers.delete(sessionId);
-    if (require('./dataAccess').isMigrating()) {
-      scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSummarizeCallback, onComplete, llmCheckpointCallback, options);
-      return;
-    }
     let retry = false;
     void (async () => {
-      const measured = options.resolveMeasurement ? await options.resolveMeasurement() : null;
+      controller.signal.throwIfAborted();
+      if (require('./dataAccess').isMigrating()) return { compressed: false, retry: true };
+      require('./sessionDeletion').assertAvailable(sessionId);
+      // Workspace activation requires an owning runtime request (W3/W4).
+      // Idle work has no such boundary and must not generate a candidate.
+      if (require('./toolPermissions').sessionProject(sessionId)) return { compressed: false, reason: 'owning-request-required', deferred: true };
+      const measured = options.resolveMeasurement ? await options.resolveMeasurement({ signal: controller.signal }) : null;
+      controller.signal.throwIfAborted();
       if (options.resolveMeasurement && (!measured || !measured.isCurrent())) return { compressed: false };
       if (measured) {
         if (getActiveMessages(sessionId).some(message => message.status === 'in_progress')) return { compressed: false };
         if (!require('./contextBudget').atCompactionPressure(measured.budgetContract)) return { compressed: false };
         const identity = `${modelId}:${measured.promptIdentity}`;
-        if (idleAttempts.get(sessionId) === identity) return { compressed: false };
+        if (idleAttempts.get(sessionId)?.identity === identity && Date.now() - idleAttempts.get(sessionId).at < 30000) return { compressed: false };
         if (idleAttempts.size >= 128) idleAttempts.delete(idleAttempts.keys().next().value);
-        idleAttempts.set(sessionId, identity);
+        idleAttempts.set(sessionId, { identity, at: Date.now() });
       }
       return checkAndCompressContext({
         sessionId, modelId, contextWindowLimit: measured?.limit ?? contextWindowLimit,
@@ -838,11 +815,14 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
       else if (result.reason) onComplete({ sessionId, ...result });
     }).catch((error) => {
       if (controller.signal.aborted) return;
+      // Source changes are cancellation, not compaction failure. A subsequent
+      // persistence/restoration boundary may schedule a fresh debounced attempt.
+      if (['stale-measurement', 'deleted-conversation'].includes(error?.code)) return;
       console.error('Idle context compression failed:', error);
       // Surface the failure to the inspection panel through the existing
       // completion channel. Existing listeners ignore non-compressed
       // results (empty id sets); the panel renders the error explicitly.
-      onComplete({ sessionId, compressed: false, error: error?.message ?? String(error) });
+      onComplete({ sessionId, compressed: false, error: typeof error?.code === 'string' ? error.code : 'compression-error' });
     }).finally(() => {
       controllers.delete(controller);
       if (!controllers.size && idleControllers.get(sessionId) === controllers) idleControllers.delete(sessionId);
@@ -858,7 +838,7 @@ function scheduleIdleCompression(sessionId, modelId, contextWindowLimit, llmSumm
   idleTimers.set(sessionId, timer);
 }
 
-module.exports = { cancelSessionCompression, checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
+module.exports = { shutdownCompression, cancelSessionCompression, checkAndCompressContext, scheduleIdleCompression, recoverContextOverflow,
   generateWorkspaceCompactCandidate: options => require('./workspaceCompactCandidate').generateWorkspaceCompactCandidate(options),
   // Test-only projection helpers and bounds (pure accounting, no behavior change).
   projectForcedFloor, projectIdlePrompt, resolveProjectionTools, idleTargetFor,

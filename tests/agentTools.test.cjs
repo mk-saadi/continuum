@@ -166,12 +166,13 @@ const run = (
 				.success,
 			false,
 		);
+		// E1: exact substrings preserve surrounding bytes; tolerant edits preserve local EOLs.
 		const editCases = [
 			{
 				content: "before\r\n  alpha  \r\n\tbeta\t\r\nafter\n",
 				old_str: "\talpha\n beta ",
 				new_str: "  changed\n$&",
-				expected: "before\r\n  changed\n$&\r\nafter\n",
+				expected: "before\r\n  changed\r\n$&\r\nafter\n",
 			},
 			{
 				content: "before\n  alpha\n \t\n beta\nafter",
@@ -183,14 +184,14 @@ const run = (
 				content: "  alpha\rinside \nlast",
 				old_str: "alphainside",
 				new_str: "first",
-				expected: "first\nlast",
+				error: /not found/,
 			},
-			{ content: "before\n  last  ", old_str: "last", new_str: "", expected: "before\n" },
-			{ content: "  first\nlast\n", old_str: "first\nlast\n", new_str: "whole", expected: "whole" },
+			{ content: "before\n  last  ", old_str: "last", new_str: "", expected: "before\n    " },
+			{ content: "  first\nlast\n", old_str: "first\nlast\n", new_str: "whole", expected: "  whole" },
 			{ content: "alpha\n  alpha  \n", old_str: "alpha", error: /not unique/ },
 			{ content: "x\n x \nx", old_str: "x\nx", error: /not unique/ },
 			{ content: "alpha beta\n", old_str: "alpha  beta", error: /not found/ },
-			{ content: "alpha\n\nbeta", old_str: "alpha\nbeta", error: /not found/ },
+			{ content: "alpha\n\nbeta", old_str: "alpha\nbeta", expected: "oops" },
 			{ content: "alpha", old_str: "alpha\nbeta", error: /not found/ },
 		];
 		for (const { content, old_str, new_str = "oops", expected, error } of editCases) {
@@ -233,7 +234,7 @@ const run = (
 			"escape/outside.txt",
 			path.join(root, "outside.txt"),
 		]) {
-			assert.equal((await run("read_project_file", { relative_path })).content, "unchanged");
+			assert.equal((await run("read_project_file", { relative_path })).success, false);
 			assert.equal(
 				(await run("search_project_content", { query: "unchanged", relative_path })).matches.length,
 				1,
@@ -246,7 +247,7 @@ const run = (
 		);
 		assert.match(
 			(await run("read_project_file", { relative_path: "escape/new/file.txt" })).error,
-			/FILE_NOT_FOUND/,
+			/Symlink escapes the project root/,
 		);
 		assert.equal(fs.readFileSync(path.join(root, "outside.txt"), "utf8"), "unchanged");
 		fs.mkdirSync(path.join(workspace, "node_modules"));
@@ -365,7 +366,7 @@ const run = (
 		]) {
 			const filePath = path.join(directory, file);
 			assert.equal(await isPathAllowed(filePath, workspace), true);
-			assert.equal((await run("read_project_file", { relative_path: filePath })).content, content);
+			assert.equal((await run("read_project_file", { relative_path: filePath })).success, false);
 			assert.ok(
 				(await run("list_directory", { relative_path: directory })).entries.some(
 					(entry) => entry.name === file,
@@ -393,8 +394,8 @@ const run = (
 		fs.writeFileSync(path.join(lookalike, "secret.txt"), "secret");
 		assert.equal(await isPathAllowed(path.join(lookalike, "secret.txt"), workspace), true);
 		assert.equal(
-			(await run("read_project_file", { relative_path: path.join(lookalike, "secret.txt") })).content,
-			"secret",
+			(await run("read_project_file", { relative_path: path.join(lookalike, "secret.txt") })).success,
+			false,
 		);
 		assert.equal(
 			(await run("search_project_content", { query: "secret", relative_path: lookalike })).matches[0]
@@ -404,8 +405,8 @@ const run = (
 		fs.symlinkSync(lookalike, path.join(temp, "escape"));
 		assert.equal(
 			(await run("read_project_file", { relative_path: path.join(temp, "escape", "secret.txt") }))
-				.content,
-			"secret",
+				.success,
+			false,
 		);
 		fs.unlinkSync(path.join(workspace, ".gitignore"));
 		fs.symlinkSync(path.join(userData, "attachment.txt"), path.join(workspace, ".gitignore"));

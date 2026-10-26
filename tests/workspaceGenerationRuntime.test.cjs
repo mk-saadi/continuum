@@ -45,3 +45,66 @@ test('UI explains distinct safe cancellation reasons', async () => {
   assert.equal(new Set(codes.map(activityReason)).size, codes.length);
   assert.match(activityReason('generation-inactivity-timeout'), /10 minutes/);
 });
+
+test('W7 serialized llama request disables optional thinking, streams usage, and separates reasoning counts', async () => {
+  let body;
+  const events = [{ choices: [{ delta: { reasoning_content: 'x'.repeat(6000) } }] },
+    { choices: [{ delta: { content: '{}' }, finish_reason: 'length' }] },
+    { usage: { completion_tokens: 6144 }, choices: [] }, '[DONE]'];
+  const result = await generateLocalCandidate(async (url, options) => {
+    body = JSON.parse(options.body); return transport(events)();
+  }, 'http://fixture/v1/chat/completions', { max_tokens: 6144, chat_template_kwargs: { enable_thinking: false } }, {});
+  assert.equal(body.max_tokens, 6144); assert.equal(body.stream, true);
+  assert.deepEqual(body.stream_options, { include_usage: true });
+  assert.equal(body.chat_template_kwargs.enable_thinking, false);
+  assert.deepEqual(result.compactionStreamDiagnostics, { reasoningCharacters: 6000, visibleCharacters: 2, doneMarker: true });
+  assert.equal(result.choices[0].finish_reason, 'length');
+  assert.equal(JSON.stringify(result).includes('xxx'), false);
+});
+
+test('W7 interrupted stream with valid JSON and stop still requires DONE', async () => {
+  await assert.rejects(generateLocalCandidate(transport([{ choices: [{ delta: { content: '{}' }, finish_reason: 'stop' }] }]), 'http://fixture', {}, {}), { code: 'incomplete-response' });
+});
+
+test('W7 early props connection refusals are transport events, never process exits', async () => {
+  const { createTrackedFetch } = require('../src/main/localRequestLifecycle');
+  const records = []; let calls = 0, active = 0;
+  const owner = { unavailable: false, terminated: false, beginRequest: () => { active++; return () => active--; }, record: (event, details) => records.push({ event, ...details }) };
+  const fetch = createTrackedFetch(async () => {
+    if (++calls <= 2) throw Object.assign(new Error('fixture'), { code: 'ECONNREFUSED' });
+    return new Response('{}');
+  }, () => owner);
+  for (let i = 0; i < 2; i++) await assert.rejects(fetch('http://fixture/props'));
+  await (await fetch('http://fixture/props')).text();
+  assert.equal(active, 0); assert.equal(records.length, 2);
+  assert.ok(records.every(r => r.event === 'server-unavailable' && r.serverTerminated === false));
+});
+
+test('W7 long reasoning stream completes after virtual 300 seconds with a renewable lease', async () => {
+  const time = clock(), runtime = createGenerationRuntime(null, time); let chunk = 0;
+  const response = new Response(new ReadableStream({ pull(controller) {
+    time.advance(30000);
+    assert.equal(runtime.signal.aborted, false);
+    const event = chunk++ < 10 ? { choices: [{ delta: { reasoning_content: 'x' } }] }
+      : { choices: [{ delta: { content: '{}' }, finish_reason: 'stop' }], usage: { completion_tokens: 12 } };
+    controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+    if (chunk === 11) { controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n')); controller.close(); }
+  } }));
+  try {
+    const result = await generateLocalCandidate(async () => response, 'http://fixture', {}, { signal: runtime.signal, onProgress: runtime.progress });
+    assert.equal(result.choices[0].finish_reason, 'stop'); assert.equal(result.choices[0].message.content, '{}');
+    assert.equal(result.compactionStreamDiagnostics.reasoningCharacters, 10); assert.equal(runtime.signal.aborted, false);
+  } finally { runtime.dispose(); }
+});
+
+test('C6-A schema request reaches llama transport, explicit unsupported schema falls back once', async () => {
+  const requests = [];
+  const result = await generateLocalCandidate(async (url, options) => {
+    requests.push(JSON.parse(options.body));
+    if (requests.length === 1) return Response.json({ error: { message: 'response_format schema not supported' } }, { status: 400 });
+    return transport([{ choices: [{ delta: { content: '{}' }, finish_reason: 'stop' }] }, '[DONE]'])();
+  }, 'http://fixture', { response_format: { type: 'json_object', schema: { type: 'object' } }, max_tokens: 1024, chat_template_kwargs: { enable_thinking: false } }, {});
+  assert.equal(requests.length, 2); assert.ok(requests[0].response_format.schema); assert.equal(requests[1].response_format, undefined);
+  assert.equal(requests[1].max_tokens, 1024); assert.equal(requests[1].chat_template_kwargs.enable_thinking, false);
+  assert.equal(result.structuredOutput, 'prompt-fallback');
+});

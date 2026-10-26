@@ -184,6 +184,7 @@ function registerIpcHandlers({
             return capabilities;
         },
         "tokens:history": input => require('./tokenUsage').getTokenHistory(input),
+        "tokens:session-cost": input => require('./sessionCosts').getSessionCost(input),
         "tokens:retention": ({ months }) => require('./tokenUsage').setRetention(months),
         // Phase 2.0D spending dashboard. Read-only aggregates over the cost
         // evidence persisted by Phase 2.0C-3; these handlers never estimate a
@@ -550,6 +551,7 @@ function registerIpcHandlers({
             if (!(typeof messageId === "string" && messageId.length > 0) && !Number.isSafeInteger(messageId)) throw new Error("Invalid message ID.");
 			let currentStats = null; // Never reuse a previous turn's final stats.
 			let stoppedByLimit = false;
+            let soundLimitTimedOut = false;
 			let stoppedByCircuitBreak = false;
 			if (
 				typeof requestId !== "string" ||
@@ -740,25 +742,26 @@ function registerIpcHandlers({
                                 resolve(allowed);
                             };
                             const stop = () => finish(false);
-                            const timeout = setTimeout(stop, 120_000);
+                            const timeout = setTimeout(() => { soundLimitTimedOut = true; stop(); }, 120_000);
                             controller.resolveToolLimit = finish;
                             controller.signal.addEventListener('abort', stop, { once: true });
                             if (controller.signal.aborted || sender.isDestroyed()) { stop(); return; }
                             sender.send('engine:tool-limit-reached', { requestId, sessionId, currentCount, nextTool });
                         }),
                         onPaused: state => new Promise(resolve => {
+                            const pauseId = require('node:crypto').randomUUID();
                             const finish = resume => {
 								if (!resume) stoppedByLimit = true;
                                 controller.signal.removeEventListener('abort', stop);
                                 delete controller.resumeLoop;
-                                if (!sender.isDestroyed()) sender.send('loop:paused', { requestId, sessionId, ...state, executionState: resume ? 'running' : 'stopped' });
+                                if (!sender.isDestroyed()) sender.send('loop:paused', { requestId, sessionId, ...state, pauseId, executionState: resume ? 'running' : 'stopped' });
                                 resolve(resume);
                             };
                             const stop = () => finish(false);
                             controller.resumeLoop = finish;
                             controller.signal.addEventListener('abort', stop, { once: true });
                             if (controller.signal.aborted) { stop(); return; }
-                            sender.send('loop:paused', { requestId, sessionId, ...state });
+                            sender.send('loop:paused', { requestId, sessionId, ...state, pauseId });
                         }),
                         fetchImpl,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
@@ -790,7 +793,7 @@ function registerIpcHandlers({
                             try {
                                 const result = await require('./workspaceCompaction').compactAtBoundary({ ...boundary,
                                     sessionId, modelId, owner: controller, messageId: persistence?.messageId,
-                                    onActivity: emitActivity,
+                                    onActivity: emitActivity, reasoningTarget: cloud ? target : { type: 'local' }, localModel: config?.modelMetadata ?? null,
                                     mcpToolNames: mcpManager.getTools(sessionId).map(tool => tool.function?.name ?? tool.name),
                                     signal: controller.signal, isCurrent,
                                     measure: payload => cloud ? measurement(payload) : measurement(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
@@ -803,6 +806,7 @@ function registerIpcHandlers({
                                 });
                                 if (result.compressed && !sender.isDestroyed()) sender.send('session:compression-complete', {
                                     sessionId, compressed: true, checkpointId: result.checkpointId, archivedCount: result.archivedCount, diagnostics: result.diagnostics });
+                                if (result.optionalContinued && !sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, compressed: false, optionalContinued: true, reason: result.reason });
                                 return result;
                             } catch (error) {
                                 if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, compressed: false, reason: error.code });
@@ -812,8 +816,15 @@ function registerIpcHandlers({
                                 throw error;
                             }
                         } : null,
-                        recoverContext: !usageProjectId && !cloud && sessionId ? async ({ contextWindowLimit, signal }) => {
+                        recoverContext: !usageProjectId && !cloud && sessionId ? async ({ contextWindowLimit, signal, prepareRecovery }) => {
                             if (typeof llmSummarizeCallback !== 'function') return null;
+                            const recoveryIdentity = config.runtimeIdentity;
+                            const recoveryConfiguration = require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId);
+                            const recoveryIsCurrent = () => {
+                                const current = getEngineConfig?.();
+                                return current?.runtimeIdentity === recoveryIdentity && current?.modelPath === config.modelPath && current?.port === config.port &&
+                                    require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === recoveryConfiguration;
+                            };
                             const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
                             // Schemas for the floor projection: the same tool
                             // set that will ride the rebuilt request, so the
@@ -838,24 +849,26 @@ function registerIpcHandlers({
                                 result = await require('./compressionEngine').recoverContextOverflow({
                                 sessionId, modelId, contextWindowLimit, signal, tools: preTools,
                                 delegationAvailable, userText: currentUserText, excludeMessageIds,
-                                maxTokens, thinkingBudget: effectiveBudget,
+                                maxTokens, thinkingBudget: effectiveBudget, strictMeasurement: true, isCurrent: recoveryIsCurrent,
                                 llmCheckpointCallback: typeof llmCheckpointCallback === 'function'
                                     ? (input) => llmCheckpointCallback(input, modelId, { signal, maxTokens: require('./taskCheckpoints').CHECKPOINT_LLM_MAX_TOKENS })
                                     : null,
                                 // Exact pre-commit verification over the live
-                                // server-template/tokenizer path (falls back
-                                // to the labeled approximation when probes
-                                // are unavailable; never held across a txn).
+                                // server-template/tokenizer path. Casual recovery
+                                // fails closed when exact measurement is unavailable;
+                                // no model call is held across the commit transaction.
                                 measurePrompt: async ({ messages, tools, limit, signal: measureSignal }) => {
                                     const measurer = require('./contextBudget').createPromptMeasurer(
                                         require('./localEngineFetch').localEngineFetch);
-                                    return measurer(`http://127.0.0.1:${config.port}/v1/chat/completions`,
-                                        { model: modelId, messages, tools,
-                                            ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
-                                            ...reasoningControls.localRequestFields(currentReasoning) },
+                                    const prospective = { model: modelId, messages, tools,
+                                        ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
+                                        ...reasoningControls.localRequestFields(currentReasoning) };
+                                    const actual = prepareRecovery ? await prepareRecovery(prospective) : prospective;
+                                    if (!recoveryIsCurrent()) throw Object.assign(new Error('Local runtime or settings changed during Casual recovery.'), { code: 'casual-runtime-changed' });
+                                    return measurer(`http://127.0.0.1:${config.port}/v1/chat/completions`, actual,
                                         { signal: measureSignal, contextWindowLimit: limit });
                                 },
-                                llmSummarizeCallback: (old, batch) => llmSummarizeCallback(old, batch, modelId, { signal, maxTokens: 512 }),
+                                llmSummarizeCallback: (old, batch, _model, options) => llmSummarizeCallback(old, batch, modelId, { ...options, signal: options?.signal ?? signal, maxTokens: 1024 }),
                                 });
                             } catch (error) {
                                 // Surface the failure reason to the inspection
@@ -870,7 +883,11 @@ function registerIpcHandlers({
                                 if (result.reason && !sender.isDestroyed()) {
                                     sender.send('session:compression-complete', { sessionId, ...result });
                                 }
-                                return null;
+                                const protectedReason = ['protected-context-too-large', 'non-compressible-context-too-large', 'prospective-prompt-exceeds-budget'].includes(result.reason);
+                                throw Object.assign(new Error(protectedReason
+                                    ? 'Casual context recovery cannot fit the protected recent messages, current request, instructions or tools. Reduce the current attachment/tool set or continue in a fresh chat; saved history is preserved.'
+                                    : 'Casual context recovery could not reduce eligible history (compression may be disabled or busy). Saved history is preserved.'),
+                                    { code: protectedReason ? 'casual-protected-context-too-large' : 'casual-recovery-unavailable' });
                             }
                             if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, ...result });
                             const current = getEngineConfig?.();
@@ -977,7 +994,7 @@ function registerIpcHandlers({
                                     ? 'measured' : 'partially_measured',
                                 modelId: modelId ?? null,
                                 provider: cloud ? (target.provider ?? null) : 'local',
-                                cost: costEstimator.costColumns(estimate) });
+                                cost: costEstimator.costEvidence(estimate) });
                         }
 						notify({ type: "stats", stats: currentStats });
 					},
@@ -995,6 +1012,15 @@ function registerIpcHandlers({
 							visibleCompletionTokens: visibleCompletionTokens ?? null,
 							telemetry });
 					},
+                    onLiveUsage: ({ phases, current }) => {
+                        if (!cloud) return;
+                        const estimates = [...phases, current].map(stats => costEstimator.estimateFromStats({
+                            stats, resolvedPricing: turnPricing?.status === 'available' ? turnPricing : null,
+                            providerId: target.provider, modelId }));
+                        const known = estimates.filter(value => Number.isFinite(value.totalCost));
+                        notify({ type: 'live-cost', cost: { total: known.length ? known.reduce((sum, value) => sum + value.totalCost, 0) : null,
+                            partial: known.length !== estimates.length || known.some(value => value.completeness === 'partial'), estimated: true } });
+                    },
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
 					executeTool: async (call, activationRequest) => {
 						controller.signal.throwIfAborted();
@@ -1125,19 +1151,27 @@ function registerIpcHandlers({
 							});
 							return output;
 						} catch (error) {
+                            const editFailure = target?.serverName === 'native' &&
+                                ['str_replace_editor', 'edit_project_files', 'apply_patch'].includes(call.name)
+                                ? error.editDetails : null;
 							notify({
 								type: "tool",
 								id,
 								...target,
 								status: controller.signal.aborted ? "cancelled" : "error",
 								error: error.message,
+                                ...(editFailure ? { result: { success: false, ...editFailure } } : {}),
 							});
 							controller.signal.throwIfAborted();
-							return { isError: true, error: error.message };
+							return { isError: true, error: error.message, ...(editFailure || {}) };
 						}
 					},
 				});
 				persist(controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed");
+                // Live top-level terminal transition, independent of messages and OS notifications.
+                notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted || (stoppedByLimit && !soundLimitTimedOut)
+                    ? 'cancelled' : soundLimitTimedOut || stoppedByCircuitBreak || /\[System: Reasoning loop detected and terminated\./.test(text)
+                    ? 'interrupted' : 'completed' });
 				// Per-turn work digest: built from the persisted steps for
 				// Workspace sessions only. Fail-safe by contract
 				// (recordTurnDigestSafe never throws): digest work must never
@@ -1154,6 +1188,7 @@ function registerIpcHandlers({
 				return { text, stats: currentStats, executionSteps, runId, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
+                notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted ? 'cancelled' : 'interrupted' });
 				if (sessionId && persistence) {
 					require('./workLog').recordTurnDigestSafe({
 						sessionId,
@@ -1412,16 +1447,29 @@ function registerIpcHandlers({
                 executionSteps,
 			);
 		},
+        "session:validate-references": ({ sessionIds }) => {
+            if (!Array.isArray(sessionIds) || sessionIds.length > 50 || sessionIds.some(id => typeof id !== 'string' || !id || id.includes('\0'))) throw new TypeError('Invalid session references.');
+            return sessionIds.filter(id => {
+                try { require('./sessionDeletion').assertAvailable(id); return false; }
+                catch (error) { if (error.code === 'deleted-conversation') return true; throw error; }
+            });
+        },
 		"session:get-usage": ({ sessionId, modelId }) => getContextUsage(sessionId, modelId),
 		// Tokenizer-based measurement of the prepared prompt for the next
 		// request. Event-driven only (never polled): the renderer calls this
 		// after prompt state changes. Failures degrade to a labeled estimate.
 		"session:measure-context": async ({ sessionId, modelId, cloud = false, permissionMode = undefined, userText = "" }) => {
+			try {
 			const config = getEngineConfig?.();
-			return require("./promptMeasurement").measurePreparedContext({ sessionId, modelId, cloud, permissionMode, userText,
+			return await require("./promptMeasurement").measurePreparedContext({ sessionId, modelId, cloud, permissionMode, userText,
 				engine: cloud || !config ? null : { port: config.port, modelPath: config.modelPath ?? config.activeModelConfig?.modelPath ?? null,
 					contextLength: config.activeModelConfig?.contextLength ?? 32768,
                     localModel: config.modelMetadata, runtimeIdentity: config.runtimeIdentity, parallelSlots: config.activeModelConfig?.parallel } });
+            } catch (error) {
+                if (['deleted-conversation', 'stale-measurement'].includes(error?.code))
+                    return { sessionId, modelId, cancelled: true, code: error.code };
+                throw error;
+            }
 		},
 		"session:get-messages": ({ sessionId }) => getActiveMessages(sessionId),
 		"session:get-summary": ({ sessionId }) => getSessionSummary(sessionId),
@@ -1449,7 +1497,7 @@ function registerIpcHandlers({
             const measure = createPromptMeasurer(localEngineFetch);
             return require('./compressionEngine').generateWorkspaceCompactCandidate({ sessionId, modelId,
                 isCurrent: () => getEngineConfig?.()?.runtimeIdentity === identity && getEngineConfig?.()?.modelPath === modelId,
-                capacityTokens: config.activeModelConfig?.contextLength ?? 8192,
+                localModel: config.modelMetadata ?? null, capacityTokens: config.activeModelConfig?.contextLength ?? 8192,
                 measure: (payload, { signal }) => measure(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
                     { signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 8192 }),
                 generate: async (request, { signal, onProgress }) => {
@@ -1475,12 +1523,12 @@ function registerIpcHandlers({
 					? (input, _modelId, opts) => llmCheckpointCallback(input, modelId, opts ?? {})
 					: null,
                 {
-                    resolveMeasurement: async () => {
+                    resolveMeasurement: async ({ signal } = {}) => {
                         const config = getEngineConfig?.();
                         const currentModel = config?.modelPath ?? config?.activeModelConfig?.modelPath;
                         if (!config || currentModel !== modelId || !config.port) return null;
                         const identity = config.runtimeIdentity;
-                        const measured = await require('./promptMeasurement').measurePreparedContext({ sessionId, modelId,
+                        const measured = await require('./promptMeasurement').measurePreparedContext({ sessionId, modelId, signal,
                             engine: { port: config.port, modelPath: currentModel, runtimeIdentity: identity,
                                 contextLength: config.activeModelConfig?.contextLength, localModel: config.modelMetadata } });
                         if (getEngineConfig?.()?.runtimeIdentity !== identity) return null;

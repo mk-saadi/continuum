@@ -344,3 +344,147 @@ test('W2 engine identity changing during final measurement invalidates persisten
   } });
   assert.equal(result.code, 'concurrent-state-change'); assert.equal(checkpoints.getCheckpointHistory(f.id).length, 0);
 });
+
+// W7 uses the real candidate/source validator and isolated SQLite fixture.
+test('W7 reported runtime reserves final output before reducing near-full input', async () => {
+  const f = fixture(); const requests = [];
+  const result = await run(f, { capacityTokens: 35072,
+    measure: async request => {
+      const input = JSON.parse(request.messages.at(-1).content);
+      return { tokens: request.messages.length === 1 ? 1200 : input.historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 30000,
+        limit: 35072, method: 'controlled-tokenizer' };
+    }, generate: async (request, meta) => { requests.push({ budget: request.max_tokens, intermediate: !!meta.intermediate }); return good(request); } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.ok(requests.some(r => r.intermediate));
+  assert.equal(requests.at(-1).budget, 6144);
+  assert.equal(result.diagnostics.outputBudget, 6144);
+});
+
+test('W7 exhaustion retries once with a changed size contract and records provider usage', async () => {
+  const f = fixture(), before = history(f.id), requests = [];
+  const result = await run(f, { generate: async request => {
+    requests.push(request);
+    assert.deepEqual(request.chat_template_kwargs, { enable_thinking: false });
+    if (requests.length === 1) return { choices: [{ finish_reason: 'length', message: { content: '{' } }], usage: { completion_tokens: request.max_tokens } };
+    assert.match(request.messages.at(-1).content, /900 visible tokens/);
+    return good(request);
+  } });
+  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(requests.length, 2);
+  const [first, second] = result.diagnostics.attempts;
+  assert.equal(first.rejectionPoint, 'output-truncated'); assert.equal(first.finishReason, 'length');
+  assert.equal(first.actualOutputTokens, first.configuredOutputTokens);
+  assert.equal(second.finishReason, 'stop'); assert.equal(second.rejectionPoint, null);
+  assert.ok(first.elapsedMs >= 0); assert.equal(history(f.id), before);
+  quality.push({ fixture: 'W7 bounded truncation correction', attempts: result.diagnostics.attempts });
+});
+
+test('W7 intermediate overflow gets one concise correction without activating partial state', async () => {
+  const f = fixture(), before = history(f.id); let stages = 0;
+  const result = await run(f, { capacityTokens: 35072,
+    measure: async request => ({ tokens: request.messages.length === 1 ? 1200 : JSON.parse(request.messages[1].content).historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 30000, limit: 35072 }),
+    generate: async (request, meta) => {
+      if (meta.intermediate && ++stages === 1) {
+        const d = draftFor(request); d.unknowns = ['Essential detail '.repeat(4000)]; return envelope(d);
+      }
+      if (meta.intermediate) assert.match(request.messages[1].content, /900 visible tokens/);
+      return good(request);
+    } });
+  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(stages, 2);
+  assert.equal(result.diagnostics.attempts[0].rejectionPoint, 'intermediate-size-budget');
+  assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+
+test('W7 final measured candidate too large fails with original history and checkpoint intact', async () => {
+  const f = fixture(), before = history(f.id);
+  const result = await run(f, { capacityTokens: 35072,
+    measure: async request => ({ tokens: request.messages.length === 1 ? 35072 : 1000, limit: 35072 }) });
+  assert.equal(result.code, 'budget-exceeded'); assert.equal(result.diagnostics.rejectionStage, 'validation');
+  assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+
+test('W7 adapter cannot hide provider output exhaustion behind normalized stop', () => {
+  assert.throws(() => w2.completedContent({ provider_stop_reason: 'max_tokens', choices: [{ finish_reason: 'stop', message: { content: '{}' } }] }), { code: 'output-truncated' });
+});
+
+test('W7 deterministic before/after at reported 32486 input tokens', async () => {
+  const beforeBudget = Math.min(6144, Math.floor(35072 * .4), 35072 - 32486 - 128);
+  assert.equal(beforeBudget, 2458);
+  // Controlled provider: optional reasoning exhausts the old allowance before JSON.
+  const exhausted = { choices: [{ finish_reason: 'length', message: { content: '' } }], usage: { completion_tokens: beforeBudget } };
+  assert.throws(() => w2.parseCompletion(exhausted), { code: 'output-truncated' });
+  const f = fixture(); let calls = 0;
+  const result = await run(f, { capacityTokens: 35072,
+    measure: async request => {
+      const input = JSON.parse(request.messages[1]?.content ?? request.messages[0].content);
+      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'controlled-tokenizer' };
+    }, generate: async (request, meta) => {
+      calls++; assert.equal(request.chat_template_kwargs.enable_thinking, false);
+      if (!meta.intermediate) return good(request);
+      const input = JSON.parse(request.messages[1].content);
+      if (input.evidence.length) return good(request);
+      return envelope({ objective: 'Preserve fixture requirements and evidence.', briefIds: input.briefs.map(b => b.id),
+        ...Object.fromEntries(w2.ARRAY_KEYS.map(key => [key, []])) });
+    } });
+  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(calls, 3);
+  assert.equal(result.diagnostics.outputBudget, 6144);
+  quality.push({ fixture: 'W7 reported input controlled before-after', before: { inputTokens: 32486, outputBudget: beforeBudget,
+    finishReason: 'length', actualOutputTokens: beforeBudget, attempts: 1 },
+    after: { stages: calls, outputBudget: result.diagnostics.outputBudget, attempts: result.diagnostics.attempts },
+    provenance: 'deterministic provider and token measurement; not live Qwen' });
+});
+
+test('W7 provider stream interruption fails once and leaves history untouched', async () => {
+  const f = fixture(), before = history(f.id); let calls = 0;
+  const { generateLocalCandidate } = require('../src/main/workspaceGenerationRuntime');
+  const result = await run(f, { generate: async (request, meta) => {
+    calls++;
+    return generateLocalCandidate(async () => new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: JSON.stringify(draftFor(request)) }, finish_reason: 'stop' }] })}\n\n`),
+      'http://fixture/v1/chat/completions', request, meta);
+  } });
+  assert.equal(result.code, 'incomplete-response'); assert.equal(calls, 1);
+  assert.equal(result.diagnostics.attempts[0].rejectionPoint, 'incomplete-response');
+  assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+
+test('C6-A failed diagnostic is source-bound research, never successful completion', async () => {
+  const f = fixture();
+  const result = await run(f, { generate: async request => {
+    const draft = draftFor(request);
+    draft.research = [{ text: 'Ran npm test and observed one failed test.', sources: [{ messageId: f.assistant.id, stepId: 'tests' }] }];
+    return envelope(draft);
+  } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.candidate.tests[0].exitCode, 1);
+  assert.match(result.candidate.research[0].text, /failed/);
+});
+for (const [claim, stepId] of [['All tests passed.', 'tests'], ['Implemented and verified feature.', 'read']]) test(`C6-A rejects unsupported ${claim}`, async () => {
+  const f = fixture(); let calls = 0;
+  const result = await run(f, { generate: async request => {
+    calls++;
+    if (calls === 2) {
+      const feedback = JSON.parse(request.messages.at(-1).content).validationErrors[0];
+      assert.equal(feedback.category, 'completedWork'); assert.equal(feedback.entryIndex, 0); assert.ok(feedback.requiredEvidence);
+      assert.equal(JSON.stringify(feedback).includes('fixture expected green'), false);
+    }
+    const draft = draftFor(request); draft.completedWork = [{ text: claim, sources: [{ messageId: f.assistant.id, stepId }] }]; return envelope(draft);
+  } });
+  assert.equal(result.ok, false); assert.equal(result.code, 'unsupported-completion-claim'); assert.equal(calls, 2);
+});
+test('C6-A intermediate unsupported completion gets one targeted correction', async () => {
+  const f = fixture(); let bad = false, corrected = false;
+  const result = await run(f, { capacityTokens: 35072,
+    measure: async request => {
+      const input = JSON.parse(request.messages[1]?.content ?? request.messages[0].content);
+      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'controlled-tokenizer' };
+    }, generate: async (request, meta) => {
+      const input = JSON.parse(request.messages[1].content);
+      if (!meta.intermediate) return good(request);
+      if (!input.evidence.length) return envelope({ objective: 'Keep requirements.', briefIds: input.briefs.map(b => b.id), ...Object.fromEntries(w2.ARRAY_KEYS.map(k => [k, []])) });
+      const draft = draftFor(request);
+      if (!bad) { bad = true; draft.completedWork[0].sources[0].stepId = 'tests'; return envelope(draft); }
+      if (input.validationErrors) { corrected = true; assert.equal(input.validationErrors[0].category, 'completedWork'); }
+      return envelope(draft);
+    } });
+  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(bad, true); assert.equal(corrected, true);
+  assert.equal(result.diagnostics.retries, 1);
+});

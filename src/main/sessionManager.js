@@ -537,6 +537,17 @@ function normalizeStats(stats) {
     if (!['all', 'final'].includes(stats.scope)) throw new TypeError('Invalid generation stats scope.');
     result.scope = stats.scope;
   }
+  if (stats.cost && typeof stats.cost === 'object' && !Array.isArray(stats.cost)) {
+    const cost = {};
+    for (const key of ['total', 'savings', 'providerReported']) {
+      const value = stats.cost[key];
+      if (value == null || (typeof value === 'number' && Number.isFinite(value))) cost[key] = value ?? null;
+    }
+    for (const key of ['currency', 'completeness', 'source']) {
+      if (typeof stats.cost[key] === 'string') cost[key] = stats.cost[key];
+    }
+    result.cost = cost;
+  }
   return result;
 }
 

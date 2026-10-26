@@ -5,10 +5,13 @@ const { EventEmitter } = require('node:events');
 const { createRequire } = require('node:module');
 const mainRequire = createRequire(require('node:path').resolve('main.js'));
 const handlers = new Map();
+const appEvents = new Map(), lifecycleEvents = [], signals = [];
+const mockProcess = Object.assign(Object.create(process), { kill: (pid, signal) => signals.push({ pid, signal }) });
 let child, fail = false, spawnOptions, spawnArgs, spawnCommand;
 const context = {
   require(name) {
-    if (name === 'electron') return { app: { commandLine: { appendSwitch() {} }, whenReady: () => ({ then() {} }), on() {} }, BrowserWindow: {}, protocol: { registerSchemesAsPrivileged() {} }, ipcMain: { on() {}, handle: (name, fn) => handlers.set(name, fn) } };
+    if (name === 'electron') return { app: { commandLine: { appendSwitch() {} }, whenReady: () => ({ then() {} }), on: (name, fn) => appEvents.set(name, fn), quit() {} }, BrowserWindow: {}, protocol: { registerSchemesAsPrivileged() {} }, ipcMain: { on() {}, handle: (name, fn) => handlers.set(name, fn) } };
+    if (name === './src/main/engineLifecycle') return { createEngineLifecycle: options => mainRequire(name).createEngineLifecycle({ ...options, emit: record => lifecycleEvents.push(record) }) };
     if (name === './src/main/db.js') return {};
     if (name === './src/main/ipcHandlers.js') return {};
     if (name === './src/main/configManager') return { ...mainRequire(name), getAppSettings: () => ({ apiServerPort: 8080 }), saveLoadConfig() {}, forgetLoadConfig() {} };
@@ -22,7 +25,7 @@ const context = {
     } };
     if (name === 'net') return { createServer() { return { once() {}, listen(_port, cb) { cb(); }, address: () => ({ port: 12345 }), close: cb => cb() }; } };
     return mainRequire(name);
-  }, process, console, setTimeout, clearTimeout, __dirname: require('node:path').resolve('.'),
+  }, process: mockProcess, console, setTimeout, clearTimeout, __dirname: require('node:path').resolve('.'),
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('main.js', 'utf8') + '\nglobalThis.launchForTest = launchProcess; globalThis.switchForTest = launchModel;', context);
@@ -63,7 +66,9 @@ vm.runInContext('mainWindow = testWindow;', context);
   assert.equal((await handlers.get('terminal:status')()).running, true);
   assert.equal(getStatus().modelPath, '/tmp/model with spaces.gguf');
   assert.equal((await context.launchForTest(null, { modelPath: 'another.gguf' }, {})).success, false);
-  child.emit('close', 0, null);
+  child.emit('exit', 1, 'SIGKILL');
+  assert.equal(getStatus().isLoaded, false, 'Exit invalidates readiness before stdio closes');
+  child.emit('close', 1, 'SIGKILL');
   assert.equal(getStatus().isLoaded, false);
   assert.equal(getStatus().modelPath, null);
   assert.equal(getStatus().modelName, null);
@@ -85,5 +90,20 @@ vm.runInContext('mainWindow = testWindow;', context);
   assert.equal((await replacing).success, true);
   assert.notEqual(child, previous);
   child.emit('close', 0, null);
+  assert.ok(lifecycleEvents.some(event => event.event === 'server-process-exit' && event.reason === 'server-crash' && !event.userAction));
+  await context.launchForTest(null, { modelPath: '/unload.gguf' }, {});
+  context.testSignals = signals;
+  vm.runInContext('killProcessTree = (pid, signal) => { testSignals.push({ pid, signal }); };', context);
+  const beforeUnload = signals.length;
+  assert.equal((await handlers.get('terminal:kill')({ sender: 'ignored' })).success, true);
+  assert.equal((await handlers.get('terminal:kill')()).success, true);
+  assert.equal(signals.length, beforeUnload + 1, 'competing unloads signal the owned process once');
+  assert.equal(lifecycleEvents.at(-1).reason, 'user-unload');
+  child.emit('exit', 0, 'SIGTERM'); child.emit('close', 0, 'SIGTERM');
+  await context.launchForTest(null, { modelPath: '/shutdown.gguf' }, {});
+  appEvents.get('window-all-closed')();
+  assert.equal(lifecycleEvents.at(-1).reason, 'app-shutdown');
+  assert.equal(lifecycleEvents.at(-1).userAction, false);
+  child.emit('exit', 0, 'SIGTERM'); child.emit('close', 0, 'SIGTERM');
   console.log('Launch failures, direct spawning, unauthenticated local access, model status, duplicate launch protection, and stale process exits passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

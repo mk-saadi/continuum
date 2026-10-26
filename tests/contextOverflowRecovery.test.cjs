@@ -87,8 +87,8 @@ test('scheduled compression is explicitly run; pending background compaction is 
   const pending = compression.recoverContextOverflow({ sessionId: 'pending', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: async () => { forcedCalls++; return 'forced summary'; } });
   await new Promise(resolve => setImmediate(resolve)); assert.equal(forcedCalls, 0);
   release('background summary'); await background; const result = await pending;
-  assert.equal(result.compressed, false); assert.equal(forcedCalls, 0);
-  assert.equal(sessions.getSessionSummary('pending'), 'background summary', 'full-request idle selection already archived all eligible rows');
+  assert.equal(result.compressed, true); assert.equal(forcedCalls, 1);
+  assert.equal(sessions.getSessionSummary('pending'), 'forced summary', 'C5 can validate and replace an existing summary even without older rows');
 });
 test('cancelling while waiting for background compression never invokes forced summarization', async () => {
   seed('cancel', 5600); let enter, release;

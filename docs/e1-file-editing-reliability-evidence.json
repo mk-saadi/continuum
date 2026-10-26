@@ -1,0 +1,111 @@
+{
+  "corpus": "synthetic; no real-world rate inference",
+  "fixtures": [
+    {
+      "name": "exact",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "exact"
+    },
+    {
+      "name": "crlf",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "line-endings"
+    },
+    {
+      "name": "indent",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "indentation"
+    },
+    {
+      "name": "tabs",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "indentation"
+    },
+    {
+      "name": "blank",
+      "before_first_attempt": false,
+      "after_first_attempt": true,
+      "strategy": "blank-lines"
+    },
+    {
+      "name": "trailing",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "exact"
+    },
+    {
+      "name": "shift",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "indentation"
+    },
+    {
+      "name": "jsx",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "indentation"
+    },
+    {
+      "name": "python",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "indentation"
+    },
+    {
+      "name": "unicode",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "exact"
+    },
+    {
+      "name": "large",
+      "before_first_attempt": true,
+      "after_first_attempt": true,
+      "strategy": "exact"
+    }
+  ],
+  "metrics": {
+    "before_successes": 10,
+    "after_successes": 11,
+    "total": 11,
+    "exact": 4,
+    "tolerant": 7,
+    "ambiguity_rejections": 3,
+    "known_wrong_location_edits": 0,
+    "unexpected_surrounding_formatting_changes": 0,
+    "retries": 0,
+    "before_minimum_recovery_requests": 1,
+    "before_retry_execution": "not simulated"
+  },
+  "baseline": {
+    "agentTools": "pass",
+    "fileVersion": "pass",
+    "filesystemToolLimits": "fail: database not initialized",
+    "workspaceWritePhase2": "fail: spawnSync git EPERM"
+  },
+  "verification": {
+    "build": "pass; chunk-size warning",
+    "diff_check": "pass",
+    "matcher": "22/22",
+    "fileVersion": "20/20",
+    "workspaceWritePhase2": "16/20; four git EPERM failures",
+    "filesystemToolLimits": "3/4; database initialization failure",
+    "recoveryBoundary": "19/20; git EPERM",
+    "sandboxFilesystem": "8 pass, 3 fail, 2 skipped; socket EPERM, unavailable Volta path, git EPERM",
+    "agentLoop": "file-level pass",
+    "native_integration": "7/7 including single-file and multi-file deterministic races",
+    "agentTools": "pass after documented E1 expectation updates"
+  },
+  "limitations": [
+    "Best-effort hash check is not atomic compare-and-swap",
+    "No parser-backed normalization; multiline syntax conservatively rejected",
+    "No optional location hint",
+    "No automatic previous-read revision tracking for replacement tools",
+    "Patch matching unchanged",
+    "Multi-file transactions and hash-check/rename are not atomic; patch concurrency remains unchanged"
+  ]
+}

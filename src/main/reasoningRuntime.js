@@ -145,7 +145,21 @@ function describeResolution(resolution) {
   };
 }
 
+// Compaction has its own intent and never reads ordinary chat effort settings.
+async function resolveCompactionReasoning({ target = { type: 'local' }, modelId, localModel = null, contextSize = null } = {}) {
+  const metadata = target.type === 'cloud' ? await cloudMetadataFor(target) : null;
+  const capabilities = controls.resolveCapabilities({ target, provider: cloudProviderRow(target),
+    modelId: target.type === 'cloud' ? target.model : modelId, localModel, metadata });
+  let intent = { mode: 'off' };
+  if (capabilities.canDisable !== true) {
+    if (capabilities.budget?.supported === true) intent = { mode: 'budget', budget: Math.max(256, capabilities.budget.min ?? 0) };
+    else if (capabilities.supportsEffort === true && capabilities.efforts.length) intent = { mode: 'effort', effort: capabilities.efforts[0] };
+  }
+  return controls.resolveReasoning({ intent, capabilities, contextSize });
+}
+
 module.exports = {
+  resolveCompactionReasoning,
   resolveChatReasoning,
   resolveChildReasoning,
   describeResolution,

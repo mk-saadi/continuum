@@ -1,0 +1,1861 @@
+{
+  "scope": "E2 only; deterministic tests, no inference",
+  "baseline_worktree": [
+    " M main.js",
+    " M src/App.jsx",
+    " M src/components/ContextPanel.jsx",
+    " M src/components/MemoryPalace.jsx",
+    " M src/components/chat/DiffReviewModal.jsx",
+    " M src/components/settings/NotificationSettings.jsx",
+    " M src/context/TabContext.jsx",
+    " M src/index.css",
+    " M src/lib/compactionActivity.mjs",
+    " M src/lib/memoryChat.mjs",
+    " M src/main/compressionEngine.js",
+    " M src/main/configManager.js",
+    " M src/main/contextBudget.js",
+    " M src/main/costEstimator.js",
+    " M src/main/db.js",
+    " M src/main/engineManager.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/localEngineFetch.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/promptMeasurement.js",
+    " M src/main/reasoningRuntime.js",
+    " M src/main/sessionDeletion.js",
+    " M src/main/sessionManager.js",
+    " M src/main/subagents/providers/localProvider.js",
+    " M src/main/taskBriefs.js",
+    " M src/main/taskCheckpoints.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/workspaceCompactCandidate.js",
+    " M src/main/workspaceCompaction.js",
+    " M src/main/workspaceCompactionActivity.js",
+    " M src/main/workspaceGenerationRuntime.js",
+    " M src/preload.js",
+    " M tests/agentTools.test.cjs",
+    " M tests/contextOverflowRecovery.test.cjs",
+    " M tests/engineLaunch.test.cjs",
+    " M tests/idleCompactionProjection.test.cjs",
+    " M tests/workspaceCompactCandidate.test.cjs",
+    " M tests/workspaceGenerationRuntime.test.cjs",
+    " M tests/workspaceSafeCompaction.test.cjs",
+    "?? docs/c5-casual-context-recovery-evidence.json",
+    "?? docs/c5-casual-context-recovery-report.md",
+    "?? docs/c6a-compaction-contract-evidence.json",
+    "?? docs/c6a-compaction-contract-reliability.md",
+    "?? docs/c6b-workspace-context-selection-evidence.json",
+    "?? docs/c6b-workspace-context-selection-report.md",
+    "?? docs/c6c-real-model-compaction-acceptance.md",
+    "?? docs/c6c-real-model-compaction-evidence.json",
+    "?? docs/c6d-compaction-performance-evidence.json",
+    "?? docs/c6d-compaction-performance-report.md",
+    "?? docs/c6e-lightweight-workspace-context-evidence.json",
+    "?? docs/c6e-lightweight-workspace-context-report.md",
+    "?? docs/e1-file-editing-reliability-evidence.json",
+    "?? docs/e1-file-editing-reliability-report.md",
+    "?? docs/s1-engine-startup-lifecycle-evidence.json",
+    "?? docs/s1-engine-startup-lifecycle-report.md",
+    "?? docs/w7-compaction-truncation-diagnosis.md",
+    "?? docs/w7-compaction-truncation-evidence.json",
+    "?? src/components/NotificationSoundLifecycle.jsx",
+    "?? src/lib/notificationSounds.mjs",
+    "?? src/main/casualSummary.js",
+    "?? src/main/compactionPerformance.js",
+    "?? src/main/engineLifecycle.js",
+    "?? src/main/localRequestLifecycle.js",
+    "?? src/main/structuredOutput.js",
+    "?? src/main/tools/fileEditMatcher.js",
+    "?? src/main/workspaceEvidence.js",
+    "?? tests/c5CasualRecovery.test.cjs",
+    "?? tests/c6aCompactionStatus.ui.cjs",
+    "?? tests/c6aMeasurement.test.cjs",
+    "?? tests/c6aStructuredOutput.test.cjs",
+    "?? tests/c6bContextSelection.test.cjs",
+    "?? tests/c6cAcceptance.test.cjs",
+    "?? tests/c6dPerformance.test.cjs",
+    "?? tests/c6eLightweightContext.test.cjs",
+    "?? tests/e1FileEditing.test.cjs",
+    "?? tests/e1FileEditingNative.test.cjs",
+    "?? tests/fixtures/c6b-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6bIncrementalCapture.cjs",
+    "?? tests/fixtures/c6bRequestCapture.cjs",
+    "?? tests/fixtures/c6dRequestCapture.cjs",
+    "?? tests/fixtures/c6e-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6eBaselinePreload.cjs",
+    "?? tests/fixtures/c6eCheckpointBefore.cjs",
+    "?? tests/notificationSoundPrefs.test.cjs",
+    "?? tests/notificationSounds.test.mjs",
+    "?? tests/responseCostPersistence.test.cjs",
+    "?? tests/s1EngineLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.ui.cjs",
+    "?? tests/w7CasualRecovery.test.cjs"
+  ],
+  "original_run": {
+    "session_id": "fd3b2a89-8cce-4745-842a-82457980e2ad",
+    "total_tool_calls": 94,
+    "edit_failures": 11,
+    "failure_categories": {
+      "invalid_arguments": 4,
+      "replacement_mismatch": 5,
+      "patch_context_mismatch": 2,
+      "other": 4
+    }
+  },
+  "synthetic_metrics": {
+    "before": {
+      "total_edit_requests": 9,
+      "successful_first_attempts": 0,
+      "invalid_argument_rejections": 3,
+      "target_mismatches": 4,
+      "patch_mismatches": 2,
+      "actionable_failures": 4,
+      "failure_diagnostic_bytes": 2056,
+      "source_read_calls": 6,
+      "failed_operations_preserved_bytes": true,
+      "corrective_retries": null,
+      "unnecessary_source_reads": null,
+      "known_wrong_location_edits": 0,
+      "observed_atomicity_violations": 0
+    },
+    "after": {
+      "total_edit_requests": 9,
+      "successful_first_attempts": 2,
+      "invalid_argument_rejections": 3,
+      "target_mismatches": 2,
+      "patch_mismatches": 2,
+      "actionable_failures": 7,
+      "failure_diagnostic_bytes": 4019,
+      "source_read_calls": 10,
+      "failed_operations_preserved_bytes": true,
+      "corrective_retries": null,
+      "unnecessary_source_reads": null,
+      "known_wrong_location_edits": 0,
+      "observed_atomicity_violations": 0
+    },
+    "note": "Nine independent fixtures. Retry count and unnecessary reads not inferred; one corrected narrow retry is separately asserted in tests."
+  },
+  "synthetic_replays": {
+    "before": [
+      {
+        "label": "22 edits",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "edits must be an array of 1 to 20 replacements."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      },
+      {
+        "label": "missing path",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "old_str": "a",
+              "new_str": "b"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "Invalid file path."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      },
+      {
+        "label": "nonadjacent CSS",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "\t--error: #d92d3a;\n\t--error-soft: #e5646f;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "category": "unsafe-normalization",
+          "strategies_attempted": [
+            "exact",
+            "line-endings"
+          ],
+          "changed_since_read": null,
+          "candidates": [],
+          "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "path": [
+            "a.css"
+          ]
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "CSS indentation",
+        "name": "str_replace_editor",
+        "args": {
+          "relative_path": "a.css",
+          "old_str": "    --x: 1;",
+          "new_str": "    --x: 2;"
+        },
+        "result": {
+          "success": false,
+          "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "category": "unsafe-normalization",
+          "strategies_attempted": [
+            "exact",
+            "line-endings"
+          ],
+          "changed_since_read": null,
+          "candidates": [],
+          "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "path": "a.css"
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "JSX unrelated template",
+        "name": "str_replace_editor",
+        "args": {
+          "relative_path": "a.jsx",
+          "old_str": "<div>\n  <X />\n</div>",
+          "new_str": "<div>\n  <Y />\n</div>"
+        },
+        "result": {
+          "success": false,
+          "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "category": "unsafe-normalization",
+          "strategies_attempted": [
+            "exact",
+            "line-endings"
+          ],
+          "changed_since_read": null,
+          "candidates": [],
+          "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "path": "a.jsx"
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "patch missing declaration",
+        "name": "apply_patch",
+        "args": {
+          "patch": "--- a/a.js\n+++ b/a.js\n@@ -1,2 +1,2 @@\n a();\n-b();\n+c();\n"
+        },
+        "result": {
+          "success": false,
+          "error": "Hunk does not match a.js (@@ -1,2 +1,2 @@); context must match exactly."
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "patch nonadjacent CSS",
+        "name": "apply_patch",
+        "args": {
+          "patch": "--- a/a.js\n+++ b/a.js\n@@ -1,2 +1,2 @@\n --error: red;\n---error-soft: pink;\n+--error-soft: rose;\n"
+        },
+        "result": {
+          "success": false,
+          "error": "Hunk does not match a.js (@@ -1,2 +1,2 @@); context must match exactly."
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "nine valid one invalid",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.js",
+              "old_str": "v0();",
+              "new_str": "n0();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v1();",
+              "new_str": "n1();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v2();",
+              "new_str": "n2();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v3();",
+              "new_str": "n3();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v4();",
+              "new_str": "n4();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v5();",
+              "new_str": "n5();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v6();",
+              "new_str": "n6();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v7();",
+              "new_str": "n7();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v8();",
+              "new_str": "n8();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "missing();",
+              "new_str": "n9();"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "category": "no-match",
+          "strategies_attempted": [
+            "exact",
+            "line-endings",
+            "indentation",
+            "blank-lines"
+          ],
+          "changed_since_read": null,
+          "candidates": [],
+          "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "path": [
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js",
+            "a.js"
+          ]
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "oversized repeated retry",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "edits must be an array of 1 to 20 replacements."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      }
+    ],
+    "after": [
+      {
+        "label": "22 edits",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "EDIT_BATCH_LIMIT_EXCEEDED: Received 22 edits; maximum 20. Split into batches of 20 or fewer edits. No files modified.",
+          "zero_writes": true,
+          "batch_size": 22,
+          "code": "EDIT_BATCH_LIMIT_EXCEEDED",
+          "maximum": 20,
+          "received": 22,
+          "suggested_action": "Split into batches of 20 or fewer edits. No files modified."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      },
+      {
+        "label": "missing path",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "old_str": "a",
+              "new_str": "b"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "EDIT_ARGUMENT_INVALID: Edit 1 (one-based), field relative_path. Correct relative_path in edit 1 (one-based). No files modified.",
+          "zero_writes": true,
+          "batch_size": 1,
+          "code": "EDIT_ARGUMENT_INVALID",
+          "edit_index": 0,
+          "edit_number": 1,
+          "field": "relative_path",
+          "missing_field": "relative_path",
+          "required_fields": [
+            "relative_path",
+            "old_str",
+            "new_str"
+          ],
+          "suggested_action": "Correct relative_path in edit 1 (one-based). No files modified."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      },
+      {
+        "label": "nonadjacent CSS",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "\t--error: #d92d3a;\n\t--error-soft: #e5646f;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "batch_size": 1,
+          "edit_index": 0,
+          "edit_number": 1,
+          "path": "a.css",
+          "category": "no-match",
+          "target_exists": true,
+          "changed_since_read": null,
+          "strategies_attempted": [
+            "exact",
+            "line-endings",
+            "indentation",
+            "blank-lines"
+          ],
+          "candidates": [
+            {
+              "start_line": 2,
+              "end_line": 2,
+              "excerpt": "\t--error: #d92d3a;"
+            },
+            {
+              "start_line": 4,
+              "end_line": 4,
+              "excerpt": "\t--error-soft: #e5646f;"
+            }
+          ],
+          "zero_writes": true,
+          "suggested_action": "Read the reported source range; correct edit 1 of 1 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+          "nearby_source": [
+            {
+              "start_line": 1,
+              "end_line": 5,
+              "excerpt": ":root {\n\t--error: #d92d3a;\n\t--shadow: none;\n\t--error-soft: #e5646f;\n}"
+            }
+          ],
+          "explanation": "The requested declarations are not adjacent: existing nonblank source lines intervene. Replace one unique declaration or include the actual intervening context.",
+          "code": "EDIT_TARGET_NOT_FOUND"
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "CSS indentation",
+        "name": "str_replace_editor",
+        "args": {
+          "relative_path": "a.css",
+          "old_str": "    --x: 1;",
+          "new_str": "    --x: 2;"
+        },
+        "result": {
+          "success": true,
+          "recoveryCheckpointId": 1
+        },
+        "source_read_calls": 3,
+        "unchanged": false
+      },
+      {
+        "label": "JSX unrelated template",
+        "name": "str_replace_editor",
+        "args": {
+          "relative_path": "a.jsx",
+          "old_str": "<div>\n  <X />\n</div>",
+          "new_str": "<div>\n  <Y />\n</div>"
+        },
+        "result": {
+          "success": true,
+          "recoveryCheckpointId": 2
+        },
+        "source_read_calls": 3,
+        "unchanged": false
+      },
+      {
+        "label": "patch missing declaration",
+        "name": "apply_patch",
+        "args": {
+          "patch": "--- a/a.js\n+++ b/a.js\n@@ -1,2 +1,2 @@\n a();\n-b();\n+c();\n"
+        },
+        "result": {
+          "success": false,
+          "error": "PATCH_CONTEXT_MISMATCH: Read lines 1–4 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified.",
+          "code": "PATCH_CONTEXT_MISMATCH",
+          "path": "a.js",
+          "hunk_index": 0,
+          "hunk_number": 1,
+          "expected_old_range": "@@ -1,2 +1,2 @@",
+          "expected_context": "a();\nb();",
+          "nearby_source": [
+            {
+              "start_line": 1,
+              "end_line": 4,
+              "excerpt": "a();\nconst extra = 1;\nb();\n"
+            }
+          ],
+          "changed_since_read": null,
+          "target_exists": true,
+          "zero_writes": true,
+          "applied_files": [],
+          "suggested_action": "Read lines 1–4 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified."
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "patch nonadjacent CSS",
+        "name": "apply_patch",
+        "args": {
+          "patch": "--- a/a.js\n+++ b/a.js\n@@ -1,2 +1,2 @@\n --error: red;\n---error-soft: pink;\n+--error-soft: rose;\n"
+        },
+        "result": {
+          "success": false,
+          "error": "PATCH_CONTEXT_MISMATCH: Read lines 1–4 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified.",
+          "code": "PATCH_CONTEXT_MISMATCH",
+          "path": "a.js",
+          "hunk_index": 0,
+          "hunk_number": 1,
+          "expected_old_range": "@@ -1,2 +1,2 @@",
+          "expected_context": "--error: red;\n--error-soft: pink;",
+          "nearby_source": [
+            {
+              "start_line": 1,
+              "end_line": 4,
+              "excerpt": "--error: red;\n--shadow: none;\n--error-soft: pink;\n"
+            }
+          ],
+          "changed_since_read": null,
+          "target_exists": true,
+          "zero_writes": true,
+          "applied_files": [],
+          "suggested_action": "Read lines 1–4 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified."
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "nine valid one invalid",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.js",
+              "old_str": "v0();",
+              "new_str": "n0();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v1();",
+              "new_str": "n1();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v2();",
+              "new_str": "n2();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v3();",
+              "new_str": "n3();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v4();",
+              "new_str": "n4();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v5();",
+              "new_str": "n5();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v6();",
+              "new_str": "n6();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v7();",
+              "new_str": "n7();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "v8();",
+              "new_str": "n8();"
+            },
+            {
+              "relative_path": "a.js",
+              "old_str": "missing();",
+              "new_str": "n9();"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+          "batch_size": 10,
+          "edit_index": 9,
+          "edit_number": 10,
+          "path": "a.js",
+          "category": "no-match",
+          "target_exists": true,
+          "changed_since_read": null,
+          "strategies_attempted": [
+            "exact",
+            "line-endings",
+            "indentation",
+            "blank-lines"
+          ],
+          "candidates": [],
+          "zero_writes": true,
+          "suggested_action": "Read the reported source range; correct edit 10 of 10 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+          "nearby_source": [],
+          "code": "EDIT_TARGET_NOT_FOUND"
+        },
+        "source_read_calls": 1,
+        "unchanged": true
+      },
+      {
+        "label": "oversized repeated retry",
+        "name": "edit_project_files",
+        "args": {
+          "edits": [
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            },
+            {
+              "relative_path": "a.css",
+              "old_str": "--x: 1;",
+              "new_str": "--x: 2;"
+            }
+          ]
+        },
+        "result": {
+          "success": false,
+          "error": "EDIT_BATCH_LIMIT_EXCEEDED: Received 22 edits; maximum 20. Split into batches of 20 or fewer edits. No files modified.",
+          "zero_writes": true,
+          "batch_size": 22,
+          "code": "EDIT_BATCH_LIMIT_EXCEEDED",
+          "maximum": 20,
+          "received": 22,
+          "suggested_action": "Split into batches of 20 or fewer edits. No files modified."
+        },
+        "source_read_calls": 0,
+        "unchanged": true
+      }
+    ]
+  },
+  "recorded_replays": [
+    {
+      "call": "recorded-call-36",
+      "tool": "apply_patch",
+      "before": {
+        "success": false,
+        "error": "Hunk does not match src/index.css (@@ -41,6 +41,9 @@); context must match exactly."
+      },
+      "after": {
+        "success": false,
+        "error": "PATCH_CONTEXT_MISMATCH: Read lines 39–50 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified.",
+        "code": "PATCH_CONTEXT_MISMATCH",
+        "path": "src/index.css",
+        "hunk_index": 0,
+        "hunk_number": 1,
+        "expected_old_range": "@@ -41,6 +41,9 @@",
+        "expected_context": "\t--error: #d92d3a;\n\t--error-soft: #e5646f;\n\t--error-strong: #b91c2c;\n\t--danger-hover: #c4222f;\n\t--accent-bright: #1d4ed8;\n\t--edit-border: #9aa7c4;\n\t--error: #ff6b6b;\n\t--error-soft: #ff9a9a;\n\t--error-strong: #f05252;\n\t--danger-hover: #ff8585;\n\t--accent-bright: #9cc3ff;\n\t--edit-border: #6b7a99;",
+        "nearby_source": [
+          {
+            "start_line": 39,
+            "end_line": 50,
+            "excerpt": "\t--subtle-border: #e5e5e5;\n\t--control-border: #a3a3a3;\n\t--error: #d92d3a;\n\t--shadow: rgba(0, 0, 0, 0.12);\n\t--surface: #fafafa;\n\t--surface-raised: #ffffff;\n\t--input: #f0f0f0;\n\t--surface-hover: #e5e5e5;\n\t--terminal: #f3f3f3;\n\t--scrollbar-track: #f0f0f0;\n\t--scrollbar-thumb: #a3a3a3;\n\t--terminal-text: #171717;"
+          }
+        ],
+        "changed_since_read": null,
+        "target_exists": true,
+        "zero_writes": true,
+        "applied_files": [],
+        "suggested_action": "Read lines 39–50 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-37",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "Invalid file path."
+      },
+      "after": {
+        "success": false,
+        "error": "EDIT_ARGUMENT_INVALID: Edit 1 (one-based), field relative_path. Correct relative_path in edit 1 (one-based). No files modified.",
+        "zero_writes": true,
+        "batch_size": 12,
+        "code": "EDIT_ARGUMENT_INVALID",
+        "edit_index": 0,
+        "edit_number": 1,
+        "field": "relative_path",
+        "missing_field": "relative_path",
+        "required_fields": [
+          "relative_path",
+          "old_str",
+          "new_str"
+        ],
+        "suggested_action": "Correct relative_path in edit 1 (one-based). No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-44",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "edits must be an array of 1 to 20 replacements."
+      },
+      "after": {
+        "success": false,
+        "error": "EDIT_BATCH_LIMIT_EXCEEDED: Received 22 edits; maximum 20. Split into batches of 20 or fewer edits. No files modified.",
+        "zero_writes": true,
+        "batch_size": 22,
+        "code": "EDIT_BATCH_LIMIT_EXCEEDED",
+        "maximum": 20,
+        "received": 22,
+        "suggested_action": "Split into batches of 20 or fewer edits. No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-45",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "unsafe-normalization",
+        "strategies_attempted": [
+          "exact",
+          "line-endings"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": [
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css"
+        ]
+      },
+      "after": {
+        "success": false,
+        "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "batch_size": 11,
+        "edit_index": 0,
+        "edit_number": 1,
+        "path": "src/index.css",
+        "category": "no-match",
+        "target_exists": true,
+        "changed_since_read": null,
+        "strategies_attempted": [
+          "exact",
+          "line-endings",
+          "indentation",
+          "blank-lines"
+        ],
+        "candidates": [
+          {
+            "start_line": 41,
+            "end_line": 41,
+            "excerpt": "\t--error: #d92d3a;"
+          },
+          {
+            "start_line": 52,
+            "end_line": 52,
+            "excerpt": "\t--error-soft: #e5646f;"
+          }
+        ],
+        "zero_writes": true,
+        "suggested_action": "Read the reported source range; correct edit 1 of 11 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+        "nearby_source": [
+          {
+            "start_line": 39,
+            "end_line": 47,
+            "excerpt": "\t--subtle-border: #e5e5e5;\n\t--control-border: #a3a3a3;\n\t--error: #d92d3a;\n\t--shadow: rgba(0, 0, 0, 0.12);\n\t--surface: #fafafa;\n\t--surface-raised: #ffffff;\n\t--input: #f0f0f0;\n\t--surface-hover: #e5e5e5;\n\t--terminal: #f3f3f3;"
+          }
+        ],
+        "explanation": "The requested declarations are not adjacent: existing nonblank source lines intervene. Replace one unique declaration or include the actual intervening context.",
+        "code": "EDIT_TARGET_NOT_FOUND"
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-48",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "Invalid file path."
+      },
+      "after": {
+        "success": false,
+        "error": "EDIT_BATCH_LIMIT_EXCEEDED: Received 22 edits; maximum 20. Split into batches of 20 or fewer edits. No files modified.",
+        "zero_writes": true,
+        "batch_size": 22,
+        "code": "EDIT_BATCH_LIMIT_EXCEEDED",
+        "maximum": 20,
+        "received": 22,
+        "suggested_action": "Split into batches of 20 or fewer edits. No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-49",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "Invalid file path."
+      },
+      "after": {
+        "success": false,
+        "error": "EDIT_ARGUMENT_INVALID: Edit 1 (one-based), field relative_path. Correct relative_path in edit 1 (one-based). No files modified.",
+        "zero_writes": true,
+        "batch_size": 11,
+        "code": "EDIT_ARGUMENT_INVALID",
+        "edit_index": 0,
+        "edit_number": 1,
+        "field": "relative_path",
+        "missing_field": "relative_path",
+        "required_fields": [
+          "relative_path",
+          "old_str",
+          "new_str"
+        ],
+        "suggested_action": "Correct relative_path in edit 1 (one-based). No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-50",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "unsafe-normalization",
+        "strategies_attempted": [
+          "exact",
+          "line-endings"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": [
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css",
+          "src/index.css"
+        ]
+      },
+      "after": {
+        "success": false,
+        "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "batch_size": 20,
+        "edit_index": 8,
+        "edit_number": 9,
+        "path": "src/index.css",
+        "category": "no-match",
+        "target_exists": true,
+        "changed_since_read": null,
+        "strategies_attempted": [
+          "exact",
+          "line-endings",
+          "indentation",
+          "blank-lines"
+        ],
+        "candidates": [
+          {
+            "start_line": 507,
+            "end_line": 507,
+            "excerpt": "\t--shadow: rgba(40, 55, 49, 0.11);"
+          },
+          {
+            "start_line": 510,
+            "end_line": 510,
+            "excerpt": "\t--error: #b84742;"
+          }
+        ],
+        "zero_writes": true,
+        "suggested_action": "Read the reported source range; correct edit 9 of 20 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+        "nearby_source": [
+          {
+            "start_line": 505,
+            "end_line": 513,
+            "excerpt": "\t--input: #f7f6f0;\n\n\t--shadow: rgba(40, 55, 49, 0.11);\n\t--window-shadow: #28373126;\n\n\t--error: #b84742;\n\t--error-soft: #cd7065;\n\t--error-strong: #993630;\n\t--danger-hover: #842b27;"
+          }
+        ],
+        "code": "EDIT_TARGET_NOT_FOUND"
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-59",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "unsafe-normalization",
+        "strategies_attempted": [
+          "exact",
+          "line-endings"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": [
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx"
+        ]
+      },
+      "after": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "batch_size": 10,
+        "edit_index": 5,
+        "edit_number": 6,
+        "path": "src/components/chat/DiffReviewModal.jsx",
+        "category": "unsafe-normalization",
+        "target_exists": true,
+        "changed_since_read": null,
+        "strategies_attempted": [
+          "exact",
+          "line-endings",
+          "indentation",
+          "blank-lines"
+        ],
+        "candidates": [
+          {
+            "start_line": 487,
+            "end_line": 487,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[11px] font-medium text-amber-500\">"
+          },
+          {
+            "start_line": 488,
+            "end_line": 488,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t\tNo recovery checkpoint covers {selectedPath} yet — it was never captured, so revert is unavailable."
+          },
+          {
+            "start_line": 540,
+            "end_line": 540,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[11px] font-medium text-amber-500\">"
+          },
+          {
+            "start_line": 545,
+            "end_line": 545,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[11px] font-medium text-amber-500\">"
+          }
+        ],
+        "zero_writes": true,
+        "suggested_action": "Read the reported source range; correct edit 6 of 10 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+        "nearby_source": [
+          {
+            "start_line": 485,
+            "end_line": 493,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t\t\t) : covering && covering.checkpointId == null ? (\n\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[11px] font-medium text-amber-500\">\n\t\t\t\t\t\t\t\t\t\t\t\tNo recovery checkpoint covers {selectedPath} yet — it was never captured, so revert is unavailable.\n\t\t\t\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t\t\t) : null}\n\t\t\t\t\t\t\t\t\t\t{preview && (\n\t\t\t\t\t\t\t\t\t\t\t<div className=\"space-y-1 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface-hover)]/40 p-2.5 text-[11px]\" aria-label=\"Revert preview\">\n\t\t\t\t\t\t\t\t\t\t\t\t<p className=\"font-medium\">"
+          }
+        ],
+        "code": "EDIT_TARGET_NOT_FOUND"
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-62",
+      "tool": "edit_project_files",
+      "before": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "unsafe-normalization",
+        "strategies_attempted": [
+          "exact",
+          "line-endings"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": [
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx",
+          "src/components/chat/DiffReviewModal.jsx"
+        ]
+      },
+      "after": {
+        "success": false,
+        "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "batch_size": 11,
+        "edit_index": 6,
+        "edit_number": 7,
+        "path": "src/components/chat/DiffReviewModal.jsx",
+        "category": "no-match",
+        "target_exists": true,
+        "changed_since_read": null,
+        "strategies_attempted": [
+          "exact",
+          "line-endings",
+          "indentation",
+          "blank-lines"
+        ],
+        "candidates": [],
+        "zero_writes": true,
+        "suggested_action": "Read the reported source range; correct edit 7 of 11 with a smaller unique replacement. Retry the corrected batch; no files modified.",
+        "nearby_source": [
+          {
+            "start_line": 498,
+            "end_line": 506,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo && (\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === \"refused\" ? \"border-[var(--error)]/50\" : \"border-amber-500/50\"}`} aria-label=\"Revert safety verdict\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<p className={`font-medium ${safetyInfo.tone === \"refused\" ? \"text-[var(--error)]\" : \"text-amber-500\"}`}>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo.title}\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[var(--text-secondary)]\">{safetyInfo.explanation}</p>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo.lines.length > 0 && (\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<ul className=\"list-disc pl-4 font-mono text-[var(--text-secondary)]\">"
+          }
+        ],
+        "code": "EDIT_TARGET_NOT_FOUND"
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-64",
+      "tool": "apply_patch",
+      "before": {
+        "success": false,
+        "error": "Hunk does not match src/components/chat/DiffReviewModal.jsx (@@ -46,9 +46,9 @@); context must match exactly."
+      },
+      "after": {
+        "success": false,
+        "error": "PATCH_CONTEXT_MISMATCH: Read lines 44–55 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified.",
+        "code": "PATCH_CONTEXT_MISMATCH",
+        "path": "src/components/chat/DiffReviewModal.jsx",
+        "hunk_index": 0,
+        "hunk_number": 1,
+        "expected_old_range": "@@ -46,9 +46,9 @@",
+        "expected_context": "\t\t\trenderer={({ rows: tokens, stylesheet }) => tokens.map((token, index) => {\n\t\t\t\tconst row = rows[index];\n\t\t\t\tif (!row) return null;\n\t\t\t\tconst meta = row.type === \"hunk\" || row.type === \"note\";\n\t\t\t\tconst tone = meta ? \"bg-[var(--surface-hover)] text-[var(--text-secondary)]\" : added ? \"bg-emerald-500/10\" : removed ? \"bg-rose-500/10\" : \"\";\n\t\t\t\treturn <div key={index} className={`flex min-h-[22px] ${tone}`}>\n\t\t\t\t\t<span aria-hidden=\"true\" className={`w-5 shrink-0 select-none text-center ${added ? \"text-emerald-500\" : removed ? \"text-rose-500\" : \"\"}`}>{added ? \"+\" : removed ? (unified ? \"-\" : \"−\") : \"\"}</span>\n\t\t\t\t\t<span className=\"pr-4 whitespace-pre\">{meta ? row.text : renderToken(token, index, stylesheet)}</span>\n\t\t\t\t</div>;\n\t\t\t})}\n\nconst STATUS_TONE = {",
+        "nearby_source": [
+          {
+            "start_line": 44,
+            "end_line": 55,
+            "excerpt": "\t\t\t\tconst row = rows[index];\n\t\t\t\tif (!row) return null;\n\t\t\t\tconst meta = row.type === \"hunk\" || row.type === \"note\";\n\t\t\t\tconst added = (unified || side === \"right\") && (row.type === \"add\" || row.type === \"change\");\n\t\t\t\tconst removed = (unified || side === \"left\") && (row.type === \"del\" || row.type === \"change\");\n\t\t\t\tconst tone = meta ? \"bg-[var(--surface-hover)] text-[var(--text-secondary)]\" : added ? \"bg-emerald-500/10\" : removed ? \"bg-rose-500/10\" : \"\";\n\t\t\t\treturn <div key={index} className={`flex min-h-[22px] ${tone}`}>\n\t\t\t\t\t<span aria-hidden=\"true\" className=\"sticky left-0 w-12 shrink-0 select-none border-r border-[var(--code-border)] bg-[var(--code-bg)] px-2 text-right text-[var(--text-muted)] tabular-nums\">{meta ? \"\" : row[`${side}No`]}</span>\n\t\t\t\t\t<span aria-hidden=\"true\" className={`w-5 shrink-0 select-none text-center ${added ? \"text-emerald-500\" : removed ? \"text-rose-500\" : \"\"}`}>{added ? \"+\" : removed ? (unified ? \"-\" : \"−\") : \"\"}</span>\n\t\t\t\t\t<span className=\"pr-4 whitespac"
+          }
+        ],
+        "changed_since_read": null,
+        "target_exists": true,
+        "zero_writes": true,
+        "applied_files": [],
+        "suggested_action": "Read lines 44–55 and regenerate only hunk 1; preserve existing intervening declarations and children. No files modified."
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    },
+    {
+      "call": "recorded-call-73",
+      "tool": "str_replace_editor",
+      "before": {
+        "success": false,
+        "error": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "unsafe-normalization",
+        "strategies_attempted": [
+          "exact",
+          "line-endings"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": "src/components/chat/DiffReviewModal.jsx"
+      },
+      "after": {
+        "success": false,
+        "error": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "category": "no-match",
+        "strategies_attempted": [
+          "exact",
+          "line-endings",
+          "indentation",
+          "blank-lines"
+        ],
+        "changed_since_read": null,
+        "candidates": [],
+        "nearby_source": [
+          {
+            "start_line": 499,
+            "end_line": 507,
+            "excerpt": "\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo && (\n\t\t\t\t\t\t\t\t\t\t\t\t\t<div className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === \"refused\" ? \"border-[var(--error)]/50\" : \"border-amber-500/50\"}`} aria-label=\"Revert safety verdict\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<p className={`font-medium ${safetyInfo.tone === \"refused\" ? \"text-[var(--error)]\" : \"text-amber-500\"}`}>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo.title}\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<p className=\"text-[var(--text-secondary)]\">{safetyInfo.explanation}</p>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo.lines.length > 0 && (\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<ul className=\"list-disc pl-4 font-mono text-[var(--text-secondary)]\">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t{safetyInfo.lines.slice(0, 12).map((line) => <li key={line}>{line}</li>)}"
+          }
+        ],
+        "zero_writes": true,
+        "suggested_action": "Provide complete surrounding lines from a small relevant range or use apply_patch.",
+        "path": "src/components/chat/DiffReviewModal.jsx"
+      },
+      "unchanged_before": true,
+      "unchanged_after": true
+    }
+  ],
+  "recorded_source_limitations": "CSS reconstructed from saved ranged reads 1–1355; JSX available prefix and lines 440–560 only, unavailable gap explicitly filled. Each failed request replayed independently against these copies, not a full historical agent rerun. All eleven reproduce failure and preserve bytes.",
+  "schemas": {
+    "before": [
+      {
+        "name": "str_replace_editor",
+        "serialized_bytes": 947,
+        "estimated_tokens": 237
+      },
+      {
+        "name": "edit_project_files",
+        "serialized_bytes": 1167,
+        "estimated_tokens": 292
+      },
+      {
+        "name": "apply_patch",
+        "serialized_bytes": 501,
+        "estimated_tokens": 126
+      }
+    ],
+    "after": [
+      {
+        "name": "str_replace_editor",
+        "serialized_bytes": 972,
+        "estimated_tokens": 243
+      },
+      {
+        "name": "edit_project_files",
+        "serialized_bytes": 1256,
+        "estimated_tokens": 314
+      },
+      {
+        "name": "apply_patch",
+        "serialized_bytes": 501,
+        "estimated_tokens": 126
+      }
+    ],
+    "token_method": "Serialized UTF-8 bytes / 4 rounded up; estimate, not provider tokenizer."
+  },
+  "baseline_failure_comparison": {
+    "filesystem": {
+      "before": [
+        "not ok 4 - MCP execution applies the cap before serialization"
+      ],
+      "after": [
+        "not ok 4 - MCP execution applies the cap before serialization"
+      ],
+      "same_failure_identities": true
+    },
+    "boundary": {
+      "before": [
+        "not ok 16 - 15. git index, branches, history untouched by boundaries"
+      ],
+      "after": [
+        "not ok 16 - 15. git index, branches, history untouched by boundaries"
+      ],
+      "same_failure_identities": true
+    },
+    "recovery": {
+      "before": [
+        "not ok 5 - 5. uncommitted modifications and untracked files survive the round trip",
+        "not ok 12 - 12. real git index, branches, and history are unchanged by capture/restore",
+        "not ok 17 - 17. batch write failure mid-sequence rolls back and keeps a durable point"
+      ],
+      "after": [
+        "not ok 5 - 5. uncommitted modifications and untracked files survive the round trip",
+        "not ok 12 - 12. real git index, branches, and history are unchanged by capture/restore",
+        "not ok 17 - 17. batch write failure mid-sequence rolls back and keeps a durable point"
+      ],
+      "same_failure_identities": true,
+      "rollback_fixture_detail": "Preexisting assertion expects Recovery checkpoint # in the error string; actual baseline error is EACCES on a temp-file write. The new structured result retains recoveryCheckpointId; the old string assertion still fails identically."
+    },
+    "sandbox": {
+      "before": [
+        "not ok 5 - workspace socket refuses setup before any process launch",
+        "not ok 10 - Volta resolver binds actual image and leaves shim/home unmounted",
+        "not ok 13 - shell metadata mounts follow workspace; native profile stays writable; init is discovered next time"
+      ],
+      "after": [
+        "not ok 5 - workspace socket refuses setup before any process launch",
+        "not ok 10 - Volta resolver binds actual image and leaves shim/home unmounted",
+        "not ok 13 - shell metadata mounts follow workspace; native profile stays writable; init is discovered next time"
+      ],
+      "same_failure_identities": true
+    },
+    "write": {
+      "before": [
+        "not ok 7 - Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+        "not ok 8 - clean switch runs without approval; dirty switch asks and still refuses to discard",
+        "not ok 15 - commit message and staged diff are persisted in the actual IPC tool-call card",
+        "not ok 20 - all six acceptance commands execute in the real sandbox with zero prompts"
+      ],
+      "after": [
+        "not ok 7 - Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+        "not ok 8 - clean switch runs without approval; dirty switch asks and still refuses to discard",
+        "not ok 15 - commit message and staged diff are persisted in the actual IPC tool-call card",
+        "not ok 20 - all six acceptance commands execute in the real sandbox with zero prompts"
+      ],
+      "same_failure_identities": true
+    }
+  },
+  "tests": {
+    "e2": {
+      "passed": 40,
+      "failed": 0
+    },
+    "e1_matcher": {
+      "passed": 22,
+      "failed": 0
+    },
+    "e1_native": {
+      "passed": 7,
+      "failed": 0
+    },
+    "broader_suite_files": {
+      "passed": 6,
+      "failed": 5,
+      "baseline_passed": 5,
+      "baseline_failed": 5
+    }
+  },
+  "limitations": [
+    "Prior-read revision is unknown (null) unless an explicit hash or guarded-write conflict supplies evidence.",
+    "Fresh authorized file reads are retained on negative-cache hits; only repeated matching/parsing is avoided.",
+    "CSS comments, quoted values and URLs in tolerant target regions remain exact-only.",
+    "Multi-file writes use guarded rollback, not OS-level multi-file atomic transactions.",
+    "No GLM/Qwen inference or projected end-to-end tool-count reduction."
+  ],
+  "final_worktree": [
+    " M main.js",
+    " M src/App.jsx",
+    " M src/components/ContextPanel.jsx",
+    " M src/components/MemoryPalace.jsx",
+    " M src/components/chat/DiffReviewModal.jsx",
+    " M src/components/settings/NotificationSettings.jsx",
+    " M src/context/TabContext.jsx",
+    " M src/index.css",
+    " M src/lib/compactionActivity.mjs",
+    " M src/lib/memoryChat.mjs",
+    " M src/main/compressionEngine.js",
+    " M src/main/configManager.js",
+    " M src/main/contextBudget.js",
+    " M src/main/costEstimator.js",
+    " M src/main/db.js",
+    " M src/main/engineManager.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/localEngineFetch.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/promptMeasurement.js",
+    " M src/main/reasoningRuntime.js",
+    " M src/main/sessionDeletion.js",
+    " M src/main/sessionManager.js",
+    " M src/main/subagents/providers/localProvider.js",
+    " M src/main/taskBriefs.js",
+    " M src/main/taskCheckpoints.js",
+    " M src/main/toolSchemaValidation.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/workspaceCompactCandidate.js",
+    " M src/main/workspaceCompaction.js",
+    " M src/main/workspaceCompactionActivity.js",
+    " M src/main/workspaceGenerationRuntime.js",
+    " M src/preload.js",
+    " M tests/agentTools.test.cjs",
+    " M tests/contextOverflowRecovery.test.cjs",
+    " M tests/engineLaunch.test.cjs",
+    " M tests/idleCompactionProjection.test.cjs",
+    " M tests/workspaceCompactCandidate.test.cjs",
+    " M tests/workspaceGenerationRuntime.test.cjs",
+    " M tests/workspaceSafeCompaction.test.cjs",
+    "?? docs/c5-casual-context-recovery-evidence.json",
+    "?? docs/c5-casual-context-recovery-report.md",
+    "?? docs/c6a-compaction-contract-evidence.json",
+    "?? docs/c6a-compaction-contract-reliability.md",
+    "?? docs/c6b-workspace-context-selection-evidence.json",
+    "?? docs/c6b-workspace-context-selection-report.md",
+    "?? docs/c6c-real-model-compaction-acceptance.md",
+    "?? docs/c6c-real-model-compaction-evidence.json",
+    "?? docs/c6d-compaction-performance-evidence.json",
+    "?? docs/c6d-compaction-performance-report.md",
+    "?? docs/c6e-lightweight-workspace-context-evidence.json",
+    "?? docs/c6e-lightweight-workspace-context-report.md",
+    "?? docs/e1-file-editing-reliability-evidence.json",
+    "?? docs/e1-file-editing-reliability-report.md",
+    "?? docs/e2-editing-reliability-evidence.json",
+    "?? docs/e2-editing-reliability-report.md",
+    "?? docs/s1-engine-startup-lifecycle-evidence.json",
+    "?? docs/s1-engine-startup-lifecycle-report.md",
+    "?? docs/w7-compaction-truncation-diagnosis.md",
+    "?? docs/w7-compaction-truncation-evidence.json",
+    "?? scripts/e2-editing-replay.cjs",
+    "?? src/components/NotificationSoundLifecycle.jsx",
+    "?? src/lib/notificationSounds.mjs",
+    "?? src/main/casualSummary.js",
+    "?? src/main/compactionPerformance.js",
+    "?? src/main/engineLifecycle.js",
+    "?? src/main/localRequestLifecycle.js",
+    "?? src/main/structuredOutput.js",
+    "?? src/main/tools/editDiagnostics.js",
+    "?? src/main/tools/fileEditMatcher.js",
+    "?? src/main/workspaceEvidence.js",
+    "?? tests/c5CasualRecovery.test.cjs",
+    "?? tests/c6aCompactionStatus.ui.cjs",
+    "?? tests/c6aMeasurement.test.cjs",
+    "?? tests/c6aStructuredOutput.test.cjs",
+    "?? tests/c6bContextSelection.test.cjs",
+    "?? tests/c6cAcceptance.test.cjs",
+    "?? tests/c6dPerformance.test.cjs",
+    "?? tests/c6eLightweightContext.test.cjs",
+    "?? tests/e1FileEditing.test.cjs",
+    "?? tests/e1FileEditingNative.test.cjs",
+    "?? tests/e2EditingReliability.test.cjs",
+    "?? tests/fixtures/c6b-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6bIncrementalCapture.cjs",
+    "?? tests/fixtures/c6bRequestCapture.cjs",
+    "?? tests/fixtures/c6dRequestCapture.cjs",
+    "?? tests/fixtures/c6e-taskBriefs-before.cjs",
+    "?? tests/fixtures/c6eBaselinePreload.cjs",
+    "?? tests/fixtures/c6eCheckpointBefore.cjs",
+    "?? tests/notificationSoundPrefs.test.cjs",
+    "?? tests/notificationSounds.test.mjs",
+    "?? tests/responseCostPersistence.test.cjs",
+    "?? tests/s1EngineLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.test.cjs",
+    "?? tests/s1StartupLifecycle.ui.cjs",
+    "?? tests/w7CasualRecovery.test.cjs"
+  ],
+  "verification": {
+    "build": {
+      "passed": true,
+      "note": "Existing large-chunk advisory"
+    },
+    "diff_check": {
+      "passed": true
+    },
+    "tool_result_formatter": "TAP version 13\n# Subtest: tests/toolResultFormatter.test.mjs\nok 1 - tests/toolResultFormatter.test.mjs\n  ---\n  duration_ms: 1001.896843\n  type: 'test'\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1010.543967\n"
+  },
+  "preservation": {
+    "initial_status_complete": true,
+    "removed_baseline_entries": [],
+    "e2_files": [
+      "src/main/tools/editDiagnostics.js",
+      "src/main/tools/fileEditMatcher.js",
+      "src/main/tools/agentTools.js",
+      "src/main/toolSchemaValidation.js",
+      "src/main/ipcHandlers.js",
+      "tests/e2EditingReliability.test.cjs",
+      "scripts/e2-editing-replay.cjs",
+      "docs/e2-editing-reliability-report.md",
+      "docs/e2-editing-reliability-evidence.json"
+    ]
+  }
+}

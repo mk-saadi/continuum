@@ -19,6 +19,10 @@ function compile(schema) {
   return compiled;
 }
 function validate(schema, args) {
+  if (schema?.properties?.edits?.items?.required?.join(',') === 'relative_path,old_str,new_str') {
+    const details = require('./tools/editDiagnostics').argumentError(args);
+    if (details) require('./tools/editDiagnostics').throwDetails(details);
+  }
   const compiled = compile(schema);
   if (!compiled(args)) throw new Error(`TOOL_ARGUMENTS_INVALID: ${validator.errorsText(compiled.errors).slice(0, 400)}`);
 }

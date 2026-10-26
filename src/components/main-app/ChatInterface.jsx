@@ -265,6 +265,8 @@ export function ChatInterface({
 		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
+    const [liveResponseCost, setLiveResponseCost] = useState(null);
+    useEffect(() => { setLiveResponseCost(null); }, [palace.sessionId, streaming]);
 	// Phase 2.1 live steering state. `activeRunId` is minted by the main process
 	// and arrives with the generating status event; it is never guessed here.
 	const [activeRunId, setActiveRunId] = useState(null);
@@ -1458,6 +1460,7 @@ export function ChatInterface({
 						);
 					},
 					signal: controller.signal,
+					onLiveCost: setLiveResponseCost,
 					onStats: (stats) => {
 						assistantStats = stats;
 						setMessages((prev) =>
@@ -1710,6 +1713,7 @@ export function ChatInterface({
 				onText: (delta) => streamBuffer.push(delta),
 				messageId: message.id,
 				onExecutionSteps: (executionSteps) => updateDraft({ executionSteps }),
+				onLiveCost: setLiveResponseCost,
 				onStats: (stats) => updateDraft({ stats }),
 			});
 			setMessages((previous) =>
@@ -2571,6 +2575,7 @@ export function ChatInterface({
 				modelName={activeModelName || selectedModel}
 				cloudChat={activeChatProvider.type === "cloud"}
 				runtime={{
+					liveResponseCost,
 					streaming,
 					loading,
 					agentLoading,

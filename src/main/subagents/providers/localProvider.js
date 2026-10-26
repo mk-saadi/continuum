@@ -25,6 +25,7 @@ async function chatCompletion({ engine, payload, signal, fetchImpl = localEngine
     headers: { 'Content-Type': 'application/json' },
     signal,
     contextWindowLimit: engine.contextLength,
+    engineRuntimeIdentity: engine.runtimeIdentity,
     contextRecovery: recoverContext ?? (async () => null),
     body: JSON.stringify({
       ...payload,

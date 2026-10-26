@@ -51,6 +51,15 @@ let childProcess = null;
 let childPid = null;
 let killTimeout = null;
 let idleService = null;
+let engineLifecycle = null;
+const transportRequestCounts = new WeakMap();
+// Retain retired endpoints as unavailable so queued requests cannot dispatch
+// to a process we already observed exiting. A new owner replaces its port entry.
+const localRequestOwners = new Map();
+require('./src/main/localEngineFetch').setLocalRequestOwner?.(url => {
+  const endpoint = new URL(url);
+  return ['127.0.0.1', 'localhost'].includes(endpoint.hostname) ? localRequestOwners.get(Number(endpoint.port)) : null;
+});
 
 // ---------------------------------------------------------------------------
 // External link handling
@@ -193,7 +202,7 @@ function createWindow() {
 let engineConfig = { port: 8080, activeModelConfig: null, contextStatus: "stopped", warmupError: null };
 
 function getEngineStatus() {
-	const modelPath = childProcess ? currentlyLoadedModelPath : null;
+	const modelPath = childProcess && engineConfig.contextStatus !== "stopped" ? currentlyLoadedModelPath : null;
 	return {
 		isLoaded:
 			!!childProcess && ["warming", "ready", "warmup-failed"].includes(engineConfig.contextStatus),
@@ -328,10 +337,26 @@ async function launchProcess(command, model = null, config = null) {
 			onIdle: () => {
 				if (childProcess !== processForLaunch) return;
 				idleUnloaded = true;
-				void stopEngine();
+				void stopEngine('idle-timeout', 'engine-idle-policy', false);
 			},
 		});
 		idleService = processIdleService;
+        const lifecycle = require('./src/main/engineLifecycle').createEngineLifecycle({
+            generation: engineConfig.runtimeIdentity, modelPath: model.modelPath, pid: processForLaunch.pid,
+            activeRequests: () => transportRequestCounts.get(processIdleService) ?? 0 });
+        engineLifecycle = lifecycle;
+        localRequestOwners.set(engineConfig.port, {
+            generation: engineConfig.runtimeIdentity,
+            get unavailable() { return lifecycle.terminated || lifecycle.stopping; },
+            get terminated() { return lifecycle.terminated; },
+            beginRequest: () => {
+                const release = processIdleService.beginRequest();
+                transportRequestCounts.set(processIdleService, (transportRequestCounts.get(processIdleService) ?? 0) + 1);
+                return () => { transportRequestCounts.set(processIdleService, transportRequestCounts.get(processIdleService) - 1); release(); };
+            },
+            record: lifecycle.record,
+        });
+        lifecycle.record('server-starting', { component: 'model-loader', reason: 'user-load', userAction: true });
 		currentlyLoadedModelPath = model?.modelPath ?? null;
 		engineConfig.contextStatus = "loading";
 		engineConfig.warmupError = null;
@@ -418,6 +443,7 @@ async function launchProcess(command, model = null, config = null) {
 			// The renderer shows this in the load dialog, but the launching
 			// terminal is where a developer looks first. Without this the main
 			// process stayed silent and the failure looked impossible to place.
+			lifecycle.record("server-unavailable", { component: "model-loader", reason: "spawn-error" });
 			console.error("[engine] failed to spawn", engineCommand ?? "engine binary", err);
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", {
@@ -427,7 +453,19 @@ async function launchProcess(command, model = null, config = null) {
 			}
 		});
 
+		childProcess.on("exit", (code, signal) => {
+            lifecycle.exited(code, signal);
+            startup.cancel();
+            processIdleService.dispose();
+            if (childProcess === processForLaunch) {
+                engineConfig.contextStatus = "stopped";
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("terminal:status", {
+                    running: false, isLoaded: false, modelPath: null, modelName: null, contextStatus: "stopped", pid: null, port: null, activeModelConfig: null,
+                });
+            }
+        });
 		childProcess.on("close", (code, signal) => {
+            lifecycle.exited(code, signal);
 			startup.cancel();
 			if (startupHandler === startup) startupHandler = null;
 			processIdleService.dispose();
@@ -491,6 +529,7 @@ async function launchProcess(command, model = null, config = null) {
 		// orphan holding the model and port with no way to unload from the UI.
 		const liveProcess = childProcess;
 		if (liveProcess && typeof liveProcess.pid === "number" && !liveProcess.killed) {
+            engineLifecycle?.requestStop("launch-setup-failed", "model-loader");
 			killProcessTree(liveProcess.pid, "SIGKILL");
 		}
 		currentlyLoadedModelPath = null;
@@ -583,7 +622,7 @@ async function launchModel(modelId, input) {
 					reject(new Error("Previous local engine did not stop. Try unloading it again."));
 				}, 10000);
 				previous.once("close", closed);
-				stopEngine().then(
+				stopEngine(currentlyLoadedModelPath === modelId ? 'settings-reload' : 'model-switch', 'model-loader', true).then(
 					(result) => {
 						if (result.success) return; // wait for the "close" event below.
 						if (result.error === "No running process") {
@@ -625,12 +664,14 @@ ipcMain.handle("terminal:getConfig", () => {
 	return engineConfig;
 });
 
-async function stopEngine() {
+async function stopEngine(reason = "user-unload", component = "model-controls", userAction = true) {
 	idleService?.dispose();
 	if (!childProcess) {
 		return { success: false, error: "No running process" };
 	}
+	if (engineLifecycle && !engineLifecycle.requestStop(reason, component, userAction)) return { success: true };
 	startupHandler?.cancel();
+	const processToStop = childProcess;
 	const pid = childPid;
 	try {
 		await killProcessTree(pid, "SIGTERM");
@@ -640,7 +681,8 @@ async function stopEngine() {
 		// does — then force-kill the tree if it's still alive.
 		clearTimeout(killTimeout);
 		killTimeout = setTimeout(() => {
-			if (childProcess && childPid === pid) {
+			if (childProcess === processToStop && childPid === pid) {
+				engineLifecycle?.record("stop-escalated", { component: "model-loader", reason: "shutdown-timeout" });
 				killProcessTree(pid, "SIGKILL");
 			}
 		}, 2000);
@@ -649,11 +691,11 @@ async function stopEngine() {
 		return { success: false, error: err.message };
 	}
 }
-ipcMain.handle("terminal:kill", stopEngine);
+ipcMain.handle("terminal:kill", () => stopEngine());
 
 ipcMain.handle("terminal:status", async () => {
 	return {
-		running: childProcess !== null,
+		running: childProcess !== null && engineConfig.contextStatus !== "stopped",
 		...getEngineStatus(),
 		contextStatus: engineConfig.contextStatus,
 		warmupError: engineConfig.warmupError,
@@ -730,7 +772,7 @@ app.whenReady().then(() => {
 		getLocalModelMetadata: (modelId) =>
 			modelId === currentlyLoadedModelPath ? (scannedModels.get(modelId) ?? null) : null,
 		getEngineConfig: () =>
-			childProcess ? { ...engineConfig, modelPath: currentlyLoadedModelPath,
+			childProcess && !["stopped", "idle_unloaded"].includes(engineConfig.contextStatus) ? { ...engineConfig, modelPath: currentlyLoadedModelPath,
 				modelMetadata: currentlyLoadedModelPath ? scannedModels.get(currentlyLoadedModelPath) ?? null : null } : null,
 		isTrustedSender: (event) => {
 			if (!mainWindow || mainWindow.isDestroyed()) return false;
@@ -793,37 +835,13 @@ app.whenReady().then(() => {
 			return JSON.parse(candidate);
 		},
 		llmSummarizeCallback: async (oldSummary, messageBatch, modelId, recovery = {}) => {
-			if (!childProcess) throw new Error("Start the local model server before compressing context.");
-			const response = await localEngineFetch(
-				`http://127.0.0.1:${engineConfig.port}/v1/chat/completions`,
-				{
-					method: "POST",
-					signal: recovery.signal,
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						model: modelId,
-						...(recovery.maxTokens ? { max_tokens: recovery.maxTokens } : {}),
-						stream: false,
-						messages: [
-							{
-								role: "system",
-								content:
-									require("./src/main/compactionCore").WORKSPACE_SUMMARY_PROMPT,
-							},
-							{
-								role: "user",
-								content: require("./src/main/compactionCore").summaryUserContent(oldSummary, messageBatch),
-							},
-						],
-					}),
-				},
-			);
-			if (!response.ok) throw new Error(`Summarization failed with HTTP ${response.status}.`);
-			const result = await response.json();
-			return result.choices?.[0]?.message?.content;
-		},
+            const launchProcess = childProcess, identity = engineConfig.runtimeIdentity, port = engineConfig.port;
+            if (!launchProcess) throw Object.assign(new Error("Start the local model server before recovering Casual context."), { code: 'casual-model-unavailable' });
+            return require('./src/main/casualSummary').summarizeCasual({ oldSummary, messageBatch, modelId,
+                localModel: scannedModels.get(modelId) ?? null,
+                url: `http://127.0.0.1:${port}/v1/chat/completions`, fetchImpl: localEngineFetch, signal: recovery.signal,
+                isCurrent: () => childProcess === launchProcess && engineConfig.runtimeIdentity === identity && engineConfig.port === port });
+        },
 	});
 	createWindow();
 
@@ -838,6 +856,7 @@ app.on("window-all-closed", () => {
 	// Kill child process on exit — same tree-kill as Unload, not just the
 	// shell, so quitting the app doesn't leave llama-server running headless.
 	if (childPid) {
+        engineLifecycle?.requestStop("app-shutdown", "electron-app");
 		killProcessTree(childPid, "SIGTERM");
 	}
 	if (process.platform !== "darwin") {
@@ -852,14 +871,16 @@ app.on("before-quit", (event) => {
 		return;
 	}
 	idleService?.dispose();
+    require("./src/main/promptMeasurement").clearCache();
 	if (!mcpClosed) {
 		event.preventDefault();
-		Promise.allSettled([require("./src/main/backgroundCommands").shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
+		Promise.allSettled([require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});
 	}
 	if (childPid) {
+        engineLifecycle?.requestStop("app-shutdown", "electron-app");
 		killProcessTree(childPid, "SIGTERM");
 	}
 });

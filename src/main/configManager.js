@@ -165,6 +165,11 @@ function normalizeAppSettings(input = {}) {
 		Object.values(notificationEvents).some((value) => typeof value !== "boolean")
 	)
 		throw new Error("Invalid notification events.");
+	const notificationSounds = { enabled: true, volume: 25, completed: true, interrupted: true, inputRequired: true, ...input.notificationSounds };
+    if (input.notificationSounds !== undefined && (!input.notificationSounds || typeof input.notificationSounds !== 'object' || Array.isArray(input.notificationSounds))) throw new Error('Invalid notification sounds.');
+    if (Object.keys(notificationSounds).some(key => !['enabled', 'volume', 'completed', 'interrupted', 'inputRequired'].includes(key)) ||
+        !Number.isFinite(notificationSounds.volume) || notificationSounds.volume < 0 || notificationSounds.volume > 100 ||
+        ['enabled', 'completed', 'interrupted', 'inputRequired'].some(key => typeof notificationSounds[key] !== 'boolean')) throw new Error('Invalid notification sounds.');
 	const disabledSkills = input.disabledSkills ?? [];
 	if (
 		!Array.isArray(disabledSkills) ||
@@ -187,6 +192,7 @@ function normalizeAppSettings(input = {}) {
 		notificationsEnabled,
 		notifyOnlyWhenBackgrounded,
 		notificationEvents,
+        notificationSounds,
 		disabledSkills: [...new Set(disabledSkills)],
 		recoveryRetentionDays,
 		recoveryStorageCapMB,
@@ -196,7 +202,7 @@ function getAppSettings() {
 	const { db } = require("./db");
 	const rows = db
 		.prepare(
-			"SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
+			"SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'notificationSounds', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
 		)
 		.all();
 	return normalizeAppSettings(Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value_json)])));
@@ -216,6 +222,7 @@ function saveAppSettings(input) {
 		save.run("notificationsEnabled", JSON.stringify(settings.notificationsEnabled));
 		save.run("notifyOnlyWhenBackgrounded", JSON.stringify(settings.notifyOnlyWhenBackgrounded));
 		save.run("notificationEvents", JSON.stringify(settings.notificationEvents));
+        save.run("notificationSounds", JSON.stringify(settings.notificationSounds));
 		save.run("disabledSkills", JSON.stringify(settings.disabledSkills));
 		save.run("recoveryRetentionDays", JSON.stringify(settings.recoveryRetentionDays));
 		save.run("recoveryStorageCapMB", JSON.stringify(settings.recoveryStorageCapMB));
@@ -231,7 +238,7 @@ function saveNotificationPrefs(patch) {
 		Array.isArray(patch) ||
 		Object.keys(patch).some(
 			(key) =>
-				!["notificationsEnabled", "notifyOnlyWhenBackgrounded", "notificationEvents"].includes(key),
+				!["notificationsEnabled", "notifyOnlyWhenBackgrounded", "notificationEvents", "notificationSounds"].includes(key),
 		)
 	)
 		throw new Error("Invalid notification preferences.");
@@ -242,11 +249,13 @@ function saveNotificationPrefs(patch) {
 			Array.isArray(patch.notificationEvents))
 	)
 		throw new Error("Invalid notification events.");
+	if (patch.notificationSounds !== undefined && (!patch.notificationSounds || typeof patch.notificationSounds !== 'object' || Array.isArray(patch.notificationSounds))) throw new Error('Invalid notification sounds.');
 	const current = getAppSettings();
 	return saveAppSettings({
 		...current,
 		...patch,
 		notificationEvents: { ...current.notificationEvents, ...patch.notificationEvents },
+        notificationSounds: patch.notificationSounds === undefined ? current.notificationSounds : { ...current.notificationSounds, ...patch.notificationSounds },
 	});
 }
 module.exports.saveNotificationPrefs = saveNotificationPrefs;
