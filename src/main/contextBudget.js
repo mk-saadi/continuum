@@ -198,7 +198,7 @@ function createContextGuardedFetch(fetchImpl) {
     if (!Array.isArray(payload.messages)) return fetchImpl(url, options);
     const normalize = value => ({ ...value, messages: mergeSystemMessages(value.messages) });
     payload = normalize(payload);
-    const { contextWindowLimit, contextRecovery, modelRequestBudget, ...wireOptions } = options;
+    const { contextWindowLimit, contextRecovery, modelRequestBudget, onRequestMeasurement, ...wireOptions } = options;
     let recovered = false, knownLimit;
     const recover = async (reason) => {
       options.signal?.throwIfAborted();
@@ -231,6 +231,8 @@ function createContextGuardedFetch(fetchImpl) {
     const send = async (measured) => {
       const reservation = modelRequestBudget?.beforeRequest(payload, measured);
       if (reservation) payload = normalize(reservation.payload);
+      options.signal?.throwIfAborted();
+      onRequestMeasurement?.({ ...measured, timestamp: new Date().toISOString() });
       const response = await fetchImpl(url, { ...wireOptions, body: JSON.stringify(payload) });
       if (reservation) modelRequestBudget.trackResponse(response, reservation);
       return response;

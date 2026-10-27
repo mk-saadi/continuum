@@ -1470,7 +1470,7 @@ export function ChatInterface({
 						);
 					},
 					onPhase: (event) => {
-						palace.noteLivePhase?.(event);
+						if (!controller.signal.aborted && event.runId === activeRunIdRef.current) palace.noteLivePhase?.(event);
 					},
 					onText: (delta) => {
 						streamBuffer.push(delta);
@@ -2564,6 +2564,8 @@ export function ChatInterface({
 				sessionId={palace.sessionId}
 				modelId={selectedModel}
                 contextMeasurement={palace.measured}
+                contextLiveTelemetry={palace.liveTelemetry}
+                contextRunTelemetry={palace.turnTelemetry}
 				agents={agents}
 				sessionAgent={sessionAgent}
 				disabled={streaming || loading || agentLoading || !window.api?.applyAgent}

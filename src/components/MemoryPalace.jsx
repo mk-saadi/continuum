@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PALACE_POLL_INTERVAL_MS, isDocumentHidden, shouldPollTick, usageEqual } from '../lib/palacePolling.mjs';
+import { selectContextOccupancy, updateRequestTelemetry } from '../lib/contextDisplay.mjs';
 import { acceptsContextMeasurement } from '../lib/contextMeasurement.mjs';
 import { useCompressionEvents } from '../context/CompressionEventsContext.jsx';
 
@@ -54,6 +55,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   const [measureError, setMeasureError] = useState('');
   // Live per-request telemetry for the active turn (cleared on turn end).
   const [liveTelemetry, setLiveTelemetry] = useState(null);
+  const [lastRunTelemetry, setLastRunTelemetry] = useState(null);
+  const latestLiveTelemetry = useRef(null);
+  latestLiveTelemetry.current = liveTelemetry;
   const measureGeneration = useRef(0);
   const deletedSessions = useRef(new Set());
   const discardSession = useCallback(id => {
@@ -87,12 +91,15 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   }, [api, sessionId, modelId, isCloud, isActive, engineReady, discardSession, permissionMode, configuredLimit, activeModelConfig?.parallel, activeModelConfig?.runtimeIdentity]);
 
   const noteLivePhase = useCallback((event) => {
-    if (!event || event.sessionId !== sessionId) return;
-    setLiveTelemetry({ round: event.round ?? null, promptTokens: event.promptTokens ?? null,
-      telemetry: event.telemetry ?? null });
-  }, [sessionId]);
+    if (!event || event.sessionId !== sessionId || deletedSessions.current.has(sessionId) || (event.modelId && event.modelId !== modelId)) return;
+    const next = updateRequestTelemetry(latestLiveTelemetry.current, event);
+    latestLiveTelemetry.current = next;
+    setLiveTelemetry(next);
+  }, [sessionId, modelId]);
 
   const clearLiveTelemetry = useCallback(() => {
+    setLastRunTelemetry(latestLiveTelemetry.current);
+    latestLiveTelemetry.current = null;
     setLiveTelemetry(null);
   }, []);
 
@@ -150,6 +157,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     setUsage(null);
     setMeasured(null);
     setMeasureError('');
+    latestLiveTelemetry.current = null;
     setLiveTelemetry(null);
     if (!api || !modelId || !isActive) return;
     refresh();
@@ -168,15 +176,9 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     if (!result.compressed) return;
     const d = result.diagnostics;
     if (d?.commitOutcome === 'committed-and-verified') {
-      // The prepared prefix omits the live protocol tail. Keep the owning
-      // runtime's complete resumed-request measurement until the next request
-      // or normal end-of-turn measurement, rather than replacing it here.
-      if ((d.sessionModelId ?? d.modelId) === modelId && Number.isSafeInteger(d.actualTokens)) {
-        measureGeneration.current += 1;
-        setMeasured({ sessionId, modelId, tokens: d.actualTokens, method: d.actualMeasurementMethod,
-          budgetContract: d.actualBudgetContract, confidence: /approx|estimat|bytes/i.test(d.actualMeasurementMethod) ? 'estimated' : 'measured' });
-        setMeasureError('');
-      }
+      // Dispatch telemetry owns the active protocol tail; this measurement
+      // remains the projection for the next user message.
+      measure();
       refresh();
       return;
     }
@@ -280,17 +282,25 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   // contextTokens is all-inclusive in both branches: the measured payload
   // already contains every tool schema, while the legacy fallback adds the
   // live MCP plugin tokens on top (matching the previous header behavior).
-  const budgetContract = measuredFresh ? measured.budgetContract : null;
+  const preparedBudget = measuredFresh ? measured.budgetContract : null;
+  const liveBudget = liveTelemetry?.sessionId === sessionId && liveTelemetry?.modelId === modelId ? liveTelemetry.budgetContract : null;
+  const budgetContract = liveBudget && (!preparedBudget || liveBudget.capacityTokens === preparedBudget.capacityTokens)
+    ? liveBudget : preparedBudget;
   const limit = budgetContract?.usableInputTokens ?? null;
-  const contextTokens = measuredFresh
+  const preparedContextTokens = measuredFresh
     ? measured.tokens + draftTokens
     : fallbackTokens === null ? null : fallbackTokens + (pluginTokens || 0);
-  const contextMethod = measuredFresh ? measured.method : 'legacy-estimate';
-  const contextConfidence = measuredFresh ? measured.confidence : 'estimated';
+  const occupancy = selectContextOccupancy({ prepared: preparedContextTokens, live: liveTelemetry,
+    sessionId, modelId, limit });
+  const contextTokens = occupancy.tokens;
+  const contextMethod = occupancy.live ? liveTelemetry.method : measuredFresh ? measured.method : 'legacy-estimate';
+  const contextConfidence = occupancy.live ? (liveTelemetry.isEstimate ? 'estimated' : 'measured') : measuredFresh && !draftTokens ? measured.confidence : 'estimated';
   // Normalized values fed to the memo below, so the dependency list can use
   // plain references rather than recomputing the ternary inline.
   const measuredValue = measuredFresh ? measured : null;
-  const turnTelemetry = usage?.telemetry ?? null;
+  const lastRun = lastRunTelemetry?.sessionId === sessionId && lastRunTelemetry?.modelId === modelId ? lastRunTelemetry : null;
+  const turnTelemetry = lastRun ? { ...usage?.telemetry, ...lastRun.telemetry, lastPromptTokens: lastRun.promptTokens,
+    method: lastRun.method, isEstimate: lastRun.isEstimate, timestamp: lastRun.timestamp, runId: lastRun.runId } : usage?.telemetry ?? null;
 
   // One referentially stable result object: every value above is a dependency,
   // so consumers see a new identity only when a meaningful value (data,
@@ -304,12 +314,13 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     noteLivePhase, clearLiveTelemetry, liveTelemetry,
     // Persisted per-turn server telemetry for this session (latest completed turn).
     turnTelemetry,
+    preparedContextTokens, contextMode: occupancy.live ? (liveTelemetry.isEstimate ? 'Live estimate' : 'Live') : 'Prepared',
     contextTokens, contextMethod, contextConfidence, fallbackTokens,
     totalTokens: fallbackTokens,
     toggle,
   }), [
     api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage,
     toolTokens, pluginTokens, mcpStatus, setDraftTokens, measure, measuredValue, budgetContract, measureError, noteLivePhase,
-    clearLiveTelemetry, liveTelemetry, turnTelemetry, contextTokens, contextMethod, contextConfidence, fallbackTokens, toggle,
+    clearLiveTelemetry, liveTelemetry, turnTelemetry, preparedContextTokens, occupancy.live, contextTokens, contextMethod, contextConfidence, fallbackTokens, toggle,
   ]);
 }

@@ -1,0 +1,2180 @@
+{
+  "phase": "C8",
+  "date": "2026-10-28",
+  "provenance": {
+    "realQwenInference": false,
+    "liveDatabasesTouched": false,
+    "loadedModelsChanged": false,
+    "taskFlowChanged": false,
+    "fixtureTokenizer": "Existing normalized provider guard using deterministic mocked apply-template/tokenize responses; token contents counted by existing UTF-8/3 estimator. These are NOT Qwen tokenizer measurements.",
+    "observedScalarCases": "Both supplied scalar pairs reconstructed by calibrated disposable bodies, not recovered production requests.",
+    "runtimeFixtures": "Production candidate validation, prompt rebuilding, persistence and continuation; scripted inference and existing estimator.",
+    "composition": "Overlapping full-request token ablations plus disjoint serialized byte attribution; non-additive token components."
+  },
+  "fixtures": [
+    {
+      "case": "33571-28341",
+      "kind": "deterministic-estimator-reconstruction",
+      "before": 33571,
+      "legacyAfter": 28341,
+      "after": 20961,
+      "checkpointTokens": 3830,
+      "finalRequests": [
+        {
+          "payloadHash": "de77afdfabb292789d2d74c6ba4a0bfb6ef000f09c7bf2427a3de9f685cdcb13",
+          "serializedBytes": 100408,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 26081,
+                "estimatedTokens": 8694
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 33571,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 51361,
+              "estimatedTokens": 17121
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 15634,
+              "estimatedTokens": 5212
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 33349,
+              "estimatedTokens": 11117
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 62,
+              "estimatedTokens": 21
+            }
+          }
+        },
+        {
+          "payloadHash": "82d2ffc04ec0d1253ea3fe3f7ce0a7e9a16c0a657801a56228ec24dc2640d029",
+          "serializedBytes": 84816,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 26081,
+                "estimatedTokens": 8694
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 28341,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 51361,
+              "estimatedTokens": 17121
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 43,
+              "estimatedTokens": 15
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 33349,
+              "estimatedTokens": 11117
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 61,
+              "estimatedTokens": 21
+            }
+          }
+        },
+        {
+          "payloadHash": "ce135dd90d5f11dff0e67c596867cb1116eba05b822b7f6dda01c6ecf5593f16",
+          "serializedBytes": 62676,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 20961,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 51361,
+              "estimatedTokens": 17121
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 43,
+              "estimatedTokens": 15
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 11209,
+              "estimatedTokens": 3737
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 61,
+              "estimatedTokens": 21
+            }
+          }
+        }
+      ],
+      "composition": {
+        "totalTokens": 20961,
+        "method": "server-template-tokenizer",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 17110,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": true
+          },
+          "toolSchemas": {
+            "marginalTokens": 0,
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": false
+          },
+          "currentUser": {
+            "marginalTokens": 5,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 0,
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": false
+          },
+          "activeBriefs": {
+            "marginalTokens": 0,
+            "reason": "Active user requirements remain authoritative.",
+            "present": false
+          },
+          "persistentBriefs": {
+            "marginalTokens": 0,
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": false
+          },
+          "sourceNavigation": {
+            "marginalTokens": 0,
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": false
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 3736,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": true
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": false
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": false
+          },
+          "rawToolArguments": {
+            "marginalTokens": 0,
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": false
+          },
+          "toolResults": {
+            "marginalTokens": 0,
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": false
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      },
+      "measurement": "normalized-provider-wire-body; deterministic mock tokenizer, not Qwen"
+    },
+    {
+      "case": "32968-27923",
+      "kind": "deterministic-estimator-reconstruction",
+      "before": 32968,
+      "legacyAfter": 27923,
+      "after": 20543,
+      "checkpointTokens": 3830,
+      "finalRequests": [
+        {
+          "payloadHash": "97322924fa6ae043cd378f6d89693fb6e3de11b0152442abe615852224f50011",
+          "serializedBytes": 98599,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 26081,
+                "estimatedTokens": 8694
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 32968,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 50107,
+              "estimatedTokens": 16703
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 15079,
+              "estimatedTokens": 5027
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 33349,
+              "estimatedTokens": 11117
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 62,
+              "estimatedTokens": 21
+            }
+          }
+        },
+        {
+          "payloadHash": "41cc66cb82e29a6ed22d9d3a2736cc27db9a3c502a6ecdc04b8f2a308a070f20",
+          "serializedBytes": 83562,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 26081,
+                "estimatedTokens": 8694
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 27923,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 50107,
+              "estimatedTokens": 16703
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 43,
+              "estimatedTokens": 15
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 33349,
+              "estimatedTokens": 11117
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 61,
+              "estimatedTokens": 21
+            }
+          }
+        },
+        {
+          "payloadHash": "ab45b1081bc6b00804ac971ff36146725591e815a948ec1fdd1f56e8d3f738a8",
+          "serializedBytes": 61422,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 20543,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 50107,
+              "estimatedTokens": 16703
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 43,
+              "estimatedTokens": 15
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 11209,
+              "estimatedTokens": 3737
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 61,
+              "estimatedTokens": 21
+            }
+          }
+        }
+      ],
+      "composition": {
+        "totalTokens": 20543,
+        "method": "server-template-tokenizer",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 16692,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": true
+          },
+          "toolSchemas": {
+            "marginalTokens": 0,
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": false
+          },
+          "currentUser": {
+            "marginalTokens": 5,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 0,
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": false
+          },
+          "activeBriefs": {
+            "marginalTokens": 0,
+            "reason": "Active user requirements remain authoritative.",
+            "present": false
+          },
+          "persistentBriefs": {
+            "marginalTokens": 0,
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": false
+          },
+          "sourceNavigation": {
+            "marginalTokens": 0,
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": false
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 3736,
+            "method": "deterministic-template-tokenizer-fixture",
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": true
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": false
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": false
+          },
+          "rawToolArguments": {
+            "marginalTokens": 0,
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": false
+          },
+          "toolResults": {
+            "marginalTokens": 0,
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": false
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      },
+      "measurement": "normalized-provider-wire-body; deterministic mock tokenizer, not Qwen"
+    },
+    {
+      "case": "target-capable",
+      "before": 19519,
+      "after": 12139,
+      "finalRequests": [
+        {
+          "payloadHash": "383b2b23d1606b915a310edb1ddde6519cb972dd02d684fd01f3fce80cc82da5",
+          "serializedBytes": 58445,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 26081,
+                "estimatedTokens": 8694
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 19519,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 25034,
+              "estimatedTokens": 8345
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 33349,
+              "estimatedTokens": 11117
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 60,
+              "estimatedTokens": 20
+            }
+          }
+        },
+        {
+          "payloadHash": "1f349fd49656f5cd74e70a157eaeec456f3d02273d082d7cc025ad44826e89b6",
+          "serializedBytes": 36305,
+          "checkpointDetails": [
+            {
+              "evidence": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "taskReferences": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "plan": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "pending": {
+                "bytes": 4,
+                "estimatedTokens": 2
+              },
+              "research": {
+                "bytes": 4541,
+                "estimatedTokens": 1514
+              },
+              "outstandingRequirements": {
+                "bytes": 80,
+                "estimatedTokens": 27
+              }
+            }
+          ],
+          "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+          "inputTokens": 12139,
+          "measurementMethod": "server-template-tokenizer",
+          "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+          "categories": {
+            "systemAndDeveloper": {
+              "bytes": 25034,
+              "estimatedTokens": 8345
+            },
+            "toolSchemas": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "taskBriefsAndConstraints": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "recentTurns": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "protectedToolRounds": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "checkpoint": {
+              "bytes": 11209,
+              "estimatedTokens": 3737
+            },
+            "workLogAndTaskState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "subagentState": {
+              "bytes": 0,
+              "estimatedTokens": 0
+            },
+            "otherJsonOverhead": {
+              "bytes": 60,
+              "estimatedTokens": 20
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "schemas-dominated",
+      "tokens": 20699,
+      "composition": {
+        "totalTokens": 20699,
+        "method": "deterministic-estimator",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 0,
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": false
+          },
+          "toolSchemas": {
+            "marginalTokens": 20032,
+            "method": "deterministic-estimator",
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": true
+          },
+          "currentUser": {
+            "marginalTokens": 5,
+            "method": "deterministic-estimator",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 0,
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": false
+          },
+          "activeBriefs": {
+            "marginalTokens": 0,
+            "reason": "Active user requirements remain authoritative.",
+            "present": false
+          },
+          "persistentBriefs": {
+            "marginalTokens": 0,
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": false
+          },
+          "sourceNavigation": {
+            "marginalTokens": 0,
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": false
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 552,
+            "method": "deterministic-estimator",
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": true
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": false
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": false
+          },
+          "rawToolArguments": {
+            "marginalTokens": 0,
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": false
+          },
+          "toolResults": {
+            "marginalTokens": 0,
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": false
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      }
+    },
+    {
+      "case": "protected-dominated",
+      "tokens": 20789,
+      "composition": {
+        "totalTokens": 20789,
+        "method": "deterministic-estimator",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 0,
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": false
+          },
+          "toolSchemas": {
+            "marginalTokens": 0,
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": false
+          },
+          "currentUser": {
+            "marginalTokens": 5,
+            "method": "deterministic-estimator",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 0,
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": false
+          },
+          "activeBriefs": {
+            "marginalTokens": 0,
+            "reason": "Active user requirements remain authoritative.",
+            "present": false
+          },
+          "persistentBriefs": {
+            "marginalTokens": 0,
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": false
+          },
+          "sourceNavigation": {
+            "marginalTokens": 0,
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": false
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 551,
+            "method": "deterministic-estimator",
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": true
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 20122,
+            "method": "deterministic-estimator",
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": true
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": false
+          },
+          "rawToolArguments": {
+            "marginalTokens": 0,
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": false
+          },
+          "toolResults": {
+            "marginalTokens": 20000,
+            "method": "deterministic-estimator",
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": true
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      }
+    }
+  ],
+  "runtime": [
+    {
+      "name": "safe-commit",
+      "beforeComposition": {
+        "payloadHash": "9abe9fb4acf3cc13f669ad4de8b9031a69bab26d95d9d509b4b4b3d722c748a4",
+        "serializedBytes": 197422,
+        "checkpointDetails": [],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 66320,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9231,
+            "estimatedTokens": 3077
+          },
+          "toolSchemas": {
+            "bytes": 121,
+            "estimatedTokens": 41
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 660,
+            "estimatedTokens": 220
+          },
+          "recentTurns": {
+            "bytes": 116158,
+            "estimatedTokens": 38720
+          },
+          "protectedToolRounds": {
+            "bytes": 71165,
+            "estimatedTokens": 23722
+          },
+          "checkpoint": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 87,
+            "estimatedTokens": 29
+          }
+        }
+      },
+      "sessionModelId": "model",
+      "provider": "local",
+      "modelId": "model",
+      "beforeTokens": 66320,
+      "effectiveCapacityTokens": 40000,
+      "usableInputTokens": 38848,
+      "reservedOutputTokens": 1024,
+      "safetyTokens": 128,
+      "nativeSchemaTokens": 41,
+      "activatedMcpSchemaTokens": 0,
+      "componentMeasurementMethod": "serialized-utf8-bytes/3-estimate-not-additive",
+      "triggerTokens": 34963,
+      "measurementMethod": "approximate-full-request",
+      "protectedLiveTailTokens": 9491,
+      "beforeMeasuredComposition": {
+        "totalTokens": 66320,
+        "method": "approximate-full-request",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 3023,
+            "method": "approximate-full-request",
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": true
+          },
+          "toolSchemas": {
+            "marginalTokens": 40,
+            "method": "approximate-full-request",
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": true
+          },
+          "currentUser": {
+            "marginalTokens": 8,
+            "method": "approximate-full-request",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 220,
+            "method": "approximate-full-request",
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": true
+          },
+          "activeBriefs": {
+            "marginalTokens": 60,
+            "method": "approximate-full-request",
+            "reason": "Active user requirements remain authoritative.",
+            "present": true
+          },
+          "persistentBriefs": {
+            "marginalTokens": 0,
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": false
+          },
+          "sourceNavigation": {
+            "marginalTokens": 418,
+            "method": "approximate-full-request",
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": true
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 0,
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": false
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 9618,
+            "method": "approximate-full-request",
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": true
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 14427,
+            "method": "approximate-full-request",
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": true
+          },
+          "rawToolArguments": {
+            "marginalTokens": 45,
+            "method": "approximate-full-request",
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": true
+          },
+          "toolResults": {
+            "marginalTokens": 23334,
+            "method": "approximate-full-request",
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": true
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      },
+      "generation": {
+        "sessionId": "w3-1",
+        "provider": "local",
+        "stage": "validated",
+        "retries": 0,
+        "failures": [],
+        "committed": false,
+        "snapshotVersion": "1f1332813830405aa64cbb7b52c3187b5904b24f34fa06c12a583f847c8a1b2a",
+        "sourceMessageIds": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "newSourceMessageIds": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "reusedSourceCount": 0,
+        "newEvidenceCount": 3,
+        "newEvidenceCharacters": 2038,
+        "reasoning": {
+          "family": "local",
+          "source": "unknown",
+          "reasoning": null,
+          "efforts": [],
+          "canDisable": null,
+          "budget": {
+            "supported": null,
+            "min": 0,
+            "max": null
+          },
+          "intent": {
+            "mode": "off"
+          },
+          "effective": {
+            "mode": "auto",
+            "effort": null,
+            "budget": null
+          },
+          "unsupported": true,
+          "warnings": [
+            "Disable is not supported for this model."
+          ],
+          "settings": {
+            "thinkingBudget": -1,
+            "reasoningEffort": null
+          }
+        },
+        "inputTokens": 3714,
+        "measurement": "approximate-full-request",
+        "outputBudget": 3072,
+        "reservedGenerationTokens": 3072,
+        "attempts": [
+          {
+            "stage": "final",
+            "attempt": 0,
+            "candidateInputTokens": 3720,
+            "candidateInputTokenMethod": "approximate-full-request",
+            "configuredOutputTokens": 3072,
+            "finishReason": "stop",
+            "actualOutputTokens": 80,
+            "rejectionPoint": null,
+            "timeToFirstTokenMs": null,
+            "backendTimings": null,
+            "promptProcessingMs": null,
+            "generationDurationMs": null,
+            "providerGenerationTokensPerSecond": null,
+            "reasoningControlStatus": "not-verified",
+            "hiddenReasoningTokens": null,
+            "visibleOutputTokensEstimate": 148,
+            "stream": null,
+            "elapsedMs": 0.9695760000000178,
+            "providerOutputTokensPerSecond": 82510.29315907009
+          }
+        ],
+        "visibleOutputTokens": 155,
+        "visibleOutputTokenMethod": "approximate-full-request",
+        "normalization": "unchanged",
+        "generatedTokens": 148,
+        "generatedTokenMethod": "approximate-full-request",
+        "providerOutputTokens": 80,
+        "validationMs": 1.0076279999999542,
+        "durableCandidateEstimatedTokens": 1418,
+        "workingStateEstimatedTokens": 589,
+        "workingStateSizeReason": null,
+        "validatedTokens": 989,
+        "tokenMethod": "approximate-full-request",
+        "protectedBriefTokens": 80,
+        "protectedBriefTokenMethod": "existing-task-brief-estimate",
+        "under5k": true,
+        "withProtectedBriefsTokens": 1069,
+        "targetStatus": "reducible-candidate-under-target",
+        "generationStages": 1,
+        "correctionAttempts": 0,
+        "candidateId": null
+      },
+      "refinementPasses": 0,
+      "workingCheckpointMeasurement": {
+        "tokens": 947,
+        "method": "approximate-full-request",
+        "includesTemplateOverhead": true
+      },
+      "protectedContextMeasurement": {
+        "tokens": 9643,
+        "method": "approximate-full-request",
+        "includesTemplateOverhead": true
+      },
+      "irreducibleContextTokens": 13219,
+      "targetReason": "target-met",
+      "prospectiveTokens": 14053,
+      "prospectiveSoftTarget": {
+        "targetTokens": 17000,
+        "preferredRange": [
+          15000,
+          17000
+        ],
+        "status": "within-soft-target",
+        "hardLimitTokens": 38848,
+        "additionalGenerationRequested": false
+      },
+      "prospectiveMeasurementMethod": "approximate-full-request",
+      "sqliteCommitMs": 13.235621999999978,
+      "postCommitMeasurementMs": 0.2646310000000085,
+      "afterComposition": {
+        "payloadHash": "9b8d6e8a44c7967b8580355a5a9976e5227726f09a645fdedb67d6bea938af88",
+        "serializedBytes": 41293,
+        "checkpointDetails": [
+          {
+            "evidence": {
+              "bytes": 1207,
+              "estimatedTokens": 403
+            },
+            "taskReferences": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "plan": {
+              "bytes": 4,
+              "estimatedTokens": 2
+            },
+            "pending": {
+              "bytes": 102,
+              "estimatedTokens": 34
+            },
+            "research": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            },
+            "outstandingRequirements": {
+              "bytes": 2,
+              "estimatedTokens": 1
+            }
+          }
+        ],
+        "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+        "inputTokens": 14053,
+        "measurementMethod": "approximate-full-request",
+        "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+        "categories": {
+          "systemAndDeveloper": {
+            "bytes": 9400,
+            "estimatedTokens": 3134
+          },
+          "toolSchemas": {
+            "bytes": 121,
+            "estimatedTokens": 41
+          },
+          "taskBriefsAndConstraints": {
+            "bytes": 676,
+            "estimatedTokens": 226
+          },
+          "recentTurns": {
+            "bytes": 50,
+            "estimatedTokens": 17
+          },
+          "protectedToolRounds": {
+            "bytes": 28466,
+            "estimatedTokens": 9489
+          },
+          "checkpoint": {
+            "bytes": 2500,
+            "estimatedTokens": 834
+          },
+          "workLogAndTaskState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "subagentState": {
+            "bytes": 0,
+            "estimatedTokens": 0
+          },
+          "otherJsonOverhead": {
+            "bytes": 80,
+            "estimatedTokens": 27
+          }
+        }
+      },
+      "afterMeasuredComposition": {
+        "totalTokens": 14053,
+        "method": "approximate-full-request",
+        "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+        "entries": {
+          "system": {
+            "marginalTokens": 3023,
+            "method": "approximate-full-request",
+            "reason": "Mandatory base instructions and session safety/navigation rules.",
+            "present": true
+          },
+          "toolSchemas": {
+            "marginalTokens": 40,
+            "method": "approximate-full-request",
+            "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+            "present": true
+          },
+          "currentUser": {
+            "marginalTokens": 8,
+            "method": "approximate-full-request",
+            "reason": "Current authoritative user instruction.",
+            "present": true
+          },
+          "taskBriefs": {
+            "marginalTokens": 226,
+            "method": "approximate-full-request",
+            "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+            "present": true
+          },
+          "activeBriefs": {
+            "marginalTokens": 27,
+            "method": "approximate-full-request",
+            "reason": "Active user requirements remain authoritative.",
+            "present": true
+          },
+          "persistentBriefs": {
+            "marginalTokens": 39,
+            "method": "approximate-full-request",
+            "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+            "present": true
+          },
+          "sourceNavigation": {
+            "marginalTokens": 418,
+            "method": "approximate-full-request",
+            "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+            "present": true
+          },
+          "historicalBriefs": {
+            "marginalTokens": 0,
+            "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+            "present": false
+          },
+          "checkpoint": {
+            "marginalTokens": 834,
+            "method": "approximate-full-request",
+            "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+            "present": true
+          },
+          "protectedToolRounds": {
+            "marginalTokens": 9618,
+            "method": "approximate-full-request",
+            "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+            "present": true
+          },
+          "eligibleToolRounds": {
+            "marginalTokens": 0,
+            "reason": "Older completed rounds can be replaced after source validation.",
+            "present": false
+          },
+          "rawToolArguments": {
+            "marginalTokens": 18,
+            "method": "approximate-full-request",
+            "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+            "present": true
+          },
+          "toolResults": {
+            "marginalTokens": 9334,
+            "method": "approximate-full-request",
+            "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+            "present": true
+          },
+          "worklogs": {
+            "marginalTokens": 0,
+            "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+            "present": false
+          },
+          "plan": {
+            "marginalTokens": 0,
+            "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+            "present": false
+          },
+          "attachments": {
+            "marginalTokens": 0,
+            "reason": "Current selected briefs/user attachments remain required source material.",
+            "present": false
+          }
+        }
+      },
+      "softTarget": {
+        "targetTokens": 17000,
+        "preferredRange": [
+          15000,
+          17000
+        ],
+        "status": "within-soft-target",
+        "hardLimitTokens": 38848,
+        "additionalGenerationRequested": false
+      },
+      "commitOutcome": "committed-and-verified",
+      "actualBudgetContract": {
+        "provider": "local",
+        "modelId": null,
+        "runtimeIdentity": null,
+        "configuredContextTokens": null,
+        "runtimeSlots": null,
+        "runtimeContextTokens": 40000,
+        "advertisedContextTokens": null,
+        "capacityTokens": 40000,
+        "reservedOutputTokens": 1024,
+        "reservedSafetyTokens": 128,
+        "usableInputTokens": 38848,
+        "autoCompactionThresholdRatio": 0.9,
+        "autoCompactionTriggerTokens": 34963,
+        "currentInputTokens": 14053,
+        "measurementMethod": "approximate-full-request",
+        "capacityMethod": "runtime-reported",
+        "capacityConfidence": "verified",
+        "measurementConfidence": "estimated"
+      },
+      "actualTokens": 14053,
+      "actualMeasurementMethod": "approximate-full-request",
+      "reductionTokens": 52267,
+      "percentageSaved": 78.81031363088059,
+      "tokensUntilNextTrigger": 20910,
+      "durationMs": 225.171268
+    },
+    {
+      "name": "same-run-coding-loop",
+      "runIdentityPreserved": true,
+      "executedTools": 7,
+      "duplicateExecutions": 0,
+      "outcomes": [
+        {
+          "beforeComposition": {
+            "payloadHash": "ae4a5b11fd18eda82bbdd11fcb3ba3c00674dd181314f891351ec0893b324828",
+            "serializedBytes": 107351,
+            "checkpointDetails": [],
+            "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+            "inputTokens": 36296,
+            "measurementMethod": "approximate-full-request",
+            "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+            "categories": {
+              "systemAndDeveloper": {
+                "bytes": 9107,
+                "estimatedTokens": 3036
+              },
+              "toolSchemas": {
+                "bytes": 594,
+                "estimatedTokens": 198
+              },
+              "taskBriefsAndConstraints": {
+                "bytes": 660,
+                "estimatedTokens": 220
+              },
+              "recentTurns": {
+                "bytes": 180,
+                "estimatedTokens": 60
+              },
+              "protectedToolRounds": {
+                "bytes": 96580,
+                "estimatedTokens": 32194
+              },
+              "checkpoint": {
+                "bytes": 0,
+                "estimatedTokens": 0
+              },
+              "workLogAndTaskState": {
+                "bytes": 0,
+                "estimatedTokens": 0
+              },
+              "subagentState": {
+                "bytes": 0,
+                "estimatedTokens": 0
+              },
+              "otherJsonOverhead": {
+                "bytes": 230,
+                "estimatedTokens": 77
+              }
+            }
+          },
+          "sessionModelId": "model",
+          "provider": "local",
+          "modelId": "model",
+          "beforeTokens": 36296,
+          "effectiveCapacityTokens": 40000,
+          "usableInputTokens": 38848,
+          "reservedOutputTokens": 1024,
+          "safetyTokens": 128,
+          "nativeSchemaTokens": 198,
+          "activatedMcpSchemaTokens": 0,
+          "componentMeasurementMethod": "serialized-utf8-bytes/3-estimate-not-additive",
+          "triggerTokens": 34963,
+          "measurementMethod": "approximate-full-request",
+          "protectedLiveTailTokens": 18618,
+          "beforeMeasuredComposition": {
+            "totalTokens": 36296,
+            "method": "approximate-full-request",
+            "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+            "entries": {
+              "system": {
+                "marginalTokens": 3026,
+                "method": "approximate-full-request",
+                "reason": "Mandatory base instructions and session safety/navigation rules.",
+                "present": true
+              },
+              "toolSchemas": {
+                "marginalTokens": 197,
+                "method": "approximate-full-request",
+                "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+                "present": true
+              },
+              "currentUser": {
+                "marginalTokens": 7,
+                "method": "approximate-full-request",
+                "reason": "Current authoritative user instruction.",
+                "present": true
+              },
+              "taskBriefs": {
+                "marginalTokens": 220,
+                "method": "approximate-full-request",
+                "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+                "present": true
+              },
+              "activeBriefs": {
+                "marginalTokens": 60,
+                "method": "approximate-full-request",
+                "reason": "Active user requirements remain authoritative.",
+                "present": true
+              },
+              "persistentBriefs": {
+                "marginalTokens": 0,
+                "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+                "present": false
+              },
+              "sourceNavigation": {
+                "marginalTokens": 417,
+                "method": "approximate-full-request",
+                "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+                "present": true
+              },
+              "historicalBriefs": {
+                "marginalTokens": 0,
+                "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+                "present": false
+              },
+              "checkpoint": {
+                "marginalTokens": 0,
+                "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+                "present": false
+              },
+              "protectedToolRounds": {
+                "marginalTokens": 18745,
+                "method": "approximate-full-request",
+                "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+                "present": true
+              },
+              "eligibleToolRounds": {
+                "marginalTokens": 13836,
+                "method": "approximate-full-request",
+                "reason": "Older completed rounds can be replaced after source validation.",
+                "present": true
+              },
+              "rawToolArguments": {
+                "marginalTokens": 56,
+                "method": "approximate-full-request",
+                "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+                "present": true
+              },
+              "toolResults": {
+                "marginalTokens": 31749,
+                "method": "approximate-full-request",
+                "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+                "present": true
+              },
+              "worklogs": {
+                "marginalTokens": 0,
+                "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+                "present": false
+              },
+              "plan": {
+                "marginalTokens": 0,
+                "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+                "present": false
+              },
+              "attachments": {
+                "marginalTokens": 0,
+                "reason": "Current selected briefs/user attachments remain required source material.",
+                "present": false
+              }
+            }
+          },
+          "generation": {
+            "sessionId": "w3-2",
+            "provider": "local",
+            "stage": "validated",
+            "retries": 0,
+            "failures": [],
+            "committed": false,
+            "snapshotVersion": "5a72a738adeafa81f08c5663894532864958a9b289adc2fc8d9d6a8881f04a91",
+            "sourceMessageIds": [
+              5,
+              6,
+              7,
+              8
+            ],
+            "newSourceMessageIds": [
+              5,
+              6,
+              7,
+              8
+            ],
+            "reusedSourceCount": 0,
+            "newEvidenceCount": 4,
+            "newEvidenceCharacters": 2550,
+            "reasoning": {
+              "family": "local",
+              "source": "unknown",
+              "reasoning": null,
+              "efforts": [],
+              "canDisable": null,
+              "budget": {
+                "supported": null,
+                "min": 0,
+                "max": null
+              },
+              "intent": {
+                "mode": "off"
+              },
+              "effective": {
+                "mode": "auto",
+                "effort": null,
+                "budget": null
+              },
+              "unsupported": true,
+              "warnings": [
+                "Disable is not supported for this model."
+              ],
+              "settings": {
+                "thinkingBudget": -1,
+                "reasoningEffort": null
+              }
+            },
+            "inputTokens": 2757,
+            "measurement": "approximate-full-request",
+            "outputBudget": 3072,
+            "reservedGenerationTokens": 3072,
+            "attempts": [
+              {
+                "stage": "final",
+                "attempt": 0,
+                "candidateInputTokens": 2763,
+                "candidateInputTokenMethod": "approximate-full-request",
+                "configuredOutputTokens": 3072,
+                "finishReason": "stop",
+                "actualOutputTokens": 80,
+                "rejectionPoint": null,
+                "timeToFirstTokenMs": null,
+                "backendTimings": null,
+                "promptProcessingMs": null,
+                "generationDurationMs": null,
+                "providerGenerationTokensPerSecond": null,
+                "reasoningControlStatus": "not-verified",
+                "hiddenReasoningTokens": null,
+                "visibleOutputTokensEstimate": 148,
+                "stream": null,
+                "elapsedMs": 0.1932170000000042,
+                "providerOutputTokensPerSecond": 414042.24265979836
+              }
+            ],
+            "visibleOutputTokens": 155,
+            "visibleOutputTokenMethod": "approximate-full-request",
+            "normalization": "unchanged",
+            "generatedTokens": 148,
+            "generatedTokenMethod": "approximate-full-request",
+            "providerOutputTokens": 80,
+            "validationMs": 0.1793719999999439,
+            "durableCandidateEstimatedTokens": 1800,
+            "workingStateEstimatedTokens": 752,
+            "workingStateSizeReason": null,
+            "validatedTokens": 1384,
+            "tokenMethod": "approximate-full-request",
+            "protectedBriefTokens": 80,
+            "protectedBriefTokenMethod": "existing-task-brief-estimate",
+            "under5k": true,
+            "withProtectedBriefsTokens": 1464,
+            "targetStatus": "reducible-candidate-under-target",
+            "generationStages": 1,
+            "correctionAttempts": 0,
+            "candidateId": null
+          },
+          "refinementPasses": 1,
+          "refinementSavedTokens": 0,
+          "workingCheckpointMeasurement": {
+            "tokens": 1271,
+            "method": "approximate-full-request",
+            "includesTemplateOverhead": true
+          },
+          "protectedContextMeasurement": {
+            "tokens": 18818,
+            "method": "approximate-full-request",
+            "includesTemplateOverhead": true
+          },
+          "irreducibleContextTokens": 22528,
+          "targetReason": "retained-instructions-schemas-and-protected-rounds-exceed-target",
+          "prospectiveTokens": 23638,
+          "prospectiveSoftTarget": {
+            "targetTokens": 17000,
+            "preferredRange": [
+              15000,
+              17000
+            ],
+            "status": "retained-state-exceeds-soft-target",
+            "hardLimitTokens": 38848,
+            "additionalGenerationRequested": false
+          },
+          "prospectiveMeasurementMethod": "approximate-full-request",
+          "sqliteCommitMs": 10.735672000000022,
+          "postCommitMeasurementMs": 0.5164969999999585,
+          "afterComposition": {
+            "payloadHash": "a12623c57c9e0f30d9cd2ab9acd8de71b74648af28ee6fdda8a70cf178665af9",
+            "serializedBytes": 70338,
+            "checkpointDetails": [
+              {
+                "evidence": {
+                  "bytes": 1418,
+                  "estimatedTokens": 473
+                },
+                "taskReferences": {
+                  "bytes": 4,
+                  "estimatedTokens": 2
+                },
+                "plan": {
+                  "bytes": 434,
+                  "estimatedTokens": 145
+                },
+                "pending": {
+                  "bytes": 102,
+                  "estimatedTokens": 34
+                },
+                "research": {
+                  "bytes": 2,
+                  "estimatedTokens": 1
+                },
+                "outstandingRequirements": {
+                  "bytes": 2,
+                  "estimatedTokens": 1
+                }
+              }
+            ],
+            "checkpointDetailMethod": "nested-unescaped-json-estimates-not-additive-to-body-categories",
+            "inputTokens": 23638,
+            "measurementMethod": "approximate-full-request",
+            "attributionMethod": "disjoint-json-utf8-bytes; per-category tokens estimated at bytes/3; template overhead unattributed",
+            "categories": {
+              "systemAndDeveloper": {
+                "bytes": 9620,
+                "estimatedTokens": 3207
+              },
+              "toolSchemas": {
+                "bytes": 594,
+                "estimatedTokens": 198
+              },
+              "taskBriefsAndConstraints": {
+                "bytes": 676,
+                "estimatedTokens": 226
+              },
+              "recentTurns": {
+                "bytes": 50,
+                "estimatedTokens": 17
+              },
+              "protectedToolRounds": {
+                "bytes": 55848,
+                "estimatedTokens": 18616
+              },
+              "checkpoint": {
+                "bytes": 3330,
+                "estimatedTokens": 1110
+              },
+              "workLogAndTaskState": {
+                "bytes": 0,
+                "estimatedTokens": 0
+              },
+              "subagentState": {
+                "bytes": 0,
+                "estimatedTokens": 0
+              },
+              "otherJsonOverhead": {
+                "bytes": 220,
+                "estimatedTokens": 74
+              }
+            }
+          },
+          "afterMeasuredComposition": {
+            "totalTokens": 23638,
+            "method": "approximate-full-request",
+            "attribution": "full-request-ablation; overlapping non-additive costs; includes normalization/template effects",
+            "entries": {
+              "system": {
+                "marginalTokens": 3027,
+                "method": "approximate-full-request",
+                "reason": "Mandatory base instructions and session safety/navigation rules.",
+                "present": true
+              },
+              "toolSchemas": {
+                "marginalTokens": 197,
+                "method": "approximate-full-request",
+                "reason": "Currently enabled tool contracts; compaction cannot revoke capabilities.",
+                "present": true
+              },
+              "currentUser": {
+                "marginalTokens": 7,
+                "method": "approximate-full-request",
+                "reason": "Current authoritative user instruction.",
+                "present": true
+              },
+              "taskBriefs": {
+                "marginalTokens": 225,
+                "method": "approximate-full-request",
+                "reason": "Selected active/persistent instructions and unresolved dependencies remain authoritative.",
+                "present": true
+              },
+              "activeBriefs": {
+                "marginalTokens": 26,
+                "method": "approximate-full-request",
+                "reason": "Active user requirements remain authoritative.",
+                "present": true
+              },
+              "persistentBriefs": {
+                "marginalTokens": 38,
+                "method": "approximate-full-request",
+                "reason": "Applicable persistent constraints cannot be removed for a numeric target.",
+                "present": true
+              },
+              "sourceNavigation": {
+                "marginalTokens": 417,
+                "method": "approximate-full-request",
+                "reason": "Retrieval and source navigation instructions preserve access to original evidence.",
+                "present": true
+              },
+              "historicalBriefs": {
+                "marginalTokens": 0,
+                "reason": "Only history/dependencies still selected by the C6-E brief policy.",
+                "present": false
+              },
+              "checkpoint": {
+                "marginalTokens": 1110,
+                "method": "approximate-full-request",
+                "reason": "Validated working state, retained requirements, outcomes and retrieval references.",
+                "present": true
+              },
+              "protectedToolRounds": {
+                "marginalTokens": 18745,
+                "method": "approximate-full-request",
+                "reason": "Two most recent complete rounds and following runtime events stay verbatim.",
+                "present": true
+              },
+              "eligibleToolRounds": {
+                "marginalTokens": 0,
+                "reason": "Older completed rounds can be replaced after source validation.",
+                "present": false
+              },
+              "rawToolArguments": {
+                "marginalTokens": 18,
+                "method": "approximate-full-request",
+                "reason": "Arguments belong to protocol pairs; protected calls remain unchanged.",
+                "present": true
+              },
+              "toolResults": {
+                "marginalTokens": 18468,
+                "method": "approximate-full-request",
+                "reason": "Protected protocol results remain paired; eligible originals stay durable.",
+                "present": true
+              },
+              "worklogs": {
+                "marginalTokens": 0,
+                "reason": "Existing bounded turn digest policy; may overlap findings in the checkpoint.",
+                "present": false
+              },
+              "plan": {
+                "marginalTokens": 168,
+                "method": "approximate-full-request",
+                "reason": "Current durable plan is the authoritative plan, also referenced by checkpoint state.",
+                "present": true
+              },
+              "attachments": {
+                "marginalTokens": 0,
+                "reason": "Current selected briefs/user attachments remain required source material.",
+                "present": false
+              }
+            }
+          },
+          "softTarget": {
+            "targetTokens": 17000,
+            "preferredRange": [
+              15000,
+              17000
+            ],
+            "status": "retained-state-exceeds-soft-target",
+            "hardLimitTokens": 38848,
+            "additionalGenerationRequested": false
+          },
+          "commitOutcome": "committed-and-verified",
+          "actualBudgetContract": {
+            "provider": "local",
+            "modelId": null,
+            "runtimeIdentity": null,
+            "configuredContextTokens": null,
+            "runtimeSlots": null,
+            "runtimeContextTokens": 40000,
+            "advertisedContextTokens": null,
+            "capacityTokens": 40000,
+            "reservedOutputTokens": 1024,
+            "reservedSafetyTokens": 128,
+            "usableInputTokens": 38848,
+            "autoCompactionThresholdRatio": 0.9,
+            "autoCompactionTriggerTokens": 34963,
+            "currentInputTokens": 23638,
+            "measurementMethod": "approximate-full-request",
+            "capacityMethod": "runtime-reported",
+            "capacityConfidence": "verified",
+            "measurementConfidence": "estimated"
+          },
+          "actualTokens": 23638,
+          "actualMeasurementMethod": "approximate-full-request",
+          "reductionTokens": 12658,
+          "percentageSaved": 34.874366321357726,
+          "tokensUntilNextTrigger": 11325,
+          "durationMs": 186.0506190000001
+        }
+      ],
+      "dispatchedInputTokens": [
+        3715,
+        10634,
+        17079,
+        17405,
+        17551,
+        24470,
+        23638,
+        30558
+      ],
+      "finalAnswerVerified": true
+    }
+  ],
+  "tests": {
+    "tests/c6aMeasurement.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/c6aStructuredOutput.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/c6bContextSelection.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/c6dPerformance.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-final-composition.log"
+    },
+    "tests/c6eLightweightContext.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/c7Header.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/c7Reliability.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-final-core.log"
+    },
+    "tests/c8EffectiveCompaction.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-final-composition.log"
+    },
+    "tests/contextInspection.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-last-safety.log"
+    },
+    "tests/contextPanel.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/h1HistoryDeletion.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/incrementalPersistence.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/workspaceAdvancedCompaction.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-final-core.log"
+    },
+    "tests/workspaceCheckpoints.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/workspaceCompactCandidate.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-final-core.log"
+    },
+    "tests/workspaceCompactionActivity.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-full-regression.log"
+    },
+    "tests/workspaceSafeCompaction.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-last-safety.log"
+    },
+    "tests/contextBudget.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/contextTelemetry.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/idleCompactionProjection.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/workLog.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/workspaceBriefBudget.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/workspaceBudgetVerification.test.cjs": {
+      "status": "not ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/workspaceGenerationRuntime.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-extra-regression.log"
+    },
+    "tests/c6cAcceptance.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-process-final.log"
+    },
+    "tests/h1DeletionIpc.test.cjs": {
+      "status": "ok",
+      "log": "/tmp/c8-process-final.log"
+    }
+  },
+  "ui": {
+    "tests/contextPanel.ui.cjs": {
+      "status": "passed",
+      "log": "/tmp/c8-context-ui.log"
+    },
+    "tests/compactionActivity.ui.cjs": {
+      "status": "passed",
+      "log": "/tmp/c8-activity-ui.log"
+    },
+    "tests/c6aCompactionStatus.ui.cjs": {
+      "status": "passed",
+      "log": "/tmp/c8-c6aCompactionStatus.ui.cjs.log"
+    },
+    "tests/headerContext.ui.cjs": {
+      "status": "passed",
+      "log": "/tmp/c8-headerContext.ui.cjs.log"
+    },
+    "tests/workLogPanel.ui.cjs": {
+      "status": "passed",
+      "log": "/tmp/c8-workLogPanel.ui.cjs.log"
+    }
+  },
+  "baselineFailures": [
+    {
+      "test": "tests/workspaceBudgetVerification.test.cjs :: concurrent history change during measurement invalidates without partial persistence",
+      "expected": "/Session history changed during compression/",
+      "actualCode": "casual-source-changed",
+      "actualMessage": "Conversation context changed during Casual recovery (history, attachments or runtime). Retry from saved history.",
+      "reproduction": "Same failure with frozen pre-C8 taskCheckpoints.js loader; compressionEngine.js and test unchanged.",
+      "log": "/tmp/c8-baseline/budget.log"
+    }
+  ],
+  "fixtureRepairs": [
+    "C6-C child Node test runner must clear inherited NODE_TEST_CONTEXT.",
+    "H1 pending approval fixture requires ask_approval, not full_access; closes its MCP client at teardown.",
+    "Context panel Refresh selects compression refresh rather than usage refresh; token labels are valid.",
+    "W5 counter assertion follows C7 prepared projection policy; compaction does not replace live dispatch occupancy.",
+    "W7 stage-pressure fixtures reserve the new 3072 output allowance; output overflow now fails closed."
+  ],
+  "checks": {
+    "build": "passed; existing >500kB chunk-size warning",
+    "gitDiffCheck": "passed"
+  },
+  "limitations": [
+    "Actual production request bodies and original Qwen tokenizer traces were not supplied; the true composition of the reported 28K continuations remains unproven.",
+    "Natural-language semantic completeness cannot be proven by structural/source validation.",
+    "Ablations include template effects and may overlap; isolated checkpoint and protected-tail counts include envelope overhead.",
+    "Two protected rounds are unchanged. Active requirements and source-bound prior findings can exceed soft targets.",
+    "Existing bounded worklogs remain model-facing and may duplicate checkpoint findings.",
+    "One reference refinement and one existing generation correction are bounded; no free-form semantic shrinking loop added.",
+    "Diagnostic ablations add tokenizer latency; no additional inference for target refinement.",
+    "Legacy checkpoint display is reconstructed and labelled; only new activations persist exact continuation content.",
+    "Existing redaction cannot detect every unlabeled secret."
+  ]
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 
 // Read-only Workspace Context inspection: what compression preserved — the
@@ -115,6 +115,16 @@ function CheckpointDetail({ record, evidence }) {
 					? ` · covers ${record.archivedCount} archived message${record.archivedCount === 1 ? "" : "s"}`
 					: ""}
 			</p>
+            {record.workingState && <section aria-label="Saved continuation working state">
+              <SectionTitle>Saved continuation working state</SectionTitle>
+              <p className={bodyClass}>{record.workingState.representation} · {record.workingState.consumedToolCount} covered tool operations · {record.workingState.durableEvidenceCount} durable evidence records{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
+              <p className={bodyClass}>Objective and working findings are model-drafted. Requirements include deterministically retained prior constraints. Plan, pending operations, evidence and retrieval metadata are deterministic. Integrity metadata stays in durable storage; these labels are UI descriptions.</p>
+              {(() => { try {
+                const state = JSON.parse(record.workingState.content.split('\n').slice(1).join('\n'));
+                return Object.entries(state).map(([key, value]) => <details key={key}><summary>{key}</summary><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify(value, null, 2)}</pre></details>);
+              } catch { return null; } })()}
+              <details><summary>Raw working state</summary><pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">{record.workingState.content}</pre></details>
+            </section>}
 			<SectionTitle>Objective</SectionTitle>
 			<p className="text-[11px] leading-relaxed">{checkpoint.objective}</p>
 			<SectionTitle>
@@ -495,7 +505,7 @@ function BriefWorkLog({ workLog }) {
 	);
 }
 
-export default function ContextPanel({ sessionId, modelId = null, active = false, measurement = null }) {
+export default function ContextPanel({ sessionId, modelId = null, active = false, measurement = null, liveTelemetry = null, runTelemetry = null }) {
 	const api = typeof window !== "undefined" ? window.memoryPalace : null;
 	const [usage, setUsage] = useState(null);
 	const [usageError, setUsageError] = useState("");
@@ -505,6 +515,8 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 	const [evidence, setEvidence] = useState({});
 	const [history, setHistory] = useState([]);
 	const [selectedId, setSelectedId] = useState(null);
+	const [focusId, setFocusId] = useState(null);
+    const focusRef = useRef(null);
 	const [briefs, setBriefs] = useState(null);
 	const [summary, setSummary] = useState(null);
 	const [summaryError, setSummaryError] = useState("");
@@ -564,7 +576,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 		setSummaryError("");
 		const [checkpointResult, historyResult, briefsResult, summaryResult] = await Promise.allSettled([
 			api.getCheckpoint(sessionId),
-			api.getCheckpointHistory(sessionId),
+			api.getCheckpointHistory(sessionId, 25, focusRef.current),
 			api.getBriefs(sessionId),
 			api.getSessionSummary(sessionId),
 		]);
@@ -640,15 +652,35 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 		);
 	}
 
+  useEffect(() => {
+    const inspect = event => {
+      if (event.detail?.sessionId !== sessionId) return;
+      setFocusId(event.detail.checkpointId); focusRef.current = event.detail.checkpointId;
+      api?.getCheckpointHistory(sessionId, 25, event.detail.checkpointId).then(result => {
+        setHistory(result.checkpoints ?? []); setSelectedId(event.detail.checkpointId);
+      }).catch(error => setHistoryError(error.message));
+    };
+    window.addEventListener('continuum:inspect-checkpoint', inspect);
+    return () => window.removeEventListener('continuum:inspect-checkpoint', inspect);
+  }, [sessionId, api]);
+  useEffect(() => { setFocusId(null); focusRef.current = null; }, [sessionId]);
+  useEffect(() => { if (focusId != null && history.some(row => row.id === focusId)) setSelectedId(focusId); }, [history, focusId, loading]);
 	const selected = selectedId == null ? null : (history.find((row) => row.id === selectedId) ?? null);
 
 	return (
 		<div className="space-y-3">
             <div className={cardClass}>
                 <h3 className={headingClass}>Request context budget</h3>
+                <div className={bodyClass}>
+                    <p>Last dispatched request: {(liveTelemetry?.promptTokens ?? runTelemetry?.lastPromptTokens ?? usage?.telemetry?.lastPromptTokens)?.toLocaleString() ?? '—'} tokens</p>
+                    <p>Peak request: {(liveTelemetry?.telemetry?.peakPromptTokens ?? runTelemetry?.peakPromptTokens ?? usage?.telemetry?.peakPromptTokens)?.toLocaleString() ?? '—'} tokens</p>
+                    {liveTelemetry && <p>{liveTelemetry.method} · {liveTelemetry.isEstimate ? 'estimated' : 'measured'} · request {liveTelemetry.round} · {liveTelemetry.runId} · {liveTelemetry.timestamp}</p>}
+                    {!liveTelemetry && runTelemetry?.method && <p>{runTelemetry.method} · {runTelemetry.isEstimate ? 'estimated' : 'measured'} · {runTelemetry.runId} · {runTelemetry.timestamp}</p>}
+                    <p>Cumulative inference usage is separate from context occupancy.</p>
+                </div>
                 {measurement?.sessionId === sessionId && measurement?.modelId === modelId && measurement.budgetContract ? (
                     <div className={bodyClass}>
-                        <p>Prepared full request: {measurement.tokens.toLocaleString()} / {measurement.budgetContract.usableInputTokens.toLocaleString()} usable input tokens ({(100 * measurement.tokens / measurement.budgetContract.usableInputTokens).toFixed(1)}%)</p>
+                        <p>Prepared next request: {measurement.tokens.toLocaleString()} / {measurement.budgetContract.usableInputTokens.toLocaleString()} usable input tokens ({(100 * measurement.tokens / measurement.budgetContract.usableInputTokens).toFixed(1)}%)</p>
                         <p>{measurement.method} · {measurement.confidence}</p>
                         <p>Configured: {measurement.budgetContract.configuredContextTokens?.toLocaleString() ?? 'unknown'}; runtime per request: {measurement.budgetContract.runtimeContextTokens?.toLocaleString() ?? 'unavailable'}; provider advertised: {measurement.budgetContract.advertisedContextTokens?.toLocaleString() ?? 'unavailable'}</p>
                         <p>Output reserve: {measurement.budgetContract.reservedOutputTokens.toLocaleString()}; safety: {measurement.budgetContract.reservedSafetyTokens.toLocaleString()}</p>
@@ -869,7 +901,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 									key={row.id}
 									type="button"
 									onClick={() =>
-										setSelectedId((current) => (current === row.id ? null : row.id))
+										(() => { setFocusId(null); focusRef.current = null; setSelectedId((current) => (current === row.id ? null : row.id)); })()
 									}
 									aria-pressed={selectedId === row.id}
 									className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${selectedId === row.id ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--bg-secondary)] hover:bg-[var(--surface-hover)]"}`}

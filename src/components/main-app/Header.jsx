@@ -42,8 +42,9 @@ export default function Header({
 		: palace.totalTokens === null
 			? null
 			: palace.totalTokens + (palace.pluginTokens || 0);
-	const { label } = buildContextLabel({ total, limit: palace.limit, error: palace.error, isCloud });
+	const { label: contextLabel } = buildContextLabel({ total, limit: palace.limit, error: palace.error, isCloud });
 
+  const label = palace.contextMode ? `${contextLabel} · ${palace.contextMode}` : contextLabel;
 	const live = palace.liveTelemetry ?? null;
 	const persisted = palace.turnTelemetry ?? null;
 
@@ -57,6 +58,7 @@ export default function Header({
 		live,
 		persisted,
         budgetContract: palace.budgetContract,
+        prepared: palace.preparedContextTokens,
 	});
 
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;

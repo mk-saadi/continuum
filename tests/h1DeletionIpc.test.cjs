@@ -20,7 +20,7 @@ Module._load = function(name, ...args) {
 const storage = require('../src/main/db'); storage.initDatabase(directory);
 const sessions = require('../src/main/sessionManager');
 let dispose;
-test.after(async () => { dispose?.(); await require('../src/main/backgroundCommands').shutdown(); storage.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
+test.after(async () => { dispose?.(); await require('../src/main/backgroundCommands').shutdown(); await require('../src/main/mcpManager').close(); storage.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
 test('H1 registered Delete Chat IPC cancels its actual engine request before deleting and rejects stale prepare', async () => {
   dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true,
     getEngineConfig: () => ({ port: 12345, modelPath: 'fixture', activeModelConfig: { contextLength: 32768 } }) });
@@ -66,7 +66,7 @@ test('H1 real tool approval pending at deletion is invalidated without command e
     name: 'execute_command', arguments: JSON.stringify({ command: 'printf forbidden > must-not-exist' }),
   } }] }, finish_reason: 'tool_calls' }] });
   try {
-    const chat = handlers.get('engine:chat')({ sender }, { requestId: 'pending-request', modelId: 'fixture', sessionId: 'pending-approval', permissionMode: 'full_access', messages: [{ role: 'user', content: 'fixture' }] });
+    const chat = handlers.get('engine:chat')({ sender }, { requestId: 'pending-request', modelId: 'fixture', sessionId: 'pending-approval', permissionMode: 'ask_approval', messages: [{ role: 'user', content: 'fixture' }] });
     const stopped = chat.catch(error => error);
     await pending;
     assert.equal(approval.name, 'execute_command');

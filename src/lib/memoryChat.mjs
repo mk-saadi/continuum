@@ -520,6 +520,7 @@ export async function runMemoryChat({
   let text = '', thinkingText = '', thinkingDuration = 0;
   const startTime = now();
   const phases = []; // Fresh for every chat invocation.
+  let requestSequence = 0;
 
   let toolsExecuted = false, toolRounds = 0;
   let remindedFileOps = false, remindedSubagent = false;
@@ -729,6 +730,12 @@ export async function runMemoryChat({
       return fetchImpl(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload), signal: requestSignal,
+      onRequestMeasurement: measurement => {
+        if (requestSignal.aborted) return;
+        onPhase({ round, requestSequence: ++requestSequence, promptTokens: measurement.tokens, method: measurement.method,
+          budgetContract: measurement.budgetContract, timestamp: measurement.timestamp,
+          isEstimate: measurement.method !== 'server-template-tokenizer', dispatched: true });
+      },
       contextWindowLimit: loadedContextSize,
       contextRecovery: workspaceCompaction && !casualMode ? async ({ contextWindowLimit }) => {
         const result = await compactWorkspace(true, contextWindowLimit);
@@ -913,7 +920,7 @@ export async function runMemoryChat({
     // writer of persisted turn stats (no double counting).
     try {
       const latest = phases[phases.length - 1];
-      onPhase({ round, promptTokens: latest.promptTokens ?? null,
+      onPhase({ round, requestSequence, promptTokens: latest.promptTokens ?? null,
         completionTokens: latest.completionTokens ?? null,
         cachedTokens: latest.cachedTokens ?? null,
         cacheCreationTokens: latest.cacheCreationTokens ?? null,

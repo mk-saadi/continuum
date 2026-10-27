@@ -476,6 +476,9 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
         }
 		const anthropic = provider.apiType === "anthropic";
 		const body = prepareCloudPayload(original, target, provider, stream);
+        options.signal?.throwIfAborted();
+        options.onRequestMeasurement?.({ tokens: require('./contextBudget').approximateTokens(body),
+            method: 'approximate-full-request', timestamp: new Date().toISOString() });
 		const response = await fetchImpl(
 			`${normalizeBaseUrl(provider.baseUrl)}/${anthropic ? "messages" : "chat/completions"}`,
 			{

@@ -40,7 +40,7 @@ function fixture({ requirements = 1, longOutput = false, casual = false, pending
 function draftFor(request) {
   const content = request.messages[1].content;
   const input = JSON.parse(Array.isArray(content) ? content.filter(part => part.type === 'text').map(part => part.text).join('') : content);
-  const source = input.evidence[0];
+  const source = input.evidence[0] ?? input.historicalSegments?.flatMap(segment => segment.state.completedWork.flatMap(entry => entry.sources))[0];
   const ref = stepId => ({ messageId: source.messageId, stepId });
   return { objective: 'Implement fixture requirements; retain no-publishing restriction.', briefIds: input.briefs.map(b => b.id),
     outstandingRequirements: [{ text: 'No publishing.', briefId: input.briefs[0].id, status: 'open' }],
@@ -181,13 +181,13 @@ test('W2 large protected brief fails honestly without truncation', async () => {
   assert.equal(result.code, 'budget-exceeded'); assert.equal(calls, 0); assert.equal(history(f.id), before);
 });
 
-test('W2 essential state over 5K is retained and honestly measured', async () => {
+test('C8 provider exceeding output budget is rejected without losing source history', async () => {
   const f = fixture();
   const result = await run(f, { capacityTokens: 131072, generate: async request => {
     const d = draftFor(request); d.unknowns = Array.from({ length: 60 }, (_, i) => `Essential uncertainty ${i}: ` + 'unverified '.repeat(30)); return envelope(d);
   } });
-  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(result.candidate.unknowns.length, 60);
-  assert.equal(result.diagnostics.under5k, false); assert.equal(result.diagnostics.targetStatus, 'essential-state-exceeds-target');
+  assert.equal(result.ok, false); assert.equal(result.code, 'output-budget-exceeded');
+  assert.equal(result.diagnostics.checkpointActivated, false); assert.ok(result.diagnostics.visibleOutputTokens > result.diagnostics.outputBudget);
   quality.push({ fixture: 'essential state over target', ...result.diagnostics, omittedEntries: 0 });
 });
 
@@ -351,13 +351,13 @@ test('W7 reported runtime reserves final output before reducing near-full input'
   const result = await run(f, { capacityTokens: 35072,
     measure: async request => {
       const input = JSON.parse(request.messages.at(-1).content);
-      return { tokens: request.messages.length === 1 ? 1200 : input.historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 30000,
+      return { tokens: request.messages.length === 1 ? 1200 : input.historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 32000,
         limit: 35072, method: 'controlled-tokenizer' };
     }, generate: async (request, meta) => { requests.push({ budget: request.max_tokens, intermediate: !!meta.intermediate }); return good(request); } });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.ok(requests.some(r => r.intermediate));
-  assert.equal(requests.at(-1).budget, 6144);
-  assert.equal(result.diagnostics.outputBudget, 6144);
+  assert.equal(requests.at(-1).budget, 3072);
+  assert.equal(result.diagnostics.outputBudget, 3072);
 });
 
 test('W7 exhaustion retries once with a changed size contract and records provider usage', async () => {
@@ -381,7 +381,7 @@ test('W7 exhaustion retries once with a changed size contract and records provid
 test('W7 intermediate overflow gets one concise correction without activating partial state', async () => {
   const f = fixture(), before = history(f.id); let stages = 0;
   const result = await run(f, { capacityTokens: 35072,
-    measure: async request => ({ tokens: request.messages.length === 1 ? 1200 : JSON.parse(request.messages[1].content).historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 30000, limit: 35072 }),
+    measure: async request => ({ tokens: request.messages.length === 1 ? 1200 : JSON.parse(request.messages[1].content).historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 32000, limit: 35072 }),
     generate: async (request, meta) => {
       if (meta.intermediate && ++stages === 1) {
         const d = draftFor(request); d.unknowns = ['Essential detail '.repeat(4000)]; return envelope(d);
@@ -397,7 +397,7 @@ test('W7 intermediate overflow gets one concise correction without activating pa
 test('W7 final measured candidate too large fails with original history and checkpoint intact', async () => {
   const f = fixture(), before = history(f.id);
   const result = await run(f, { capacityTokens: 35072,
-    measure: async request => ({ tokens: request.messages.length === 1 ? 35072 : 1000, limit: 35072 }) });
+    measure: async request => ({ tokens: request.messages.length === 1 && request.messages[0].role === 'user' ? 35072 : 1000, limit: 35072 }) });
   assert.equal(result.code, 'budget-exceeded'); assert.equal(result.diagnostics.rejectionStage, 'validation');
   assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
 });
@@ -426,7 +426,7 @@ test('W7 deterministic before/after at reported 32486 input tokens', async () =>
         ...Object.fromEntries(w2.ARRAY_KEYS.map(key => [key, []])) });
     } });
   assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(calls, 3);
-  assert.equal(result.diagnostics.outputBudget, 6144);
+  assert.equal(result.diagnostics.outputBudget, 3072);
   quality.push({ fixture: 'W7 reported input controlled before-after', before: { inputTokens: 32486, outputBudget: beforeBudget,
     finishReason: 'length', actualOutputTokens: beforeBudget, attempts: 1 },
     after: { stages: calls, outputBudget: result.diagnostics.outputBudget, attempts: result.diagnostics.attempts },

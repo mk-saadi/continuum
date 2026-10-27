@@ -21,7 +21,7 @@ assert.ok(
 assert.ok(sidebar.includes('LuHistory'), 'Context tab has an icon');
 assert.ok(sidebar.includes('id="controls-context"'), 'context panel mounted with a stable id');
 assert.ok(
-   /<ContextPanel\s+measurement=\{contextMeasurement\}\s+sessionId=\{sessionId\}\s+modelId=\{modelId\}\s+active=\{tab === "context"\}\s*\/>/.test(sidebar),
+   /<ContextPanel\s+measurement=\{contextMeasurement\}\s+liveTelemetry=\{contextLiveTelemetry\}\s+runTelemetry=\{contextRunTelemetry\}\s+sessionId=\{sessionId\}\s+modelId=\{modelId\}\s+active=\{tab === "context"\}\s*\/>/.test(sidebar),
   'context panel receives the session and visibility for refresh',
 );
 assert.ok(

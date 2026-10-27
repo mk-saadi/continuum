@@ -75,7 +75,8 @@ test('C6-C real coding operations preserve failing and passing evidence across t
         if (call.name === 'run_tests') {
           // Execute a real Node subprocess in the disposable workspace. This adapter
           // does not claim production shell/permission dispatch coverage.
-          const run = spawnSync(process.execPath, ['--test', 'queue.test.cjs'], { cwd: root, encoding: 'utf8' });
+          const subprocessEnv = { ...process.env }; delete subprocessEnv.NODE_TEST_CONTEXT;
+          const run = spawnSync(process.execPath, ['--test', 'queue.test.cjs'], { cwd: root, encoding: 'utf8', env: subprocessEnv });
           assert.ifError(run.error);
           report.testRuns.push({ id: call.id, exitCode: run.status, stdout: run.stdout });
           assert.equal(run.status, report.testRuns.length === 1 ? 1 : 0);

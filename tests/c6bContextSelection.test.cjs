@@ -251,12 +251,21 @@ test('backward feature-list dependency exposes archived assistant source and ori
   assert.match(section.content, /source_message_id/);
   assert.match(evidence.retrieve(id, { source_message_id: plan.id }).text, /offline export/);
 });
-test('explicit evidence ceiling fails safely without altering history', async () => {
+test('evidence above the former ceiling uses bounded stages without altering history', async () => {
   const id = fixture(); save(id, 'user', 'Inspect a large evidence set.');
   save(id, 'assistant', 'Inspection', Array.from({ length: 100 }, (_, i) => ({ id: `e-${i}`, type: 'tool_call', toolName: 'read_project_file', status: 'complete', args: { relative_path: `f${i}` }, result: `Finding ${i}: ` + 'source text '.repeat(40) })));
   const before = JSON.stringify(db.prepare('SELECT * FROM messages WHERE session_id = ?').all(id));
-  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, generate: () => assert.fail('Oversize evidence must not generate') });
-  assert.equal(result.code, 'evidence-budget-exceeded');
+  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, generate: request => {
+    const input = JSON.parse(request.messages[1].content);
+    const draft = { objective: 'Inspect large evidence safely', briefIds: input.briefs.map(b => b.id) };
+    for (const key of w2.ARRAY_KEYS) draft[key] = [];
+    draft.nextActions = ['Continue verification'];
+    return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(draft) } }] };
+  } });
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  assert.equal(result.candidate.evidence.length, 100);
+  assert.ok(result.diagnostics.staged.segments.length > 1);
+  assert.ok(result.diagnostics.staged.segments.every(s => s.evidenceCharacters <= 48000));
   assert.equal(JSON.stringify(db.prepare('SELECT * FROM messages WHERE session_id = ?').all(id)), before);
   assert.equal(checkpoints.getLatestCheckpoint(id), null);
 });

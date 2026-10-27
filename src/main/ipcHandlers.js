@@ -1002,8 +1002,9 @@ function registerIpcHandlers({
 					// persisted here and never logged to token usage. The final
 					// onStats above remains the single persistence/logging path.
 					onPhase: ({ round, promptTokens, completionTokens, cachedTokens, cacheCreationTokens,
-						reasoningTokens, visibleCompletionTokens, telemetry }) => {
-						notify({ type: "phase", sessionId, round,
+						reasoningTokens, visibleCompletionTokens, telemetry, method, budgetContract, timestamp, isEstimate, dispatched, requestSequence }) => {
+						if (controller.signal.aborted || activeStreams.get(streamKey) !== controller) return;
+						notify({ type: "phase", sessionId, runId, modelId, round, method, budgetContract, timestamp, isEstimate, dispatched, requestSequence,
 							promptTokens: promptTokens ?? null,
 							completionTokens: completionTokens ?? null,
 							cachedTokens: cachedTokens ?? null,
@@ -1476,7 +1477,7 @@ function registerIpcHandlers({
 		// Read-only Workspace Context inspection (see src/main/contextInspection.js).
 		// Same trusted-sender + withDataAccess wrapping as every handler below.
 		"session:get-checkpoint": ({ sessionId }) => require('./contextInspection').getCheckpointForDisplay(sessionId),
-		"session:get-checkpoint-history": ({ sessionId, limit }) => require('./contextInspection').getCheckpointHistoryForDisplay(sessionId, limit),
+		"session:get-checkpoint-history": ({ sessionId, limit, checkpointId }) => require('./contextInspection').getCheckpointHistoryForDisplay(sessionId, limit, checkpointId),
 		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
 		// Read-only durable task plan for the workspace sidebar. Null for a
 		// casual session or a task that has not created a plan yet.

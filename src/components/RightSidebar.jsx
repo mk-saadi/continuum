@@ -123,6 +123,8 @@ export default function RightSidebar({
 	modelName = null,
 	cloudChat = false,
     contextMeasurement = null,
+    contextLiveTelemetry = null,
+    contextRunTelemetry = null,
 	runtime = null,
 }) {
 	const sections = isWorkspace ? WORKSPACE_SECTIONS : CASUAL_SECTIONS;
@@ -143,6 +145,11 @@ export default function RightSidebar({
     const chatSpend = sessionSpend?.sessionId === sessionId ? sessionSpend : null;
 	const tabs = useRef([]);
 	const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
+    useEffect(() => {
+      const inspect = event => { if (isWorkspace && event.detail?.sessionId === sessionId) setTab("context"); };
+      window.addEventListener('continuum:inspect-checkpoint', inspect);
+      return () => window.removeEventListener('continuum:inspect-checkpoint', inspect);
+    }, [isWorkspace, sessionId]);
 	const [prompt, setPrompt] = useState("");
 	const [savedPrompt, setSavedPrompt] = useState("");
 	const [notice, setNotice] = useState("");
@@ -1009,6 +1016,8 @@ export default function RightSidebar({
 						>
 							<ContextPanel
                                 measurement={contextMeasurement}
+                                liveTelemetry={contextLiveTelemetry}
+                                runTelemetry={contextRunTelemetry}
 								sessionId={sessionId}
 								modelId={modelId}
 								active={tab === "context"}

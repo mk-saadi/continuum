@@ -6,7 +6,10 @@ const w2 = require('./workspaceCompactCandidate');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const capabilities = new WeakMap();
 const inflight = new Map();
-function fail(code) { throw Object.assign(new Error(`Workspace compaction: ${code}. Retry the run after resolving this condition; saved history is preserved.`), { code, recoverable: true }); }
+function fail(code, diagnostics = null) {
+  const detail = diagnostics ? ` Stage: ${diagnostics.rejectionStage ?? diagnostics.stage}; evidence: ${JSON.stringify(diagnostics.evidenceFailure ?? null)}; history not altered by generation; checkpoint not activated; generation retry ${diagnostics.safeToRetryGeneration ? 'allowed after resolving condition' : 'requires a fresh run'}.` : '';
+  throw Object.assign(new Error(`Workspace compaction: ${code}.${detail} Retry the run after resolving this condition; saved history is preserved.`), { code, recoverable: true, compactionDiagnostics: diagnostics });
+}
 function paired(messages) {
   let pending = new Set();
   const seen = new Set();
@@ -112,7 +115,11 @@ async function compactAtBoundary(options) {
       activity.update(result.compressed ? 'completed' : result.optionalContinued ? 'checking-fit' : 'deferred', {
         code: result.reason, afterTokens: result.compressed ? d.actualTokens : undefined,
         afterMeasurementMethod: result.compressed ? d.actualMeasurementMethod : undefined,
-        checkpointId: result.checkpointId, generationStages: d.generation?.staged?.segments?.length != null ? d.generation.staged.segments.length + 1 : 1,
+        checkpointId: result.checkpointId, generationStages: d.generation?.generationStages ?? 0,
+        targetTokens: d.softTarget?.targetTokens, targetMet: d.softTarget?.status === 'within-soft-target',
+        targetReason: d.targetReason, percentageSaved: d.percentageSaved, tokensSaved: d.reductionTokens,
+        tokensUntilNextTrigger: d.tokensUntilNextTrigger, workingCheckpointTokens: d.workingCheckpointMeasurement?.tokens,
+        protectedContextTokens: d.protectedContextMeasurement?.tokens, irreducibleContextTokens: d.irreducibleContextTokens, durationMs: d.durationMs,
       });
       if (result.optionalContinued) {
         const validate = result.validateDispatch;
@@ -169,9 +176,16 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   }
   const consumed = tail.slice(0, cut), retained = [...consumed.filter(m => !['assistant', 'tool'].includes(m.role)), ...tail.slice(cut)];
   diagnostics.protectedLiveTailTokens = component(retained);
+  diagnostics.beforeMeasuredComposition = await require('./compactionPerformance').measuredComposition(payload, measure, before,
+    { eligibleToolIds: consumed.flatMap(m => (m.tool_calls ?? []).map(call => call.id)) });
   const prior = require('./taskCheckpoints').getLatestCheckpoint(sessionId)?.checkpoint;
   const priorIds = prior?.projection?.runId === owner.runId ? prior.projection.consumedToolIds : [];
   const stepIds = [...new Set([...priorIds, ...consumed.flatMap(m => (m.tool_calls ?? []).map(c => c.id))])];
+  if (!archiveIds.length && consumed.every(m => (m.tool_calls ?? []).every(call => priorIds.includes(call.id)))) {
+    if (before.tokens > before.budget) fail('irreducible-context-overflow');
+    diagnostics.targetReason = 'unchanged-evidence-already-covered';
+    return { compressed: false, reason: 'no-reducible-history', diagnostics };
+  }
   const token = Object.freeze({});
   const capability = { sessionId, owner, runId: owner.runId, messageId, consumed, stepIds, isCurrent,
     permissionRevision: require('./lspExecutionContext').revision(sessionId) };
@@ -192,13 +206,14 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   inject('generation-start');
   const generated = await w2.generateWorkspaceCompactCandidate({ sessionId, modelId, generate, measure,
     reasoningTarget, localModel, capacityTokens: before.limit, provider: before.budgetContract.provider ?? 'local', signal, persist: false, safePoint: token, isCurrent, onProgress: progress });
+  Object.assign(diagnostics, { generation: generated.diagnostics });
   if (!generated.ok) {
     // Only candidate-generation/validation failures qualify. A pressure
     // estimate never authorizes dispatch; rebuild and measure independently.
     const eligible = new Set(['invalid-json', 'schema-invalid', 'missing-required-data', 'invalid-reference',
       'missing-task-brief-reference', 'unsupported-completion-claim', 'unsupported-file-claim',
       'output-truncated', 'empty-response', 'incomplete-response', 'provider-error']);
-    if (force || !eligible.has(generated.code)) { capabilities.delete(token); fail(generated.code); }
+    if (force || !eligible.has(generated.code)) { capabilities.delete(token); fail(generated.code, generated.diagnostics); }
     try {
       const current = () => { guard(); w2.assertCurrent(sessionId, captured, signal); validateSafePoint(token, w2.snapshot(sessionId)); };
       current();
@@ -233,9 +248,37 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   progress('checking-fit');
   inject('prospective-build');
   guard(); w2.assertCurrent(sessionId, captured, signal); validateSafePoint(token, w2.snapshot(sessionId));
-  const prospective = await buildRequest(projection, retained);
+  let prospective = await buildRequest(projection, retained);
   if (!paired(prospective.messages)) fail('incomplete-tool-pair');
-  const fit = await measure(prospective);
+  let fit = await measure(prospective);
+  // One deterministic refinement: replace successful, source-bound output
+  // previews with retrieval references. No protected rounds or requirements move.
+  diagnostics.refinementPasses = 0;
+  if (fit.tokens > Math.min(softTargetTokens, fit.budget)) {
+    checkpoint.evidencePresentation = 'references';
+    const refined = await buildRequest(projection, retained);
+    const refinedFit = await measure(refined);
+    if (budgetIdentity(before) !== budgetIdentity(refinedFit)) fail('capacity-changed');
+    diagnostics.refinementPasses = 1;
+    diagnostics.refinementSavedTokens = fit.tokens - refinedFit.tokens;
+    if (refinedFit.tokens < fit.tokens) { prospective = refined; fit = refinedFit; }
+    else delete checkpoint.evidencePresentation;
+  }
+  // Stored in the existing checkpoint JSON, so later inspectors and future
+  // renderer versions show exactly the continuation representation used here.
+  checkpoint.savedWorkingState = require('./taskCheckpoints').workspaceCompactSection(checkpoint).content;
+  const measurePart = async messages => {
+    const part = await measure({ ...prospective, tools: [], messages });
+    return { tokens: part.tokens, method: part.method, includesTemplateOverhead: true };
+  };
+  diagnostics.workingCheckpointMeasurement = await measurePart([require('./taskCheckpoints').workspaceCompactSection(checkpoint)]);
+  diagnostics.protectedContextMeasurement = await measurePart(retained);
+  const withoutCheckpoint = { ...prospective, messages: prospective.messages.map(m => ({ ...m,
+    content: typeof m.content === 'string' ? m.content.replace(checkpoint.savedWorkingState, '') : m.content })) };
+  const fixedFit = await measure(withoutCheckpoint);
+  diagnostics.irreducibleContextTokens = fixedFit.tokens;
+  diagnostics.targetReason = fit.tokens <= Math.min(softTargetTokens, fit.budget) ? 'target-met' :
+    fixedFit.tokens > softTargetTokens ? 'retained-instructions-schemas-and-protected-rounds-exceed-target' : 'essential-working-state-retained-after-bounded-refinement';
   diagnostics.prospectiveTokens = fit.tokens;
   diagnostics.prospectiveSoftTarget = require('./compactionPerformance').softTarget(fit.tokens, fit.budget, softTargetTokens);
   diagnostics.prospectiveMeasurementMethod = fit.method;
@@ -271,6 +314,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     const actualFit = await measure(actual);
     diagnostics.postCommitMeasurementMs = performance.now() - measurementStarted;
     diagnostics.afterComposition = require('./compactionPerformance').requestComposition(actual, actualFit);
+    diagnostics.afterMeasuredComposition = await require('./compactionPerformance').measuredComposition(actual, measure, actualFit);
     diagnostics.softTarget = require('./compactionPerformance').softTarget(actualFit.tokens, actualFit.budget, softTargetTokens);
     guard(); w2.assertCurrent(sessionId, committed, signal);
     validateSafePoint(token, committed);
@@ -281,6 +325,8 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     diagnostics.actualTokens = actualFit.tokens;
     diagnostics.actualMeasurementMethod = actualFit.method;
     diagnostics.reductionTokens = before.tokens - actualFit.tokens;
+    diagnostics.percentageSaved = before.tokens > 0 ? diagnostics.reductionTokens / before.tokens * 100 : 0;
+    diagnostics.tokensUntilNextTrigger = actualFit.budgetContract.autoCompactionTriggerTokens - actualFit.tokens;
     diagnostics.durationMs = performance.now() - started;
     return { compressed: true, payload: actual, tail: retained, checkpointId, archivedCount: archiveIds.length, diagnostics,
       validateDispatch: async () => {

@@ -109,7 +109,7 @@ test('W3 capacity change and irreducible prospective overhead reject without arc
     const f = fixture(), original = history(f.id); let calls = 0;
     await assert.rejects(service.compactAtBoundary({ ...f.options, measure: async payload => {
       const m = await f.options.measure(payload); calls++;
-      if (calls > 3) {
+      if (payload.messages.some(message => message.taskCheckpoint)) {
         if (mode === 'capacity') m.budgetContract.capacityTokens--;
         else { m.tokens = m.budget + 1; m.budgetContract.currentInputTokens = m.tokens; }
       }
@@ -395,4 +395,65 @@ for (const name of ['cancel', 'delete', 'source', 'permission', 'owner']) test(`
   };
   await assert.rejects(service.compactAtBoundary(optionalFailure(f, { mutate })));
   assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+
+test('C8 bounded refinement persists the exact inspected continuation without reactivating history', async () => {
+  const f = fixture(); let generations = 0;
+  const result = await service.compactAtBoundary({ ...f.options, softTargetTokens: 100,
+    generate: async request => {
+      generations++;
+      const response = await f.options.generate(request);
+      const draft = JSON.parse(response.choices[0].message.content);
+      const input = JSON.parse(request.messages[1].content);
+      draft.research = input.evidence.map(e => ({text:'Recorded source inspection',sources:[{messageId:e.messageId,stepId:e.stepId}]}));
+      response.choices[0].message.content = JSON.stringify(draft); return response;
+    } });
+  assert.equal(result.diagnostics.refinementPasses, 1);
+  assert.ok(result.diagnostics.refinementSavedTokens > 0);
+  assert.equal(generations, 1);
+  const row = checkpoints.getLatestCheckpoint(f.id);
+  assert.equal(row.checkpoint.evidencePresentation, 'references');
+  assert.equal(checkpoints.workspaceCompactSection(row.checkpoint).content, row.checkpoint.savedWorkingState);
+  const display = require('../src/main/contextInspection').getCheckpointHistoryForDisplay(f.id, 1, row.id);
+  assert.equal(display.checkpoints[0].workingState.content, row.checkpoint.savedWorkingState);
+  assert.equal(display.checkpoints[0].workingState.consumedToolCount, 3);
+  assert.equal(display.checkpoints[0].workingState.representation, 'exact-persisted-continuation');
+  assert.equal(result.diagnostics.actualTokens, (await f.options.measure(result.payload)).tokens);
+  assert.equal(result.diagnostics.tokensUntilNextTrigger, result.diagnostics.actualBudgetContract.autoCompactionTriggerTokens-result.diagnostics.actualTokens);
+  assert.ok(result.diagnostics.protectedContextMeasurement.tokens > 0);
+  assert.equal(result.diagnostics.afterMeasuredComposition.totalTokens, result.diagnostics.actualTokens);
+  // Viewing a historical version is a SELECT, including outside the normal page.
+  db.prepare("UPDATE workspace_checkpoints SET status='superseded' WHERE id=?").run(row.id);
+  const historical = require('../src/main/contextInspection').getCheckpointHistoryForDisplay(f.id, 1, row.id);
+  assert.equal(historical.checkpoints[0].workingState.content,row.checkpoint.savedWorkingState);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id),null);
+});
+
+test('C8 unchanged already covered same-run evidence never regenerates', async () => {
+  const f=fixture(); const first=await service.compactAtBoundary(f.options);
+  const second=await service.compactAtBoundary({...f.options,payload:first.payload,generate:()=>assert.fail('Covered evidence must not regenerate')});
+  assert.equal(second.compressed,false);assert.equal(second.reason,'no-reducible-history');
+  assert.equal(second.diagnostics.targetReason,'unchanged-evidence-already-covered');
+});
+
+test('C8 oversized provider output fails closed with explicit measured overflow', async () => {
+  const f=fixture(), before=history(f.id);let calls=0;
+  await assert.rejects(service.compactAtBoundary({...f.options,generate:async request=>{
+    calls++;const response=await f.options.generate(request);response.usage.completion_tokens=request.max_tokens+1;return response;
+  }}),{code:'output-budget-exceeded'});
+  assert.equal(calls,2);assert.equal(history(f.id),before);assert.equal(checkpoints.getLatestCheckpoint(f.id),null);
+});
+
+test('C8 inspection redacts secrets, scopes historical lookup and respects deletion',async()=>{
+  const f=fixture();const result=await service.compactAtBoundary(f.options);
+  const row=checkpoints.getLatestCheckpoint(f.id);const saved=row.checkpoint.savedWorkingState;
+  const changed={...row.checkpoint,savedWorkingState:saved+'\napi_key=sk-fixture-sensitive-secret'};
+  db.prepare('UPDATE workspace_checkpoints SET checkpoint_json=? WHERE id=?').run(JSON.stringify(changed),row.id);
+  const inspect=require('../src/main/contextInspection');
+  const display=inspect.getCheckpointForDisplay(f.id).checkpoint;
+  assert.equal(display.workingState.redacted,true);assert.doesNotMatch(JSON.stringify(display),/sk-fixture-sensitive-secret/);
+  const other=fixture();assert.equal(inspect.getCheckpointHistoryForDisplay(other.id,1,result.checkpointId).checkpoints.length,0);
+  db.prepare('INSERT INTO deleted_sessions(id) VALUES (?)').run(f.id);
+  assert.equal(inspect.getCheckpointForDisplay(f.id).checkpoint,null);
+  assert.equal(inspect.getCheckpointHistoryForDisplay(f.id,1,result.checkpointId).checkpoints.length,0);
 });

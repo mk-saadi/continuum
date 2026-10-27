@@ -16,6 +16,7 @@ const path = require('node:path');
 const { db } = require('./db');
 const briefs = require('./taskBriefs');
 const checkpoints = require('./taskCheckpoints');
+const { redactSecrets } = require('../lib/secretRedaction.cjs');
 const { readExecutionSteps } = require('./executionSteps');
 
 const DEFAULT_HISTORY_LIMIT = 10;
@@ -35,6 +36,7 @@ function requireSessionId(sessionId) {
 function findSessionForDisplay(sessionId) {
   requireSessionId(sessionId);
   const row = db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
+  if (!row || db.prepare('SELECT id FROM deleted_sessions WHERE id=?').get(sessionId)) return null;
   return row;
 }
 
@@ -102,7 +104,7 @@ function resolveEvidence(sessionId, checkpoint) {
       evidence[key] = {
         found: true,
         role: row.role,
-        snippet: typeof row.content === 'string' ? row.content.slice(0, MAX_SNIPPET_CHARS) : '',
+        snippet: typeof row.content === 'string' ? redactSecrets(row.content).slice(0, MAX_SNIPPET_CHARS) : '',
       };
       continue;
     }
@@ -132,10 +134,17 @@ function resolveEvidence(sessionId, checkpoint) {
       role: row.role,
       toolName: step.toolName || 'Tool',
       status: outcome,
-      snippet: (detail || '').slice(0, MAX_SNIPPET_CHARS),
+      snippet: redactSecrets(detail || '').slice(0, MAX_SNIPPET_CHARS),
     };
   }
   return evidence;
+}
+
+function redactCheckpointValue(value) {
+  if (typeof value === 'string') return redactSecrets(value);
+  if (Array.isArray(value)) return value.map(redactCheckpointValue);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactCheckpointValue(item)]));
+  return value;
 }
 
 function serializeCheckpointRow(sessionId, row) {
@@ -147,7 +156,15 @@ function serializeCheckpointRow(sessionId, row) {
     created_at: row.created_at ?? null,
     stale,
     staleReasons: reasons,
-    checkpoint: row.checkpoint,
+    checkpoint: redactCheckpointValue(row.checkpoint),
+    workingState: row.checkpoint?.lifecycle === 'w3-current' ? (() => {
+      const content = checkpoints.workspaceCompactSection(row.checkpoint).content;
+      const displayed = redactSecrets(content);
+      return { content: displayed, redacted: displayed !== content,
+        representation: row.checkpoint.savedWorkingState ? 'exact-persisted-continuation' : 'reconstructed-legacy-continuation',
+        consumedToolCount: row.checkpoint.projection?.consumedToolIds?.length ?? 0,
+        durableEvidenceCount: row.checkpoint.evidence?.length ?? 0 };
+    })() : null,
     summary: { id: row.summary_id ?? null, text: row.summary_text ?? '' },
     archivedCount: (() => {
       try {
@@ -167,11 +184,15 @@ function getCheckpointForDisplay(sessionId) {
   return { checkpoint: serialized, evidence: resolveEvidence(sessionId, row.checkpoint) };
 }
 
-function getCheckpointHistoryForDisplay(sessionId, limit) {
+function getCheckpointHistoryForDisplay(sessionId, limit, checkpointId) {
   const session = findSessionForDisplay(sessionId);
   const safeLimit = clampPage(limit, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT);
   if (!session) return { checkpoints: [], limit: safeLimit };
   const rows = checkpoints.getCheckpointHistory(sessionId, safeLimit);
+  if (Number.isSafeInteger(checkpointId) && !rows.some(row => row.id === checkpointId)) {
+    const row = db.prepare('SELECT * FROM workspace_checkpoints WHERE session_id=? AND id=?').get(sessionId, checkpointId);
+    if (row) { try { rows.push({ ...row, checkpoint: JSON.parse(row.checkpoint_json) }); } catch {} }
+  }
   return {
     checkpoints: rows.map(row => {
       const serialized = serializeCheckpointRow(sessionId, row);

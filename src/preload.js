@@ -197,7 +197,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getActiveMessages: (sessionId) => ipcRenderer.invoke('session:get-messages', { sessionId }),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('session:get-summary', { sessionId }),
   getCheckpoint: (sessionId) => ipcRenderer.invoke('session:get-checkpoint', { sessionId }),
-  getCheckpointHistory: (sessionId, limit) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit }),
+  getCheckpointHistory: (sessionId, limit, checkpointId) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit, checkpointId }),
   getBriefs: (sessionId) => ipcRenderer.invoke('session:get-briefs', { sessionId }),
   getBackgroundCommands: sessionId => ipcRenderer.invoke('session:get-background-commands', { sessionId }),
   onBackgroundCommand: callback => {

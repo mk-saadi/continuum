@@ -394,3 +394,38 @@ test('W6 managed startup keeps configured total and explicit slot count separate
   assert.equal(args[args.indexOf('-c') + 1], '70000');
   assert.equal(args[args.indexOf('-np') + 1], '2');
 });
+
+test('C7 175 persisted operations stage, activate atomically and dispatch in the same owning run', async () => {
+  const f = fixture();
+  for (let i = 5; i < 175; i++) {
+    const call = { id: `call-${i}`, type: 'function', function: { name: 'read_project_file', arguments: JSON.stringify({ relative_path: `f${i}.js` }) } };
+    const result = 'source output '.repeat(1000);
+    f.steps.push({ id: call.id, type: 'tool_call', toolName: call.function.name, args: JSON.parse(call.function.arguments), status: 'complete', result });
+    f.tail.push({ role: 'assistant', content: `Inspected f${i}.js`, tool_calls: [call] }, { role: 'tool', tool_call_id: call.id, content: result });
+  }
+  f.persistence.update({ content: 'Inspection completed', executionSteps: f.steps });
+  f.options.payload = await f.options.buildRequest(null, f.tail);
+  const result = await service.compactAtBoundary(f.options);
+  assert.equal(result.compressed, true, JSON.stringify(result.diagnostics));
+  assert.ok(result.diagnostics.generation.newEvidenceCharacters > 48000);
+  assert.ok(result.diagnostics.generation.staged.segments.length > 1);
+  await result.validateDispatch(); result.markContinued?.();
+  const checkpoint = checkpoints.getLatestCheckpoint(f.id).checkpoint;
+  assert.equal(checkpoint.projection.runId, f.owner.runId);
+  assert.equal(checkpoint.evidence.length, 173); // two protected recent rounds stay verbatim.
+  assert.ok(service.paired(result.payload.messages));
+  let dispatched;
+  const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
+  let replayed = 0;
+  await runMemoryChat({ modelId: 'model', baseUrl: 'http://fixture.invalid', messages: result.payload.messages,
+    projectId: project.id, executeTool: async () => { replayed++; assert.fail('Completed tool replay'); },
+    fetchImpl: async (_url, options) => { dispatched = JSON.parse(options.body); return Response.json({choices:[{finish_reason:'stop',message:{content:'Verified [TASK COMPLETE]'}}]}); } });
+  assert.equal(replayed, 0); assert.ok(service.paired(dispatched.messages));
+  for (const step of f.steps) {
+    const page = require('../src/main/workspaceEvidence').retrieve(f.id, { source_step_id: step.id, length: 8000 });
+    assert.match(page.text, /source output/);
+  }
+  records.push({ scenario: 'C7-175-same-run', operations: 175, checkpointEvidence: checkpoint.evidence.length,
+    retrievable: 175, replayed, diagnostics: result.diagnostics, finalRequest: dispatched,
+    finalRequestTokens: budget.approximateTokens(dispatched), method: 'approximate-full-request' });
+});

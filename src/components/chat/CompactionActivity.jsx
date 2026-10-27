@@ -1,6 +1,8 @@
 import React from 'react';
+import { useRightSidebar } from '../../context/UIStateContext.jsx';
 import { activityLabel, activityReason, measurementLabel } from '../../lib/compactionActivity.mjs';
 export default function CompactionActivity({ event }) {
+  const sidebar = useRightSidebar();
   const m = event.metadata ?? {};
   const complete = event.status === 'completed';
   const counts = complete && Number.isFinite(m.beforeTokens) && Number.isFinite(m.afterTokens);
@@ -16,6 +18,12 @@ export default function CompactionActivity({ event }) {
       <p>Complete request measurement: {m.measurementMethod ?? 'Unavailable'}{m.afterMeasurementMethod && ` → ${m.afterMeasurementMethod}`}</p>
       {m.usableInputTokens != null && <p>Usable input capacity: {m.usableInputTokens.toLocaleString()} tokens</p>}
       {m.triggerTokens != null && <p>Trigger: {m.triggerTokens.toLocaleString()} tokens</p>}
+      {m.checkpointId != null && <p>Checkpoint v{m.checkpointId} <button type="button" className="underline" onClick={() => {
+        sidebar?.setOpen(true);
+        window.dispatchEvent(new CustomEvent('continuum:inspect-checkpoint', { detail: { sessionId: event.session_id, checkpointId: m.checkpointId } }));
+      }}>Inspect checkpoint</button></p>}
+      {m.targetTokens != null && <p>Post-compaction target: {m.targetTokens.toLocaleString()} tokens · {m.targetMet ? 'Met' : 'Exceeded; essential context retained'}</p>}
+      {m.targetMet === false && m.targetReason && <p>{m.targetReason === 'retained-instructions-schemas-and-protected-rounds-exceed-target' ? 'Required instructions, schemas and protected context exceed the target.' : 'Essential working state remains after bounded refinement.'}</p>}
       {m.generationStages != null && <p>Generation stages: {m.generationStages}</p>}
       <p><time dateTime={event.started_at}>{event.started_at}</time></p>
     </div>

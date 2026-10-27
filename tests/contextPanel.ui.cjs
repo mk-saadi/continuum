@@ -48,6 +48,8 @@ app.whenReady().then(async () => {
       const record = (id, status, stale, reasons) => ({
         id, status, model_id: 'm', created_at: '2026-10-01 12:00:00', stale, staleReasons: reasons,
         checkpoint, summary: { id: 9, text: 'Old turns summarized.' }, archivedCount: 10,
+        workingState: { content: '[WORKSPACE CHECKPOINT]\\n' + JSON.stringify({objective:'Exact persisted working state ' + id, research:[{text:'Saved finding'}]}),
+          representation:'exact-persisted-continuation',consumedToolCount:3,durableEvidenceCount:5 },
       });
       const evidence = {
         '4:edit-1': { found: true, role: 'assistant', toolName: 'str_replace_editor', status: 'success', snippet: '{success:true}' },
@@ -96,6 +98,13 @@ app.whenReady().then(async () => {
       check(text().includes('Rolling summary'), 'summary card renders');
       check(text().includes('Archived messages'), 'archived card renders');
       check(text().includes('Checkpoint v3'), 'current version shown');
+      check(text().includes('Exact persisted working state 3'), 'persisted working state shown without generation');
+      check(text().includes('Raw working state'), 'raw saved representation available');
+      window.dispatchEvent(new CustomEvent('continuum:inspect-checkpoint', {detail:{sessionId:'s',checkpointId:2}}));
+      await wait(); await wait();
+      check(text().includes('Exact persisted working state 2'), 'event focuses historical saved content');
+      window.dispatchEvent(new CustomEvent('continuum:inspect-checkpoint', {detail:{sessionId:'s',checkpointId:3}}));
+      await wait(); await wait();
       check(text().includes('Build the widget and keep it green.'), 'objective shown');
       check(text().includes('brief #1') && text().includes('brief #2'), 'requirement brief references shown');
       check(text().includes('Verified') && text().includes('Unverified'), 'evidence labels distinguish verified claims');
@@ -134,7 +143,7 @@ app.whenReady().then(async () => {
       window.__compressionCb({ sessionId: 's', compressed: true, archivedCount: 7, checkpointId: 4 });
       await wait(); await wait();
       check(text().includes('Compressed 7 earlier messages into checkpoint v4.'), 'success status names the checkpoint');
-      check(!/token/i.test(text().split('Archived messages')[0]), 'no token-savings claims in status');
+      check(!/[0-9]+(?:[.,][0-9]+)?% (?:saved|less)/i.test(text().split('Archived messages')[0]), 'no fabricated token-savings claims in status');
       window.__compressionCb({ sessionId: 's', compressed: false, error: 'checkpoint backend offline', reason: 'checkpoint-generation-failed' });
       await wait(); await wait();
       check(text().includes('Last compression attempt failed: checkpoint backend offline.'), 'failure reason surfaced');
@@ -147,7 +156,7 @@ app.whenReady().then(async () => {
       check(document.querySelector('[role=alert]'), 'fetch failures surface as alerts');
       check(text().includes('Retry') || text().includes('Refresh'), 'retry affordance present');
       failMode.on = false;
-      [...document.querySelectorAll('button')].find(b => b.textContent === 'Refresh').click();
+      [...document.querySelectorAll('button')].filter(b => b.textContent === 'Refresh').at(-1).click();
       await wait(); await wait(); await wait();
       check(text().includes('Checkpoint v3'), 'retry recovers the panel');
       window.memoryPalace.getCheckpoint = async () => ({ checkpoint: null });
@@ -157,7 +166,7 @@ app.whenReady().then(async () => {
       window.memoryPalace.getArchivedMessages = async () => ({ messages: [], total: 0, limit: 20, offset: 0 });
       window.renderPanel('s', true);
       await wait(); await wait(); await wait();
-      [...document.querySelectorAll('button')].find(b => b.textContent === 'Refresh').click();
+      [...document.querySelectorAll('button')].filter(b => b.textContent === 'Refresh').at(-1).click();
       await wait(); await wait(); await wait();
       check(text().includes('No checkpoint yet'), 'empty checkpoint state');
       check(text().includes('No task brief recorded'), 'empty brief state');
