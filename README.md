@@ -1,150 +1,198 @@
 # Continuum 🌊
 
-A high-performance, privacy-first desktop AI assistant built with **Electron**, **React**, and **Vite**. Run local large language models (LLMs) side-by-side with cloud providers — all inside a sophisticated agentic workspace with long-term memory, self-extending tooling, and built-in safety rails.
+Continuum is a local-first desktop AI assistant combining local GGUF models, cloud providers, and an agentic development workspace in one Electron application. Chat, work on code, execute tools, manage long conversations, track usage, and review or recover workspace changes with configurable permissions.
 
----
+## Overview
 
-## ✨ Key Features
+**Casual Chat** is for conversation, attachments, rich responses, and persistent history. **Agentic Workspace** adds a project directory, native development tools, task plans, and permission-controlled execution. Model capabilities and your configuration determine which workflows are available.
 
-### 🔀 Dual Inference: Local + Cloud
-*   **Local Engine:** Powered by `llama.cpp` (via `hyllama`) — your data never leaves your machine.
-*   **Cloud Providers:** Connect any **OpenAI- or Anthropic-compatible** endpoint (plus DeepSeek). Save API keys in Settings → Cloud Providers; the UI only ever sees configuration status, never raw keys.
-*   **Simultaneous Loading:** Local GGUF models and cloud providers coexist. Switching to a cloud model leaves your loaded GGUF resident in VRAM — switching back reuses it instantly with zero reload cost.
+Conversations, memories, settings, and usage records are stored locally in SQLite. Local inference runs on your machine; cloud requests send their contents to the selected provider. External tools, web access, and model-asset downloads can also use the network.
 
-### 🤖 Agent Harness & Project Management
-*   **Custom Agents (Avatars):** Create specialized AI personas, each with its own system prompt, branding, avatar, and sampling parameters.
-*   **Project Contexts:** Organize work into Projects. Attach files (text/PDF) to a project for deep, persistent context shared across every chat in that project.
-*   **Sub-Agent Delegation:** Offload scoped research tasks to background sub-agents while the main conversation stays responsive. Sub-agent model, budgets, and retention are configurable; completed child contexts are pruned automatically with transcripts preserved in SQLite.
-*   **Branches, Variants & Regeneration:** Fork any message into a new branch, regenerate replies, and flip between saved variants without losing history.
+## Features
 
-### 📊 Rich Responses: Cards, Flows, Charts
-*   **Rich Blocks:** The assistant renders option cards and progress flows directly in chat.
-*   **Interactive Charts:** Numerical answers arrive as toggleable bar/line/area/pie charts (pastel palettes that stay readable in all 16 themes).
-*   **Faithful Rendering:** GFM tables, syntax-highlighted code with copy buttons, local image/video playback, LaTeX-arrow normalization, and inline color swatches for hex/rgb/hsl literals.
+### Local & Cloud Models
 
-### 🧠 Intelligent Memory Palace
-*   **Permanent Memory:** Facts, preferences, and rules that persist across all sessions — with optional "always inject" for mission-critical instructions. Memories can be global or scoped to specific models/agents.
-*   **Dynamic Context Summarization (Compaction):** Token usage is continuously monitored; older messages are intelligently summarized into a compact digest before the context window fills, preserving essential history without manual intervention.
-*   **Workspace Continuity:** Task briefs and resumable checkpoints preserve objectives, decisions, files changed, and next actions across compressions and restarts.
+- Discover GGUF files from configured model directories, select a model, and load it through an external `llama-server` (llama.cpp), with `hyllama` providing GGUF support.
+- Configure OpenAI-compatible and Anthropic-compatible chat endpoints, including OpenRouter and custom endpoints. Provider settings expose key-presence status to the UI rather than saved raw keys.
+- Set model profiles and per-chat sampling, generation limits, and supported reasoning/thinking controls. Local load settings include context size; runtime-aware context reporting helps distinguish configured capacity from the active engine's capacity.
+- Select cloud models independently of the loaded local engine. Returning to a still-running local model can reuse it, but idle unloading, explicit unloads, model changes, or engine failures can require a reload. Engine load/unload controls and lifecycle diagnostics expose these transitions.
 
-### 🛟 Workspace Recovery
-*   **Crash-Safe Sessions:** A content-addressed recovery journal (blob store, manifests, checkpoints) snapshots workspace files as the agent works. Shell and MCP writes are boundary-scanned; restores preview before applying.
-*   **Review & Restore UI:** Browse recovery history, inspect per-file diffs, pin checkpoints, and restore with one click. Retention and storage usage are configurable.
-*   **Cache-Token Telemetry:** The Context tab breaks down prompt/completion/cache tokens per turn, so you can see prompt caching working.
+Provider compatibility, token reporting, and reasoning controls vary by endpoint and model. See [reasoning compatibility](docs/reasoning-controls-compatibility-report.md) and [engine lifecycle validation](docs/s1-engine-startup-lifecycle-report.md).
 
-### 🛠️ Extensible Tooling (MCP) — Including Self-Registration
-*   **Model Context Protocol:** Full MCP support via `stdio` and `SSE`. Connect external tools, databases, and services using the industry-standard protocol.
-*   **Agentic Extensibility:** The assistant can *build its own tools*. When asked to create an MCP server, it writes the code under `mcp-plugins/`, registers it in `mcp_config.json`, and the server hot-reloads into its toolbelt — no manual setup required.
-*   **Native Tools:** Built-in filesystem access, media handling, memory operations, and a native Playwright browser-automation suite (no external MCP dependency needed).
+### Casual Chat & Agentic Workspace
 
-### 🛡️ Safety Rails
+Chat supports branches, saved response variants, regeneration, history search, in-chat find, and JSON/Markdown/text export. Project attachments provide shared context; [offline document chat](docs/offline-document-chat.md) adds local embedding-based retrieval after its model assets are available.
 
-*   **Git tools:** Status, diff, log, show, branch listing, and blame run in a Linux bubblewrap sandbox with a read-only filesystem and no network. Workspace staging allows explicit files only and confines Git filters to the workspace. These operations fail closed when bubblewrap or its required namespaces are unavailable.
-*   **Commit review:** Outside Full Access, commit approval includes the staged diff; changed staged content or branch state requires a new approval. Approved commits retain normal identity, signing, and hook configuration and execute with the existing approved-command permissions. Full Access also permits unrestricted staging. Inspection remains sandboxed in every mode.
-*   Dangerous database mutations (`DELETE FROM`, `TRUNCATE`, `DROP TABLE`, `deleteMany()`, broad-scope filters like `$ne` / `!=` / `1=1`) are detected before execution and **require explicit human confirmation**.
-*   Bulk writes outside an id-scoped pattern trigger a read-only preview first — preventing accidental destruction of important data during autonomous agent operations.
+In a Workspace, agents can inspect directories, read and create files, edit source, run commands and tests, and review Git changes. Multi-step tool execution, task plans, activity tracking, tool-status cards, and failure diagnostics make progress visible. Agents can request input or approval and continue across successful context compactions; completion without intervention is not guaranteed.
 
-### 🔒 Privacy & Performance (Local-First)
-*   All chat history, metadata, memories, and settings live in a local **SQLite** database — lightning-fast retrieval, zero cloud dependency for core functionality.
-*   One-time automatic migration handles legacy data directories transparently on startup.
+Attachments include images, audio, video, PDFs, and documents, subject to format and model support. Responses render Markdown tables, highlighted code, cards, progress flows, interactive charts, color swatches, and inline media. Attaching a format does not imply every model can interpret it. See [attachment handling](docs/file-attachments.md) and [chat history](docs/chat-history.md).
 
-### 🎨 Premium User Experience
-*   **16 Themes + Custom Backgrounds:** Eight hand-built light/dark families (Mochi, Lilac, Matcha, Ember, Tokyo Night, Gruvbox, Solarized, plus defaults) with per-surface translucency over your own wallpaper.
-*   **Custom Branding:** Each agent carries unique branding and avatars across the interface.
-*   **Chat Controls (Right Sidebar):** Per-chat overrides for Agent & Persona, Sampling parameters, Thinking Budget, and Memory & Context — with one-click reset to model defaults.
-*   **Chat Power Tools:** In-chat find (Ctrl+F), text selection actions, AI-generated titles, chat export (JSON/Markdown/Text), full-text history search, and per-model capability overrides.
-*   **Rich Attachments:** Images, audio, video, PDFs, and documents via picker, paste, or drag-and-drop. Local media renders inline through a sandboxed media protocol.
-*   **Media Generation:** Ask any chat model for an image and it invokes the image tool itself — routed to OpenRouter, any OpenAI-compatible images endpoint, or keyless local Stable Diffusion. Results save to your data directory and render inline like any other image. (Video defaults exist in settings; generation arrives with a supported video backend.)
-*   **Advanced Settings Modal:** Granular control over model profiles, cloud provider credentials, memory/compaction toggles, engine connections, and offline document chat embeddings.
+### Coding Tools & File Operations
 
----
+**Reliable File Editing and Recovery.** Native tools provide unique string replacement, guarded file writes, unified patches, and batches of up to 20 replacements. Exact matching comes first, with conservative formatting-tolerant matching for supported source, including CSS and candidate-local JSX/TSX checks. Ambiguous or unsafe matches reject rather than guessing.
 
-## 🛠️ Tech Stack
+Argument validation identifies the failing edit; diagnostics include bounded source excerpts, candidate locations, patch-context errors, revision conflicts where available, and guidance for a narrow reread and retry. Recovery capture accompanies eligible writes. Batches validate before writing, with guarded per-file writes and best-effort rollback on write failure—not a filesystem-wide transaction. These safeguards cannot establish that generated code is correct. See [editing reliability](docs/e2-editing-reliability-report.md).
 
-| Layer | Technology |
-| :--- | :--- |
-| **Runtime** | [Electron](https://www.electronjs.org/) |
-| **Frontend** | [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/) |
-| **Inference Engine** | `llama.cpp` (via `hyllama`) + OpenAI/Anthropic-compatible cloud APIs |
-| **Database** | [SQLite](https://www.sqlite.org/) |
-| **Protocol** | [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) |
-| **Browser Automation** | Playwright (native integration) |
+**Large-File Navigation.** Text reads return bounded pages by default, with explicit line ranges, total line counts, continuation positions, and source revision hashes. Optional revision checks detect stale pages; Unicode-safe character windows make unusually long lines inspectable. Source reads stay inside the workspace, including resolved symlinks. Agents can use edit diagnostics to read just the relevant range before retrying.
 
----
+Returned content is bounded, but each text page can scan the whole file internally for hashing, line counting, and binary detection. This is not constant-time random access. See [large-file reading](docs/r2-large-file-pagination-report.md).
 
-## 🚀 Getting Started
+### Memory & Automatic Compaction
+
+Persistent memories store facts, preferences, and rules, with global or model/agent scope and optional always-injected entries.
+
+Continuum monitors context pressure and budgets requests against available runtime capacity. Workspace compaction runs at safe boundaries and compresses older state into lightweight working checkpoints: current objectives, active constraints, unresolved work, decisions, and essential evidence references. Later cycles incrementally incorporate newly eligible evidence instead of repeatedly summarizing every old tool result.
+
+Original messages and tool evidence remain in local SQLite storage until separately deleted. Source-specific historical retrieval lets agents recover older details when needed instead of carrying the entire history in every request. Successful compaction can continue the same run through multiple cycles. Checkpoints are not perfect semantic memory, have no guaranteed token size, and compaction can fail or require intervention. Casual Chat has a separate summary/recovery path with its own support limits.
+
+See [lightweight Workspace context](docs/c6e-lightweight-workspace-context-report.md) and [Casual Chat recovery](docs/c5-casual-context-recovery-report.md).
+
+### Workspace Recovery
+
+Workspace recovery checkpoints preserve **file state**; context checkpoints preserve **agent working state**. They serve different purposes.
+
+A content-addressed blob store, manifests, and recovery journal capture eligible workspace changes. Native edits use targeted capture; shell and MCP operations use boundary scans. Review recovery history, inspect file diffs, pin checkpoints, preview restores, and configure retention/storage limits.
+
+Coverage can be partial: exclusions, file-size limits, unsupported paths, scan caps, or intervening changes can leave files uncaptured or prevent a safe restore. Review coverage warnings and restore previews. Recovery cannot undo external actions or guarantee recovery of arbitrary commands or an interrupted agent run. See [recovery architecture](docs/workspace-recovery-architecture.md).
+
+### Subagents & MCP
+
+Delegate scoped investigations, file analysis, or web extraction to child agents, with model selection, execution/token budgets, parent/child coordination, and result collection. Child transcripts and completed-run metadata persist in SQLite; completed in-memory contexts can be pruned under retention settings. Investigation tools are restricted, and specialized file/web tasks have narrower execution paths.
+
+Children have context-management support, but parent-level self-compaction parity and real-model reliability are not established universally. Active jobs and budget ledgers are not restored after application restart. See [subagent execution and limits](docs/subagents.md).
+
+Connect MCP servers over **stdio, SSE, or Streamable HTTP**. Configuration watching supports hot reload and tool registration/discovery. Agents can create and register server code, subject to permissions, available dependencies, and successful server startup; setup is not guaranteed to be automatic. Native Playwright browser tools are also available and require a compatible browser installation. See [MCP configuration](MCP.md).
+
+### Usage & Cost Analytics
+
+- **Per response:** prompt/completion tokens, reasoning and cache categories when reported, processed-token and generation metrics where available, and recorded charges. Accounting can aggregate multiple model requests in a tool-using response.
+- **Per conversation:** latest-response cost, recorded chat spending, usage history, and partial-coverage indicators.
+- **Usage & Logs:** token histories/charts with model, project, and time filters, alongside diagnostic engine logs.
+- **Usage & Costs:** recorded spending, provider/model/workspace filters, spending over time, conversation and subagent attribution, cloud token usage, cache savings when calculable, and historical pricing evidence. Dashboard time buckets are labelled UTC.
+
+Provider-reported charges take precedence over rate-based estimates. Estimates use available pricing evidence; unknown charges remain unknown. A `≥` subtotal indicates incomplete cost coverage, not exact lifetime spending. Local inference has no cloud-provider charge; that is distinct from a measured zero-priced cloud request. Token categories and statistics depend on provider telemetry, and recorded history is not a substitute for a provider invoice.
+
+See [cost accounting](docs/cloud-cost-estimation-report.md) and [spending dashboard](docs/cloud-spending-dashboard-report.md).
+
+### Customization & Notifications
+
+Choose from **22 themes** across 11 light/dark families, custom backgrounds with surface translucency, and agent avatars/personas with their own prompts and model settings. Per-chat controls override model defaults for sampling, supported thinking settings, and memory/context behavior.
+
+Configure desktop notifications for completion, errors, context overflow, and requests for input. Notification sounds have completion, interruption, and attention cues, volume controls, event toggles, and previews.
+
+Image generation tools support configured OpenRouter or OpenAI-compatible image endpoints and a separately running Stable Diffusion API. Results are saved locally and displayed inline. Backend availability and permissions still apply. Video-provider defaults exist in settings; a released native video-generation backend is not established by the current implementation.
+
+## Safety & Permissions
+
+Permissions are enforced per tool and session; these descriptions are not a universal operating-system security guarantee.
+
+| Mode | Behavior |
+| --- | --- |
+| **Read Only** | Allows classified reads, read-only child delegation, and existing plan inspection; blocks edits and arbitrary shell commands. |
+| **Ask for Approval** | Allows reads and ordinary contained workspace edits; asks for opaque commands, external mutations, and actions requiring additional review. It does not prompt for every tool call. |
+| **Workspace Write** | Allows contained edits, task-plan updates, and commands with an available workspace sandbox. Package installation/publication, uncontained execution, and consequential actions have additional review gates. Connected MCP actions may run without individual prompts under this mode's policy. |
+| **Full Access** | Authorizes ordinary tools and host command execution without the usual approval gates. Tool-specific workspace requirements, path restrictions, and Git inspection containment still apply. |
+
+Contained shell and Git profiles use **Linux bubblewrap** with explicit filesystem mounts. Offline shell execution and Git inspection isolate networking; authorized Git remote operations use a different network profile. Missing sandbox support fails closed for contained operations or requires review where policy permits; there is no silent host fallback. Extra SDK/runtime paths may need configuration.
+
+Git inspection remains read-only and sandboxed in every mode. Workspace staging uses explicit files and confines filters; outside Full Access, commit review includes the staged diff and invalidates approval if staged content or branch state changes. Publication has additional review. Full Access permits unrestricted staging. See [permission and containment details](docs/permissions.md).
+
+Database safeguards detect recognized dangerous mutations and broad-scope filters, with preview/scoped-approval paths where policy requires them. Detection is heuristic; Workspace Write MCP policy and Full Access change approval behavior. Do not assume every destructive query always prompts. Tool-output secret redaction is also heuristic and does not cover all content paths or prevent all disclosure.
+
+## Architecture / Tech Stack
+
+| Layer | Implementation |
+| --- | --- |
+| Desktop | Electron 44.7.0; preload/IPC boundary between renderer and main-process services |
+| Interface | React 18, Vite 6, Tailwind CSS 4, Recharts, Markdown/code rendering |
+| Inference | External llama.cpp `llama-server`, `hyllama` GGUF support, OpenAI/Anthropic-compatible APIs |
+| Persistence | SQLite through `better-sqlite3`; local history, memory, execution and usage records |
+| Agent services | Native tools, context budgeting/compaction, task plans, recovery, subagents |
+| Integrations | MCP SDK, native Playwright browser automation, TypeScript language-server tools |
+
+## Getting Started
 
 ### Prerequisites
-*   [Node.js](https://nodejs.org/) ≥ 22.12 for development and release builds (required by Electron 44 tooling).
-*   Linux x86_64: Ubuntu 22.04 LTS / Debian 12 or newer. See [Linux support and release validation](docs/migration-electron44-release-build.md); package execution on these minimum distributions remains unverified.
 
-### Installation & Development
+- **Node.js ≥ 22.12** for the documented development/release workflow. The package's `engines` field still says ≥20; Electron 44 build tooling requires the higher development baseline.
+- **Linux x86_64:** approved baseline Ubuntu 22.04 LTS / Debian 12 or newer. Packaging was validated on the development host; execution on those minimum distributions remains unverified. See [Linux release validation](docs/migration-electron44-release-build.md).
+- Desktop runtime libraries are required. Native builds may need Python, make, and a C/C++ toolchain when compatible prebuilds are unavailable. Linux contained execution needs bubblewrap and working namespaces.
+- For local inference, separately install a compatible `llama-server` on the inherited `PATH` or configure the engine launch command, and supply GGUF weights (plus vision projector weights when needed). Hardware/RAM/VRAM requirements depend on the model and load settings.
+- Cloud inference needs a configured provider endpoint and usually an API key. MCP servers need their own runtimes/dependencies; Playwright needs matching browser assets and OS libraries. Offline document embeddings download assets on first use.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/mk-saadi/continuum.git
-    cd continuum
-    ```
+Model weights and the local inference executable are not bundled. No provider environment variable is required for basic startup; configure directories, engine settings, and providers in the application. Cross-platform source availability does not establish validated Windows/macOS packaging support.
 
-2.  **Install dependencies:**
-    ```bash
-    npm ci --ignore-scripts
-    npm exec --no -- install-electron
-    npm rebuild --foreground-scripts
-    ```
-
-3.  **Run in development mode:**
-    ```bash
-    npm run dev
-    ```
-
-### Building for Production
+### Installation
 
 ```bash
-# Build the project
+git clone https://github.com/mk-saadi/continuum.git
+cd continuum
+npm ci --ignore-scripts
+npm exec --no -- install-electron
+npm rebuild --foreground-scripts
+```
+
+Keep this order: install locked dependencies, explicitly install Electron, then run native dependency lifecycle/rebuild scripts.
+
+### Development
+
+```bash
+npm run dev
+```
+
+This starts Vite and launches Electron after port 5173 is available. Configure model directories and load a local model, or add a cloud provider, before starting inference.
+
+### Building & Packaging
+
+```bash
+# Build the renderer
 npm run build
 
-# Build and package for your current OS (Vite build + electron-builder)
+# Build and package with electron-builder
 npm run dist
 ```
 
----
+Linux targets are AppImage and Debian packages under `release/`. These commands do not establish validation on every OS or distribution.
 
-## 🧪 Development Notes
+## Development Status
 
-Tests use Node's built-in test runner. For suites that touch Electron-specific modules (SQLite ABI), run them under Electron's Node runtime:
+Continuum is actively developed. Editing, pagination, compaction, permissions, recovery, and accounting have deterministic regression coverage, but that does not establish universal real-model or platform reliability. Recent context and edit-recovery reports explicitly retain real-model acceptance gaps and known baseline/environment test failures.
 
-```sh
-ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/<suite>.cjs
-env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/<ui-suite>.cjs
-npm run build
+Local performance depends on hardware and model; cloud features require provider access. Compaction and corrective tool use depend partly on model behavior, recovery coverage can be incomplete, and native sandboxing is platform-dependent. Persistent scheduled autonomous jobs, arbitrary crash-resumable tasks, and work after application shutdown are not documented as implemented capabilities.
+
+See the [README accuracy audit](docs/readme-v2-audit.md) for source evidence and documentation gaps, and [release readiness](docs/migration-electron44-release-readiness.md) for packaging limits.
+
+## Testing
+
+Tests use Node's built-in runner, with unit, integration, and Electron/UI suites:
+
+```bash
+npm test
+
+# A focused suite using Electron's Node runtime for Electron/native-module compatibility
+ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/recoveryStore.test.cjs
+
+# Example Linux UI suite; requires Xvfb and compatible browser/runtime dependencies
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/recoveryCard.ui.cjs
 ```
 
----
+Some suites require Electron's native-module runtime, sandbox/network support, or browser assets. `--no-sandbox` above belongs to the isolated UI test harness. The full suite is not claimed to pass in every environment; consult the linked feature reports for tested scope and known failures.
 
-## 📂 Project Structure
+## Project Structure
 
-*   `src/main/`: Core logic — `agentManager`, `projectManager`, `memoryManager`, `compressionEngine`, `cloudProviders`, `safetyGuards`, `mcpManager`, `nativePlaywright`, `recoveryStore`/`recoveryBoundary` (workspace recovery), `taskBriefs`/`taskCheckpoints`.
-*   `src/components/`: React components for the user interface, including `RichBlocks` (cards/flows), `InteractiveChart`, and `chat/` timeline, recovery, and find widgets.
-*   `src/hooks/`: Custom React hooks for state management and side effects.
-*   `docs/`: Detailed documentation on chat history, file attachments, offline document chat, recovery architecture, and performance reports.
-*   `tests/`: Comprehensive test suite (unit, integration, and UI tests).
+- `main.js`, `preload.js`: desktop lifecycle, local engine process, and renderer IPC bridge.
+- `src/main/`: agent orchestration, local/cloud inference, context budgeting/compaction, memory, task checkpoints, workspace recovery, and usage accounting.
+- `src/main/tools/`: native file/edit, history/memory, image, web, and language-server tools.
+- `src/main/subagents/`: child execution, models, budgets, and context management.
+- `src/components/`: chat, Workspace, recovery, rich responses, and settings/usage interfaces.
+- `src/hooks/`, `src/lib/`: renderer state hooks and shared policies/formatters.
+- `tests/`: unit, integration, UI suites, and fixtures.
+- `docs/`: architecture, feature verification, performance, and release reports.
 
----
+## Contributing
 
-## 🤝 Contributing
+Contributions are welcome. Fork the repository, create a focused branch, and open a pull request with a clear description and relevant validation. Use conventional-commit style messages and identify platform or model requirements when reporting issues.
 
-Contributions are welcome! Whether it's a bug fix, a new feature, or improved documentation:
+## License
 
-1.  Fork the project.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes using conventional-commit style messages.
-4.  Push to the branch and open a Pull Request.
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-**Built with ❤️ for local AI enthusiasts.**
+Distributed under the MIT License. See [LICENSE](LICENSE).
