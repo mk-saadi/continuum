@@ -23,7 +23,7 @@ function validateExtraPaths(paths, { home = os.homedir(), maskedPaths = [] } = {
   });
 }
 // Pure: inputs contain already resolved paths. Mount ordering is security-critical.
-function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [] }) {
+function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [], maskedSockets = [] }) {
   const argv = ['--tmpfs', '/', '--tmpfs', '/tmp', '--dir', '/sandbox-home'];
   if (tmp) argv.push('--bind', tmp, '/tmp');
   const bound = new Set();
@@ -37,6 +37,7 @@ function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = 
     }
   }
   if (workspace) bind(workspace, workspace, writable);
+  for (const socket of maskedSockets) bind('/dev/null', socket);
   for (const p of gitMetadata) bind(p, p);
   // Hidden data is an empty read-only mount, not writable scratch space.
   const masked = [];
@@ -56,26 +57,29 @@ function environment(host = process.env, { home = '/sandbox-home', pathValue = '
   for (const [key, value] of Object.entries(host)) if (/^(?:LANG|LC_[A-Z_]+|TERM|TZ)$/.test(key)) env[key] = value;
   return env;
 }
-function assertNoSockets(directory) {
+function assertNoSockets(directory, maskedSockets) {
   const pending = [directory];
   while (pending.length) {
     const p = pending.pop();
     const stat = fs.lstatSync(p);
-    if (stat.isSocket()) throw new Error(`Sandbox socket path is not permitted: ${p}`);
+    if (stat.isSocket()) {
+      if (maskedSockets) maskedSockets.push(p);
+      else throw new Error(`Sandbox socket path is not permitted: ${p}`);
+    }
     if (stat.isDirectory()) for (const child of fs.readdirSync(p)) pending.push(path.join(p, child));
   }
 }
 // The kernel's active Unix socket table also covers sockets in system runtime
 // trees without recursively walking hundreds of thousands of /usr files.
-function assertNoExposedHostSockets(roots) {
+function assertNoExposedHostSockets(roots, maskedSockets = []) {
   let table;
   try { table = fs.readFileSync('/proc/net/unix', 'utf8'); } catch { throw unavailable('/proc/net/unix'); }
   for (const line of table.split('\n').slice(1)) {
     const socket = line.match(/^(?:\S+\s+){7}(\/.*)$/)?.[1];
-    if (socket && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
+    if (socket && !maskedSockets.includes(socket) && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
   }
 }
-function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false }) {
+function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false, maskWorkspaceSockets = false }) {
   if (!config || !userData) {
     const { app } = require('electron');
     config ??= require('./configStore').getConfig();
@@ -89,7 +93,8 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
   for (const scratch of [home, tmp].filter(Boolean)) {
     if ([config.appDataDirectory, userData].map(p => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } }).some(p => inside(p, scratch) && inside(workspace, p))) throw unavailable(scratch);
   }
-  assertNoSockets(workspace);
+  const maskedSockets = [];
+  assertNoSockets(workspace, maskWorkspaceSockets && !protectGitMetadata ? maskedSockets : undefined);
   const extras = validateExtraPaths(config.extraReadOnlyRuntimePaths ?? [], { maskedPaths });
   for (const p of extras) assertNoSockets(p);
   const runtimes = extras.map(p => ({ source: p, destination: p }));
@@ -132,9 +137,9 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     runtimes.push({ source: validated, destination: validated });
     bins.push(path.join(validated, 'bin'), parent);
   }
-  assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)]);
+  assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)], maskedSockets);
   const gitMetadata = protectGitMetadata ? require('./gitMetadata').resolveGitMetadata(workspace) : [];
-  const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata }),
+  const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata, maskedSockets }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
   if (!network && writable && protectGitMetadata) shellPlans.set(plan, { workspace, mounts: [...plan.mounts], env: { ...plan.env } });
   return plan;

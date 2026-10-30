@@ -239,7 +239,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
 		>
 			<form
 				onSubmit={submit}

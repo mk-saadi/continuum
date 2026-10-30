@@ -24,7 +24,7 @@ function manifest(mode, cwd) {
 function section(mode, cwd) {
   const m = manifest(mode, cwd);
   const runtime = m.sandboxed ? 'node/npm/python3/git unknown' : Object.entries(m.runtimes).map(([k,v]) => `${k} ${v}`).join(',');
-  return `[COMMAND ENVIRONMENT] ${m.profile}; ${m.shell}; cwd=${m.cwd}; HOME ${m.home}; ${runtime}; NVM ${m.hostNvmInitialization}; network ${m.network}; tmp ${m.sandboxed ? 'isolated' : 'host'}; Unix/X11/GUI ${m.sandboxed ? 'unavailable' : 'OS policy/display unverified'}; packages ${m.sandboxed ? 'approval/no network' : 'OS policy'}. No Bash syntax. Run tests directly.`;
+  return `[COMMAND ENVIRONMENT] ${m.profile}; ${m.shell}; cwd=${m.cwd}; HOME ${m.home}; ${runtime}; NVM ${m.hostNvmInitialization}; network ${m.network}; tmp ${m.sandboxed ? 'isolated' : 'host'}; Unix/X11/GUI ${m.sandboxed ? 'unavailable' : 'OS policy/display unverified'}; packages ${m.sandboxed ? 'approval/no network' : 'OS policy'}. No Bash syntax. Run tests directly.${require('./workspaceGit').section(mode, cwd)}`;
 }
 
 const displayFailure = result => /(?:Missing X server or \$DISPLAY|cannot open display|Unable to open X display|Failed to connect to (?:the )?X server|The platform failed to initialize)/i.test(`${result?.stderr || ''}\n${result?.stdout || ''}`);

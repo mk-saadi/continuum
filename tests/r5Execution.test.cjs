@@ -182,14 +182,15 @@ test('execution environment refresh follows live permission revision without lea
 });
 
 
-test('real stale workspace X11 socket blocks sandbox validation but never Full Access Git', async () => {
+test('real stale workspace X11 socket is masked for Git, still blocks shell sandbox and never blocks Full Access', async () => {
  const net = require('node:net');
  const dir = path.join(workspace, '.llm_workspace/sandbox/tmp/.X11-unix'); fs.mkdirSync(dir, { recursive: true });
  const socket = path.join(dir, 'X77'); const server = net.createServer();
  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(socket, resolve); });
  try {
   const isolated = await call('git_status', {}, 'workspace_write');
-  assert.match(isolated.error, /Sandbox socket path is not permitted/);
+  assert.ok(isolated.output, JSON.stringify(isolated));
+  assert.throws(() => require('../src/main/sandboxFilesystem').resolveFilesystem({ workspace, protectGitMetadata: true }), /Sandbox socket path is not permitted/);
   const host = await call('git_status', {}); assert.ok(host.output, JSON.stringify(host));
   const shell = await call('execute_command', { command: 'printf HOST_OK' }); assert.equal(shell.stdout, 'HOST_OK');
  } finally { await new Promise(resolve => server.close(resolve)); }

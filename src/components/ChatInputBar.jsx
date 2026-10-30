@@ -31,7 +31,7 @@ const ChatInputBar = memo(
 			steeringEnabled = false,
 			steeringBusy = false,
 			attachDisabled,
-            attachmentTooltip = "Attach text files, PDF, or Excel (.xlsx)",
+			attachmentTooltip = "Attach text files, PDF, or Excel (.xlsx)",
 			sendTitle,
 			permissionMode = PERMISSION_MODE_DEFAULTS.casual,
 			onPermissionModeChange,
@@ -68,8 +68,7 @@ const ChatInputBar = memo(
 			// Empty/single-line content must never show a scrollbar (subpixel
 			// rounding alone can trip overflow-y: auto). Only scroll once the
 			// max-height cap actually clips content.
-			element.style.overflowY =
-				element.scrollHeight > element.clientHeight + 1 ? "auto" : "hidden";
+			element.style.overflowY = element.scrollHeight > element.clientHeight + 1 ? "auto" : "hidden";
 		}, [draftText]);
 
 		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments || hasQuote);
@@ -84,19 +83,19 @@ const ChatInputBar = memo(
 			} else if (ready) onSubmit(draftText);
 		};
 
-	function collectPastedFiles(event) {
-		const clipboard = event.clipboardData;
-		if (!clipboard) return [];
-		// Files first (real file copies, screenshots from most apps).
-		const fromFiles = clipboard.files?.length ? Array.from(clipboard.files) : [];
-		if (fromFiles.length) return fromFiles;
-		// Fallback: clipboard items (e.g. copied web images expose no File).
-		const items = Array.from(clipboard.items ?? []);
-		return items
-			.filter((item) => item.kind === "file")
-			.map((item) => item.getAsFile())
-			.filter(Boolean);
-	}
+		function collectPastedFiles(event) {
+			const clipboard = event.clipboardData;
+			if (!clipboard) return [];
+			// Files first (real file copies, screenshots from most apps).
+			const fromFiles = clipboard.files?.length ? Array.from(clipboard.files) : [];
+			if (fromFiles.length) return fromFiles;
+			// Fallback: clipboard items (e.g. copied web images expose no File).
+			const items = Array.from(clipboard.items ?? []);
+			return items
+				.filter((item) => item.kind === "file")
+				.map((item) => item.getAsFile())
+				.filter(Boolean);
+		}
 
 		return (
 			<>
@@ -263,7 +262,6 @@ function PermissionSelector({
 					</option>
 				))}
 			</SelectField>
-            <span className="block text-[10px] text-zinc-500" aria-live="polite">Execution environment: {value === 'full_access' ? 'Host' : value === 'read_only' ? 'No executable shell' : value === 'workspace_write' || modes.includes('workspace_write') ? 'Workspace sandbox' : 'Host after approval'}</span>
 		</div>
 	);
 }

@@ -510,11 +510,11 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_stash",
-		"Push tracked worktree changes onto the stash, pop the latest (or indexed) entry back, or list stored entries. Push stores tracked changes only, never untracked files; pop surfaces conflicts as errors and never auto-resolves them.",
+		"Push tracked worktree changes onto the stash, pop the latest (or indexed) entry back, list entries, or show an entry diff. Workspace Write captures tracked files before push/pop and blocks incomplete coverage. Push stores tracked changes only, never untracked files; pop surfaces conflicts as errors and never auto-resolves them.",
 		{
-			action: { type: "string", enum: ["push", "pop", "list"], description: "push stores tracked changes, pop restores an entry and drops it, list shows stored entries" },
+			action: { type: "string", enum: ["push", "pop", "list", "show"], description: "push stores tracked changes, pop restores an entry and drops it, list shows entries, show inspects the indexed entry" },
 			message: string("Optional push-only message (at most 500 characters)"),
-			index: { type: "number", description: "Optional pop-only entry number (defaults to the latest)" },
+			index: { type: "number", description: "Optional pop/show entry number (defaults to the latest)" },
 		},
 		["action"],
 	),
@@ -1086,8 +1086,11 @@ const gitExecutionScope = new (require('node:async_hooks').AsyncLocalStorage)();
 async function runGit(root, args, signal, { write = false, uncontained = false, network = false, askpass } = {}) {
  uncontained = uncontained || gitExecutionScope.getStore()?.host === true;
 	root = await fs.realpath(root);
+    signal?.throwIfAborted();
+    const repository = !uncontained ? require('../workspaceGit').assertRepository(root, `git ${args[0]}`) : null;
     gitExecutionScope.getStore()?.validateAuthorization?.();
 	const env = uncontained ? Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))) : require('../sandboxFilesystem').environment();
+	if (repository) Object.assign(env, { GIT_DIR: repository.gitdir, GIT_WORK_TREE: root });
 	Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' });
 	// SSH transport is unsupported by design (gh-CLI HTTPS only): never let a
 	// sandboxed git reach the ambient agent socket, even when one is configured.
@@ -1101,7 +1104,7 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 	if (!uncontained) Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' });
 	if (!uncontained) Object.assign(env, require('../gitIdentity').identityEnvironment(root, { required: args[0] === 'commit' }));
 	const gitArgs = ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'color.ui=false',
-		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null'] : []), ...args];
+		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false', '-c', 'submodule.recurse=false'] : []), ...args];
 	// A cwd is not containment: Git can run filters, diff drivers and helpers.
 	// Reads run with an allowlisted runtime filesystem and no network; only
 	// explicit write operations may receive a writable workspace mount.
@@ -1113,7 +1116,7 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 	let commandArgs = gitArgs;
 	if (!uncontained) {
 		if (process.platform !== 'linux') throw new Error('Git sandbox is unavailable on this platform.');
-		const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: root, network, writable: write, askpassDirectory: askpass ? path.dirname(askpass) : undefined });
+		const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: root, network, writable: write, maskWorkspaceSockets: true, askpassDirectory: askpass ? path.dirname(askpass) : undefined });
 		Object.assign(env, filesystem.env, { PATH: '/usr/local/bin:/usr/bin:/bin' });
 		command = 'bwrap';
 		commandArgs = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
@@ -1130,12 +1133,18 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 				if (error) {
 					if (error.code === "ENOENT") return reject(new Error(`${command} is not installed; Git execution is blocked.`));
 					if (/not a git repository/i.test(stderr))
-						return reject(new Error("Not a git repository: the project workspace has no .git directory."));
+						return reject(require('../workspaceGit').failure('NOT_A_GIT_REPOSITORY', `git ${args[0]}`, 'This workspace is not a Git repository.', 'Continue using file tools, tests and Continuum recovery; initialize Git only when authorized.'));
 					// Merge-style failures (stash pop conflicts, checkout
 					// collisions) report on stdout, not stderr: include both
 					// so the caller always sees git's own diagnosis verbatim.
 					const detail = `${stdout}\n${stderr}`.trim() || error.message;
-					return reject(new Error(`git ${args[0]} failed: ${detail.slice(0, 500)}`));
+					const code = error.name === 'AbortError' || signal?.aborted ? 'GIT_OPERATION_CANCELLED'
+                        : /CONFLICT|unmerged|fix conflicts/i.test(detail) ? 'GIT_CONFLICT'
+                        : /Authentication failed|could not read Username|Permission denied/i.test(detail) ? 'GIT_REMOTE_AUTH_FAILED'
+                        : /Could not resolve host|Network is unreachable|Failed to connect|Connection timed out/i.test(detail) ? 'GIT_NETWORK_UNAVAILABLE' : 'GIT_OPERATION_FAILED';
+                    return reject(require('../workspaceGit').failure(code, `git ${args[0]}`, detail.slice(0, 500),
+                        'Inspect git_status before retrying; preserve changes and resolve the reported condition.',
+                        { operation_executed: 'unknown', side_effects: 'unknown' }));
 				}
 				resolve(stdout);
 			},
@@ -1145,6 +1154,63 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
 
 function truncateGitOutput(stdout) {
 	return stdout.length > GIT_OUTPUT_LIMIT ? `${stdout.slice(0, GIT_OUTPUT_LIMIT)}\n[Output truncated]` : stdout;
+}
+
+// NUL-delimited diffs preserve unusual names. Capture the union of staged,
+// unstaged and incoming stash paths; fingerprint index and working bytes.
+async function prepareGitStash(root, signal, args = {}) {
+    const diffNames = ['--name-only', '-z', '--no-renames', '--no-ext-diff', '--no-textconv'];
+    const output = await runGit(root, ['diff', ...diffNames], signal) +
+        await runGit(root, ['diff', '--cached', ...diffNames], signal);
+    let extra = '';
+    if (args.action === 'pop') {
+        const index = args.index ?? 0;
+        if (!Number.isSafeInteger(index) || index < 0) throw new Error('index must be a non-negative integer.');
+        const entries = (await runGit(root, ['stash', 'list'], signal)).split('\n').filter(Boolean);
+        if (index >= entries.length) throw new Error(`Invalid index: only ${entries.length} stash entries stored.`);
+        extra = await runGit(root, ['diff', ...diffNames, `stash@{${index}}^1`, `stash@{${index}}`], signal);
+    }
+    const paths = [...new Set((output + extra).split('\0').filter(Boolean))].sort();
+    if (paths.length > recoveryStore.RECOVERY_MAX_OP_FILES) throw require('../workspaceGit').failure('GIT_RECOVERY_INCOMPLETE', 'git_stash', 'Tracked scope exceeds recovery file limits.', 'Preserve changes and reduce the scope before retrying.');
+    let totalBytes = 0;
+    const states = {};
+    const hash = require('node:crypto').createHash('sha256');
+    hash.update(await runGit(root, ['ls-files', '--stage', '-z'], signal));
+    for (const rel of paths) {
+        signal?.throwIfAborted();
+        const target = await scopedPath(root, rel);
+        const stat = await fs.lstat(target).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+        hash.update(rel).update('\0');
+        if (!stat) { hash.update('absent'); states[rel] = { kind: 'absent' }; continue; }
+        if (!stat.isFile() || stat.isSymbolicLink()) throw require('../workspaceGit').failure('GIT_RECOVERY_INCOMPLETE', 'git_stash', `Unsupported tracked content: ${rel}.`, 'Preserve this content manually or use a non-destructive alternative.');
+        totalBytes += stat.size;
+        if (stat.size > recoveryStore.RECOVERY_MAX_FILE_BYTES || totalBytes > recoveryStore.RECOVERY_MAX_OP_BYTES)
+            throw require('../workspaceGit').failure('GIT_RECOVERY_INCOMPLETE', 'git_stash', `Recovery size limits exceeded at ${rel}.`, 'Preserve this content manually; choose a non-destructive alternative.');
+        const handle = await fs.open(target, require('node:fs').constants.O_RDONLY | require('node:fs').constants.O_NOFOLLOW);
+        let bytes;
+        try {
+            const opened = await handle.stat();
+            if (!opened.isFile() || opened.ino !== stat.ino || opened.dev !== stat.dev || opened.size !== stat.size)
+                throw require('../workspaceGit').failure('GIT_RECOVERY_REQUIRED', 'git_stash', 'Tracked content changed during inspection.', 'Inspect changes and retry with fresh recovery.');
+            const buffer = Buffer.alloc(stat.size + 1);
+            let length = 0;
+            while (length < buffer.length) {
+                const read = await handle.read(buffer, length, buffer.length - length, length);
+                if (!read.bytesRead) break;
+                length += read.bytesRead;
+            }
+            const after = await handle.stat();
+            if (length !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs)
+                throw require('../workspaceGit').failure('GIT_RECOVERY_REQUIRED', 'git_stash', 'Tracked content changed during inspection.', 'Inspect changes and retry with fresh recovery.');
+            bytes = buffer.subarray(0, length);
+        } finally { await handle.close(); }
+        const digest = require('node:crypto').createHash('sha256').update(bytes).digest('hex');
+        hash.update(digest).update(String(stat.mode));
+        states[rel] = { kind: 'file', hash: digest, size: bytes.length };
+    }
+    hash.update(await runGit(root, ['rev-parse', '--verify', 'HEAD'], signal));
+    hash.update(await runGit(root, ['stash', 'list'], signal));
+    return { paths, states, fingerprint: hash.digest('hex') };
 }
 
 async function prepareGitCommit(root, signal) {
@@ -1177,7 +1243,7 @@ async function requireCleanGitWorktree(root, signal, uncontained, purpose = "swi
 	const status = await runGit(root, ["status", "--porcelain=v1"], signal, { uncontained });
 	const dirty = status.split("\n").some((line) => line.length > 0 && !line.startsWith("??"));
 	if (dirty)
-		throw new Error(`Worktree has staged or unstaged changes; commit or stash them before ${purpose}.`);
+		throw require('../workspaceGit').failure('GIT_WORKTREE_DIRTY', purpose, 'Worktree has staged or unstaged changes.', 'Inspect changes, then commit or stash them before switching branches.');
 }
 
 // Remote names come from an allow-list, never from free-form input: the value
@@ -1360,7 +1426,19 @@ async function prepareGitPush(root, args, signal) {
 }
 
 async function executeGitTool(root, name, args, signal, uncontained = false, approval = null, fullAccess = false, validateAuthorization = () => {}) {
- return gitExecutionScope.run({ host: fullAccess, validateAuthorization }, () => executeGitToolInScope(root, name, args, signal, uncontained || fullAccess, approval, fullAccess));
+ return gitExecutionScope.run({ host: fullAccess, validateAuthorization, recovery: approval?.gitRecovery, recoveryRequired: approval?.mode === 'workspace_write' }, async () => {
+    try {
+        const result = await executeGitToolInScope(root, name, args, signal, uncontained || fullAccess, approval, fullAccess);
+        if (approval?.gitRecovery?.checkpointId) {
+            try { await recoveryStore.recordOpPostState(approval.gitRecovery.checkpointId,
+                await recoveryStore.snapshotCurrentState(root, approval.gitRecovery.paths, false)); } catch { /* Conservative restore if post-scan fails. */ }
+        }
+        return result;
+    } catch (error) {
+        if (approval?.gitRecovery?.checkpointId) error.gitDetails = { ...error.gitDetails, recoveryCheckpointId: approval.gitRecovery.checkpointId };
+        throw error;
+    }
+ });
 }
 async function executeGitToolInScope(root, name, args, signal, uncontained, approval, fullAccess) {
 	if (name === "git_status") {
@@ -1503,13 +1581,25 @@ async function executeGitToolInScope(root, name, args, signal, uncontained, appr
 		return { output, branch };
 	}
 	if (name === "git_stash") {
-		if (args.action !== "push" && args.action !== "pop" && args.action !== "list")
-			throw new Error('action must be one of "push", "pop", or "list".');
+		if (args.action !== "push" && args.action !== "pop" && args.action !== "list" && args.action !== "show")
+			throw new Error('action must be one of "push", "pop", "show", or "list".');
 		if (args.action === "list") {
 			if (args.message !== undefined) throw new Error("message is only valid for push.");
 			if (args.index !== undefined) throw new Error("index is only valid for pop.");
 			return { output: truncateGitOutput(await runGit(root, ["stash", "list"], signal, { uncontained })), action: "list" };
 		}
+        if (args.action === "show") {
+            if (args.message !== undefined) throw new Error("message is only valid for push.");
+            const index = args.index ?? 0;
+            if (!Number.isSafeInteger(index) || index < 0) throw new Error("index must be a non-negative integer.");
+            return { output: truncateGitOutput(await runGit(root, ['stash', 'show', '--patch', '--no-ext-diff', '--no-textconv', `stash@{${index}}`], signal, { uncontained })), action: 'show' };
+        }
+        if (!fullAccess && gitExecutionScope.getStore()?.recoveryRequired) {
+            const capture = gitExecutionScope.getStore()?.recovery;
+            const current = await prepareGitStash(root, signal, args);
+            if (!capture?.checkpointId || capture.fingerprint !== current.fingerprint)
+                throw require('../workspaceGit').failure('GIT_RECOVERY_REQUIRED', 'git_stash', 'No current complete recovery coverage.', 'Refresh recovery and authorization before retrying.');
+        }
 		if (args.action === "push") {
 			if (args.index !== undefined) throw new Error("index is only valid for pop.");
 			// Tracked changes only by construction: no -u/--all/--include-
@@ -1522,7 +1612,7 @@ async function executeGitToolInScope(root, name, args, signal, uncontained, appr
 				message = args.message;
 			}
 			const output = truncateGitOutput(await runGit(root, ["stash", "push", "-m", message], signal, { write: true, uncontained }));
-			return { output, action: "push", message };
+			return { output, action: "push", message, recoveryCheckpointId: gitExecutionScope.getStore()?.recovery?.checkpointId ?? null };
 		}
 		if (args.message !== undefined) throw new Error("message is only valid for push.");
 		// Build stash@{n} ourselves from a validated integer: git never
@@ -1542,7 +1632,7 @@ async function executeGitToolInScope(root, name, args, signal, uncontained, appr
 		// A conflicting pop fails here with git's own error (entry kept, no
 		// auto-resolve): runGit passes stderr through verbatim.
 		const output = truncateGitOutput(await runGit(root, gitArgs, signal, { write: true, uncontained }));
-		return { output, action: "pop", ...(index === null ? {} : { index }) };
+		return { output, action: "pop", recoveryCheckpointId: gitExecutionScope.getStore()?.recovery?.checkpointId ?? null, ...(index === null ? {} : { index }) };
 	}
 	if (name === "git_sync") {
 		// No --force/--force-with-lease/refspec/colon/plus exists anywhere in
@@ -2632,6 +2722,7 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 
 async function executeAgentTool({ id = null, name, arguments: rawArguments, sessionId, signal, engine, permissionMode, permissionGranted = false, rootPath, approval, onChildSession = null, budgetScope, executionContext = null, backgroundContext = null, validateMcpActivation = null, validateToolAuthorization = null }) {
     let editArgs;
+    let releaseWorkspaceWrite;
     try {
         if (sessionId && require('../db').isInitialized?.()) require('../sessionDeletion').assertAvailable(sessionId);
 		const definition = agentTools.find((tool) => tool.function.name === name)?.function;
@@ -2676,6 +2767,14 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         const { guardTool, effectiveMode, sessionProject } = require('../toolPermissions');
         const project = sessionProject(sessionId);
         permissionMode = require('../lspExecutionContext').currentMode(sessionId, effectiveMode(permissionMode, project));
+        if (permissionMode === 'workspace_write' && project?.root_path) {
+            const gitWrite = ['git_stage', 'git_unstage', 'git_commit', 'git_create_branch', 'git_switch', 'git_sync'].includes(name) ||
+                (name === 'git_stash' && ['push', 'pop'].includes(args.action));
+            const fileWrite = ['write_project_file', 'str_replace_editor', 'edit_project_files', 'apply_patch', 'delete_project_file', 'move_project_file', 'execute_command', 'run_tests'].includes(name);
+            if (gitWrite && require('../backgroundCommands').workspaceBusy(project.root_path))
+                throw require('../workspaceGit').failure('GIT_RECOVERY_REQUIRED', name, 'A workspace background command is active.', 'Stop or wait for the command, then inspect changes before retrying.');
+            if (gitWrite || fileWrite) releaseWorkspaceWrite = require('../workspaceGit').enter(project.root_path, name, gitWrite);
+        }
         // Without an explicit permission grant the model cannot approve itself:
         // the inner guard runs with no approval channel, so anything that would
         // prompt is denied here. The IPC path grants after the real prompt and
@@ -2705,7 +2804,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             name, args, sessionId, project, mode: permissionMode,
             policyRevision: require('../lspExecutionContext').revision(sessionId),
             savedRule: guardDecision?.savedRule, imageProviderKey: guardDecision?.imageProviderKey,
-            executionProfile: guardDecision?.executionProfile, commandUncontained: guardDecision?.commandUncontained, approved: guardDecision?.approved,
+            executionProfile: guardDecision?.executionProfile, commandUncontained: guardDecision?.commandUncontained, approved: guardDecision?.approved, gitRecovery: guardDecision?.gitRecovery,
         });
         if (name === 'manage_native_tools') {
             const effective = require('../profileSettings').getSessionSettings(sessionId, null).effective;
@@ -3185,6 +3284,12 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		});
 	} catch (error) {
 		const result = { success: false, error: error.message };
+        if (name.startsWith('git_')) {
+            Object.assign(result, error.gitDetails || { operation: name, operation_executed: false, side_effects: false, recoveryCheckpointId: null,
+                suggested_action: 'Inspect the diagnostic; request approval through the existing system if required. Do not repeat unchanged requests.' });
+            result.code = error.code || (/approval|approve/i.test(error.message) ? 'APPROVAL_REQUIRED' : 'GIT_OPERATION_FAILED');
+            if (error.name === 'AbortError' || error.code === 'ABORT_ERR') result.code = 'GIT_OPERATION_CANCELLED';
+        }
         if (name === 'read_project_file' && /^FILE_NOT_FOUND:/.test(error.message)) result.code = 'FILE_NOT_FOUND';
         if (name === 'read_project_file' && /(?:Path|Symlink) escapes the project root\./.test(error.message)) result.code = 'UNAUTHORIZED_PATH';
         if (error.editDetails) Object.assign(result, error.editDetails);
@@ -3218,7 +3323,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 							: "error");
 		}
 		return result;
-	}
+	} finally { releaseWorkspaceWrite?.(); }
 }
 
 module.exports = {
@@ -3248,4 +3353,5 @@ module.exports = {
 	// Reused by the recovery diff-review IPC for sandboxed read-only git
 	// inspection (status/numstat/diff). Same runner, same guarantees.
 	runGit,
+    prepareGitStash,
 };

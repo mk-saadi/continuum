@@ -347,6 +347,7 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 		const provider = require('./cloudProviders').getActiveMediaModel('image');
 		if (provider) { policyInput.imageProviderKey = require('./rememberedToolRules').providerKey(provider); policyInput.imageProviderLabel = provider.name; }
 	}
+	if (native && name.startsWith('git_') && root && mode !== 'full_access') require('./workspaceGit').assertRepository(root, name);
 	if (native && name === 'git_switch' && mode === 'workspace_write' && root)
 		policyInput.gitWorktreeDirty = await require('./tools/agentTools').gitWorktreeDirty(root, signal);
 	let policy = decideToolApproval(policyInput);
@@ -407,6 +408,24 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 		return { mode, approved, gitCommitFingerprint: snapshot.fingerprint,
 			...(mode === 'workspace_write' ? { gitCommitReview: { message: args.message, staged_diff: snapshot.stagedDiff } } : {}) };
 	}
+
+    if (native && name === 'git_stash' && mode === 'workspace_write' && ['push', 'pop'].includes(args.action)) {
+        if (policy.decision === 'ask') await requestApproval('tool', name, args, approvalHandlerFn, signal);
+        const snapshot = await require('./tools/agentTools').prepareGitStash(root, signal, args);
+        let checkpoint;
+        try {
+            checkpoint = await require('./recoveryStore').captureOperation({ root, chatSessionId: sessionId ?? null,
+                toolName: name, paths: snapshot.paths, required: snapshot.paths, op: { kind: 'git_stash', action: args.action } });
+            if (!checkpoint.checkpointId || !checkpoint.coverage.complete || snapshot.paths.some(p => { const rec = checkpoint.manifest.paths[p], expected = snapshot.states[p]; return !rec || rec.kind !== expected.kind || (rec.kind === 'file' && (rec.hash !== expected.hash || rec.size !== expected.size)); })) throw new Error('Missing tracked path coverage.');
+        } catch (error) {
+            throw require('./workspaceGit').failure('GIT_RECOVERY_INCOMPLETE', name, error.message, 'Preserve changes and choose a non-destructive alternative.');
+        }
+        signal?.throwIfAborted();
+        const current = await require('./tools/agentTools').prepareGitStash(root, signal, args);
+        if (current.fingerprint !== snapshot.fingerprint) throw require('./workspaceGit').failure('GIT_RECOVERY_REQUIRED', name,
+            'Tracked state changed during recovery capture.', 'Inspect changes and capture fresh recovery.');
+        return { mode, approved: policy.decision === 'ask', gitRecovery: { checkpointId: checkpoint.checkpointId, fingerprint: snapshot.fingerprint, paths: snapshot.paths } };
+    }
 
 	const capability = capabilityOf(name, native);
 

@@ -1,0 +1,428 @@
+{
+  "milestone": "W6",
+  "client_date": "2026-10-31",
+  "timezone": "Asia/Dhaka",
+  "status": "implemented; no new matched failing identities; production build passes; real-agent acceptance not run",
+  "preservation": {
+    "initial_git_status": [
+      " M src/components/ChatInputBar.jsx",
+      " M src/components/FormControls.jsx",
+      " M src/components/ModelSettingsModal.jsx",
+      "?? tests/mtpDialogScroll.ui.cjs"
+    ],
+    "initial_diff_sha256": "47182f66328cdd6703611bb720c6adcfd575ad292a6b6d381bbecd2cd38fc53c",
+    "preexisting_files": {
+      "src/components/ChatInputBar.jsx": {
+        "before_sha256": "eecbb66f53ceda1d7846365d0a00b6555d16a9088170b832c3a8bb621769c9b8",
+        "after_sha256": "eecbb66f53ceda1d7846365d0a00b6555d16a9088170b832c3a8bb621769c9b8",
+        "unchanged": true
+      },
+      "src/components/FormControls.jsx": {
+        "before_sha256": "2c728c56b85ba72a826c9fc3d19d02abb3666c8d53ce966ad6250c707df18986",
+        "after_sha256": "2c728c56b85ba72a826c9fc3d19d02abb3666c8d53ce966ad6250c707df18986",
+        "unchanged": true
+      },
+      "src/components/ModelSettingsModal.jsx": {
+        "before_sha256": "d2ef7173315ab40557bbaba9c817423808c4730443c5e93a8e82927a84969071",
+        "after_sha256": "d2ef7173315ab40557bbaba9c817423808c4730443c5e93a8e82927a84969071",
+        "unchanged": true
+      },
+      "tests/mtpDialogScroll.ui.cjs": {
+        "before_sha256": "d3446eb3576fa854cfb9c4a981d172d5af373f6a40c0205305618eb4dc29036b",
+        "after_sha256": "d3446eb3576fa854cfb9c4a981d172d5af373f6a40c0205305618eb4dc29036b",
+        "unchanged": true
+      }
+    },
+    "commit_push_stash_reset_clean_on_user_repository": false,
+    "dependency_installation": false,
+    "real_inference": false,
+    "live_database_mutations": false,
+    "model_config_changes": false,
+    "mcp_authorization_changes": false,
+    "compaction_or_batching_changes": false
+  },
+  "baseline": {
+    "method": "Main baseline executed before behavioral edits; additional baseline uses preserved pre-edit src/tests copied before implementation, installed dependencies symlinked with preserve-symlinks. No user tree reverted.",
+    "main": {
+      "log": "/tmp/w6-baseline/verified.tap",
+      "sha256": "b9cf99bd415689acecd9f7d87083217793bcc5e9f3f3720a7fc572d355194f91",
+      "tests": 241,
+      "pass": 238,
+      "fail": 3,
+      "failures": [
+        {
+          "identity": "17. batch write failure mid-sequence rolls back and keeps a durable point",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/recoveryStore.test.cjs:374:1"
+        },
+        {
+          "identity": "workspace retains safety, activation, task continuity and MCP discovery",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/sessionPromptWording.test.cjs:72:9"
+        },
+        {
+          "identity": "permission restrictions and workspace boundaries stay enforced",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/verification.test.cjs:127:1"
+        }
+      ]
+    },
+    "additional": {
+      "log": "/tmp/w6-baseline/additional.tap",
+      "sha256": "4fc820fb6249c5aa1067cfefe42ac1f06565adf05a9d42433df2b7bf955029b0",
+      "tests": 203,
+      "pass": 201,
+      "fail": 2,
+      "failures": [
+        {
+          "identity": "automatic rollback preserves a labelled pre-rollback snapshot",
+          "location": "/tmp/w6-baseline/tests/recoverySafety.test.cjs:154:1"
+        },
+        {
+          "identity": "rollback failure is reported once without recursion",
+          "location": "/tmp/w6-baseline/tests/recoverySafety.test.cjs:184:1"
+        }
+      ]
+    },
+    "combined": {
+      "tests": 444,
+      "pass": 439,
+      "fail": 5
+    }
+  },
+  "verification": {
+    "broad": {
+      "log": "/tmp/w6-final3.tap",
+      "sha256": "f35c05e575c4fe3cf13e989921c79e4650a905d2247299759617e78af072e9ab",
+      "tests": 461,
+      "pass": 456,
+      "fail": 5,
+      "failures": [
+        {
+          "identity": "automatic rollback preserves a labelled pre-rollback snapshot",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/recoverySafety.test.cjs:154:1"
+        },
+        {
+          "identity": "rollback failure is reported once without recursion",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/recoverySafety.test.cjs:184:1"
+        },
+        {
+          "identity": "17. batch write failure mid-sequence rolls back and keeps a durable point",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/recoveryStore.test.cjs:374:1"
+        },
+        {
+          "identity": "workspace retains safety, activation, task continuity and MCP discovery",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/sessionPromptWording.test.cjs:72:9"
+        },
+        {
+          "identity": "permission restrictions and workspace boundaries stay enforced",
+          "location": "/home/mk_saadi/projects/persona-projects/llm-electron/tests/verification.test.cjs:127:1"
+        }
+      ]
+    },
+    "final_git_focus": {
+      "log": "/tmp/w6-final-git.tap",
+      "sha256": "b487e1b847a35b3880602194d7540d3d8b5ffcb0c4d5c5a0381f0459729f7bbd",
+      "tests": 70,
+      "pass": 70,
+      "fail": 0,
+      "failures": []
+    },
+    "new_suite_test_count": 18,
+    "new_suite_test_names": [
+      "ordinary native inspection, stage/unstage, commit, branch and clean switch are automatic",
+      "automatic commit and branch switch disable hooks and configured signers",
+      "stash captures actual tracked bytes; list/show are automatic; pop requires approval",
+      "incomplete stash coverage blocks mutation even when a checkpoint exists",
+      "changed state after recovery authorization cannot execute; completed grants cannot replay",
+      "forged recovery grant is rejected by the native capability boundary",
+      "cancellation and stale permission revisions prevent Git mutations",
+      "dirty switches and unauthorized staging preserve content",
+      "non-Git file reads/edits, tests and recovery remain available without init",
+      "parent and outside gitfile metadata are rejected; nested repository uses its own root",
+      "Git inspection masks workspace sockets while shell still rejects them",
+      "capability state is regenerated for repository creation/deletion and mode changes",
+      "remote, destructive and other-mode policies retain authorization",
+      "conflicting native writes and background commands block Git without discarding work",
+      "repository core.worktree cannot redirect native Git to unrelated files",
+      "oversize tracked data is rejected before stash capture or deletion",
+      "stash recovery captures affected paths rather than unrelated tracked files",
+      "internal gitfiles work and external common metadata is blocked"
+    ],
+    "new_failing_identities": [],
+    "retained_failing_identities": [
+      "17. batch write failure mid-sequence rolls back and keeps a durable point",
+      "automatic rollback preserves a labelled pre-rollback snapshot",
+      "permission restrictions and workspace boundaries stay enforced",
+      "rollback failure is reported once without recursion",
+      "workspace retains safety, activation, task continuity and MCP discovery"
+    ],
+    "intentional_assertion_update": {
+      "file": "tests/r5Execution.test.cjs",
+      "before": "real stale workspace X11 socket blocks sandbox validation but never Full Access Git",
+      "after": "real stale workspace X11 socket is masked for Git, still blocks shell sandbox and never blocks Full Access",
+      "reason": "Required W6 native Git usability change; retains explicit shell rejection and Full Access host assertions."
+    },
+    "final_source_followup": "Broad selection has first 17 W6 tests; final 70-test focus covers the last gitfile/common-metadata correction and all 18 W6 tests. Entire repository suite not claimed."
+  },
+  "commands": {
+    "main_baseline": "node --require /tmp/w6-isolate.cjs --test --test-timeout=60000 tests/gitTools.test.cjs tests/gitMetadata.test.cjs tests/gitShellReadOnly.test.cjs tests/sandboxFilesystem.test.cjs tests/sandboxGitRelay.test.cjs tests/permissionPolicy.test.cjs tests/permissionIsolationReliability.test.cjs tests/r3Reliability.test.cjs tests/r4Verification.test.cjs tests/r5Execution.test.cjs tests/recoveryBoundary.test.cjs tests/recoveryStore.test.cjs tests/workspacePlan.test.cjs tests/t1ToolBatch.test.mjs tests/t11ChildReadBatch.test.mjs tests/sessionPromptWording.test.cjs tests/verification.test.cjs",
+    "additional_baseline": "node --preserve-symlinks --require /tmp/w6-isolate.cjs --test --test-timeout=60000 tests/nativePermissions.test.cjs tests/deleteProjectFile.test.cjs tests/backgroundCommands.test.cjs tests/backgroundExecution.test.cjs tests/backgroundCommandIpc.test.cjs tests/e1FileEditingNative.test.cjs tests/p2CompactNativeTools.test.cjs tests/workspaceAdvancedCompaction.test.cjs tests/workspaceSafeCompaction.test.cjs tests/automaticCompactionReplay.test.cjs tests/h1DeletionIpc.test.cjs tests/h1HistoryDeletion.test.cjs tests/recoverySafety.test.cjs tests/recoveryPostState.test.cjs",
+    "broad_final": "node --preserve-symlinks --require /tmp/w6-isolate.cjs --test --test-timeout=60000 tests/gitTools.test.cjs tests/gitMetadata.test.cjs tests/gitShellReadOnly.test.cjs tests/sandboxFilesystem.test.cjs tests/sandboxGitRelay.test.cjs tests/permissionPolicy.test.cjs tests/permissionIsolationReliability.test.cjs tests/r3Reliability.test.cjs tests/r4Verification.test.cjs tests/r5Execution.test.cjs tests/recoveryBoundary.test.cjs tests/recoveryStore.test.cjs tests/workspacePlan.test.cjs tests/t1ToolBatch.test.mjs tests/t11ChildReadBatch.test.mjs tests/sessionPromptWording.test.cjs tests/verification.test.cjs tests/nativePermissions.test.cjs tests/deleteProjectFile.test.cjs tests/backgroundCommands.test.cjs tests/backgroundExecution.test.cjs tests/backgroundCommandIpc.test.cjs tests/e1FileEditingNative.test.cjs tests/p2CompactNativeTools.test.cjs tests/workspaceAdvancedCompaction.test.cjs tests/workspaceSafeCompaction.test.cjs tests/automaticCompactionReplay.test.cjs tests/h1DeletionIpc.test.cjs tests/h1HistoryDeletion.test.cjs tests/recoverySafety.test.cjs tests/recoveryPostState.test.cjs tests/w6WorkspaceGit.test.cjs",
+    "final_git_focus": "node --preserve-symlinks --require /tmp/w6-isolate.cjs --test --test-timeout=60000 tests/w6WorkspaceGit.test.cjs tests/gitTools.test.cjs tests/gitMetadata.test.cjs tests/r5Execution.test.cjs",
+    "build": "npm run build",
+    "whitespace": "git diff --check"
+  },
+  "isolation": {
+    "preload": "const Module = require('node:module');\nconst load = Module._load;\nModule._load = function(name, ...args) {\n const result = load.call(this, name, ...args);\n if (/mcpManager(?:\\.js)?$/.test(name) && result?.configPath) {\n  result.configPath = '/tmp/w6-empty-mcp/config.json';\n  result.getNativeServers = () => ({});\n }\n return result;\n};\n",
+    "empty_mcp_config": {
+      "mcpServers": {}
+    },
+    "external_remotes_used": false,
+    "local_loopback_and_file_remotes": true,
+    "restricted_worker_attempt": "Failed to launch normal test workers; not used as application regression baseline. Matched executions used approved child-process execution.",
+    "approval_review_rejections": []
+  },
+  "build": {
+    "exit_code": 0,
+    "log": "/tmp/w6-build.log",
+    "sha256": "772e600033998f57399a729c1821acef62432f03a3ee4047a518418a64263ad4",
+    "advisory": "Vite existing chunk size advisory"
+  },
+  "whitespace": {
+    "exit_code": 0
+  },
+  "source_sha256": {
+    "src/main/workspaceGit.js": "cf213b9dd2fdbd6ba3fecc28f3349cfa069e7af2d614dd6949876fd29b358c93",
+    "src/main/tools/agentTools.js": "1721d3cb3f2f17724476a5345d1189fa3478eccdbd9b0f7070526694a295d618",
+    "src/main/toolPermissions.js": "dae1e07f2d4c39f05ae3817394607d26906788dd9413495eb588c531f9244acd",
+    "src/main/nativeExecutionPolicy.js": "d84f59abd295f49a7c43113b120c0ac22e7014d41ad86029b1940186393a748a",
+    "src/main/sandboxFilesystem.js": "0bb5cddb796c7d962bb805f41bf7b3d62554c8234fdb415b5d6c8e363c80feae",
+    "src/main/backgroundCommands.js": "3f936265747e35d961e193c6a0cb72cf18bff4ec1adf5ea48e20e9d4dd6c18bd",
+    "src/main/executionCapabilities.js": "d8c7243cd8a1727560caf15c213f62b380c5fd60e843d3bab8e94519bd10e144",
+    "tests/w6WorkspaceGit.test.cjs": "7f70c4086e189d36835f531eff5a51fb0d62a6c372b717ab43ecbbe065e3bbf8",
+    "tests/r5Execution.test.cjs": "76fa253467ec7f08ea9744a28d03e1ac1b39fbc59f561b64f16f7a3a89ffe9ee"
+  },
+  "actual_operations": [
+    {
+      "tool": "git_status",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_diff",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_log",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_show",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_branch",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_blame",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_stage",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_unstage",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_commit",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_create_branch",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_switch",
+      "workspace_write": "automatic when eligible; dirty switch refused",
+      "remote": false
+    },
+    {
+      "tool": "git_stash",
+      "actions": {
+        "list": "automatic",
+        "show": "automatic (added)",
+        "push": "automatic with verified affected-path recovery",
+        "pop": "approval plus verified recovery"
+      }
+    },
+    {
+      "tool": "git_sync",
+      "actions": {
+        "fetch": "existing authorized-remote policy",
+        "pull": "existing preparation/incoming review; clean ff-only",
+        "push": "existing preparation and outgoing publication approvals"
+      }
+    }
+  ],
+  "absent_native_tools": [
+    "git_restore",
+    "git_reset",
+    "git_clean",
+    "git_fetch",
+    "git_pull",
+    "git_merge",
+    "git_rebase",
+    "git_push"
+  ],
+  "diagnostics": {
+    "new_or_specific": [
+      "NOT_A_GIT_REPOSITORY",
+      "GIT_REPOSITORY_OUTSIDE_WORKSPACE",
+      "GIT_WORKTREE_DIRTY",
+      "GIT_CONFLICT",
+      "GIT_RECOVERY_REQUIRED",
+      "GIT_RECOVERY_INCOMPLETE",
+      "GIT_REMOTE_AUTH_FAILED",
+      "GIT_NETWORK_UNAVAILABLE",
+      "GIT_OPERATION_CANCELLED",
+      "GIT_OPERATION_FAILED"
+    ],
+    "existing_equivalents": [
+      "APPROVAL_REQUIRED",
+      "APPROVAL_DENIED",
+      "PERMISSION_DENIED",
+      "PERMISSION_REVOKED"
+    ],
+    "not_artificially_emitted": [
+      "GIT_HOOK_BLOCKED"
+    ],
+    "after_dispatch_side_effects": "unknown, not assumed absent"
+  },
+  "acceptance_coverage": [
+    {
+      "checks": "1-9",
+      "evidence_type": "deterministic",
+      "evidence": "w6WorkspaceGit ordinary native inspection/stage/unstage/commit/branch/switch; gitTools"
+    },
+    {
+      "checks": "10",
+      "evidence_type": "deterministic",
+      "evidence": "w6WorkspaceGit dirty switches; gitTools dirty-switch approval and executor refusal"
+    },
+    {
+      "checks": "11-12",
+      "evidence_type": "deterministic",
+      "evidence": "w6WorkspaceGit stash capture/list/show; gitTools push/pop"
+    },
+    {
+      "checks": "13",
+      "evidence_type": "deterministic + source",
+      "evidence": "sentinel pre-commit hook and configured signer blocked; runGit safe config, no ambient credentials"
+    },
+    {
+      "checks": "14",
+      "evidence_type": "deterministic",
+      "evidence": "unauthorized staging; gitTools traversal/ref/path tests; sandboxFilesystem"
+    },
+    {
+      "checks": "15",
+      "evidence_type": "not a native operation",
+      "evidence": "git_restore absent; existing recovery restore tested by recoveryStore/recoverySafety/recoveryPostState; no worktree Git restore invented"
+    },
+    {
+      "checks": "16",
+      "evidence_type": "deterministic equivalent + source",
+      "evidence": "incomplete and oversize stash recovery blocked; no git_restore tool exists"
+    },
+    {
+      "checks": "17-18",
+      "evidence_type": "source + deterministic existing containment",
+      "evidence": "git_reset/git_clean absent; native operation registry asserted; gitShellReadOnly prevents shell metadata writes"
+    },
+    {
+      "checks": "19",
+      "evidence_type": "deterministic",
+      "evidence": "manifest hash equals actual affected bytes; unrelated oversize tracked file omitted"
+    },
+    {
+      "checks": "20-22",
+      "evidence_type": "deterministic",
+      "evidence": "cancelled mutation; stale revision; changed state after authorization; forged coverage grant; replay rejection"
+    },
+    {
+      "checks": "23",
+      "evidence_type": "deterministic existing suites",
+      "evidence": "gitTools file and loopback fetch; sandboxGitRelay dedicated remote execution; policy decision"
+    },
+    {
+      "checks": "24-25",
+      "evidence_type": "deterministic existing suites",
+      "evidence": "gitTools incoming pull and outgoing push reviews/fingerprints; permissionPolicy"
+    },
+    {
+      "checks": "26-27",
+      "evidence_type": "source + deterministic argument rejection",
+      "evidence": "git_sync schema/action/branch/ref validation has no force/delete/refspec support; no new authority"
+    },
+    {
+      "checks": "28",
+      "evidence_type": "source + deterministic existing routing",
+      "evidence": "runGit only bwrap for contained remote; no host retry; R5 mode-routing tests"
+    },
+    {
+      "checks": "29-33",
+      "evidence_type": "deterministic + unchanged architecture",
+      "evidence": "non-Git native reads/writes/checkpoint/sandboxed run_tests; typed status; no .git created"
+    },
+    {
+      "checks": "34-36",
+      "evidence_type": "deterministic",
+      "evidence": "nested root vs parent rejection; linked worktree external metadata denied; internal gitfile works; external commondir denied"
+    },
+    {
+      "checks": "37-40",
+      "evidence_type": "deterministic",
+      "evidence": "sandboxFilesystem/gitShellReadOnly; updated R5 real-socket assertion; R5 host routing; Read Only and Ask policies"
+    },
+    {
+      "checks": "41",
+      "evidence_type": "deterministic + production refresh inspection",
+      "evidence": "repository init/delete and mode context; promptBuilder and memoryChat request-time replacement"
+    },
+    {
+      "checks": "42",
+      "evidence_type": "deterministic existing suites + source",
+      "evidence": "permissionIsolationReliability, single-use native grant binding, AsyncLocalStorage host scope and per-root write exclusion"
+    },
+    {
+      "checks": "43-46",
+      "evidence_type": "deterministic existing suites",
+      "evidence": "workspacePlan; T1/T1.1; R3/R4/R5; automatic/advanced/safe compaction. Five retained baseline failures disclosed."
+    },
+    {
+      "checks": "47-48",
+      "evidence_type": "harness + preservation evidence",
+      "evidence": "empty MCP configuration/native discovery disabled; no inference; local file/loopback fixture remotes only; disposable DBs/workspaces; original modified-file hashes unchanged"
+    }
+  ],
+  "limits": [
+    "External metadata linked worktrees/submodules blocked; no new mounts/authority",
+    "No native destructive/history/restore tools added",
+    "Contained commits unsigned and hooks skipped; configured identity preserved",
+    "Recovery restores files, not Git metadata or remote side effects",
+    "Affected-path recovery caps and unsupported content can block stash",
+    "Native write exclusion cannot lock external editors or independently authorized host processes",
+    "Five matched baseline failures remain; no real-model acceptance or entire repository suite claimed"
+  ],
+  "report": "docs/w6-workspace-git-capabilities-report.md"
+}

@@ -154,4 +154,5 @@ async function shutdown() {
   await Promise.allSettled([...runs.values()].map(owner => closeRun(owner)));
 }
 function list(sessionId, workspace) { return [...records.values()].filter(r => r.session_id === sessionId && r.workspace === workspace).map(publicRecord); }
-module.exports = { forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
+function workspaceBusy(workspace) { return [...records.values()].some(r => active(r) && r.workspace === workspace); }
+module.exports = { workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
