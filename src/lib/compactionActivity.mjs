@@ -3,7 +3,8 @@ export function mergeActivity(previous, incoming, sessionId) {
   const map = new Map(previous.filter(e => e.session_id === sessionId).map(e => [e.id, e]));
   for (const event of incoming ?? []) {
     if (event?.session_id !== sessionId) continue;
-    if (!map.has(event.id) || map.get(event.id).revision < event.revision) map.set(event.id, event);
+    if (!map.has(event.id) || map.get(event.id).revision < event.revision ||
+        (map.get(event.id).revision === event.revision && !map.get(event.id).metadata?.rejectionDiagnostics && event.metadata?.rejectionDiagnostics)) map.set(event.id, event);
   }
   return [...map.values()].sort((a, b) => a.sequence - b.sequence);
 }
@@ -19,6 +20,7 @@ export function activitySegments(steps, events) {
   return groups;
 }
 export function activityLabel(event) {
+  if (event.status === 'completed' && event.metadata?.checkpointOutcome) return ({ full: 'Full checkpoint activated', partial: `Partial checkpoint activated (${event.metadata.coverageMessages ?? '?'} messages, ${event.metadata.coverageOperations ?? '?'} operations covered)`, degraded: 'Degraded operational checkpoint activated — reduced semantic fidelity' })[event.metadata.checkpointOutcome] ?? 'Context compacted';
   return ({ started: 'Context compaction started', generating: 'Generating compact task state…', validating: 'Validating compact state…',
     'checking-fit': 'Checking resumed request…', committing: 'Saving compact context…', completed: 'Context compacted',
     continued: 'Compaction failed; request safely continued', deferred: 'Context compaction postponed', failed: 'Context compaction failed', cancelled: 'Context compaction interrupted' })[event.status] || 'Context compaction';
@@ -35,6 +37,9 @@ export function activityReason(code) {
     'generation-inactivity-timeout': 'The model produced no generation progress for 10 minutes. Retry when the local model is ready.',
     'unexpected-abort': 'Compaction received an unexpected cancellation. Retry the run; the cancellation origin was not identified.',
   };
+  if (code === 'continuation-measurement-unavailable') return 'The complete continuation request could not be authoritatively measured. History was preserved.';
+  if (code === 'compaction-summary-budget-exceeded') return 'Working summary exceeds the 4,999-token limit after bounded correction. Original history was preserved.';
+  if (code === 'compaction-summary-tokenizer-unavailable') return 'Working summary token-budget verification is unavailable. Original history was preserved.';
   if (abortReasons[code]) return abortReasons[code];
   if (['pending-child-operation', 'pending-background-operation', 'pending-tool-operation'].includes(code)) return 'Compaction postponed while an operation is still completing.';
   if (['no-reducible-history', 'irreducible-context-overflow', 'prospective-context-overflow', 'no-meaningful-reduction'].includes(code)) return 'Required instructions and active tool state cannot be reduced safely.';

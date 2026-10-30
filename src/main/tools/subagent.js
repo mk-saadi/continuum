@@ -18,7 +18,7 @@ const spawnSubagentTool = {
   type: 'function',
   function: {
     name: 'spawn_sub_agent',
-    description: `DELEGATED WORKER. Use for isolated web research on one public URL, OR to analyze a single local file and report back, OR pass investigate=true for an autonomous read-only investigation of the project or the public web. Returns a concise answer from the fetched page, file contents, or its own investigation. WEB CAPABILITY: a url call fetches exactly that page; an investigating worker can also discover pages itself with the native web_search tool.`,
+    description: 'Read-only worker for isolated web research or local analysis; returns concise findings. Supply task and exactly one of: one public URL (url or in task), one absolute target_file, or investigate:true for project/public-web research using its own web_search tool. Cannot edit, run commands, use memory or spawn workers.',
     parameters: {
       type: 'object',
       properties: {

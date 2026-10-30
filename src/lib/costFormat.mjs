@@ -42,7 +42,7 @@ export function costCoverageLabel(coverage) {
 export function costChipText(cost) {
 	if (!cost) return null;
 	if (cost.completeness === 'not_applicable') return 'Cloud cost n/a (local)';
-	if (typeof cost.total === 'number') return `${formatUsd(cost.total)}${cost.completeness === 'partial' ? ' (partial)' : ''}`;
+	if (typeof cost.total === 'number') return `${formatUsd(cost.total)}${cost.completeness === 'partial' ? ' (partial)' : cost.estimated || cost.completeness === 'estimated' ? ' (estimated)' : ''}`;
 	if (cost.providerReported != null) return formatUsd(cost.providerReported);
 	return 'Cost unavailable';
 }

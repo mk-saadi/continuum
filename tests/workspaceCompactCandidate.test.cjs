@@ -54,7 +54,7 @@ function draftFor(request) {
 }
 const envelope = draft => ({ choices: [{ message: { content: JSON.stringify(draft) }, finish_reason: 'stop' }], usage: { completion_tokens: 700 } });
 const good = async request => envelope(draftFor(request));
-const run = (f, extra = {}) => w2.generateWorkspaceCompactCandidate({ sessionId: f.id, modelId: 'fixture-model', capacityTokens: 65536, generate: good, ...extra });
+const run = (f, extra = {}) => w2.generateWorkspaceCompactCandidate({ sessionId: f.id, modelId: 'fixture-model', capacityTokens: 65536, generate: good, ...extra, measure: require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(extra.measure, extra.summaryMeasure) });
 const history = id => JSON.stringify({ messages: db.prepare('SELECT * FROM messages WHERE session_id = ? ORDER BY id').all(id),
   summaries: db.prepare('SELECT * FROM session_summaries WHERE session_id = ? ORDER BY id').all(id), briefs: briefs.getAllBriefs(id) });
 
@@ -289,7 +289,7 @@ test('W2 local request serialization and candidate ownership are bounded to one 
 
 test('W2 supplied exact measurement is used for generation and validated state', async () => {
   const f = fixture(); let measurements = 0;
-  const result = await run(f, { measure: async () => { measurements++; return { tokens: 900, limit: 32768, method: 'server-template-tokenizer' }; } });
+  const result = await run(f, { summaryMeasure: async () => { measurements++; return { tokens: 900, method: 'server-template-tokenizer' }; }, measure: async () => { measurements++; return { tokens: 900, limit: 32768, method: 'server-template-tokenizer' }; } });
   assert.equal(result.ok, true); assert.equal(result.diagnostics.tokenMethod, 'server-template-tokenizer');
   assert.equal(result.diagnostics.validatedTokens, 900); assert.ok(measurements >= 3);
 });
@@ -352,7 +352,7 @@ test('W7 reported runtime reserves final output before reducing near-full input'
     measure: async request => {
       const input = JSON.parse(request.messages.at(-1).content);
       return { tokens: request.messages.length === 1 ? 1200 : input.historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 32000,
-        limit: 35072, method: 'controlled-tokenizer' };
+        limit: 35072, method: 'server-template-tokenizer' };
     }, generate: async (request, meta) => { requests.push({ budget: request.max_tokens, intermediate: !!meta.intermediate }); return good(request); } });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.ok(requests.some(r => r.intermediate));
@@ -366,7 +366,7 @@ test('W7 exhaustion retries once with a changed size contract and records provid
     requests.push(request);
     assert.deepEqual(request.chat_template_kwargs, { enable_thinking: false });
     if (requests.length === 1) return { choices: [{ finish_reason: 'length', message: { content: '{' } }], usage: { completion_tokens: request.max_tokens } };
-    assert.match(request.messages.at(-1).content, /900 visible tokens/);
+    assert.match(request.messages.at(-1).content, /preserv(?:ing useful|e useful|e all essential)|do not pad/);
     return good(request);
   } });
   assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(requests.length, 2);
@@ -381,12 +381,12 @@ test('W7 exhaustion retries once with a changed size contract and records provid
 test('W7 intermediate overflow gets one concise correction without activating partial state', async () => {
   const f = fixture(), before = history(f.id); let stages = 0;
   const result = await run(f, { capacityTokens: 35072,
-    measure: async request => ({ tokens: request.messages.length === 1 ? 1200 : JSON.parse(request.messages[1].content).historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 32000, limit: 35072 }),
+    measure: async request => ({ tokens: request.messages.length === 1 ? 1200 : JSON.parse(request.messages[1].content).historicalSegments ? 2000 : request.max_tokens === 4096 ? 26000 : 32000, limit: 35072, method: 'server-template-tokenizer' }),
     generate: async (request, meta) => {
       if (meta.intermediate && ++stages === 1) {
         const d = draftFor(request); d.unknowns = ['Essential detail '.repeat(4000)]; return envelope(d);
       }
-      if (meta.intermediate) assert.match(request.messages[1].content, /900 visible tokens/);
+      if (meta.intermediate) assert.match(request.messages[1].content, /preserv(?:ing useful|e useful|e all essential)|do not pad/);
       return good(request);
     } });
   assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(stages, 2);
@@ -397,8 +397,9 @@ test('W7 intermediate overflow gets one concise correction without activating pa
 test('W7 final measured candidate too large fails with original history and checkpoint intact', async () => {
   const f = fixture(), before = history(f.id);
   const result = await run(f, { capacityTokens: 35072,
-    measure: async request => ({ tokens: request.messages.length === 1 && request.messages[0].role === 'user' ? 35072 : 1000, limit: 35072 }) });
-  assert.equal(result.code, 'budget-exceeded'); assert.equal(result.diagnostics.rejectionStage, 'validation');
+    summaryMeasure: async () => ({ tokens: 35072, method: 'server-template-tokenizer' }),
+    measure: async () => ({ tokens: 1000, limit: 35072, method: 'server-template-tokenizer' }) });
+  assert.equal(result.code, 'compaction-summary-budget-exceeded'); assert.equal(result.diagnostics.rejectionStage, 'summary-budget-verification');
   assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
 });
 
@@ -416,7 +417,7 @@ test('W7 deterministic before/after at reported 32486 input tokens', async () =>
   const result = await run(f, { capacityTokens: 35072,
     measure: async request => {
       const input = JSON.parse(request.messages[1]?.content ?? request.messages[0].content);
-      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'controlled-tokenizer' };
+      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'server-template-tokenizer' };
     }, generate: async (request, meta) => {
       calls++; assert.equal(request.chat_template_kwargs.enable_thinking, false);
       if (!meta.intermediate) return good(request);
@@ -425,7 +426,7 @@ test('W7 deterministic before/after at reported 32486 input tokens', async () =>
       return envelope({ objective: 'Preserve fixture requirements and evidence.', briefIds: input.briefs.map(b => b.id),
         ...Object.fromEntries(w2.ARRAY_KEYS.map(key => [key, []])) });
     } });
-  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(calls, 3);
+  assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(calls, 2); // Adaptive output sizing packs this fixture in one intermediate.
   assert.equal(result.diagnostics.outputBudget, 3072);
   quality.push({ fixture: 'W7 reported input controlled before-after', before: { inputTokens: 32486, outputBudget: beforeBudget,
     finishReason: 'length', actualOutputTokens: beforeBudget, attempts: 1 },
@@ -475,7 +476,7 @@ test('C6-A intermediate unsupported completion gets one targeted correction', as
   const result = await run(f, { capacityTokens: 35072,
     measure: async request => {
       const input = JSON.parse(request.messages[1]?.content ?? request.messages[0].content);
-      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'controlled-tokenizer' };
+      return { tokens: input.messages?.length > 1 ? 32486 : 1000, limit: 35072, method: 'server-template-tokenizer' };
     }, generate: async (request, meta) => {
       const input = JSON.parse(request.messages[1].content);
       if (!meta.intermediate) return good(request);
@@ -487,4 +488,69 @@ test('C6-A intermediate unsupported completion gets one targeted correction', as
     } });
   assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(bad, true); assert.equal(corrected, true);
   assert.equal(result.diagnostics.retries, 1);
+});
+
+// C9.5 deterministic batching: the tokenizer double permits exactly one source
+// message per intermediate request; no provider or tokenizer endpoint is used.
+function stageFixture(count) {
+  const id = `c95-stages-${++serial}`;
+  sessions.getOrCreateSession(id, 'fixture-model', project.id);
+  sessions.saveMessage(id, 'user', 'Preserve all history; do not replay operations.');
+  for (let i = 1; i < count; i++) sessions.saveMessage(id, 'assistant', `Completed observation ${i}`);
+  return { id };
+}
+function stageRun(f, generate) {
+  return run(f, { persist: false, measure: async request => {
+    let count = 0;
+    try { count = JSON.parse(request.messages[1]?.content).messages?.length ?? 0; } catch {}
+    return { tokens: count > 1 ? 65000 : 1000, limit: 65536, method: 'server-template-tokenizer' };
+  }, generate: generate ?? (async request => {
+    const input = JSON.parse(request.messages[1].content);
+    return envelope({ objective: 'Retain source observations', briefIds: input.briefs.map(b => b.id),
+      ...Object.fromEntries(w2.ARRAY_KEYS.map(key => [key, []])) });
+  }) });
+}
+// Fixed-stage assertions are superseded by preflight pool feasibility and exact
+// older-prefix coverage. Historical failure remains in the frozen replay output.
+for (const count of [11, 12]) test(`budget planner selects a feasible older prefix for ${count} batches`, async () => {
+  const f = stageFixture(count), original = history(f.id);
+  const result = await stageRun(f);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.candidate.checkpointOutcome, 'partial');
+  assert.ok(result.diagnostics.plan.reserved <= 32768);
+  assert.ok(result.diagnostics.plan.correctionReserve > 0);
+  assert.ok(result.candidate.sourceCoverage.length > 0);
+  assert.ok(result.candidate.sourceCoverage.length < count);
+  assert.equal(history(f.id), original);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+test('C9.5 successful stages share reservations with final generation and reset next invocation', async () => {
+  const f = stageFixture(2), original = history(f.id);
+  for (let i = 0; i < 2; i++) {
+    const result = await stageRun(f);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const d = result.diagnostics.generationBudget;
+    assert.equal(d.providerRequestsAttempted, 3); assert.equal(d.providerRequestsCompleted, 3);
+    assert.equal(result.diagnostics.reservedGenerationTokens, 1536 * 2 + 3072);
+    assert.equal(d.remainingBefore, 32768 - 3072); assert.equal(d.remainingAfter, 32768 - 3072 - 3072);
+    assert.equal(d.exhaustionReason, null); assert.equal(history(f.id), original);
+  }
+});
+test('C9.5 provider failure is distinct from preflight stage exhaustion', async () => {
+  const f = stageFixture(2);
+  const result = await stageRun(f, async () => { throw Object.assign(Error('synthetic'), { code: 'provider-error' }); });
+  assert.equal(result.code, 'provider-error');
+  const d = result.diagnostics.generationBudget;
+  assert.equal(d.providerRequestsAttempted, 1); assert.equal(d.providerRequestsCompleted, 0);
+  assert.equal(d.failurePosition, 'after-provider-request'); assert.equal(d.exhaustionReason, null);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+test('C9.5 snapshot initializes a fresh untouched budget before generation availability check', async () => {
+  const f = stageFixture(2);
+  const result = await run(f, { generate: null, persist: false });
+  assert.equal(result.code, 'model-unavailable');
+  const d = result.diagnostics.generationBudget;
+  assert.equal(d.stage, 'snapshot'); assert.equal(d.initialBudget, 32768);
+  assert.equal(d.remainingBefore, 32768); assert.equal(d.remainingAfter, 32768);
+  assert.equal(d.requestedConsumption, 0); assert.equal(d.providerRequestsAttempted, 0);
 });

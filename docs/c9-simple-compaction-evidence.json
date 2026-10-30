@@ -1,0 +1,1067 @@
+{
+  "phase": "C9",
+  "date": "2026-10-28",
+  "timezone": "Asia/Dhaka",
+  "baselineHead": "cd36852ba229fbe445bfe6c50a27dff8ec3449f3",
+  "initialGitStatus": [
+    "?? docs/c8a-real-session-token-attribution.json",
+    "?? docs/c8a-real-session-token-attribution.md"
+  ],
+  "preservation": {
+    "preexistingArtifactsNotEdited": true,
+    "preexistingArtifactFinalSha256": {
+      "docs/c8a-real-session-token-attribution.json": "7da234cce0718638d3e140e9f8dd1b3c086658e3b99edaa0e78fb0874896040a",
+      "docs/c8a-real-session-token-attribution.md": "5f281d7b8780fc4a95787dbff9572b5bfd160369f4f4466ee40afaee1fcc28d2"
+    },
+    "committed": false,
+    "pushed": false,
+    "stashedResetOrCleaned": false,
+    "liveDatabaseReadOrWritten": false,
+    "taskflowWorkspaceChanged": false,
+    "modelConfigurationChanged": false,
+    "inferenceOrTokenizerNetworkCalls": 0,
+    "permissionPoliciesChanged": false,
+    "triggerOrProtectedRoundsChanged": false
+  },
+  "summaryContract": {
+    "format": "c9-markdown",
+    "maxTokens": 4999,
+    "targetTokens": 2000,
+    "countedRepresentation": "complete saved system summary plus provider template envelope and an empty user turn for strict-template compatibility; tools and independent briefs excluded",
+    "authoritativeMethod": "server-template-tokenizer",
+    "conservativeFallbackImplemented": false,
+    "unavailableDiagnostic": "compaction-summary-tokenizer-unavailable",
+    "overLimitDiagnostic": "compaction-summary-budget-exceeded",
+    "maximumFinalCorrectionAttempts": 1,
+    "blindTruncation": false,
+    "verifiedBeforeCandidatePersistence": true,
+    "verifiedAgainBeforeActivation": true,
+    "fullRequestGuardPreserved": true
+  },
+  "taskflowComparison": {
+    "measurement": "Existing UTF-8 estimator; retrospective C8-A requests with exactly one checkpoint substitution. Not historical request bodies or exact Qwen tokenization.",
+    "generation": "Scripted historical drafts through production candidate/source validation; summary counting via explicitly synthetic test tokenizer. Not Qwen inference.",
+    "liveDatabaseAccess": false,
+    "networkCalls": 0,
+    "events": [
+      {
+        "checkpointVersion": 10,
+        "historicalBeforeTokens": 45045,
+        "historicalAfterTokens": 24893,
+        "reconstructedC8ContinuationEstimate": 29208,
+        "reconstructedC9ContinuationEstimate": 26266,
+        "independentlyRetainedBriefUtf8Bytes": 4344,
+        "independentlyRetainedBriefEstimatedTokens": 1578,
+        "oldSummaryUtf8Bytes": 10049,
+        "newSummaryUtf8Bytes": 2288,
+        "oldSummaryEstimatedTokens": 3809,
+        "newSummaryEstimatedTokens": 867,
+        "summarySha256": "9032966dd66a8952f9fd73c6bf5689b4b99f7ab582db0f1a79c044637b05145a",
+        "summaryHardLimitVerifiedForHistoricalTokenizer": false,
+        "exactHistoricalSummaryTokens": null,
+        "exactC9ContinuationTokens": null,
+        "deterministicTestTokenizerTokens": 867,
+        "deterministicGenerationStages": 1,
+        "deterministicGenerationAttempts": 1,
+        "realModelGenerationTimeMs": null,
+        "historicalGenerationStages": 1,
+        "curatedSourceFindingCount": 3,
+        "curatedSummaryEstimatedTokens": 1052,
+        "curatedFixtureInference": "analyst-curated original-source findings through production validation; not model-generated",
+        "sourceValidation": "production validateDraft on original eligible operations; source-bound structural, semantic completeness unproven",
+        "preservedRequirementEntries": 9,
+        "preservedCompletedWorkEntries": 2,
+        "preservedResearchEntries": 2,
+        "originalEligibleOperations": 18,
+        "durableEvidenceRecords": 18,
+        "retrievedEvidenceRecords": 18,
+        "storedOutcomes": {
+          "success": 18,
+          "failed": 0,
+          "blocked": 0,
+          "cancelled": 0
+        },
+        "checkpointActivated": false,
+        "originalRequestsReplayed": false
+      },
+      {
+        "checkpointVersion": 11,
+        "historicalBeforeTokens": 40839,
+        "historicalAfterTokens": 29017,
+        "reconstructedC8ContinuationEstimate": 33270,
+        "reconstructedC9ContinuationEstimate": 30305,
+        "independentlyRetainedBriefUtf8Bytes": 4344,
+        "independentlyRetainedBriefEstimatedTokens": 1578,
+        "oldSummaryUtf8Bytes": 10426,
+        "newSummaryUtf8Bytes": 2563,
+        "oldSummaryEstimatedTokens": 3926,
+        "newSummaryEstimatedTokens": 961,
+        "summarySha256": "cccaec6b00cd753ba682e3d0062a6e6d59cca820aa785d5c679fb9d4b1e8135c",
+        "summaryHardLimitVerifiedForHistoricalTokenizer": false,
+        "exactHistoricalSummaryTokens": null,
+        "exactC9ContinuationTokens": null,
+        "deterministicTestTokenizerTokens": 961,
+        "deterministicGenerationStages": 1,
+        "deterministicGenerationAttempts": 1,
+        "realModelGenerationTimeMs": null,
+        "historicalGenerationStages": 1,
+        "curatedSourceFindingCount": 3,
+        "curatedSummaryEstimatedTokens": 1146,
+        "curatedFixtureInference": "analyst-curated original-source findings through production validation; not model-generated",
+        "sourceValidation": "production validateDraft on original eligible operations; source-bound structural, semantic completeness unproven",
+        "preservedRequirementEntries": 9,
+        "preservedCompletedWorkEntries": 3,
+        "preservedResearchEntries": 3,
+        "originalEligibleOperations": 21,
+        "durableEvidenceRecords": 21,
+        "retrievedEvidenceRecords": 21,
+        "storedOutcomes": {
+          "success": 21,
+          "failed": 0,
+          "blocked": 0,
+          "cancelled": 0
+        },
+        "checkpointActivated": false,
+        "originalRequestsReplayed": false
+      },
+      {
+        "checkpointVersion": 12,
+        "historicalBeforeTokens": 41434,
+        "historicalAfterTokens": 27474,
+        "reconstructedC8ContinuationEstimate": 32437,
+        "reconstructedC9ContinuationEstimate": 28798,
+        "independentlyRetainedBriefUtf8Bytes": 4344,
+        "independentlyRetainedBriefEstimatedTokens": 1578,
+        "oldSummaryUtf8Bytes": 12242,
+        "newSummaryUtf8Bytes": 2563,
+        "oldSummaryEstimatedTokens": 4600,
+        "newSummaryEstimatedTokens": 961,
+        "summarySha256": "cccaec6b00cd753ba682e3d0062a6e6d59cca820aa785d5c679fb9d4b1e8135c",
+        "summaryHardLimitVerifiedForHistoricalTokenizer": false,
+        "exactHistoricalSummaryTokens": null,
+        "exactC9ContinuationTokens": null,
+        "deterministicTestTokenizerTokens": 961,
+        "deterministicGenerationStages": 1,
+        "deterministicGenerationAttempts": 1,
+        "realModelGenerationTimeMs": null,
+        "historicalGenerationStages": 1,
+        "curatedSourceFindingCount": 3,
+        "curatedSummaryEstimatedTokens": 1146,
+        "curatedFixtureInference": "analyst-curated original-source findings through production validation; not model-generated",
+        "sourceValidation": "production validateDraft on original eligible operations; source-bound structural, semantic completeness unproven",
+        "preservedRequirementEntries": 9,
+        "preservedCompletedWorkEntries": 3,
+        "preservedResearchEntries": 3,
+        "originalEligibleOperations": 27,
+        "durableEvidenceRecords": 27,
+        "retrievedEvidenceRecords": 27,
+        "storedOutcomes": {
+          "success": 27,
+          "failed": 0,
+          "blocked": 0,
+          "cancelled": 0
+        },
+        "checkpointActivated": false,
+        "originalRequestsReplayed": false
+      },
+      {
+        "checkpointVersion": 13,
+        "historicalBeforeTokens": 42332,
+        "historicalAfterTokens": 28069,
+        "reconstructedC8ContinuationEstimate": 32061,
+        "reconstructedC9ContinuationEstimate": 27957,
+        "independentlyRetainedBriefUtf8Bytes": 4344,
+        "independentlyRetainedBriefEstimatedTokens": 1578,
+        "oldSummaryUtf8Bytes": 13619,
+        "newSummaryUtf8Bytes": 2773,
+        "oldSummaryEstimatedTokens": 5136,
+        "newSummaryEstimatedTokens": 1032,
+        "summarySha256": "51fdc5969dd69f4540af283c5384f3d03f7760e4aefedcb7e7808f4cebd52a95",
+        "summaryHardLimitVerifiedForHistoricalTokenizer": false,
+        "exactHistoricalSummaryTokens": null,
+        "exactC9ContinuationTokens": null,
+        "deterministicTestTokenizerTokens": 1032,
+        "deterministicGenerationStages": 1,
+        "deterministicGenerationAttempts": 1,
+        "realModelGenerationTimeMs": null,
+        "historicalGenerationStages": 1,
+        "curatedSourceFindingCount": 3,
+        "curatedSummaryEstimatedTokens": 1218,
+        "curatedFixtureInference": "analyst-curated original-source findings through production validation; not model-generated",
+        "sourceValidation": "production validateDraft on original eligible operations; source-bound structural, semantic completeness unproven",
+        "preservedRequirementEntries": 9,
+        "preservedCompletedWorkEntries": 3,
+        "preservedResearchEntries": 3,
+        "originalEligibleOperations": 35,
+        "durableEvidenceRecords": 35,
+        "retrievedEvidenceRecords": 35,
+        "storedOutcomes": {
+          "success": 35,
+          "failed": 0,
+          "blocked": 0,
+          "cancelled": 0
+        },
+        "checkpointActivated": false,
+        "originalRequestsReplayed": false
+      }
+    ]
+  },
+  "focusedBudgetFixtures": [
+    {
+      "case": "boundary-1000",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": true
+    },
+    {
+      "case": "boundary-1999",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": true
+    },
+    {
+      "case": "boundary-4900",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": true
+    },
+    {
+      "case": "boundary-4999",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": true
+    },
+    {
+      "case": "boundary-5000",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": false
+    },
+    {
+      "case": "boundary-5001",
+      "source": "injected exact-count test double, not Qwen",
+      "accepted": false
+    },
+    {
+      "case": "short summary",
+      "ok": true,
+      "generationAttempts": 1,
+      "summaryTokens": 1700,
+      "sourceValidation": "production validator; durable sources",
+      "model": "scripted fixture"
+    },
+    {
+      "case": "exact hard limit",
+      "ok": true,
+      "generationAttempts": 1,
+      "summaryTokens": 4999,
+      "sourceValidation": "production validator; durable sources",
+      "model": "scripted fixture"
+    },
+    {
+      "case": "one correction succeeds",
+      "ok": true,
+      "generationAttempts": 2,
+      "summaryTokens": 2100,
+      "sourceValidation": "production validator; durable sources",
+      "model": "scripted fixture"
+    },
+    {
+      "case": "one correction remains too long",
+      "ok": false,
+      "code": "compaction-summary-budget-exceeded",
+      "generationAttempts": 2,
+      "sourceValidation": "production validator; durable sources",
+      "model": "scripted fixture"
+    }
+  ],
+  "regressions": {
+    "baseline": [
+      {
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 55,
+          "pass": 55,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.28,
+        "log": "/tmp/c9-baseline/workspaceCompactCandidate.log"
+      },
+      {
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 42,
+          "pass": 42,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 6.233,
+        "log": "/tmp/c9-baseline/workspaceSafeCompaction.log"
+      },
+      {
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 20.312,
+        "log": "/tmp/c9-baseline/workspaceAdvancedCompaction.log"
+      },
+      {
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.576,
+        "log": "/tmp/c9-baseline/workspaceCompactionActivity.log"
+      },
+      {
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.225,
+        "log": "/tmp/c9-baseline/workspaceGenerationRuntime.log"
+      },
+      {
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.423,
+        "log": "/tmp/c9-baseline/workspaceCheckpoints.log"
+      },
+      {
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exitCode": 1,
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ],
+        "seconds": 0.693,
+        "log": "/tmp/c9-baseline/workspaceBudgetVerification.log"
+      },
+      {
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.296,
+        "log": "/tmp/c9-baseline/workspaceTaskBriefs.log"
+      },
+      {
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.458,
+        "log": "/tmp/c9-baseline/workspaceBriefBudget.log"
+      },
+      {
+        "file": "tests/c6aStructuredOutput.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 2.279,
+        "log": "/tmp/c9-baseline/c6aStructuredOutput.log"
+      },
+      {
+        "file": "tests/c6aMeasurement.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.271,
+        "log": "/tmp/c9-baseline/c6aMeasurement.log"
+      },
+      {
+        "file": "tests/c6bContextSelection.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.542,
+        "log": "/tmp/c9-baseline/c6bContextSelection.log"
+      },
+      {
+        "file": "tests/c6cAcceptance.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.837,
+        "log": "/tmp/c9-baseline/c6cAcceptance.log"
+      },
+      {
+        "file": "tests/c6dPerformance.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.112,
+        "log": "/tmp/c9-baseline/c6dPerformance.log"
+      },
+      {
+        "file": "tests/c6eLightweightContext.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.513,
+        "log": "/tmp/c9-baseline/c6eLightweightContext.log"
+      },
+      {
+        "file": "tests/c7Reliability.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 12.546,
+        "log": "/tmp/c9-baseline/c7Reliability.log"
+      },
+      {
+        "file": "tests/c7Header.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.266,
+        "log": "/tmp/c9-baseline/c7Header.log"
+      },
+      {
+        "file": "tests/c8EffectiveCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.214,
+        "log": "/tmp/c9-baseline/c8EffectiveCompaction.log"
+      },
+      {
+        "file": "tests/h1DeletionIpc.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 6.72,
+        "log": "/tmp/c9-baseline/h1DeletionIpc.log"
+      },
+      {
+        "file": "tests/h1HistoryDeletion.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.522,
+        "log": "/tmp/c9-baseline/h1HistoryDeletion.log"
+      },
+      {
+        "file": "tests/contextPanel.test.cjs",
+        "exitCode": 0,
+        "counts": {},
+        "failures": [],
+        "seconds": 0.035,
+        "log": "/tmp/c9-baseline/contextPanel.log"
+      },
+      {
+        "file": "tests/workLog.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.36,
+        "log": "/tmp/c9-baseline/workLog.log"
+      },
+      {
+        "file": "tests/workLogDisplay.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.158,
+        "log": "/tmp/c9-baseline/workLogDisplay.log"
+      }
+    ],
+    "after": [
+      {
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 55,
+          "pass": 55,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 2.001,
+        "log": "/tmp/c9-after/workspaceCompactCandidate.log"
+      },
+      {
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 46,
+          "pass": 46,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 7.878,
+        "log": "/tmp/c9-after/workspaceSafeCompaction.log"
+      },
+      {
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 19.43,
+        "log": "/tmp/c9-after/workspaceAdvancedCompaction.log"
+      },
+      {
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.427,
+        "log": "/tmp/c9-after/workspaceCompactionActivity.log"
+      },
+      {
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.1,
+        "log": "/tmp/c9-after/workspaceGenerationRuntime.log"
+      },
+      {
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.392,
+        "log": "/tmp/c9-after/workspaceCheckpoints.log"
+      },
+      {
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exitCode": 1,
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ],
+        "seconds": 0.486,
+        "log": "/tmp/c9-after/workspaceBudgetVerification.log"
+      },
+      {
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.263,
+        "log": "/tmp/c9-after/workspaceTaskBriefs.log"
+      },
+      {
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.409,
+        "log": "/tmp/c9-after/workspaceBriefBudget.log"
+      },
+      {
+        "file": "tests/c6aStructuredOutput.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 2.28,
+        "log": "/tmp/c9-after/c6aStructuredOutput.log"
+      },
+      {
+        "file": "tests/c6aMeasurement.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.32,
+        "log": "/tmp/c9-after/c6aMeasurement.log"
+      },
+      {
+        "file": "tests/c6bContextSelection.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.686,
+        "log": "/tmp/c9-after/c6bContextSelection.log"
+      },
+      {
+        "file": "tests/c6cAcceptance.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.95,
+        "log": "/tmp/c9-after/c6cAcceptance.log"
+      },
+      {
+        "file": "tests/c6dPerformance.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.136,
+        "log": "/tmp/c9-after/c6dPerformance.log"
+      },
+      {
+        "file": "tests/c6eLightweightContext.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 2.064,
+        "log": "/tmp/c9-after/c6eLightweightContext.log"
+      },
+      {
+        "file": "tests/c7Reliability.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 11.936,
+        "log": "/tmp/c9-after/c7Reliability.log"
+      },
+      {
+        "file": "tests/c7Header.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.253,
+        "log": "/tmp/c9-after/c7Header.log"
+      },
+      {
+        "file": "tests/c8EffectiveCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.179,
+        "log": "/tmp/c9-after/c8EffectiveCompaction.log"
+      },
+      {
+        "file": "tests/h1DeletionIpc.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 1.905,
+        "log": "/tmp/c9-after/h1DeletionIpc.log"
+      },
+      {
+        "file": "tests/h1HistoryDeletion.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.493,
+        "log": "/tmp/c9-after/h1HistoryDeletion.log"
+      },
+      {
+        "file": "tests/contextPanel.test.cjs",
+        "exitCode": 0,
+        "counts": {},
+        "failures": [],
+        "seconds": 0.03,
+        "log": "/tmp/c9-after/contextPanel.log"
+      },
+      {
+        "file": "tests/workLog.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.484,
+        "log": "/tmp/c9-after/workLog.log"
+      },
+      {
+        "file": "tests/workLogDisplay.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.198,
+        "log": "/tmp/c9-after/workLogDisplay.log"
+      },
+      {
+        "file": "tests/c9SimpleCompaction.test.cjs",
+        "exitCode": 0,
+        "counts": {
+          "tests": 21,
+          "pass": 21,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failures": [],
+        "seconds": 0.322,
+        "log": "/tmp/c9-after/c9SimpleCompaction.log"
+      }
+    ],
+    "baselineTotals": {
+      "tests": 311,
+      "pass": 310,
+      "fail": 1
+    },
+    "afterTotals": {
+      "tests": 336,
+      "pass": 335,
+      "fail": 1
+    },
+    "newFailureIdentities": []
+  },
+  "uiChecks": [
+    {
+      "suite": "contextPanel",
+      "passed": true,
+      "log": "/tmp/c9-context-ui.log",
+      "sha256": "750b35401238658f353d17726b553540bdc986ece7200478873f25265652f583"
+    },
+    {
+      "suite": "compactionActivity",
+      "passed": true,
+      "log": "/tmp/c9-activity-ui.log",
+      "sha256": "83be6a4b7f3643ca3803af72d6e506997a6eef0199e9ebd216a6ea3f32b632de"
+    },
+    {
+      "suite": "workLogPanel",
+      "passed": true,
+      "log": "/tmp/c9-worklog-ui.log",
+      "sha256": "1498e271fd1b8819389063580abdc559d4be56825be06a0784801a2327ccc1d3"
+    },
+    {
+      "suite": "c6aCompactionStatus",
+      "passed": true,
+      "log": "/tmp/c9-status-ui.log",
+      "sha256": "35c5be606dae778f6872d275122328b3cbfbed069c65f55c0832e82e892364d5"
+    },
+    {
+      "suite": "headerContext",
+      "passed": true,
+      "log": "/tmp/c9-header-ui.log",
+      "sha256": "1d28d270614f0a74435fe3f63ec2a3e5b6cff75c4a934ed51d408f68988c8fe2"
+    }
+  ],
+  "build": {
+    "baselinePassed": true,
+    "afterPassed": true,
+    "existingLargeChunkWarning": true,
+    "baselineLog": "/tmp/c9-baseline-build.log",
+    "afterLog": "/tmp/c9-build.log"
+  },
+  "diffCheck": {
+    "command": "git diff --check",
+    "exitCode": 0
+  },
+  "sourceHashes": {
+    "src/components/ContextPanel.jsx": "68bb5247807208a052aa6b4ad54882a2ebfd8afb7dc85a4212bd1b9649e8f9fd",
+    "src/components/chat/CompactionActivity.jsx": "f92f8bc224877a9042b90867816be5fbf5dd0ef99d876bcdc8ef4edf2adeab46",
+    "src/lib/compactionActivity.mjs": "877e3e6cc4967aa5ea960c147f0139a275d6214b2c170dfd65bec4e7c657ba68",
+    "src/main/compactionPerformance.js": "8c3b861484f17be4deb564bc9d8e16a945e8bcd003ec79b22a97e82756a10fe3",
+    "src/main/contextInspection.js": "0abe6fee9ac445588985c54ac9127d65588ffabaa1af382d7e7420e933e6dc1e",
+    "src/main/taskCheckpoints.js": "cda4dcc6309099e4e6c15551a8ebe4e12f77333b0791f4505625890f86dcff7f",
+    "src/main/workspaceCompactCandidate.js": "b3e10b859d2637551db86c7e96870a036cf7679569fe87258aecc875b9b7d92a",
+    "src/main/workspaceCompaction.js": "02ec41f8da527a32387921d18024861cbe8649c550520ce932bdd6b8587620ae",
+    "src/main/workspaceCompactionActivity.js": "149fce3737f46bbcf2c322c175c9727de5d999b24329821f5075ad5c443e06ca",
+    "tests/c6bContextSelection.test.cjs": "9f0a0494759c99185a7312d64e1feff235e72cf0a3074314eab65995e0b7034e",
+    "tests/c6cAcceptance.test.cjs": "ae5dbcd9f7efe06e4d383c9845e9e04a60961225c59e0ce365f9d671fbdf8792",
+    "tests/c6eLightweightContext.test.cjs": "235690fcd3591a077c310c9513be7ea9258abb608db2bf0418e9c6c4f40c9e38",
+    "tests/c7Reliability.test.cjs": "15cd870eb2b87ab15015fc8b7336baae9a6f7a4ee61a238eea29784322efe83c",
+    "tests/compactionActivity.ui.cjs": "2ad7bb7d1bbd72dceb26cd19397c577ca511473937e9a2d563a1e8c316747d6b",
+    "tests/contextPanel.ui.cjs": "fe9e358e956559580264c22c18b49e9be1294c2554a7ffa807d00c1e71e13a41",
+    "tests/fixtures/w3Compaction.cjs": "a5abef7bf2d2e23f77dd10af1a4f10f07ee0e333532220aad7ec9b90a8b57479",
+    "tests/workspaceAdvancedCompaction.test.cjs": "e4d2e67653be0648bf3817ac58994a047b96cc755804a4ef1d90fb439409e1e1",
+    "tests/workspaceCompactCandidate.test.cjs": "c5e059abebab4a0f537b760837ff6b8f651b1bec637337de0d1312ad1197a122",
+    "tests/workspaceSafeCompaction.test.cjs": "84519e44bda6348c331897967448d3da56f30e488131379332a144a7051d9278",
+    "src/main/compactionSummary.js": "d5075d6d0f6741d329aa74014c1e37165462c13aaf2e58352711fe4b3e7193f3",
+    "tests/c9SimpleCompaction.test.cjs": "8780d5a10f044440e55df51d6e78d76bcbebfc81d2154078cd75cff9cb0f33dc",
+    "tests/fixtures/c9SummaryTokenizer.cjs": "b2d6832ae39f346f1407f3402364434bf0fce63ad413b7c292c715339e92d656",
+    "tests/fixtures/c9TaskflowAudit.cjs": "6a1c296aa0a80cd0283ddcbc44174635ef2d251489ca719896175a5da13f8b1b"
+  },
+  "limitations": [
+    "No live Qwen inference or historical exact tokenizer. Retrospective estimates and synthetic-tokenizer tests are not historical hard-limit certification.",
+    "Source validation is structural and operation-bound; arbitrary natural-language semantic completeness remains unproven.",
+    "Original C8-A drafts contain generic findings. The separately labelled enriched fixture uses analyst-curated source findings and does not prove model behavior or measured reread reduction.",
+    "Exact final raw Qwen draft sizes, per-attempt reasoning tokens and compaction inference times are unavailable.",
+    "No tokenizer-independent guaranteed upper bound was introduced. Estimate-only providers intentionally cannot activate a C9 checkpoint.",
+    "Mandatory independent briefs and fixed/protected context may keep the full continuation above 17000 tokens.",
+    "Retained essential source-bound findings can eventually exceed the hard limit; then correction fails safely without truncation.",
+    "The broad repository suite was not run; selected relevant suites and five UI suites were run."
+  ],
+  "deterministicRuntime": [
+    {
+      "name": "safe-commit",
+      "beforeTokens": 66320,
+      "actualTokens": 13414,
+      "summaryTokens": 282,
+      "summaryTokenMethod": "server-template-tokenizer",
+      "workingCheckpointMeasurement": {
+        "tokens": 240,
+        "method": "server-template-tokenizer",
+        "includesTemplateOverhead": true
+      },
+      "protectedContextMeasurement": {
+        "tokens": 9643,
+        "method": "approximate-full-request",
+        "includesTemplateOverhead": true
+      },
+      "irreducibleContextTokens": 13221,
+      "durationMs": 196.82160700000003,
+      "generation": {
+        "generationStages": 1,
+        "correctionAttempts": 0,
+        "inputTokens": 3783,
+        "outputBudget": 3072,
+        "visibleOutputTokens": 155,
+        "visibleOutputTokenMethod": "approximate-full-request",
+        "summaryTokens": 282,
+        "summaryTokenMethod": "server-template-tokenizer",
+        "protectedBriefTokens": 80,
+        "protectedBriefTokenMethod": "existing-task-brief-estimate"
+      },
+      "prospectiveMeasurementMethod": "approximate-full-request",
+      "commitOutcome": "committed-and-verified"
+    }
+  ],
+  "baselineDeterministicRuntime": [
+    {
+      "name": "safe-commit",
+      "beforeTokens": 66320,
+      "actualTokens": 14053,
+      "workingCheckpointMeasurement": {
+        "tokens": 947,
+        "method": "approximate-full-request",
+        "includesTemplateOverhead": true
+      },
+      "durationMs": 137.70771599999998,
+      "commitOutcome": "committed-and-verified"
+    }
+  ]
+}

@@ -13,11 +13,11 @@ async function compact({ sessionId, modelId = 'model', draft = {}, tools = [], i
     return await require('../../src/main/workspaceCompaction').compactAtBoundary({
       sessionId, modelId, owner, tail: [], payload, force: true, isCurrent: () => true, inject,
       buildRequest: async projection => ({ ...payload, messages: prefix(projection) }),
-      measure: measureOverride ?? (async request => {
+      measure: require('./c9SummaryTokenizer.cjs').withSummaryTokenizer(measureOverride ?? (async request => {
         const tokens = budget.approximateTokens(request);
-        const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 524288, payload: request, currentInputTokens: tokens });
-        return { tokens, method: 'approximate-full-request', budgetContract, limit: 524288, budget: budgetContract.usableInputTokens };
-      }),
+        const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 524288, payload: request, currentInputTokens: tokens, measurementMethod: 'server-template-tokenizer' });
+        return { tokens, method: 'server-template-tokenizer', budgetContract, limit: 524288, budget: budgetContract.usableInputTokens };
+      })),
       generate: async request => {
         const input = JSON.parse(request.messages[1].content);
         const result = { objective: draft.objective ?? 'Preserve fixture task', briefIds: input.briefs.map(b => b.id) };

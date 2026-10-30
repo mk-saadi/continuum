@@ -553,6 +553,7 @@ function registerIpcHandlers({
 			let stoppedByLimit = false;
             let soundLimitTimedOut = false;
 			let stoppedByCircuitBreak = false;
+            let incompleteTask = null;
 			if (
 				typeof requestId !== "string" ||
 				!requestId ||
@@ -593,7 +594,7 @@ function registerIpcHandlers({
 			sender.once("destroyed", abort);
             let persistence;
 			let persistTimer = null;
-			const persist = (status = "in_progress") => {
+			const persist = (status = "in_progress", immediate = false) => {
                 // An overflow before any generated data must not leave a blank
                 // assistant row on every attempt. Existing real output persists.
                 if (!persistence && sessionId && (materializeContent() || executionSteps.length || currentStats)) {
@@ -602,7 +603,7 @@ function registerIpcHandlers({
                     notify({ type: 'message-created', messageId: persistence.messageId });
                 }
 
-				if (status === "in_progress") {
+				if (status === "in_progress" && !immediate) {
 					if (persistTimer === null) persistTimer = setTimeout(() => {
 						persistTimer = null;
 						persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status: "in_progress" });
@@ -689,7 +690,21 @@ function registerIpcHandlers({
                         mcpMode: mcpManager.getMcpMode?.() ?? getAppSettings().mcpMode,
                         configuration: require('./advertisedTools').fingerprint([...(mcpManager.servers ?? [])].map(([name, server]) =>
                             [name, server.definition, server.enabled, [...(server.disabledTools ?? [])]])) }), resolve: resolveAdvertisedIdentity });
+                const taskPermissionRevision = require('./lspExecutionContext').revision(sessionId);
+                const initialPlanRevision = usageProjectId ? getWorkspacePlan(sessionId)?.revision : null;
 				const text = await runMemoryChat({
+                    getTaskState: usageProjectId ? () => {
+                        if (!require('./db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) throw new Error('Task session deleted.');
+                        const plan = getWorkspacePlan(sessionId);
+                        // An old open plan must not turn a new question into an
+                        // execution mandate. Bind only a plan touched this run or
+                        // an explicit request to resume the existing task.
+                        const taskBound = plan && (plan.revision !== initialPlanRevision ||
+                            /^\s*(?:continue|resume|proceed|finish(?: the)? (?:task|work))\b/i.test(currentUserText));
+                        return { plan: taskBound ? plan : null, userText: currentUserText,
+                            canContinue: taskPermissionRevision === require('./lspExecutionContext').revision(sessionId) };
+                    } : null,
+                    onTaskIncomplete: state => { incompleteTask = state; },
                     onAdvertisedTools: schemas => advertisedTools.record(schemas),
                         projectId: usageProjectId,
                         workspaceRoot: backgroundContext?.workspace,
@@ -766,6 +781,8 @@ function registerIpcHandlers({
                         fetchImpl,
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
                         loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
+                        getExecutionEnvironment: () => require("./promptBuilder").buildExecutionEnvironmentSection(sessionId),
+                        getSessionPlanState: usageProjectId ? () => require('./workspacePlan').buildPlanStateSection(sessionId) : null,
                         rebuildWorkspacePrefix: usageProjectId ? projection => rebuildChatMessages({
                             sessionId, modelId, excludeMessageIds: [persistence?.messageId],
                             delegationAvailable: tools.some(tool => tool.function?.name === 'spawn_sub_agent'),
@@ -965,11 +982,13 @@ function registerIpcHandlers({
                         // The renderer shows a compact per-turn cost chip from
                         // this summary; the full evidence (breakdown, rates,
                         // version) is persisted to token history below.
+                        const previousCost = currentStats?.cost;
                         currentStats = { ...stats, cost: {
                             total: estimate.totalCost ?? null, currency: estimate.currency,
                             completeness: estimate.completeness, savings: estimate.cacheSavings ?? null,
                             providerReported: estimate.providerReportedCost ?? null, source: estimate.source } };
-						persist();
+                        if (!Number.isFinite(currentStats.cost.total) && Number.isFinite(previousCost?.total)) currentStats.cost = previousCost;
+						persist("in_progress", true);
                         // Persist the same normalized turn aggregate the UI sees.
                         // Unknown sides are never replaced with zero: the existing
                         // row schema requires gross prompt/completion counts, so a
@@ -998,9 +1017,8 @@ function registerIpcHandlers({
                         }
 						notify({ type: "stats", stats: currentStats });
 					},
-					// Live per-request prompt telemetry. Forward-only: never
-					// persisted here and never logged to token usage. The final
-					// onStats above remains the single persistence/logging path.
+					// Prompt telemetry is separate from the durable live usage snapshot.
+                    // Only final measured stats enter token history.
 					onPhase: ({ round, promptTokens, completionTokens, cachedTokens, cacheCreationTokens,
 						reasoningTokens, visibleCompletionTokens, telemetry, method, budgetContract, timestamp, isEstimate, dispatched, requestSequence }) => {
 						if (controller.signal.aborted || activeStreams.get(streamKey) !== controller) return;
@@ -1018,11 +1036,31 @@ function registerIpcHandlers({
                         const estimates = [...phases, current].map(stats => costEstimator.estimateFromStats({
                             stats, resolvedPricing: turnPricing?.status === 'available' ? turnPricing : null,
                             providerId: target.provider, modelId }));
-                        const known = estimates.filter(value => Number.isFinite(value.totalCost));
-                        notify({ type: 'live-cost', cost: { total: known.length ? known.reduce((sum, value) => sum + value.totalCost, 0) : null,
-                            partial: known.length !== estimates.length || known.some(value => value.completeness === 'partial'), estimated: true } });
+                        currentStats = require('./runUsageSnapshot').runUsageSnapshot({
+                            phases, current, estimates, previous: currentStats });
+                        // Commit before publishing: any cost visible in the sidebar
+                        // already belongs to the durable message and its variant.
+                        persist('in_progress', true);
+                        notify({ type: 'stats', stats: currentStats });
+                        notify({ type: 'live-cost', cost: { total: currentStats.cost.total,
+                            partial: currentStats.cost.completeness === 'partial', estimated: true } });
                     },
 					onThinking: (thinking) => notify({ type: "thinking", thinking }),
+                    preflightIndependentRead: async call => {
+                        controller.signal.throwIfAborted();
+                        if (activeStreams.get(streamKey) !== controller) throw new Error('Parent run ownership changed.');
+                        if (!require('./db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) throw new Error('Task session deleted.');
+                        if (taskPermissionRevision !== require('./lspExecutionContext').revision(sessionId)) return false;
+                        const currentTools = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId,
+                            lspExecutionContext?.permissionMode ?? permissionMode, modelId).tools;
+                        return require('./toolBatchPreflight').preflightIndependentRead(call, {
+                            tools: currentTools, nativeNames: new Set(agentTools.map(tool => tool.function.name)),
+                            root: project?.root_path, signal: controller.signal,
+                            authorize: (name, args) => guardTool({ name, args, native: true, sessionId, project,
+                                permissionMode: lspExecutionContext?.permissionMode ?? permissionMode, signal: controller.signal,
+                                requestApproval: async () => { throw new Error('Overflow batch requires approval.'); } }),
+                        });
+                    },
 					executeTool: async (call, activationRequest) => {
 						controller.signal.throwIfAborted();
 						const id = require("node:crypto").randomUUID();
@@ -1168,11 +1206,11 @@ function registerIpcHandlers({
 						}
 					},
 				});
-				persist(controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed");
+				persist(controller.signal.aborted || stoppedByCircuitBreak || incompleteTask ? "interrupted" : "completed");
                 // Live top-level terminal transition, independent of messages and OS notifications.
                 notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted || (stoppedByLimit && !soundLimitTimedOut)
                     ? 'cancelled' : soundLimitTimedOut || stoppedByCircuitBreak || /\[System: Reasoning loop detected and terminated\./.test(text)
-                    ? 'interrupted' : 'completed' });
+                    || incompleteTask ? 'interrupted' : 'completed', incompleteTask });
 				// Per-turn work digest: built from the persisted steps for
 				// Workspace sessions only. Fail-safe by contract
 				// (recordTurnDigestSafe never throws): digest work must never
@@ -1181,12 +1219,12 @@ function registerIpcHandlers({
 					require('./workLog').recordTurnDigestSafe({
 						sessionId,
 						assistantMessageId: persistence.messageId,
-						partial: controller.signal.aborted || stoppedByCircuitBreak,
+						partial: controller.signal.aborted || stoppedByCircuitBreak || !!incompleteTask,
 					});
 				}
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
-					interrupted: stoppedByLimit, aborted: controller.signal.aborted });
-				return { text, stats: currentStats, executionSteps, runId, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak ? "interrupted" : "completed" } };
+					interrupted: stoppedByLimit || !!incompleteTask, aborted: controller.signal.aborted });
+				return { text, stats: currentStats, executionSteps, runId, incompleteTask, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak || incompleteTask ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
                 notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted ? 'cancelled' : 'interrupted' });

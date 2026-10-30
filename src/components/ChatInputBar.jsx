@@ -247,7 +247,7 @@ function PermissionSelector({
 		<div className="mr-auto w-full max-w-[200px]">
 			<SelectField
 				aria-label="Tool permission mode"
-				title="Tool permission mode"
+				title="Permission mode authorizes actions; execution environment determines where commands run."
 				value={value}
 				onChange={(event) => onChange?.(event.target.value)}
 				disabled={disabled}
@@ -263,6 +263,7 @@ function PermissionSelector({
 					</option>
 				))}
 			</SelectField>
+            <span className="block text-[10px] text-zinc-500" aria-live="polite">Execution environment: {value === 'full_access' ? 'Host' : value === 'read_only' ? 'No executable shell' : value === 'workspace_write' || modes.includes('workspace_write') ? 'Workspace sandbox' : 'Host after approval'}</span>
 		</div>
 	);
 }

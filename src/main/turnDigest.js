@@ -415,6 +415,13 @@ function summarizeCommand(entry, args, result, status, errorText) {
     );
     return;
   }
+  const concern = isTest ? require('./testVerification').verificationConcern(result, args.command) : null;
+  if (concern) {
+    entry.status = 'error';
+    entry.verificationState = concern;
+    entry.summary = capText(`tests ${concern}: ${shown} (shell exit ${exitCode ?? '?'})`, SUMMARY_CAP);
+    return;
+  }
   if (isTest && exitCode === 0) {
     entry.summary = capText(`tests passed: ${shown} (exit 0)`, SUMMARY_CAP);
     return;
@@ -547,7 +554,7 @@ function issueKindFor(entry) {
 
 function entryOpensIssue(entry) {
   if (entry.status !== 'error') return false;
-  if ((entry.kind === 'command' || entry.kind === 'check') && entry.exitCode === 0) return false;
+  if ((entry.kind === 'command' || entry.kind === 'check') && entry.exitCode === 0 && !entry.verificationState) return false;
   return true;
 }
 

@@ -55,6 +55,20 @@ export function extractSubagentRuns(messages) {
 	return extractToolCalls(messages).filter((call) => SUB_AGENT_TOOL_NAMES.has(call.toolName));
 }
 
+// Human-friendly elapsed time: seconds below a minute, minutes below an
+// hour (with the second remainder), hours beyond that (with the minute
+// remainder). Zero-duration still reads as "0s".
+export function formatSessionDuration(elapsedMs) {
+	if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return "0s";
+	const totalSeconds = Math.floor(elapsedMs / 1000);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+	if (minutes > 0) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+	return `${seconds}s`;
+}
+
 export function summarizeActivity(input = {}) {
 	const {
 		streaming = false,
@@ -107,5 +121,9 @@ export function summarizeActivity(input = {}) {
 		indexing: indexing ?? null,
 		toolStats: stats,
 		recentTools: calls.slice(-8).reverse(),
+		// True only while an agent run is in flight (generating, tools
+		// running, awaiting approval, paused). Idle means no agent run, so
+		// the run timer must not show.
+		runActive: status !== "idle",
 	};
 }

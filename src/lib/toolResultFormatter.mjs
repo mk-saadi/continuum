@@ -1,4 +1,6 @@
 import secretRedaction from './secretRedaction.cjs';
+// Runtime-only provenance; never accepted from JSON or model arguments.
+export const NATIVE_RESULT = Symbol('native-result');
 import { validateImageDataUrl, INVALID_IMAGE_NOTICE } from './imageValidation.mjs';
 // Keep image bytes in image_url parts, never in tokenizer-facing text or UI logs.
 const DATA_IMAGE = /data:(image\/[a-zA-Z0-9.+-]+);base64,([^\s"'<>]*)/g;
@@ -65,7 +67,8 @@ function formatUnredactedToolResult(output, toolName = '') {
   };
   // Preserve accompanying tool text and errors, but only after recursively removing bytes.
   const text = typeof safe === 'string' ? safe : JSON.stringify(safe);
-  const acknowledgment = /screenshot/i.test(toolName) ? 'Screenshot captured successfully.' : 'Image captured successfully.';
+  const acknowledgment = /screenshot/i.test(toolName) ? 'Screenshot captured successfully.'
+    : toolName === 'read_project_file' ? 'Image supplied for inspection; interpretation requires a compatible vision model.' : 'Image captured successfully.';
   return {
     content: images.size ? [...(Array.isArray(output) && output.every(part => ['text', 'image_url'].includes(part?.type)) && safe.some(part => part?.type === 'text')
       ? safe.filter(part => part?.type === 'text' || part === INVALID_IMAGE_NOTICE).map(part => typeof part === 'string' ? { type: 'text', text: part } : part) : [{ type: 'text', text: `${acknowledgment}\n${text}` }]), ...images.values()] : text,
@@ -88,11 +91,53 @@ export function redactModelContent(value, options = {}) {
 }
 export function formatToolResult(output, toolName = '', options = {}) {
   const formatted = formatUnredactedToolResult(output, toolName);
-  const content = redactModelContent(formatted.content, options);
+  // Only the native dispatcher may assert provenance. Never trust a field
+  // name inside file text, an MCP payload, or a nested serialized object.
+  const trusted = options.nativeTool === toolName &&
+    ['read_project_file', 'write_project_file', 'str_replace_editor'].includes(toolName);
+  let source = formatted.content;
+  let hashes;
+  if (trusted) {
+    try {
+      const result = typeof source === 'string' ? JSON.parse(source) : null;
+      if (result && !Array.isArray(result) && typeof result === 'object') {
+        hashes = Object.fromEntries(['content_hash', 'current_content_hash']
+          .filter(key => typeof result[key] === 'string' && /^sha256:[a-f0-9]{64}$/.test(result[key]))
+          .map(key => [key, result[key]]));
+        // Redact every other field, including untrusted content, normally.
+        source = JSON.stringify({ ...result, ...Object.fromEntries(Object.keys(hashes).map(key => [key, null])) });
+      }
+    } catch { /* Non-structured results receive no exception. */ }
+  }
+  let content = redactModelContent(source, options);
+  if (hashes && Object.keys(hashes).length) content = JSON.stringify({ ...JSON.parse(content), ...hashes });
   const redacted = JSON.stringify(content) !== JSON.stringify(formatted.content);
   const displayResult = redacted && formatted.displayResult && typeof formatted.displayResult === 'object' && !Array.isArray(formatted.displayResult)
     ? { ...formatted.displayResult, modelOutputRedacted: true } : formatted.displayResult;
   return { ...formatted, content, displayResult, redacted };
+}
+
+// The engine's generic text cap can cut JSON mid-string. Keep a trusted file
+// page as valid JSON so the next wire sanitization can still recognize its
+// revision field. Source text stays redacted and explicitly an excerpt.
+export function boundNativeFilePage(content, guard, notice = '') {
+  let page;
+  try { page = JSON.parse(content); } catch { return null; }
+  if (!page || typeof page.content !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(page.content_hash ?? '')) return null;
+  const source = page.content;
+  const wrap = count => {
+    let text = source.slice(0, count);
+    if (/[\uD800-\uDBFF]$/.test(text)) text = text.slice(0, -1);
+    return JSON.stringify({ ...page, content: text, content_truncated: true, context_excerpt: true,
+      ...(notice ? { source_evidence: notice.trim() } : {}) });
+  };
+  if (guard(wrap(0)) !== wrap(0)) return null;
+  let low = 0, high = source.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2), value = wrap(middle);
+    if (guard(value) === value) low = middle; else high = middle - 1;
+  }
+  return wrap(low);
 }
 
 export function hasToolImages(messages) {

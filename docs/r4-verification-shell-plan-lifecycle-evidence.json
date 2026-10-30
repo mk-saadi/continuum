@@ -1,0 +1,687 @@
+{
+  "scope": "R4 only; existing worktree changes preserved; no inference, dependency install, live DB writes, commit or push",
+  "date": "2026-10-30",
+  "clientTimezone": "Asia/Dhaka",
+  "historical": {
+    "sessionId": "60322ed9-99c4-4d4d-9363-cf519591c807",
+    "source": "Persisted execution_steps inspected using SQLite mode=ro; original database unchanged",
+    "toolCalls": 195,
+    "recordedErrors": 15,
+    "classification": {
+      "missingSandboxNvmStartup": 5,
+      "unavailableExplicitHostNvmPath": 1,
+      "otherShellMisuse": 4,
+      "emptyRootDirectoryContract": 1,
+      "workerElectronDependency": 1,
+      "planExists": 1,
+      "correctEditRejections": 2
+    },
+    "failures": [
+      {
+        "id": "call_608c98bd49854732a1d31bc2",
+        "tool": "search_memory",
+        "messageId": 4135,
+        "command": null,
+        "error": "Cannot find module 'electron'\nRequire stack:\n- /tmp/.mount_ContinQ0J2Wt/resources/app.asar/src/main/db.js\n- /tmp/.mount_ContinQ0J2Wt/resources/app.asar/src/main/memoryManager.js\n- /tmp/.mount_ContinQ0J2Wt/resources/app.asar/src/main/memorySearchCore.js\n- /tmp/.mount_ContinQ0J2Wt/resources/app.asar/src/main/memorySearchWorker.js"
+      },
+      {
+        "id": "call_f85bd28af3f84e1cb741c94b",
+        "tool": "list_directory",
+        "messageId": 4135,
+        "command": null,
+        "error": "Invalid relative_path."
+      },
+      {
+        "id": "call_357cef1203314385b59d27c6",
+        "tool": "execute_command",
+        "messageId": 4135,
+        "command": "cd /home/mk_saadi/projects/persona-projects/llm-electron && git stash push -m \"verify-sigsegv-preexisting\" >/dev/null 2>&1 && source ~/.nvm/nvm.sh && node --test tests/projectPlanRetrieval.test.cjs 2>&1 | tail -6; git stash pop",
+        "error": null
+      },
+      {
+        "id": "call_b686e2b96e9146ca8be640f2",
+        "tool": "execute_command",
+        "messageId": 4135,
+        "command": "cd /home/mk_saadi/projects/persona-projects/llm-electron && export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && node --version && node --test tests/projectPlanRetrieval.test.cjs 2>&1 | tail -8; echo \"pop:\"; git stash pop 2>&1 | tail -2; git status --short | wc -l",
+        "error": null
+      },
+      {
+        "id": "call_94262c5bd25e4aecbeb0908d",
+        "tool": "execute_command",
+        "messageId": 4135,
+        "command": "ls /home/mk_saadi/.nvm/nvm.sh && cd /home/mk_saadi/projects/persona-projects/llm-electron && git stash list && git stash pop 2>&1 | tail -3 && git status --short | wc -l",
+        "error": null
+      },
+      {
+        "id": "call_17fe0d84e2a640fe961ea613",
+        "tool": "execute_command",
+        "messageId": 4135,
+        "command": "cd /home/mk_saadi/projects/persona-projects/llm-electron && git diff tests/projectPlanRetrieval.test.cjs | head -5; echo \"diff-exit=$?\"; node --test tests/projectPlanRetrieval.test.cjs 2>&1 | grep -c \"^ok\"",
+        "error": null
+      },
+      {
+        "id": "call_70e7093dc01c42989072339d",
+        "tool": "execute_command",
+        "messageId": 4135,
+        "command": "cd /home/mk_saadi/projects/persona-projects/llm-electron && cp tests/projectPlanRetrieval.test.cjs /tmp/ppr.bak && git show HEAD:tests/projectPlanRetrieval.test.cjs > /tmp/ppr_head.cjs && diff <(git show HEAD:tests/projectPlanRetrieval.test.cjs) tests/projectPlanRetrieval.test.cjs && echo \"TESTFILE-UNCHANGED\" ; echo \"=== run from pristine HEAD copy ===\"; mkdir -p /tmp/vcheck && git show HEAD:src/lib/executionEvents.mjs > /tmp/vcheck/executionEvents.mjs && sed -n '568,576p' tests/projectPlanRetrieval.test.cjs",
+        "error": null
+      },
+      {
+        "id": "call_cdb0e57949b9422485c7c157",
+        "tool": "update_plan",
+        "messageId": 4139,
+        "command": null,
+        "error": "A plan already exists for this task (revision 6). Use action \"update\" to revise it."
+      },
+      {
+        "id": "call_5d0930271b1e4efdb5dd8dd3",
+        "tool": "run_tests",
+        "messageId": 4139,
+        "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && node --test tests/sidebarModes.test.mjs tests/rightSidebarControls.test.cjs 2>&1 | tail -20",
+        "error": null
+      },
+      {
+        "id": "call_7f70e926f0d44693b315389d",
+        "tool": "run_tests",
+        "messageId": 4141,
+        "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && node --test tests/sidebarModes.test.mjs 2>&1 | tail -8",
+        "error": null
+      },
+      {
+        "id": "call_e3f4f9410d7d432d82ac2ffe",
+        "tool": "run_tests",
+        "messageId": 4143,
+        "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs 2>&1 | tail -8",
+        "error": null
+      },
+      {
+        "id": "call_bc17a1bec216468999e070b0",
+        "tool": "execute_command",
+        "messageId": 4143,
+        "command": "mkdir -p /tmp/ppr && git show HEAD:tests/projectPlanRetrieval.test.cjs > /tmp/ppr/pristine.cjs 2>/dev/null; cp src/lib/executionEvents.mjs /tmp/ppr/; cd /tmp/ppr && node --test pristine.cjs 2>&1 | grep -c 'SIGSEGV' ; echo \"---now with worktree files but original test assertion---\"; git show HEAD:tests/projectPlanRetrieval.test.cjs > /tmp/head_ppr.cjs && node --test /tmp/head_ppr.cjs 2>&1 | tail -4",
+        "error": null
+      },
+      {
+        "id": "call_d09f83c9808c44e09ea0b055",
+        "tool": "edit_project_files",
+        "messageId": 4145,
+        "command": null,
+        "error": "EDIT_ARGUMENT_INVALID: Provide an array of 1\u201320 edits. No files modified."
+      },
+      {
+        "id": "call_86cc6296cb634f8286f901f7",
+        "tool": "run_tests",
+        "messageId": 4147,
+        "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/sidebarModes.test.mjs 2>&1 | tail -6",
+        "error": null
+      },
+      {
+        "id": "call_c8302c34684042ac821731a5",
+        "tool": "edit_project_files",
+        "messageId": 4147,
+        "command": null,
+        "error": "no-match: No source range matches old_str using the attempted strategies. Provide complete surrounding lines from a small relevant range or use apply_patch."
+      }
+    ],
+    "zeroExitVerificationReplay": [
+      {
+        "id": "call_62c695471f9a4e3caa53842d",
+        "command": "source ~/.nvm/nvm.sh 2>/dev/null; node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/projectPlanRetrieval.test.cjs 2>&1 | tail -20",
+        "oldStatus": "passed",
+        "output": "  ...\n# Subtest: isTestCommand only matches recorded test-runner commands\nok 14 - isTestCommand only matches recorded test-runner commands\n  ---\n  duration_ms: 0.585456\n  ...\n# Subtest: languageOfPath labels known extensions and stays empty otherwise\nok 15 - languageOfPath labels known extensions and stays empty otherwise\n  ---\n  duration_ms: 0.396182\n  ...\n1..15\n# tests 15\n# suites 0\n# pass 14\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 391.604352\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 1,
+          "totals": {
+            "tests": 15,
+            "pass": 14,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "47572d5b6c4ee53435ed4e76432bcbf71f51007b6d7fa0749f51a10e18aec167"
+      },
+      {
+        "id": "call_c601ee40f6fa4f949a4220d7",
+        "command": "source ~/.nvm/nvm.sh 2>/dev/null; node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/projectPlanRetrieval.test.cjs 2>&1 | grep -B2 -A15 \"^not ok\"",
+        "oldStatus": "passed",
+        "output": "TAP version 13\n# Subtest: /home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs\nnot ok 1 - /home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs\n  ---\n  duration_ms: 503.775896\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  signal: 'SIGSEGV'\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ...\n# Subtest: no native tool renders as raw snake_case\nok 2 - no native tool renders as raw snake_case\n  ---\n  duration_ms: 5.255201\n  ...\n# Subtest: batch edits and moves summarize with files, not raw names\nok 3 - batch edits and moves summarize with files, not raw names\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 1,
+          "totals": {},
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "2dfb744fd4f5c9d7a5d18bdbd37ccf452fc91c70c596666d4d657a4c65f5f2af"
+      },
+      {
+        "id": "call_a546f61175d84d41abce7b90",
+        "command": "source ~/.nvm/nvm.sh 2>/dev/null; node --test tests/projectPlanRetrieval.test.cjs 2>&1 | grep -B3 -A20 \"^not ok\" | head -60",
+        "oldStatus": "passed",
+        "output": "TAP version 13\n# Subtest: /home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs\nnot ok 1 - /home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs\n  ---\n  duration_ms: 350.909403\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  signal: 'SIGSEGV'\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 364.09597\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": true,
+          "failures": 1,
+          "totals": {
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "109a88ea5c9de2451b787b3135737721ffab41645c3a2ca3051b510a57fd7d58"
+      },
+      {
+        "id": "call_f8d3428a4a434c3785d08859",
+        "command": "node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs 2>&1 | tail -10",
+        "oldStatus": "passed",
+        "output": "  ...\n1..14\n# tests 14\n# suites 0\n# pass 14\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 268.54607\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "tests": 14,
+            "pass": 14,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "inconclusive",
+        "outputSha256": "37b261fe2695ae37b83f9dc5f334b1fce8efcb62b4a85c820b26453e183efd4b"
+      },
+      {
+        "id": "call_1c7e4e70e59f487ea7b823d6",
+        "command": "node -e \"import('./src/lib/executionEvents.mjs').then(m=>{const g=m.toolDisplayName;console.log(g({toolName:'search_project_content'}));console.log(g({toolName:'web_search'}));console.log(g({toolName:'get_recent_chat_history'}));console.log(g({toolName:'execute_command'}));console.log(g({toolName:'str_replace_editor'}));console.log(g({toolName:'manage_native_tools'}));console.log(g({toolName:'browser_navigate',serverName:'browsermcp'}))})\"",
+        "oldStatus": "passed",
+        "output": "Search project content\nWeb search\nGet recent chat history\nRun terminal command\nReplace text in file\nManage built-in tools\nBrowser navigate (browsermcp)\n",
+        "evidence": {
+          "runner": null,
+          "complete": false,
+          "failures": 0,
+          "totals": {},
+          "detected": false
+        },
+        "after": "passed",
+        "outputSha256": "0410783437c12b60f8fad5c84f4ad843c173d261d4281adac02db65218d64c5f"
+      },
+      {
+        "id": "call_3015502c59a04ea195ba409e",
+        "command": "node --test tests/sidebarModes.test.mjs tests/rightSidebarControls.test.cjs 2>&1 | tail -20",
+        "oldStatus": "passed",
+        "output": "    # Subtest: returns null without usable timestamps\n    ok 6 - returns null without usable timestamps\n      ---\n      duration_ms: 0.242778\n      ...\n    1..6\nok 7 - formatSessionDuration / getSessionStartMs\n  ---\n  duration_ms: 4.059507\n  type: 'suite'\n  ...\n1..7\n# tests 23\n# suites 6\n# pass 22\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 405.511595\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 1,
+          "totals": {
+            "tests": 23,
+            "pass": 22,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "374ea360332a00e6a076433b4d1f1cd0713d6d4e8e528b5bed45fa4f39166f28"
+      },
+      {
+        "id": "call_a1f96a5e95274667bbdb5026",
+        "command": "node --test tests/sidebarModes.test.mjs 2>&1 | tail -8",
+        "oldStatus": "passed",
+        "output": "# tests 22\n# suites 6\n# pass 22\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 235.072216\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "tests": 22,
+            "pass": 22,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "inconclusive",
+        "outputSha256": "1ebce4c26e0d117fecbc141a0dab19df20a2487b931d64f12a0e9fdff6593026"
+      },
+      {
+        "id": "call_e67f41d1adcf4dd2b02bef64",
+        "command": "node --test tests/sidebarModes.test.mjs 2>&1 | tail -8",
+        "oldStatus": "passed",
+        "output": "# tests 19\n# suites 6\n# pass 19\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 228.859977\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "tests": 19,
+            "pass": 19,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "inconclusive",
+        "outputSha256": "faca1f9d1440cd2db474dac9082c725fef168fe55fde52025a0083dba58ce91f"
+      },
+      {
+        "id": "call_e1a13d650aa24bcc81dffc6b",
+        "command": "node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs 2>&1 | tail -8",
+        "oldStatus": "passed",
+        "output": "# tests 14\n# suites 0\n# pass 14\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 303.783799\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "tests": 14,
+            "pass": 14,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "inconclusive",
+        "outputSha256": "e662cbc6702fe7e205fc2308783bd716cf923b79fefa9f9f9ae0695666549a60"
+      },
+      {
+        "id": "call_b607316ab563447fb2bd5b71",
+        "command": "node --test tests/projectPlanRetrieval.test.cjs 2>&1 | tail -8",
+        "oldStatus": "passed",
+        "output": "# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 389.615921\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 1,
+          "totals": {
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "c3d15e3f1162c696a5596ddf14f8d55c7f4947a593047847b42691d6cad09dd5"
+      },
+      {
+        "id": "call_080b936ef97445e89287213c",
+        "command": "node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/sidebarModes.test.mjs 2>&1 | tail -6",
+        "oldStatus": "passed",
+        "output": "# pass 31\n# fail 2\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 242.025318\n",
+        "evidence": {
+          "runner": null,
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "pass": 31,
+            "fail": 2,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "detected": false
+        },
+        "after": "inconclusive",
+        "outputSha256": "6fbc719c729c1c26085d75198a3190d41075163bca7e7683af4cbf136350a4b2"
+      },
+      {
+        "id": "call_0c38316453154019aaebba20",
+        "command": "node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/sidebarModes.test.mjs 2>&1 | grep -A 12 \"not ok\"",
+        "oldStatus": "passed",
+        "output": "not ok 11 - native tool display names are distinct human-readable labels\n  ---\n  duration_ms: 3.668342\n  location: 'file:///home/mk_saadi/projects/persona-projects/llm-electron/tests/toolVerbs.test.mjs:95:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + 'Search project'\n    - 'Search project content'\n                     ^\n  code: 'ERR_ASSERTION'\n--\nnot ok 16 - toolKind and verb map known tools and keep raw names for others\n  ---\n  duration_ms: 7.550112\n  location: 'file:///home/mk_saadi/projects/persona-projects/llm-electron/tests/workspaceStages.test.mjs:80:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + 'Delete file'\n    - 'Delete project file'\n              ^\n  code: 'ERR_ASSERTION'\n",
+        "evidence": {
+          "runner": null,
+          "complete": false,
+          "failures": 0,
+          "totals": {},
+          "detected": false
+        },
+        "after": "inconclusive",
+        "outputSha256": "d24db29de3f3ba6e8f845f636e8892ef572bbc5d44562c24d5aacc8979542327"
+      },
+      {
+        "id": "call_a1dd4f56fba1465e8eead521",
+        "command": "node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/sidebarModes.test.mjs 2>&1 | grep -E \"^# (pass|fail)\" ; node --test tests/toolVerbs.test.mjs tests/workspaceStages.test.mjs tests/sidebarModes.test.mjs 2>&1 | grep -B1 -A8 \"not ok\" | head -30",
+        "oldStatus": "passed",
+        "output": "# pass 33\n# fail 0\n",
+        "evidence": {
+          "runner": null,
+          "complete": false,
+          "failures": 0,
+          "totals": {
+            "pass": 33,
+            "fail": 0
+          },
+          "detected": false
+        },
+        "after": "inconclusive",
+        "outputSha256": "e4d791c96089d8af6b3c2842476d9a362f96eab2b2da94e4a6569613bd70307d"
+      },
+      {
+        "id": "call_e881437a06184d278a54b696",
+        "command": "node --test tests/projectPlanRetrieval.test.cjs 2>&1 | grep -E \"^# (pass|fail)|not ok\" | head -5",
+        "oldStatus": "passed",
+        "output": "not ok 1 - /home/mk_saadi/projects/persona-projects/llm-electron/tests/projectPlanRetrieval.test.cjs\n# pass 0\n# fail 1\n",
+        "evidence": {
+          "runner": "Node TAP",
+          "complete": false,
+          "failures": 1,
+          "totals": {
+            "pass": 0,
+            "fail": 1
+          },
+          "detected": true
+        },
+        "after": "failed",
+        "outputSha256": "dbc2d22893048c075927e18214dbdcf697ace4376fe98db16d8e6fcb340755a9"
+      }
+    ]
+  },
+  "verificationContract": {
+    "statusCompatibility": "Existing error/timed_out/deadline statuses retained; canonical verificationState added",
+    "canonicalStates": [
+      "passed",
+      "failed",
+      "inconclusive",
+      "execution_error",
+      "cancelled"
+    ],
+    "tapStrategy": "column-zero protocol results; nested results excluded from top-level count; header/plan/numbering/summary consistency for complete success; bounded-capture failure evidence retained",
+    "shellRewrite": false
+  },
+  "coreAssertions": [
+    {
+      "file": "tests/workspacePlan.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 22,
+        "pass": 22,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "0170201cbf8eb4a41793b47c550fea90ef800b46a339a23421baa57ef76a263a"
+    },
+    {
+      "file": "tests/r4Verification.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "58c744ae69c70c04cd68ff2e9b4ec6624a21424d35ba63b0b190f7bb7828da75"
+    },
+    {
+      "file": "tests/turnDigest.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "4545586656cb8bfccd7891b89a574874598ee8d846fa1d2e9064534f52afbe0a"
+    },
+    {
+      "file": "tests/workspaceCheckpoints.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "bf58d48bd1722f9c6626e61ba16d7b14fbad0dd9d24373682d20fbd310e8aa91"
+    },
+    {
+      "file": "tests/memoryChat.test.mjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 50,
+        "pass": 50,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "edea486dc77278afbb861113efadac30236118034ed06f0692b9d9f0e9788c2b"
+    },
+    {
+      "file": "tests/compactPlanResults.test.cjs",
+      "exitCode": 0,
+      "counts": {
+        "tests": 24,
+        "pass": 24,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failures": [],
+      "logSha256": "e65549aa3bf32086a1b3907074c4e3f66e5ed6a7507a744d819583e0fa269994"
+    }
+  ],
+  "coreAssertionTotal": 124,
+  "regression": {
+    "command": "node --test tests/verification.test.cjs tests/workspacePlan.test.cjs tests/projectPlanRetrieval.test.cjs tests/commandExecutionReliability.test.cjs tests/sandbox*.test.cjs tests/*Memory*.test.cjs tests/c93*.test.* tests/*Compaction*.test.cjs tests/r3Reliability.test.cjs tests/p2CompactNativeTools.test.cjs tests/t1ToolBatch.test.mjs tests/t11ChildReadBatch.test.mjs tests/toolPermissions.test.cjs",
+    "identityGranularity": "exact Node reported file-test identity; no pre-change per-assertion baseline claimed",
+    "before": {
+      "counts": {
+        "tests": 29,
+        "suites": 0,
+        "pass": 24,
+        "fail": 5,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failingIdentities": [
+        "tests/recoveryStartupMemory.test.cjs",
+        "tests/sandboxFilesystem.test.cjs",
+        "tests/sandboxGitRelay.test.cjs",
+        "tests/subagentCompaction.test.cjs",
+        "tests/verification.test.cjs"
+      ],
+      "sha256": "590bcc2555be46affc4ced195102d9507d55700188f8042f672ce11b87ee2934"
+    },
+    "after": {
+      "counts": {
+        "tests": 29,
+        "suites": 0,
+        "pass": 24,
+        "fail": 5,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failingIdentities": [
+        "tests/recoveryStartupMemory.test.cjs",
+        "tests/sandboxFilesystem.test.cjs",
+        "tests/sandboxGitRelay.test.cjs",
+        "tests/subagentCompaction.test.cjs",
+        "tests/verification.test.cjs"
+      ],
+      "sha256": "c55da89ce7a7668058b5c44b76ac8a1705c35ad9441a931523f8913a74c37570"
+    },
+    "newFailingIdentities": []
+  },
+  "additionalRegression": {
+    "counts": {
+      "tests": 10,
+      "suites": 0,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failingIdentities": [],
+    "sha256": "7624117da42eb792bed3ca95fec55595fb2d3534aacd15000967d0fdd7eb9767"
+  },
+  "verificationSuite": {
+    "counts": {
+      "tests": 12,
+      "suites": 0,
+      "pass": 11,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failingIdentities": [
+      "permission restrictions and workspace boundaries stay enforced"
+    ],
+    "sha256": "4fd15e2cb20d9ce8cc8a2283daa417a8f8978c8439c93024a2900a61865a48d8"
+  },
+  "unbaselinedAdditionalFailures": [
+    {
+      "file": "tests/attachments.test.cjs",
+      "reason": "Fixture PNG unsupported or unverified for selected model; process exits before TAP summary"
+    },
+    {
+      "file": "tests/fileVersion.test.cjs",
+      "counts": {
+        "tests": 20,
+        "suites": 0,
+        "pass": 19,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failingIdentities": [
+        "13. large files keep the bounded read while hashing the full bytes"
+      ],
+      "sha256": "9ad4b458ed3afba8b09e59186d2dc709bf9451a0edc7affd197a7cf965a9b270"
+    }
+  ],
+  "longHorizonExactIdentity": {
+    "identity": "W4 full parent loop: long-horizon",
+    "expectedCompactions": 11,
+    "counts": {
+      "tests": 1,
+      "suites": 0,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failingIdentities": [],
+    "sha256": "a329e77fd383dab8894ade18aa551620b3621a2c99ae24f4aeac3b8290cc377e"
+  },
+  "runtimeProbe": {
+    "shell": "/bin/sh",
+    "homeContract": "isolated",
+    "hostInitialization": "unavailable",
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "bwrap: loopback: Failed to create NETLINK_ROUTE socket: Operation not permitted\n",
+    "error": "spawnSync /usr/bin/bwrap EPERM"
+  },
+  "packaging": {
+    "originalArchive": {
+      "artifact": "/home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar",
+      "success": false,
+      "error": "Cannot find module 'electron'\nRequire stack:\n- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/db.js\n- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memoryManager.js\n- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memorySearchCore.js\n- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memorySearchWorker.js\n+ actual - expected\n\n+ \"Cannot find module 'electron'\\n\" +\n+   'Require stack:\\n' +\n+   '- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/db.js\\n' +\n+   '- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memoryManager.js\\n' +\n+   '- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memorySearchCore.js\\n' +\n+   '- /home/mk_saadi/projects/persona-projects/llm-electron/release/linux-unpacked/resources/app.asar/src/main/memorySearchWorker.js'\n- undefined\n"
+    },
+    "isolatedRebuiltArchive": {
+      "artifact": "/tmp/r4-rebuilt/app.asar",
+      "success": true,
+      "readonly": true,
+      "scopeIsolation": true,
+      "result": "Facts found:\n- [rule]: r4 packaged sentinel"
+    },
+    "originalArchiveSha256": "928ee4fe8a50b132614ca12fc400cb5742b8a9d2441d93de8406b13a8477a62a",
+    "rebuiltArchiveSha256": "7169c15af9ea9baf3add437efc467004ffadab089b6b57f5238fa031c0e0da72",
+    "rebuildMethod": "@electron/asar extractAll existing distribution to /tmp; replace memorySearchCore.js and add permanentMemorySearch.js from source; createPackageWithOptions unpack=**/*.node. Existing packaged Electron/native dependencies used. Distribution unchanged.",
+    "freshBuilderAttempts": [
+      {
+        "command": "node_modules/.bin/electron-builder --dir --publish never --config.npmRebuild=false --config.directories.output=/tmp/continuum-r4-package",
+        "exitCode": 1,
+        "limitation": "getaddrinfo ENOTFOUND github.com"
+      },
+      {
+        "command": "node_modules/.bin/electron-builder --dir --publish never --config.npmRebuild=false --config.electronDist=node_modules/electron/dist --config.directories.output=/tmp/continuum-r4-package",
+        "exitCode": 1,
+        "limitation": "No JSON content found in output during npm dependency collection"
+      }
+    ],
+    "freshAppImageVerified": false,
+    "remainingCheck": "ELECTRON_RUN_AS_NODE=1 release/linux-unpacked/continuum scripts/audits/r4PackagedMemory.cjs release/linux-unpacked/resources/app.asar"
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "logSha256": "dc1e6ca6855817a7b6cdb941dd0558c9976b92ec40d94b4929aeba260dabed86",
+    "tail": [
+      "",
+      "(!) Some chunks are larger than 500 kB after minification. Consider:",
+      "- Using dynamic import() to code-split the application",
+      "- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks",
+      "- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
+      "\u2713 built in 7.69s"
+    ]
+  },
+  "whitespace": {
+    "command": "git diff --check",
+    "exitCode": 0
+  },
+  "files": {
+    "src/main/testVerification.js": "6bc64cb308f8753d95381129076f387fb466e15b967326188b51391c148146fe",
+    "src/main/tools/agentTools.js": "a645b8881b943d192b3cdc5a320422132ececb14ee0e045003b99d7d45610686",
+    "src/main/workspacePlan.js": "6912075f98106942e34abf39daf1cebe6d02867d2f2ced4550a1c4ed3aa4cb0d",
+    "src/main/db.js": "c86d071e70185cd770fd70737ea2ca8758baadb97cb4b8b399c3f5e1370d00d9",
+    "src/main/permanentMemorySearch.js": "243152f9eb6518812fb1e30959d45edb6ca97a026fc0c7d55bb2742491235572",
+    "src/main/memoryManager.js": "cc70980334da7f9ea1f19941197f01d7a1d0ca90c0134bc57c85b1cf79041f51",
+    "src/main/memorySearchCore.js": "8d890b779bbe722ad01befafbd63416dedac55300200342e6f10a6fd82528666",
+    "src/main/memorySearchRuntime.js": "bb1809738bf9e7d9084876e30af0c649e0a23f6be5839a9bfdf9f069a0a80716",
+    "src/main/promptBuilder.js": "c36e07b59dc6ff56df4f71694c3836126f4d98ac66b879c8ee31caae1d0c921c",
+    "src/main/ipcHandlers.js": "d01bf259e2cdc5b9221a7b52b781ded44e4cad739403954c439769565d520b75",
+    "src/main/subagents/agentLoop.js": "3c62e45b56fcb6cfdf110ae73ba18eccbf2adc503c89effb9a491f6c48cba117",
+    "src/lib/memoryChat.mjs": "b66a2417750f4bb95b069a4012bef7cd245e0526d92f7228f0f9417df05fb871",
+    "src/main/turnDigest.js": "e92e2f4c4e23a0f5c3d240d1dd427a7238d5f0c4e59bcd829a80f08644e78c87",
+    "src/main/taskCheckpoints.js": "0d2b9b1190fe1b23ad8225e6a2103b52d425a4bb19f26b75c5d48c7d799082fa",
+    "tests/workspacePlan.test.cjs": "95829b1facca518a835eda0fe75bb251e208515e76d5651a4bccf51572e2bec9",
+    "tests/verification.test.cjs": "a69e0ce4d12e623f2c73e05c7438def79f55c92348599fe166e0410d1c5c5dd6",
+    "tests/r4Verification.test.cjs": "226675aa6f51e62d135268b4913405cd940e7186911a7edf66578c8335151bd0",
+    "scripts/audits/r4PackagedMemory.cjs": "70cdb6ad819286a6a81ce3d0b3d6ebb9ad645c142483accb6e7ee63a56787f2a"
+  },
+  "limits": [
+    "Entire repository not declared green",
+    "Five matched baseline file failures remain",
+    "Two additional failures lack a pre-change baseline",
+    "Live contained shell denied namespace/netlink creation; actual sandbox Node version unobserved",
+    "Isolated packaged archive check passed; fresh distribution build and AppImage acceptance remain",
+    "Real GLM acceptance documented only; no inference performed"
+  ]
+}

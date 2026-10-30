@@ -149,6 +149,30 @@ app.whenReady().then(async () => {
       check(text().includes('Last compression attempt failed: checkpoint backend offline.'), 'failure reason surfaced');
       check(text().includes('Saved history is unchanged.'), 'failure distinguishes transient attempt from persisted state');
 
+      // C9 displays the exact saved Markdown. No generator/activation API exists
+      // in this fixture; historical legacy versions remain independently viewable.
+      const c9Record = { ...record(3, 'current', false, []), checkpoint: { ...checkpoint, summaryFormat: 'c9-markdown', evidence: [{messageId:4,stepId:'edit-1'}], sourceCoverage: [{digest:'technical-only-hash'}] },
+        workingState: { format:'c9-markdown', content:'# Working Summary\\n\\n## Objective\\nExact C9 saved objective.\\n\\n## Progress\\n- Metadata preserved.\\n\\n## Next Steps\\n1. Verify DOM.', consumedToolCount:3, durableEvidenceCount:5 } };
+      full.checkpoint.checkpoint = c9Record;
+      full.history.checkpoints[0] = { ...c9Record, evidence };
+      [...document.querySelectorAll('button')].filter(b => b.textContent === 'Refresh').at(-1).click();
+      await wait(); await wait(); await wait();
+      window.dispatchEvent(new CustomEvent('continuum:inspect-checkpoint', {detail:{sessionId:'s',checkpointId:3}}));
+      await wait(); await wait();
+      check(!![...document.querySelectorAll('h1')].find(h => h.textContent === 'Working Summary'), 'saved Markdown renders as headings');
+      check(text().includes('Exact C9 saved objective.'), 'exact saved summary displayed');
+      const technical = [...document.querySelectorAll('details')].filter(d => d.querySelector(':scope > summary')?.textContent === 'Technical details');
+      check(technical.length > 0 && technical.every(d => !d.open), 'technical metadata hidden by default');
+      const evidenceViews = [...document.querySelectorAll('details')].filter(d => d.querySelector(':scope > summary')?.textContent === 'Evidence');
+      check(evidenceViews.length > 0 && evidenceViews.every(d => !d.open), 'evidence hidden by default');
+      evidenceViews[0].open = true;
+      check(evidenceViews[0].textContent.includes('str_replace_editor'), 'source evidence remains inspectable');
+      window.dispatchEvent(new CustomEvent('continuum:inspect-checkpoint', {detail:{sessionId:'s',checkpointId:2}}));
+      await wait(); await wait();
+      check(text().includes('Legacy structured checkpoint'), 'legacy version labelled without rewriting');
+      full.checkpoint.checkpoint = record(3, 'current', false, []);
+      full.history.checkpoints[0] = { ...record(3, 'current', false, []), evidence };
+
       // 5. Error and empty states with retry.
       failMode.on = true;
       window.renderPanel('s', true);

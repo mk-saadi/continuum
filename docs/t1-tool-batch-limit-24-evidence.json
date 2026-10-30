@@ -1,0 +1,160 @@
+{
+  "task": "T1",
+  "date": "2026-10-29",
+  "policy": {
+    "max_tool_calls_per_response": 24,
+    "constant": "src/lib/toolBatchPolicy.cjs:MAX_TOOL_CALLS_PER_RESPONSE",
+    "guidance": "src/lib/toolBatchPolicy.cjs:TOOL_BATCH_GUIDANCE",
+    "partial_execution_semantics": [
+      "native read_project_file: contained regular file, schema and live guard validated",
+      "native list_directory: contained directory, schema and live guard validated"
+    ],
+    "uncertain_or_mutating_overflow": "execute none; initial response plus at most two correction responses",
+    "unknown_mcp_overflow": "whole-batch rejection",
+    "deferred_execution": "explicit model re-request only; never background or replay",
+    "manifest": "ordered per-call tool results with position, toolName, toolCallId, argumentSummary, status, reason",
+    "deferred_completion_tracking": "canonical tool/argument identity and multiplicity, run-local"
+  },
+  "before": {
+    "streamed_call_limit": 16,
+    "locations": [
+      "src/lib/memoryChat.mjs:readCompletion Map insertion",
+      "tests/memoryChat.test.mjs:sparse indexes do not bypass the 16-call accumulation bound"
+    ],
+    "json_xml_limit": "not enforced at old SSE collection boundary",
+    "compact_catalog_default": 16
+  },
+  "results": {
+    "initial_baseline": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "log_sha256": "dd37123308fb733444f2978c49e6fe998bcbad0ccb7d99d29982dee8412771ce"
+    },
+    "focused_cases": {
+      "tests": 32,
+      "pass": 32,
+      "fail": 0,
+      "log_sha256": "719b379e3a84790ea63079e3e1731286c3172b997980af7bfee616af04bd6397"
+    },
+    "memory_chat_cases": {
+      "tests": 50,
+      "pass": 50,
+      "fail": 0,
+      "log_sha256": "ba0fe2622216fb796840f6a3e6e1dc6fcb987e4f3057d185f303df2c72eb03ab"
+    },
+    "regression_files": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "log_sha256": "5a13ae092773e69dd8063244cddcd44d8cba8b4e6dcff7f8856488bd4dc2a763"
+    },
+    "compact_profile_files": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "log_sha256": "487f9593db4eac7cda85e48f7253fd0d208f31acfb500021a4b783c9b396632f"
+    },
+    "full_profile_files": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "log_sha256": "8f66f792b9310423644d5e196c392b5a30612858366fdd25907087f4fbf7ccda"
+    },
+    "child_loop_original_source": {
+      "tests": 16,
+      "pass": 15,
+      "fail": 1,
+      "log_sha256": "8b832cc0ea1feaccee28ce8af60fd50f78d8250c3f335c73b436fba3d9145d41"
+    },
+    "child_loop_after": {
+      "tests": 16,
+      "pass": 15,
+      "fail": 1,
+      "log_sha256": "c1e60c7b5114b68c429d413f40ba5ee716807512370533c647706d81df45f8d2"
+    },
+    "build": {
+      "command": "npm run build",
+      "passed": true,
+      "advisory": "Vite large chunks",
+      "log_sha256": "0909c6923dae4d12b2e37dc92761e46356d1b78242787ce2e50bda46b7fb0883"
+    },
+    "diff_check": {
+      "command": "git diff --check",
+      "passed": true
+    }
+  },
+  "regression_selection": [
+    "tests/t1ToolBatch.test.mjs",
+    "tests/memoryChat.test.mjs",
+    "tests/c93PrematureStop.test.mjs",
+    "tests/c93PrematureStopIpc.test.cjs",
+    "tests/c91SemanticCompaction.test.cjs",
+    "tests/c9SimpleCompaction.test.cjs",
+    "tests/contextBudget.test.cjs",
+    "tests/xmlToolStreaming.test.mjs",
+    "tests/toolArgumentLimit.test.mjs",
+    "tests/nativePermissions.test.cjs",
+    "tests/mcpPermissions.test.cjs",
+    "tests/permissionIsolationReliability.test.cjs",
+    "tests/toolApprovalPolicy.test.cjs",
+    "tests/toolPermissions.test.cjs",
+    "tests/toolDisplay.test.mjs",
+    "tests/u7ExecutionSecurity.test.cjs",
+    "tests/subagentContinuation.test.cjs",
+    "tests/subagentBudgets.test.cjs",
+    "tests/subagentStreaming.test.cjs",
+    "tests/streamDispatcher.test.cjs"
+  ],
+  "profile_command": "CONTINUUM_NATIVE_TOOL_PROFILE={compact|full} node --test tests/p2CompactNativeTools.test.cjs tests/t1ToolBatch.test.mjs",
+  "known_broader_failures": [
+    {
+      "file": "tests/cloudProviders.test.cjs",
+      "test": "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)",
+      "reason": "listen EPERM: operation not permitted 127.0.0.1",
+      "isolated_copy_reproduced": true
+    },
+    {
+      "file": "tests/cloudIpc.test.cjs",
+      "test": "cloud settings persist privately and cloud chat works without a local engine",
+      "reason": "Cannot read properties of undefined (reading 'getPath') during database initialization before dispatch",
+      "isolated_copy_reproduced": true
+    },
+    {
+      "file": "tests/unifiedToolArchitecture.test.cjs",
+      "test": "compaction preserves every structural field and validator compiles the complete registry",
+      "reason": "edit_project_files:edits / EDIT_ARGUMENT_INVALID assertion mismatch in unchanged schema validation",
+      "isolated_copy_reproduced": true
+    },
+    {
+      "file": "tests/childAgentLoop.test.cjs",
+      "test": "spawn_sub_agent with investigate=true runs the loop end to end through the real provider",
+      "reason": "listen EPERM: operation not permitted 127.0.0.1",
+      "original_child_loop_and_after_same_failure": true
+    }
+  ],
+  "baseline_notes": [
+    "Initial pre-edit baseline passed all 10 selected files.",
+    "Broader cloud/unified failures were discovered after editing, outside the initial baseline, and reproduced in a disposable source copy. Their failing code paths do not execute T1 dispatch logic.",
+    "Child-loop baseline comparison used original tracked child-loop source in a disposable copy; 15/16 passed both before and after."
+  ],
+  "preservation": {
+    "existing_worktree_changes_retained": true,
+    "committed": false,
+    "pushed": false,
+    "stash_reset_clean": false,
+    "live_sqlite_modified": false,
+    "model_settings_modified": false,
+    "real_model_inference": false,
+    "external_mcp_contact": false
+  },
+  "limitations": [
+    "Partial execution intentionally restricted to implementation-reviewed concrete native file/directory reads.",
+    "Different canonical arguments for equivalent reads can conservatively leave outstanding deferred operations.",
+    "Outstanding-read and correction tracking is run-local; persisted deferred steps retain original valid arguments.",
+    "Provider or context failure may interrupt continuation.",
+    "Complete repository test collection not run.",
+    "Real-Qwen acceptance remains manual; see report."
+  ],
+  "report": "docs/t1-tool-batch-limit-24-report.md"
+}

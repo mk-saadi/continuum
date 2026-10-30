@@ -13,7 +13,7 @@
 	"scripts": {
 		"postinstall": "electron-builder install-app-deps",
 		"test": "node --test tests/",
-		"dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+		"dev": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=compact concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
 		"dev:vite": "vite",
 		"dev:electron": "cross-env NODE_ENV=development electron .",
 		"build": "vite build",

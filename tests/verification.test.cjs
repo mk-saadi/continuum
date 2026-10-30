@@ -45,13 +45,14 @@ test.after(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('a successful command returns passed with exit code 0', async () => {
-  const result = await run({ command: 'printf all-good; exit 0' });
-  assert.equal(result.status, 'passed');
+test('a successful probe completes with inconclusive verification and exit code 0', async () => {
+  const result = await run({ command: 'printf all-good' });
+  assert.equal(result.status, 'inconclusive');
+  assert.equal(result.executionStatus, 'completed');
   assert.equal(result.success, true);
   assert.equal(result.exitCode, 0);
   assert.match(result.stdout, /all-good/);
-  assert.equal(result.command, 'printf all-good; exit 0');
+  assert.equal(result.command, 'printf all-good');
   assert.ok(Number.isSafeInteger(result.recoveryCheckpointId), 'shell recovery boundary still runs');
 });
 
@@ -114,7 +115,7 @@ test('the classifier never infers success from an unknown result', () => {
   const args = { command: 'check' };
   assert.equal(structureVerification(args, {}, null, 45000, '.').status, 'error');
   assert.equal(structureVerification(args, { stdout: '', stderr: '' }, null, 45000, '.').status, 'error');
-  assert.equal(structureVerification(args, { exitCode: 0 }, null, 45000, '.').status, 'passed');
+  assert.equal(structureVerification(args, { exitCode: 0 }, null, 45000, '.').status, 'inconclusive');
   assert.equal(structureVerification(args, { exitCode: 1 }, null, 45000, '.').status, 'failed');
   assert.equal(structureVerification(args, { exitCode: 1, timedOut: true }, null, 45000, '.').status, 'timed_out');
   assert.equal(structureVerification(args, { exitCode: 1, cancelled: true }, null, 45000, '.').status, 'cancelled');
@@ -183,4 +184,23 @@ test('existing tool registration and command execution keep working', async () =
   assert.equal(legacy.exitCode, 4);
   assert.match(legacy.stdout, /legacy/);
   assert.equal(legacy.status, 'nonzero_exit');
+});
+
+test('R4 masked TAP failure and excerpt cannot become verified success', () => {
+ const tap = 'TAP version 13\nnot ok 1 - broken\n1..1\n# tests 1\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n';
+ const args = { command: 'node --test broken.cjs | tail -30' };
+ const failed = structureVerification(args, { exitCode: 0, stdout: tap }, null, 1000, '.');
+ assert.equal(failed.status, 'failed'); assert.equal(failed.success, false); assert.equal(failed.exitCode, 0);
+ assert.match(failed.reason, /masked/);
+ assert.equal(structureVerification(args, { exitCode: 0, stdout: '# pass 1' }, null, 1000, '.').status, 'inconclusive');
+ const startup = structureVerification({ command: '. "$NVM_DIR/nvm.sh" && node --test' }, { exitCode: 2, stderr: '/bin/sh: 1: .: cannot open /sandbox-home/.nvm/nvm.sh: No such file' }, null, 1000, '.');
+ assert.equal(startup.verificationState, 'execution_error');
+});
+
+test('R4 runner startup errors remain execution errors rather than assertion failures', () => {
+ for (const stderr of ['node: bad option: --not-real', 'npm error Missing script: "test"', 'bwrap: namespace setup failed', '/bin/sh: 1: Syntax error: "(" unexpected']) {
+  const result = structureVerification({ command: 'node --test' }, { exitCode: 2, stderr }, null, 1000, '.');
+  assert.equal(result.verificationState, 'execution_error'); assert.equal(result.success, false);
+  assert.match(result.reason, /could not run/);
+ }
 });

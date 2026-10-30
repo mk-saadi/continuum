@@ -83,8 +83,8 @@ test('toolKind and verb map known tools and keep raw names for others', () => {
   assert.equal(toolKind({ toolName: 'write_project_file' }), 'write');
   assert.equal(toolKind({ toolName: 'delete_project_file' }), 'delete');
   assert.equal(toolKind({ toolName: 'mystery_mcp_tool' }), 'other');
-  assert.equal(toolVerb({ toolName: 'execute_command' }), 'Run');
-  assert.equal(toolVerb({ toolName: 'delete_project_file' }), 'Delete');
+  assert.equal(toolVerb({ toolName: 'execute_command' }), 'Shell');
+  assert.equal(toolVerb({ toolName: 'delete_project_file' }), 'Delete file');
   assert.equal(toolVerb({ toolName: 'mystery_mcp_tool' }), 'mystery_mcp_tool');
 });
 

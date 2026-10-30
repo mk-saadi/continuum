@@ -4,6 +4,7 @@ import { FiChevronRight, FiTool } from 'react-icons/fi';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import FileBrowserWidget from './FileBrowserWidget';
 import { isDirectoryTool, parseDirectoryListing } from '../lib/directoryListing.mjs';
+import { toolDisplayName } from '../lib/executionEvents.mjs';
 import { TOOL_DISPLAY_LIMIT } from '../lib/toolDisplay.mjs';
 import SubagentTranscriptModal from './chat/SubagentTranscriptModal.jsx';
 import SubagentLimitBadge from './chat/SubagentLimitBadge.jsx';
@@ -81,7 +82,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
         <FiChevronRight aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         <FiTool aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
-        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{lspLabel ? `${lspLabel} (${step.toolName})` : step.toolName || 'Tool'}</strong>
+        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{lspLabel ? `${lspLabel} (${step.toolName})` : toolDisplayName(step) || 'Tool'}</strong>
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
           {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>

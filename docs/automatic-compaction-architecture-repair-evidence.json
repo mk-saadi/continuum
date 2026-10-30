@@ -1,0 +1,3314 @@
+{
+  "date": "2026-10-30",
+  "timezone": "Asia/Dhaka",
+  "status": "implemented; deterministic evidence below; real-model and renderer acceptance unverified",
+  "preservation": {
+    "initialWorkingTree": [
+      " M package.json",
+      " M src/components/ContextPanel.jsx",
+      " M src/components/ModelSettingsModal.jsx",
+      " M src/components/chat/CompactionActivity.jsx",
+      " M src/components/main-app/ModelSelectorModal.jsx",
+      " M src/lib/compactionActivity.mjs",
+      " M src/lib/executionEvents.mjs",
+      " M src/lib/memoryChat.mjs",
+      " M src/main/compactionPerformance.js",
+      " M src/main/contextInspection.js",
+      " M src/main/executionSteps.js",
+      " M src/main/ipcHandlers.js",
+      " M src/main/nativeToolActivation.js",
+      " M src/main/promptBuilder.js",
+      " M src/main/subagents/agentLoop.js",
+      " M src/main/taskCheckpoints.js",
+      " M src/main/tools/agentTools.js",
+      " M src/main/tools/editDiagnostics.js",
+      " M src/main/tools/fileEditMatcher.js",
+      " M src/main/tools/subagent.js",
+      " M src/main/workspaceCompactCandidate.js",
+      " M src/main/workspaceCompaction.js",
+      " M src/main/workspaceCompactionActivity.js",
+      " M tests/agentTools.test.cjs",
+      " M tests/c6bContextSelection.test.cjs",
+      " M tests/c6cAcceptance.test.cjs",
+      " M tests/c6eLightweightContext.test.cjs",
+      " M tests/c7Reliability.test.cjs",
+      " M tests/compactionActivity.ui.cjs",
+      " M tests/contextPanel.ui.cjs",
+      " M tests/e2EditingReliability.test.cjs",
+      " M tests/fixtures/w3Compaction.cjs",
+      " M tests/memoryChat.test.mjs",
+      " M tests/subagentModelSelection.test.cjs",
+      " M tests/workspaceAdvancedCompaction.test.cjs",
+      " M tests/workspaceCompactCandidate.test.cjs",
+      " M tests/workspaceSafeCompaction.test.cjs",
+      "?? docs/c8a-real-session-token-attribution.json",
+      "?? docs/c8a-real-session-token-attribution.md",
+      "?? docs/c9-1-semantic-compaction-evidence.json",
+      "?? docs/c9-1-semantic-compaction-report.md",
+      "?? docs/c9-2-compaction-validation-recovery-evidence.json",
+      "?? docs/c9-2-compaction-validation-recovery-report.md",
+      "?? docs/c9-3-premature-agent-stop-evidence.json",
+      "?? docs/c9-3-premature-agent-stop-report.md",
+      "?? docs/c9-4-compaction-validation-audit.md",
+      "?? docs/c9-4-compaction-validation-evidence.json",
+      "?? docs/c9-5-generation-stage-budget-evidence.json",
+      "?? docs/c9-5-generation-stage-budget-report.md",
+      "?? docs/c9-simple-compaction-evidence.json",
+      "?? docs/c9-simple-compaction-report.md",
+      "?? docs/investigations/",
+      "?? docs/m1-host-memory-attribution-evidence.json",
+      "?? docs/m1-host-memory-attribution-report.md",
+      "?? docs/p1-prompt-tool-schema-efficiency-evidence.json",
+      "?? docs/p1-prompt-tool-schema-efficiency-report.md",
+      "?? docs/p2-compact-native-tools-evidence.json",
+      "?? docs/p2-compact-native-tools-report.md",
+      "?? docs/t1-1-automatic-read-batching-evidence.json",
+      "?? docs/t1-1-automatic-read-batching-report.md",
+      "?? docs/t1-tool-batch-limit-24-evidence.json",
+      "?? docs/t1-tool-batch-limit-24-report.md",
+      "?? scripts/audits/",
+      "?? src/lib/taskContinuation.mjs",
+      "?? src/lib/toolBatchPolicy.cjs",
+      "?? src/main/compactNativeTools.js",
+      "?? src/main/compactionRejectionDiagnostics.js",
+      "?? src/main/compactionSummary.js",
+      "?? src/main/toolBatchPreflight.js",
+      "?? tests/c91SemanticCompaction.test.cjs",
+      "?? tests/c93PrematureStop.test.mjs",
+      "?? tests/c93PrematureStopIpc.test.cjs",
+      "?? tests/c94CompactionDiagnostics.test.cjs",
+      "?? tests/c9SimpleCompaction.test.cjs",
+      "?? tests/editWhitespaceGuards.test.cjs",
+      "?? tests/failedStrEditingReplay.test.cjs",
+      "?? tests/fixtures/c91C9SummaryBefore.cjs",
+      "?? tests/fixtures/c9SummaryTokenizer.cjs",
+      "?? tests/fixtures/c9TaskflowAudit.cjs",
+      "?? tests/fixtures/failedStrEdits.json",
+      "?? tests/p2CompactNativeTools.test.cjs",
+      "?? tests/t11ChildReadBatch.test.mjs",
+      "?? tests/t1ToolBatch.test.mjs"
+    ],
+    "userRepositoryCommitOrPush": false,
+    "liveDatabaseOpened": false,
+    "realModelInference": false,
+    "dependencyInstallation": false,
+    "modelSettingChanges": false,
+    "fixtureData": "synthetic, never an exact reconstruction of unavailable incident content"
+  },
+  "changedFiles": [
+    "src/main/compactionBudgetPlanner.js",
+    "src/main/compactionOperationalCheckpoint.js",
+    "src/main/compactionTrigger.js",
+    "src/main/workspaceCompactCandidate.js",
+    "src/main/workspaceCompaction.js",
+    "src/main/workspaceCompactionActivity.js",
+    "src/lib/compactionActivity.mjs",
+    "src/components/chat/CompactionActivity.jsx",
+    "tests/compactionBudgetPlanner.test.cjs",
+    "tests/compactionOperationalCheckpoint.test.cjs",
+    "tests/automaticCompactionReplay.test.cjs",
+    "tests/fixtures/automaticCompactionReplay.cjs",
+    "tests/fixtures/c9SummaryTokenizer.cjs",
+    "tests/fixtures/w3Compaction.cjs",
+    "tests/workspaceCompactCandidate.test.cjs",
+    "tests/workspaceSafeCompaction.test.cjs",
+    "tests/workspaceAdvancedCompaction.test.cjs",
+    "tests/c7Reliability.test.cjs",
+    "tests/c91SemanticCompaction.test.cjs",
+    "tests/c94CompactionDiagnostics.test.cjs",
+    "tests/c9SimpleCompaction.test.cjs",
+    "docs/automatic-compaction-architecture-repair-report.md",
+    "docs/automatic-compaction-architecture-repair-evidence.json"
+  ],
+  "implementationHashes": {
+    "src/main/compactionBudgetPlanner.js": "56db561847f1b7f4a3fa774b9b0cc0140239fce3068b7b85e0a833334589fffe",
+    "src/main/compactionOperationalCheckpoint.js": "686c1a5d74a3450afdd28bf492164c2200cef924de96be498dd8eb2a28925d4e",
+    "src/main/compactionTrigger.js": "082751e0e73eb03e8bc9482899b4b41b81612fbe19c86bf905c3858bcdf5b6d1",
+    "src/main/workspaceCompactCandidate.js": "45d2baa5f3729bbd9c37c20c8a93fe18c1147dfbbb24b6ab1153cbadddaaa587",
+    "src/main/workspaceCompaction.js": "59f807debb6943c991f491c2c1f89dc22ab9a9015d512328edb79f37121af6ad",
+    "src/main/workspaceCompactionActivity.js": "54ede49747ca5e4de329e85ee2b50f60bb1865ec7c03157825f380f1fffbdf6a",
+    "src/lib/compactionActivity.mjs": "421669d995544d5103f57a99a6a97ce58b9e588cd766ee27204a66f7f239da4c",
+    "src/components/chat/CompactionActivity.jsx": "7319e23ffbf81784bd6fae005ac181c36b0adc5bd63bdc42f515abef35e671ae",
+    "tests/compactionBudgetPlanner.test.cjs": "e5d051d5c665d090599206295e4b4a0ff7b8b1d4055f61f54022b05b2219e452",
+    "tests/compactionOperationalCheckpoint.test.cjs": "8c9773d8b7110e68e60392b6a6064eb22fff4d77f693886e438f7f93433bef7f",
+    "tests/automaticCompactionReplay.test.cjs": "ee78e83ad1f112076e2e3d3d482c0d17c0a2edbaf9716cd2325f6ee894e4af9f",
+    "tests/fixtures/automaticCompactionReplay.cjs": "a81a9c9dd3325b9ea74ec65182c3454403c2222b4f655c1316d7d38e3650c280",
+    "tests/fixtures/c9SummaryTokenizer.cjs": "905baae8e8b8b3ae8aa2391e4b920c9659f048af8fa01773dc083e5a1a2d7ca8",
+    "tests/fixtures/w3Compaction.cjs": "85b6fd37e19b7dec2850b33891e0a7961f37147168d4ed66cc5bfc43811d80fc",
+    "tests/workspaceCompactCandidate.test.cjs": "edf170f02886f4f46ac67ac2a99ff04505bcf9ada8103e2a7701c5ace0858544",
+    "tests/workspaceSafeCompaction.test.cjs": "9deda10aebc3357e1c4c252f582158db597004565498f2ed1cf0673157e67949",
+    "tests/workspaceAdvancedCompaction.test.cjs": "187009485de578ed1894eb6a271a98772a82dfed7edc484baa6fd6b7e7d1d5a2",
+    "tests/c7Reliability.test.cjs": "c293cb01d38687e3c7c5ebe52ff74866b3a5490c3d628cc85cbd51e42435b7ab",
+    "tests/c91SemanticCompaction.test.cjs": "4ba5300f4cd823fe037a41b3f6e752b713e2b233c1d82a2b5b6f967461a1c868",
+    "tests/c94CompactionDiagnostics.test.cjs": "a1e34cfd2d3acf89c42102cec506239b45ee798952c46f401f357bfa72b81eed",
+    "tests/c9SimpleCompaction.test.cjs": "ef8bbddb43ce26afa5c5e516085ea39ecae29774196fae6e000fb0d0c4f0464e"
+  },
+  "fixture": {
+    "canonicalOperations": 207,
+    "commands": 19,
+    "edits": 14,
+    "reads": 174,
+    "declaredSourceLines": 1057,
+    "canonicalOperationCharacters": 1705646,
+    "canonicalOperationSha256": "2fcc2653eaf3d24bff2dab13defa3be4b7813302fb658a5cc165fd6413f6fb83",
+    "notes": "Repeated and overlapping nominal source pages, two explicit revisions, buried failures, successful edit records, durable plan. No private source."
+  },
+  "milestones": {
+    "1": "legacy stage/pool/claim/context failures reproduced; reservation, fallback and activation gates tested",
+    "2": "derived evidence reduction, complete message paging, historical prefix and same-run operation-prefix chaining tested",
+    "3": "adaptive trigger, isolated summarizer, activity outcome labels, compatibility/build checks tested within limitations"
+  },
+  "legacySeparateFailures": [
+    {
+      "kind": "pool",
+      "code": "generation-token-budget",
+      "providerCalls": 8,
+      "reserved": 32768
+    },
+    {
+      "kind": "validation",
+      "code": "unsupported-completion-claim",
+      "providerCalls": 2,
+      "reserved": 6144
+    },
+    {
+      "kind": "context",
+      "code": "budget-exceeded",
+      "providerCalls": 0,
+      "reserved": 0
+    }
+  ],
+  "candidateReplay": {
+    "before": {
+      "synthetic": true,
+      "operations": 207,
+      "originalDurableCharacters": 3637181,
+      "ok": false,
+      "code": "generation-stage-budget",
+      "providerCalls": 0,
+      "chainedMessageCoverage": null,
+      "chainedOperationCoverage": null,
+      "chainedOutcomes": null,
+      "chainedPlans": null,
+      "originalEvidenceCharacters": 1571953,
+      "reducedEvidenceCharacters": 1570566,
+      "estimatedOriginalEvidenceTokens": null,
+      "estimatedReducedEvidenceTokens": null,
+      "plan": null,
+      "planningSummary": null,
+      "budget": {
+        "stage": "evidence-planning",
+        "stageIndex": 11,
+        "budgetType": "stage-count",
+        "initialBudget": 12,
+        "remainingBefore": 1,
+        "remainingAfter": 1,
+        "requestedConsumption": 2,
+        "providerRequestsAttempted": 0,
+        "providerRequestsCompleted": 0,
+        "actualGenerationTokens": null,
+        "evidenceBatches": 12,
+        "evidencePages": 208,
+        "exhaustionReason": "intermediate-batches-plus-final-exceed-stage-limit",
+        "failurePosition": "before-provider-request",
+        "context": {
+          "estimatedTokens": 7270,
+          "measuredTokens": 7270,
+          "measurementMethod": "server-template-tokenizer",
+          "limit": 8192,
+          "outputTokens": 2457
+        },
+        "elapsedStageMs": 15.243490999999949,
+        "elapsedCandidateMs": 818.232728
+      },
+      "stagedLimits": {
+        "stages": 12,
+        "generatedTokens": 32768,
+        "intermediateTokens": 4096
+      },
+      "beforeTokens": null,
+      "continuationTokens": null,
+      "summaryTokens": null,
+      "commitOutcome": null,
+      "attempts": []
+    },
+    "after": {
+      "synthetic": true,
+      "operations": 207,
+      "originalDurableCharacters": 3637181,
+      "ok": true,
+      "code": null,
+      "providerCalls": 9,
+      "chainedMessageCoverage": null,
+      "chainedOperationCoverage": null,
+      "chainedOutcomes": null,
+      "chainedPlans": null,
+      "originalEvidenceCharacters": 1606383,
+      "reducedEvidenceCharacters": 233192,
+      "estimatedOriginalEvidenceTokens": 547307,
+      "estimatedReducedEvidenceTokens": 84009,
+      "plan": {
+        "ok": true,
+        "reserved": 30720,
+        "correctionReserve": 15360,
+        "stages": 9,
+        "pool": 32768,
+        "finalMergeReserve": 3072,
+        "candidateBatches": 27,
+        "selectedBatches": 8,
+        "outcome": "partial",
+        "coveredMessages": 10,
+        "totalMessages": 208
+      },
+      "planningSummary": {
+        "evidenceRecords": 207,
+        "operationCount": 207,
+        "originalCharacters": 1606383,
+        "estimatedOriginalTokens": 547307,
+        "reducedCharacters": 233192,
+        "estimatedReducedTokens": 84009,
+        "candidateBatchCount": 27,
+        "batches": [
+          {
+            "inputTokens": 6134,
+            "correctionInputTokens": 6453,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4916,
+            "correctionInputTokens": 5235,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4916,
+            "correctionInputTokens": 5235,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4916,
+            "correctionInputTokens": 5235,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4917,
+            "correctionInputTokens": 5236,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4918,
+            "correctionInputTokens": 5237,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4918,
+            "correctionInputTokens": 5237,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          },
+          {
+            "inputTokens": 4918,
+            "correctionInputTokens": 5237,
+            "outputCap": 1536,
+            "tokenizerSource": "server-template-tokenizer",
+            "contextCapacity": 8192
+          }
+        ],
+        "finalMergeReservation": 3072,
+        "correctionReservation": 15360,
+        "generationPool": 32768,
+        "plannedReservations": 30720,
+        "dispatchedReservations": 15360,
+        "refundedTokens": 0,
+        "actualOutputUsage": 1071,
+        "remainingBudget": 17408,
+        "tokenizerSource": "server-template-tokenizer",
+        "contextCapacity": 8192,
+        "checkpointOutcome": "partial",
+        "coveredMessages": 10,
+        "coveredOperations": 9,
+        "coverageBoundary": {
+          "lastMessageId": 13,
+          "lastOperationDigest": "d1849969db3ba928fa2e0f3f02e6c15f3cf48bfb05429ae7aa926ef1fe750a2d"
+        },
+        "sourceVersion": "3864103107ea284c877200aad5c16dcd35b95ecf4175d25308ea2b15cf752d7e",
+        "activationOutcome": "inactive-candidate",
+        "reason": null
+      },
+      "budget": {
+        "stage": "generation",
+        "stageIndex": 27,
+        "budgetType": "reserved-generation-tokens",
+        "initialBudget": 32768,
+        "remainingBefore": 20480,
+        "remainingAfter": 17408,
+        "requestedConsumption": 3072,
+        "providerRequestsAttempted": 9,
+        "providerRequestsCompleted": 9,
+        "actualGenerationTokens": 1071,
+        "evidenceBatches": 27,
+        "evidencePages": 208,
+        "exhaustionReason": null,
+        "failurePosition": null,
+        "context": {
+          "estimatedTokens": 3297,
+          "measuredTokens": 3297,
+          "measurementMethod": "server-template-tokenizer",
+          "limit": 8192,
+          "outputTokens": 3072
+        },
+        "elapsedStageMs": 0.09356700000012097,
+        "refundedTokens": 0
+      },
+      "stagedLimits": {
+        "stages": 64,
+        "generatedTokens": 32768,
+        "intermediateTokens": 4096
+      },
+      "beforeTokens": null,
+      "continuationTokens": null,
+      "summaryTokens": 597,
+      "commitOutcome": null,
+      "attempts": [
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 6134,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4916,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4916,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4916,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4917,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4918,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4918,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "intermediate",
+          "attempt": 0,
+          "inputTokens": 4918,
+          "outputCap": 1536,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        },
+        {
+          "stage": "final",
+          "attempt": 0,
+          "inputTokens": 3297,
+          "outputCap": 3072,
+          "actualSimulatedOutputTokens": 119,
+          "rejection": null
+        }
+      ]
+    }
+  },
+  "owningLoopReplay": {
+    "historical8k": {
+      "before": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": false,
+        "code": "generation-stage-budget",
+        "providerCalls": 0,
+        "chainedMessageCoverage": null,
+        "chainedOperationCoverage": null,
+        "chainedOutcomes": null,
+        "chainedPlans": null,
+        "originalEvidenceCharacters": null,
+        "reducedEvidenceCharacters": null,
+        "estimatedOriginalEvidenceTokens": null,
+        "estimatedReducedEvidenceTokens": null,
+        "plan": null,
+        "planningSummary": null,
+        "budget": null,
+        "stagedLimits": null,
+        "beforeTokens": null,
+        "continuationTokens": null,
+        "summaryTokens": null,
+        "commitOutcome": null,
+        "attempts": []
+      },
+      "after": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": true,
+        "code": null,
+        "providerCalls": 18,
+        "chainedMessageCoverage": [
+          10,
+          20
+        ],
+        "chainedOperationCoverage": [
+          9,
+          19
+        ],
+        "chainedOutcomes": [
+          "partial",
+          "partial"
+        ],
+        "chainedPlans": [
+          {
+            "ok": true,
+            "reserved": 30720,
+            "correctionReserve": 15360,
+            "stages": 9,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 27,
+            "selectedBatches": 8,
+            "outcome": "partial",
+            "coveredMessages": 10,
+            "totalMessages": 208
+          },
+          {
+            "ok": true,
+            "reserved": 30720,
+            "correctionReserve": 15360,
+            "stages": 9,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 26,
+            "selectedBatches": 8,
+            "outcome": "partial",
+            "coveredMessages": 10,
+            "totalMessages": 198
+          }
+        ],
+        "originalEvidenceCharacters": 1606583,
+        "reducedEvidenceCharacters": 233674,
+        "estimatedOriginalEvidenceTokens": 547374,
+        "estimatedReducedEvidenceTokens": 84169,
+        "plan": {
+          "ok": true,
+          "reserved": 30720,
+          "correctionReserve": 15360,
+          "stages": 9,
+          "pool": 32768,
+          "finalMergeReserve": 3072,
+          "candidateBatches": 27,
+          "selectedBatches": 8,
+          "outcome": "partial",
+          "coveredMessages": 10,
+          "totalMessages": 208
+        },
+        "planningSummary": {
+          "evidenceRecords": 207,
+          "operationCount": 207,
+          "originalCharacters": 1606583,
+          "estimatedOriginalTokens": 547374,
+          "reducedCharacters": 233674,
+          "estimatedReducedTokens": 84169,
+          "candidateBatchCount": 27,
+          "batches": [
+            {
+              "inputTokens": 6132,
+              "correctionInputTokens": 6451,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4916,
+              "correctionInputTokens": 5235,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            }
+          ],
+          "finalMergeReservation": 3072,
+          "correctionReservation": 15360,
+          "generationPool": 32768,
+          "plannedReservations": 30720,
+          "dispatchedReservations": 15360,
+          "refundedTokens": 0,
+          "actualOutputUsage": 1071,
+          "remainingBudget": 17408,
+          "tokenizerSource": "server-template-tokenizer",
+          "contextCapacity": 8192,
+          "checkpointOutcome": "partial",
+          "coveredMessages": 10,
+          "coveredOperations": 9,
+          "coverageBoundary": {
+            "lastMessageId": 229,
+            "lastOperationDigest": "f5dfca4f574d3f162bd68bef4aa62cb88229ba81af8fd959a6a9389aa2a97319"
+          },
+          "sourceVersion": "d9307d25428596a1e035442b5b16cc4fe7113abc034478027797265b02d8b686",
+          "activationOutcome": "activated",
+          "reason": null
+        },
+        "budget": {
+          "stage": "generation",
+          "stageIndex": 27,
+          "budgetType": "reserved-generation-tokens",
+          "initialBudget": 32768,
+          "remainingBefore": 20480,
+          "remainingAfter": 17408,
+          "requestedConsumption": 3072,
+          "providerRequestsAttempted": 9,
+          "providerRequestsCompleted": 9,
+          "actualGenerationTokens": 1071,
+          "evidenceBatches": 27,
+          "evidencePages": 208,
+          "exhaustionReason": null,
+          "failurePosition": null,
+          "context": {
+            "estimatedTokens": 3309,
+            "measuredTokens": 3309,
+            "measurementMethod": "server-template-tokenizer",
+            "limit": 8192,
+            "outputTokens": 3072
+          },
+          "elapsedStageMs": 0.10721699999976408,
+          "refundedTokens": 0
+        },
+        "stagedLimits": {
+          "stages": 64,
+          "generatedTokens": 32768,
+          "intermediateTokens": 4096
+        },
+        "beforeTokens": 214,
+        "continuationTokens": 225,
+        "summaryTokens": 599,
+        "commitOutcome": "committed-and-verified",
+        "attempts": [
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 6132,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4916,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "final",
+            "attempt": 0,
+            "inputTokens": 3309,
+            "outputCap": 3072,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          }
+        ]
+      }
+    },
+    "historical41k": {
+      "before": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": false,
+        "code": "generation-stage-budget",
+        "providerCalls": 0,
+        "chainedMessageCoverage": null,
+        "chainedOperationCoverage": null,
+        "chainedOutcomes": null,
+        "chainedPlans": null,
+        "originalEvidenceCharacters": null,
+        "reducedEvidenceCharacters": null,
+        "estimatedOriginalEvidenceTokens": null,
+        "estimatedReducedEvidenceTokens": null,
+        "plan": null,
+        "planningSummary": null,
+        "budget": null,
+        "stagedLimits": null,
+        "beforeTokens": null,
+        "continuationTokens": null,
+        "summaryTokens": null,
+        "commitOutcome": null,
+        "attempts": []
+      },
+      "after": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": true,
+        "code": null,
+        "providerCalls": 9,
+        "chainedMessageCoverage": [
+          148,
+          208
+        ],
+        "chainedOperationCoverage": [
+          147,
+          207
+        ],
+        "chainedOutcomes": [
+          "partial",
+          "full"
+        ],
+        "chainedPlans": [
+          {
+            "ok": true,
+            "reserved": 27506,
+            "correctionReserve": 13753,
+            "stages": 5,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 5,
+            "selectedBatches": 4,
+            "outcome": "partial",
+            "coveredMessages": 148,
+            "totalMessages": 208
+          },
+          {
+            "ok": true,
+            "reserved": 20498,
+            "correctionReserve": 10249,
+            "stages": 4,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 3,
+            "selectedBatches": 3,
+            "outcome": "full",
+            "coveredMessages": 60,
+            "totalMessages": 60
+          }
+        ],
+        "originalEvidenceCharacters": 1606583,
+        "reducedEvidenceCharacters": 233674,
+        "estimatedOriginalEvidenceTokens": 547374,
+        "estimatedReducedEvidenceTokens": 84169,
+        "plan": {
+          "ok": true,
+          "reserved": 27506,
+          "correctionReserve": 13753,
+          "stages": 5,
+          "pool": 32768,
+          "finalMergeReserve": 3072,
+          "candidateBatches": 5,
+          "selectedBatches": 4,
+          "outcome": "partial",
+          "coveredMessages": 148,
+          "totalMessages": 208
+        },
+        "planningSummary": {
+          "evidenceRecords": 207,
+          "operationCount": 207,
+          "originalCharacters": 1606583,
+          "estimatedOriginalTokens": 547374,
+          "reducedCharacters": 233674,
+          "estimatedReducedTokens": 84169,
+          "candidateBatchCount": 5,
+          "batches": [
+            {
+              "inputTokens": 17455,
+              "correctionInputTokens": 17774,
+              "outputCap": 2455,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 41984
+            },
+            {
+              "inputTokens": 19732,
+              "correctionInputTokens": 20051,
+              "outputCap": 2631,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 41984
+            },
+            {
+              "inputTokens": 22781,
+              "correctionInputTokens": 23100,
+              "outputCap": 2802,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 41984
+            },
+            {
+              "inputTokens": 22661,
+              "correctionInputTokens": 22980,
+              "outputCap": 2793,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 41984
+            }
+          ],
+          "finalMergeReservation": 3072,
+          "correctionReservation": 13753,
+          "generationPool": 32768,
+          "plannedReservations": 27506,
+          "dispatchedReservations": 13753,
+          "refundedTokens": 0,
+          "actualOutputUsage": 595,
+          "remainingBudget": 19015,
+          "tokenizerSource": "server-template-tokenizer",
+          "contextCapacity": 41984,
+          "checkpointOutcome": "partial",
+          "coveredMessages": 148,
+          "coveredOperations": 147,
+          "coverageBoundary": {
+            "lastMessageId": 576,
+            "lastOperationDigest": "442fc8c1ce94517aa91b2ace336702a8786d92311818bb7a9e22e3744e7773a5"
+          },
+          "sourceVersion": "ac8ca9afc42d9c8b7117805f0f64b415da67660c992de19cc01e21707d5a8e82",
+          "activationOutcome": "activated",
+          "reason": null
+        },
+        "budget": {
+          "stage": "generation",
+          "stageIndex": 5,
+          "budgetType": "reserved-generation-tokens",
+          "initialBudget": 32768,
+          "remainingBefore": 22087,
+          "remainingAfter": 19015,
+          "requestedConsumption": 3072,
+          "providerRequestsAttempted": 5,
+          "providerRequestsCompleted": 5,
+          "actualGenerationTokens": 595,
+          "evidenceBatches": 5,
+          "evidencePages": 208,
+          "exhaustionReason": null,
+          "failurePosition": null,
+          "context": {
+            "estimatedTokens": 3770,
+            "measuredTokens": 3770,
+            "measurementMethod": "server-template-tokenizer",
+            "limit": 41984,
+            "outputTokens": 3072
+          },
+          "elapsedStageMs": 0.11202600000069651,
+          "refundedTokens": 0
+        },
+        "stagedLimits": {
+          "stages": 64,
+          "generatedTokens": 32768,
+          "intermediateTokens": 4096
+        },
+        "beforeTokens": 214,
+        "continuationTokens": 142,
+        "summaryTokens": 718,
+        "commitOutcome": "committed-and-verified",
+        "attempts": [
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 17455,
+            "outputCap": 2455,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 19732,
+            "outputCap": 2631,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 22781,
+            "outputCap": 2802,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 22661,
+            "outputCap": 2793,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "final",
+            "attempt": 0,
+            "inputTokens": 3770,
+            "outputCap": 3072,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          }
+        ]
+      }
+    },
+    "live8k": {
+      "before": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": false,
+        "code": "evidence-item-budget-exceeded",
+        "providerCalls": 0,
+        "chainedMessageCoverage": null,
+        "chainedOperationCoverage": null,
+        "chainedOutcomes": null,
+        "chainedPlans": null,
+        "originalEvidenceCharacters": null,
+        "reducedEvidenceCharacters": null,
+        "estimatedOriginalEvidenceTokens": null,
+        "estimatedReducedEvidenceTokens": null,
+        "plan": null,
+        "planningSummary": null,
+        "budget": null,
+        "stagedLimits": null,
+        "beforeTokens": null,
+        "continuationTokens": null,
+        "summaryTokens": null,
+        "commitOutcome": null,
+        "attempts": []
+      },
+      "after": {
+        "synthetic": true,
+        "operations": 207,
+        "originalDurableCharacters": null,
+        "ok": true,
+        "code": null,
+        "providerCalls": 18,
+        "chainedMessageCoverage": [
+          1,
+          1
+        ],
+        "chainedOperationCoverage": [
+          8,
+          18
+        ],
+        "chainedOutcomes": [
+          "partial",
+          "partial"
+        ],
+        "chainedPlans": [
+          {
+            "ok": true,
+            "reserved": 30720,
+            "correctionReserve": 15360,
+            "stages": 9,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 25,
+            "selectedBatches": 8,
+            "outcome": "partial",
+            "coveredMessages": 2,
+            "totalMessages": 2
+          },
+          {
+            "ok": true,
+            "reserved": 30720,
+            "correctionReserve": 15360,
+            "stages": 9,
+            "pool": 32768,
+            "finalMergeReserve": 3072,
+            "candidateBatches": 24,
+            "selectedBatches": 8,
+            "outcome": "partial",
+            "coveredMessages": 1,
+            "totalMessages": 1
+          }
+        ],
+        "originalEvidenceCharacters": 1587749,
+        "reducedEvidenceCharacters": 232302,
+        "estimatedOriginalEvidenceTokens": 540973,
+        "estimatedReducedEvidenceTokens": 83660,
+        "plan": {
+          "ok": true,
+          "reserved": 30720,
+          "correctionReserve": 15360,
+          "stages": 9,
+          "pool": 32768,
+          "finalMergeReserve": 3072,
+          "candidateBatches": 25,
+          "selectedBatches": 8,
+          "outcome": "partial",
+          "coveredMessages": 2,
+          "totalMessages": 2
+        },
+        "planningSummary": {
+          "evidenceRecords": 205,
+          "operationCount": 205,
+          "originalCharacters": 1587749,
+          "estimatedOriginalTokens": 540973,
+          "reducedCharacters": 232302,
+          "estimatedReducedTokens": 83660,
+          "candidateBatchCount": 25,
+          "batches": [
+            {
+              "inputTokens": 5154,
+              "correctionInputTokens": 5473,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 5311,
+              "correctionInputTokens": 5630,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            },
+            {
+              "inputTokens": 4893,
+              "correctionInputTokens": 5212,
+              "outputCap": 1536,
+              "tokenizerSource": "server-template-tokenizer",
+              "contextCapacity": 8192
+            }
+          ],
+          "finalMergeReservation": 3072,
+          "correctionReservation": 15360,
+          "generationPool": 32768,
+          "plannedReservations": 30720,
+          "dispatchedReservations": 15360,
+          "refundedTokens": 0,
+          "actualOutputUsage": 1071,
+          "remainingBudget": 17408,
+          "tokenizerSource": "server-template-tokenizer",
+          "contextCapacity": 8192,
+          "checkpointOutcome": "partial",
+          "coveredMessages": 1,
+          "coveredOperations": 8,
+          "coverageBoundary": {
+            "lastMessageId": 638,
+            "lastOperationDigest": "e8d96ac2fd6302ee5515fee2efdfefd330815a25180a005501fe60670f1ce1e5"
+          },
+          "sourceVersion": "476af57f246161e4adad313c0ad9b6436b4f17d6e444d013f8a2af45ca7b657d",
+          "activationOutcome": "activated",
+          "reason": null
+        },
+        "budget": {
+          "stage": "generation",
+          "stageIndex": 25,
+          "budgetType": "reserved-generation-tokens",
+          "initialBudget": 32768,
+          "remainingBefore": 20480,
+          "remainingAfter": 17408,
+          "requestedConsumption": 3072,
+          "providerRequestsAttempted": 9,
+          "providerRequestsCompleted": 9,
+          "actualGenerationTokens": 1071,
+          "evidenceBatches": 25,
+          "evidencePages": 208,
+          "exhaustionReason": null,
+          "failurePosition": null,
+          "context": {
+            "estimatedTokens": 3300,
+            "measuredTokens": 3300,
+            "measurementMethod": "server-template-tokenizer",
+            "limit": 8192,
+            "outputTokens": 3072
+          },
+          "elapsedStageMs": 0.09931000000142376,
+          "refundedTokens": 0
+        },
+        "stagedLimits": {
+          "stages": 64,
+          "generatedTokens": 32768,
+          "intermediateTokens": 4096
+        },
+        "beforeTokens": 1668,
+        "continuationTokens": 1621,
+        "summaryTokens": 598,
+        "commitOutcome": "committed-and-verified",
+        "attempts": [
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 5154,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 5311,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "intermediate",
+            "attempt": 0,
+            "inputTokens": 4893,
+            "outputCap": 1536,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          },
+          {
+            "stage": "final",
+            "attempt": 0,
+            "inputTokens": 3300,
+            "outputCap": 3072,
+            "actualSimulatedOutputTokens": 119,
+            "rejection": null
+          }
+        ]
+      }
+    }
+  },
+  "efficiency": {
+    "currentLedgerReductionPercent": 85.4834121128025,
+    "generationPresentationReductionVersusC95Percent": 85.15235908583276,
+    "noRefundsRequired": true,
+    "refundPolicy": "Conservative configured-output reservation pool; no refunds, including unknown/failed/truncated responses."
+  },
+  "properties": {
+    "plannerSeeds": {
+      "first": 1,
+      "last": 500,
+      "contexts": [
+        8192,
+        41984,
+        55000,
+        131072
+      ],
+      "parameterizations": 2000
+    },
+    "evidenceReductionSeeds": {
+      "first": 1,
+      "last": 100
+    },
+    "operationalCoverageSeeds": {
+      "first": 1,
+      "last": 50
+    },
+    "failingSeeds": [],
+    "plannerTests": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "operationalTests": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "replayTests": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "scope": "Seeded reservation/context/accounting, evidence identity/immutability, prior/protected-tail prefix coverage. Session/provider races and owning activation use explicit deterministic regression cases, not an exhaustive randomized full application state space."
+  },
+  "regressions": {
+    "initialFocusedBaseline": {
+      "files": 3,
+      "passedFiles": 3,
+      "log": "node --test candidate/safe/C9.4, before production edits"
+    },
+    "pairedCore": [
+      {
+        "version": "before",
+        "file": "tests/liveSteering.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/p2CompactNativeTools.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/toolResultFormatter.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceWritePhase2.test.cjs",
+        "exit": 1,
+        "failures": [
+          "Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+          "clean switch runs without approval; dirty switch asks and still refuses to discard",
+          "commit message and staged diff are persisted in the actual IPC tool-call card",
+          "all six acceptance commands execute in the real sandbox with zero prompts"
+        ],
+        "counts": {
+          "tests": 20,
+          "pass": 16,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/liveSteeringIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceMcpApprovals.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c91SemanticCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c93PrematureStopIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/r2LargeFileReading.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/headerWorkspace.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c9SimpleCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 21,
+          "pass": 21,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/e1FileEditing.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 22,
+          "pass": 22,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/e2EditingReliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 40,
+          "pass": 40,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/steeringDisplay.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exit": 1,
+        "failures": [
+          "C9.5 stage-budget optional failure continues without replay, caches rejection but rechecks dispatch",
+          "C9.5 stage-budget failure blocks overflow continuation and preserves durable history",
+          "C9.5 stage-budget failure blocks estimated continuation and preserves durable history",
+          "C9.5 stage-budget failure blocks forced continuation and preserves durable history",
+          "C9.5 late permission change refuses stage-budget continuation and records the refusal"
+        ],
+        "counts": {
+          "tests": 59,
+          "pass": 54,
+          "fail": 5,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/liveSteeringLoop.test.mjs",
+        "exit": 1,
+        "failures": [
+          "a steering message already in the transcript survives context recovery"
+        ],
+        "counts": {
+          "tests": 7,
+          "pass": 6,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c7Reliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/t11ChildReadBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/selectiveFileReading.e2e.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/mcpPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspacePlan.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c8EffectiveCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/e1FileEditingNative.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exit": 1,
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ],
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/contextBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c7Header.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/t1ToolBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 46,
+          "pass": 46,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exit": 1,
+        "failures": [
+          "W7 deterministic before/after at reported 32486 input tokens",
+          "budget planner selects a feasible older prefix for 11 batches",
+          "budget planner selects a feasible older prefix for 12 batches",
+          "C9.5 successful stages share reservations with final generation and reset next invocation"
+        ],
+        "counts": {
+          "tests": 61,
+          "pass": 57,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c93PrematureStop.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceStages.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceMidRunQuestions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/c94CompactionDiagnostics.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/workspaceAutonomy.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/liveSteering.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/p2CompactNativeTools.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exit": 1,
+        "failures": [
+          "W4 oversized generation uses bounded source-bound segments without activating intermediates",
+          "W4 staged intermediate cancellation cannot activate a checkpoint",
+          "W4 full parent loop: background",
+          "W4 full parent loop: child"
+        ],
+        "counts": {
+          "tests": 26,
+          "pass": 22,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/toolResultFormatter.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceWritePhase2.test.cjs",
+        "exit": 1,
+        "failures": [
+          "Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+          "clean switch runs without approval; dirty switch asks and still refuses to discard",
+          "commit message and staged diff are persisted in the actual IPC tool-call card",
+          "all six acceptance commands execute in the real sandbox with zero prompts"
+        ],
+        "counts": {
+          "tests": 20,
+          "pass": 16,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/liveSteeringIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceMcpApprovals.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c91SemanticCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c93PrematureStopIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/r2LargeFileReading.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/headerWorkspace.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c9SimpleCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 21,
+          "pass": 21,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e1FileEditing.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 22,
+          "pass": 22,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e2EditingReliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 40,
+          "pass": 40,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/steeringDisplay.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 59,
+          "pass": 59,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/liveSteeringLoop.test.mjs",
+        "exit": 1,
+        "failures": [
+          "a steering message already in the transcript survives context recovery"
+        ],
+        "counts": {
+          "tests": 7,
+          "pass": 6,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c7Reliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/t11ChildReadBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/selectiveFileReading.e2e.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/mcpPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspacePlan.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c8EffectiveCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e1FileEditingNative.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exit": 1,
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ],
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/contextBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c7Header.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/t1ToolBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 46,
+          "pass": 46,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 60,
+          "pass": 60,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c93PrematureStop.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceStages.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceMidRunQuestions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c94CompactionDiagnostics.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceAutonomy.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "finalCore": [
+      {
+        "version": "after",
+        "file": "tests/liveSteering.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/p2CompactNativeTools.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceAdvancedCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/toolResultFormatter.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceWritePhase2.test.cjs",
+        "exit": 1,
+        "failures": [
+          "Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+          "clean switch runs without approval; dirty switch asks and still refuses to discard",
+          "commit message and staged diff are persisted in the actual IPC tool-call card",
+          "all six acceptance commands execute in the real sandbox with zero prompts"
+        ],
+        "counts": {
+          "tests": 20,
+          "pass": 16,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceTaskBriefs.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/liveSteeringIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceMcpApprovals.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c91SemanticCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c93PrematureStopIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceGenerationRuntime.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/r2LargeFileReading.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCompactionActivity.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/headerWorkspace.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCheckpoints.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c9SimpleCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 21,
+          "pass": 21,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceBriefBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e1FileEditing.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 22,
+          "pass": 22,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e2EditingReliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 40,
+          "pass": 40,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/steeringDisplay.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceSafeCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 62,
+          "pass": 62,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/liveSteeringLoop.test.mjs",
+        "exit": 1,
+        "failures": [
+          "a steering message already in the transcript survives context recovery"
+        ],
+        "counts": {
+          "tests": 7,
+          "pass": 6,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c7Reliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/t11ChildReadBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/selectiveFileReading.e2e.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/mcpPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspacePlan.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c8EffectiveCompaction.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/e1FileEditingNative.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 7,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceBudgetVerification.test.cjs",
+        "exit": 1,
+        "failures": [
+          "concurrent history change during measurement invalidates without partial persistence"
+        ],
+        "counts": {
+          "tests": 5,
+          "pass": 4,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/contextBudget.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c7Header.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/t1ToolBatch.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 46,
+          "pass": 46,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceCompactCandidate.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 60,
+          "pass": 60,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c93PrematureStop.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 18,
+          "pass": 18,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceStages.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceMidRunQuestions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/c94CompactionDiagnostics.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/workspaceAutonomy.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "extraPaired": [
+      {
+        "version": "before",
+        "file": "tests/promptCorrectness.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/h1HistoryDeletion.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/cloudProviders.test.cjs",
+        "exit": 1,
+        "failures": [
+          "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)"
+        ],
+        "counts": {
+          "tests": 20,
+          "pass": 19,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/compactionActivity.ui.cjs",
+        "exit": 1,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "before",
+        "file": "tests/sessionPromptWording.test.cjs",
+        "exit": 1,
+        "failures": [
+          "workspace retains safety, activation, task continuity and MCP discovery"
+        ],
+        "counts": {
+          "tests": 4,
+          "pass": 3,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/cloudPromptCaching.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 23,
+          "pass": 23,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/permissionSelector.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/mcpPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/toolPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/permissionPolicy.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "before",
+        "file": "tests/baseSystemPrompt.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/nativePermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/h1DeletionIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "before",
+        "file": "tests/permissionMode.ui.cjs",
+        "exit": 1,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "before",
+        "file": "tests/permissionIsolationReliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/promptCorrectness.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/h1HistoryDeletion.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/cloudProviders.test.cjs",
+        "exit": 1,
+        "failures": [
+          "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)"
+        ],
+        "counts": {
+          "tests": 20,
+          "pass": 19,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/compactionActivity.ui.cjs",
+        "exit": 1,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "after",
+        "file": "tests/sessionPromptWording.test.cjs",
+        "exit": 1,
+        "failures": [
+          "workspace retains safety, activation, task continuity and MCP discovery"
+        ],
+        "counts": {
+          "tests": 4,
+          "pass": 3,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/cloudPromptCaching.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 23,
+          "pass": 23,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/permissionSelector.test.mjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/mcpPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/toolPermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/permissionPolicy.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "after",
+        "file": "tests/baseSystemPrompt.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/nativePermissions.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/h1DeletionIpc.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "version": "after",
+        "file": "tests/permissionMode.ui.cjs",
+        "exit": 1,
+        "failures": [],
+        "counts": {}
+      },
+      {
+        "version": "after",
+        "file": "tests/permissionIsolationReliability.test.cjs",
+        "exit": 0,
+        "failures": [],
+        "counts": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "newFailingCoreCaseIdentities": [],
+    "corePassedFiles": 36,
+    "coreFiles": 39,
+    "extraPassedFiles": 11,
+    "extraFiles": 15,
+    "activityUnitTests": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "strictContinuationTests": {
+      "tests": 62,
+      "pass": 62,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "fixtureUpdates": [
+      "Synthetic generation and owning-continuation adapters provide explicit authoritative test contracts. Dedicated estimate-only and tokenizer-loss cases still reject activation/dispatch.",
+      "Fixed-stage/count assertions replaced by worst-case pool and prefix assertions.",
+      "Legacy C9.5 recovery errors explicitly injected at adapter boundary; original zero-dispatch emitters reproduced with frozen pre-change source.",
+      "Page-boundary quote assertion now resolves against the original cited operation; absent/foreign quotes remain rejected.",
+      "Compressible repeated prose replaced by distinct clauses where the test requires intermediate stages.",
+      "Automatic-loop expectations accept the measured early trigger and check handles only while actually running."
+    ],
+    "wholeRepositoryGreen": false
+  },
+  "checks": {
+    "build": {
+      "passed": true,
+      "warning": "Existing Vite chunks over 500 kB advisory"
+    },
+    "gitDiffCheck": {
+      "passed": true
+    },
+    "renderer": {
+      "verified": false,
+      "nodeRunner": "Electron app unavailable in Node (not a valid UI runner).",
+      "electronXvfbRunner": "Both pre-change and repaired runs blocked by sandbox_host_linux shutdown Operation not permitted; isolated /tmp profiles used."
+    }
+  },
+  "limits": {
+    "summaryTokens": 4999,
+    "generationPool": 32768,
+    "intermediateOutputFloor": 1536,
+    "intermediateOutputCeiling": 4096,
+    "finalOutputCeiling": 3072,
+    "planningStageSafetyCeiling": 64,
+    "safetyMargin": 128
+  },
+  "remainingLimitations": [
+    "Historical rejected drafts and exact failed generation payloads unavailable; structural replay is synthetic.",
+    "Real Qwen/Gemma generation quality, real tokenizer counts and throughput not tested.",
+    "Estimate-only generation or continuation measurements cannot authorize checkpoint activation/dispatch. Cloud tokenizer availability remains a deployment limitation; deterministic fallback may also be infeasible.",
+    "Generated merge/correction contents are data-dependent: actual complete requests are measured again before dispatch. An oversized merge is a bounded fallback/non-success, not a proven guaranteed full checkpoint for arbitrary maximum semantic output.",
+    "Partial coverage of completed historical messages remains whole-message only; safe operation prefixes apply to the current owning in-progress message and only complete protocol rounds can leave its tail.",
+    "Exact degraded checkpoint can run out of room, particularly with large task briefs, prior exact state or one indivisible operation. It never advances coverage over omitted text.",
+    "No claim of exhaustive randomized proof of all application interleavings, semantic entailment or every property under every provider.",
+    "Electron-rendered new outcome labels remain unverified in this sandbox.",
+    "Existing baseline failures remain; no whole-repository green claim."
+  ]
+}

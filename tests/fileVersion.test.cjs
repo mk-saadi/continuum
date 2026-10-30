@@ -155,7 +155,10 @@ test('6. unconditional read stays a full read with version metadata', async () =
 	assert.equal(Object.hasOwn(result, 'not_modified'), false);
 
 	const definition = agentTools.find((tool) => tool.function.name === 'read_project_file').function;
-	assert.deepEqual(definition.parameters.required, ['relative_path']);
+	assert.deepEqual(definition.parameters.required, []);
+	assert.ok(definition.parameters.properties.attachment_id);
+	assert.equal((await call(root, 'read_project_file', {})).code, 'INVALID_READ_SOURCE');
+	assert.equal((await call(root, 'read_project_file', { relative_path: 'full.txt', attachment_id: 'att_invalid' })).code, 'INVALID_READ_SOURCE');
 	assert.ok(definition.parameters.properties.if_content_hash);
 	assert.ok(definition.parameters.properties.start_line);
 	assert.ok(definition.parameters.properties.end_line);

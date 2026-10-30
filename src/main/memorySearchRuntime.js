@@ -27,7 +27,7 @@ function searchMemoryInWorker(request, signal) {
       if (message.error) finish(new Error(message.error)); else finish(null, message.result);
     });
     worker.once('error', error => finish(error));
-    worker.once('exit', code => { if (code !== 0) finish(new Error('Memory search worker stopped unexpectedly.')); });
+    worker.once('exit', code => { if (!settled) finish(new Error(`Memory search worker exited before returning a result (exit ${code}).`)); });
     if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
   });
 }

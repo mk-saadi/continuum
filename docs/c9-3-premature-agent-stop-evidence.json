@@ -1,0 +1,772 @@
+{
+  "auditDate": "2026-10-29",
+  "timezone": "Asia/Dhaka",
+  "liveAccess": {
+    "database": "${HOME}/.config/Continuum/memory_palace.db",
+    "method": "Source file copied to /tmp/c93-audit; SQLite opened on disposable copy. Source had no WAL file. Read-only reconstruction uses readonly:true on copy; no live initialization or writes.",
+    "networkOrInference": false
+  },
+  "preservedPreexistingStatus": [
+    " M package.json",
+    " M src/components/ContextPanel.jsx",
+    " M src/components/chat/CompactionActivity.jsx",
+    " M src/lib/compactionActivity.mjs",
+    " M src/main/compactionPerformance.js",
+    " M src/main/contextInspection.js",
+    " M src/main/nativeToolActivation.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/taskCheckpoints.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/tools/subagent.js",
+    " M src/main/workspaceCompactCandidate.js",
+    " M src/main/workspaceCompaction.js",
+    " M src/main/workspaceCompactionActivity.js",
+    " M tests/c6bContextSelection.test.cjs",
+    " M tests/c6cAcceptance.test.cjs",
+    " M tests/c6eLightweightContext.test.cjs",
+    " M tests/c7Reliability.test.cjs",
+    " M tests/compactionActivity.ui.cjs",
+    " M tests/contextPanel.ui.cjs",
+    " M tests/fixtures/w3Compaction.cjs",
+    " M tests/subagentModelSelection.test.cjs",
+    " M tests/workspaceAdvancedCompaction.test.cjs",
+    " M tests/workspaceCompactCandidate.test.cjs",
+    " M tests/workspaceSafeCompaction.test.cjs",
+    "?? docs/c8a-real-session-token-attribution.json",
+    "?? docs/c8a-real-session-token-attribution.md",
+    "?? docs/c9-1-semantic-compaction-evidence.json",
+    "?? docs/c9-1-semantic-compaction-report.md",
+    "?? docs/c9-2-compaction-validation-recovery-evidence.json",
+    "?? docs/c9-2-compaction-validation-recovery-report.md",
+    "?? docs/c9-simple-compaction-evidence.json",
+    "?? docs/c9-simple-compaction-report.md",
+    "?? docs/investigations/",
+    "?? docs/m1-host-memory-attribution-evidence.json",
+    "?? docs/m1-host-memory-attribution-report.md",
+    "?? docs/p1-prompt-tool-schema-efficiency-evidence.json",
+    "?? docs/p1-prompt-tool-schema-efficiency-report.md",
+    "?? docs/p2-compact-native-tools-evidence.json",
+    "?? docs/p2-compact-native-tools-report.md",
+    "?? scripts/audits/",
+    "?? src/main/compactNativeTools.js",
+    "?? src/main/compactionSummary.js",
+    "?? tests/c91SemanticCompaction.test.cjs",
+    "?? tests/c9SimpleCompaction.test.cjs",
+    "?? tests/fixtures/c91C9SummaryBefore.cjs",
+    "?? tests/fixtures/c9SummaryTokenizer.cjs",
+    "?? tests/fixtures/c9TaskflowAudit.cjs",
+    "?? tests/p2CompactNativeTools.test.cjs"
+  ],
+  "identity": {
+    "sessionId": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+    "projectId": "b62f8ed9-c325-4858-bdba-58f507f1e389",
+    "projectName": "testing new workspace update",
+    "title": "rio",
+    "parentRunId": "8041d529-12c6-4862-9d14-32a4f0ba27e0",
+    "assistantMessageId": 4012,
+    "precedingUserMessageId": 4011,
+    "originalEngineeringMessageId": 3973,
+    "createdAtUtc": "2026-10-29 02:03:00",
+    "persistedStatus": "completed",
+    "modelId": "/home/mk_saadi/all-llm-related/llm-folder/extra_llms/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf"
+  },
+  "compactionAttempts": [
+    {
+      "sequence": 46,
+      "id": "fa8d359c-6208-4d14-8b4b-68e22a44b8d4",
+      "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+      "run_id": "8041d529-12c6-4862-9d14-32a4f0ba27e0",
+      "message_id": 4012,
+      "anchor_step_id": "ovoTHrDZZmFV5Su7gJdFfFu2GyFy3mLM",
+      "status": "continued",
+      "revision": 7,
+      "started_at": "2026-10-29T02:10:40.699Z",
+      "updated_at": "2026-10-29T02:13:48.989Z",
+      "code": "unsupported-finding-claim",
+      "metadata": {
+        "beforeTokens": 49568,
+        "usableInputTokens": 54400,
+        "triggerTokens": 48960,
+        "measurementMethod": "server-template-tokenizer",
+        "sourceVersion": "be25abb64f94ab02c2e39b034abab2f8b4f6dfa5f3fd9eb3331d98d9ecdb2aee",
+        "generationStages": 0,
+        "targetMet": false,
+        "continued": true
+      }
+    },
+    {
+      "sequence": 47,
+      "id": "121dce00-5adc-46a8-a722-32c91bb6f2d6",
+      "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+      "run_id": "8041d529-12c6-4862-9d14-32a4f0ba27e0",
+      "message_id": 4012,
+      "anchor_step_id": "EzLjeZt6tmo90fYsBoezVOxY0CgCXO2j",
+      "status": "continued",
+      "revision": 9,
+      "started_at": "2026-10-29T02:16:40.075Z",
+      "updated_at": "2026-10-29T02:18:39.602Z",
+      "code": "unsupported-completion-claim",
+      "metadata": {
+        "beforeTokens": 52933,
+        "usableInputTokens": 54400,
+        "triggerTokens": 48960,
+        "measurementMethod": "server-template-tokenizer",
+        "sourceVersion": "4d487822c144fa10bf9f923d3babe1e656919f8c7e76c7c53df535b4b3d7a827",
+        "generationStages": 0,
+        "targetMet": false,
+        "continued": true
+      }
+    }
+  ],
+  "activeCheckpoint": null,
+  "checkpointRows": 0,
+  "sessionSummaryRows": 0,
+  "plan": {
+    "revision": 1,
+    "completedSteps": 0,
+    "steps": [
+      {
+        "id": 291,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 1,
+        "description": "Phase 1: Establish project state (files, git, environment, tests)",
+        "status": "in_progress",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 292,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 2,
+        "description": "Phase 2: Data-integrity audit of taskLogic.js",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 293,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 3,
+        "description": "Phase 3: Filtering and sorting audit",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 294,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 4,
+        "description": "Phase 4: React integration and accessibility audit",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 295,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 5,
+        "description": "Phase 5: Implement up to 3 focused corrections with regression tests",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 296,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 6,
+        "description": "Phase 6: Use specialized tools as justified",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 297,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 7,
+        "description": "Phase 7: Run tests, handle failures",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      },
+      {
+        "id": 298,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "position": 8,
+        "description": "Phase 8: Final verification (tests, build, git diff --check) and report",
+        "status": "pending",
+        "note": "",
+        "created_at": "2026-10-28 21:07:32",
+        "updated_at": "2026-10-28 21:07:32"
+      }
+    ]
+  },
+  "providerUsage": {
+    "requests": [
+      {
+        "index": 1,
+        "completion_tokens": 1158,
+        "prompt_tokens": 11578,
+        "total_tokens": 12736,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      {
+        "index": 2,
+        "completion_tokens": 238,
+        "prompt_tokens": 16682,
+        "total_tokens": 16920,
+        "prompt_tokens_details": {
+          "cached_tokens": 11574
+        }
+      },
+      {
+        "index": 3,
+        "completion_tokens": 179,
+        "prompt_tokens": 24652,
+        "total_tokens": 24831,
+        "prompt_tokens_details": {
+          "cached_tokens": 16678
+        }
+      },
+      {
+        "index": 4,
+        "completion_tokens": 139,
+        "prompt_tokens": 29840,
+        "total_tokens": 29979,
+        "prompt_tokens_details": {
+          "cached_tokens": 24648
+        }
+      },
+      {
+        "index": 5,
+        "completion_tokens": 505,
+        "prompt_tokens": 36886,
+        "total_tokens": 37391,
+        "prompt_tokens_details": {
+          "cached_tokens": 29836
+        }
+      },
+      {
+        "index": 6,
+        "completion_tokens": 4095,
+        "prompt_tokens": 43328,
+        "total_tokens": 47423,
+        "prompt_tokens_details": {
+          "cached_tokens": 36882
+        }
+      },
+      {
+        "index": 7,
+        "completion_tokens": 5531,
+        "prompt_tokens": 46360,
+        "total_tokens": 51891,
+        "prompt_tokens_details": {
+          "cached_tokens": 43324
+        }
+      },
+      {
+        "index": 8,
+        "completion_tokens": 2126,
+        "prompt_tokens": 49642,
+        "total_tokens": 51768,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      {
+        "index": 9,
+        "completion_tokens": 2619,
+        "prompt_tokens": 52933,
+        "total_tokens": 55552,
+        "prompt_tokens_details": {
+          "cached_tokens": 49638
+        }
+      }
+    ],
+    "peakPromptTokens": 52933,
+    "lastPromptTokens": 52933,
+    "finishReason": null,
+    "requestMaxTokens": null,
+    "note": "Historical per-request payloads, finish reasons and output limits were not persisted. Usage is actual provider reported, not prepared-context estimates."
+  },
+  "finalAssistant": {
+    "visibleText": "Now let me read the remaining test file, the key components, and check the git state.\n\nLet me finish the test file and read the remaining components.\n\nSource and test review is complete. Let me read the remaining components to finish the React/a11y audit, then run the baseline test suite.\n\nAll source files are now examined. Let me check the theme logic files and CSS, and run the baseline test suite.\n\nBaseline verified: 133 tests pass (127 taskLogic + 6 themeLogic). Let me quickly check the CSS for responsive behavior and the remaining UI styling before finalizing my audit.\n\n",
+    "visibleCharacters": 581,
+    "finalReasoningTail": "e missing count line is a minor UX gap. The test tests the pipeline, not the rendering. I'll record as a minor gap. Not top priority.\n\n24. **Focus restoration after edit** \u2014 exists and is good.\n\n25. **TaskItem checkbox label:** `<label><input type=checkbox><span>text</span></label>` \u2014 good for click target.\n\n26. **`handleClearFilters` does not reset sort** \u2014 intentional, documented, and tested? The comment says intentional. No issue.\n\n27. **`onAnnounce` prop passed to TaskItem, but TaskItem never calls onAnnounce!** Let me verify: TaskItem receives `onAnnounce` in its props, but\u2026 searching the source: TaskItem's props are destructured as `{ task, onToggle, onUpdate, onDelete, onAnnounce }`. Inside the component, is onAnnounce used anywhere? saveEdit calls `onUpdate(...)`, which is handled in App (which sets the announcement). cancelEdit does not call onAnnounce. So the `onAnnounce` prop is unused in TaskItem. Dead prop \u2014 minor, not a defect.\n\n28. **ThemeToggle aria-pressed semantics:**",
+    "finalReasoningCharacters": 11183,
+    "toolOperationCount": 29,
+    "finalThoughtId": "thought_9_37",
+    "lastTool": {
+      "id": "EzLjeZt6tmo90fYsBoezVOxY0CgCXO2j",
+      "toolName": "read_project_file",
+      "status": "complete",
+      "args": {
+        "relative_path": "src/index.css",
+        "start_line": 400,
+        "end_line": 671
+      }
+    },
+    "truncation": "unverified; abrupt reasoning ending is suggestive, not proof",
+    "terminalToolCalls": "No tool operation follows final thought_9_37. No raw response retained."
+  },
+  "originalRequirements": {
+    "briefs": [
+      {
+        "id": 618,
+        "messageId": 3971,
+        "characters": 3,
+        "sha256": "682f158037ed29e3b1718ce7060f73e69cfa2673d9bcd898ad4ecdfd4fe7f320"
+      },
+      {
+        "id": 619,
+        "messageId": 3973,
+        "characters": 10955,
+        "sha256": "f9b30bb638e963b1db3a3fdbbb2cffe07d5f26a623e046ce925bccd3b3160203"
+      },
+      {
+        "id": 625,
+        "messageId": 4011,
+        "characters": 8,
+        "sha256": "e256ee8e7aff6957a781d8328f0f68e26996564c81fa458da59fbca2305138ad"
+      }
+    ],
+    "retrospectiveReconstruction": {
+      "historicalWireRequest": false,
+      "messageCount": 11,
+      "characters": 37477,
+      "briefs": [
+        {
+          "id": 618,
+          "messageId": 3971,
+          "characters": 3,
+          "verbatimRetained": true
+        },
+        {
+          "id": 619,
+          "messageId": 3973,
+          "characters": 10955,
+          "verbatimRetained": true
+        },
+        {
+          "id": 625,
+          "messageId": 4011,
+          "characters": 8,
+          "verbatimRetained": true
+        }
+      ],
+      "planVisible": true,
+      "planProgressVisible": true,
+      "approximateTextTokens": 9370,
+      "noInference": true
+    },
+    "historicalWireRetention": "unverified; no saved wire payloads",
+    "lossDefectConfirmed": false
+  },
+  "observedVsInferred": {
+    "observed": [
+      "Two continued rejection rows, unsupported-finding-claim and unsupported-completion-claim",
+      "No persisted checkpoint or summary",
+      "Nine measured parent requests, last and peak 52933",
+      "Unfinished revision-1 plan and completed message status",
+      "No engineering implementation tool in latest run; baseline commands only"
+    ],
+    "sourceSupported": [
+      "Rejected optional candidates never activate; original prefix and paired tail are rebuilt and remeasured",
+      "No-tool-call terminal branch returns text after pending events/steering are drained",
+      "IPC normal return is classified completed irrespective of unfinished task"
+    ],
+    "unknown": [
+      "Exact rejected claims, cited sources and rejection stage",
+      "Exact original dispatched payload content",
+      "Final provider finish reason and max_tokens",
+      "Whether final reasoning was truncated by provider/model/context limitation",
+      "Source of user-reported approximately 12.4K prepared count"
+    ]
+  },
+  "fix": {
+    "files": [
+      "src/lib/memoryChat.mjs",
+      "src/main/ipcHandlers.js",
+      "src/lib/taskContinuation.mjs",
+      "tests/memoryChat.test.mjs",
+      "tests/c93PrematureStop.test.mjs",
+      "tests/c93PrematureStopIpc.test.cjs"
+    ],
+    "boundedAdditionalRequests": 2,
+    "resetAfterTools": false,
+    "scope": "Workspace plan changed in this run or explicit resume request; runnable unfinished steps plus narration, empty output or truncation. At most two additional requests. Any steering disables old-task recovery; acknowledgments after recovery are non-progress.",
+    "noCompactionChanges": true,
+    "status": "Explicit incomplete notice, structured reason and existing interrupted persistence/UI outcome; successful no-tool responses retain semantics.",
+    "telemetry": "Per-request finishReason and maxTokens persisted in raw stats for future runs."
+  },
+  "requiredCoverage": {
+    "1": "workspaceSafeCompaction C9.2 rejected finding fallback + C93 integration",
+    "2": "workspaceSafeCompaction identical rejection suppression",
+    "3": "C93 original request/plan rebuilt; safe compaction prior checkpoint/history",
+    "4": "C93 narration recovery",
+    "5": "C93 valid final; IPC completed",
+    "6": "C93 user stop/new-question/steering",
+    "7": "C93 three total requests, explicit incomplete",
+    "8": "C93 length finish + metadata; existing incomplete-tool retries",
+    "9": "C93 short answer and final without tools",
+    "10": "contextOverflowRecovery; safe compaction over-budget; C93 propagation",
+    "11": "C93 abort/deletion; safe compaction ownership/cancellation/deletion",
+    "12": "p2CompactNativeTools",
+    "13": "C93 paired tool once across continuation",
+    "14": "C93 real IPC persisted interrupted and outcome event vs valid completed",
+    "15": "c91SemanticCompaction + c9SimpleCompaction 4999 acceptance/5000 rejection-or-correction synthetic tokenizer"
+  },
+  "validation": {
+    "baseline": [
+      {
+        "file": "memoryChat.test.mjs",
+        "exitCode": 0,
+        "passed": [
+          "50"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceSafeCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "54"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceCompactCandidate.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "55"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c91SemanticCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "16"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c9SimpleCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "21"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "p2CompactNativeTools.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "8"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceCompactionActivity.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "26"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "liveSteeringLoop.test.mjs",
+        "exitCode": 0,
+        "passed": [
+          "7"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "liveSteeringIpc.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "3"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "contextOverflowRecovery.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "10"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspacePlan.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "15"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceGenerationRuntime.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "15"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c93PrematureStop.test.mjs",
+        "exitCode": 1,
+        "passed": [
+          "9"
+        ],
+        "failed": [
+          "9"
+        ],
+        "failures": [
+          "not ok 1 - rejected compaction safely rebuilds original requirements and plan; narration receives bounded continuation",
+          "not ok 2 - repeated non-progress is incomplete after two recovery requests",
+          "not ok 3 - reasoning-only response with unfinished plan is recovered",
+          "not ok 10 - permission change forbids recovery and reports incomplete",
+          "not ok 11 - truncated text has bounded recovery and recorded finish metadata",
+          "not ok 13 - cancelled run does not recover",
+          "not ok 14 - deleted session fails closed",
+          "not ok 15 - completed tool operations are paired and never replayed",
+          "not ok 18 - acknowledgments after recovery are non-progress, not successful completion"
+        ]
+      },
+      {
+        "file": "c93PrematureStopIpc.test.cjs",
+        "exitCode": 1,
+        "passed": [
+          "0"
+        ],
+        "failed": [
+          "1"
+        ],
+        "failures": [
+          "not ok 1 - C9.3 IPC persists incomplete status and emits interrupted outcome, while valid finals complete"
+        ]
+      }
+    ],
+    "final": [
+      {
+        "file": "memoryChat.test.mjs",
+        "exitCode": 0,
+        "passed": [
+          "50"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceSafeCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "54"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceCompactCandidate.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "55"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c91SemanticCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "16"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c9SimpleCompaction.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "21"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "p2CompactNativeTools.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "8"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceCompactionActivity.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "26"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "liveSteeringLoop.test.mjs",
+        "exitCode": 0,
+        "passed": [
+          "7"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "liveSteeringIpc.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "3"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "contextOverflowRecovery.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "10"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspacePlan.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "15"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "workspaceGenerationRuntime.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "15"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c93PrematureStop.test.mjs",
+        "exitCode": 0,
+        "passed": [
+          "18"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      },
+      {
+        "file": "c93PrematureStopIpc.test.cjs",
+        "exitCode": 0,
+        "passed": [
+          "1"
+        ],
+        "failed": [
+          "0"
+        ],
+        "failures": []
+      }
+    ],
+    "build": "passed; existing chunk-size advisory",
+    "diffCheck": "passed",
+    "baselineMethod": "Disposable source copy preserving preexisting C9/P2 main/lib files, with only initially-clean memoryChat/ipcHandlers restored from HEAD. Original memoryChat assertion for old telemetry contract used in baseline. New tests replayed against before source.",
+    "intermediateRegression": "One old raw-stats deep-equality assertion failed after finish metadata addition; updated expected raw object to assert new finishReason/maxTokens. No unrelated assertions changed.",
+    "totals": {
+      "baseline": {
+        "files": 14,
+        "passedAssertions": 289,
+        "failedAssertions": 10,
+        "failedFiles": 2
+      },
+      "final": {
+        "files": 14,
+        "passedAssertions": 299,
+        "failedAssertions": 0,
+        "failedFiles": 0
+      }
+    },
+    "baselineHarnessCorrection": "Initial copy omitted unchanged src/preload.js causing one ENOENT; copied it and root preload.js, reran activity suite 26/26. Corrected baseline has only ten new-test failures."
+  }
+}

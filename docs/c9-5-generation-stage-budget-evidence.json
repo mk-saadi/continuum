@@ -1,0 +1,3119 @@
+{
+  "databaseAccess": "Python sqlite3 URI mode=ro; SELECT/PRAGMA only; no application DB initialization",
+  "historicalActivities": [
+    {
+      "sequence": 48,
+      "id": "03dc9508-cac8-4ced-84ac-38c0fb2a06cb",
+      "session_id": "468493ba-b5f9-4320-800e-818d7ccd2d1d",
+      "run_id": "8455b230-e0a8-42d8-9852-48b157ce9db7",
+      "message_id": 4058,
+      "anchor_step_id": "bEXdNZXhybaXFFAOnspW0ZkXmTatOwS8",
+      "status": "failed",
+      "revision": 4,
+      "started_at": "2026-10-29T21:10:30.315Z",
+      "updated_at": "2026-10-29T21:10:38.254Z",
+      "code": "generation-stage-budget",
+      "metadata": {
+        "beforeTokens": 41480,
+        "usableInputTokens": 44416,
+        "triggerTokens": 39974,
+        "measurementMethod": "approximate-full-request",
+        "sourceVersion": "8e07bda52e60c573a78779e8182e53cad082de9a599ea50b15963c60d36b80ef"
+      },
+      "message": {
+        "model_id": "gemma-4-26B-A4B-it-QAT-Q4_0.gguf",
+        "status": "interrupted",
+        "stats": {
+          "lastPromptTokens": 27437,
+          "peakPromptTokens": 28325,
+          "promptRequests": 15,
+          "promptCoverage": "complete"
+        }
+      },
+      "startedAtAsiaDhaka": "2026-10-30 03:10:30 Asia/Dhaka",
+      "generationRequestsInFailedCandidate": 0,
+      "generationRequestsBasis": "Single local production throw occurs during complete evidence segmentation before the generation loop; historical attempt counters were not persisted.",
+      "projectedRequestHeadroom": 2936,
+      "checkpointRowsMatchingFailedSnapshot": 0
+    },
+    {
+      "sequence": 49,
+      "id": "2a07b2c5-e405-4942-b845-26722bf5730d",
+      "session_id": "468493ba-b5f9-4320-800e-818d7ccd2d1d",
+      "run_id": "e077e311-d3c4-4e5a-bddf-b143e29a8f0e",
+      "message_id": 4060,
+      "anchor_step_id": "OiEBOpCBN6Od3jKqqdWjiYaJqPVJi7Ha",
+      "status": "failed",
+      "revision": 4,
+      "started_at": "2026-10-29T21:17:37.922Z",
+      "updated_at": "2026-10-29T21:17:44.483Z",
+      "code": "generation-stage-budget",
+      "metadata": {
+        "beforeTokens": 40627,
+        "usableInputTokens": 44160,
+        "triggerTokens": 39744,
+        "measurementMethod": "server-template-tokenizer",
+        "sourceVersion": "171bea8e54d9badf5069915f486d25b66b53d3b7c995eb3fb5b35c81608438bd"
+      },
+      "message": {
+        "model_id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+        "status": "interrupted",
+        "stats": {
+          "lastPromptTokens": 38327,
+          "peakPromptTokens": 38327,
+          "promptRequests": 4,
+          "promptCoverage": "complete"
+        }
+      },
+      "startedAtAsiaDhaka": "2026-10-30 03:17:37 Asia/Dhaka",
+      "generationRequestsInFailedCandidate": 0,
+      "generationRequestsBasis": "Single local production throw occurs during complete evidence segmentation before the generation loop; historical attempt counters were not persisted.",
+      "projectedRequestHeadroom": 3533,
+      "checkpointRowsMatchingFailedSnapshot": 0
+    }
+  ],
+  "schemaVersion": 1,
+  "date": "2026-10-30",
+  "timezone": "Asia/Dhaka",
+  "scope": "C9.5 targeted stage-budget continuation repair and bounded instrumentation",
+  "preservedUserWork": true,
+  "realModelInference": false,
+  "liveDatabaseWrites": false,
+  "rootCause": {
+    "emitter": "src/main/workspaceCompactCandidate.js: reduceHistoricalInput; segments.length >= limits.stages - 1",
+    "stageLimit": 12,
+    "maximumIntermediateBatches": 11,
+    "finalMergeSlots": 1,
+    "offByOneDefect": false,
+    "previousAttemptBudgetContamination": false,
+    "runTerminatingDefect": "generation-stage-budget omitted from C9.2 optional continuation allowlist",
+    "repair": "Add only this code to guarded optional continuation; preserve forced failure and all dispatch guards"
+  },
+  "historicalUnknowns": [
+    "Exact original evidence batch/page contents and complete partition",
+    "Historical force flag",
+    "Original candidate tokenizer call records",
+    "Why timestamps supplied as Dhaka clock times match database UTC clock times"
+  ],
+  "instrumentation": {
+    "shape": "One fixed-size object, overwritten per operation, without source text or identifiers",
+    "providerCounters": "Generation adapter calls; transport schema fallback may use multiple HTTP requests",
+    "actualGenerationTokens": "Sum of available usage; null if none reported; not proof of complete token coverage",
+    "retention": "Existing activity storage/access/deletion cascade; no new schema or endpoints"
+  },
+  "focusedDirectTests": [
+    {
+      "phase": "before",
+      "file": "workspaceCompactCandidate.test.cjs",
+      "exitCode": 1,
+      "tests": [
+        "W2 golden small Workspace: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 golden 51 authoritative requirements: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 golden long coding tool output: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 original, subsequent revision and acceptance criteria remain separately authoritative",
+        "W2 rejects reasoning-only; bounded retries preserve history",
+        "W2 rejects truncated; bounded retries preserve history",
+        "W2 rejects empty; bounded retries preserve history",
+        "W2 rejects malformed; bounded retries preserve history",
+        "W2 rejects missing-section; bounded retries preserve history",
+        "W2 rejects invalid-reference; bounded retries preserve history",
+        "W2 rejects missing-brief-reference; bounded retries preserve history",
+        "W2 rejects unsupported-completion; bounded retries preserve history",
+        "W2 rejects read-claimed-as-edit; bounded retries preserve history",
+        "W2 rejects missing-finish-metadata; bounded retries preserve history",
+        "W2 corrective retry succeeds with explicit validation feedback",
+        "W2 concurrent steering invalidates candidate",
+        "W2 concurrent tool completion invalidates candidate",
+        "W2 concurrent same-length content rewrite invalidates candidate",
+        "W2 concurrent newer checkpoint invalidates candidate",
+        "W2 concurrent branch switch invalidates candidate",
+        "W2 concurrent plan revision invalidates candidate",
+        "W2 deleted during generation fails without late persistence",
+        "W2 cancelled fails without late persistence",
+        "W2 provider failure fails without late persistence",
+        "W2 context overflow fails without late persistence",
+        "W2 pending tool returns not safe before inference",
+        "W2 incomplete assistant returns not safe before inference",
+        "W2 large protected brief fails honestly without truncation",
+        "C8 provider exceeding output budget is rejected without losing source history",
+        "W2 malicious tool instructions remain untrusted; approval metadata cannot enter model state",
+        "W2 preserves existing current checkpoint and Casual active context byte-for-byte",
+        "W2 deleted after validation and restart cannot restore candidates or briefs",
+        "W2 provider-neutral completion checks cover local, OpenRouter and raw Anthropic envelopes",
+        "W2 H1 deletion cancels an active candidate before durable cleanup",
+        "W2 actual openai cloud adapter serializes a mocked candidate with strict metadata",
+        "W2 actual anthropic cloud adapter serializes a mocked candidate with strict metadata",
+        "W2 adapter-normalized unknown Anthropic finish reason is rejected conservatively",
+        "W2 local request serialization and candidate ownership are bounded to one session",
+        "W2 supplied exact measurement is used for generation and validated state",
+        "W2 stale execution JSON and active run ownership refuse unsafe snapshots",
+        "W2 concurrent live steering row invalidates the exact snapshot",
+        "W2 branch revisions retain superseded original provenance without off-branch instructions",
+        "W2 sensitive command metadata is refused rather than persisted or silently redacted",
+        "W2 engine identity changing during final measurement invalidates persistence",
+        "W7 reported runtime reserves final output before reducing near-full input",
+        "W7 exhaustion retries once with a changed size contract and records provider usage",
+        "W7 intermediate overflow gets one concise correction without activating partial state",
+        "W7 final measured candidate too large fails with original history and checkpoint intact",
+        "W7 adapter cannot hide provider output exhaustion behind normalized stop",
+        "W7 deterministic before/after at reported 32486 input tokens",
+        "W7 provider stream interruption fails once and leaves history untouched",
+        "C6-A failed diagnostic is source-bound research, never successful completion",
+        "C6-A rejects unsupported All tests passed.",
+        "C6-A rejects unsupported Implemented and verified feature.",
+        "C6-A intermediate unsupported completion gets one targeted correction"
+      ],
+      "failures": [
+        "C9.5 stage preflight reserves final merge, rejects twelve batches before provider, preserves history",
+        "C9.5 eleven intermediate batches pass stage preflight and retain genuine shared token ceiling",
+        "C9.5 successful stages share reservations with final generation and reset next invocation",
+        "C9.5 provider failure is distinct from preflight stage exhaustion"
+      ],
+      "counts": [
+        "# tests 59",
+        "# pass 55",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceSafeCompaction.test.cjs",
+      "exitCode": 1,
+      "tests": [
+        "W3 commits complete history, protects two rounds, retains durable originals and run identity",
+        "W3 failure at generation-start retains history and has no current checkpoint",
+        "W3 failure at prospective-build retains history and has no current checkpoint",
+        "W3 failure at transaction-start retains history and has no current checkpoint",
+        "W3 failure at candidate-promotion retains history and has no current checkpoint",
+        "W3 failure at message-archival retains history and has no current checkpoint",
+        "W3 failure at transaction-commit retains history and has no current checkpoint",
+        "W3 failure at post-commit-build retains history and has no current checkpoint",
+        "W3 rejects truncation with one bounded retry",
+        "W3 stale steering or tool writes cannot commit",
+        "W3 pending tool pair and pending approval fail closed",
+        "W3 capacity change and irreducible prospective overhead reject without archival",
+        "W3 cancellation, model/permission/schema invalidation stop commit",
+        "Workspace legacy compression is disabled; no unvalidated fallback",
+        "deterministic coding loop crosses 90% after test output, compacts and completes the SAME run without tool replay",
+        "W3 C1 threshold boundary below 90% (-1)",
+        "W3 C1 threshold boundary at 90% (0)",
+        "W3 C1 threshold boundary above 90% (1)",
+        "W3 C1 threshold boundary above 90% (5000)",
+        "W3 repeated compactions preserve earlier current-run evidence and never reuse authority",
+        "W3 current image, attachment metadata, MCP schemas and steering tail remain in the measured request",
+        "W3 post-commit semantic mismatch compensates and never supplies a dispatch payload",
+        "W3 coalesces the same simultaneous source request into one generation and commit",
+        "W3 a new authoritative brief during generation invalidates the source",
+        "W3 H1 deletion preempts an active candidate and cannot recreate history",
+        "W3 budget-measurement and prospective-build failures preserve source without a checkpoint",
+        "W3 an unincorporated steering instruction earlier in the live tail stays verbatim",
+        "W3 active child streams defer parent compaction without touching child evidence",
+        "W3 reads the durable background record shape, allows delivered completion and protects pending events",
+        "W3 defers a pending child barrier while the current request still fits instead of ending the run",
+        "C6-A optional invalid candidate safely continues only after final exact fit, with original pairs and no checkpoint",
+        "C6-A optional fallback rejects oversized final request",
+        "C6-A optional fallback rejects estimated final request",
+        "C6-A cancel during fallback prevents dispatch",
+        "C6-A delete during fallback prevents dispatch",
+        "C6-A source during fallback prevents dispatch",
+        "C6-A permission during fallback prevents dispatch",
+        "C6-A owner during fallback prevents dispatch",
+        "C8 bounded refinement persists the exact inspected continuation without reactivating history",
+        "C8 unchanged already covered same-run evidence never regenerates",
+        "C8 oversized provider output fails closed with explicit measured overflow",
+        "C8 inspection redacts secrets, scopes historical lookup and respects deletion",
+        "C9 owning activation refuses over-limit summary without archival",
+        "C9 owning activation refuses unavailable summary without archival",
+        "C9 owning activation refuses changed-before-activation summary without archival",
+        "C9 owning continuation persists measured summary, one injected copy and event token metadata",
+        "C9.2 rejected finding continues only with measured fit, retains prior checkpoint/history, and suppresses identical retry",
+        "C9.2 rejected finding blocks overflow continuation",
+        "C9.2 rejected finding blocks estimated continuation",
+        "C9.2 cancel blocks rejected-finding fallback",
+        "C9.2 delete blocks rejected-finding fallback",
+        "C9.2 permission blocks rejected-finding fallback",
+        "C9.2 owner blocks rejected-finding fallback",
+        "C9.2 changed request retries bounded generation; cached rejection never caches fit authorization"
+      ],
+      "failures": [
+        "C9.5 stage-budget optional failure continues without replay, caches rejection but rechecks dispatch",
+        "C9.5 stage-budget failure blocks overflow continuation and preserves durable history",
+        "C9.5 stage-budget failure blocks estimated continuation and preserves durable history",
+        "C9.5 stage-budget failure blocks forced continuation and preserves durable history"
+      ],
+      "counts": [
+        "# tests 58",
+        "# pass 54",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceAdvancedCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W4 background handle stays live across compaction and completion is consumed once",
+        "W4 background completion during generation prevents stale commit",
+        "W4 detached child with durable identity keeps its independent execution and transcript",
+        "W4 three successive compactions carry consumed identities and original evidence",
+        "W4 oversized generation uses bounded source-bound segments without activating intermediates",
+        "W4 Anthropic serialized cloud parent loop compacts and continues",
+        "W4 OpenRouter serialized cloud parent loop compacts and continues",
+        "W4 unknown cloud capacity cannot certify a fit",
+        "W4 staged intermediate cancellation cannot activate a checkpoint",
+        "W4 detached child settlement during generation invalidates the source barrier",
+        "W4 dispatch capacity change rejects a committed payload",
+        "W4 protocol validator rejects duplicate/out-of-order missing results and accepts complete parallel batches",
+        "W4 full parent loop: background",
+        "W4 full parent loop: child",
+        "W4 full parent loop: long-horizon",
+        "W4 staged failure: intermediate-provider",
+        "W4 staged failure: intermediate-json",
+        "W4 staged failure: merge-provider",
+        "W4 staged failure: intermediate-source-change",
+        "W4 pending approval on the owner blocks an otherwise completed protocol boundary",
+        "W6 progressing local candidate exceeds 120 seconds and commits with same-run dispatch",
+        "W6 user-cancelled cannot archive or activate",
+        "W6 deleted-conversation cannot archive or activate",
+        "W6 generation-inactivity-timeout cannot archive or activate",
+        "W6 managed startup keeps configured total and explicit slot count separate",
+        "C7 175 persisted operations stage, activate atomically and dispatch in the same owning run"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c91SemanticCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.1 deeper source knowledge survives production generation, persistence projection and historical retrieval",
+        "C9.1 unsupported quote and assistant-only claim cannot become source-backed findings",
+        "C9.1 unrun build and passing-test claims cannot use file reads as verification",
+        "C9.1 unrun build cannot be claimed complete using a successful read or unrelated passing tests",
+        "C9.1 unquoted legacy conclusions stay inspectable and explicitly uncertain",
+        "C9.1 complete large observations are paged through bounded stages without losing tail findings",
+        "C9.1 same-path later quoted finding supersedes old knowledge without changing old checkpoints",
+        "C9.1 a failed later edit cannot supersede an earlier finding using an older quote",
+        "C9.1 identical-boundary deterministic TaskFlow quality comparison",
+        "C9.2 wrong source step and missing intermediate excerpt remain rejected",
+        "C9.2 exact Unicode/CRLF excerpts accepted; altered normalization rejected without inventing text",
+        "C9.2 bounded finding correction receives validator feedback and succeeds without altering originals",
+        "C9.2 source observations never certify semantics or acquire user instruction authority",
+        "C9.2 quote absent from supplied intermediate page fails even when durable source contains it",
+        "C9.2 multiple supplied parts resolve quote by operation without borrowing other steps",
+        "C9.2 partial source quote retains partial status and cannot certify full-file semantics"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 16",
+        "# pass 16",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c94CompactionDiagnostics.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.4 bounded rejected field and linked correction failure survive generation",
+        "C9.4 valid correction links outcome and records changed claim",
+        "C9.4 secrets and oversized excerpts are bounded; malformed references preserve original error",
+        "C9.4 activity persists privately, separates sessions and cascades deletion",
+        "C9.4 deterministic validator contract matrix",
+        "C9.4 private polling hydrates equal-revision content-free broadcast"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 6",
+        "# pass 6",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c9SimpleCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9 whole summary envelope: 1000 tokens",
+        "C9 whole summary envelope: 1999 tokens",
+        "C9 whole summary envelope: 4900 tokens",
+        "C9 whole summary envelope: 4999 tokens",
+        "C9 whole summary envelope: 5000 tokens",
+        "C9 whole summary envelope: 5001 tokens",
+        "C9 unavailable or invalid authoritative count null",
+        "C9 unavailable or invalid authoritative count {\"tokens\":100,\"method\":\"approximate-full-request\"}",
+        "C9 unavailable or invalid authoritative count {\"tokens\":null,\"method\":\"server-template-tokenizer\"}",
+        "C9 unavailable or invalid authoritative count {\"tokens\":-1,\"method\":\"server-template-tokenizer\"}",
+        "C9 current working Markdown replaces old pending state without evidence catalogs or placeholders",
+        "C9 generation: short summary",
+        "C9 generation: exact hard limit",
+        "C9 generation: one correction succeeds",
+        "C9 generation: one correction remains too long",
+        "C9 estimated count never authorizes candidate persistence or activation",
+        "C9 fabricated passing tests from a failed source are rejected before summary measurement",
+        "C9 no truncation: over-budget mandatory Unicode requirements are retained in rejected drafts",
+        "C9 tokenizer transport failure is explicit and cancellation remains cancellation",
+        "C9 incremental pending work is replaced; passing and failed evidence remains durable",
+        "C9 exact Markdown ablation preserves independently retained instructions and full request accounting"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 21",
+        "# pass 21",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c7Reliability.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C7 bounded evidence 3 operations / 100 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 55 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 70 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 71 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 175 operations / 8000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 175 operations / 8000 characters / diagnostics=false mixed=true",
+        "C7 bounded evidence 250 operations / 10000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 1 operations / 200000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 1 operations / 100000 characters / diagnostics=true mixed=false",
+        "C7 screenshot occupancy, peak, compaction, isolation and idle restoration",
+        "C7 final local guard publishes normalized dispatch measurements before inference",
+        "C7 tokenizer fallback dispatch remains an estimate and cancelled dispatch emits nothing",
+        "C7 unrepresentable exact command metadata fails with source, budget and history safety",
+        "C7 openai dispatch estimate counts the actual native body",
+        "C7 anthropic dispatch estimate counts the actual native body"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c8EffectiveCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C8 controlled reconstruction 33571 \u2192 28341",
+        "C8 controlled reconstruction 32968 \u2192 27923",
+        "C8 target-capable request retains constraints and sources",
+        "C8 schemas dominated final request cannot reach target",
+        "C8 protected dominated final request cannot reach target"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 5",
+        "# pass 5",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceCompactionActivity.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W5 real W3 producer persists verified full-request counts and distinct attempts",
+        "W5 real producer failure at generation-start never reports success",
+        "W5 real producer failure at prospective-build never reports success",
+        "W5 real producer failure at transaction-start never reports success",
+        "W5 real producer failure at candidate-promotion never reports success",
+        "W5 real producer failure at message-archival never reports success",
+        "W5 real producer failure at transaction-commit never reports success",
+        "W5 real producer failure at post-commit-build never reports success",
+        "W5 persistence failure does not roll back actual safe compaction",
+        "W5 ordered revisions coalesce duplicates and ignore duplicate terminal updates",
+        "W5 missed or throwing broadcasts recover through durable list and database reopen",
+        "W5 interrupted attempts inspect checkpoint evidence without claiming success",
+        "W5 H1 conversation deletion cascades and rejects late writes after reopen",
+        "W5 eleven attempts stay distinct and conversations remain isolated",
+        "W5 Casual cannot persist Workspace activity",
+        "W5 renderer ordering inserts activity between anchored tools without duplication",
+        "W5 real producer records provider-error without a reduction",
+        "W5 real producer records schema-invalid without a reduction",
+        "W5 real producer records prospective-context-overflow without a reduction",
+        "W5 real producer cancellation becomes terminal",
+        "W5 real producer defers irreducible history with runtime reason",
+        "W5 failed terminal write retries on list without corrupting compaction",
+        "W5 real producer broadcasts actual progress only after durable writes",
+        "W5 actual preload fan-out scopes sessions and cleans every subscription",
+        "W5 continuation retains pending verified measurements after a transient terminal write failure",
+        "W5 provider-supplied diagnostic text cannot escape the safe code allowlist"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceGenerationRuntime.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "progressing local generation and multiple stages exceed 120 seconds without cancellation",
+        "abort preserves user-cancelled",
+        "abort preserves deleted-conversation",
+        "abort preserves renderer-destroyed",
+        "abort preserves ipc-disposed",
+        "inactivity is bounded and safely distinguished from unknown propagation",
+        "local SSE retains completion metadata and hidden reasoning progress",
+        "backend failure and incomplete stream cannot become valid completion",
+        "runtime multi-slot metadata preserves safe per-request capacity",
+        "UI explains distinct safe cancellation reasons",
+        "W7 serialized llama request disables optional thinking, streams usage, and separates reasoning counts",
+        "W7 interrupted stream with valid JSON and stop still requires DONE",
+        "W7 early props connection refusals are transport events, never process exits",
+        "W7 long reasoning stream completes after virtual 300 seconds with a renewable lease",
+        "C6-A schema request reaches llama transport, explicit unsupported schema falls back once"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "p2CompactNativeTools.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "16-tool default preserves exact schemas and stable run profile, full fallback and Casual",
+        "search discovers without exact names; activation is idempotent, owner scoped and finite",
+        "discovery via guarded handler; read-only denies activation and forged writes",
+        "real surgical JSX/CSS, batch editing, write, history and plan routes retain results",
+        "activated interfaces survive real C9 checkpoint rebuild; permission downgrade hides mutations",
+        "MCP external schemas stay external; Manual mode suppresses native preparation",
+        "all 51 legacy contracts have a direct or discoverable path; memory-off remains enforced",
+        "production loop pairs tool results and measures common coding and discovery overhead"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 8",
+        "# pass 8",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "t1ToolBatch.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "1 calls obey response cap; excess calls preserve identity and order",
+        "16 calls obey response cap; excess calls preserve identity and order",
+        "18 calls obey response cap; excess calls preserve identity and order",
+        "24 calls obey response cap; excess calls preserve identity and order",
+        "25 calls obey response cap; excess calls preserve identity and order",
+        "28 calls obey response cap; excess calls preserve identity and order",
+        "30 calls obey response cap; excess calls preserve identity and order",
+        "48 calls obey response cap; excess calls preserve identity and order",
+        "50 calls obey response cap; excess calls preserve identity and order",
+        "72 calls obey response cap; excess calls preserve identity and order",
+        "actual failures remain errors while remaining reads execute once",
+        "mixed oversized batch executes nothing and correction succeeds",
+        "edit oversized batch executes nothing and correction succeeds",
+        "unknown-mcp oversized batch executes nothing and correction succeeds",
+        "dependency oversized batch executes nothing and correction succeeds",
+        "malformed oversized batch executes nothing and correction succeeds",
+        "two unsuccessful correction attempts end explicitly incomplete",
+        "plain text after rejection cannot claim completed status",
+        "cancellation during preflight executes nothing",
+        "deleted stops overflow continuation",
+        "permission stops overflow continuation",
+        "duplicate IDs reject before execution",
+        "stream fragments assemble 50 logical entries in provider index order",
+        "production preflight requires schema, native implementation, concrete contained regular file and live authorization",
+        "deferred/rejected statuses persist and never count as successful timeline executions",
+        "Anthropic pairs every requested operation with explicit real/deferred/rejected results",
+        "dynamic tool advertisements and mixed MCP/native batches retain the same cap",
+        "automatic reads leave no deferred correction state",
+        "identical reads preserve distinct call identities",
+        "permission revision between internal batches stops pending reads",
+        "sse overflow executes all reads after full assembly",
+        "xml overflow executes all reads after full assembly",
+        "context failure after partial read execution interrupts without replay",
+        "73 safe reads reject in full above ceiling",
+        "100 safe reads reject in full above ceiling",
+        "cancellation after batch one preserves completed results and blocks unstarted reads",
+        "deletion after batch one preserves completed results and blocks unstarted reads",
+        "ownership after batch one preserves completed results and blocks unstarted reads",
+        "permission after batch one preserves completed results and blocks unstarted reads",
+        "aggregate UTF-8 output guard blocks remaining calls without losing completed output",
+        "every internal boundary revalidates the complete next slice before starting it",
+        "a file disappearing between batches prevents the next slice from starting",
+        "production preflight rejects traversal, symlink escape, invalid range and unsupported arguments",
+        "timeline reports actual internal batch completion without duplicate steps",
+        "stricter remaining execution budget rejects oversized reads before any dispatch",
+        "unresolved approval in full preflight rejects every call"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 46",
+        "# pass 46",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "t11ChildReadBatch.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "child investigation uses the shared per-response cap without limiting task lifetime"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c93PrematureStop.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "rejected compaction safely rebuilds original requirements and plan; narration receives bounded continuation",
+        "repeated non-progress is incomplete after two recovery requests",
+        "reasoning-only response with unfinished plan is recovered",
+        "valid no-tool answer yields: 42.",
+        "valid no-tool answer yields: Implemented the fixes. All tests and build pass.",
+        "valid no-tool answer yields: Cannot proceed without permission.",
+        "valid no-tool answer yields: Which option should I use?",
+        "user stop overrides unfinished plan",
+        "completed plan does not continue narration",
+        "permission change forbids recovery and reports incomplete",
+        "truncated text has bounded recovery and recorded finish metadata",
+        "safety stop does not trigger recovery",
+        "cancelled run does not recover",
+        "deleted session fails closed",
+        "completed tool operations are paired and never replayed",
+        "steering changes task scope and disables stale-plan recovery",
+        "actual overflow propagates without premature-stop retry",
+        "acknowledgments after recovery are non-progress, not successful completion"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 18",
+        "# pass 18",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c93PrematureStopIpc.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.3 IPC persists incomplete status and emits interrupted outcome, while valid finals complete"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceBudgetVerification.test.cjs",
+      "exitCode": 1,
+      "tests": [
+        "W3 server-template-tokenizer over-budget prospective request refuses without archival",
+        "W3 approximate-full-request over-budget prospective request refuses without archival",
+        "W3 measured fit through tokenizer mock commits and recovers with authoritative briefs",
+        "repeated legacy Workspace attempts never launch an unsafe fallback"
+      ],
+      "failures": [
+        "concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceCompactCandidate.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W2 golden small Workspace: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 golden 51 authoritative requirements: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 golden long coding tool output: requirements, decisions, edits, failures, open work and source provenance survive",
+        "W2 original, subsequent revision and acceptance criteria remain separately authoritative",
+        "W2 rejects reasoning-only; bounded retries preserve history",
+        "W2 rejects truncated; bounded retries preserve history",
+        "W2 rejects empty; bounded retries preserve history",
+        "W2 rejects malformed; bounded retries preserve history",
+        "W2 rejects missing-section; bounded retries preserve history",
+        "W2 rejects invalid-reference; bounded retries preserve history",
+        "W2 rejects missing-brief-reference; bounded retries preserve history",
+        "W2 rejects unsupported-completion; bounded retries preserve history",
+        "W2 rejects read-claimed-as-edit; bounded retries preserve history",
+        "W2 rejects missing-finish-metadata; bounded retries preserve history",
+        "W2 corrective retry succeeds with explicit validation feedback",
+        "W2 concurrent steering invalidates candidate",
+        "W2 concurrent tool completion invalidates candidate",
+        "W2 concurrent same-length content rewrite invalidates candidate",
+        "W2 concurrent newer checkpoint invalidates candidate",
+        "W2 concurrent branch switch invalidates candidate",
+        "W2 concurrent plan revision invalidates candidate",
+        "W2 deleted during generation fails without late persistence",
+        "W2 cancelled fails without late persistence",
+        "W2 provider failure fails without late persistence",
+        "W2 context overflow fails without late persistence",
+        "W2 pending tool returns not safe before inference",
+        "W2 incomplete assistant returns not safe before inference",
+        "W2 large protected brief fails honestly without truncation",
+        "C8 provider exceeding output budget is rejected without losing source history",
+        "W2 malicious tool instructions remain untrusted; approval metadata cannot enter model state",
+        "W2 preserves existing current checkpoint and Casual active context byte-for-byte",
+        "W2 deleted after validation and restart cannot restore candidates or briefs",
+        "W2 provider-neutral completion checks cover local, OpenRouter and raw Anthropic envelopes",
+        "W2 H1 deletion cancels an active candidate before durable cleanup",
+        "W2 actual openai cloud adapter serializes a mocked candidate with strict metadata",
+        "W2 actual anthropic cloud adapter serializes a mocked candidate with strict metadata",
+        "W2 adapter-normalized unknown Anthropic finish reason is rejected conservatively",
+        "W2 local request serialization and candidate ownership are bounded to one session",
+        "W2 supplied exact measurement is used for generation and validated state",
+        "W2 stale execution JSON and active run ownership refuse unsafe snapshots",
+        "W2 concurrent live steering row invalidates the exact snapshot",
+        "W2 branch revisions retain superseded original provenance without off-branch instructions",
+        "W2 sensitive command metadata is refused rather than persisted or silently redacted",
+        "W2 engine identity changing during final measurement invalidates persistence",
+        "W7 reported runtime reserves final output before reducing near-full input",
+        "W7 exhaustion retries once with a changed size contract and records provider usage",
+        "W7 intermediate overflow gets one concise correction without activating partial state",
+        "W7 final measured candidate too large fails with original history and checkpoint intact",
+        "W7 adapter cannot hide provider output exhaustion behind normalized stop",
+        "W7 deterministic before/after at reported 32486 input tokens",
+        "W7 provider stream interruption fails once and leaves history untouched",
+        "C6-A failed diagnostic is source-bound research, never successful completion",
+        "C6-A rejects unsupported All tests passed.",
+        "C6-A rejects unsupported Implemented and verified feature.",
+        "C6-A intermediate unsupported completion gets one targeted correction",
+        "C9.5 stage preflight reserves final merge, rejects twelve batches before provider, preserves history",
+        "C9.5 eleven intermediate batches pass stage preflight and retain genuine shared token ceiling",
+        "C9.5 successful stages share reservations with final generation and reset next invocation",
+        "C9.5 provider failure is distinct from preflight stage exhaustion",
+        "C9.5 snapshot initializes a fresh untouched budget before generation availability check"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 60",
+        "# pass 60",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceSafeCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W3 commits complete history, protects two rounds, retains durable originals and run identity",
+        "W3 failure at generation-start retains history and has no current checkpoint",
+        "W3 failure at prospective-build retains history and has no current checkpoint",
+        "W3 failure at transaction-start retains history and has no current checkpoint",
+        "W3 failure at candidate-promotion retains history and has no current checkpoint",
+        "W3 failure at message-archival retains history and has no current checkpoint",
+        "W3 failure at transaction-commit retains history and has no current checkpoint",
+        "W3 failure at post-commit-build retains history and has no current checkpoint",
+        "W3 rejects truncation with one bounded retry",
+        "W3 stale steering or tool writes cannot commit",
+        "W3 pending tool pair and pending approval fail closed",
+        "W3 capacity change and irreducible prospective overhead reject without archival",
+        "W3 cancellation, model/permission/schema invalidation stop commit",
+        "Workspace legacy compression is disabled; no unvalidated fallback",
+        "deterministic coding loop crosses 90% after test output, compacts and completes the SAME run without tool replay",
+        "W3 C1 threshold boundary below 90% (-1)",
+        "W3 C1 threshold boundary at 90% (0)",
+        "W3 C1 threshold boundary above 90% (1)",
+        "W3 C1 threshold boundary above 90% (5000)",
+        "W3 repeated compactions preserve earlier current-run evidence and never reuse authority",
+        "W3 current image, attachment metadata, MCP schemas and steering tail remain in the measured request",
+        "W3 post-commit semantic mismatch compensates and never supplies a dispatch payload",
+        "W3 coalesces the same simultaneous source request into one generation and commit",
+        "W3 a new authoritative brief during generation invalidates the source",
+        "W3 H1 deletion preempts an active candidate and cannot recreate history",
+        "W3 budget-measurement and prospective-build failures preserve source without a checkpoint",
+        "W3 an unincorporated steering instruction earlier in the live tail stays verbatim",
+        "W3 active child streams defer parent compaction without touching child evidence",
+        "W3 reads the durable background record shape, allows delivered completion and protects pending events",
+        "W3 defers a pending child barrier while the current request still fits instead of ending the run",
+        "C6-A optional invalid candidate safely continues only after final exact fit, with original pairs and no checkpoint",
+        "C6-A optional fallback rejects oversized final request",
+        "C6-A optional fallback rejects estimated final request",
+        "C6-A cancel during fallback prevents dispatch",
+        "C6-A delete during fallback prevents dispatch",
+        "C6-A source during fallback prevents dispatch",
+        "C6-A permission during fallback prevents dispatch",
+        "C6-A owner during fallback prevents dispatch",
+        "C8 bounded refinement persists the exact inspected continuation without reactivating history",
+        "C8 unchanged already covered same-run evidence never regenerates",
+        "C8 oversized provider output fails closed with explicit measured overflow",
+        "C8 inspection redacts secrets, scopes historical lookup and respects deletion",
+        "C9 owning activation refuses over-limit summary without archival",
+        "C9 owning activation refuses unavailable summary without archival",
+        "C9 owning activation refuses changed-before-activation summary without archival",
+        "C9 owning continuation persists measured summary, one injected copy and event token metadata",
+        "C9.2 rejected finding continues only with measured fit, retains prior checkpoint/history, and suppresses identical retry",
+        "C9.2 rejected finding blocks overflow continuation",
+        "C9.2 rejected finding blocks estimated continuation",
+        "C9.2 cancel blocks rejected-finding fallback",
+        "C9.2 delete blocks rejected-finding fallback",
+        "C9.2 permission blocks rejected-finding fallback",
+        "C9.2 owner blocks rejected-finding fallback",
+        "C9.2 changed request retries bounded generation; cached rejection never caches fit authorization",
+        "C9.5 stage-budget optional failure continues without replay, caches rejection but rechecks dispatch",
+        "C9.5 stage-budget failure blocks overflow continuation and preserves durable history",
+        "C9.5 stage-budget failure blocks estimated continuation and preserves durable history",
+        "C9.5 stage-budget failure blocks forced continuation and preserves durable history",
+        "C9.5 late permission change refuses stage-budget continuation and records the refusal"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 59",
+        "# pass 59",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceAdvancedCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W4 background handle stays live across compaction and completion is consumed once",
+        "W4 background completion during generation prevents stale commit",
+        "W4 detached child with durable identity keeps its independent execution and transcript",
+        "W4 three successive compactions carry consumed identities and original evidence",
+        "W4 oversized generation uses bounded source-bound segments without activating intermediates",
+        "W4 Anthropic serialized cloud parent loop compacts and continues",
+        "W4 OpenRouter serialized cloud parent loop compacts and continues",
+        "W4 unknown cloud capacity cannot certify a fit",
+        "W4 staged intermediate cancellation cannot activate a checkpoint",
+        "W4 detached child settlement during generation invalidates the source barrier",
+        "W4 dispatch capacity change rejects a committed payload",
+        "W4 protocol validator rejects duplicate/out-of-order missing results and accepts complete parallel batches",
+        "W4 full parent loop: background",
+        "W4 full parent loop: child",
+        "W4 full parent loop: long-horizon",
+        "W4 staged failure: intermediate-provider",
+        "W4 staged failure: intermediate-json",
+        "W4 staged failure: merge-provider",
+        "W4 staged failure: intermediate-source-change",
+        "W4 pending approval on the owner blocks an otherwise completed protocol boundary",
+        "W6 progressing local candidate exceeds 120 seconds and commits with same-run dispatch",
+        "W6 user-cancelled cannot archive or activate",
+        "W6 deleted-conversation cannot archive or activate",
+        "W6 generation-inactivity-timeout cannot archive or activate",
+        "W6 managed startup keeps configured total and explicit slot count separate",
+        "C7 175 persisted operations stage, activate atomically and dispatch in the same owning run"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c91SemanticCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.1 deeper source knowledge survives production generation, persistence projection and historical retrieval",
+        "C9.1 unsupported quote and assistant-only claim cannot become source-backed findings",
+        "C9.1 unrun build and passing-test claims cannot use file reads as verification",
+        "C9.1 unrun build cannot be claimed complete using a successful read or unrelated passing tests",
+        "C9.1 unquoted legacy conclusions stay inspectable and explicitly uncertain",
+        "C9.1 complete large observations are paged through bounded stages without losing tail findings",
+        "C9.1 same-path later quoted finding supersedes old knowledge without changing old checkpoints",
+        "C9.1 a failed later edit cannot supersede an earlier finding using an older quote",
+        "C9.1 identical-boundary deterministic TaskFlow quality comparison",
+        "C9.2 wrong source step and missing intermediate excerpt remain rejected",
+        "C9.2 exact Unicode/CRLF excerpts accepted; altered normalization rejected without inventing text",
+        "C9.2 bounded finding correction receives validator feedback and succeeds without altering originals",
+        "C9.2 source observations never certify semantics or acquire user instruction authority",
+        "C9.2 quote absent from supplied intermediate page fails even when durable source contains it",
+        "C9.2 multiple supplied parts resolve quote by operation without borrowing other steps",
+        "C9.2 partial source quote retains partial status and cannot certify full-file semantics"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 16",
+        "# pass 16",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c94CompactionDiagnostics.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.4 bounded rejected field and linked correction failure survive generation",
+        "C9.4 valid correction links outcome and records changed claim",
+        "C9.4 secrets and oversized excerpts are bounded; malformed references preserve original error",
+        "C9.4 activity persists privately, separates sessions and cascades deletion",
+        "C9.4 deterministic validator contract matrix",
+        "C9.4 private polling hydrates equal-revision content-free broadcast"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 6",
+        "# pass 6",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c9SimpleCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9 whole summary envelope: 1000 tokens",
+        "C9 whole summary envelope: 1999 tokens",
+        "C9 whole summary envelope: 4900 tokens",
+        "C9 whole summary envelope: 4999 tokens",
+        "C9 whole summary envelope: 5000 tokens",
+        "C9 whole summary envelope: 5001 tokens",
+        "C9 unavailable or invalid authoritative count null",
+        "C9 unavailable or invalid authoritative count {\"tokens\":100,\"method\":\"approximate-full-request\"}",
+        "C9 unavailable or invalid authoritative count {\"tokens\":null,\"method\":\"server-template-tokenizer\"}",
+        "C9 unavailable or invalid authoritative count {\"tokens\":-1,\"method\":\"server-template-tokenizer\"}",
+        "C9 current working Markdown replaces old pending state without evidence catalogs or placeholders",
+        "C9 generation: short summary",
+        "C9 generation: exact hard limit",
+        "C9 generation: one correction succeeds",
+        "C9 generation: one correction remains too long",
+        "C9 estimated count never authorizes candidate persistence or activation",
+        "C9 fabricated passing tests from a failed source are rejected before summary measurement",
+        "C9 no truncation: over-budget mandatory Unicode requirements are retained in rejected drafts",
+        "C9 tokenizer transport failure is explicit and cancellation remains cancellation",
+        "C9 incremental pending work is replaced; passing and failed evidence remains durable",
+        "C9 exact Markdown ablation preserves independently retained instructions and full request accounting"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 21",
+        "# pass 21",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c7Reliability.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C7 bounded evidence 3 operations / 100 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 55 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 70 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 71 operations / 2000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 175 operations / 8000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 175 operations / 8000 characters / diagnostics=false mixed=true",
+        "C7 bounded evidence 250 operations / 10000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 1 operations / 200000 characters / diagnostics=false mixed=false",
+        "C7 bounded evidence 1 operations / 100000 characters / diagnostics=true mixed=false",
+        "C7 screenshot occupancy, peak, compaction, isolation and idle restoration",
+        "C7 final local guard publishes normalized dispatch measurements before inference",
+        "C7 tokenizer fallback dispatch remains an estimate and cancelled dispatch emits nothing",
+        "C7 unrepresentable exact command metadata fails with source, budget and history safety",
+        "C7 openai dispatch estimate counts the actual native body",
+        "C7 anthropic dispatch estimate counts the actual native body"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c8EffectiveCompaction.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C8 controlled reconstruction 33571 \u2192 28341",
+        "C8 controlled reconstruction 32968 \u2192 27923",
+        "C8 target-capable request retains constraints and sources",
+        "C8 schemas dominated final request cannot reach target",
+        "C8 protected dominated final request cannot reach target"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 5",
+        "# pass 5",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceCompactionActivity.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "W5 real W3 producer persists verified full-request counts and distinct attempts",
+        "W5 real producer failure at generation-start never reports success",
+        "W5 real producer failure at prospective-build never reports success",
+        "W5 real producer failure at transaction-start never reports success",
+        "W5 real producer failure at candidate-promotion never reports success",
+        "W5 real producer failure at message-archival never reports success",
+        "W5 real producer failure at transaction-commit never reports success",
+        "W5 real producer failure at post-commit-build never reports success",
+        "W5 persistence failure does not roll back actual safe compaction",
+        "W5 ordered revisions coalesce duplicates and ignore duplicate terminal updates",
+        "W5 missed or throwing broadcasts recover through durable list and database reopen",
+        "W5 interrupted attempts inspect checkpoint evidence without claiming success",
+        "W5 H1 conversation deletion cascades and rejects late writes after reopen",
+        "W5 eleven attempts stay distinct and conversations remain isolated",
+        "W5 Casual cannot persist Workspace activity",
+        "W5 renderer ordering inserts activity between anchored tools without duplication",
+        "W5 real producer records provider-error without a reduction",
+        "W5 real producer records schema-invalid without a reduction",
+        "W5 real producer records prospective-context-overflow without a reduction",
+        "W5 real producer cancellation becomes terminal",
+        "W5 real producer defers irreducible history with runtime reason",
+        "W5 failed terminal write retries on list without corrupting compaction",
+        "W5 real producer broadcasts actual progress only after durable writes",
+        "W5 actual preload fan-out scopes sessions and cleans every subscription",
+        "W5 continuation retains pending verified measurements after a transient terminal write failure",
+        "W5 provider-supplied diagnostic text cannot escape the safe code allowlist"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceGenerationRuntime.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "progressing local generation and multiple stages exceed 120 seconds without cancellation",
+        "abort preserves user-cancelled",
+        "abort preserves deleted-conversation",
+        "abort preserves renderer-destroyed",
+        "abort preserves ipc-disposed",
+        "inactivity is bounded and safely distinguished from unknown propagation",
+        "local SSE retains completion metadata and hidden reasoning progress",
+        "backend failure and incomplete stream cannot become valid completion",
+        "runtime multi-slot metadata preserves safe per-request capacity",
+        "UI explains distinct safe cancellation reasons",
+        "W7 serialized llama request disables optional thinking, streams usage, and separates reasoning counts",
+        "W7 interrupted stream with valid JSON and stop still requires DONE",
+        "W7 early props connection refusals are transport events, never process exits",
+        "W7 long reasoning stream completes after virtual 300 seconds with a renewable lease",
+        "C6-A schema request reaches llama transport, explicit unsupported schema falls back once"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "p2CompactNativeTools.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "16-tool default preserves exact schemas and stable run profile, full fallback and Casual",
+        "search discovers without exact names; activation is idempotent, owner scoped and finite",
+        "discovery via guarded handler; read-only denies activation and forged writes",
+        "real surgical JSX/CSS, batch editing, write, history and plan routes retain results",
+        "activated interfaces survive real C9 checkpoint rebuild; permission downgrade hides mutations",
+        "MCP external schemas stay external; Manual mode suppresses native preparation",
+        "all 51 legacy contracts have a direct or discoverable path; memory-off remains enforced",
+        "production loop pairs tool results and measures common coding and discovery overhead"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 8",
+        "# pass 8",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "t1ToolBatch.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "1 calls obey response cap; excess calls preserve identity and order",
+        "16 calls obey response cap; excess calls preserve identity and order",
+        "18 calls obey response cap; excess calls preserve identity and order",
+        "24 calls obey response cap; excess calls preserve identity and order",
+        "25 calls obey response cap; excess calls preserve identity and order",
+        "28 calls obey response cap; excess calls preserve identity and order",
+        "30 calls obey response cap; excess calls preserve identity and order",
+        "48 calls obey response cap; excess calls preserve identity and order",
+        "50 calls obey response cap; excess calls preserve identity and order",
+        "72 calls obey response cap; excess calls preserve identity and order",
+        "actual failures remain errors while remaining reads execute once",
+        "mixed oversized batch executes nothing and correction succeeds",
+        "edit oversized batch executes nothing and correction succeeds",
+        "unknown-mcp oversized batch executes nothing and correction succeeds",
+        "dependency oversized batch executes nothing and correction succeeds",
+        "malformed oversized batch executes nothing and correction succeeds",
+        "two unsuccessful correction attempts end explicitly incomplete",
+        "plain text after rejection cannot claim completed status",
+        "cancellation during preflight executes nothing",
+        "deleted stops overflow continuation",
+        "permission stops overflow continuation",
+        "duplicate IDs reject before execution",
+        "stream fragments assemble 50 logical entries in provider index order",
+        "production preflight requires schema, native implementation, concrete contained regular file and live authorization",
+        "deferred/rejected statuses persist and never count as successful timeline executions",
+        "Anthropic pairs every requested operation with explicit real/deferred/rejected results",
+        "dynamic tool advertisements and mixed MCP/native batches retain the same cap",
+        "automatic reads leave no deferred correction state",
+        "identical reads preserve distinct call identities",
+        "permission revision between internal batches stops pending reads",
+        "sse overflow executes all reads after full assembly",
+        "xml overflow executes all reads after full assembly",
+        "context failure after partial read execution interrupts without replay",
+        "73 safe reads reject in full above ceiling",
+        "100 safe reads reject in full above ceiling",
+        "cancellation after batch one preserves completed results and blocks unstarted reads",
+        "deletion after batch one preserves completed results and blocks unstarted reads",
+        "ownership after batch one preserves completed results and blocks unstarted reads",
+        "permission after batch one preserves completed results and blocks unstarted reads",
+        "aggregate UTF-8 output guard blocks remaining calls without losing completed output",
+        "every internal boundary revalidates the complete next slice before starting it",
+        "a file disappearing between batches prevents the next slice from starting",
+        "production preflight rejects traversal, symlink escape, invalid range and unsupported arguments",
+        "timeline reports actual internal batch completion without duplicate steps",
+        "stricter remaining execution budget rejects oversized reads before any dispatch",
+        "unresolved approval in full preflight rejects every call"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 46",
+        "# pass 46",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "t11ChildReadBatch.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "child investigation uses the shared per-response cap without limiting task lifetime"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c93PrematureStop.test.mjs",
+      "exitCode": 0,
+      "tests": [
+        "rejected compaction safely rebuilds original requirements and plan; narration receives bounded continuation",
+        "repeated non-progress is incomplete after two recovery requests",
+        "reasoning-only response with unfinished plan is recovered",
+        "valid no-tool answer yields: 42.",
+        "valid no-tool answer yields: Implemented the fixes. All tests and build pass.",
+        "valid no-tool answer yields: Cannot proceed without permission.",
+        "valid no-tool answer yields: Which option should I use?",
+        "user stop overrides unfinished plan",
+        "completed plan does not continue narration",
+        "permission change forbids recovery and reports incomplete",
+        "truncated text has bounded recovery and recorded finish metadata",
+        "safety stop does not trigger recovery",
+        "cancelled run does not recover",
+        "deleted session fails closed",
+        "completed tool operations are paired and never replayed",
+        "steering changes task scope and disables stale-plan recovery",
+        "actual overflow propagates without premature-stop retry",
+        "acknowledgments after recovery are non-progress, not successful completion"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 18",
+        "# pass 18",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c93PrematureStopIpc.test.cjs",
+      "exitCode": 0,
+      "tests": [
+        "C9.3 IPC persists incomplete status and emits interrupted outcome, while valid finals complete"
+      ],
+      "failures": [],
+      "counts": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceBudgetVerification.test.cjs",
+      "exitCode": 1,
+      "tests": [
+        "W3 server-template-tokenizer over-budget prospective request refuses without archival",
+        "W3 approximate-full-request over-budget prospective request refuses without archival",
+        "W3 measured fit through tokenizer mock commits and recovers with authoritative briefs",
+        "repeated legacy Workspace attempts never launch an unsafe fallback"
+      ],
+      "failures": [
+        "concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    }
+  ],
+  "broadFailureIdentityReruns": [
+    {
+      "phase": "before",
+      "file": "apiServerPort.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "attachments.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "autonomyLoop.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "reasoning-loop termination after a tool never triggers an automatic restart"
+      ],
+      "counts": [
+        "# tests 12",
+        "# pass 11",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "backgroundCommands.test.cjs",
+      "exitCode": 0,
+      "failures": [],
+      "counts": [
+        "# tests 19",
+        "# pass 17",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 2"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "c6cAcceptance.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "childAgentLoop.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+      ],
+      "counts": [
+        "# tests 16",
+        "# pass 15",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "cloudIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "cloud settings persist privately and cloud chat works without a local engine"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "cloudProviders.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "compressionLifecycle.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "branching isolates checkpoint state and later briefs",
+        "full lifecycle: compress, reload, continue, ordered prompt, inspect"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 5",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "contextC3LiveProtection.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "status-only transition during summary generation rolls back all archival and summary writes"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "deleteProjectFile.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "tracked deletion surfaces in git status/diff with no auto stage or commit",
+        "untracked files and non-Git workspaces delete through recovery"
+      ],
+      "counts": [
+        "# tests 19",
+        "# pass 17",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "engineSettings.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "fileVersion.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "13. large files keep the bounded read while hashing the full bytes"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "filesystemToolLimits.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "MCP execution applies the cap before serialization"
+      ],
+      "counts": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "gitIdentity.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "repo-local identity wins over app and global for author and committer",
+        "app identity persists and commits successfully without repo-local identity",
+        "global identity is captured at launch outside sandbox and stays cached",
+        "missing identity fails commit clearly; inspection and non-git shell remain usable"
+      ],
+      "counts": [
+        "# tests 6",
+        "# pass 2",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "gitMetadata.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "git metadata resolves normal, worktree and submodule layouts and rejects writes and aliases"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "gitShellReadOnly.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real shell git mutations preserve read-only error and append exact hint in model output",
+        "successful shell git inspections remain unchanged with optional index locks disabled",
+        "redirected Git diagnostics still reach the model with the original text and hint"
+      ],
+      "counts": [
+        "# tests 6",
+        "# pass 3",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "gitTools.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "status shows untracked files, then a clean tree after commit",
+        "diff shows unstaged work, staged flag, and stat summary",
+        "log lists commits newest-first and validates its limit",
+        "show renders one commit and rejects shell-injection refs",
+        "branch lists main; blame attributes lines and rejects escapes",
+        "non-repositories fail closed and casual chats cannot reach the app repo",
+        "stage takes explicit paths only and rejects escapes",
+        "unstage round-trips staged files and keeps worktree content",
+        "unstage rejects the same hostile paths as stage",
+        "unstage fails closed outside a repository",
+        "stash push stores tracked mods and leaves a clean tree",
+        "stash pop restores the entry and drops it",
+        "stash pop conflict surfaces git output without data loss",
+        "stash rejects hostile actions, messages, and indexes",
+        "stash fails closed outside a repository",
+        "sync fetch discovers new branches from a file remote",
+        "sync fetch reaches the network through its sandbox profile",
+        "sync pull fast-forwards, and refuses dirty or diverged trees",
+        "sync push publishes with fingerprint approval",
+        "sync push rejects stale approval and diverged remotes",
+        "sync auth failure names gh without leaking secrets",
+        "sync fails closed outside a repository",
+        "commit needs a message, stages nothing itself, and reports its hash",
+        "create_branch creates on HEAD and auto-switches",
+        "create_branch starts from a tag or older ref without switching",
+        "switch moves HEAD on a clean tree and refuses a dirty one",
+        "hostile branch names are rejected and create nothing",
+        "branch tools fail closed outside a repository",
+        "Workspace Write commits and stages autonomously; Ask for Approval still reviews commits",
+        "hostile diff, textconv and fsmonitor helpers are disabled for inspection",
+        "staging filters cannot write outside the workspace",
+        "commit approval contains staged diff and rejects subsequent staged changes",
+        "blame start-only ranges extend to the actual end of the file",
+        "missing sandbox fails closed without running Git directly"
+      ],
+      "counts": [
+        "# tests 37",
+        "# pass 3",
+        "# fail 34",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "liveSteeringLoop.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "a steering message already in the transcript survives context recovery"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 6",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "localEngineFetch.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "local completion waits for headers and first data, and remains cancellable",
+        "production local transport counts formatted requests and permits only one reduced overflow retry"
+      ],
+      "counts": [
+        "# tests 3",
+        "# pass 1",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "lspAgentIntegration.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "six schemas, native registration, model conversions and strict argument validation",
+        "visibility and execution matrix, trusted identity, live transitions and child ceilings",
+        "real main IPC: six tools, paging, diagnostic fix, transcript, activity and steering",
+        "real subagent dispatcher: isolated child transcript and shared server reuse",
+        "live IPC mode changes are sender-owned and revoke pending LSP without a new run",
+        "real cloud agent path: OpenRouter streaming and Anthropic non-streaming conversion",
+        "active cancellation, timeout, revocation and independent shared-server callers",
+        "concurrent children keep private transcripts and one child cancellation preserves its peer",
+        "second workspace and cursor isolation; context projection retains structured freshness",
+        "independently denied children hide LSP and reject forged calls under an eligible parent"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 0",
+        "# fail 6",
+        "# cancelled 4",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "lspCodeIntelligence.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real bundled server: all six operations, pagination, JS/JSX/TS/TSX, fix and evidence"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 8",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "lspFoundation.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real bundled server: diagnostics, fix, definitions, references, hover, TSX, JS and cleanup",
+        "real JS-only project without configuration provides hover"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 8",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "lspProduction.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "packaging configuration ships the bundled server and its runtime dependencies",
+        "the permission matrix is enforced at the tool, adapter and manager layers",
+        "every supported extension is accepted and answered by the real server",
+        "long-running stress: 300+ mixed operations stay bounded and consistent"
+      ],
+      "counts": [
+        "# tests 35",
+        "# pass 31",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "lspProductionAgent.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "the six native tools are registered once and dispatched through the real pipeline",
+        "the real main agent runs all six tools in one run and delivers every result",
+        "a main-agent permission downgrade cancels the pending call and denies the rest",
+        "an authorized child receives the LSP tools and returns real results to its parent",
+        "cancelling one child leaves its peer and the shared server working",
+        "a recovered child is re-authorized at the default ceiling, never Full Access"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 3",
+        "# fail 6",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "mcpManager.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real stdio discovery, pagination, namespacing, execution and disable"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 6",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "mcpSse.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "SSE sends configured headers on GET and POST, discovers tools, executes and reloads",
+        "untyped URLs fall back after SSE GET 405; explicit SSE does not POST to that URL"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 3",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "messageActions.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "messageStats.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "nativeWebSearch.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "web_search is registered natively, visible to main agents and children, and maps to READ"
+      ],
+      "counts": [
+        "# tests 22",
+        "# pass 21",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "nodeHttpFetchCancel.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "webpage tool reads a JSON response without a process-level exception",
+        "explicit body cancellation followed by stream close does not throw",
+        "cancelling a redirect or error response does not throw",
+        "normal HTML responses are still consumed end to end",
+        "cancellation scenarios pass under the embedded Electron Node runtime"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 0",
+        "# fail 5",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "projects.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "rag.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "recentChatHistory.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "recoveryBoundary.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "15. git index, branches, history untouched by boundaries"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "recoveryIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "diff review IPC channels are registered"
+      ],
+      "counts": [
+        "# tests 18",
+        "# pass 14",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 3"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "recoverySafety.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "automatic rollback preserves a labelled pre-rollback snapshot",
+        "rollback failure is reported once without recursion"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 7",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "recoveryStartupMemory.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "restoring a large recovery history stays within a bounded heap"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "recoveryStore.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "5. uncommitted modifications and untracked files survive the round trip",
+        "12. real git index, branches, and history are unchanged by capture/restore",
+        "17. batch write failure mid-sequence rolls back and keeps a durable point"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 17",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "repetitionDetector.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "aborts live reasoning_content loops, cancels reader and publishes the visible notice once",
+        "aborts live reasoning loops, cancels reader and publishes the visible notice once",
+        "aborts live inline-think loops, cancels reader and publishes the visible notice once",
+        "loop termination discards partial tool calls and preserves earlier visible text"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 4",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "sandboxFilesystem.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "workspace socket refuses setup before any process launch",
+        "Volta resolver binds actual image and leaves shim/home unmounted",
+        "shell metadata mounts follow workspace; native profile stays writable; init is discovered next time"
+      ],
+      "counts": [
+        "# tests 14",
+        "# pass 8",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 3"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "sandboxGitRelay.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "contained Git push/fetch use read-only askpass relay with minimal environment"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "sessionPromptWording.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "workspace retains safety, activation, task continuity and MCP discovery"
+      ],
+      "counts": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "skillImportIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "skillProposalIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "spawnSubagent.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "the investigate option stays additive to the spawn schema"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "subAgentRunner.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "before",
+      "file": "subagentCompaction.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "running child crosses pressure repeatedly and resumes with early findings without tool replay"
+      ],
+      "counts": [
+        "# tests 26",
+        "# pass 25",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "subagentModelSelection.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "9. the single local slot queues children resolved to the same server model",
+        "10. mixed lanes run in parallel and a setting change only affects the next spawn"
+      ],
+      "counts": [
+        "# tests 14",
+        "# pass 11",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "subagentOutOfProcessRecovery.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "a child persisted by another OS process is recovered and continued here"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "subagentSession.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "each spawn_sub_agent call opens its own completed child session end to end"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 7",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "t2eRuntimeMcpScaling.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "Gate 2: exact 50-tool inventory, eligible discovery and incremental activation across modes"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 7",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "toolApprovalCharacterization.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real guard and MCP dispatch retain frozen decisions except intentional Workspace Write changes"
+      ],
+      "counts": [
+        "# tests 3",
+        "# pass 2",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "unifiedToolArchitecture.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "compaction preserves every structural field and validator compiles the complete registry"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "verification.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "permission restrictions and workspace boundaries stay enforced"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceBudgetVerification.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "before",
+      "file": "workspaceWritePhase2.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+        "clean switch runs without approval; dirty switch asks and still refuses to discard",
+        "commit message and staged diff are persisted in the actual IPC tool-call card",
+        "all six acceptance commands execute in the real sandbox with zero prompts"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 16",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "apiServerPort.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "attachments.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "autonomyLoop.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "reasoning-loop termination after a tool never triggers an automatic restart"
+      ],
+      "counts": [
+        "# tests 12",
+        "# pass 11",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "backgroundCommands.test.cjs",
+      "exitCode": 0,
+      "failures": [],
+      "counts": [
+        "# tests 19",
+        "# pass 17",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 2"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "c6cAcceptance.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "childAgentLoop.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+      ],
+      "counts": [
+        "# tests 16",
+        "# pass 15",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "cloudIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "cloud settings persist privately and cloud chat works without a local engine"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "cloudProviders.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "cloud chat POST survives a GET-only global.fetch override (sub-agent shim)"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "compressionLifecycle.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "branching isolates checkpoint state and later briefs",
+        "full lifecycle: compress, reload, continue, ordered prompt, inspect"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 5",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "contextC3LiveProtection.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "status-only transition during summary generation rolls back all archival and summary writes"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "deleteProjectFile.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "tracked deletion surfaces in git status/diff with no auto stage or commit",
+        "untracked files and non-Git workspaces delete through recovery"
+      ],
+      "counts": [
+        "# tests 19",
+        "# pass 17",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "engineSettings.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "fileVersion.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "13. large files keep the bounded read while hashing the full bytes"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "filesystemToolLimits.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "MCP execution applies the cap before serialization"
+      ],
+      "counts": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "gitIdentity.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "repo-local identity wins over app and global for author and committer",
+        "app identity persists and commits successfully without repo-local identity",
+        "global identity is captured at launch outside sandbox and stays cached",
+        "missing identity fails commit clearly; inspection and non-git shell remain usable"
+      ],
+      "counts": [
+        "# tests 6",
+        "# pass 2",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "gitMetadata.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "git metadata resolves normal, worktree and submodule layouts and rejects writes and aliases"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "gitShellReadOnly.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real shell git mutations preserve read-only error and append exact hint in model output",
+        "successful shell git inspections remain unchanged with optional index locks disabled",
+        "redirected Git diagnostics still reach the model with the original text and hint"
+      ],
+      "counts": [
+        "# tests 6",
+        "# pass 3",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "gitTools.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "status shows untracked files, then a clean tree after commit",
+        "diff shows unstaged work, staged flag, and stat summary",
+        "log lists commits newest-first and validates its limit",
+        "show renders one commit and rejects shell-injection refs",
+        "branch lists main; blame attributes lines and rejects escapes",
+        "non-repositories fail closed and casual chats cannot reach the app repo",
+        "stage takes explicit paths only and rejects escapes",
+        "unstage round-trips staged files and keeps worktree content",
+        "unstage rejects the same hostile paths as stage",
+        "unstage fails closed outside a repository",
+        "stash push stores tracked mods and leaves a clean tree",
+        "stash pop restores the entry and drops it",
+        "stash pop conflict surfaces git output without data loss",
+        "stash rejects hostile actions, messages, and indexes",
+        "stash fails closed outside a repository",
+        "sync fetch discovers new branches from a file remote",
+        "sync fetch reaches the network through its sandbox profile",
+        "sync pull fast-forwards, and refuses dirty or diverged trees",
+        "sync push publishes with fingerprint approval",
+        "sync push rejects stale approval and diverged remotes",
+        "sync auth failure names gh without leaking secrets",
+        "sync fails closed outside a repository",
+        "commit needs a message, stages nothing itself, and reports its hash",
+        "create_branch creates on HEAD and auto-switches",
+        "create_branch starts from a tag or older ref without switching",
+        "switch moves HEAD on a clean tree and refuses a dirty one",
+        "hostile branch names are rejected and create nothing",
+        "branch tools fail closed outside a repository",
+        "Workspace Write commits and stages autonomously; Ask for Approval still reviews commits",
+        "hostile diff, textconv and fsmonitor helpers are disabled for inspection",
+        "staging filters cannot write outside the workspace",
+        "commit approval contains staged diff and rejects subsequent staged changes",
+        "blame start-only ranges extend to the actual end of the file",
+        "missing sandbox fails closed without running Git directly"
+      ],
+      "counts": [
+        "# tests 37",
+        "# pass 3",
+        "# fail 34",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "liveSteeringLoop.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "a steering message already in the transcript survives context recovery"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 6",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "localEngineFetch.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "local completion waits for headers and first data, and remains cancellable",
+        "production local transport counts formatted requests and permits only one reduced overflow retry"
+      ],
+      "counts": [
+        "# tests 3",
+        "# pass 1",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "lspAgentIntegration.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "six schemas, native registration, model conversions and strict argument validation",
+        "visibility and execution matrix, trusted identity, live transitions and child ceilings",
+        "real main IPC: six tools, paging, diagnostic fix, transcript, activity and steering",
+        "real subagent dispatcher: isolated child transcript and shared server reuse",
+        "live IPC mode changes are sender-owned and revoke pending LSP without a new run",
+        "real cloud agent path: OpenRouter streaming and Anthropic non-streaming conversion",
+        "active cancellation, timeout, revocation and independent shared-server callers",
+        "concurrent children keep private transcripts and one child cancellation preserves its peer",
+        "second workspace and cursor isolation; context projection retains structured freshness",
+        "independently denied children hide LSP and reject forged calls under an eligible parent"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 0",
+        "# fail 6",
+        "# cancelled 4",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "lspCodeIntelligence.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real bundled server: all six operations, pagination, JS/JSX/TS/TSX, fix and evidence"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 8",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "lspFoundation.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real bundled server: diagnostics, fix, definitions, references, hover, TSX, JS and cleanup",
+        "real JS-only project without configuration provides hover"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 8",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "lspProduction.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "the permission matrix is enforced at the tool, adapter and manager layers",
+        "every supported extension is accepted and answered by the real server",
+        "long-running stress: 300+ mixed operations stay bounded and consistent"
+      ],
+      "counts": [
+        "# tests 35",
+        "# pass 32",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "lspProductionAgent.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "the six native tools are registered once and dispatched through the real pipeline",
+        "the real main agent runs all six tools in one run and delivers every result",
+        "a main-agent permission downgrade cancels the pending call and denies the rest",
+        "an authorized child receives the LSP tools and returns real results to its parent",
+        "cancelling one child leaves its peer and the shared server working",
+        "a recovered child is re-authorized at the default ceiling, never Full Access"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 3",
+        "# fail 6",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "mcpManager.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real stdio discovery, pagination, namespacing, execution and disable"
+      ],
+      "counts": [
+        "# tests 7",
+        "# pass 6",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "mcpSse.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "SSE sends configured headers on GET and POST, discovers tools, executes and reloads",
+        "untyped URLs fall back after SSE GET 405; explicit SSE does not POST to that URL"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 3",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "messageActions.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "messageStats.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "nativeWebSearch.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "web_search is registered natively, visible to main agents and children, and maps to READ"
+      ],
+      "counts": [
+        "# tests 22",
+        "# pass 21",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "nodeHttpFetchCancel.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "webpage tool reads a JSON response without a process-level exception",
+        "explicit body cancellation followed by stream close does not throw",
+        "cancelling a redirect or error response does not throw",
+        "normal HTML responses are still consumed end to end",
+        "cancellation scenarios pass under the embedded Electron Node runtime"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 0",
+        "# fail 5",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "projects.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "rag.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "recentChatHistory.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "recoveryBoundary.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "15. git index, branches, history untouched by boundaries"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 19",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "recoveryIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "diff review IPC channels are registered"
+      ],
+      "counts": [
+        "# tests 18",
+        "# pass 14",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 3"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "recoverySafety.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "automatic rollback preserves a labelled pre-rollback snapshot",
+        "rollback failure is reported once without recursion"
+      ],
+      "counts": [
+        "# tests 9",
+        "# pass 7",
+        "# fail 2",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "recoveryStartupMemory.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "restoring a large recovery history stays within a bounded heap"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "recoveryStore.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "5. uncommitted modifications and untracked files survive the round trip",
+        "12. real git index, branches, and history are unchanged by capture/restore",
+        "17. batch write failure mid-sequence rolls back and keeps a durable point"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 17",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "repetitionDetector.test.mjs",
+      "exitCode": 1,
+      "failures": [
+        "aborts live reasoning_content loops, cancels reader and publishes the visible notice once",
+        "aborts live reasoning loops, cancels reader and publishes the visible notice once",
+        "aborts live inline-think loops, cancels reader and publishes the visible notice once",
+        "loop termination discards partial tool calls and preserves earlier visible text"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 4",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "sandboxFilesystem.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "workspace socket refuses setup before any process launch",
+        "Volta resolver binds actual image and leaves shim/home unmounted",
+        "shell metadata mounts follow workspace; native profile stays writable; init is discovered next time"
+      ],
+      "counts": [
+        "# tests 14",
+        "# pass 8",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 3"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "sandboxGitRelay.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "contained Git push/fetch use read-only askpass relay with minimal environment"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "sessionPromptWording.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "workspace retains safety, activation, task continuity and MCP discovery"
+      ],
+      "counts": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "skillImportIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "skillProposalIpc.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "spawnSubagent.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "the investigate option stays additive to the spawn schema"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "subAgentRunner.test.cjs",
+      "exitCode": 1,
+      "failures": [],
+      "counts": []
+    },
+    {
+      "phase": "after",
+      "file": "subagentCompaction.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "running child crosses pressure repeatedly and resumes with early findings without tool replay"
+      ],
+      "counts": [
+        "# tests 26",
+        "# pass 25",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "subagentModelSelection.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "4. a local selection overrides a cloud chat and fails loudly without a server",
+        "9. the single local slot queues children resolved to the same server model",
+        "10. mixed lanes run in parallel and a setting change only affects the next spawn"
+      ],
+      "counts": [
+        "# tests 14",
+        "# pass 11",
+        "# fail 3",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "subagentOutOfProcessRecovery.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "a child persisted by another OS process is recovered and continued here"
+      ],
+      "counts": [
+        "# tests 1",
+        "# pass 0",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "subagentSession.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "each spawn_sub_agent call opens its own completed child session end to end"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 7",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "t2eRuntimeMcpScaling.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "Gate 2: exact 50-tool inventory, eligible discovery and incremental activation across modes"
+      ],
+      "counts": [
+        "# tests 8",
+        "# pass 7",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "toolApprovalCharacterization.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "real guard and MCP dispatch retain frozen decisions except intentional Workspace Write changes"
+      ],
+      "counts": [
+        "# tests 3",
+        "# pass 2",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "unifiedToolArchitecture.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "compaction preserves every structural field and validator compiles the complete registry"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "verification.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "permission restrictions and workspace boundaries stay enforced"
+      ],
+      "counts": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceBudgetVerification.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "counts": [
+        "# tests 5",
+        "# pass 4",
+        "# fail 1",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    {
+      "phase": "after",
+      "file": "workspaceWritePhase2.test.cjs",
+      "exitCode": 1,
+      "failures": [
+        "Git real guard: fetch silent, pull once with cached incoming commits, push twice",
+        "clean switch runs without approval; dirty switch asks and still refuses to discard",
+        "commit message and staged diff are persisted in the actual IPC tool-call card",
+        "all six acceptance commands execute in the real sandbox with zero prompts"
+      ],
+      "counts": [
+        "# tests 20",
+        "# pass 16",
+        "# fail 4",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    }
+  ],
+  "broadExpandedGlob": {
+    "baseline": {
+      "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+      "failedFiles": [
+        "tests/apiServerPort.test.cjs",
+        "tests/attachments.test.cjs",
+        "tests/autonomyLoop.test.mjs",
+        "tests/c6cAcceptance.test.cjs",
+        "tests/childAgentLoop.test.cjs",
+        "tests/cloudIpc.test.cjs",
+        "tests/cloudProviders.test.cjs",
+        "tests/compressionLifecycle.test.cjs",
+        "tests/contextC3LiveProtection.test.cjs",
+        "tests/deleteProjectFile.test.cjs",
+        "tests/engineSettings.test.cjs",
+        "tests/fileVersion.test.cjs",
+        "tests/filesystemToolLimits.test.cjs",
+        "tests/gitIdentity.test.cjs",
+        "tests/gitMetadata.test.cjs",
+        "tests/gitShellReadOnly.test.cjs",
+        "tests/gitTools.test.cjs",
+        "tests/liveSteeringLoop.test.mjs",
+        "tests/localEngineFetch.test.cjs",
+        "tests/lspAgentIntegration.test.cjs",
+        "tests/lspCodeIntelligence.test.cjs",
+        "tests/lspFoundation.test.cjs",
+        "tests/lspProduction.test.cjs",
+        "tests/lspProductionAgent.test.cjs",
+        "tests/mcpManager.test.cjs",
+        "tests/mcpSse.test.cjs",
+        "tests/messageActions.test.cjs",
+        "tests/messageStats.test.cjs",
+        "tests/nativeWebSearch.test.cjs",
+        "tests/nodeHttpFetchCancel.test.cjs",
+        "tests/projects.test.cjs",
+        "tests/rag.test.cjs",
+        "tests/recentChatHistory.test.cjs",
+        "tests/recoveryBoundary.test.cjs",
+        "tests/recoveryIpc.test.cjs",
+        "tests/recoverySafety.test.cjs",
+        "tests/recoveryStartupMemory.test.cjs",
+        "tests/recoveryStore.test.cjs",
+        "tests/repetitionDetector.test.mjs",
+        "tests/sandboxFilesystem.test.cjs",
+        "tests/sandboxGitRelay.test.cjs",
+        "tests/sessionPromptWording.test.cjs",
+        "tests/skillImportIpc.test.cjs",
+        "tests/skillProposalIpc.test.cjs",
+        "tests/spawnSubagent.test.cjs",
+        "tests/subAgentRunner.test.cjs",
+        "tests/subagentCompaction.test.cjs",
+        "tests/subagentModelSelection.test.cjs",
+        "tests/subagentOutOfProcessRecovery.test.cjs",
+        "tests/subagentSession.test.cjs",
+        "tests/t2eRuntimeMcpScaling.test.cjs",
+        "tests/toolApprovalCharacterization.test.cjs",
+        "tests/unifiedToolArchitecture.test.cjs",
+        "tests/verification.test.cjs",
+        "tests/workspaceBudgetVerification.test.cjs",
+        "tests/workspaceWritePhase2.test.cjs"
+      ],
+      "counts": [
+        "# tests 279",
+        "# pass 223",
+        "# fail 56",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    },
+    "after": {
+      "command": "node --test tests/*.test.cjs tests/*.test.mjs",
+      "failedFiles": [
+        "tests/apiServerPort.test.cjs",
+        "tests/attachments.test.cjs",
+        "tests/autonomyLoop.test.mjs",
+        "tests/backgroundCommands.test.cjs",
+        "tests/c6cAcceptance.test.cjs",
+        "tests/childAgentLoop.test.cjs",
+        "tests/cloudIpc.test.cjs",
+        "tests/cloudProviders.test.cjs",
+        "tests/compressionLifecycle.test.cjs",
+        "tests/contextC3LiveProtection.test.cjs",
+        "tests/deleteProjectFile.test.cjs",
+        "tests/engineSettings.test.cjs",
+        "tests/fileVersion.test.cjs",
+        "tests/filesystemToolLimits.test.cjs",
+        "tests/gitIdentity.test.cjs",
+        "tests/gitMetadata.test.cjs",
+        "tests/gitShellReadOnly.test.cjs",
+        "tests/gitTools.test.cjs",
+        "tests/liveSteeringLoop.test.mjs",
+        "tests/localEngineFetch.test.cjs",
+        "tests/lspAgentIntegration.test.cjs",
+        "tests/lspCodeIntelligence.test.cjs",
+        "tests/lspFoundation.test.cjs",
+        "tests/lspProduction.test.cjs",
+        "tests/lspProductionAgent.test.cjs",
+        "tests/mcpManager.test.cjs",
+        "tests/mcpSse.test.cjs",
+        "tests/messageActions.test.cjs",
+        "tests/messageStats.test.cjs",
+        "tests/nativeWebSearch.test.cjs",
+        "tests/nodeHttpFetchCancel.test.cjs",
+        "tests/projects.test.cjs",
+        "tests/rag.test.cjs",
+        "tests/recentChatHistory.test.cjs",
+        "tests/recoveryBoundary.test.cjs",
+        "tests/recoveryIpc.test.cjs",
+        "tests/recoverySafety.test.cjs",
+        "tests/recoveryStartupMemory.test.cjs",
+        "tests/recoveryStore.test.cjs",
+        "tests/repetitionDetector.test.mjs",
+        "tests/sandboxFilesystem.test.cjs",
+        "tests/sandboxGitRelay.test.cjs",
+        "tests/sessionPromptWording.test.cjs",
+        "tests/skillImportIpc.test.cjs",
+        "tests/skillProposalIpc.test.cjs",
+        "tests/spawnSubagent.test.cjs",
+        "tests/subAgentRunner.test.cjs",
+        "tests/subagentCompaction.test.cjs",
+        "tests/subagentModelSelection.test.cjs",
+        "tests/subagentOutOfProcessRecovery.test.cjs",
+        "tests/subagentSession.test.cjs",
+        "tests/t2eRuntimeMcpScaling.test.cjs",
+        "tests/toolApprovalCharacterization.test.cjs",
+        "tests/unifiedToolArchitecture.test.cjs",
+        "tests/verification.test.cjs",
+        "tests/workspaceBudgetVerification.test.cjs",
+        "tests/workspaceWritePhase2.test.cjs"
+      ],
+      "counts": [
+        "# tests 279",
+        "# pass 222",
+        "# fail 57",
+        "# cancelled 0",
+        "# skipped 0"
+      ]
+    }
+  },
+  "broadComparisonNotes": [
+    "Baseline: 279 files, 223 passed/56 failed; after: 279 files, 222 passed/57 failed.",
+    "The extra backgroundCommands.test.cjs failure passes on both direct reruns: 17 passed, 2 skipped, 0 failed.",
+    "Direct reruns of all 57 affected files recover exact case identities where TAP is emitted; startup-level failures remain file identities.",
+    "Disposable baseline tree restores the three pre-repair production files over a copied source/tests tree; dependencies are symlinked.",
+    "lspProduction packaging assertion differs because require.resolve canonicalizes the symlinked node_modules outside the disposable tree; this is a baseline harness artifact, not a production change."
+  ],
+  "checks": {
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "note": "Existing chunk-size advisory"
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "directoryTestCommand": {
+      "command": "node --test tests/",
+      "exitCode": 1,
+      "reason": "Node v22 cannot resolve directory; expanded glob and direct file invocations used"
+    }
+  },
+  "beforeAfterReproduction": {
+    "unchangedStageLimit": "12 source batches fail before provider on both sources; 11 pass stage planning then may hit independent token budget",
+    "beforeOptional": "Real stage planning throws generation-stage-budget and prevents optional original-request continuation",
+    "afterOptional": "Fresh authoritative original request fit permits continuation; no generation calls, checkpoint or tool replay",
+    "refusals": [
+      "prospective-context-overflow",
+      "optional-fallback-measurement-unavailable",
+      "forced generation-stage-budget",
+      "late runtime-state-changed"
+    ]
+  },
+  "baselineLspSymlinkCorrection": {
+    "command": "node --preserve-symlinks /tmp/c95-baseline-tree/tests/lspProduction.test.cjs",
+    "failures": [
+      "the permission matrix is enforced at the tool, adapter and manager layers",
+      "every supported extension is accepted and answered by the real server",
+      "long-running stress: 300+ mixed operations stay bounded and consistent"
+    ],
+    "counts": [
+      "# tests 35",
+      "# pass 32",
+      "# fail 3",
+      "# cancelled 0",
+      "# skipped 0"
+    ],
+    "interpretation": "Same three failing identities as repaired direct run; packaging assertion passes when dependency symlink remains inside disposable repository identity."
+  },
+  "newFailingCaseIdentitiesAfterBaselineAndHarnessComparison": []
+}

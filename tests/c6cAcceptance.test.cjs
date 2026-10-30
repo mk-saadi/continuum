@@ -32,10 +32,10 @@ test('C6-C real coding operations preserve failing and passing evidence across t
   const owner = new AbortController(); owner.runId = 'c6c-same-run'; engine.activeStreams.set(id, owner);
   const persistence = engine.createMessagePersistence({ sessionId: id, modelId: 'fixture-model', runId: owner.runId });
   const prefix = projection => builder.rebuildChatMessages({ sessionId: id, modelId: 'fixture-model', excludeMessageIds: [persistence.messageId], compactionProjection: projection });
-  const measure = async payload => {
+  const measure = require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(async payload => {
     const tokens = budget.approximateTokens(payload), contract = budget.createRuntimeBudget({ runtimeContextTokens: 65536, payload, currentInputTokens: tokens });
     return { tokens, method: 'approximate-full-request', budgetContract: contract, limit: 65536, budget: contract.usableInputTokens };
-  };
+  });
   const calls = [
     ['read_project_file', { relative_path: 'queue.cjs' }],
     ['run_tests', { command: 'node --test queue.test.cjs' }],
@@ -63,6 +63,7 @@ test('C6-C real coding operations preserve failing and passing evidence across t
             const draft = { objective: 'Fix monotonic TaskFlow IDs without publishing', briefIds: input.briefs.map(b => b.id) };
             for (const key of candidate.ARRAY_KEYS) draft[key] = [];
             draft.nextActions = ['Review verification evidence before concluding'];
+            draft.research = input.evidence.filter(e => e.observation?.includes('C6C_CRITICAL')).map(e => ({ text: 'C6C_CRITICAL: queue.cjs requires monotonic IDs after deletion; never use array length.', sources: [{ messageId: e.messageId, stepId: e.stepId }] }));
             draft.blockers = ['Earlier failing test must remain available alongside later verification'];
             report.generations.push({ inputEstimate: budget.approximateTokens(request), reservedOutput: request.max_tokens, controlledDraftConstructionMs: performance.now() - start, newSourceIds: input.messages.map(m => m.id) });
             return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(draft) } }] };

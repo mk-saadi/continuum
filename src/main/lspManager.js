@@ -43,9 +43,10 @@ class Client {
       callback(message);
     });
     this.connection = rpc.createMessageConnection(reader, writer);
-    this.connection.onError(() => this.terminate());
-    this.connection.onClose(() => this.terminate());
-    child.on('error', () => this.terminate()); child.on('exit', () => this.terminate());
+    this.connection.onError(() => { this.failureReason = 'PROTOCOL_ERROR'; this.terminate(); });
+    this.connection.onClose(() => { this.failureReason ??= 'CONNECTION_CLOSED'; this.terminate(); });
+    child.on('error', error => { this.launchErrorCode = error.code; this.failureReason = 'SERVER_LAUNCH_ERROR'; this.terminate(); });
+    child.on('exit', () => { this.failureReason = 'SERVER_EXITED'; this.terminate(); });
     this.stderr = ''; child.stderr.on('data', chunk => { this.stderr = (this.stderr + chunk.toString()).slice(-4096); }); // Drain logs; never parse stderr as protocol.
     this.connection.onRequest(() => { throw new rpc.ResponseError(-32601, 'Client method unavailable'); });
     this.connection.listen();
@@ -128,7 +129,7 @@ class LspManager {
         // An exit that nobody asked for is a crash. A server that already
         // reached "ready" may be restarted on demand (bounded budget); one that
         // died while initializing cannot and stays failed until it is closed.
-        if (!e.closing && e.state !== 'stopping') { e.state = 'failed'; if (e.reachedReady) e.crashed = true; if (child.lspOwnedGroup) forceKill(child); }
+        if (!e.closing && e.state !== 'stopping') { e.state = 'failed'; e.failure ??= { phase: e.reachedReady ? 'ready' : 'initialization', reason: 'SERVER_EXITED' }; if (e.reachedReady) e.crashed = true; if (child.lspOwnedGroup) forceKill(child); }
         e.diagnostics.clear();
       });
       e.client.connection.onNotification('textDocument/publishDiagnostics', p => {
@@ -156,7 +157,17 @@ class LspManager {
       if (![1, 2].includes(typeof sync === 'number' ? sync : sync?.change)) throw fail('INITIALIZATION_FAILED', 'Document synchronization unavailable');
       e.capabilities = result.capabilities;
       await e.client.notify('initialized', {}); e.state = e.closing ? 'stopping' : 'ready'; e.reachedReady = e.state === 'ready'; e.timings.startupMs = performance.now() - began;
-    } catch (error) { e.state = 'failed'; e.client?.terminate(); forceKill(e.client?.child); throw fail('INITIALIZATION_FAILED', error.message); }
+    } catch (error) {
+      e.state = 'failed';
+      const reason = error.code === 'MODULE_NOT_FOUND' ? 'BUNDLED_SERVER_MISSING'
+        : error.code === 'ENOENT' || e.client?.launchErrorCode === 'ENOENT' ? 'EXECUTABLE_NOT_FOUND'
+        : ['EACCES', 'EPERM'].includes(error.code) || ['EACCES', 'EPERM'].includes(e.client?.launchErrorCode) ? 'SERVER_EXECUTION_DENIED'
+        : error.code === 'REQUEST_TIMEOUT' ? 'INITIALIZATION_TIMEOUT'
+        : error.code === 'SERVER_TERMINATED' ? (e.client?.failureReason === 'SERVER_EXITED' ? 'SERVER_EXITED_DURING_INITIALIZATION' : e.client?.failureReason ?? 'SERVER_TERMINATED_DURING_INITIALIZATION') : 'INITIALIZATION_FAILED';
+      e.failure = { phase: e.client ? 'initialization' : 'launch', reason };
+      e.client?.terminate(); forceKill(e.client?.child);
+      throw Object.assign(fail('INITIALIZATION_FAILED'), e.failure);
+    }
   }
   async file(e, relative) {
     if (typeof relative !== 'string' || !relative || relative.includes('\0')) throw fail('INVALID_FILE');
@@ -327,7 +338,7 @@ class LspManager {
   async close() { this.closed = true; this.epoch++; await Promise.all([...this.instances.keys()].map(root => this.closeRoot(root))); }
   // Observable runtime state for verification and benchmarks.
   stats() {
-    const instances = [...this.instances.values()].map(e => ({ root: e.root, state: e.state, documents: e.documents.size, diagnostics: e.diagnostics.size, pending: e.client?.pending.size ?? 0, wirePending: e.client?.wirePending ?? 0, crashed: e.crashed === true, reachedReady: e.reachedReady === true, timings: { ...e.timings } }));
+    const instances = [...this.instances.values()].map(e => ({ root: e.root, state: e.state, documents: e.documents.size, diagnostics: e.diagnostics.size, pending: e.client?.pending.size ?? 0, wirePending: e.client?.wirePending ?? 0, crashed: e.crashed === true, reachedReady: e.reachedReady === true, failure: e.failure ?? null, timings: { ...e.timings } }));
     return { instances, count: instances.length, restarts: Object.fromEntries(this.restarts), closed: this.closed };
   }
 }

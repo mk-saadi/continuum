@@ -570,7 +570,7 @@ test('the new tool is classified for display without a raw snake_case verb', asy
   const { toolKind, toolVerb, summarizeStage, summarizeStep } = await import('../src/lib/executionEvents.mjs');
   const read = { type: 'tool_call', toolName: 'get_project_plans', status: 'complete', args: { action: 'get', plan_id: 'abc' } };
   assert.equal(toolKind(read), 'plan');
-  assert.equal(toolVerb(read), 'Plan');
+  assert.equal(toolVerb(read), 'Read plans');
   assert.doesNotMatch(toolVerb(read), /_/);
   assert.equal(summarizeStep(read).summary, 'get · abc');
   assert.equal(summarizeStage({ events: [read] }).title, 'Read plan');

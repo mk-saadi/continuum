@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-29",
+  "timezone": "Asia/Dhaka",
+  "initialStatus": " M package.json\n M src/components/ContextPanel.jsx\n M src/components/chat/CompactionActivity.jsx\n M src/components/main-app/ModelSelectorModal.jsx\n M src/lib/compactionActivity.mjs\n M src/lib/executionEvents.mjs\n M src/lib/memoryChat.mjs\n M src/main/compactionPerformance.js\n M src/main/contextInspection.js\n M src/main/executionSteps.js\n M src/main/ipcHandlers.js\n M src/main/nativeToolActivation.js\n M src/main/promptBuilder.js\n M src/main/subagents/agentLoop.js\n M src/main/taskCheckpoints.js\n M src/main/tools/agentTools.js\n M src/main/tools/subagent.js\n M src/main/workspaceCompactCandidate.js\n M src/main/workspaceCompaction.js\n M src/main/workspaceCompactionActivity.js\n M tests/c6bContextSelection.test.cjs\n M tests/c6cAcceptance.test.cjs\n M tests/c6eLightweightContext.test.cjs\n M tests/c7Reliability.test.cjs\n M tests/compactionActivity.ui.cjs\n M tests/contextPanel.ui.cjs\n M tests/fixtures/w3Compaction.cjs\n M tests/memoryChat.test.mjs\n M tests/subagentModelSelection.test.cjs\n M tests/workspaceAdvancedCompaction.test.cjs\n M tests/workspaceCompactCandidate.test.cjs\n M tests/workspaceSafeCompaction.test.cjs\n?? docs/c8a-real-session-token-attribution.json\n?? docs/c8a-real-session-token-attribution.md\n?? docs/c9-1-semantic-compaction-evidence.json\n?? docs/c9-1-semantic-compaction-report.md\n?? docs/c9-2-compaction-validation-recovery-evidence.json\n?? docs/c9-2-compaction-validation-recovery-report.md\n?? docs/c9-3-premature-agent-stop-evidence.json\n?? docs/c9-3-premature-agent-stop-report.md\n?? docs/c9-simple-compaction-evidence.json\n?? docs/c9-simple-compaction-report.md\n?? docs/investigations/\n?? docs/m1-host-memory-attribution-evidence.json\n?? docs/m1-host-memory-attribution-report.md\n?? docs/p1-prompt-tool-schema-efficiency-evidence.json\n?? docs/p1-prompt-tool-schema-efficiency-report.md\n?? docs/p2-compact-native-tools-evidence.json\n?? docs/p2-compact-native-tools-report.md\n?? docs/t1-1-automatic-read-batching-evidence.json\n?? docs/t1-1-automatic-read-batching-report.md\n?? docs/t1-tool-batch-limit-24-evidence.json\n?? docs/t1-tool-batch-limit-24-report.md\n?? scripts/audits/\n?? src/lib/taskContinuation.mjs\n?? src/lib/toolBatchPolicy.cjs\n?? src/main/compactNativeTools.js\n?? src/main/compactionSummary.js\n?? src/main/toolBatchPreflight.js\n?? tests/c91SemanticCompaction.test.cjs\n?? tests/c93PrematureStop.test.mjs\n?? tests/c93PrematureStopIpc.test.cjs\n?? tests/c9SimpleCompaction.test.cjs\n?? tests/fixtures/c91C9SummaryBefore.cjs\n?? tests/fixtures/c9SummaryTokenizer.cjs\n?? tests/fixtures/c9TaskflowAudit.cjs\n?? tests/p2CompactNativeTools.test.cjs\n?? tests/t11ChildReadBatch.test.mjs\n?? tests/t1ToolBatch.test.mjs",
+  "preservedExistingChanges": true,
+  "historicalReadMode": "Python sqlite3 URI mode=ro; no application initialization",
+  "historical": {
+    "session": [
+      {
+        "id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "title": "rio",
+        "project_id": "b62f8ed9-c325-4858-bdba-58f507f1e389"
+      }
+    ],
+    "attempts": [
+      {
+        "sequence": 46,
+        "id": "fa8d359c-6208-4d14-8b4b-68e22a44b8d4",
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "run_id": "8041d529-12c6-4862-9d14-32a4f0ba27e0",
+        "message_id": 4012,
+        "anchor_step_id": "ovoTHrDZZmFV5Su7gJdFfFu2GyFy3mLM",
+        "status": "continued",
+        "revision": 7,
+        "started_at": "2026-10-29T02:10:40.699Z",
+        "updated_at": "2026-10-29T02:13:48.989Z",
+        "code": "unsupported-finding-claim",
+        "metadata": "{\"beforeTokens\":49568,\"usableInputTokens\":54400,\"triggerTokens\":48960,\"measurementMethod\":\"server-template-tokenizer\",\"sourceVersion\":\"be25abb64f94ab02c2e39b034abab2f8b4f6dfa5f3fd9eb3331d98d9ecdb2aee\",\"generationStages\":0,\"targetMet\":false,\"continued\":true}"
+      },
+      {
+        "sequence": 47,
+        "id": "121dce00-5adc-46a8-a722-32c91bb6f2d6",
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "run_id": "8041d529-12c6-4862-9d14-32a4f0ba27e0",
+        "message_id": 4012,
+        "anchor_step_id": "EzLjeZt6tmo90fYsBoezVOxY0CgCXO2j",
+        "status": "continued",
+        "revision": 9,
+        "started_at": "2026-10-29T02:16:40.075Z",
+        "updated_at": "2026-10-29T02:18:39.602Z",
+        "code": "unsupported-completion-claim",
+        "metadata": "{\"beforeTokens\":52933,\"usableInputTokens\":54400,\"triggerTokens\":48960,\"measurementMethod\":\"server-template-tokenizer\",\"sourceVersion\":\"4d487822c144fa10bf9f923d3babe1e656919f8c7e76c7c53df535b4b3d7a827\",\"generationStages\":0,\"targetMet\":false,\"continued\":true}"
+      }
+    ],
+    "checkpoints": [],
+    "summaries": []
+  },
+  "changes": [
+    "src/main/workspaceCompactCandidate.js: capture validator errors and bounded correction outcomes",
+    "src/main/compactionRejectionDiagnostics.js: bounded redacted schema",
+    "src/main/workspaceCompaction.js: persist generation rejection metadata before fallback/throw",
+    "src/main/workspaceCompactionActivity.js: retain confidential metadata, strip from broadcasts",
+    "src/components/chat/CompactionActivity.jsx: expandable diagnostics and historical unavailable message",
+    "src/lib/compactionActivity.mjs: hydrate same-revision private polling metadata"
+  ],
+  "limits": {
+    "recordsPerGeneration": 24,
+    "textCharactersPerField": 512,
+    "sourcesPerRecord": 16,
+    "retention": "existing activity lifetime, session deletion cascade",
+    "redaction": "best effort labeled credentials, bearer, sk-style, PEM; arbitrary unlabeled secrets cannot be recognized"
+  },
+  "tests": {
+    "baseline": {
+      "tap": "TAP version 13\n# Subtest: tests/c91SemanticCompaction.test.cjs\nok 1 - tests/c91SemanticCompaction.test.cjs\n  ---\n  duration_ms: 904.567174\n  type: 'test'\n  ...\n# Subtest: tests/c93PrematureStop.test.mjs\nok 2 - tests/c93PrematureStop.test.mjs\n  ---\n  duration_ms: 214.045461\n  type: 'test'\n  ...\n# Subtest: tests/c93PrematureStopIpc.test.cjs\nok 3 - tests/c93PrematureStopIpc.test.cjs\n  ---\n  duration_ms: 764.438348\n  type: 'test'\n  ...\n# Subtest: tests/c9SimpleCompaction.test.cjs\nok 4 - tests/c9SimpleCompaction.test.cjs\n  ---\n  duration_ms: 480.971878\n  type: 'test'\n  ...\n# Subtest: tests/p2CompactNativeTools.test.cjs\nok 5 - tests/p2CompactNativeTools.test.cjs\n  ---\n  duration_ms: 2477.118434\n  type: 'test'\n  ...\n# Subtest: tests/t11ChildReadBatch.test.mjs\nok 6 - tests/t11ChildReadBatch.test.mjs\n  ---\n  duration_ms: 510.244227\n  type: 'test'\n  ...\n# Subtest: tests/t1ToolBatch.test.mjs\nok 7 - tests/t1ToolBatch.test.mjs\n  ---\n  duration_ms: 1901.187068\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactCandidate.test.cjs\nok 8 - tests/workspaceCompactCandidate.test.cjs\n  ---\n  duration_ms: 1748.152499\n  type: 'test'\n  ...\n# Subtest: tests/workspaceSafeCompaction.test.cjs\nok 9 - tests/workspaceSafeCompaction.test.cjs\n  ---\n  duration_ms: 6930.217458\n  type: 'test'\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 7429.58092\n",
+      "pass": [
+        "9"
+      ],
+      "fail": [
+        "0"
+      ],
+      "identities": [
+        "tests/c91SemanticCompaction.test.cjs",
+        "tests/c93PrematureStop.test.mjs",
+        "tests/c93PrematureStopIpc.test.cjs",
+        "tests/c9SimpleCompaction.test.cjs",
+        "tests/p2CompactNativeTools.test.cjs",
+        "tests/t11ChildReadBatch.test.mjs",
+        "tests/t1ToolBatch.test.mjs",
+        "tests/workspaceCompactCandidate.test.cjs",
+        "tests/workspaceSafeCompaction.test.cjs"
+      ]
+    },
+    "finalFocused": {
+      "tap": "TAP version 13\n# Subtest: tests/c7Reliability.test.cjs\nok 1 - tests/c7Reliability.test.cjs\n  ---\n  duration_ms: 13581.172688\n  type: 'test'\n  ...\n# Subtest: tests/c91SemanticCompaction.test.cjs\nok 2 - tests/c91SemanticCompaction.test.cjs\n  ---\n  duration_ms: 1175.180795\n  type: 'test'\n  ...\n# Subtest: tests/c93PrematureStop.test.mjs\nok 3 - tests/c93PrematureStop.test.mjs\n  ---\n  duration_ms: 246.717065\n  type: 'test'\n  ...\n# Subtest: tests/c93PrematureStopIpc.test.cjs\nok 4 - tests/c93PrematureStopIpc.test.cjs\n  ---\n  duration_ms: 938.766343\n  type: 'test'\n  ...\n# Subtest: tests/c94CompactionDiagnostics.test.cjs\nok 5 - tests/c94CompactionDiagnostics.test.cjs\n  ---\n  duration_ms: 449.938066\n  type: 'test'\n  ...\n# Subtest: tests/c9SimpleCompaction.test.cjs\nok 6 - tests/c9SimpleCompaction.test.cjs\n  ---\n  duration_ms: 577.3318\n  type: 'test'\n  ...\n# Subtest: tests/p2CompactNativeTools.test.cjs\nok 7 - tests/p2CompactNativeTools.test.cjs\n  ---\n  duration_ms: 3844.652964\n  type: 'test'\n  ...\n# Subtest: tests/t11ChildReadBatch.test.mjs\nok 8 - tests/t11ChildReadBatch.test.mjs\n  ---\n  duration_ms: 619.226546\n  type: 'test'\n  ...\n# Subtest: tests/t1ToolBatch.test.mjs\nok 9 - tests/t1ToolBatch.test.mjs\n  ---\n  duration_ms: 2714.198498\n  type: 'test'\n  ...\n# Subtest: tests/workspaceAdvancedCompaction.test.cjs\nok 10 - tests/workspaceAdvancedCompaction.test.cjs\n  ---\n  duration_ms: 18055.093981\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactCandidate.test.cjs\nok 11 - tests/workspaceCompactCandidate.test.cjs\n  ---\n  duration_ms: 2681.652502\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactionActivity.test.cjs\nok 12 - tests/workspaceCompactionActivity.test.cjs\n  ---\n  duration_ms: 3055.550295\n  type: 'test'\n  ...\n# Subtest: tests/workspaceGenerationRuntime.test.cjs\nok 13 - tests/workspaceGenerationRuntime.test.cjs\n  ---\n  duration_ms: 154.397669\n  type: 'test'\n  ...\n# Subtest: tests/workspaceSafeCompaction.test.cjs\nok 14 - tests/workspaceSafeCompaction.test.cjs\n  ---\n  duration_ms: 8841.298792\n  type: 'test'\n  ...\n1..14\n# tests 14\n# suites 0\n# pass 14\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 18658.732024\n",
+      "pass": [
+        "14"
+      ],
+      "fail": [
+        "0"
+      ],
+      "identities": [
+        "tests/c7Reliability.test.cjs",
+        "tests/c91SemanticCompaction.test.cjs",
+        "tests/c93PrematureStop.test.mjs",
+        "tests/c93PrematureStopIpc.test.cjs",
+        "tests/c94CompactionDiagnostics.test.cjs",
+        "tests/c9SimpleCompaction.test.cjs",
+        "tests/p2CompactNativeTools.test.cjs",
+        "tests/t11ChildReadBatch.test.mjs",
+        "tests/t1ToolBatch.test.mjs",
+        "tests/workspaceAdvancedCompaction.test.cjs",
+        "tests/workspaceCompactCandidate.test.cjs",
+        "tests/workspaceCompactionActivity.test.cjs",
+        "tests/workspaceGenerationRuntime.test.cjs",
+        "tests/workspaceSafeCompaction.test.cjs"
+      ]
+    },
+    "newFixturesFinal": {
+      "tap": "[workspace-compaction-generation] {\"stage\":\"validation\",\"rejectionStage\":\"validation\",\"failureCode\":\"unsupported-finding-claim\",\"attempts\":[{\"stage\":\"final\",\"attempt\":0,\"candidateInputTokens\":2984,\"candidateInputTokenMethod\":\"estimated-test-request\",\"configuredOutputTokens\":3072,\"finishReason\":\"stop\",\"actualOutputTokens\":null,\"rejectionPoint\":\"unsupported-finding-claim\",\"timeToFirstTokenMs\":null,\"backendTimings\":null,\"promptProcessingMs\":null,\"generationDurationMs\":null,\"providerGenerationTokensPerSecond\":null,\"reasoningControlStatus\":\"not-verified\",\"hiddenReasoningTokens\":null,\"visibleOutputTokensEstimate\":344,\"stream\":null,\"elapsedMs\":0.495853000000011,\"providerOutputTokensPerSecond\":null},{\"stage\":\"final\",\"attempt\":1,\"candidateInputTokens\":3184,\"candidateInputTokenMethod\":\"estimated-test-request\",\"configuredOutputTokens\":3072,\"finishReason\":\"stop\",\"actualOutputTokens\":null,\"rejectionPoint\":\"unsupported-finding-claim\",\"timeToFirstTokenMs\":null,\"backendTimings\":null,\"promptProcessingMs\":null,\"generationDurationMs\":null,\"providerGenerationTokensPerSecond\":null,\"reasoningControlStatus\":\"not-verified\",\"hiddenReasoningTokens\":null,\"visibleOutputTokensEstimate\":344,\"stream\":null,\"elapsedMs\":0.10857299999997849,\"providerOutputTokensPerSecond\":null}],\"outputBudget\":3072,\"validatedTokens\":null}\n[workspace-compaction-generation] {\"stage\":\"validated\",\"rejectionStage\":null,\"failureCode\":null,\"attempts\":[{\"stage\":\"final\",\"attempt\":0,\"candidateInputTokens\":2984,\"candidateInputTokenMethod\":\"estimated-test-request\",\"configuredOutputTokens\":3072,\"finishReason\":\"stop\",\"actualOutputTokens\":null,\"rejectionPoint\":\"unsupported-finding-claim\",\"timeToFirstTokenMs\":null,\"backendTimings\":null,\"promptProcessingMs\":null,\"generationDurationMs\":null,\"providerGenerationTokensPerSecond\":null,\"reasoningControlStatus\":\"not-verified\",\"hiddenReasoningTokens\":null,\"visibleOutputTokensEstimate\":321,\"stream\":null,\"elapsedMs\":0.19200399999999718,\"providerOutputTokensPerSecond\":null},{\"stage\":\"final\",\"attempt\":1,\"candidateInputTokens\":3184,\"candidateInputTokenMethod\":\"estimated-test-request\",\"configuredOutputTokens\":3072,\"finishReason\":\"stop\",\"actualOutputTokens\":null,\"rejectionPoint\":null,\"timeToFirstTokenMs\":null,\"backendTimings\":null,\"promptProcessingMs\":null,\"generationDurationMs\":null,\"providerGenerationTokensPerSecond\":null,\"reasoningControlStatus\":\"not-verified\",\"hiddenReasoningTokens\":null,\"visibleOutputTokensEstimate\":365,\"stream\":null,\"elapsedMs\":0.07404199999996308,\"providerOutputTokensPerSecond\":null}],\"outputBudget\":3072,\"validatedTokens\":502}\nTAP version 13\n# Subtest: C9.4 bounded rejected field and linked correction failure survive generation\nok 1 - C9.4 bounded rejected field and linked correction failure survive generation\n  ---\n  duration_ms: 119.41613\n  type: 'test'\n  ...\n# Subtest: C9.4 valid correction links outcome and records changed claim\nok 2 - C9.4 valid correction links outcome and records changed claim\n  ---\n  duration_ms: 41.589984\n  type: 'test'\n  ...\n# Subtest: C9.4 secrets and oversized excerpts are bounded; malformed references preserve original error\nok 3 - C9.4 secrets and oversized excerpts are bounded; malformed references preserve original error\n  ---\n  duration_ms: 0.719481\n  type: 'test'\n  ...\n# Subtest: C9.4 activity persists privately, separates sessions and cascades deletion\nok 4 - C9.4 activity persists privately, separates sessions and cascades deletion\n  ---\n  duration_ms: 14.527557\n  type: 'test'\n  ...\n# Subtest: C9.4 deterministic validator contract matrix\nok 5 - C9.4 deterministic validator contract matrix\n  ---\n  duration_ms: 3.912411\n  type: 'test'\n  ...\n1..5\n# tests 5\n# suites 0\n# pass 5\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 204.555283\n",
+      "pass": [
+        "5"
+      ],
+      "fail": [
+        "0"
+      ],
+      "identities": [
+        "C9.4 bounded rejected field and linked correction failure survive generation",
+        "C9.4 valid correction links outcome and records changed claim",
+        "C9.4 secrets and oversized excerpts are bounded; malformed references preserve original error",
+        "C9.4 activity persists privately, separates sessions and cascades deletion",
+        "C9.4 deterministic validator contract matrix"
+      ]
+    },
+    "initialAdditional": {
+      "tap": "TAP version 13\n# Subtest: tests/c94CompactionDiagnostics.test.cjs\nok 1 - tests/c94CompactionDiagnostics.test.cjs\n  ---\n  duration_ms: 319.522839\n  type: 'test'\n  ...\n# Subtest: tests/workspaceAdvancedCompaction.test.cjs\nok 2 - tests/workspaceAdvancedCompaction.test.cjs\n  ---\n  duration_ms: 14650.206911\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactionActivity.test.cjs\nnot ok 3 - tests/workspaceCompactionActivity.test.cjs\n  ---\n  duration_ms: 1812.270294\n  type: 'test'\n  location: '/home/mk_saadi/projects/persona-projects/llm-electron/tests/workspaceCompactionActivity.test.cjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ...\n# Subtest: tests/workspaceGenerationRuntime.test.cjs\nok 4 - tests/workspaceGenerationRuntime.test.cjs\n  ---\n  duration_ms: 134.937919\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 3\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 14665.258736\n",
+      "pass": [
+        "3"
+      ],
+      "fail": [
+        "1"
+      ],
+      "identities": [
+        "tests/c94CompactionDiagnostics.test.cjs",
+        "tests/workspaceAdvancedCompaction.test.cjs",
+        "tests/workspaceCompactionActivity.test.cjs",
+        "tests/workspaceGenerationRuntime.test.cjs"
+      ]
+    },
+    "activityCorrection": {
+      "tap": "TAP version 13\n# Subtest: tests/c94CompactionDiagnostics.test.cjs\nok 1 - tests/c94CompactionDiagnostics.test.cjs\n  ---\n  duration_ms: 255.94791\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactionActivity.test.cjs\nok 2 - tests/workspaceCompactionActivity.test.cjs\n  ---\n  duration_ms: 1840.703382\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1855.709954\n",
+      "pass": [
+        "2"
+      ],
+      "fail": [
+        "0"
+      ],
+      "identities": [
+        "tests/c94CompactionDiagnostics.test.cjs",
+        "tests/workspaceCompactionActivity.test.cjs"
+      ]
+    },
+    "finalHydration": {
+      "passed": true,
+      "tap": "TAP version 13\n# Subtest: tests/c94CompactionDiagnostics.test.cjs\nok 1 - tests/c94CompactionDiagnostics.test.cjs\n  ---\n  duration_ms: 350.165688\n  type: 'test'\n  ...\n# Subtest: tests/workspaceCompactionActivity.test.cjs\nok 2 - tests/workspaceCompactionActivity.test.cjs\n  ---\n  duration_ms: 2766.389732\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2779.629331\n"
+    }
+  },
+  "build": {
+    "passed": true,
+    "log": "\n> continuum@1.0.0 build\n> vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 1835 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                                                       3.47 kB \u2502 gzip:   1.48 kB\ndist/assets/jetbrains-mono-vietnamese-wght-normal-Bt-aOZkq.woff2      7.50 kB\ndist/assets/jetbrains-mono-greek-wght-normal-Bw9x6K1M.woff2           9.00 kB\ndist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2              10.25 kB\ndist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2               11.23 kB\ndist/assets/jetbrains-mono-cyrillic-wght-normal-D73BlboJ.woff2       12.11 kB\ndist/assets/jetbrains-mono-latin-ext-wght-normal-DBQx-q_a.woff2      15.20 kB\ndist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                18.75 kB\ndist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                   19.00 kB\ndist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2            25.96 kB\ndist/assets/jetbrains-mono-latin-wght-normal-B9CIFXIH.woff2          40.40 kB\ndist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                   48.26 kB\ndist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2               85.07 kB\ndist/assets/index-DAqO61a1.css                                      130.87 kB \u2502 gzip:  28.46 kB\ndist/assets/all-vtZ0Fbwo.js                                         598.73 kB \u2502 gzip: 215.75 kB\ndist/assets/index-BFhnK6RS.js                                     1,647.00 kB \u2502 gzip: 478.39 kB\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\u2713 built in 14.94s\n"
+  },
+  "diffCheck": {
+    "passed": true
+  },
+  "measurements": {
+    "deterministic": "21 validator matrix cases, five diagnostic/hydration tests, and existing regressions",
+    "scriptedModel": true,
+    "exactRealTokenizer": false,
+    "syntheticTokenizer": true,
+    "estimatedTokens": "existing fixtures retain explicit methods",
+    "realModelInference": false
+  },
+  "knownLimits": [
+    "Historical candidates and correction metadata unavailable",
+    "No Electron visual QA in C9.4",
+    "No independent multi-user session principal in existing trusted local IPC",
+    "Partial negative findings and broad test-scope claims can be accepted; policy changes deferred",
+    "Intermediate quote spanning page boundaries is a contract risk; historical occurrence unproven",
+    "Correction feedback omits private prompt and available-step catalog",
+    "Claim change compares bounded redacted text; differences outside retained excerpt are unknown"
+  ],
+  "noNewFailingExistingTests": true,
+  "historicalIdentityVerification": {
+    "project": [
+      {
+        "id": "b62f8ed9-c325-4858-bdba-58f507f1e389",
+        "name": "testing new workspace update"
+      }
+    ],
+    "requirements": [
+      {
+        "id": 3973,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "role": "user",
+        "contentCharacters": 10955
+      },
+      {
+        "id": 4012,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "role": "assistant",
+        "contentCharacters": 581
+      }
+    ],
+    "brief": [
+      {
+        "id": 619,
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "message_id": 3973
+      }
+    ]
+  }
+}

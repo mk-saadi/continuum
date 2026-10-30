@@ -43,6 +43,8 @@ app.whenReady().then(async () => {
       check(JSON.stringify(options('#workspace', 'select[aria-label="Tool permission mode"]'))
         === JSON.stringify(['read_only', 'workspace_write', 'ask_approval', 'full_access']),
         'workspace composer offers all four modes');
+      check(document.querySelector('#casual').textContent.includes('Execution environment: Host after approval'), 'casual host environment is explicit');
+      check(document.querySelector('#workspace').textContent.includes('Execution environment: Workspace sandbox'), 'workspace sandbox environment is explicit');
       check(casual.value === 'ask_approval', 'casual default is ask_approval');
       check(workspace.value === 'workspace_write', 'workspace default is workspace_write');
 

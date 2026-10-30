@@ -126,7 +126,7 @@ test('eleven incremental checkpoints retain contradictory findings and exclude a
     const message = save(id, 'assistant', `Inspection ${round}`, [{ id: stepId, type: 'tool_call', toolName: 'read_project_file', status: 'complete', args: { relative_path: 'config.js' }, result: round === 1 ? 'CRITICAL_INCREMENTAL: feature=offline-export; test failed E_CONFIG' : `observation ${round}: feature=${round % 2 ? 'enabled' : 'disabled'}` }]);
     firstMessage ??= message;
     const requests = [];
-    const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, persist: false,
+    const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, persist: false, measure: require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),
       generate: async request => {
         const input = JSON.parse(request.messages[1].content); requests.push(input);
         const draft = { objective: 'Inspect config', briefIds: input.briefs.map(b => b.id) };
@@ -255,7 +255,7 @@ test('evidence above the former ceiling uses bounded stages without altering his
   const id = fixture(); save(id, 'user', 'Inspect a large evidence set.');
   save(id, 'assistant', 'Inspection', Array.from({ length: 100 }, (_, i) => ({ id: `e-${i}`, type: 'tool_call', toolName: 'read_project_file', status: 'complete', args: { relative_path: `f${i}` }, result: `Finding ${i}: ` + 'source text '.repeat(40) })));
   const before = JSON.stringify(db.prepare('SELECT * FROM messages WHERE session_id = ?').all(id));
-  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, generate: request => {
+  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: id, modelId: 'fixture-model', capacityTokens: 65536, measure: require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(), generate: request => {
     const input = JSON.parse(request.messages[1].content);
     const draft = { objective: 'Inspect large evidence safely', briefIds: input.briefs.map(b => b.id) };
     for (const key of w2.ARRAY_KEYS) draft[key] = [];

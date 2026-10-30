@@ -1,0 +1,769 @@
+{
+  "phase": "C9.2",
+  "date": "2026-10-29",
+  "timezone": "Asia/Dhaka",
+  "initialGitStatus": [
+    " M package.json",
+    " M src/components/ContextPanel.jsx",
+    " M src/components/chat/CompactionActivity.jsx",
+    " M src/lib/compactionActivity.mjs",
+    " M src/main/compactionPerformance.js",
+    " M src/main/contextInspection.js",
+    " M src/main/nativeToolActivation.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/taskCheckpoints.js",
+    " M src/main/tools/agentTools.js",
+    " M src/main/tools/subagent.js",
+    " M src/main/workspaceCompactCandidate.js",
+    " M src/main/workspaceCompaction.js",
+    " M src/main/workspaceCompactionActivity.js",
+    " M tests/c6bContextSelection.test.cjs",
+    " M tests/c6cAcceptance.test.cjs",
+    " M tests/c6eLightweightContext.test.cjs",
+    " M tests/c7Reliability.test.cjs",
+    " M tests/compactionActivity.ui.cjs",
+    " M tests/contextPanel.ui.cjs",
+    " M tests/fixtures/w3Compaction.cjs",
+    " M tests/subagentModelSelection.test.cjs",
+    " M tests/workspaceAdvancedCompaction.test.cjs",
+    " M tests/workspaceCompactCandidate.test.cjs",
+    " M tests/workspaceSafeCompaction.test.cjs",
+    "?? docs/c8a-real-session-token-attribution.json",
+    "?? docs/c8a-real-session-token-attribution.md",
+    "?? docs/c9-1-semantic-compaction-evidence.json",
+    "?? docs/c9-1-semantic-compaction-report.md",
+    "?? docs/c9-simple-compaction-evidence.json",
+    "?? docs/c9-simple-compaction-report.md",
+    "?? docs/investigations/",
+    "?? docs/p1-prompt-tool-schema-efficiency-evidence.json",
+    "?? docs/p1-prompt-tool-schema-efficiency-report.md",
+    "?? docs/p2-compact-native-tools-evidence.json",
+    "?? docs/p2-compact-native-tools-report.md",
+    "?? scripts/audits/",
+    "?? src/main/compactNativeTools.js",
+    "?? src/main/compactionSummary.js",
+    "?? tests/c91SemanticCompaction.test.cjs",
+    "?? tests/c9SimpleCompaction.test.cjs",
+    "?? tests/fixtures/c91C9SummaryBefore.cjs",
+    "?? tests/fixtures/c9SummaryTokenizer.cjs",
+    "?? tests/fixtures/c9TaskflowAudit.cjs",
+    "?? tests/p2CompactNativeTools.test.cjs"
+  ],
+  "databaseAccess": "Python sqlite3 URI mode=ro; no application initialization, migrations, writes or checkpoint activation",
+  "failureIdentity": {
+    "session": {
+      "id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+      "title": "rio",
+      "project_id": "b62f8ed9-c325-4858-bdba-58f507f1e389",
+      "created_at": "2026-10-28 21:06:59",
+      "last_active_at": "2026-10-28 21:15:24",
+      "active_leaf_id": 3974,
+      "is_compressing": 0
+    },
+    "activity": [
+      {
+        "sequence": 44,
+        "id": "eedfba77-b11a-4461-954d-fa65b7fd3c47",
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "run_id": "50a002c9-196b-4ed5-bef9-1c59beddf7d7",
+        "message_id": 3974,
+        "anchor_step_id": "M6CvtuGFU363MSuuCgmVaStsEMW5Jojl",
+        "status": "continued",
+        "revision": 8,
+        "started_at": "2026-10-28T21:09:06.125Z",
+        "updated_at": "2026-10-28T21:11:46.432Z",
+        "code": "output-truncated",
+        "metadata": {
+          "beforeTokens": 40506,
+          "usableInputTokens": 44160,
+          "triggerTokens": 39744,
+          "measurementMethod": "server-template-tokenizer",
+          "sourceVersion": "876e6f9091248bfa63abaeaf3dbc269c253d954f533f782a07a7d2226a7e3f6b",
+          "generationStages": 0,
+          "targetMet": false,
+          "continued": true
+        }
+      },
+      {
+        "sequence": 45,
+        "id": "420281f7-7ee7-42f5-9618-79e712a1f664",
+        "session_id": "421ac69f-be7d-4e41-961d-5a7f6b4020b1",
+        "run_id": "50a002c9-196b-4ed5-bef9-1c59beddf7d7",
+        "message_id": 3974,
+        "anchor_step_id": "dO3TwSTUZCeLH1bCOFo4RYjNPyFZokxO",
+        "status": "failed",
+        "revision": 7,
+        "started_at": "2026-10-28T21:12:56.392Z",
+        "updated_at": "2026-10-28T21:15:24.021Z",
+        "code": "compaction-error",
+        "metadata": {
+          "beforeTokens": 44128,
+          "usableInputTokens": 44160,
+          "triggerTokens": 39744,
+          "measurementMethod": "server-template-tokenizer",
+          "sourceVersion": "bfe3deb183ba7ffa410db451bd6b19da700b152ff831995b06f29f3400772623"
+        }
+      }
+    ],
+    "checkpoints": [],
+    "parent": {
+      "id": 3974,
+      "created_at": "2026-10-28 21:07:25",
+      "status": "interrupted",
+      "run_id": "50a002c9-196b-4ed5-bef9-1c59beddf7d7",
+      "parent_id": 3973,
+      "archived": 0,
+      "stats": {
+        "lastPromptTokens": 40908,
+        "peakPromptTokens": 40908,
+        "promptRequests": 13,
+        "promptTokens": 309292,
+        "completionTokens": 2177
+      }
+    }
+  },
+  "durableParentToolSources": [
+    {
+      "messageId": 3974,
+      "stepId": "Cs752QHQ7UdDZbDxergS89yzpXKFMzkZ",
+      "tool": "update_plan",
+      "path": null,
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "DieuzbNTkWX0booiTUfD3LiMpfVxlhdK",
+      "tool": "list_directory",
+      "path": null,
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "xI0IEYxn3KOSFmZDzTjMPAqrb3rc7z88",
+      "tool": "read_project_file",
+      "path": "package.json",
+      "hasMore": false,
+      "contentCharacters": 7,
+      "contentHash": "sha256:a75624965437ffb41b5a3ee8b396474fae5cdbe9f7df56e43fa44f8caf2a2726",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "UK7SBjQVoeCgyhVNGqcxeb8vbm4NSXvx",
+      "tool": "git_status",
+      "path": null,
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "sQGRzS81eY07Yz1QyoAgVuMnTxvu1psR",
+      "tool": "list_directory",
+      "path": "src",
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "u6xPCL1LpGRUar62AT1LEXS0vrYSbhMG",
+      "tool": "list_directory",
+      "path": "src/components",
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "zv5Nkozfb8QB7m12hSAN1mJARQKTUK0M",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.js",
+      "hasMore": true,
+      "contentCharacters": 7104,
+      "contentHash": "sha256:c577a07a7af92e030fd5e832771044b853dbbda09f5f76728ee355d6df7b0ec2",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "1AuBI1o3o9AX32bycdtNOQjiYsSiPV7p",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.js",
+      "hasMore": false,
+      "contentCharacters": 6414,
+      "contentHash": "sha256:c577a07a7af92e030fd5e832771044b853dbbda09f5f76728ee355d6df7b0ec2",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "GrEcGy3nM8ZNevnkrH8BUzk4XppHPJIk",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.test.js",
+      "hasMore": true,
+      "contentCharacters": 5964,
+      "contentHash": "sha256:6ea99dfd19200c9ea08e2b94c61f3d60e07b4dab844ddcdf07a91177ca0a3a7e",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "93HbfzRayDMFcjca1SkOG3p6IauXx8FD",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.test.js",
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "FvYzYggbbPCAvZ7nspYiJjd8umViLqgT",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.test.js",
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "CAY8ta1RIQKLWxfZat9hOt6ZWXJOMqYs",
+      "tool": "read_project_file",
+      "path": "src/taskLogic.test.js",
+      "hasMore": null,
+      "contentCharacters": 0,
+      "contentHash": null,
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "ugAZcyIkRRkOUw3TcUFGuKvNfLNqnjhX",
+      "tool": "read_project_file",
+      "path": "src/App.jsx",
+      "hasMore": true,
+      "contentCharacters": 6730,
+      "contentHash": "sha256:3eb26279a1ea00a260514bd8417bd7de3511cdd580af066377dc4b3e7d93a7a4",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "KqD6ha7WK0b7rbc1wMdC104hMS6OgKiN",
+      "tool": "read_project_file",
+      "path": "src/App.jsx",
+      "hasMore": false,
+      "contentCharacters": 1688,
+      "contentHash": "sha256:3eb26279a1ea00a260514bd8417bd7de3511cdd580af066377dc4b3e7d93a7a4",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "9SCVzONrDvfGdfHULgVX7q1IRNQqHsEk",
+      "tool": "read_project_file",
+      "path": "src/components/TaskToolbar.jsx",
+      "hasMore": false,
+      "contentCharacters": 1153,
+      "contentHash": "sha256:1d2aecd1f674c08c5ce1a1d41aeaa2a58c6b27325964f13458e6921e92694974",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "M6CvtuGFU363MSuuCgmVaStsEMW5Jojl",
+      "tool": "read_project_file",
+      "path": "src/components/TaskFilter.jsx",
+      "hasMore": false,
+      "contentCharacters": 592,
+      "contentHash": "sha256:67f0ba55df14c1ef3e6c977887a713233cf17a59ef31a41eedbc3fe224560a61",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "02aDhl7mXzaNEhbvSz0eEsRRyYptMgxw",
+      "tool": "read_project_file",
+      "path": "src/components/TaskItem.jsx",
+      "hasMore": false,
+      "contentCharacters": 5867,
+      "contentHash": "sha256:248b116213256165837d375ce1c1a7a1da094dc4ef5ab9300d41355fdc888a41",
+      "status": "complete"
+    },
+    {
+      "messageId": 3974,
+      "stepId": "dO3TwSTUZCeLH1bCOFo4RYjNPyFZokxO",
+      "tool": "read_project_file",
+      "path": "src/components/TaskInput.jsx",
+      "hasMore": false,
+      "contentCharacters": 2171,
+      "contentHash": "sha256:a954844c8918cbe973413716d8b0fb2e8a94f8a98581f19ad821b46199c02da2",
+      "status": "complete"
+    }
+  ],
+  "originalCandidatePersisted": false,
+  "unavailable": [
+    "rejected draft/finding/quote",
+    "exact failed evidence-segment membership",
+    "attempt finish reasons and correction responses",
+    "intermediate tokenizer counts",
+    "persisted original validator feedback"
+  ],
+  "reportedFailure": {
+    "code": "unsupported-finding-claim",
+    "stage": "intermediate-generation",
+    "evidenceCharacters": 40205,
+    "evidenceBudgetCharacters": 48000,
+    "capacityTokens": 45312,
+    "generatedTokenBudget": 32768,
+    "source": "user incident report, not independently persisted telemetry"
+  },
+  "rootCauseBounded": "Original quote mismatch cannot be reconstructed; recovery allowlist and activity sanitization omissions reproduced deterministically. Source validator unchanged.",
+  "reproductionBefore": {
+    "tests": 54,
+    "pass": 50,
+    "fail": 4,
+    "failures": [
+      "not ok 47 - C9.2 rejected finding continues only with measured fit, retains prior checkpoint/history, and suppresses identical retry",
+      "not ok 48 - C9.2 rejected finding blocks overflow continuation",
+      "not ok 49 - C9.2 rejected finding blocks estimated continuation",
+      "not ok 54 - C9.2 changed request retries bounded generation; cached rejection never caches fit authorization"
+    ]
+  },
+  "baselineFocused": {
+    "files": 7,
+    "pass": 7,
+    "fail": 0
+  },
+  "baselineDirect": [
+    {
+      "file": "baseline-c6cAcceptance.test.cjs.txt",
+      "counts": {
+        "tests": 1,
+        "pass": 0,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 1 - C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions"
+      ],
+      "passed": false,
+      "logSha256": "e83e420a7347614a727c226b117a6f4c115b92538006e09a02b64c5b6700543c"
+    },
+    {
+      "file": "baseline-engineLaunch.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "ced7959f751caa73ac1fbc9ed3a6f494a61537de3d7203951764da2beaf283a5"
+    },
+    {
+      "file": "baseline-engineSettings.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": false,
+      "logSha256": "851e499580b546b73b1cf4e86243de03ea69cf4518ea8f1a5cc67ee9adbaf756"
+    },
+    {
+      "file": "baseline-modelLoadSettings.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "9b2216fe79d55f5fca061570ad5f674ee5edf30ff6c7b929dcfc90b4e29540c4"
+    },
+    {
+      "file": "baseline-modelMemoryEstimate.test.cjs.txt",
+      "counts": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "372998a644ebc5a11e9dd72a233d368c9b4e4ac274515982a81971e9198f0999"
+    },
+    {
+      "file": "baseline-recentChatHistory.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": false,
+      "logSha256": "d41b582fc3cba5d2d905dec0148ec2f245c23e3b7c1b6f819b9c84a4d468fcbe"
+    },
+    {
+      "file": "baseline-s1EngineLifecycle.test.cjs.txt",
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "7aa53725d0f7319658e3414c77f3aacaa9aa0939353599399897e433f4d81581"
+    },
+    {
+      "file": "baseline-sessionPromptWording.test.cjs.txt",
+      "counts": {
+        "tests": 4,
+        "pass": 3,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 4 - workspace retains safety, activation, task continuity and MCP discovery"
+      ],
+      "passed": false,
+      "logSha256": "acbab7020af7bdd3070f8698efbfb33dcb979f3abb2f75054aea8bde72e37d45"
+    },
+    {
+      "file": "baseline-workspaceAdvancedCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "c205ed8d9cb8f1bed506ba440843f740cf9f57897aae9e2820db2a9e06cc2e09"
+    },
+    {
+      "file": "baseline-workspaceBudgetVerification.test.cjs.txt",
+      "counts": {
+        "tests": 5,
+        "pass": 4,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 5 - concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "passed": false,
+      "logSha256": "13e9fb09df62fb01e531c077226c933bd572444e03bb737e4576a8211dc6e70b"
+    },
+    {
+      "file": "baseline-workspaceCheckpoints.test.cjs.txt",
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "f3bbdbecbe75f6ea9a2d73c3afe4b6181cbb1a57e87d20ec9a2bfd78d30d31e2"
+    }
+  ],
+  "finalDirect": [
+    {
+      "file": "final-c6cAcceptance.test.cjs.txt",
+      "counts": {
+        "tests": 1,
+        "pass": 0,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 1 - C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions"
+      ],
+      "passed": false,
+      "logSha256": "37bbba6b669e669084607738a38c271099ae31a07d4ea4a6fd59dbe4b13a49fa"
+    },
+    {
+      "file": "final-c7Reliability.test.cjs.txt",
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "4d5f3e0d98c9a6f350ad2fb0298055428fa6e9a9e957d4517bcc77f50637b3b8"
+    },
+    {
+      "file": "final-c8EffectiveCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "10ffe59cf713e50235e7f14c81a3f340eae51ba58f2c2bea9682fbed06f7fdba"
+    },
+    {
+      "file": "final-c91SemanticCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 16,
+        "pass": 16,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "de0ea69c4897bd351b9cc41784afa3ab76756e16328a672cad279dfb257fd488"
+    },
+    {
+      "file": "final-c9SimpleCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 21,
+        "pass": 21,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "e9c0fb288d89c6603f2ac1f3372570850dcee004b566aa24c5049ca9202b148f"
+    },
+    {
+      "file": "final-contextBudget.test.cjs.txt",
+      "counts": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "556f2da73f1184fcb6b9840cab87461b29a4ec7757c61c16bd4d73854e590016"
+    },
+    {
+      "file": "final-contextCompaction.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "b20b8d8845c301c306d165bd81e23e768a428cebb36a000af00565c1d712d1c7"
+    },
+    {
+      "file": "final-engineIdle.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "2fea8d46b9819a070c763cf9ca2339249769c06b9d0c868d0e8746a28440e9c0"
+    },
+    {
+      "file": "final-engineLaunch.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "ced7959f751caa73ac1fbc9ed3a6f494a61537de3d7203951764da2beaf283a5"
+    },
+    {
+      "file": "final-engineSettings.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": false,
+      "logSha256": "8bb92014955b67d75ece19dd9b5e2d42dd76ca68790d6ae126a20c4d609be083"
+    },
+    {
+      "file": "final-engineWarmup.test.cjs.txt",
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "7462a01a66691f211fa1111f5e97335f8705b826abc0c1b0ec17b35621f8e729"
+    },
+    {
+      "file": "final-gpuOffload.test.cjs.txt",
+      "counts": {
+        "tests": 21,
+        "pass": 21,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "241070f1db82c81526665a32dc86684ba9ab9be6b7013fa5e7df364ed37bb488"
+    },
+    {
+      "file": "final-h1HistoryDeletion.test.cjs.txt",
+      "counts": {
+        "tests": 17,
+        "pass": 17,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "84e4b45d1bd1b209d69bfab10b198c553f0d25d5f4ed8c4094d8468246b26c2e"
+    },
+    {
+      "file": "final-modelLoadSettings.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "4988243b44af657a6688d6162b3c554cb4bce6668791a61b016ddb607a52a32a"
+    },
+    {
+      "file": "final-modelMemoryEstimate.test.cjs.txt",
+      "counts": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "87a53db4994d1185b2c831a470bc8f27aae12a97dc7c1026be09090c58337dcc"
+    },
+    {
+      "file": "final-p2CompactNativeTools.test.cjs.txt",
+      "counts": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "18ee2b78697b6c8295df75ec0a009403dde1f9cdbb3d947ee740dabcbb70dbfd"
+    },
+    {
+      "file": "final-permissionIsolationReliability.test.cjs.txt",
+      "counts": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "5440d6cb8a94cba128cab5fb80c44ffe392bdc9d11f2ea645031e7463de579c2"
+    },
+    {
+      "file": "final-recentChatHistory.test.cjs.txt",
+      "counts": {},
+      "failedAssertions": [],
+      "passed": false,
+      "logSha256": "d41b582fc3cba5d2d905dec0148ec2f245c23e3b7c1b6f819b9c84a4d468fcbe"
+    },
+    {
+      "file": "final-s1EngineLifecycle.test.cjs.txt",
+      "counts": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "7646f6e5940aa1ecfacb4b853190083e6f5cba9d91ebcb10c713ee78e3a6b812"
+    },
+    {
+      "file": "final-sessionPromptWording.test.cjs.txt",
+      "counts": {
+        "tests": 4,
+        "pass": 3,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 4 - workspace retains safety, activation, task continuity and MCP discovery"
+      ],
+      "passed": false,
+      "logSha256": "ba8c9b3435acb0b36aa0e3f466dca1b86c291e132a04018ba53e14e6d711b165"
+    },
+    {
+      "file": "final-workspaceAdvancedCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "034f432608f70b38e0eeca96e7df92ee6be817f12144f82d0f8fadcefa4a27d9"
+    },
+    {
+      "file": "final-workspaceBudgetVerification.test.cjs.txt",
+      "counts": {
+        "tests": 5,
+        "pass": 4,
+        "fail": 1
+      },
+      "failedAssertions": [
+        "not ok 5 - concurrent history change during measurement invalidates without partial persistence"
+      ],
+      "passed": false,
+      "logSha256": "778d48e163597869f88937d871bbdaa46509880f3317fcc3a786d9a22499f7d4"
+    },
+    {
+      "file": "final-workspaceCheckpoints.test.cjs.txt",
+      "counts": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "8516714d386021ba073447901536902a14c1b200d6a53dbf717c3105badc44de"
+    },
+    {
+      "file": "final-workspaceCompactCandidate.test.cjs.txt",
+      "counts": {
+        "tests": 55,
+        "pass": 55,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "1298acb85f6a4dba606540a6b052cdb5e3474e9b792f5c2c13e67e3d6fdc7659"
+    },
+    {
+      "file": "final-workspaceCompactionActivity.test.cjs.txt",
+      "counts": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "c415558f82f1a4c3eebbe44572b1d0ec95ebd4552fb976763076e184c409a44a"
+    },
+    {
+      "file": "final-workspaceGenerationRuntime.test.cjs.txt",
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "cc005f13b7259cdcb216f1ffa1492358b0f6777f8cb6e788c441e229e16b65f4"
+    },
+    {
+      "file": "final-workspaceSafeCompaction.test.cjs.txt",
+      "counts": {
+        "tests": 54,
+        "pass": 54,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "b88f1e249afbfb2fc3be12752d258942217a32ea792c2d992387aa72e4ec1350"
+    },
+    {
+      "file": "final-workspaceTaskBriefs.test.cjs.txt",
+      "counts": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "failedAssertions": [],
+      "passed": true,
+      "logSha256": "b605c1aaf3546caf7f12fd891237d0322b97da31248f862953ee331d50b5ccf8"
+    }
+  ],
+  "productionChanges": [
+    "src/main/workspaceCompaction.js: permit finding rejection through existing authoritative fallback; weak per-owner identical-boundary suppression",
+    "src/main/workspaceCompactionActivity.js: preserve unsupported-finding-claim diagnostic"
+  ],
+  "newTests": {
+    "semantic": 7,
+    "recovery": 8
+  },
+  "summaryGate": {
+    "maxTokens": 4999,
+    "unchanged": true,
+    "boundaryFixtures": "c9SimpleCompaction: 4999 accepted, 5000 corrected or rejected",
+    "measurement": "scripted tokenizer adapters; no real tokenizer invoked"
+  },
+  "build": "passed; existing chunk-size advisory",
+  "diffCheck": "passed",
+  "realModelInference": false,
+  "liveDataMutated": false,
+  "limitations": [
+    "No original rejected output, so no proven false-positive validator correction",
+    "Natural-language entailment and full-file absence are not mechanically certified; semanticVerification remains unverified",
+    "Hardware observations unavailable in process namespace"
+  ]
+}

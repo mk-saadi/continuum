@@ -2,7 +2,7 @@
 const { createHash } = require('node:crypto');
 // Disjoint UTF-8 attribution of the exact JSON body. Token estimates are not
 // tokenizer measurements; template overhead is only known from the full count.
-function requestComposition(payload, measured = {}) {
+function requestComposition(payload, measured = {}, { summaryContent } = {}) {
   const json = JSON.stringify(payload);
   const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
   const categories = Object.fromEntries(['systemAndDeveloper', 'toolSchemas', 'taskBriefsAndConstraints', 'recentTurns', 'protectedToolRounds', 'checkpoint', 'workLogAndTaskState', 'subagentState'].map(key => [key, 0]));
@@ -13,6 +13,10 @@ function requestComposition(payload, measured = {}) {
     const text = typeof message.content === 'string' ? message.content : '';
     if (['system', 'developer'].includes(message.role)) {
       add('systemAndDeveloper', message);
+      if (summaryContent && text.includes(summaryContent)) {
+        const size = bytes(summaryContent) - 2;
+        categories.checkpoint += size; categories.systemAndDeveloper -= size;
+      }
       // memoryChat coalesces system sections; attribute complete bounded blocks
       // instead of classifying the whole merged instruction as a checkpoint.
       const blocks = [
@@ -48,7 +52,7 @@ module.exports = { requestComposition, softTarget };
 
 // Tokenizer ablations of complete provider requests. Costs overlap (e.g. a
 // file attachment inside a brief) and are never presented as an additive sum.
-async function measuredComposition(payload, measure, full, { eligibleToolIds = [] } = {}) {
+async function measuredComposition(payload, measure, full, { eligibleToolIds = [], summaryContent } = {}) {
   const lastUser = (payload.messages ?? []).findLastIndex(m => m.role === 'user');
   const patterns = {
     checkpoint: /\[WORKSPACE CHECKPOINT\][^\n]*\n[^\n]*/g,
@@ -88,14 +92,17 @@ async function measuredComposition(payload, measure, full, { eligibleToolIds = [
       const toolId = m.tool_call_id ?? m.tool_calls?.[0]?.id;
       if (key === 'system' && ['system','developer'].includes(m.role)) {
         // Remove only base text; named contextual blocks are measured separately.
-        if (typeof m.content === 'string') m.content = ['checkpoint','taskBriefs','worklogs','plan'].flatMap(key => [...m.content.matchAll(patterns[key])].map(match => match[0])).join('\n');
+        if (typeof m.content === 'string') m.content = [summaryContent && m.content.includes(summaryContent) ? summaryContent : '', ...['checkpoint','taskBriefs','worklogs','plan'].flatMap(key => [...m.content.matchAll(patterns[key])].map(match => match[0]))].filter(Boolean).join('\n');
       } else if (key === 'currentUser' && i === lastUser) m.content = '';
       else if (key === 'rawToolArguments') { for (const call of m.tool_calls ?? []) if (call.function) call.function.arguments = '{}'; }
       else if (key === 'toolResults' && m.role === 'tool') m.content = '';
       else if (key === 'attachments' && Array.isArray(m.content)) m.content = m.content.filter(part => !['image_url','image','file','document','input_image','input_file'].includes(part.type));
       else if (key === 'eligibleToolRounds' && toolId && eligible.has(toolId)) return [];
       else if (key === 'protectedToolRounds' && toolId && !eligible.has(toolId)) return [];
-      else if (patterns[key] && typeof m.content === 'string') m.content = m.content.replace(patterns[key], '');
+      else if (patterns[key] && typeof m.content === 'string') {
+        if (key === 'checkpoint' && summaryContent) m.content = m.content.replace(summaryContent, '');
+        m.content = m.content.replace(patterns[key], '');
+      }
       return [m];
     });
     if (JSON.stringify(variant) === JSON.stringify(payload)) {

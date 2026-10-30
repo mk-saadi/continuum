@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import ModelCapabilitiesModal from "../ModelCapabilitiesModal";
+import Tooltip from "../Tooltip";
 import ModelSettingsModal from "../ModelSettingsModal";
-import { SelectField, TextField } from "../FormControls";
+import { SearchableSelect, TextField } from "../FormControls";
 import { SettingsButton } from "../settings/SettingsSection";
 import {
 	LuArrowRight,
@@ -17,6 +18,7 @@ import {
 	LuVideo,
 	LuCheck,
 	LuPencil,
+	LuStar,
 } from "react-icons/lu";
 
 const rowGrid = "grid grid-cols-[minmax(240px,1fr)_95px_125px_60px_80px_80px_65px] items-center gap-3";
@@ -87,17 +89,20 @@ function Capabilities({ model, local, runtime, overrides = {} }) {
 							? "unsupported"
 							: "unknown";
 				return (
-					<span
+					<Tooltip
 						key={key}
-						title={`${label}: ${status}`}
-						aria-label={`${label}: ${status}`}
-						className={`grid size-5 shrink-0 place-items-center rounded ${value === true ? "bg-[var(--active-chat)] text-[var(--accent)]" : "text-[var(--text-muted)] opacity-40"}`}
+						content={`${label}: ${status}`}
 					>
-						<Icon
-							size={13}
-							aria-hidden="true"
-						/>
-					</span>
+						<span
+							aria-label={`${label}: ${status}`}
+							className={`grid size-5 shrink-0 place-items-center rounded ${value === true ? "bg-[var(--active-chat)] text-[var(--accent)]" : "text-[var(--text-muted)] opacity-40"}`}
+						>
+							<Icon
+								size={13}
+								aria-hidden="true"
+							/>
+						</span>
+					</Tooltip>
 				);
 			})}
 		</span>
@@ -145,6 +150,32 @@ export default function ModelSelectorModal({
 	const [expandedProvider, setExpandedProvider] = useState(null);
 	const [modelsByProvider, setModelsByProvider] = useState({});
 	const [manualModels, setManualModels] = useState({});
+	// Starred cloud models per provider, persisted locally. Favorites that the
+	// provider no longer offers are pruned whenever its model list is refreshed.
+	const [favoritesByProvider, setFavoritesByProvider] = useState({});
+	useEffect(() => {
+		try {
+			const stored = JSON.parse(localStorage.getItem("cloud-model-favorites") || "{}");
+			if (stored && typeof stored === "object" && !Array.isArray(stored)) setFavoritesByProvider(stored);
+		} catch {
+			// Corrupt favorites are ignored; the picker starts with none.
+		}
+	}, []);
+	const persistFavorites = (next) => {
+		setFavoritesByProvider(next);
+		try {
+			localStorage.setItem("cloud-model-favorites", JSON.stringify(next));
+		} catch {
+			// Storage may be unavailable; favorites just don't persist.
+		}
+	};
+	const toggleFavorite = (providerId, modelId) => {
+		const current = favoritesByProvider[providerId] || [];
+		const next = current.includes(modelId)
+			? current.filter((id) => id !== modelId)
+			: [...current, modelId];
+		persistFavorites({ ...favoritesByProvider, [providerId]: next });
+	};
 	const providerSignature = cloudProviders
 		.map((row) => `${row.id}:${row.baseUrl}:${row.apiType}:${row.configured}`)
 		.join("|");
@@ -188,9 +219,7 @@ export default function ModelSelectorModal({
 	);
 	// Providers are model-agnostic: every configured text provider can serve
 	// any model it lists. The model is chosen below, per chat.
-	const providers = cloudProviders.filter(
-		(row) => (row.category ?? "text") === "text" && row.configured,
-	);
+	const providers = cloudProviders.filter((row) => (row.category ?? "text") === "text" && row.configured);
 	const activeProviderId = activeChatProvider?.type === "cloud" ? activeChatProvider.provider : null;
 	const activeModelId = activeChatProvider?.type === "cloud" ? activeChatProvider.model : null;
 	const metadataFor = (providerId, modelId) =>
@@ -208,10 +237,27 @@ export default function ModelSelectorModal({
 		try {
 			const result = await window.api.fetchCloudModels({ id: row.id });
 			if (result?.error) throw new Error(result.error);
+			const available = result?.models || [];
 			setModelsByProvider((previous) => ({
 				...previous,
-				[row.id]: { loading: false, models: result?.models || [], error: "" },
+				[row.id]: { loading: false, models: available, error: "" },
 			}));
+			if (available.length) {
+				// A favorite the provider no longer offers is removed rather than
+				// shown as selectable.
+				setFavoritesByProvider((previous) => {
+					const current = previous[row.id] || [];
+					const kept = current.filter((modelId) => available.includes(modelId));
+					if (kept.length === current.length) return previous;
+					const next = { ...previous, [row.id]: kept };
+					try {
+						localStorage.setItem("cloud-model-favorites", JSON.stringify(next));
+					} catch {
+						// Non-fatal; the in-memory list is still pruned.
+					}
+					return next;
+				});
+			}
 		} catch (cause) {
 			setModelsByProvider((previous) => ({
 				...previous,
@@ -227,7 +273,9 @@ export default function ModelSelectorModal({
 	function toggleProvider(row) {
 		const opening = expandedProvider !== row.id;
 		setExpandedProvider(opening ? row.id : null);
-		if (opening) loadProviderModels(row);
+		// Refresh first so starred favorites are validated against what the
+		// provider currently offers before the user picks a model.
+		if (opening) loadProviderModels(row, { force: true });
 	}
 
 	function chooseModel(row, modelId) {
@@ -279,8 +327,7 @@ export default function ModelSelectorModal({
 	const entries = [...localEntries, ...cloudEntries].sort((a, b) =>
 		sort === "size"
 			? (b.kind === "local" ? b.model.fileIdentity?.size || 0 : 0) -
-					(a.kind === "local" ? a.model.fileIdentity?.size || 0 : 0) ||
-				a.name.localeCompare(b.name)
+					(a.kind === "local" ? a.model.fileIdentity?.size || 0 : 0) || a.name.localeCompare(b.name)
 			: a.name.localeCompare(b.name),
 	);
 
@@ -476,33 +523,30 @@ export default function ModelSelectorModal({
 												}}
 												className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${active ? "bg-[var(--active-chat)]" : ""}`}
 											>
-												<span
-													className="min-w-0"
-													title={model.modelPath || model.path || model.id}
-												>
-													<span className="flex min-w-0 items-center gap-2 text-xs font-medium">
-														<span className="truncate">{name}</span>
-														{loaded && (
-															<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
-																Loaded
-															</span>
-														)}
+												<Tooltip content={model.modelPath || model.path || model.id}>
+													<span className="min-w-0">
+														<span className="flex min-w-0 items-center gap-2 text-xs font-medium">
+															<span className="truncate">{name}</span>
+															{loaded && (
+																<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
+																	Loaded
+																</span>
+															)}
+														</span>
+														<span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
+															{model.architecture ||
+																"GGUF · architecture unknown"}
+														</span>
 													</span>
-													<span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
-														{model.architecture || "GGUF · architecture unknown"}
-													</span>
-												</span>
+												</Tooltip>
 												<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
 													<LuCpu
 														size={13}
 														aria-hidden="true"
 													/>
-													<span
-														className="truncate"
-														title="Local file"
-													>
-														Local
-													</span>
+						<Tooltip content="Local file">
+							<span className="truncate">Local</span>
+						</Tooltip>
 												</span>
 												<Capabilities
 													model={model}
@@ -516,12 +560,11 @@ export default function ModelSelectorModal({
 												<span className="truncate font-mono text-[10px] text-[var(--text-secondary)]">
 													{model.quantization || "—"}
 												</span>
-												<span
-													title="File size on disk"
-													className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]"
-												>
-													{model.sizeFormatted || "—"}
-												</span>
+						<Tooltip content="File size on disk">
+							<span className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]">
+								{model.sizeFormatted || "—"}
+							</span>
+						</Tooltip>
 												<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
 													{active ? (
 														<>
@@ -542,20 +585,24 @@ export default function ModelSelectorModal({
 													)}
 												</span>
 											</button>
-											<button
-												type="button"
-												aria-label={`Edit capabilities for ${name}`}
-												title="Edit model capabilities"
-												disabled={busy}
-												onClick={() => setEditingCapabilities({ model, local: true, name })}
+						<Tooltip content="Edit model capabilities">
+						<button
+							type="button"
+							aria-label={`Edit capabilities for ${name}`}
+							title="Edit model capabilities"
+							disabled={busy}
+												onClick={() =>
+													setEditingCapabilities({ model, local: true, name })
+												}
 												className="absolute right-2 top-3 grid size-7 place-items-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 											>
-												<LuPencil
-													size={13}
-													aria-hidden="true"
-												/>
-											</button>
-										</li>
+								<LuPencil
+									size={13}
+									aria-hidden="true"
+								/>
+							</button>
+						</Tooltip>
+						</li>
 									);
 								}
 
@@ -564,6 +611,12 @@ export default function ModelSelectorModal({
 								const expanded = expandedProvider === row.id;
 								const providerModels = modelsByProvider[row.id];
 								const modelList = providerModels?.models || [];
+								const providerItems = [
+									...(isActive && activeModelId && !modelList.includes(activeModelId)
+										? [{ value: activeModelId, label: activeModelId }]
+										: []),
+									...modelList.map((modelId) => ({ value: modelId, label: modelId })),
+								];
 								const capabilityModelId =
 									(isActive ? activeModelId : "") || row.modelId?.trim() || "";
 								const capabilityMetadata = metadataFor(row.id, capabilityModelId);
@@ -599,33 +652,35 @@ export default function ModelSelectorModal({
 											onClick={() => toggleProvider(row)}
 											className={`${rowGrid} group w-full cursor-pointer border-b border-[var(--border)] pl-5 pr-12 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 ${isActive ? "bg-[var(--active-chat)]" : ""}`}
 										>
-											<span
-												className="min-w-0"
-												title={row.baseUrl}
-											>
+							<Tooltip content={row.baseUrl}>
+							<span className="min-w-0">
 												<span className="flex min-w-0 items-center gap-2 text-xs font-medium">
 													<span className="truncate">{row.name}</span>
 													{expanded && (
 														<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
-															{providerModels?.loading ? "Loading…" : "Choose a model"}
+															{providerModels?.loading
+																? "Loading…"
+																: "Choose a model"}
 														</span>
 													)}
 												</span>
 												<span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
-													{isActive ? activeModelId : row.baseUrl || "Cloud provider"}
-												</span>
-											</span>
-											<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-												<LuCloud
+													{isActive
+														? activeModelId
+							: row.baseUrl || "Cloud provider"}
+						</span>
+						</span>
+						</Tooltip>
+						<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+							<LuCloud
 													size={13}
 													aria-hidden="true"
 												/>
-												<span
-													className="truncate"
-													title={providerHost}
-												>
-													{capabilityMetadata?.providerName || "Cloud"}
-												</span>
+						<Tooltip content={providerHost}>
+							<span className="truncate">
+								{capabilityMetadata?.providerName || "Cloud"}
+							</span>
+						</Tooltip>
 											</span>
 											{capabilityModel ? (
 												<Capabilities
@@ -634,37 +689,44 @@ export default function ModelSelectorModal({
 													overrides={overrides}
 												/>
 											) : (
-												<span className="text-[11px] text-[var(--text-muted)]">—</span>
+												<span className="text-[11px] text-[var(--text-muted)]">
+													—
+												</span>
 											)}
 											<span className="text-[11px] tabular-nums text-[var(--text-secondary)]">
 												{source === "cloud"
-													? tokens(overrides?.contextLength ?? capabilityMetadata?.contextLength)
+													? tokens(
+															overrides?.contextLength ??
+																capabilityMetadata?.contextLength,
+														)
 													: capabilityModel?.paramSize || "—"}
 											</span>
-											<span
-												title={
-													source === "cloud"
-														? "Maximum output tokens reported by provider"
-														: "Remote quantization is not reported"
-												}
-												className="truncate font-mono text-[10px] text-[var(--text-secondary)]"
-											>
-												{source === "cloud"
-													? tokens(capabilityMetadata?.maxOutputTokens)
-													: capabilityModel?.quantization || "—"}
-											</span>
-											<span
-												title={
-													source === "cloud"
-														? "USD per million input / output tokens. Routing and cache pricing may vary."
-														: "Cloud providers have no local file size"
-												}
-												className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]"
-											>
-												{source === "cloud"
-													? priceLabel(capabilityMetadata?.pricing)
-													: "—"}
-											</span>
+						<Tooltip
+							content={
+								source === "cloud"
+									? "Maximum output tokens reported by provider"
+									: "Remote quantization is not reported"
+							}
+						>
+							<span className="truncate font-mono text-[10px] text-[var(--text-secondary)]">
+								{source === "cloud"
+									? tokens(capabilityMetadata?.maxOutputTokens)
+									: capabilityModel?.quantization || "—"}
+							</span>
+						</Tooltip>
+						<Tooltip
+							content={
+								source === "cloud"
+									? "USD per million input / output tokens. Routing and cache pricing may vary."
+									: "Cloud providers have no local file size"
+							}
+						>
+							<span className="text-right text-[11px] tabular-nums text-[var(--text-secondary)]">
+								{source === "cloud"
+									? priceLabel(capabilityMetadata?.pricing)
+									: "—"}
+							</span>
+						</Tooltip>
 											<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
 												{isActive ? (
 													<>
@@ -685,12 +747,13 @@ export default function ModelSelectorModal({
 												)}
 											</span>
 										</button>
-										{capabilityModel && (
-											<button
-												type="button"
-												aria-label={`Edit capabilities for ${row.name}`}
-												title="Edit model capabilities"
-												disabled={busy}
+					{capabilityModel && (
+						<Tooltip content="Edit model capabilities">
+						<button
+							type="button"
+							aria-label={`Edit capabilities for ${row.name}`}
+							title="Edit model capabilities"
+							disabled={busy}
 												onClick={() =>
 													setEditingCapabilities({
 														model: capabilityModel,
@@ -705,45 +768,85 @@ export default function ModelSelectorModal({
 													aria-hidden="true"
 												/>
 											</button>
+											</Tooltip>
 										)}
 										{expanded && (
 											<div className="border-b border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3">
 												<div className="flex max-w-xl items-end gap-2">
-													<SelectField
-														className="min-w-0 flex-1"
-														label={`${row.name} model`}
-														value={isActive ? activeModelId : ""}
-														disabled={providerModels?.loading}
-														placeholder={
-															providerModels?.loading
-																? "Loading models…"
-																: "Choose a model…"
-														}
-														onChange={(event) => chooseModel(row, event.target.value)}
-													>
-														{modelList.map((modelId) => (
-															<option
-																key={modelId}
-																value={modelId}
-															>
-																{modelId}
-															</option>
-														))}
-														{isActive &&
-															activeModelId &&
-															!modelList.includes(activeModelId) && (
-																<option value={activeModelId}>{activeModelId}</option>
-															)}
-													</SelectField>
+								<SearchableSelect
+									className="min-w-0 flex-1"
+									label={`${row.name} model`}
+									value={isActive ? activeModelId : ""}
+									items={providerItems}
+									starred={favoritesByProvider[row.id] || []}
+									onToggleStar={(modelId) => toggleFavorite(row.id, modelId)}
+									searchPlaceholder="Search models…"
+									disabled={providerModels?.loading}
+									placeholder={
+										providerModels?.loading
+											? "Loading models…"
+											: "Choose a model…"
+									}
+									onChange={(event) =>
+										chooseModel(row, event.target.value)
+									}
+								/>
 													<SettingsButton
 														type="button"
 														disabled={providerModels?.loading}
-														onClick={() => loadProviderModels(row, { force: true })}
+														onClick={() =>
+															loadProviderModels(row, { force: true })
+														}
 													>
-														{providerModels?.loading ? "Loading…" : "Reload models"}
+														{providerModels?.loading
+															? "Loading…"
+															: "Reload models"}
 													</SettingsButton>
-												</div>
-												{providerModels?.error ? (
+									</div>
+									{(favoritesByProvider[row.id] || []).length > 0 && (
+										<div
+											aria-label={`Starred ${row.name} models`}
+											className="mt-2 flex flex-wrap items-center gap-1.5"
+										>
+											<span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+												<LuStar
+													size={10}
+													aria-hidden="true"
+												/>
+												Starred
+											</span>
+											{favoritesByProvider[row.id].map((modelId) => (
+												<span
+													key={modelId}
+													className={`inline-flex max-w-full items-center gap-1 rounded-full border py-0.5 pr-1 pl-2 text-[11px] ${isActive && modelId === activeModelId ? "border-[var(--accent)] bg-[var(--active-chat)]" : "border-[var(--border)] bg-[var(--input)]"}`}
+												>
+													<button
+														type="button"
+														disabled={busy}
+														onClick={() => chooseModel(row, modelId)}
+														className="flex min-w-0 cursor-pointer items-center gap-1 truncate text-left"
+													>
+														<LuStar
+															size={10}
+															className="shrink-0 text-[var(--accent)]"
+															style={{ fill: "currentColor" }}
+															aria-hidden="true"
+														/>
+														<span className="truncate">{modelId}</span>
+													</button>
+													<button
+														type="button"
+														aria-label={`Remove ${modelId} from favorites`}
+														onClick={() => toggleFavorite(row.id, modelId)}
+														className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+													>
+														<LuX size={10} aria-hidden="true" />
+													</button>
+												</span>
+											))}
+										</div>
+									)}
+									{providerModels?.error ? (
 													<p
 														role="alert"
 														className="mt-2 text-[11px] leading-relaxed text-[var(--error)]"
@@ -755,9 +858,9 @@ export default function ModelSelectorModal({
 												!providerModels?.error &&
 												!modelList.length ? (
 													<p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-														No models were returned. Enter one manually, or check this
-														provider's base URL and API key in Settings → Models &amp;
-														Generation.
+														No models were returned. Enter one manually, or check
+														this provider's base URL and API key in Settings →
+														Models &amp; Generation.
 													</p>
 												) : null}
 												{!providerModels?.loading &&
@@ -777,14 +880,20 @@ export default function ModelSelectorModal({
 															onKeyDown={(event) => {
 																if (event.key !== "Enter") return;
 																event.preventDefault();
-																chooseModel(row, (manualModels[row.id] || "").trim());
+																chooseModel(
+																	row,
+																	(manualModels[row.id] || "").trim(),
+																);
 															}}
 														/>
 														<SettingsButton
 															type="button"
 															disabled={!manualModels[row.id]?.trim()}
 															onClick={() =>
-																chooseModel(row, (manualModels[row.id] || "").trim())
+																chooseModel(
+																	row,
+																	(manualModels[row.id] || "").trim(),
+																)
 															}
 														>
 															Use model
@@ -816,13 +925,12 @@ export default function ModelSelectorModal({
 						<span
 							className={`size-1.5 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 						/>
-						<span
-							className="max-w-[360px] truncate"
-							title={loadedLocalModel?.name}
-						>
+					<Tooltip content={loadedLocalModel?.name}>
+						<span className="max-w-[360px] truncate">
 							{loadedLocalModel?.name ||
 								(engineRunning ? "Local engine loading…" : "Local engine stopped")}
 						</span>
+					</Tooltip>
 						{engineRunning && (
 							<button
 								type="button"

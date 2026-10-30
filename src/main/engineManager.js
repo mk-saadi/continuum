@@ -567,6 +567,10 @@ function failedToolReason(output, toolName = "") {
 	if (!output || typeof output !== "object") return null;
 	if (Array.isArray(output))
 		return output.map((item) => failedToolReason(item, toolName)).find(Boolean) ?? null;
+	if (toolName === 'run_tests' && output.executionStatus === 'completed') {
+        if (output.verificationState === 'inconclusive') return null;
+        if (output.verificationState === 'failed') return 'Test verification failed; command execution completed.';
+    }
 	if (typeof output.exitCode === "number" && output.exitCode !== 0) {
 		return `Command exited with status ${output.exitCode}.`;
 	}

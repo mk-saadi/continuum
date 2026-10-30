@@ -385,6 +385,14 @@ function getProjectPlan(sessionId, { target } = {}) {
   })();
 }
 
+// Allocate across archived cycles as well as live steps; an old step id never
+// becomes a different pending step after a transition.
+function nextStepId() {
+  const max = db.prepare('SELECT MAX(id) AS id FROM workspace_plan_steps').get().id;
+  if (max) db.prepare('INSERT OR IGNORE INTO workspace_plan_step_ids(id) VALUES (?)').run(max);
+  return Number(db.prepare('INSERT INTO workspace_plan_step_ids DEFAULT VALUES').run().lastInsertRowid);
+}
+
 function createPlan(sessionId, { objective, steps }) {
   const planned = normalizeCreateSteps(steps);
   return db
@@ -392,22 +400,22 @@ function createPlan(sessionId, { objective, steps }) {
       const existing = db.prepare('SELECT revision FROM workspace_plans WHERE session_id = ?').get(sessionId);
       if (existing) {
         throw new PlanError(
-          `A plan already exists for this task (revision ${existing.revision}). Use action "update" to revise it.`,
+          `A plan already exists for this session (revision ${existing.revision}). Use action "update" to revise it.`,
           'PLAN_EXISTS',
         );
       }
       db.prepare('INSERT INTO workspace_plans(session_id, objective, revision) VALUES (?, ?, 1)')
         .run(sessionId, objective);
       const insert = db.prepare(
-        'INSERT INTO workspace_plan_steps(session_id, position, description, status, note) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO workspace_plan_steps(id, session_id, position, description, status, note) VALUES (?, ?, ?, ?, ?, ?)',
       );
-      planned.forEach((step, index) => insert.run(sessionId, index + 1, step.description, step.status, step.note));
+      planned.forEach((step, index) => insert.run(nextStepId(), sessionId, index + 1, step.description, step.status, step.note));
       return readPlan(sessionId);
     })
     .immediate();
 }
 
-function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision }) {
+function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision, transition }) {
   const entries = normalizeUpdateEntries(steps);
   const removes = normalizeRemoveIds(removeIds);
   if (!entries.length && !removes.length && objective === undefined) {
@@ -428,6 +436,17 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
           'STALE_PLAN',
         );
       }
+      if (transition && (expectedRevision === null || !objective || !entries.length || entries.some(e => e.id !== null) || removes.length)) {
+        throw new PlanError('A task transition requires expected_revision, objective, and new steps without ids; do not pass removals.', 'INVALID_TRANSITION');
+      }
+      const prior = readPlan(sessionId);
+      if (transition === 'new_task' && prior.steps.some(step => step.status !== 'completed')) {
+        throw new PlanError('Unfinished work remains. Explicitly use transition "supersede" only when the latest user intent authorizes replacing it.', 'UNFINISHED_PLAN');
+      }
+      db.prepare('INSERT INTO workspace_plan_history(session_id, revision, snapshot) VALUES (?, ?, ?)')
+        .run(sessionId, prior.revision, JSON.stringify(prior));
+      if (transition) nextStepId(); // Seed legacy ids before removing the old active set.
+      if (transition) db.prepare('DELETE FROM workspace_plan_steps WHERE session_id = ?').run(sessionId);
       const existing = db
         .prepare(`SELECT id, position, description, status, note FROM workspace_plan_steps
           WHERE session_id = ? ORDER BY position ASC, id ASC`)
@@ -448,7 +467,7 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
          WHERE id = ? AND session_id = ?`,
       );
       const insert = db.prepare(
-        'INSERT INTO workspace_plan_steps(session_id, position, description, status, note) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO workspace_plan_steps(id, session_id, position, description, status, note) VALUES (?, ?, ?, ?, ?, ?)',
       );
       // Only these steps are reported in the compact mutation result. They are
       // resolved from the committed rows below, never from requested values.
@@ -496,7 +515,7 @@ function updateSteps(sessionId, { objective, steps, removeIds, expectedRevision 
           );
         }
         position += 1;
-        const inserted = insert.run(sessionId, position, entry.description, status, note);
+        const inserted = insert.run(nextStepId(), sessionId, position, entry.description, status, note);
         const newId = Number(inserted.lastInsertRowid);
         touchedIds.add(newId);
         addedIds.add(newId);
@@ -603,6 +622,9 @@ function updatePlan(sessionId, args) {
             message: 'No plan exists for this task yet. Call update_plan with action "create".',
           };
     }
+    if (args.transition !== undefined && (!['new_task', 'supersede'].includes(args.transition) || action !== 'update')) {
+      throw new PlanError('transition is only valid on update: new_task or supersede.', 'INVALID_TRANSITION');
+    }
     const objective = args.objective === undefined
       ? undefined
       : normalizeText(args.objective, 'objective', MAX_OBJECTIVE);
@@ -615,11 +637,14 @@ function updatePlan(sessionId, args) {
       steps: args.steps,
       removeIds: args.remove_step_ids,
       expectedRevision: normalizeExpectedRevision(args.expected_revision),
+      transition: args.transition,
     });
     return compactMutationResult(sessionId, mutation);
   } catch (error) {
     if (error instanceof PlanError) {
-      return { success: false, error: error.message, code: error.code };
+      return { success: false, error: error.message, code: error.code,
+        ...(['UNKNOWN_STEP', 'STALE_PLAN'].includes(error.code) ? { current_plan: planState(sessionId) } : {}),
+        ...(error.code === 'PLAN_EXISTS' ? { existing_plan: planState(sessionId), next_action: 'update_plan action="update"; use transition="new_task" after completion or explicit transition="supersede" for authorized replacement' } : {}) };
     }
     return {
       success: false,
@@ -707,7 +732,8 @@ function renderPlanSection(plan, charCap = PLAN_CHAR_CAP) {
   const counts = statusCounts(plan);
   const header = [
     PLAN_MARKER,
-    'The current plan for this task. It records intended work and reported progress; it is not proof that a step succeeded. Verify finished implementation (for example with run_tests) before reporting completion, and keep the plan current with update_plan.',
+    'Existing session plan: yes. Use exact ids, never step positions. Progress is not verification. Use update_plan action=update; never create. New task: transition=new_task after completion, or authorized supersede if unfinished; include expected_revision, objective, fresh steps. History is preserved.',
+    `Plan ID: ${plan.session_id ?? plan.plan_id ?? ''}; fully completed: ${plan.steps.length > 0 && counts.completed === plan.steps.length}`,
     `Revision: ${plan.revision}`,
   ];
   if (plan.objective) header.push(`Objective: ${plan.objective}`);
@@ -784,12 +810,29 @@ function renderPlanSection(plan, charCap = PLAN_CHAR_CAP) {
   return text;
 }
 
+function planState(sessionId) {
+  const plan = getPlan(sessionId);
+  const counts = plan ? statusCounts(plan) : { pending: 0, in_progress: 0, completed: 0, blocked: 0 };
+  return { exists: !!plan, plan_id: plan ? sessionId : null, revision: plan?.revision ?? null,
+    objective: plan?.objective ?? null, ...counts,
+    steps: plan ? plan.steps.map(({ id, position, status }) => ({ id, position, status })) : [],
+    fully_completed: !!plan && plan.steps.length > 0 && plan.steps.every(s => s.status === 'completed') };
+}
+
+function buildPlanStateSection(sessionId) {
+  if (!isWorkspaceSession(sessionId)) return null;
+  const state = planState(sessionId);
+  if (!state.exists) return { role: 'system', workspacePlanState: true, planRevision: null, content: '[SESSION PLAN STATE] No plan exists. Use update_plan action="create" for substantial work.' };
+  return { role: 'system', workspacePlanState: true, planRevision: state.revision, content: '[SESSION PLAN STATE]\n' + JSON.stringify(state) + '\n' +
+    ('Use exact step ids above, never ordinal positions; ids are database integers, not step numbers. Use update_plan action="update", never create. For a separate completed task use transition="new_task", expected_revision, objective and fresh steps. Unfinished work needs explicit authorized transition="supersede"; do not automatically resume an unrelated objective. History is preserved.') };
+}
+
 function buildPlanSection(sessionId, { contextWindowLimit = null } = {}) {
   requireSessionId(sessionId);
   if (!isWorkspaceSession(sessionId)) return null;
   const plan = readPlan(sessionId);
   if (!plan || !plan.steps.length) return null;
-  const content = renderPlanSection(plan);
+  const content = renderPlanSection({ ...plan, session_id: sessionId });
   const tokens = Math.ceil(content.length / 4);
   if (Number.isSafeInteger(contextWindowLimit) && contextWindowLimit > 0 && tokens > contextWindowLimit) {
     console.error('[workspacePlan] plan exceeds the context window; omitting it from this prompt.');
@@ -799,6 +842,7 @@ function buildPlanSection(sessionId, { contextWindowLimit = null } = {}) {
     role: 'system',
     content,
     workspacePlan: true,
+    workspacePlanState: true,
     planRevision: plan.revision,
     planStepCount: plan.steps.length,
     planTokens: tokens,
@@ -823,5 +867,7 @@ module.exports = {
   updatePlan,
   getProjectPlans,
   buildPlanSection,
+  buildPlanStateSection,
+  planState,
   renderPlanSection,
 };

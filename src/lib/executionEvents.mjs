@@ -114,6 +114,8 @@ export function isFailedStep(step) {
 export function classifyStep(step) {
   if (!step || typeof step !== 'object') return { key: 'unknown', label: 'Unknown', tone: 'muted' };
   if (step.type === 'thought') return { key: 'thought', label: 'Thought', tone: 'muted' };
+  if (step.status === 'deferred') return { key: 'deferred', label: 'Deferred · not executed', tone: 'muted' };
+  if (step.status === 'rejected') return { key: 'rejected', label: 'Rejected · not executed', tone: 'muted' };
   if (isRunningStatus(step.status)) {
     return {
       key: 'running',
@@ -124,6 +126,8 @@ export function classifyStep(step) {
   if (step.status === 'cancelled' || isCancelledStep(step))
     return { key: 'cancelled', label: 'Cancelled', tone: 'cancelled' };
   if (isBlockedStep(step)) return { key: 'blocked', label: 'Needs approval', tone: 'blocked' };
+  if (step.result?.executionStatus === 'completed' && step.result?.verificationState === 'failed') return { key: 'failed', label: 'Tests failed', tone: 'failed' };
+  if (step.result?.executionStatus === 'completed' && step.result?.verificationState === 'inconclusive') return { key: 'inconclusive', label: 'Verification inconclusive', tone: 'muted' };
   if (isFailedStep(step)) return { key: 'failed', label: 'Failed', tone: 'failed' };
   return { key: 'success', label: 'Done', tone: 'success' };
 }
@@ -155,6 +159,71 @@ function argPaths(args) {
 }
 
 // Display labels never replace the recorded identifiers used for dispatch.
+// Each native tool gets a distinct human-readable UI label so names like
+// search_project_content and web_search are never rendered identically.
+export const NATIVE_TOOL_LABELS = Object.freeze({
+  // Files & workspace
+  read_project_file: 'Read file',
+  write_project_file: 'Write file',
+  str_replace_editor: 'Replace text',
+  edit_project_files: 'Edit files',
+  apply_patch: 'Apply patch',
+  move_project_file: 'Move file',
+  delete_project_file: 'Delete file',
+  list_directory: 'List directory',
+  list_directory_with_size: 'List directory sizes',
+  // Search & history
+  search_project_content: 'Search project',
+  web_search: 'Web search',
+  search_memory: 'Search memory',
+  get_recent_chat_history: 'Chat history',
+  // Commands
+  execute_command: 'Shell',
+  run_tests: 'Run test',
+  get_command_status: 'Command status',
+  stop_background_command: 'Stop command',
+  // LSP
+  lsp_definition: 'Find definition',
+  lsp_references: 'Find references',
+  lsp_document_symbols: 'Document symbols',
+  lsp_workspace_symbols: 'Find symbols',
+  lsp_hover: 'Type info',
+  lsp_diagnostics: 'Check diagnostics',
+  // Planning, memory, interaction
+  update_plan: 'Update plan',
+  get_project_plans: 'Read plans',
+  save_memory: 'Save memory',
+  ask_user: 'Ask user',
+  // Git
+  git_status: 'Git status',
+  git_diff: 'Git diff',
+  git_log: 'Git log',
+  git_show: 'Show commit',
+  git_branch: 'Git branches',
+  git_blame: 'Git blame',
+  git_stage: 'Stage files',
+  git_unstage: 'Unstage files',
+  git_commit: 'Git commit',
+  git_stash: 'Git stash',
+  git_sync: 'Sync remote',
+  git_create_branch: 'Create branch',
+  git_switch: 'Switch branch',
+  // Web & sub-agents
+  get_single_web_page_content: 'Fetch web page',
+  spawn_sub_agent: 'Spawn sub-agent',
+  delegate_task: 'Delegate task',
+  extract_web_page_data: 'Extract page data',
+  // Media, skills, MCP
+  generate_image: 'Generate image',
+  take_screenshot: 'Take screenshot',
+  propose_skill: 'Propose skill',
+  use_skill: 'Use skill',
+  manage_mcp_servers: 'Manage MCP',
+  approve_mcp_mutation: 'Approve mutation',
+  manage_native_tools: 'Manage tools',
+});
+
+// Display labels never replace the recorded identifiers used for dispatch.
 export function toolDisplayName(step) {
   const name = step?.toolName || 'Tool';
   if (name === 'manage_mcp_servers') {
@@ -162,8 +231,7 @@ export function toolDisplayName(step) {
       activate: 'Activate MCP tools', enable: 'Enable MCP server',
       disable: 'Disable MCP server', restart: 'Restart MCP server' })[step?.args?.action] || 'Manage MCP servers';
   }
-  if (name === 'approve_mcp_mutation') return 'Approve MCP operation';
-  if (name === 'manage_native_tools') return 'Manage built-in tools';
+  if (NATIVE_TOOL_LABELS[name]) return NATIVE_TOOL_LABELS[name];
   if (step?.serverName && !['native', 'memory'].includes(step.serverName)) {
     const readable = name.replace(/_/g, ' ');
     const label = readable.charAt(0).toUpperCase() + readable.slice(1);
@@ -472,10 +540,13 @@ export function toolKind(step) {
   return 'other';
 }
 
-// Short human verb for the row. Git operations keep their operation name
-// ("Git status", never "Read") — the exact recorded tool name stays
+// Short human verb for the row. Native tools use their distinct label from
+// NATIVE_TOOL_LABELS (via toolDisplayName) so rows like Read/Edit/Run/Search
+// never collide across different tools; the exact recorded tool name stays
 // available via the `title` tooltip and `data-tool` attribute on the card.
 export function toolVerb(step) {
+  const verbName = step?.toolName;
+  if (typeof verbName === 'string' && NATIVE_TOOL_LABELS[verbName]) return NATIVE_TOOL_LABELS[verbName];
   switch (toolKind(step)) {
     case 'command': return 'Run';
     case 'read': return 'Read';
@@ -550,7 +621,7 @@ export function summarizeStage(stage) {
   let failed = 0;
   let blocked = 0;
   let running = 0;
-  let cancelled = 0;
+  let cancelled = 0, deferred = 0, rejected = 0;
   for (const step of events) {
     const kind = toolKind(step);
     if (Object.hasOwn(byKind, kind)) byKind[kind] += 1;
@@ -561,6 +632,8 @@ export function summarizeStage(stage) {
     else if (key === 'blocked') blocked += 1;
     else if (key === 'running') running += 1;
     else if (key === 'cancelled') cancelled += 1;
+    else if (key === 'deferred') deferred += 1;
+    else if (key === 'rejected') rejected += 1;
     else done += 1;
   }
   const files = distinctStagePaths(events);
@@ -596,7 +669,19 @@ export function summarizeStage(stage) {
   } else {
     title = `${ops} operation${ops === 1 ? '' : 's'}`;
   }
+  if (deferred || rejected) title = `${ops} requested operations`;
   const status = [];
+  const readBatches = new Map();
+  for (const step of events) if (step.readBatch) {
+    const { id, index } = step.readBatch;
+    const key = `${id}:${index}`;
+    const batch = readBatches.get(key) ?? { index, done: 0 };
+    if (classifyStep(step).key === 'success') batch.done++;
+    readBatches.set(key, batch);
+  }
+  for (const batch of readBatches.values()) status.push(`${batch.done} completed in batch ${batch.index}`);
+  if (deferred) status.push(`${deferred} deferred`);
+  if (rejected) status.push(`${rejected} rejected`);
   if (running) status.push(`${running} running`);
   if (failed) status.push(`${failed} failed`);
   if (blocked) status.push('needs approval');

@@ -1,0 +1,1041 @@
+{
+  "task": "CONTINUUM R3",
+  "generated_at_utc": "2026-10-30T13:01:58.588176+00:00",
+  "session": {
+    "id": "9c7e863a-27ae-480b-959f-6bafe6a523f3",
+    "title": "Hello - glm",
+    "model_id": "cloud:1737e141-7c59-451b-b9cd-0659dafd863a:z-ai/glm-5.3-flash",
+    "workspace": {
+      "id": "28a9ad17-3f23-4a73-a2d9-bfcecabe32c3",
+      "name": "llm desktop assistant",
+      "root_path": "/home/mk_saadi/projects/persona-projects/llm-electron"
+    },
+    "created_at_utc": "2026-10-30 11:57:44",
+    "last_active_at_utc": "2026-10-30 12:04:52",
+    "coding_request_at_utc": "2026-10-30 12:00:04",
+    "timezone_for_display": "Asia/Dhaka",
+    "coding_request_local": "2026-10-30 18:00:04 +06:00"
+  },
+  "historical_audit": {
+    "calls": 36,
+    "failures": 11,
+    "classification": {
+      "conflicting_revision_arguments": 5,
+      "incorrect_revision_hashes": 3,
+      "attachment_paths": 2,
+      "lsp_unavailable": 1
+    },
+    "operations": [
+      {
+        "ordinal": 1,
+        "id": "call_651fc6d9d8694fed8085eaa7",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path"
+        ],
+        "classification": "attachment-path"
+      },
+      {
+        "ordinal": 2,
+        "id": "call_07f005b490984952871c3649",
+        "tool": "execute_command",
+        "status": "error",
+        "argument_keys": [
+          "command"
+        ],
+        "classification": "attachment-path"
+      },
+      {
+        "ordinal": 3,
+        "id": "call_05098391e11245958521f4e4",
+        "tool": "lsp_workspace_symbols",
+        "status": "error",
+        "argument_keys": [
+          "query"
+        ],
+        "code": "LSP_SERVER_UNAVAILABLE",
+        "classification": "lsp-unavailable",
+        "state": null,
+        "duration_ms": 440.62648600002285
+      },
+      {
+        "ordinal": 4,
+        "id": "call_cd62651dc4ae4a95a94cf898",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query"
+        ]
+      },
+      {
+        "ordinal": 5,
+        "id": "call_05aa6f1dc9864ce3a64faf84",
+        "tool": "list_directory",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 6,
+        "id": "call_baa1dc218ff94ebfa84e8121",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query"
+        ]
+      },
+      {
+        "ordinal": 7,
+        "id": "call_fe9519a84db94889a9b964a3",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 8,
+        "id": "call_fad416c0b3a7425a910b61d6",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 9,
+        "id": "call_0b1fe9b8e2494a6e8b7a4b10",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 10,
+        "id": "call_fc56871a0a6d4dc38ba5b5fa",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 11,
+        "id": "call_dfe913ce694f4b1786375817",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query"
+        ]
+      },
+      {
+        "ordinal": 12,
+        "id": "call_dc7477c2532246bab2e3e8ae",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 13,
+        "id": "call_3f25c0ccc56e427c9321a7be",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 14,
+        "id": "call_ee1667eccb434e51a3e0f29a",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash",
+          "expected_content_hash"
+        ],
+        "code": "INVALID_CONTENT_HASH_MODE",
+        "classification": "conflicting-revision-arguments"
+      },
+      {
+        "ordinal": 15,
+        "id": "call_c273575c113f45e6b115a0c0",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "expected_content_hash"
+        ],
+        "code": "STALE_FILE",
+        "classification": "incorrect-revision"
+      },
+      {
+        "ordinal": 16,
+        "id": "call_4254d228731e48798b291aab",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash",
+          "expected_content_hash"
+        ],
+        "code": "INVALID_CONTENT_HASH_MODE",
+        "classification": "conflicting-revision-arguments"
+      },
+      {
+        "ordinal": 17,
+        "id": "call_b5938176698a429299cb68ef",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "expected_content_hash"
+        ],
+        "code": "STALE_FILE",
+        "classification": "incorrect-revision"
+      },
+      {
+        "ordinal": 18,
+        "id": "call_bd380f5214304aeaa709fa0d",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash",
+          "expected_content_hash"
+        ],
+        "code": "INVALID_CONTENT_HASH_MODE",
+        "classification": "conflicting-revision-arguments"
+      },
+      {
+        "ordinal": 19,
+        "id": "call_22f627e408a24b4f89b04b25",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "expected_content_hash"
+        ],
+        "code": "STALE_FILE",
+        "classification": "incorrect-revision"
+      },
+      {
+        "ordinal": 20,
+        "id": "call_54f1ffca0fe545e9a424961b",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash",
+          "expected_content_hash"
+        ],
+        "code": "INVALID_CONTENT_HASH_MODE",
+        "classification": "conflicting-revision-arguments"
+      },
+      {
+        "ordinal": 21,
+        "id": "call_43bb199584144db2bb6937db",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 22,
+        "id": "call_28a55f0dc77b44d28db4be0a",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 23,
+        "id": "call_cae80fa224524b54b7b31328",
+        "tool": "read_project_file",
+        "status": "error",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash",
+          "expected_content_hash"
+        ],
+        "code": "INVALID_CONTENT_HASH_MODE",
+        "classification": "conflicting-revision-arguments"
+      },
+      {
+        "ordinal": 24,
+        "id": "call_d62cb634260a466d90e6a53d",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "end_line",
+          "if_content_hash"
+        ]
+      },
+      {
+        "ordinal": 25,
+        "id": "call_48158c3f075f4e1dba601ff9",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 26,
+        "id": "call_153205cfbb424b52b80c0c47",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 27,
+        "id": "call_fbb724f75f6b4917b7999492",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 28,
+        "id": "call_9ae924c245094bcb950bf1d8",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 29,
+        "id": "call_9a0b7131ca564687b7acb037",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 30,
+        "id": "call_15349850092541d88e3c1cf4",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path",
+          "start_line",
+          "end_line"
+        ]
+      },
+      {
+        "ordinal": 31,
+        "id": "call_ff5a5fc5ea1f44b9a39683ca",
+        "tool": "read_project_file",
+        "status": "complete",
+        "argument_keys": [
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 32,
+        "id": "call_163b7d54dfea4689a033f877",
+        "tool": "edit_project_files",
+        "status": "complete",
+        "argument_keys": [
+          "edits"
+        ]
+      },
+      {
+        "ordinal": 33,
+        "id": "call_048e855df4044afd83b7d032",
+        "tool": "search_project_content",
+        "status": "complete",
+        "argument_keys": [
+          "query",
+          "relative_path"
+        ]
+      },
+      {
+        "ordinal": 34,
+        "id": "call_d00e45a869044397b7922875",
+        "tool": "lsp_diagnostics",
+        "status": "complete",
+        "argument_keys": [
+          "path",
+          "severities"
+        ],
+        "state": "stale",
+        "duration_ms": 1493.6234650000115
+      },
+      {
+        "ordinal": 35,
+        "id": "call_9d68fe865e1b45ba868bc229",
+        "tool": "lsp_diagnostics",
+        "status": "complete",
+        "argument_keys": [
+          "path",
+          "severities"
+        ],
+        "state": "stale",
+        "duration_ms": 37.98346399998991
+      },
+      {
+        "ordinal": 36,
+        "id": "chatcmpl-tool-a19b74527b03b177",
+        "tool": "run_tests",
+        "status": "complete",
+        "argument_keys": [
+          "command",
+          "timeout_ms"
+        ]
+      }
+    ],
+    "lsp": {
+      "historical_cause": "Not recoverable from saved diagnostics; guard and adapter could emit the same generic error.",
+      "requested_tool": "lsp_workspace_symbols",
+      "query": "ModelSelectorModal",
+      "language_family": "JavaScript/TypeScript; target component JSX",
+      "later_diagnostics": "Two successful but stale/unversioned diagnostics responses in the same session",
+      "profile": "Not durably recorded; both current profiles tested",
+      "current_bundled_paths_resolve": true,
+      "no_lsp_lifecycle_table_found": true
+    }
+  },
+  "hash_proof": {
+    "input_hash": "sha256:918df72c796507cea4cae6955c25e4ffc6ec4aa122934046638131be94067365",
+    "before": "sha256:[redacted token]",
+    "after": {
+      "success": true,
+      "content_hash": "sha256:918df72c796507cea4cae6955c25e4ffc6ec4aa122934046638131be94067365",
+      "content": "api_key=[redacted]",
+      "nested": {
+        "content_hash": "sha256:[redacted token]"
+      }
+    },
+    "untrusted": {
+      "success": true,
+      "content_hash": "sha256:[redacted token]",
+      "content": "api_key=[redacted]",
+      "nested": {
+        "content_hash": "sha256:[redacted token]"
+      }
+    }
+  },
+  "contracts": {
+    "trusted_hash_fields": [
+      "content_hash",
+      "current_content_hash"
+    ],
+    "trusted_native_tools": [
+      "read_project_file",
+      "write_project_file",
+      "str_replace_editor"
+    ],
+    "untrusted_expected_hash_echo_has_no_exception": true,
+    "provenance": "Native dispatcher resolution; runtime-only Symbol for repeated wire formatting; explicit child-native dispatch",
+    "ordinary_read": "relative_path only",
+    "canonical_revision_gate": "expected_content_hash",
+    "conditional_optimization": "if_content_hash retained; distinct semantics and backward compatibility",
+    "attachment_source": "attachment_id, mutually exclusive with relative_path",
+    "attachment_reference": "att_ plus 128 random bits, persisted in attachment_read_refs; cascading FK deletion; no row-ID resurrection",
+    "attachment_modes": [
+      "read_only",
+      "ask_approval",
+      "workspace_write",
+      "full_access"
+    ],
+    "attachment_approval_prompts": 0,
+    "reader_schema_bytes_before": 1454,
+    "reader_schema_bytes_after": 1415,
+    "generic_secret_filter_unchanged": true,
+    "command_sandbox_unchanged": true
+  },
+  "test_runs": {
+    "baseline_offline": {
+      "log": "/tmp/r3-baseline-offline.tap",
+      "complete": true,
+      "counts": {
+        "tests": 2474,
+        "pass": 2430,
+        "fail": 43,
+        "cancelled": 0,
+        "skipped": 1,
+        "duration_ms": 197564.142515
+      },
+      "failures": [
+        {
+          "name": "tests/attachments.test.cjs",
+          "location": "tests/attachments.test.cjs:1:1"
+        },
+        {
+          "name": "reasoning-loop termination after a tool never triggers an automatic restart",
+          "location": "tests/autonomyLoop.test.mjs:56:1"
+        },
+        {
+          "name": "concurrent lifecycle revision rejects generation before persistence",
+          "location": "tests/c6bContextSelection.test.cjs:301:1"
+        },
+        {
+          "name": "C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions",
+          "location": "tests/c6cAcceptance.test.cjs:26:1"
+        },
+        {
+          "name": "cloud settings persist privately and cloud chat works without a local engine",
+          "location": "tests/cloudIpc.test.cjs:22:1"
+        },
+        {
+          "name": "branching isolates checkpoint state and later briefs",
+          "location": "tests/compressionLifecycle.test.cjs:203:1"
+        },
+        {
+          "name": "full lifecycle: compress, reload, continue, ordered prompt, inspect",
+          "location": "tests/compressionLifecycle.test.cjs:227:1"
+        },
+        {
+          "name": "status-only transition during summary generation rolls back all archival and summary writes",
+          "location": "tests/contextC3LiveProtection.test.cjs:61:1"
+        },
+        {
+          "name": "tests/engineSettings.test.cjs",
+          "location": "tests/engineSettings.test.cjs:1:1"
+        },
+        {
+          "name": "13. large files keep the bounded read while hashing the full bytes",
+          "location": "tests/fileVersion.test.cjs:287:1"
+        },
+        {
+          "name": "MCP execution applies the cap before serialization",
+          "location": "tests/filesystemToolLimits.test.cjs:45:1"
+        },
+        {
+          "name": "a steering message already in the transcript survives context recovery",
+          "location": "tests/liveSteeringLoop.test.mjs:189:1"
+        },
+        {
+          "name": "packaging configuration ships the bundled server and its runtime dependencies",
+          "location": "tests/lspProduction.test.cjs:132:1"
+        },
+        {
+          "name": "the six native tools are registered once and dispatched through the real pipeline",
+          "location": "tests/lspProductionAgent.test.cjs:77:1"
+        },
+        {
+          "name": "tests/messageActions.test.cjs",
+          "location": "tests/messageActions.test.cjs:1:1"
+        },
+        {
+          "name": "tests/messageStats.test.cjs",
+          "location": "tests/messageStats.test.cjs:1:1"
+        },
+        {
+          "name": "web_search is registered natively, visible to main agents and children, and maps to READ",
+          "location": "tests/nativeWebSearch.test.cjs:89:1"
+        },
+        {
+          "name": "tests/projects.test.cjs",
+          "location": "tests/projects.test.cjs:1:1"
+        },
+        {
+          "name": "tests/recentChatHistory.test.cjs",
+          "location": "tests/recentChatHistory.test.cjs:1:1"
+        },
+        {
+          "name": "automatic rollback preserves a labelled pre-rollback snapshot",
+          "location": "tests/recoverySafety.test.cjs:154:1"
+        },
+        {
+          "name": "rollback failure is reported once without recursion",
+          "location": "tests/recoverySafety.test.cjs:184:1"
+        },
+        {
+          "name": "17. batch write failure mid-sequence rolls back and keeps a durable point",
+          "location": "tests/recoveryStore.test.cjs:374:1"
+        },
+        {
+          "name": "aborts live reasoning_content loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "aborts live reasoning loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "aborts live inline-think loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "loop termination discards partial tool calls and preserves earlier visible text",
+          "location": "tests/repetitionDetector.test.mjs:80:1"
+        },
+        {
+          "name": "workspace retains safety, activation, task continuity and MCP discovery",
+          "location": "tests/sessionPromptWording.test.cjs:72:9"
+        },
+        {
+          "name": "tests/skillImportIpc.test.cjs",
+          "location": "tests/skillImportIpc.test.cjs:1:1"
+        },
+        {
+          "name": "tests/skillProposalIpc.test.cjs",
+          "location": "tests/skillProposalIpc.test.cjs:1:1"
+        },
+        {
+          "name": "the investigate option stays additive to the spawn schema",
+          "location": "tests/spawnSubagent.test.cjs:78:1"
+        },
+        {
+          "name": "tests/subAgentRunner.test.cjs",
+          "location": "tests/subAgentRunner.test.cjs:1:1"
+        },
+        {
+          "name": "running child crosses pressure repeatedly and resumes with early findings without tool replay",
+          "location": "tests/subagentCompaction.test.cjs:219:1"
+        },
+        {
+          "name": "4. a local selection overrides a cloud chat and fails loudly without a server",
+          "location": "tests/subagentModelSelection.test.cjs:337:1"
+        },
+        {
+          "name": "6. foreground, messages, and background runs all keep the one resolved model",
+          "location": "tests/subagentModelSelection.test.cjs:404:1"
+        },
+        {
+          "name": "7. interrupt and resume keep the child on the model it started with",
+          "location": "tests/subagentModelSelection.test.cjs:463:1"
+        },
+        {
+          "name": "8. a cloud model still gets the read-only child allowlist",
+          "location": "tests/subagentModelSelection.test.cjs:499:1"
+        },
+        {
+          "name": "9. the single local slot queues children resolved to the same server model",
+          "location": "tests/subagentModelSelection.test.cjs:584:1"
+        },
+        {
+          "name": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+          "location": "tests/subagentModelSelection.test.cjs:627:1"
+        },
+        {
+          "name": "Gate 2: exact 50-tool inventory, eligible discovery and incremental activation across modes",
+          "location": "tests/t2eRuntimeMcpScaling.test.cjs:108:1"
+        },
+        {
+          "name": "U6 diagnostic components partition the actual wire request without overlap",
+          "location": "tests/u6RuntimeSecurity.test.cjs:57:1"
+        },
+        {
+          "name": "compaction preserves every structural field and validator compiles the complete registry",
+          "location": "tests/unifiedToolArchitecture.test.cjs:64:1"
+        },
+        {
+          "name": "permission restrictions and workspace boundaries stay enforced",
+          "location": "tests/verification.test.cjs:126:1"
+        },
+        {
+          "name": "concurrent history change during measurement invalidates without partial persistence",
+          "location": "tests/workspaceBudgetVerification.test.cjs:99:1"
+        }
+      ],
+      "log_sha256": "5f1d4c41dfdf8f5cc20f76a120ef2bd8d9450f6fc3b763af915e6917a491efa9"
+    },
+    "broad_verified_offline": {
+      "log": "/tmp/r3-verified-offline.tap",
+      "complete": true,
+      "counts": {
+        "tests": 2497,
+        "pass": 2461,
+        "fail": 35,
+        "cancelled": 0,
+        "skipped": 1,
+        "duration_ms": 164738.797552
+      },
+      "failures": [
+        {
+          "name": "tests/attachments.test.cjs",
+          "location": "tests/attachments.test.cjs:1:1"
+        },
+        {
+          "name": "reasoning-loop termination after a tool never triggers an automatic restart",
+          "location": "tests/autonomyLoop.test.mjs:56:1"
+        },
+        {
+          "name": "concurrent lifecycle revision rejects generation before persistence",
+          "location": "tests/c6bContextSelection.test.cjs:301:1"
+        },
+        {
+          "name": "C6-C real coding operations preserve failing and passing evidence across three atomic same-run compactions",
+          "location": "tests/c6cAcceptance.test.cjs:26:1"
+        },
+        {
+          "name": "cloud settings persist privately and cloud chat works without a local engine",
+          "location": "tests/cloudIpc.test.cjs:22:1"
+        },
+        {
+          "name": "branching isolates checkpoint state and later briefs",
+          "location": "tests/compressionLifecycle.test.cjs:203:1"
+        },
+        {
+          "name": "full lifecycle: compress, reload, continue, ordered prompt, inspect",
+          "location": "tests/compressionLifecycle.test.cjs:227:1"
+        },
+        {
+          "name": "status-only transition during summary generation rolls back all archival and summary writes",
+          "location": "tests/contextC3LiveProtection.test.cjs:61:1"
+        },
+        {
+          "name": "tests/engineSettings.test.cjs",
+          "location": "tests/engineSettings.test.cjs:1:1"
+        },
+        {
+          "name": "13. large files keep the bounded read while hashing the full bytes",
+          "location": "tests/fileVersion.test.cjs:290:1"
+        },
+        {
+          "name": "MCP execution applies the cap before serialization",
+          "location": "tests/filesystemToolLimits.test.cjs:45:1"
+        },
+        {
+          "name": "a steering message already in the transcript survives context recovery",
+          "location": "tests/liveSteeringLoop.test.mjs:189:1"
+        },
+        {
+          "name": "the six native tools are registered once and dispatched through the real pipeline",
+          "location": "tests/lspProductionAgent.test.cjs:77:1"
+        },
+        {
+          "name": "tests/messageActions.test.cjs",
+          "location": "tests/messageActions.test.cjs:1:1"
+        },
+        {
+          "name": "tests/messageStats.test.cjs",
+          "location": "tests/messageStats.test.cjs:1:1"
+        },
+        {
+          "name": "web_search is registered natively, visible to main agents and children, and maps to READ",
+          "location": "tests/nativeWebSearch.test.cjs:89:1"
+        },
+        {
+          "name": "tests/projects.test.cjs",
+          "location": "tests/projects.test.cjs:1:1"
+        },
+        {
+          "name": "tests/recentChatHistory.test.cjs",
+          "location": "tests/recentChatHistory.test.cjs:1:1"
+        },
+        {
+          "name": "automatic rollback preserves a labelled pre-rollback snapshot",
+          "location": "tests/recoverySafety.test.cjs:154:1"
+        },
+        {
+          "name": "rollback failure is reported once without recursion",
+          "location": "tests/recoverySafety.test.cjs:184:1"
+        },
+        {
+          "name": "17. batch write failure mid-sequence rolls back and keeps a durable point",
+          "location": "tests/recoveryStore.test.cjs:374:1"
+        },
+        {
+          "name": "aborts live reasoning_content loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "aborts live reasoning loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "aborts live inline-think loops, cancels reader and publishes the visible notice once",
+          "location": "tests/repetitionDetector.test.mjs:38:3"
+        },
+        {
+          "name": "loop termination discards partial tool calls and preserves earlier visible text",
+          "location": "tests/repetitionDetector.test.mjs:80:1"
+        },
+        {
+          "name": "workspace retains safety, activation, task continuity and MCP discovery",
+          "location": "tests/sessionPromptWording.test.cjs:72:9"
+        },
+        {
+          "name": "tests/skillImportIpc.test.cjs",
+          "location": "tests/skillImportIpc.test.cjs:1:1"
+        },
+        {
+          "name": "tests/skillProposalIpc.test.cjs",
+          "location": "tests/skillProposalIpc.test.cjs:1:1"
+        },
+        {
+          "name": "the investigate option stays additive to the spawn schema",
+          "location": "tests/spawnSubagent.test.cjs:78:1"
+        },
+        {
+          "name": "tests/subAgentRunner.test.cjs",
+          "location": "tests/subAgentRunner.test.cjs:1:1"
+        },
+        {
+          "name": "running child crosses pressure repeatedly and resumes with early findings without tool replay",
+          "location": "tests/subagentCompaction.test.cjs:219:1"
+        },
+        {
+          "name": "Gate 2: exact 50-tool inventory, eligible discovery and incremental activation across modes",
+          "location": "tests/t2eRuntimeMcpScaling.test.cjs:108:1"
+        },
+        {
+          "name": "compaction preserves every structural field and validator compiles the complete registry",
+          "location": "tests/unifiedToolArchitecture.test.cjs:64:1"
+        },
+        {
+          "name": "permission restrictions and workspace boundaries stay enforced",
+          "location": "tests/verification.test.cjs:126:1"
+        },
+        {
+          "name": "concurrent history change during measurement invalidates without partial persistence",
+          "location": "tests/workspaceBudgetVerification.test.cjs:99:1"
+        }
+      ],
+      "log_sha256": "8662b0ad70e6f793369291c15bb6f658fbeec7594123fe4c5971c1b4490219b3"
+    },
+    "final_focused": {
+      "log": "/tmp/r3-final-focus.tap",
+      "complete": true,
+      "counts": {
+        "tests": 383,
+        "pass": 381,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 27939.79831
+      },
+      "failures": [
+        {
+          "name": "13. large files keep the bounded read while hashing the full bytes",
+          "location": "tests/fileVersion.test.cjs:290:1"
+        },
+        {
+          "name": "the six native tools are registered once and dispatched through the real pipeline",
+          "location": "tests/lspProductionAgent.test.cjs:77:1"
+        }
+      ],
+      "log_sha256": "7abd66e80603bf24717b60ecb7c66d747512bb8b2ac965b7a5a712251b42ea80"
+    },
+    "new_regressions": {
+      "log": "/tmp/r3-regression.tap",
+      "complete": true,
+      "counts": {
+        "tests": 25,
+        "pass": 25,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 1891.420527
+      },
+      "failures": [],
+      "log_sha256": "289a67245180179a3763379970eeb0039290c1eb0f4075928b0fe422bceb6e71"
+    },
+    "brief_context_ownership": {
+      "log": "/tmp/r3-final-ownership-focus.tap",
+      "complete": true,
+      "counts": {
+        "tests": 24,
+        "pass": 24,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 1226.883377
+      },
+      "failures": [],
+      "log_sha256": "656a3b52fffcadc86b71fdda635ecbcf2b9be500ac3f5c54f2b10b73528d3bea"
+    },
+    "editing_and_plans": {
+      "log": "/tmp/r3-final-edit-plan.tap",
+      "complete": true,
+      "counts": {
+        "tests": 140,
+        "pass": 140,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 2791.989348
+      },
+      "failures": [],
+      "log_sha256": "dcae9d98a17f75620d0bd79c65e7f0a05ad3bc55c7732387e3cb489386e2065a"
+    },
+    "isolated_model_after": {
+      "log": "/tmp/r3-model-after.tap",
+      "complete": true,
+      "counts": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 11194.011628
+      },
+      "failures": [],
+      "log_sha256": "a96482d634c239df8b408a150d4d4807ed190e409fb3ce992c6a0a4f21fb2994"
+    },
+    "isolated_model_before": {
+      "log": "/tmp/r3-model-before.tap",
+      "complete": true,
+      "counts": {
+        "tests": 14,
+        "pass": 11,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 8263.190132
+      },
+      "failures": [
+        {
+          "name": "4. a local selection overrides a cloud chat and fails loudly without a server",
+          "location": "tests/subagentModelSelection.test.cjs:337:1"
+        },
+        {
+          "name": "9. the single local slot queues children resolved to the same server model",
+          "location": "tests/subagentModelSelection.test.cjs:584:1"
+        },
+        {
+          "name": "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+          "location": "tests/subagentModelSelection.test.cjs:627:1"
+        }
+      ],
+      "log_sha256": "7cfdf5213396632b2747ab1eb13e34c5d6e8982b882017520ce1800a3c439584"
+    }
+  },
+  "comparison": {
+    "after_only_failure_names": [],
+    "baseline_only_failure_names": [
+      "10. mixed lanes run in parallel and a setting change only affects the next spawn",
+      "4. a local selection overrides a cloud chat and fails loudly without a server",
+      "6. foreground, messages, and background runs all keep the one resolved model",
+      "7. interrupt and resume keep the child on the model it started with",
+      "8. a cloud model still gets the read-only child allowlist",
+      "9. the single local slot queues children resolved to the same server model",
+      "U6 diagnostic components partition the actual wire request without overlap",
+      "packaging configuration ships the bundled server and its runtime dependencies"
+    ],
+    "interpretation": "No new failure identities in the broad comparison. Some legacy failures vary between runs; baseline-only improvements are not attributed to R3. Broad run predates the last output-cap regression; final focused suites cover that final formatting code."
+  },
+  "test_safety": {
+    "baseline_method": "Disposable source reconstruction reverses only R3 changes, retaining pre-existing uncommitted work. Original read-only status and pre-edit restricted test attempt were also inspected.",
+    "baseline_source_manifest_sha256": "a76a8fd660a634f112c1dee3fb22127b6c248013f6b4b64a99f249c9e40948ff",
+    "offline_harness": "Host-default MCP singleton configuration redirected to an empty temporary JSON file; tests/rag.test.cjs excluded; per-test deadline 60s.",
+    "unexpected_initial_rag_process": "An initial broad run launched the host-configured Gmail MCP process from an existing RAG test. Only those test-owned processes were terminated. No MCP operation was intentionally issued; external startup activity was not verified. Later runs isolated MCP configuration and excluded this test.",
+    "real_model_inference_performed": false,
+    "live_conversation_database_access": "SQLite read-only URI for audit only; all implementation tests use temporary databases.",
+    "new_database_table": "Additive attachment_read_refs initialized only in disposable test databases during implementation."
+  },
+  "acceptance_check_mapping": {
+    "1": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "2": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "3": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "4": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "5": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "6": "Trusted native hash regression, child native dispatch, provider conversion; ordinary unchanged reads",
+    "7": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "8": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "9": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "10": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "11": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "12": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "13": "Ordinary/conditional/revision/stale/conflict reads and protected writes; existing fileVersion suite",
+    "14": "Per-mode image reads without approval and unchanged mutation policy",
+    "15": "Per-mode image reads without approval and unchanged mutation policy",
+    "16": "Per-mode image reads without approval and unchanged mutation policy",
+    "17": "Per-mode image reads without approval and unchanged mutation policy",
+    "18": "Audio/video file metadata; existing provider-dependent original-user-media pathway",
+    "19": "Actual PDF and XLSX ingestion/extraction and session-owned reread",
+    "20": "Binary/UTF-8, GIF validator and text-only-model limitation diagnostics",
+    "21": "Prompt and brief references; authorized native attachment resolution",
+    "22": "Prompt and brief references; authorized native attachment resolution",
+    "23": "Foreign/detached/deleted/reused-row/symlink/traversal reference rejection",
+    "24": "Foreign/detached/deleted/reused-row/symlink/traversal reference rejection",
+    "25": "Foreign/detached/deleted/reused-row/symlink/traversal reference rejection",
+    "26": "Workspace path boundaries and unchanged mutation capability table",
+    "27": "Workspace path boundaries and unchanged mutation capability table",
+    "28": "Trusted child delegation, forged context rejection, child deletion revocation",
+    "29": "20 MB file bound and bounded text output",
+    "30": "All-mode guard calls produce zero approval prompts",
+    "31": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "32": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "33": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "34": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "35": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "36": "Existing real bundled LSP and deterministic fake transport lifecycle; precise missing executable/timeout reasons and bounded restart availability",
+    "37": "Optional LSP failure followed by native reads; existing permission and compact/full suites",
+    "38": "Optional LSP failure followed by native reads; existing permission and compact/full suites",
+    "39": "Optional LSP failure followed by native reads; existing permission and compact/full suites",
+    "40": "Mocked provider receives actual native hash and successfully reuses it for revision-constrained read",
+    "41": "Mocked provider receives actual native hash and successfully reuses it for revision-constrained read",
+    "42": "Native attachment image passes real tool-image formatter in all permission modes",
+    "43": "Native attachment image passes real tool-image formatter in all permission modes",
+    "44": "Mocked agent completes paired LSP-failure/read/success sequence",
+    "45": "Paired calls, valid capped JSON and source_evidence; E1/E2, T1/T1.1 and task-plan compatibility suites"
+  },
+  "source_sha256": {
+    "src/lib/memoryChat.mjs": "75e2ea727174c3b5e76da9b66bdee0c835e573ab9454faec3120bb11303b0610",
+    "src/lib/toolResultFormatter.mjs": "d163b32611f43e4ad24da8e11287462478ef7931d3d3d7ef5e78117d5cbcad1d",
+    "src/main/attachmentReader.js": "35ae5f4c0db7ed6d14d7bc455c12558bd8dc7087469010692659eead9a7c60bb",
+    "src/main/db.js": "272f00635723649bcc45cf39a55a500651e6b33b6644cdb5444a2d4a16a1e83c",
+    "src/main/fileUploads.js": "c69c05aa0d7d50b798d88309ef89d718b45df349d506a67da195667134311f06",
+    "src/main/lspCodeIntelligence.js": "91e7de79a0a9491fabbacbd78322d15410923d51d97c029f5d36be0d7bcaa370",
+    "src/main/lspManager.js": "b645a3241fd87ed61eeea96cc77067800a71139578dbb06151ab55f936289639",
+    "src/main/promptBuilder.js": "005c80e736d4e9caa8b6e511d65a19a7d4f4ab63ac003f14b07c4828e03ddcf2",
+    "src/main/subagents/agentLoop.js": "a3c39b25f42023b5a03608d674ef9fec1bf5606bf525ce09de2592c11b226604",
+    "src/main/taskBriefs.js": "8271dee3fac0deec232e9dc0999176f37a5cc5fe4c7906e5372a4f6c7ce71a55",
+    "src/main/tools/agentTools.js": "7e72f9074719da519e96b327034aab7d0b08e1cbc7a34ed015e12fdbe726e3f4",
+    "src/main/tools/lspTools.js": "576c0e2e29cdcc5977457e859a2201c84d4651c303f0d72c27da8a1917253417",
+    "tests/attachments.test.cjs": "3780384a6511ecd85b6ec0e3131c0ee5e77150ba685224f7aa445d52c61017a0",
+    "tests/fileVersion.test.cjs": "c2ebd7b24dcd9e362647485665e17eb94cc4010cbb95d25dc20d0359157c46e2",
+    "tests/selectiveFileReading.test.cjs": "66e4c759dd1dc19de195eb20348d52f5e862f961d6dc04951a67c21d4623b724",
+    "tests/r3Reliability.test.cjs": "715abb7b36e0ba081388ac701a29ae43d926c349cc4cd67947f9fa019134e58a"
+  },
+  "build": {
+    "command": "npm run build",
+    "log": "/tmp/r3-final-build.log",
+    "passed": true,
+    "warning": "Existing Vite chunk-size warning; no build errors."
+  },
+  "whitespace": {
+    "command": "git diff --check",
+    "passed": true
+  },
+  "preservation": {
+    "no_commit_push_stash_reset_clean": true,
+    "dependencies_installed": false,
+    "model_settings_changed": false,
+    "compaction_implementation_changed_by_r3": false,
+    "batching_or_editing_algorithms_changed_by_r3": false,
+    "source_and_test_files_outside_r3_unchanged_against_reconstruction": true,
+    "pre_existing_package_json_preserved": true
+  }
+}

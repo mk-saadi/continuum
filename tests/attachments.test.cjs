@@ -54,7 +54,8 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.match(parts[0].text, /Attached File: notes.txt/); assert.match(parts[0].text, /plan.md/);
   assert.match(parts[0].text, /Attachment text/);
   assert.match(parts[0].text, /# Project plan/);
-  assert.ok(parts[0].text.includes(attachments[0].file_path));
+  assert.ok(!parts[0].text.includes(attachments[0].file_path));
+  assert.match(parts[0].text, /attachment_id/);
   assert.equal(parts.filter(p => p.type === 'image_url').length, 2);
   assert.equal(parts[1].image_url.url, `data:image/png;base64,${bytes.toString('base64')}`);
   const original = sessions.loadSession('vision').messages[0];
@@ -101,7 +102,8 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
     assert.ok(result.endsWith('User Prompt: Read it'));
     if (inline) assert.ok(result.includes(raw));
     else {
-      assert.ok(result.includes(`Absolute path: ${uploaded[0].file_path}`));
+      assert.ok(!result.includes(uploaded[0].file_path));
+      assert.match(result, /Attachment access:/);
       assert.ok(!result.includes(raw));
     }
     if (name === 'fences.md') assert.ok(result.includes('\n````\n' + raw + '\n````\n'));

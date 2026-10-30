@@ -50,7 +50,7 @@ function searchMemoryDatabase(connection, { query, modelId, target = 'all', proj
   }
 
   const permanent = target === 'session' || state.pd ? { matches: [], partial: false, timedOut: false, searched: 0, cursor: null }
-    : require('./memoryManager').searchPermanentPage(connection, query, modelId, {
+    : require('./permanentMemorySearch').searchPermanentPage(connection, query, modelId, {
       projectId, limit, cursor: state.p,
       deadline: target === 'all' ? Math.min(deadline, Date.now() + 10000) : deadline,
     });

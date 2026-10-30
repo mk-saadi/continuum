@@ -412,8 +412,8 @@ function estimateBriefTokens(briefs) {
 // Render one attachment reference. Never throws: missing files become an
 // explicit unavailable marker so a deleted attachment cannot break prompt
 // construction or read as a valid path.
-function formatBriefAttachment(attachment, briefId) {
-	const name = attachment.file_name ?? attachment.file_path ?? "attachment";
+function formatBriefAttachment(attachment, briefId, messageId) {
+	const name = attachment.file_name ?? (attachment.file_path ? attachmentName(attachment.file_path) : "attachment");
 	const filePath = attachment.file_path;
 	let stat = null;
 	try {
@@ -422,9 +422,10 @@ function formatBriefAttachment(attachment, briefId) {
 		stat = null;
 	}
 	if (!stat) {
-		return `[Attachment unavailable for brief #${briefId}: ${name}${filePath ? ` (was: ${filePath})` : ""}]\nThe referenced file is no longer accessible; do not treat its former path as readable.`;
+		return `[Attachment unavailable for brief #${briefId}: ${name}]\nThe referenced file is no longer accessible.`;
 	}
 	const mime = attachment.mime_type ?? "";
+	const access = `Attachment access: ${JSON.stringify(require('./attachmentReader').describe(attachment, messageId))}`;
 	const isText = mime.startsWith("text/") || mime === "application/json";
 	if (isText && stat.size < 50 * 1024) {
 		let raw;
@@ -436,9 +437,9 @@ function formatBriefAttachment(attachment, briefId) {
 		const fence = "`".repeat(
 			Math.max(3, ...Array.from(raw.matchAll(/`+/g), (match) => match[0].length + 1)),
 		);
-		return `[Attached File: ${name}]\n${fence}\n${raw}\n${fence}\n[End of Attached File]`;
+		return `[Attached File: ${name}]\n${access}\n${fence}\n${raw}\n${fence}\n[End of Attached File]`;
 	}
-	return `[Attached File: ${name}]\nAbsolute path: ${filePath}\n[End of Attached File]`;
+	return `[Attached File: ${name}]\n${access}\nUse read_project_file with attachment_id; internal storage paths are not tool arguments. Media interpretation requires compatible model support.\n[End of Attached File]`;
 }
 
 function formatBriefEntry(brief) {
@@ -455,7 +456,7 @@ function formatBriefEntry(brief) {
 	const lines = [`[Brief #${brief.id} — ${label}]:`, brief.content_text, `[End of brief #${brief.id}]`];
 	if (brief.attachments && brief.attachments.length) {
 		lines.push(`[Attachments for brief #${brief.id}]:`);
-		for (const attachment of brief.attachments) lines.push(formatBriefAttachment(attachment, brief.id));
+		for (const attachment of brief.attachments) lines.push(formatBriefAttachment(attachment, brief.id, brief.message_id));
 	}
 	return lines.join("\n");
 }

@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
+import { toolDisplayName } from "../lib/executionEvents.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
@@ -1068,8 +1069,8 @@ export function ToolCallBadge({ toolCalls }) {
 							className="shrink-0"
 						/>
 						<span>
-							{call.serverName ? `${call.serverName} / ` : ""}
-							{call.toolName ||
+							{call.serverName && call.serverName !== "native" ? `${call.serverName} / ` : ""}
+							{toolDisplayName(call) ||
 								(typeof call.function?.name === "string" ? call.function.name : "Tool")}
 						</span>
 						{call.status && (

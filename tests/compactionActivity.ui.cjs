@@ -15,15 +15,15 @@ app.whenReady().then(async()=>{
  const wait=()=>new Promise(r=>setTimeout(r,80));await wait();
  const e={id:'attempt-a',session_id:'a',run_id:'run-a',message_id:1,anchor_step_id:'read',sequence:1,revision:1,status:'generating',started_at:'2026-10-25T00:00:00Z',metadata:{}};
  window.emitActivity(e);await wait();const started=document.body.textContent.includes('Generating compact task state');
- const complete={...e,status:'completed',revision:2,metadata:{beforeTokens:10000,afterTokens:6000,measurementMethod:'approximate-full-request',continued:true,checkpointId:42,targetTokens:17000,targetMet:true,generationStages:2}};
+ const complete={...e,status:'completed',revision:2,metadata:{beforeTokens:10000,afterTokens:6000,measurementMethod:'approximate-full-request',continued:true,summaryTokens:1920,summaryTokenMethod:'server-template-tokenizer',checkpointId:42,targetTokens:17000,targetMet:true,generationStages:2}};
  window.emitActivity(complete);window.emitActivity(e);window.emitActivity(complete);await wait();
  window.emitCompression({sessionId:'a',compressed:true,archivedCount:5,diagnostics:{commitOutcome:'committed-and-verified',sessionModelId:'model',modelId:'provider-native-model',actualTokens:6000,actualMeasurementMethod:'approximate-full-request',actualBudgetContract:{usableInputTokens:39000}}});
  await wait();const counterAccurate=window.counterState.contextTokens===10000&&window.counterState.contextConfidence==='estimated'&&!window.counterState.toast;
  const text=document.body.textContent;const correctOrder=text.indexOf('before.js')<text.indexOf('Context compacted')&&text.indexOf('Context compacted')<text.indexOf('after.js');
  const unique=document.querySelectorAll('[data-compaction-id]').length===1;
  const accessible=document.querySelector('[data-compaction-id] summary')?.tagName==='SUMMARY'&&!!document.querySelector('[role=status]');
- const measured=text.includes('Estimated: 10,000')&&text.includes('40.0% less')&&text.includes('Agent continued working');
- const inspectButton=[...document.querySelectorAll('button')].find(button=>button.textContent==='Inspect checkpoint');
+ const measured=text.includes('Estimated: 10,000')&&text.includes('40.0% less')&&text.includes('Agent continued working')&&text.includes('Working summary: 1,920 tokens');
+ const inspectButton=[...document.querySelectorAll('button')].find(button=>button.textContent==='Inspect summary');
  let focused=null;window.addEventListener('continuum:inspect-checkpoint',event=>focused=event.detail,{once:true});
  inspectButton?.click(); const inspect=focused?.sessionId==='a'&&focused?.checkpointId===42&&text.includes('Checkpoint v42')&&text.includes('Post-compaction target: 17,000 tokens · Met');
  const disclosure=document.querySelector('[data-compaction-id] summary');disclosure.click();const expands=document.querySelector('[data-compaction-id]').open;

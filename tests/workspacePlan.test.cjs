@@ -629,3 +629,127 @@ test('the plan survives restart, and a failed write is reported as not saved', (
   assert.match(block.content, /Objective: Restart/);
   assert.equal(sessions.loadSession(id).messages.length, messagesBefore);
 });
+
+test('R4 consecutive tasks preserve revision history, reject stale and explicit unfinished replacement', () => {
+ const id = workspaceSession();
+ assert.equal(plan.planState(id).exists, false);
+ assert.match(plan.buildPlanStateSection(id).content, /action="create"/);
+ const first = plan.updatePlan(id, { action: 'create', objective: 'first', steps: [1,2,3].map(n => ({ description: `step ${n}`, status: 'completed' })) }).plan;
+ const duplicate = plan.updatePlan(id, { action: 'create', steps: [{ description: 'wrong' }] });
+ assert.equal(duplicate.code, 'PLAN_EXISTS'); assert.equal(duplicate.existing_plan.revision, 1);
+ assert.equal(plan.planState(id).fully_completed, true);
+ const next = plan.updatePlan(id, { action: 'update', transition: 'new_task', expected_revision: 1, objective: 'second', steps: [{ description: 'new work' }] });
+ assert.equal(next.success, true); assert.equal(next.revision, 2); assert.equal(plan.getPlan(id).steps[0].status, 'pending');
+ const historic = JSON.parse(db.prepare('SELECT snapshot FROM workspace_plan_history WHERE session_id=? AND revision=1').get(id).snapshot);
+ assert.deepEqual(historic, first);
+ const blocked = plan.updatePlan(id, { action: 'update', transition: 'new_task', expected_revision: 2, objective: 'third', steps: [{ description: 'distinct' }] });
+ assert.equal(blocked.code, 'UNFINISHED_PLAN'); assert.equal(plan.getPlan(id).revision, 2);
+ const superseded = plan.updatePlan(id, { action: 'update', transition: 'supersede', expected_revision: 2, objective: 'third', steps: [{ description: 'distinct' }] });
+ assert.equal(superseded.revision, 3);
+ assert.equal(plan.updatePlan(id, { action: 'update', expected_revision: 2, objective: 'stale' }).code, 'STALE_PLAN');
+ const other = workspaceSession(); plan.updatePlan(other, { action: 'create', steps: [{ description: 'private' }] });
+ assert.equal(plan.updatePlan(other, { action: 'update', steps: [{ id: first.steps[0].id, status: 'pending' }] }).code, 'UNKNOWN_STEP');
+ for (const rebuild of [prepareChatMessages, rebuildChatMessages]) {
+  const messages = rebuild({ sessionId: id, modelId: MODEL, userText: 'a distinct task' });
+  const state = messages.find(m => m.workspacePlanState);
+  assert.match(state.content, /Revision: 3/); assert.ok(state.content.length < 1300);
+ }
+ const archived = JSON.parse(db.prepare('SELECT snapshot FROM workspace_plan_history WHERE session_id=? AND revision=2').get(id).snapshot);
+ assert.equal(archived.objective, 'second'); assert.equal(archived.steps[0].status, 'pending');
+});
+
+test('R4 directory root aliases retain containment', async () => {
+ const id = workspaceSession();
+ const results = [];
+ for (const args of [{}, { relative_path: '' }, { relative_path: '.' }]) results.push(await executeAgentTool({ name: 'list_directory', arguments: JSON.stringify(args), sessionId: id, permissionMode: 'workspace_write' }));
+ assert.deepEqual(results[1], results[0]); assert.deepEqual(results[2], results[0]); assert.ok(Array.isArray(results[0].entries));
+ const escape = await executeAgentTool({ name: 'list_directory', arguments: JSON.stringify({ relative_path: '\0' }), sessionId: id, permissionMode: 'workspace_write' });
+ assert.equal(escape.success, false);
+});
+
+test('R4 deterministic model loop refreshes plans across three tasks and preserves failed verification', async () => {
+ const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
+ const { structureVerification } = require('../src/main/tools/agentTools');
+ const id = workspaceSession();
+ const response = delta => new Response(`data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: delta.tool_calls ? 'tool_calls' : 'stop' }] })}\n\ndata: [DONE]\n\n`);
+ const requests = [];
+ async function turn(objective, transition) {
+  let round = 0;
+  const expected = plan.getPlan(id)?.revision;
+  const args = expected ? { action: 'update', expected_revision: expected, ...(transition ? { transition } : {}), objective, steps: [{ description: objective }] } : { action: 'create', objective, steps: [1,2,3].map(n => ({ description: `${objective} ${n}` })) };
+  await runMemoryChat({ baseUrl: 'http://fixture.invalid', modelId: MODEL, messages: [{ role: 'system', content: 'Fixture rules' }, { role: 'user', content: objective }],
+   chatTools: agentTools.filter(t => ['update_plan', 'run_tests'].includes(t.function.name)), memoryTools: [],
+   getSessionPlanState: () => plan.buildPlanStateSection(id),
+   executeTool: async call => {
+    if (call.name === 'run_tests') return structureVerification({ command: 'node --test fail.cjs | tail -5' }, { exitCode: 0, stdout: '1..1\nnot ok 1 - broken\n# tests 1\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n' }, null, 1000, '.');
+    const result = await executeAgentTool({ name: call.name, arguments: call.arguments, sessionId: id, permissionMode: 'workspace_write' });
+    assert.equal(result.success, true, JSON.stringify(result)); return result;
+   },
+   fetchImpl: async (_url, request) => {
+    const payload = JSON.parse(request.body); requests.push(payload);
+    const text = JSON.stringify(payload.messages);
+    if (round++ === 0) {
+     assert.ok(text.includes(expected ? `revision\\\":${expected}` : 'No plan exists'));
+     return response({ tool_calls: [{ index: 0, id: 'plan', type: 'function', function: { name: 'update_plan', arguments: JSON.stringify(args) } }] });
+    }
+    assert.ok(text.includes(`revision\\\":${plan.getPlan(id).revision}`));
+    if (round === 2) return response({ tool_calls: [{ index: 0, id: 'verify', type: 'function', function: { name: 'run_tests', arguments: JSON.stringify({ command: 'fixture' }) } }] });
+    assert.match(text, /failed/); assert.doesNotMatch(text, /Verification passed/);
+    return response({ content: 'Verification failed; reported accurately.' });
+   },
+  });
+ }
+ await turn('first');
+ const current = plan.getPlan(id);
+ plan.updatePlan(id, { action: 'update', expected_revision: current.revision, steps: current.steps.map(s => ({ id: s.id, status: 'completed' })) });
+ await turn('second', 'new_task');
+ await turn('revised second');
+ assert.equal(plan.getPlan(id).objective, 'revised second');
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM workspace_plan_history WHERE session_id=?').get(id).n, 3);
+ assert.equal(requests.length, 9);
+ const steps = [{ id: 'r4-check', type: 'tool_call', toolName: 'run_tests', status: 'complete', args: { command: 'node --test x | tail -1' }, result: { success: false, status: 'inconclusive', exitCode: 0, stdout: '# pass 1' } }];
+ assert.equal(require('../src/main/taskCheckpoints').classifyStepOutcome(steps[0]), 'failed');
+ const digest = require('../src/main/turnDigest').buildTurnDigest(steps, { turnSeq: 1 });
+ assert.doesNotMatch(digest.text, /tests passed/);
+ assert.match(digest.text, /inconclusive|failed/);
+});
+
+test('R4 memory worker searches without Electron and reports missing databases explicitly', async () => {
+ const { Worker } = require('node:worker_threads');
+ db.prepare("INSERT INTO permanent_memories(category,content,scope) VALUES ('rule','r4 worker sentinel','global')").run();
+ const databasePath = require('../src/main/db').getDatabasePath();
+ async function search(file, request) {
+  const worker = new Worker(path.resolve(__dirname, '../src/main/memorySearchWorker.js'), { workerData: { databasePath: file, request } });
+  try { return await new Promise((resolve, reject) => { worker.once('message', resolve); worker.once('error', reject); }); }
+  finally { await worker.terminate(); }
+ }
+ const found = await search(databasePath, { query: 'r4 worker sentinel', modelId: MODEL, target: 'all' });
+ assert.equal(found.error, undefined); assert.match(found.result, /worker sentinel/);
+ const missing = await search(path.join(directory, 'missing.db'), { query: 'sentinel', modelId: MODEL });
+ assert.match(missing.error, /exist|open/i);
+});
+
+test('R4 deletion invalidates live plan guidance and cascades archived history', () => {
+ const id = workspaceSession();
+ plan.updatePlan(id, { action: 'create', steps: [{ description: 'old', status: 'completed' }] });
+ plan.updatePlan(id, { action: 'update', expected_revision: 1, transition: 'new_task', objective: 'new', steps: [{ description: 'new' }] });
+ assert.equal(plan.planState(id).revision, 2);
+ db.prepare('DELETE FROM sessions WHERE id=?').run(id);
+ assert.equal(plan.buildPlanStateSection(id), null);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM workspace_plan_history WHERE session_id=?').get(id).n, 0);
+ assert.equal(plan.updatePlan(id, { action: 'update', objective: 'stale' }).success, false);
+});
+
+for (const mode of ['partial', 'degraded']) test(`R4 ${mode} checkpoint rebuild refreshes durable plan identity`, () => {
+ const id = workspaceSession();
+ plan.updatePlan(id, { action: 'create', objective: 'current objective', steps: [{ description: 'current work', status: 'completed' }] });
+ sessions.saveMessage(id, 'user', 'Start a separate task.');
+ const projection = { archiveIds: [], checkpoint: { savedWorkingState: `${mode} checkpoint: historical objective`, status: mode, limitations: [mode] } };
+ const messages = rebuildChatMessages({ sessionId: id, modelId: MODEL, compactionProjection: projection });
+ const state = messages.find(m => m.workspacePlanState);
+ assert.match(state.content, new RegExp(`Plan ID: ${id}`)); assert.match(state.content, /fully completed: true/);
+ plan.updatePlan(id, { action: 'update', transition: 'new_task', expected_revision: 1, objective: 'separate objective', steps: [{ description: 'fresh work' }] });
+ const resumed = rebuildChatMessages({ sessionId: id, modelId: MODEL, compactionProjection: projection });
+ assert.match(resumed.find(m => m.workspacePlanState).content, /Revision: 2/);
+ assert.match(resumed.find(m => m.workspacePlanState).content, /separate objective/);
+});

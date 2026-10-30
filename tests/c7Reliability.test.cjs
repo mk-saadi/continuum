@@ -31,7 +31,7 @@ for (const [count, size, diagnostic, mixed = false] of [[3,100,false],[55,2000,f
   const messageId = sessions.saveMessage(id,'assistant','Inspecting sources',[],null,null,null,null,null,steps).id;
   const before = JSON.stringify(storage.db.prepare('SELECT * FROM messages WHERE session_id = ?').all(id));
   const requests=[]; const started=performance.now();
-  const result=await candidate.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:80000,persist:false,
+  const result=await candidate.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:80000,persist:false,measure:require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),
    generate:async request=>{
     requests.push(request); const input=JSON.parse(request.messages[1].content);
     const draft={objective:'Continue source inspection',briefIds:input.briefs.map(b=>b.id)};
@@ -60,9 +60,9 @@ for (const [count, size, diagnostic, mixed = false] of [[3,100,false],[55,2000,f
   if (diagnostic) {
     assert.equal(result.candidate.evidence[0].diagnostics.length, 800);
     const section = require('../src/main/taskCheckpoints').workspaceCompactSection(result.candidate);
-    assert.match(section.content, /diagnosticsPartial/);
+    assert.match(section.content, /800 lines stored; retrieve full result/);
     assert.match(section.content, /case-799/);
-    assert.ok(section.workingStateEstimatedTokens < 5000);
+    assert.ok(section.summaryTokens < 5000);
   }
   for(const segment of result.diagnostics.staged?.segments??[]) assert.ok(segment.evidenceCharacters<=48000);
   if(result.diagnostics.newEvidenceCharacters>48000) assert.ok(result.diagnostics.staged.segments.length>1);
@@ -106,18 +106,21 @@ test('C7 tokenizer fallback dispatch remains an estimate and cancelled dispatch 
  await assert.rejects(b.fetch('http://localhost/v1/chat/completions',{...options,signal:controller.signal}));
  assert.equal(seen.length,1);
 });
-test('C7 unrepresentable exact command metadata fails with source, budget and history safety',async()=>{
+test('C7 unrepresentable exact command metadata uses degraded prefix without covering the command',async()=>{
  const id=`c7-${++serial}`;sessions.getOrCreateSession(id,'fixture',project.id);
  sessions.saveMessage(id,'user','Inspect oversized command metadata safely.');
  const message=sessions.saveMessage(id,'assistant','Diagnostic completed',[],null,null,null,null,null,[{
   id:'huge-command',type:'tool_call',toolName:'execute_command',status:'complete',args:{command:'echo '+'x'.repeat(50000)},result:{exitCode:0,stdout:'done'}}]);
  const before=JSON.stringify(storage.db.prepare('SELECT * FROM messages WHERE session_id=?').all(id));
- const result=await candidate.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:80000,persist:false,generate:()=>assert.fail('Unrepresentable exact metadata must not dispatch')});
+ const result=await candidate.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:80000,persist:false,measure:require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),generate:()=>assert.fail('Unrepresentable exact metadata must not dispatch')});
  if(process.env.C7_BEFORE_SOURCE){assert.equal(result.code,'evidence-budget-exceeded');return;}
- assert.equal(result.code,'evidence-item-budget-exceeded');
+ assert.equal(result.ok,true);
+ assert.equal(result.candidate.checkpointOutcome,'degraded');
+ assert.equal(result.diagnostics.fallbackReason,'evidence-item-budget-exceeded');
+ assert.ok(!result.candidate.sourceCoverage.some(ref=>ref.messageId===message.id));
  assert.equal(result.diagnostics.evidenceFailure.source.messageId,message.id);
  assert.equal(result.diagnostics.evidenceFailure.budget,12000);
- assert.equal(result.diagnostics.historyPreserved,true);assert.equal(result.diagnostics.checkpointActivated,false);
+ assert.equal(result.diagnostics.checkpointActivated,false);
  assert.equal(JSON.stringify(storage.db.prepare('SELECT * FROM messages WHERE session_id=?').all(id)),before);
  assert.equal(require('../src/main/taskCheckpoints').getLatestCheckpoint(id),null);
 });

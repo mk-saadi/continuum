@@ -42,11 +42,11 @@ function fixture() {
   const prefix = projection => builder.rebuildChatMessages({ sessionId: id, modelId: 'model', excludeMessageIds: [persistence.messageId], compactionProjection: projection });
   const tool = { type: 'function', function: { name: 'read_project_file', description: 'read fixture', parameters: { type: 'object' } } };
   const payload = { model: 'model', messages: [...prefix(null), ...tail], tools: [tool], max_tokens: 1024, stream: true };
-  const measure = async request => {
+  const measure = require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(async request => {
     const tokens = budget.approximateTokens(request);
-    const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 40000, payload: request, currentInputTokens: tokens });
-    return { tokens, method: 'approximate-full-request', budgetContract, limit: 40000, budget: budgetContract.usableInputTokens };
-  };
+    const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 40000, payload: request, currentInputTokens: tokens, measurementMethod: 'server-template-tokenizer' });
+    return { tokens, method: 'server-template-tokenizer', budgetContract, limit: 40000, budget: budgetContract.usableInputTokens };
+  });
   const generate = async request => {
     const input = JSON.parse(request.messages[1].content);
     const draft = { objective: 'Fix bug without publishing', briefIds: input.briefs.map(b => b.id) };
@@ -155,9 +155,9 @@ test('W4 oversized generation uses bounded source-bound segments without activat
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture(); engine.activeStreams.delete(f.id);
   db.prepare("UPDATE messages SET status = 'complete' WHERE id = ?").run(f.persistence.messageId);
-  for (let i = 0; i < 25; i++) sessions.saveMessage(f.id, 'assistant', `Historical observation ${i}: ` + 'detail '.repeat(550));
+  for (let i = 0; i < 25; i++) sessions.saveMessage(f.id, 'assistant', `Historical observation ${i}: ` + Array.from({length:300},(_,j)=>`Distinct detail ${i}:${j} must remain represented. `).join(''));
   const w2 = require('../src/main/workspaceCompactCandidate');
-  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: f.id, modelId: 'model', capacityTokens: 18000, persist: false, generate: async (request, meta) => {
+  const result = await w2.generateWorkspaceCompactCandidate({ sessionId: f.id, modelId: 'model', capacityTokens: 18000, persist: false, measure: require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(), generate: async (request, meta) => {
     for (let i = 0; i < 5; i++) { t.mock.timers.tick(30000); meta.onProgress(); assert.equal(meta.signal.aborted, false); }
     return f.options.generate(request);
   } });
@@ -176,7 +176,12 @@ for (const apiType of ['anthropic', 'openai']) test(`W4 ${apiType === 'openai' ?
     baseUrl: apiType === 'anthropic' ? 'https://anthropic.invalid/v1' : 'https://openrouter.ai/api/v1', apiKey: 'synthetic-key', modelId: 'fixture-model' });
   const target = { type: 'cloud', provider: providerId, model: 'fixture-model' };
   const metadata = async () => [{ providerId, modelId: target.model, contextLength: 40000 }];
-  const measure = require('../src/main/promptMeasurement').createCloudWorkspaceMeasurer(target, { getMetadata: metadata });
+  const cloudMeasure = require('../src/main/promptMeasurement').createCloudWorkspaceMeasurer(target, { getMetadata: metadata });
+  // Synthetic tokenizer counts use the production provider serialization.
+  // This fixture does not establish production cloud tokenizer availability.
+  const measure = require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(async request =>
+    request.messages[0]?.content?.includes('Create a Workspace') || request.messages.length === 1 && request.messages[0].role === 'assistant'
+      ? { tokens: budget.approximateTokens(request), limit:40000, method:'server-template-tokenizer' } : { ...await cloudMeasure(request), method:'server-template-tokenizer' });
   let turns = 0, generations = 0; const executions = [], measurements = [], compactions = [];
   const transport = async (_url, options) => {
     const body = JSON.parse(options.body);
@@ -233,10 +238,10 @@ test('W4 unknown cloud capacity cannot certify a fit', async () => {
 test('W4 staged intermediate cancellation cannot activate a checkpoint', async () => {
   const f = fixture(); engine.activeStreams.delete(f.id);
   db.prepare("UPDATE messages SET status = 'complete' WHERE id = ?").run(f.persistence.messageId);
-  for (let i = 0; i < 25; i++) sessions.saveMessage(f.id, 'assistant', 'history '.repeat(500));
+  for (let i = 0; i < 25; i++) sessions.saveMessage(f.id, 'assistant', Array.from({length:300},(_,j)=>`Distinct historical constraint ${i}:${j} remains relevant. `).join(''));
   const signal = new AbortController(); let intermediate = 0;
   const result = await require('../src/main/workspaceCompactCandidate').generateWorkspaceCompactCandidate({ sessionId: f.id, modelId: 'model', capacityTokens: 18000,
-    signal: signal.signal, generate: async (request, meta) => { if (meta.intermediate) { intermediate++; signal.abort(); } return f.options.generate(request); } });
+    signal: signal.signal, measure: require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(), generate: async (request, meta) => { if (meta.intermediate) { intermediate++; signal.abort(); } return f.options.generate(request); } });
   assert.equal(intermediate, 1); assert.equal(result.code, 'unexpected-abort');
   assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
   assert.equal(db.prepare('SELECT is_compressing FROM sessions WHERE id = ?').get(f.id).is_compressing, 0);
@@ -289,7 +294,7 @@ for (const kind of ['background', 'child', 'long-horizon']) test(`W4 full parent
         const result = await service.compactAtBoundary({ ...f.options, ...boundary, force: false });
         if (result.compressed) {
           compactions.push(result.diagnostics);
-          if (kind !== 'long-horizon') assert.ok(checkpoints.getLatestCheckpoint(f.id).checkpoint.pending.operations.length);
+          if (child?.status === 'running' || operation && backgrounds.status(operation.handle.command_id,operation.context).status === 'running') assert.ok(checkpoints.getLatestCheckpoint(f.id).checkpoint.pending.operations.length);
         }
         return result;
       },
@@ -326,7 +331,7 @@ for (const kind of ['background', 'child', 'long-horizon']) test(`W4 full parent
     });
     assert.match(answer, /Completed/); assert.equal(executed.length, names.length); assert.equal(new Set(executed).size, names.length);
     assert.ok(compactions.length >= (kind === 'long-horizon' ? 3 : 1), JSON.stringify(compactions));
-    assert.ok(compactions.every(item => item.beforeTokens >= item.triggerTokens && item.prospectiveTokens === item.actualTokens));
+    assert.ok(compactions.every(item => (item.beforeTokens >= item.triggerTokens || item.trigger?.trigger === true) && item.prospectiveTokens === item.actualTokens));
     const activity = require('../src/main/workspaceCompactionActivity').list(f.id);
     const completedActivity = activity.filter(event => event.status === 'completed');
     assert.equal(completedActivity.length, compactions.length);

@@ -161,6 +161,7 @@ function serializeCheckpointRow(sessionId, row) {
       const content = checkpoints.workspaceCompactSection(row.checkpoint).content;
       const displayed = redactSecrets(content);
       return { content: displayed, redacted: displayed !== content,
+        format: row.checkpoint.summaryFormat ?? 'legacy-structured', summaryMeasurement: row.checkpoint.summaryMeasurement ?? null,
         representation: row.checkpoint.savedWorkingState ? 'exact-persisted-continuation' : 'reconstructed-legacy-continuation',
         consumedToolCount: row.checkpoint.projection?.consumedToolIds?.length ?? 0,
         durableEvidenceCount: row.checkpoint.evidence?.length ?? 0 };

@@ -1,6 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LuCpu, LuHardDrive, LuLayers, LuPlay, LuSlidersHorizontal, LuSparkles, LuTriangleAlert, LuX } from "react-icons/lu";
-import { NumberField as BaseNumberField, SelectField as BaseSelectField } from "./FormControls";
+import {
+	LuChevronRight,
+	LuCpu,
+	LuHardDrive,
+	LuLayers,
+	LuPlay,
+	LuSlidersHorizontal,
+	LuSparkles,
+	LuTriangleAlert,
+	LuX,
+} from "react-icons/lu";
+import {
+	CheckboxField,
+	NumberField as BaseNumberField,
+	SelectField as BaseSelectField,
+} from "./FormControls";
 import Tooltip from "./Tooltip";
 import { estimateMemoryUsage } from "../lib/memoryEstimate.mjs";
 
@@ -13,13 +27,16 @@ function formatMemory(mib) {
 	return `~${Math.round(mib)} MiB`;
 }
 
-
 const integerFields = [
 	["contextLength", "Context length", "Total context tokens shared across concurrent predictions."],
 	["threads", "CPU threads", "CPU thread pool size."],
 	["evalBatch", "Evaluation batch size", "Maximum logical batch size."],
 	["physicalBatch", "Physical batch size", "Must not exceed the evaluation batch size."],
-	["parallel", "Concurrent predictions", "Maximum simultaneous predictions. The total context is shared across these slots; each request may have a smaller runtime limit."],
+	[
+		"parallel",
+		"Concurrent predictions",
+		"Maximum simultaneous predictions. The total context is shared across these slots; each request may have a smaller runtime limit.",
+	],
 ];
 
 // Compact presentation is scoped to this modal; shared controls keep their behavior.
@@ -56,35 +73,18 @@ function SelectField(props) {
 		/>
 	);
 }
-function CheckboxField({ label, hint, disabled, ...props }) {
-	return (
-		<label
-			title={hint}
-			className={`flex min-h-8 cursor-pointer items-center justify-between gap-3 text-[11px] ${disabled ? "opacity-40" : ""}`}
-		>
-			<span>{label}</span>
-			<input
-				{...props}
-				type="checkbox"
-				disabled={disabled}
-				className="size-3.5 accent-[var(--accent)]"
-			/>
-		</label>
-	);
-}
 function SectionHeading({ Icon, title, description }) {
 	return (
-		<h3
-			title={description}
-			className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)]"
-		>
-			<Icon
-				size={14}
-				className="text-[var(--accent)]"
-				aria-hidden="true"
-			/>
-			{title}
-		</h3>
+		<Tooltip content={description}>
+			<h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)]">
+				<Icon
+					size={14}
+					className="text-[var(--accent)]"
+					aria-hidden="true"
+				/>
+				{title}
+			</h3>
+		</Tooltip>
 	);
 }
 
@@ -93,7 +93,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const [config, setConfig] = useState(null);
 	const [projectorPath, setProjectorPath] = useState(model.mmprojPath || "");
 	const [confirmTextOnly, setConfirmTextOnly] = useState(false);
-    const [projectorNotice, setProjectorNotice] = useState("");
+	const [projectorNotice, setProjectorNotice] = useState("");
 	const [remember, setRemember] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -104,9 +104,9 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 		element.showModal();
 		let active = true;
 		setConfig(null);
-        setConfirmTextOnly(false);
-        setProjectorNotice("");
-        setProjectorPath(model.mmprojPath || "");
+		setConfirmTextOnly(false);
+		setProjectorNotice("");
+		setProjectorPath(model.mmprojPath || "");
 		setError("");
 		setVramWarning(null);
 		window.api
@@ -129,11 +129,17 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 							: (model.reasoningFormat ?? "auto"),
 					});
 					setRemember(remembered);
-                    if (savedProjector !== undefined) {
-                        const available = savedProjector === null || savedProjector === model.mmprojPath || model.projectorCandidates?.some(candidate => candidate.path === savedProjector);
-                        setProjectorPath(available ? savedProjector || '' : '');
-                        if (!available) setProjectorNotice('The last-used projector is no longer in the scanned files. Choose a projector or rescan.');
-                    }
+					if (savedProjector !== undefined) {
+						const available =
+							savedProjector === null ||
+							savedProjector === model.mmprojPath ||
+							model.projectorCandidates?.some((candidate) => candidate.path === savedProjector);
+						setProjectorPath(available ? savedProjector || "" : "");
+						if (!available)
+							setProjectorNotice(
+								"The last-used projector is no longer in the scanned files. Choose a projector or rescan.",
+							);
+					}
 				}
 			})
 			.catch((loadError) => {
@@ -170,10 +176,15 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	// Live VRAM/RAM split. Rough by design: it follows the selected projector and
 	// the device placement of KV cache and projector as the user changes them.
 	const projectorBytes = projectorPath
-		? (model.projectorCandidates?.find((candidate) => candidate.path === projectorPath)?.fileIdentity?.size ?? null)
+		? (model.projectorCandidates?.find((candidate) => candidate.path === projectorPath)?.fileIdentity
+				?.size ?? null)
 		: null;
 	const memory = config
-		? estimateMemoryUsage({ model: { ...model, mmprojPath: projectorPath || null }, config, projectorBytes })
+		? estimateMemoryUsage({
+				model: { ...model, mmprojPath: projectorPath || null },
+				config,
+				projectorBytes,
+			})
 		: null;
 	const memoryTitle = memory
 		? `GPU VRAM — weights ${formatMemory(memory.components.weightsVramMiB)}, KV cache ${formatMemory(memory.components.kvVramMiB)}, ` +
@@ -213,10 +224,10 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 	const submit = async (event) => {
 		event.preventDefault();
 		if (busy || !config) return;
-        if (!projectorPath && model.projectorCandidates?.length && !confirmTextOnly) {
-            setConfirmTextOnly(true);
-            return;
-        }
+		if (!projectorPath && model.projectorCandidates?.length && !confirmTextOnly) {
+			setConfirmTextOnly(true);
+			return;
+		}
 		await runLaunch(false);
 	};
 
@@ -242,12 +253,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						>
 							Model load settings
 						</h2>
-						<p
-							title={model.name || model.id}
-							className="mt-1 truncate text-[11px] text-[var(--text-muted)]"
-						>
-							{model.generalName || model.name || model.id}
-						</p>
+						<Tooltip content={model.name || model.id}>
+							<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
+								{model.generalName || model.name || model.id}
+							</p>
+						</Tooltip>
 					</div>
 					<button
 						type="button"
@@ -284,8 +294,15 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							))}
 						</dl>
-						<details className="text-[10px] text-[var(--text-muted)]">
-							<summary className="cursor-pointer">More model metadata</summary>
+						<details className="group text-[10px] text-[var(--text-muted)]">
+							<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 transition-colors hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+								More model metadata
+								<LuChevronRight
+									size={12}
+									aria-hidden="true"
+									className="transition-transform duration-200 group-open:rotate-90"
+								/>
+							</summary>
 							<dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
 								{[
 									["Active experts per token", model.activeExpertCount],
@@ -320,7 +337,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								label="Multimodal projector"
 								value={projectorPath}
 								disabled={busy}
-								onChange={(event) => { setProjectorPath(event.target.value); setConfirmTextOnly(false); setProjectorNotice(""); }}
+								onChange={(event) => {
+									setProjectorPath(event.target.value);
+									setConfirmTextOnly(false);
+									setProjectorNotice("");
+								}}
 								hint="The last-used projector is remembered automatically for this model. Choose its matching projector; the engine validates it during loading."
 							>
 								<option value="">None (text only)</option>
@@ -545,7 +566,9 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 											label="Offload vision projector to GPU"
 											hint="Uncheck to keep the multimodal projector on the CPU (llama-server --no-mmproj-offload). This frees the projector's VRAM at the cost of slower image encoding; text generation is unaffected."
 											checked={config.mmprojOffload}
-											onChange={(event) => update("mmprojOffload", event.target.checked)}
+											onChange={(event) =>
+												update("mmprojOffload", event.target.checked)
+											}
 										/>
 									)}
 									<NumberField
@@ -626,46 +649,57 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					)}
 				</div>
 
-                {(confirmTextOnly || projectorNotice) && <div role="alert" className="shrink-0 border-t border-[var(--border)] bg-[var(--active-chat)] px-5 py-3 text-xs text-[var(--text-primary)]">
-                    {projectorNotice && <p>{projectorNotice}</p>}
-                    {confirmTextOnly && <p>A multimodal projector is available, but none is selected. Multimodal input will be unavailable. Choose a projector above, or click <strong>Load text only</strong> to continue.</p>}
-                </div>}
+				{(confirmTextOnly || projectorNotice) && (
+					<div
+						role="alert"
+						className="shrink-0 border-t border-[var(--border)] bg-[var(--active-chat)] px-5 py-3 text-xs text-[var(--text-primary)]"
+					>
+						{projectorNotice && <p>{projectorNotice}</p>}
+						{confirmTextOnly && (
+							<p>
+								A multimodal projector is available, but none is selected. Multimodal input
+								will be unavailable. Choose a projector above, or click{" "}
+								<strong>Load text only</strong> to continue.
+							</p>
+						)}
+					</div>
+				)}
 
 				{config && memory && (
-					<div
-						className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[11px]"
-						title={memoryTitle}
-					>
-						<span className="inline-flex items-center gap-1.5">
-							<LuCpu
-								size={13}
-								className="text-[var(--accent)]"
-								aria-hidden="true"
-							/>
-							<span className="text-[var(--text-muted)]">GPU VRAM</span>
-							<strong className="tabular-nums">{formatMemory(memory.vramMiB)}</strong>
-						</span>
-						<span className="inline-flex items-center gap-1.5">
-							<LuHardDrive
-								size={13}
-								className="text-[var(--accent)]"
-								aria-hidden="true"
-							/>
-							<span className="text-[var(--text-muted)]">System RAM</span>
-							<strong className="tabular-nums">{formatMemory(memory.ramMiB)}</strong>
-						</span>
-						<span className="text-[10px] text-[var(--text-muted)]">
-							rough estimate · excludes OS/driver overhead
-							{memory.confidence !== "high" || memory.ramIncomplete ? " · some sizes unknown" : ""}
-						</span>
-					</div>
+					<Tooltip content={memoryTitle}>
+						<div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[11px]">
+							<span className="inline-flex items-center gap-1.5">
+								<LuCpu
+									size={13}
+									className="text-[var(--accent)]"
+									aria-hidden="true"
+								/>
+								<span className="text-[var(--text-muted)]">GPU VRAM</span>
+								<strong className="tabular-nums">{formatMemory(memory.vramMiB)}</strong>
+							</span>
+							<span className="inline-flex items-center gap-1.5">
+								<LuHardDrive
+									size={13}
+									className="text-[var(--accent)]"
+									aria-hidden="true"
+								/>
+								<span className="text-[var(--text-muted)]">System RAM</span>
+								<strong className="tabular-nums">{formatMemory(memory.ramMiB)}</strong>
+							</span>
+							<span className="text-[10px] text-[var(--text-muted)]">
+								rough estimate · excludes OS/driver overhead
+								{memory.confidence !== "high" || memory.ramIncomplete
+									? " · some sizes unknown"
+									: ""}
+							</span>
+						</div>
+					</Tooltip>
 				)}
 
 				<footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3">
 					<div className="mr-auto">
 						<CheckboxField
 							label="Remember settings for this model"
-							hint="Use these values the next time you load this model."
 							disabled={busy || !config}
 							checked={remember}
 							onChange={(event) => setRemember(event.target.checked)}

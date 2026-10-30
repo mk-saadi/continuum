@@ -100,6 +100,9 @@ function classifyStepOutcome(step) {
   if (CANCELLED_RE.test(errText)) return 'cancelled';
   if (BLOCKED_RE.test(errText)) return 'blocked';
   if (step.status === 'error' || resultIndicatesFailure(step.result)) return 'failed';
+  if (step.toolName === 'run_tests' || (step.toolName === 'execute_command' && /(?:--test|\b(?:jest|vitest|pytest|mocha)\b|\bnpm\s+(?:run\s+)?test\b)/.test(step.args?.command ?? ''))) {
+    if (require('./testVerification').verificationConcern(step.result, step.args?.command)) return 'failed';
+  }
   if (step.status === 'complete') {
     // A nonzero shell exit is an outcome failure even when the tool call
     // itself completed (mirrors engineManager.failedToolReason).
@@ -858,6 +861,10 @@ function modelEvidence(records = []) {
   });
 }
 function workspaceCompactSection(checkpoint, { stale = false } = {}) {
+  if (checkpoint.summaryFormat === 'c9-markdown') return { role: 'system', workspaceCompactState: true,
+    taskCheckpoint: true, checkpointStale: stale, content: checkpoint.savedWorkingState,
+    summaryTokens: checkpoint.summaryMeasurement?.tokens, summaryTokenMethod: checkpoint.summaryMeasurement?.method };
+
   if (typeof checkpoint.savedWorkingState === 'string') return { role: 'system', workspaceCompactState: true,
     taskCheckpoint: true, checkpointStale: stale,
     workingStateEstimatedTokens: Math.ceil(checkpoint.savedWorkingState.length / 4),

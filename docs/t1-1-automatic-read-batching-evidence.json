@@ -1,0 +1,861 @@
+{
+  "task": "T1.1",
+  "date": "2026-10-29",
+  "policy": {
+    "internalBatchLimit": 24,
+    "automaticReadCeiling": 72,
+    "aggregateOutputStopBytes": 2097152,
+    "measurement": "UTF-8 serialized actual executor output before projection; checked before each following operation; one bounded completed result may cross threshold",
+    "safeOperations": [
+      "native bounded-text read_project_file",
+      "native list_directory"
+    ],
+    "stricterBudgets": "Remaining casual, child-task and parent aggregate allowances reject oversized candidates in full when insufficient",
+    "binaryPdfOverflow": "fail closed; ordinary batches unchanged"
+  },
+  "initialFocusedBaseline": {
+    "files": 3,
+    "passed": 3,
+    "logSha256": "d876bea62d94da78449b7655d30c853892c492b1f7e93ebed07b85bea2576ea2"
+  },
+  "focused": {
+    "parentCases": 46,
+    "childCases": 1,
+    "passed": 47,
+    "failed": 0
+  },
+  "regression": [
+    {
+      "phase": "baseline",
+      "file": "memoryChat.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 50",
+        "# pass 50",
+        "# fail 0"
+      ],
+      "logSha256": "1eab7cee0102cff2bd79d3d1865872ed0b0f7c4749d257f945fe1b13dde1cfe1"
+    },
+    {
+      "phase": "baseline",
+      "file": "p2CompactNativeTools.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 8",
+        "# pass 8",
+        "# fail 0"
+      ],
+      "logSha256": "6421158d65404b6965d0e507e43fa5e8ddb581813bb56bd96dffd12684107114"
+    },
+    {
+      "phase": "baseline",
+      "file": "c93PrematureStop.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 18",
+        "# pass 18",
+        "# fail 0"
+      ],
+      "logSha256": "349ffb18789904956373f1d1d50f13ee3695e0862399d8f6ce4ec53f34940b3b"
+    },
+    {
+      "phase": "baseline",
+      "file": "c93PrematureStopIpc.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0"
+      ],
+      "logSha256": "d5dfccf6bf7b5030e59c2f78d14d50ed0641ae47931651ef8d61803b496b688d"
+    },
+    {
+      "phase": "baseline",
+      "file": "c91SemanticCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 16",
+        "# pass 16",
+        "# fail 0"
+      ],
+      "logSha256": "362172018536a251b8597b114c9f4ccc4aacc612c09bfb3208fcf53bf03f7975"
+    },
+    {
+      "phase": "baseline",
+      "file": "c9SimpleCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 21",
+        "# pass 21",
+        "# fail 0"
+      ],
+      "logSha256": "9615c1769982a18cc31dbda7b4e35f424a38e023c528d89b3dda501bb3e4dcb7"
+    },
+    {
+      "phase": "baseline",
+      "file": "contextBudget.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 14",
+        "# pass 14",
+        "# fail 0"
+      ],
+      "logSha256": "5bd1fc9dc9cbdfa8b27f988e47c5bfbeacc75e71c46bdd1ce542f36d3e461b76"
+    },
+    {
+      "phase": "baseline",
+      "file": "xmlToolStreaming.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 10",
+        "# pass 10",
+        "# fail 0"
+      ],
+      "logSha256": "bc1b64e6fe5c4dc57dcaac2bd40f9c7bf75bc04c36b923e56b0865be56783210"
+    },
+    {
+      "phase": "baseline",
+      "file": "toolArgumentLimit.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 4",
+        "# pass 4",
+        "# fail 0"
+      ],
+      "logSha256": "a2e76b7b00621b2c7d6bd7b1d7d345b74b88b40bba43257fa93ee09f94394b8e"
+    },
+    {
+      "phase": "baseline",
+      "file": "nativePermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0"
+      ],
+      "logSha256": "bac61be821c1594fb4bafcdd556211aacc14f399124d432f76bf1222953aac86"
+    },
+    {
+      "phase": "baseline",
+      "file": "mcpPermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 3",
+        "# pass 3",
+        "# fail 0"
+      ],
+      "logSha256": "b6c3826e386b19241159df68fd337e9e697f232fd2dc2d0a8debc3116d065b5c"
+    },
+    {
+      "phase": "baseline",
+      "file": "permissionIsolationReliability.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 13",
+        "# pass 13",
+        "# fail 0"
+      ],
+      "logSha256": "c853998754fc46d696d0e531390723409e86dc780017891e6858e6a5f0c3c486"
+    },
+    {
+      "phase": "baseline",
+      "file": "toolApprovalPolicy.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 45",
+        "# pass 45",
+        "# fail 0"
+      ],
+      "logSha256": "5f49725ce9ad3337e474751b4698a2643508adeb18ea4d34eef559a45b4655f1"
+    },
+    {
+      "phase": "baseline",
+      "file": "toolPermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 10",
+        "# pass 10",
+        "# fail 0"
+      ],
+      "logSha256": "309b5a2e0908c9b466785fab5819197c2293f617e7cacdb4b5e72299a6891531"
+    },
+    {
+      "phase": "baseline",
+      "file": "toolDisplay.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 3",
+        "# pass 3",
+        "# fail 0"
+      ],
+      "logSha256": "051894bb8b77f50deb2d0c8ea4a9db6991949b497d8672990e43d41cc3c98073"
+    },
+    {
+      "phase": "baseline",
+      "file": "u7ExecutionSecurity.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 14",
+        "# fail 0"
+      ],
+      "logSha256": "688cde722333df8a691a5b9d7a8c9781bbf9c6119235badee426fe11f57f8af2"
+    },
+    {
+      "phase": "baseline",
+      "file": "subagentContinuation.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 34",
+        "# pass 34",
+        "# fail 0"
+      ],
+      "logSha256": "1128e0fde9b4ab2dad4d32f12052ad506bad8edac3d5f7f9fce312f73c07a736"
+    },
+    {
+      "phase": "baseline",
+      "file": "subagentBudgets.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0"
+      ],
+      "logSha256": "acad86ca365343262479e2a94d57b0a333340f6c837b734dfb4812c5cc0b671e"
+    },
+    {
+      "phase": "baseline",
+      "file": "subagentStreaming.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 7",
+        "# pass 7",
+        "# fail 0"
+      ],
+      "logSha256": "5f46a839d1d4006fcf2f94905ee9959f498d69638d977716c6fdd02b3e92b62e"
+    },
+    {
+      "phase": "baseline",
+      "file": "streamDispatcher.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 2",
+        "# pass 2",
+        "# fail 0"
+      ],
+      "logSha256": "62419bb3b9192729e86ca90e41ddd3e091d349cd06e4d73ca10f108fe215ca5c"
+    },
+    {
+      "phase": "baseline",
+      "file": "agentTools.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [],
+      "logSha256": "f40610bbd8e7a80f47818d4e66b5c6da571064f4c40e03614f3ca137c0e5a579"
+    },
+    {
+      "phase": "baseline",
+      "file": "r2LargeFileReading.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 11",
+        "# pass 11",
+        "# fail 0"
+      ],
+      "logSha256": "034a25b1c50c07056c7a0f1b4491c179a8e50c52ff49049c98cebe1262a60c91"
+    },
+    {
+      "phase": "baseline",
+      "file": "filesystemToolLimits.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 4 - MCP execution applies the cap before serialization"
+      ],
+      "summary": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1"
+      ],
+      "logSha256": "a8634319367e8112efe7bb6d525c879e6017b2a88b349b64a8c6d4ea3d47bf28"
+    },
+    {
+      "phase": "baseline",
+      "file": "childAgentLoop.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 16 - spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+      ],
+      "summary": [
+        "# tests 16",
+        "# pass 15",
+        "# fail 1"
+      ],
+      "logSha256": "594b94b0f9a5f4ae518fd379b2410fb74cbedc70542127d874f0957e42497ff2"
+    },
+    {
+      "phase": "baseline",
+      "file": "unifiedToolArchitecture.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 6 - compaction preserves every structural field and validator compiles the complete registry"
+      ],
+      "summary": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1"
+      ],
+      "logSha256": "c0157d7c02d862195e06dfef5b3b020b7884c89d9895a4f89a92fff8f6d08175"
+    },
+    {
+      "phase": "baseline",
+      "file": "contextDispatch.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 5",
+        "# pass 5",
+        "# fail 0"
+      ],
+      "logSha256": "fe8fabe9e99e8035ae34f14ecd2770aaa899ea805dd0360ec2f999d73d833a23"
+    },
+    {
+      "phase": "baseline",
+      "file": "workspaceSafeCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 54",
+        "# pass 54",
+        "# fail 0"
+      ],
+      "logSha256": "ec803e4577682db792734eda1aa6fcbb5b55e8dd93d5af22a2b84c874bbb493a"
+    },
+    {
+      "phase": "baseline",
+      "file": "workspaceAdvancedCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0"
+      ],
+      "logSha256": "e300f8f86c5aa26e715cd89a961a4d2f0e55e381aedf2fe062a8776f527990de"
+    },
+    {
+      "phase": "baseline",
+      "file": "subagentCompaction.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 18 - running child crosses pressure repeatedly and resumes with early findings without tool replay"
+      ],
+      "summary": [
+        "# tests 26",
+        "# pass 25",
+        "# fail 1"
+      ],
+      "logSha256": "9dd83957920f73b4d23f86468f0a3fd54f3486099d8fd0674fd8a782be30888d"
+    },
+    {
+      "phase": "baseline",
+      "file": "subagentCompactionHardening.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0"
+      ],
+      "logSha256": "5065369397bf228d6f2a46da5847674565f7c635a54585757f4631cd43517645"
+    },
+    {
+      "phase": "after",
+      "file": "memoryChat.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 50",
+        "# pass 50",
+        "# fail 0"
+      ],
+      "logSha256": "15c80f3e422e886d954fd66c7572f253a1491c50c11f13ec3c7cd39f85e29bf7"
+    },
+    {
+      "phase": "after",
+      "file": "p2CompactNativeTools.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 8",
+        "# pass 8",
+        "# fail 0"
+      ],
+      "logSha256": "129214cc294aebc372f01f3f190e7257c2af60e6e223c8250cf1c3c1b7f6ac97"
+    },
+    {
+      "phase": "after",
+      "file": "c93PrematureStop.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 18",
+        "# pass 18",
+        "# fail 0"
+      ],
+      "logSha256": "610ec6b60c332e80c67f7fa85aea303abcb1a7c99db51d14092be20ce070cf7b"
+    },
+    {
+      "phase": "after",
+      "file": "c93PrematureStopIpc.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0"
+      ],
+      "logSha256": "3d5387fff9f7953ae94b315c7804111342ec79e5cd20c08983dc7a33cba78143"
+    },
+    {
+      "phase": "after",
+      "file": "c91SemanticCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 16",
+        "# pass 16",
+        "# fail 0"
+      ],
+      "logSha256": "ae058b186f3cd9a4c166865aebf99d5a056165abbccc4f65ea03a84ff1c9737c"
+    },
+    {
+      "phase": "after",
+      "file": "c9SimpleCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 21",
+        "# pass 21",
+        "# fail 0"
+      ],
+      "logSha256": "34224c7e861e2283d197cecb8942100ab1383fa9cbb19c9f02cdbe231df46ce6"
+    },
+    {
+      "phase": "after",
+      "file": "contextBudget.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 14",
+        "# pass 14",
+        "# fail 0"
+      ],
+      "logSha256": "01d93189e6e9190130819934ec4cc3ff8a933650c4f615648c7dd0224789b762"
+    },
+    {
+      "phase": "after",
+      "file": "xmlToolStreaming.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 10",
+        "# pass 10",
+        "# fail 0"
+      ],
+      "logSha256": "90d74c3edf8ab46db2c1431b5a07a6fc03afdeaa3e2bf4bccd70392f0b86fbb1"
+    },
+    {
+      "phase": "after",
+      "file": "toolArgumentLimit.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 4",
+        "# pass 4",
+        "# fail 0"
+      ],
+      "logSha256": "1992665f5ac2dbf38e552855d7ef6a4c0b86d290f621fd58b55e10afad81910f"
+    },
+    {
+      "phase": "after",
+      "file": "nativePermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 1",
+        "# pass 1",
+        "# fail 0"
+      ],
+      "logSha256": "b4386ebfc352c1d58310c64b82b5753a514abf177d9f8b693af4bb13bf5013d2"
+    },
+    {
+      "phase": "after",
+      "file": "mcpPermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 3",
+        "# pass 3",
+        "# fail 0"
+      ],
+      "logSha256": "ad098bf96a633bc19df5867237c6edd3cea51d06804105875c37b538fb8056b8"
+    },
+    {
+      "phase": "after",
+      "file": "permissionIsolationReliability.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 13",
+        "# pass 13",
+        "# fail 0"
+      ],
+      "logSha256": "3d339621a1b752aa5ae8dc8b958a07f6c69474c128c046ac66c7284c42d012cd"
+    },
+    {
+      "phase": "after",
+      "file": "toolApprovalPolicy.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 45",
+        "# pass 45",
+        "# fail 0"
+      ],
+      "logSha256": "8ebf02d33df58b7d7013e288ebcc858af3956812127d1d50ebfe61cb998fb1ef"
+    },
+    {
+      "phase": "after",
+      "file": "toolPermissions.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 10",
+        "# pass 10",
+        "# fail 0"
+      ],
+      "logSha256": "24ddf2e1b966ac848814efc2ebddebb83d1c33a20f96ec2533e98b9a6e961227"
+    },
+    {
+      "phase": "after",
+      "file": "toolDisplay.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 3",
+        "# pass 3",
+        "# fail 0"
+      ],
+      "logSha256": "0547454f7ca7939f84e1a49ec495706e769ae105f539b46889daa7cec857c612"
+    },
+    {
+      "phase": "after",
+      "file": "u7ExecutionSecurity.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 14",
+        "# fail 0"
+      ],
+      "logSha256": "dc28df582053d906c5f6448906862982b908e7ae218bf057a997bc35276b50ea"
+    },
+    {
+      "phase": "after",
+      "file": "subagentContinuation.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 34",
+        "# pass 34",
+        "# fail 0"
+      ],
+      "logSha256": "f4ebf3cfd651ad9aaccc3328ad641048d4cd9e37a8cbfb590afe38b5618e54f6"
+    },
+    {
+      "phase": "after",
+      "file": "subagentBudgets.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0"
+      ],
+      "logSha256": "34dfde0093dbadac79ce358001d2af3c0559289dd42cbe5c1cba686abc783be3"
+    },
+    {
+      "phase": "after",
+      "file": "subagentStreaming.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 7",
+        "# pass 7",
+        "# fail 0"
+      ],
+      "logSha256": "b787daab82aa24bb90ee9c9a132e18f0404f1b1234cecb6dfb098b77d75a07fa"
+    },
+    {
+      "phase": "after",
+      "file": "streamDispatcher.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 2",
+        "# pass 2",
+        "# fail 0"
+      ],
+      "logSha256": "ef6b469c1d388bc0b71bd789619be4029dfe19d19906a947ed2a80059aab9acd"
+    },
+    {
+      "phase": "after",
+      "file": "agentTools.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [],
+      "logSha256": "f40610bbd8e7a80f47818d4e66b5c6da571064f4c40e03614f3ca137c0e5a579"
+    },
+    {
+      "phase": "after",
+      "file": "r2LargeFileReading.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 11",
+        "# pass 11",
+        "# fail 0"
+      ],
+      "logSha256": "a9030eaad8f133f4379bf4edf7f4e27eccd16b295bc816c64d71b180f4d421cf"
+    },
+    {
+      "phase": "after",
+      "file": "filesystemToolLimits.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 4 - MCP execution applies the cap before serialization"
+      ],
+      "summary": [
+        "# tests 4",
+        "# pass 3",
+        "# fail 1"
+      ],
+      "logSha256": "bc34ac433c6eb16238915c07142716acdc34e1df28aa89b33d19c53568cfbcf7"
+    },
+    {
+      "phase": "after",
+      "file": "childAgentLoop.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 16 - spawn_sub_agent with investigate=true runs the loop end to end through the real provider"
+      ],
+      "summary": [
+        "# tests 16",
+        "# pass 15",
+        "# fail 1"
+      ],
+      "logSha256": "9253c94ce118cfa07e8f7363d2e90df52546c3143d31d942dbbc3490bcf59f66"
+    },
+    {
+      "phase": "after",
+      "file": "unifiedToolArchitecture.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 6 - compaction preserves every structural field and validator compiles the complete registry"
+      ],
+      "summary": [
+        "# tests 10",
+        "# pass 9",
+        "# fail 1"
+      ],
+      "logSha256": "5a332fc5f6705139db3a1b86e03988837e89f39d7405c1a614917ccea49036ef"
+    },
+    {
+      "phase": "after",
+      "file": "contextDispatch.test.mjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 5",
+        "# pass 5",
+        "# fail 0"
+      ],
+      "logSha256": "70c9e3d14e791b9358a24ce11ac356e147f529327b5fe7db26de239012e916fc"
+    },
+    {
+      "phase": "after",
+      "file": "workspaceSafeCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 54",
+        "# pass 54",
+        "# fail 0"
+      ],
+      "logSha256": "7d786b2ff3843cf8ea80698324c42cb20f288e693b28b7e8cc10bf9cd73951c1"
+    },
+    {
+      "phase": "after",
+      "file": "workspaceAdvancedCompaction.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 26",
+        "# pass 26",
+        "# fail 0"
+      ],
+      "logSha256": "6f8b63c3f073725fd683e9afc20f0fafc3ad4c28bb97f71027ba6ff318afecec"
+    },
+    {
+      "phase": "after",
+      "file": "subagentCompaction.test.cjs",
+      "code": 1,
+      "failures": [
+        "not ok 18 - running child crosses pressure repeatedly and resumes with early findings without tool replay"
+      ],
+      "summary": [
+        "# tests 26",
+        "# pass 25",
+        "# fail 1"
+      ],
+      "logSha256": "877840aa290529e9e54da672b2bf073de3d1b9e6f2ce67cfb210d2f41a29f94b"
+    },
+    {
+      "phase": "after",
+      "file": "subagentCompactionHardening.test.cjs",
+      "code": 0,
+      "failures": [],
+      "summary": [
+        "# tests 15",
+        "# pass 15",
+        "# fail 0"
+      ],
+      "logSha256": "4b1aaeff74e32e9685978bcc091367181ac2a98c1ac90d6c7a671388fb87992c"
+    }
+  ],
+  "newRegressionIdentities": [],
+  "efficiency": {
+    "method": "Injected deterministic provider fixture; real disposable local reads; tokens estimated as ceil(UTF-8 serialized bytes/4), not tokenizer measurements. Timings are fixture observations, not model performance evidence.",
+    "t1": {
+      "providerRequests": 3,
+      "generatedArgumentBytes": 1056,
+      "generatedArgumentTokensEstimated": 264,
+      "repeatedArgumentBytes": 161,
+      "fullProviderRequestBytes": [
+        764,
+        9179,
+        10348
+      ],
+      "fullProviderRequestTokensEstimated": [
+        191,
+        2295,
+        2587
+      ],
+      "toolExecutions": 28,
+      "failedOperations": 0,
+      "toolExecutionMsObserved": 4.921418000000003,
+      "taskMsObserved": 62.411021000000005,
+      "internalBatchSizes": [
+        24,
+        4
+      ]
+    },
+    "t11": {
+      "providerRequests": 2,
+      "generatedArgumentBytes": 895,
+      "generatedArgumentTokensEstimated": 224,
+      "repeatedArgumentBytes": 0,
+      "fullProviderRequestBytes": [
+        804,
+        8085
+      ],
+      "fullProviderRequestTokensEstimated": [
+        201,
+        2022
+      ],
+      "toolExecutions": 28,
+      "failedOperations": 0,
+      "toolExecutionMsObserved": 2.6289739999999853,
+      "taskMsObserved": 17.974293000000003,
+      "internalBatchSizes": [
+        24,
+        4
+      ]
+    }
+  },
+  "profiles": {
+    "compact": {
+      "files": 3,
+      "passed": 3
+    },
+    "full": {
+      "files": 3,
+      "passed": 3
+    }
+  },
+  "build": {
+    "passed": true,
+    "advisory": "existing Vite large chunks"
+  },
+  "diffCheck": {
+    "passed": true
+  },
+  "logs": {
+    "focused": {
+      "sha256": "c87bac461456a41acb9798b8fc6befadcd330dbd94e98d30046622455e04031f"
+    },
+    "child": {
+      "sha256": "02f0063be9028edb169759e793ac779ac41df629ec6cdb4be2c3d1dc39250dd9"
+    },
+    "compact": {
+      "sha256": "175b1ac62782347f71db8e42e50d4985efb193ad34fa6e8b59c868182977a2c4"
+    },
+    "full": {
+      "sha256": "1ccbd83a985d9464d2eadb70be6e2002df6b249470ac98863bbb198eee34078b"
+    },
+    "build": {
+      "sha256": "6ba65c5394c9d9e416e88c7a41cddc1824c5fb58c7653ce27a22a193e90cc097"
+    },
+    "diffCheck": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "limitations": [
+    "No real Qwen inference or live UI acceptance",
+    "No exact tokenizer measurement; byte/4 estimates only",
+    "Timings measure injected-provider fixture plus disposable file reads, not model performance",
+    "Preflight cannot freeze filesystem; executor revalidates",
+    "Aggregate threshold can be crossed by one completed bounded result",
+    "Full repository suite not run"
+  ],
+  "preservation": {
+    "existingWorkRetained": true,
+    "committed": false,
+    "pushed": false,
+    "liveDatabaseModified": false,
+    "modelSettingsModified": false,
+    "externalMcpContacted": false,
+    "dependenciesInstalled": false
+  }
+}

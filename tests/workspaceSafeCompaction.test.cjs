@@ -42,11 +42,11 @@ function fixture() {
   const prefix = projection => builder.rebuildChatMessages({ sessionId: id, modelId: 'model', excludeMessageIds: [persistence.messageId], compactionProjection: projection });
   const tool = { type: 'function', function: { name: 'read_project_file', description: 'read fixture', parameters: { type: 'object' } } };
   const payload = { model: 'model', messages: [...prefix(null), ...tail], tools: [tool], max_tokens: 1024, stream: true };
-  const measure = async request => {
+  const measure = require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(async request => {
     const tokens = budget.approximateTokens(request);
-    const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 40000, payload: request, currentInputTokens: tokens });
-    return { tokens, method: 'approximate-full-request', budgetContract, limit: 40000, budget: budgetContract.usableInputTokens };
-  };
+    const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 40000, payload: request, currentInputTokens: tokens, measurementMethod: 'server-template-tokenizer' });
+    return { tokens, method: 'server-template-tokenizer', budgetContract, limit: 40000, budget: budgetContract.usableInputTokens };
+  });
   const generate = async request => {
     const input = JSON.parse(request.messages[1].content);
     const draft = { objective: 'Fix bug without publishing', briefIds: input.briefs.map(b => b.id) };
@@ -74,6 +74,8 @@ test('W3 commits complete history, protects two rounds, retains durable original
   assert.equal(db.prepare('SELECT archived FROM messages WHERE id = ?').get(f.persistence.messageId).archived, 0);
   assert.equal(service.paired(result.payload.messages), true);
   assert.equal(result.diagnostics.actualTokens, result.diagnostics.prospectiveTokens);
+  const planning=require('../src/main/workspaceCompactionActivity').list(f.id).at(-1).metadata.planningSummary;
+  assert.equal(planning.activationOutcome,'activated');assert.ok(planning.plannedReservations<=planning.generationPool);
   assert.ok(result.diagnostics.reductionTokens > 0);
   records.push({ name: 'safe-commit', ...result.diagnostics });
 });
@@ -248,7 +250,7 @@ test('W3 current image, attachment metadata, MCP schemas and steering tail remai
   assert.deepEqual(result.tail.at(-1), image);
   assert.deepEqual(result.payload.tools.at(-1), mcp);
   assert.ok(result.diagnostics.activatedMcpSchemaTokens > 0);
-  assert.equal(result.diagnostics.measurementMethod, 'approximate-full-request');
+  assert.equal(result.diagnostics.measurementMethod, 'server-template-tokenizer');
   assert.equal(result.diagnostics.actualTokens, result.diagnostics.prospectiveTokens);
 });
 test('W3 post-commit semantic mismatch compensates and never supplies a dispatch payload', async () => {
@@ -359,7 +361,7 @@ function optionalFailure(f, { finalTokens = 82169, estimated = false, mutate = (
     generate: async () => ({ choices: [{ finish_reason: 'stop', message: { content: '{bad Gemma JSON}' } }] }),
     measure: async request => {
       const tokens = ++calls === 1 ? 82169 : request.messages[0]?.content?.includes('Create a Workspace') ? 1000 : finalTokens;
-      const method = estimated ? 'approximate-full-request' : 'server-template-tokenizer';
+      const method = estimated && !request.messages[0]?.content?.includes('Create a Workspace') ? 'approximate-full-request' : 'server-template-tokenizer';
       const budgetContract = budget.createRuntimeBudget({ runtimeContextTokens: 90112, payload: request, currentInputTokens: tokens, measurementMethod: method });
       return { tokens, method, budgetContract, limit: 90112, budget: budgetContract.usableInputTokens };
     } };
@@ -409,10 +411,10 @@ test('C8 bounded refinement persists the exact inspected continuation without re
       response.choices[0].message.content = JSON.stringify(draft); return response;
     } });
   assert.equal(result.diagnostics.refinementPasses, 1);
-  assert.ok(result.diagnostics.refinementSavedTokens > 0);
+  assert.equal(result.diagnostics.refinementSavedTokens, 0); // C9 already excludes previews.
   assert.equal(generations, 1);
   const row = checkpoints.getLatestCheckpoint(f.id);
-  assert.equal(row.checkpoint.evidencePresentation, 'references');
+  assert.equal(row.checkpoint.summaryFormat, 'c9-markdown');
   assert.equal(checkpoints.workspaceCompactSection(row.checkpoint).content, row.checkpoint.savedWorkingState);
   const display = require('../src/main/contextInspection').getCheckpointHistoryForDisplay(f.id, 1, row.id);
   assert.equal(display.checkpoints[0].workingState.content, row.checkpoint.savedWorkingState);
@@ -456,4 +458,172 @@ test('C8 inspection redacts secrets, scopes historical lookup and respects delet
   db.prepare('INSERT INTO deleted_sessions(id) VALUES (?)').run(f.id);
   assert.equal(inspect.getCheckpointForDisplay(f.id).checkpoint,null);
   assert.equal(inspect.getCheckpointHistoryForDisplay(f.id,1,result.checkpointId).checkpoints.length,0);
+});
+
+for (const mode of ['over-limit', 'unavailable', 'changed-before-activation']) test(`C9 owning activation refuses ${mode} summary without archival`, async () => {
+  const f = fixture(), before = history(f.id); let probes = 0, generations = 0;
+  await assert.rejects(service.compactAtBoundary({ ...f.options,
+    measure: async request => {
+      if (request.messages[0]?.content?.startsWith?.('# Working Summary')) {
+        probes++;
+        return { tokens: mode === 'changed-before-activation' && probes === 1 ? 4999 : 5000,
+          method: mode === 'unavailable' ? 'approximate-full-request' : 'server-template-tokenizer' };
+      }
+      return f.options.measure(request);
+    }, generate: async request => { generations++; return f.options.generate(request); },
+  }), { code: mode === 'unavailable' ? 'compaction-summary-tokenizer-unavailable' : 'compaction-summary-budget-exceeded' });
+  assert.equal(generations, mode === 'over-limit' ? 2 : 1);
+  assert.equal(history(f.id), before); assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+test('C9 owning continuation persists measured summary, one injected copy and event token metadata', async () => {
+  const f = fixture(), result = await service.compactAtBoundary(f.options);
+  const cp = checkpoints.getLatestCheckpoint(f.id).checkpoint;
+  const contents = result.payload.messages.map(m => m.content).filter(c => typeof c === 'string').join('\n');
+  assert.equal(contents.split(cp.savedWorkingState).length - 1, 1);
+  assert.equal(cp.summaryMeasurement.digest, require('../src/main/compactionSummary').digest(cp.savedWorkingState));
+  assert.ok(cp.summaryMeasurement.tokens <= 4999);
+  const event = require('../src/main/workspaceCompactionActivity').list(f.id).at(-1);
+  assert.equal(event.metadata.summaryTokens, cp.summaryMeasurement.tokens);
+  assert.equal(event.metadata.summaryTokenMethod, 'server-template-tokenizer');
+  assert.ok(result.diagnostics.afterComposition.categories.checkpoint.bytes > 0);
+});
+
+// C9.2 uses the real candidate validator, not a stubbed failure result.
+function rejectedFinding(f, changes = {}) {
+  const base = optionalFailure(f, changes);
+  let calls = 0;
+  return { ...base, measure: async request => request.messages.length === 1 && request.messages[0].role === 'assistant'
+    ? { tokens: 100, limit: 90112, method: 'server-template-tokenizer' } : base.measure(request), generate: async request => {
+    calls++;
+    const response = await f.options.generate(request);
+    const draft = JSON.parse(response.choices[0].message.content);
+    draft.research = [{ text: 'Inspected source', evidenceQuote: 'fabricated excerpt',
+      sources: [{ messageId: f.persistence.messageId, stepId: 'call-0' }] }];
+    response.choices[0].message.content = JSON.stringify(draft);
+    return response;
+  }, calls: () => calls };
+}
+test('C9.2 rejected finding continues only with measured fit, retains prior checkpoint/history, and suppresses identical retry', async () => {
+  const f = fixture();
+  await service.compactAtBoundary(f.options);
+  const prior = checkpoints.getLatestCheckpoint(f.id), original = history(f.id);
+  // A new durable boundary is required after the successful checkpoint.
+  sessions.saveMessage(f.id, 'user', 'Continue the unfinished review.');
+  const saved = history(f.id), options = rejectedFinding(f);
+  const first = await service.compactAtBoundary(options);
+  assert.equal(first.optionalContinued, true);
+  assert.equal(first.reason, 'unsupported-finding-claim');
+  assert.equal(options.calls(), 2); // one bounded correction
+  await first.validateDispatch();
+  const second = await service.compactAtBoundary(options);
+  assert.equal(second.optionalContinued, true);
+  assert.equal(second.diagnostics.generationRetrySuppressed, true);
+  assert.equal(options.calls(), 2);
+  await second.validateDispatch();
+  assert.equal(history(f.id), saved);
+  assert.deepEqual(checkpoints.getLatestCheckpoint(f.id), prior);
+  assert.equal(service.paired(second.payload.messages), true);
+  assert.notEqual(saved, original);
+  assert.equal(require('../src/main/workspaceCompactionActivity').list(f.id).at(-1).code, 'unsupported-finding-claim');
+});
+for (const [name, changes, code] of [
+  ['overflow', { finalTokens: 90000 }, 'prospective-context-overflow'],
+  ['estimated', { estimated: true }, 'optional-fallback-measurement-unavailable'],
+]) test(`C9.2 rejected finding blocks ${name} continuation`, async () => {
+  const f = fixture(), original = history(f.id), options = rejectedFinding(f, changes);
+  await assert.rejects(service.compactAtBoundary(options), { code });
+  assert.equal(options.calls(), 2);
+  assert.equal(history(f.id), original);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+for (const name of ['cancel', 'delete', 'permission', 'owner']) test(`C9.2 ${name} blocks rejected-finding fallback`, async () => {
+  const f = fixture();
+  const options = rejectedFinding(f, { mutate: () => {
+    if (name === 'cancel') f.owner.abort();
+    if (name === 'delete') db.prepare('INSERT INTO deleted_sessions(id) VALUES (?)').run(f.id);
+    if (name === 'permission') require('../src/main/lspExecutionContext').invalidateRules([f.id]);
+    if (name === 'owner') engine.activeStreams.set(f.id, new AbortController());
+  } });
+  await assert.rejects(service.compactAtBoundary(options));
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+});
+test('C9.2 changed request retries bounded generation; cached rejection never caches fit authorization', async () => {
+  const f = fixture(), options = rejectedFinding(f);
+  const result = await service.compactAtBoundary(options);
+  assert.equal(options.calls(), 2);
+  const changed = { ...options, payload: { ...options.payload, temperature: .25 } };
+  await service.compactAtBoundary(changed);
+  assert.equal(options.calls(), 4);
+  require('../src/main/lspExecutionContext').invalidateRules([f.id]);
+  await assert.rejects(result.validateDispatch(), /runtime-state-changed/);
+});
+
+function stageFailure(f, changes = {}) {
+  // Inject the retired C9.5 error at the adapter boundary to preserve recovery
+  // compatibility checks. New preflight feasibility is tested separately; the
+  // historical zero-dispatch failure is retained in the frozen replay evidence.
+  for (let i = 0; i < 13; i++) sessions.saveMessage(f.id, 'assistant', `Durable completed observation ${i}`);
+  const base = optionalFailure(f, changes);
+  let calls = 0;
+  return { ...base, generate: async () => { calls++; throw Object.assign(Error('injected legacy stage failure'), { code: 'generation-stage-budget' }); },
+    measure: async request => {
+      if (request.messages[0]?.content?.includes('Create a Workspace')) {
+        const input = JSON.parse(request.messages[1].content);
+        return { tokens: input.messages.length > 1 ? 90000 : 1000, limit: 90112, method: 'server-template-tokenizer' };
+      }
+      return base.measure(request);
+    }, calls: () => calls };
+}
+test('C9.5 stage-budget optional failure continues without replay, caches rejection but rechecks dispatch', async () => {
+  const f = fixture(), options = stageFailure(f), original = history(f.id);
+  const result = await service.compactAtBoundary(options);
+  assert.equal(result.optionalContinued, true); assert.equal(result.reason, 'generation-stage-budget');
+  await result.validateDispatch(); result.markContinued();
+  const event = require('../src/main/workspaceCompactionActivity').list(f.id).at(-1);
+  assert.equal(event.status, 'continued'); assert.equal(event.metadata.generationBudgetDiagnostics.providerRequestsAttempted, 1);
+  assert.equal(event.metadata.continuationDiagnostics.reason, 'authoritative-original-request-fits');
+  const second = await service.compactAtBoundary(options);
+  assert.equal(second.diagnostics.generationRetrySuppressed, true); await second.validateDispatch();
+  assert.equal(options.calls(), 1); assert.equal(history(f.id), original);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null); assert.deepEqual(result.tail, f.tail);
+});
+for (const [name, changes, code] of [
+  ['overflow', { finalTokens: 90000 }, 'prospective-context-overflow'],
+  ['estimated', { estimated: true }, 'optional-fallback-measurement-unavailable'],
+  ['forced', {}, 'generation-stage-budget'],
+]) test(`C9.5 stage-budget failure blocks ${name} continuation and preserves durable history`, async () => {
+  const f = fixture(), options = stageFailure(f, changes), original = history(f.id);
+  if (name === 'forced') options.force = true;
+  await assert.rejects(service.compactAtBoundary(options), { code });
+  assert.equal(options.calls(), 1); assert.equal(history(f.id), original);
+  assert.equal(checkpoints.getLatestCheckpoint(f.id), null);
+  const event = require('../src/main/workspaceCompactionActivity').list(f.id).at(-1);
+  assert.equal(event.status, 'failed');
+  assert.equal(event.metadata.continuationDiagnostics.reason, name === 'forced' ? 'forced-compaction' : code);
+});
+test('C9.5 late permission change refuses stage-budget continuation and records the refusal', async () => {
+  const f = fixture(), options = stageFailure(f), original = history(f.id);
+  const result = await service.compactAtBoundary(options);
+  require('../src/main/lspExecutionContext').invalidateRules([f.id]);
+  await assert.rejects(result.validateDispatch(), { code: 'runtime-state-changed' });
+  const event = require('../src/main/workspaceCompactionActivity').list(f.id).at(-1);
+  assert.equal(event.status, 'failed');
+  assert.equal(event.metadata.continuationDiagnostics.reason, 'runtime-state-changed');
+  assert.equal(history(f.id), original); assert.equal(options.calls(), 1);
+});
+
+for (const phase of ['prospective-build','post-commit-build','dispatch']) test(`authoritative continuation measurement is required at ${phase}`, async () => {
+ const f=fixture(),original=history(f.id);let unavailable=false;
+ const options={...f.options,inject:stage=>{if(stage===phase)unavailable=true;},measure:async request=>{
+   const value=await f.options.measure(request);
+   return unavailable && request.tools?.length?{...value,method:'approximate-full-request'}:value;
+ }};
+ if(phase==='dispatch') {
+   const result=await service.compactAtBoundary(options);unavailable=true;
+   await assert.rejects(result.validateDispatch(),{code:'continuation-measurement-unavailable'});
+ } else {
+   await assert.rejects(service.compactAtBoundary(options),{code:'continuation-measurement-unavailable'});
+   assert.equal(checkpoints.getLatestCheckpoint(f.id),null);
+   assert.equal(history(f.id),original);
+ }
 });

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
 	extractSubagentRuns,
 	extractToolCalls,
+	formatSessionDuration,
 	getNextTabIndex,
 	getSidebarMode,
 	isPromptDirty,
@@ -137,6 +138,33 @@ describe('summarizeActivity', () => {
 		assert.equal(summary.toolStats.error, 1);
 		assert.equal(summary.recentTools[0].toolName, 'read_project_file');
 	});
+	it('flags runActive only while an agent run is in flight', () => {
+		const base = { messages: [toolMessage(1, [])] };
+		assert.equal(summarizeActivity(base).runActive, false);
+		assert.equal(summarizeActivity({ ...base, streaming: true }).runActive, true);
+		assert.equal(summarizeActivity({ ...base, loading: true }).runActive, true);
+		assert.equal(
+			summarizeActivity({ ...base, toolApprovals: [{}] }).runActive,
+			true,
+			'awaiting approval is still an active run',
+		);
+		assert.equal(
+			summarizeActivity({ ...base, toolLimit: {} }).runActive,
+			true,
+			'paused mid-run still counts as active',
+		);
+		assert.equal(
+			summarizeActivity({ ...base, indexing: {} }).runActive,
+			true,
+		);
+		assert.equal(
+			summarizeActivity({
+				messages: [toolMessage(1, [toolStep('a', 'read_project_file', 'running')])],
+			}).runActive,
+			true,
+			'running tools mean an active run',
+		);
+	});
 	it('keeps only the eight most recent tools, newest first', () => {
 		const steps = Array.from({ length: 10 }, (_, index) =>
 			toolStep(`c${index}`, `tool_${index}`, 'complete'),
@@ -144,5 +172,28 @@ describe('summarizeActivity', () => {
 		const summary = summarizeActivity({ messages: [toolMessage(1, steps)] });
 		assert.equal(summary.recentTools.length, 8);
 		assert.equal(summary.recentTools[0].toolName, 'tool_9');
+	});
+});
+
+describe('formatSessionDuration', () => {
+	it('formats seconds below a minute', () => {
+		assert.equal(formatSessionDuration(0), '0s');
+		assert.equal(formatSessionDuration(1), '0s');
+		assert.equal(formatSessionDuration(59_000), '59s');
+	});
+	it('switches to minutes once seconds pass 60', () => {
+		assert.equal(formatSessionDuration(60_000), '1m');
+		assert.equal(formatSessionDuration(61_000), '1m 1s');
+		assert.equal(formatSessionDuration(119_000), '1m 59s');
+	});
+	it('switches to hours once minutes pass 60', () => {
+		assert.equal(formatSessionDuration(3_600_000), '1h');
+		assert.equal(formatSessionDuration(3_660_000), '1h 1m');
+		assert.equal(formatSessionDuration(7_380_000), '2h 3m');
+	});
+	it('rejects invalid input as zero', () => {
+		assert.equal(formatSessionDuration(null), '0s');
+		assert.equal(formatSessionDuration(-5_000), '0s');
+		assert.equal(formatSessionDuration(Number.NaN), '0s');
 	});
 });

@@ -1,24 +1,49 @@
 'use strict';
 // Diagnostics never select a target. Excerpts are bounded and only used after authorization.
 function nearby(content, old) {
- const source=content.split(/\r?\n/), anchors=old.split(/\r?\n/).map(s=>s.trim()).filter(s=>s.length>3);
- let best=-1,score=0;
+ const source=content.split(/\r?\n/), requested=old.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+ const counts=new Map();
+ for(const raw of source){const line=raw.trim();counts.set(line,(counts.get(line)||0)+1);}
+ // Rank a whole window, weighting distinctive lines over common tags/braces.
+ const anchors=new Set(requested.filter(s=>s.length>3));
+ const weights=source.map(raw=>{
+  const line=raw.trim();
+  if(anchors.has(line))return Math.min(80,line.length)/(counts.get(line)||1);
+  return 0;
+ });
+ const width=Math.min(100,Math.max(1,old.split(/\r?\n/).length));
+ let best=-1,score=0,sum=0;
  for(let i=0;i<source.length;i++) {
-  const line=source[i].trim();
-  const value=anchors.includes(line)?2:anchors.some(a=>a.slice(0,Math.min(24,a.length)) && line.includes(a.slice(0,Math.min(24,a.length))))?1:0;
-  if(value>score){score=value;best=i;}
+  sum+=weights[i];if(i>=width)sum-=weights[i-width];
+  if(sum>score){score=sum;best=Math.max(0,i-width+1);}
  }
  if(best<0)return [];
- const start=Math.max(0,best-2),end=Math.min(source.length,best+7);
- return [{start_line:start+1,end_line:end,excerpt:source.slice(start,end).join('\n').slice(0,1000)}];
+ const start=Math.max(0,best-2),end=Math.min(source.length,best+width+2);
+ return [{start_line:start+1,end_line:end,excerpt:source.slice(start,end).join('\n').slice(0,2000)}];
 }
 function mismatchExplanation(content,old) {
  const requested=old.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
- if(requested.length<2 || !requested.every(s=>/^--[\w-]+\s*:/.test(s)))return undefined;
+ if(requested.length<2)return undefined;
  const lines=content.split(/\r?\n/).map(s=>s.trim());
  const positions=requested.map(s=>lines.indexOf(s));
- if(positions.every(i=>i>=0) && positions.every((i,j)=>!j||i>positions[j-1]) && positions.some((i,j)=>j&&lines.slice(positions[j-1]+1,i).some(Boolean)))
+ if(requested.every(s=>/^--[\w-]+\s*:/.test(s)) && positions.every(i=>i>=0) && positions.every((i,j)=>!j||i>positions[j-1]) && positions.some((i,j)=>j&&lines.slice(positions[j-1]+1,i).some(Boolean)))
   return 'The requested declarations are not adjacent: existing nonblank source lines intervene. Replace one unique declaration or include the actual intervening context.';
+ const window=nearby(content,old)[0];
+ if(window) {
+  const lower=Math.max(0,window.start_line-1),upper=Math.min(lines.length,window.end_line+requested.length+5);
+  for(let start=lower;start<upper;start++) {
+   if(lines[start]!==requested[0])continue;
+   let at=start,skipped=null,matched=true;
+   for(let j=1;j<requested.length;j++) {
+    let next=at+1;
+    while(next<upper&&lines[next]!==requested[j])next++;
+    if(next===upper){matched=false;break;}
+    for(let k=at+1;k<next;k++)if(lines[k]&&!skipped)skipped={line:k+1,text:lines[k]};
+    at=next;
+   }
+   if(matched&&skipped)return `old_str omits existing source at line ${skipped.line}: ${JSON.stringify(skipped.text.slice(0,160))}. Include the intervening source lines or use a smaller unique target.`;
+  }
+ }
  return undefined;
 }
 function argumentError(args) {

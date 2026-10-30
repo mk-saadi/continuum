@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { formatSignedUsd, formatUsd } from '../src/lib/costFormat.mjs';
+import { costChipText, formatSignedUsd, formatUsd } from '../src/lib/costFormat.mjs';
 
 const require = createRequire(import.meta.url);
 const pricing = require('../src/lib/cloudPricing.cjs');
@@ -19,4 +19,10 @@ test('renderer cost formatting matches the pricing module exactly', () => {
     assert.equal(formatUsd(value), pricing.formatUsd(value), `formatUsd(${String(value)})`);
     assert.equal(formatSignedUsd(value), pricing.formatSignedUsd(value), `formatSignedUsd(${String(value)})`);
   }
+});
+
+ test('saved live costs are labeled as estimates and partial costs stay explicit', () => {
+  assert.equal(costChipText({ total: 0.03, completeness: 'estimated', estimated: true }), '$0.03 (estimated)');
+  assert.equal(costChipText({ total: 0.03, completeness: 'partial', estimated: true }), '$0.03 (partial)');
+  assert.equal(costChipText({ total: 0.03, completeness: 'complete' }), '$0.03');
 });

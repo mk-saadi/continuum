@@ -1,3 +1,5 @@
+import toolBatchPolicy from './toolBatchPolicy.cjs';
+export const { MAX_TOOL_CALLS_PER_RESPONSE } = toolBatchPolicy;
 import { sanitizeImagePart } from './imageValidation.mjs';
 export const MAX_TOOL_ARGUMENT_CHARS = 500000;
 export const TOOL_ARGUMENT_SIZE_ERROR = 'Tool argument exceeded maximum allowed size. Please use smaller, surgical edits or append chunks.';
@@ -15,8 +17,9 @@ import { createRepetitionDetector } from './repetitionDetector.mjs';
 import reasoningControls from './reasoningControls.cjs';
 
 export const REASONING_LOOP_NOTICE = '[System: Reasoning loop detected and terminated. Output may be incomplete.]';
-import { formatToolResult, hasToolImages, moveToolImagesToUser, rejectsToolImages, redactToolMedia } from './toolResultFormatter.mjs';
+import { formatToolResult, boundNativeFilePage, NATIVE_RESULT, hasToolImages, moveToolImagesToUser, rejectsToolImages, redactToolMedia } from './toolResultFormatter.mjs';
 import { mergeMetrics, phaseStats, mergePhaseStats, turnPromptTelemetry } from './completionStats.mjs';
+import { prematureStopReason } from './taskContinuation.mjs';
 import { createThinkingStream } from './thinkingStream.mjs';
 
 // Convert native definitions to the OpenAI-compatible format llama-server uses.
@@ -52,7 +55,8 @@ export function sanitizeChatMessages(messages, decodeImage, options = {}) {
     const { role } = message;
     if (role === 'tool') {
       const call = message.tool_call_id ? pending.find(call => call.id === message.tool_call_id) : pending[0];
-      message = { ...message, content: formatToolResult(message.content, call?.function?.name, options).content };
+      message = { ...message, content: formatToolResult(message.content, call?.function?.name,
+        { ...options, nativeTool: message[NATIVE_RESULT] }).content };
     }
     const imageParts = ['user', 'tool'].includes(role) && Array.isArray(message.content) && message.content.length > 0 &&
       message.content.every(part => (part?.type === 'text' && typeof part.text === 'string') ||
@@ -302,7 +306,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     const xmlInterceptor = createXmlToolCallInterceptor(onToolStream);
     const visibleContent = typeof rawContent === 'string' ? xmlInterceptor.push(rawContent) + xmlInterceptor.finish() : rawContent;
     const acceptedContent = intercept(visibleContent, contentDetector, onText);
-    return { content: acceptedContent, toolCalls: loopDetected ? [] : [...toolCalls, ...xmlInterceptor.calls], loopDetected,
+    return { content: acceptedContent, finishReason: choice.finish_reason, toolCalls: loopDetected ? [] : [...toolCalls, ...xmlInterceptor.calls], loopDetected,
       // Some compatible endpoints expose native Gemini-style count fields.
       usage: mergeMetrics(null, result.usage ?? result.usageMetadata),
       timings: mergeMetrics(null, result.timings), endTime: now() };
@@ -345,7 +349,6 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
       // A Map also handles sparse/out-of-order indexes without empty array slots.
       if (!calls.has(index)) {
         // Bound accumulated calls, not the provider's sparse index values.
-        if (calls.size >= 16) throw new Error('Too many streamed tool calls (maximum 16 per response); no tools were executed.');
         calls.set(index, { id: '', type: 'function', function: { name: '', arguments: '' } });
       }
       const call = calls.get(index);
@@ -406,7 +409,7 @@ export async function readCompletion(response, onText, signal, now, onThinking, 
     .map(([index, call]) => ({ ...call, id: call.id || `call_${Date.now()}_${index}` }))
     .concat(loopDetected ? [] : xmlInterceptor.calls);
   if (!finishReason && !done) throw new Error('The model stream ended unexpectedly.');
-  return { content, toolCalls, usage, timings, endTime, loopDetected };
+  return { content, toolCalls, usage, timings, endTime, loopDetected, finishReason };
 }
 
 // Tools that start an independent child-agent execution: the sub-agent
@@ -477,7 +480,8 @@ export async function runMemoryChat({
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
   onAdvertisedTools = () => {},
-  workspaceCompaction = null, rebuildWorkspacePrefix = null,
+  workspaceCompaction = null, rebuildWorkspacePrefix = null, getSessionPlanState = null, getExecutionEnvironment = null,
+  getTaskState = null, onTaskIncomplete = () => {}, preflightIndependentRead = null,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
     throw new TypeError('maxToolRounds must be between 1 and 1000.');
@@ -490,6 +494,8 @@ export async function runMemoryChat({
   if (!['auto', 'tool', 'user'].includes(toolImageMode)) throw new TypeError('Invalid toolImageMode.');
   let imagesInUserRole = toolImageMode === 'user';
   const history = messages.map((message) => ({ ...message }));
+  history.push({ role: 'system', content: toolBatchPolicy.TOOL_BATCH_GUIDANCE });
+  let overflowCorrections = 0, overflowPending = false;
   signal?.throwIfAborted();
   const addRetrievedContext = async target => {
     if (!retrieveDocuments) return;
@@ -527,6 +533,7 @@ export async function runMemoryChat({
   let casualToolCount = 0, maxAllowedTools = 5, finalResponseOnly = false;
   let turnCount = 0, round = 0, executionState = 'running';
   let incompleteRetries = 0, retryOutputBudget = null;
+  let taskContinuations = 0;
   // Workspace runs (casualMode === false) have no fixed turn/round ceiling:
   // long tasks continue until completion, cancellation, or a genuine blocker.
   // Casual runs keep the bounded budget with user-approved continuation, so
@@ -572,6 +579,7 @@ export async function runMemoryChat({
   };
   let steeringBatch = [];
   let steeringContinuations = 0;
+  let taskScopeChanged = false;
   const steeringText = content => `User steering instruction received during this run:\n${content}`;
   const readSteering = async () => {
     if (typeof takeSteeringInstructions !== 'function') return [];
@@ -587,6 +595,7 @@ export async function runMemoryChat({
     }
   };
   const injectSteering = instructions => {
+    if (instructions.length) taskScopeChanged = true;
     for (const instruction of instructions) {
       // A genuine user instruction, never a tool result or an assistant
       // summary. The framing is the minimum needed to distinguish it from the
@@ -644,6 +653,11 @@ export async function runMemoryChat({
   let activeReasoningContext = loadedContextSize;
   try {
   while (executionState === 'running') {
+    if ((overflowPending) && getTaskState) {
+      const task = await getTaskState();
+      signal?.throwIfAborted();
+      if (task?.canContinue === false) throw new Error('Tool batch interrupted: permissions changed.');
+    }
     turnCount++;
     round++;
     signal?.throwIfAborted();
@@ -663,6 +677,16 @@ export async function runMemoryChat({
       completionBatch = await readCompletions();
     }
     if (completionBatch.length) injectCompletions(completionBatch);
+    if (getExecutionEnvironment) {
+      const environment = await getExecutionEnvironment();
+      for (let i = history.length - 1; i >= 0; i--) if (history[i].workspaceExecutionEnvironment) history.splice(i, 1);
+      if (environment) history.splice(1, 0, environment);
+    }
+    if (getSessionPlanState) {
+      const state = await getSessionPlanState();
+      for (let i = history.length - 1; i >= 0; i--) if (history[i].workspacePlanState || (history[i].workspacePlan && history[i].planRevision !== state?.planRevision)) history.splice(i, 1);
+      if (state) history.splice(1, 0, state);
+    }
     const phaseStart = round === 1 ? startTime : now();
     if (getChatTools && !finalResponseOnly) {
       tools = await getChatTools();
@@ -709,7 +733,7 @@ export async function runMemoryChat({
       const result = await workspaceCompaction({ payload: requestPayload, tail: history.slice(prefixLength), force, contextWindowLimit,
         buildRequest: async (projection, retained) => {
           const prefix = await rebuildWorkspacePrefix(projection);
-          const target = [...prefix, ...retrieval, ...retained];
+          const target = [...prefix, { role: 'system', content: toolBatchPolicy.TOOL_BATCH_GUIDANCE }, ...retrieval, ...retained];
           rebuiltHistory = target;
           return { ...requestPayload, messages: imagesInUserRole
             ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage, { workspaceRoot })) : sanitizeChatMessages(target, decodeImage, { workspaceRoot }) };
@@ -750,6 +774,7 @@ export async function runMemoryChat({
         // tools, sampling and this run's paired tail. Reuse it after commit.
         const prepareRecovery = async ({ messages }) => {
           const prefix = messages.map(message => ({ ...message }));
+          prefix.push({ role: 'system', content: toolBatchPolicy.TOOL_BATCH_GUIDANCE });
           await addRetrievedContext(prefix);
           const nextTools = finalResponseOnly ? [] : getChatTools ? await getChatTools() : tools;
           const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
@@ -913,7 +938,8 @@ export async function runMemoryChat({
     // Also covers non-streaming JSON and XML calls, which bypass SSE accumulation.
     result.toolCalls = result.toolCalls.map(limitToolArguments);
     phases.push({ ...phaseStats({ ...result, startTime: phaseStart, endTime: result.endTime ?? now() }),
-      raw: { usage: result.usage, timings: result.timings } });
+      raw: { usage: result.usage, timings: result.timings, finishReason: result.finishReason,
+        maxTokens: requestPayload.max_tokens } });
     // Live per-request telemetry for the header: each completed request
     // reports its server-observed prompt size and the turn peak so far.
     // This never touches cumulative accounting; onStats stays the single
@@ -933,6 +959,11 @@ export async function runMemoryChat({
     } catch { /* Telemetry listeners must not break the tool loop. */ }
     // A provider that ignores tool_choice:none must not create an endless loop.
     if (finalResponseOnly && result.toolCalls.length) {
+      if (overflowPending) {
+        const notice = '\n\n[System: Task incomplete: tool-batch-unresolved; tool execution stopped.]';
+        text += notice; onText(notice);
+        onTaskIncomplete({ reason: 'tool-batch-unresolved', attempts: overflowCorrections });
+      }
       onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
       return text;
     }
@@ -962,6 +993,26 @@ export async function runMemoryChat({
           continue;
         }
       }
+      const task = !casualMode && projectId && getTaskState ? await getTaskState() : null;
+      signal?.throwIfAborted();
+      let reason = !finalResponseOnly && !taskScopeChanged && prematureStopReason({ ...result, plan: task?.plan, userText: task?.userText });
+      if (!reason && taskContinuations && !taskScopeChanged && task?.plan?.steps?.some(step => ['pending', 'in_progress'].includes(step.status)) &&
+          /^(?:ok(?:ay)?|sure|understood|continuing|working on it)[.!…\s]*$/i.test(result.content.trim())) reason = 'non-progress-response';
+      if (reason && task?.canContinue !== false && taskContinuations < 2) {
+        taskContinuations++;
+        history.push({ role: 'assistant', content: result.content || null });
+        history.push({ role: 'user', content: '[Runtime continuation] Your response ended with unfinished work (' + reason + '). Continue the current authorized task from the saved results. Do not replay completed operations. Respect newer user instructions, permissions, budgets and blockers. Use tools only when needed; if finished, give the final answer; if blocked or unable to continue, explain the incomplete status and reason.' });
+        continue;
+      }
+      const terminalLimit = (overflowPending) ? 'tool-batch-unresolved' : result.loopDetected ? 'reasoning-loop' : ['content_filter', 'refusal'].includes(result.finishReason)
+        ? 'provider-safety-stop' : ['length', 'max_tokens', 'model_length'].includes(result.finishReason) ? 'output-truncated' : null;
+      if (reason || terminalLimit) {
+        const incompleteReason = reason && task?.canContinue === false ? 'permission-changed' : reason || terminalLimit;
+        const notice = `\n\n[System: Task incomplete: ${incompleteReason}; bounded continuation stopped.]`;
+        text += notice;
+        onText(notice);
+        onTaskIncomplete({ reason: incompleteReason, attempts: taskContinuations });
+      }
       onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
       return text;
     }
@@ -972,11 +1023,24 @@ export async function runMemoryChat({
     const reachedLimit = enforceTurnBudget && (turnCount >= maxAutoTurns || toolRounds >= maxToolRounds);
 
     for (const call of result.toolCalls) {
-      if (!call.id || usedIds.has(call.id)) throw new Error('Missing or repeated tool-call ID.');
+      if (typeof call.id !== 'string' || !call.id.trim() || usedIds.has(call.id)) throw new Error('Missing or repeated tool-call ID.');
       usedIds.add(call.id);
     }
+    const batchPolicy = await toolBatchPolicy.planToolBatch(result.toolCalls, {
+      allowedNames, preflight: preflightIndependentRead, signal,
+      maxAutomaticReads: finalResponseOnly ? 0 : casualMode ? Math.max(0, maxAllowedTools - casualToolCount) : toolBatchPolicy.MAX_AUTOMATIC_READS,
+    });
+    signal?.throwIfAborted();
+    if (batchPolicy) {
+      const task = getTaskState ? await getTaskState() : null;
+      signal?.throwIfAborted();
+      if (task?.canContinue === false) throw new Error('Tool batch interrupted: permissions changed.');
+      overflowPending = !batchPolicy.safe;
+      if (!batchPolicy.safe) overflowCorrections++;
+    } else overflowPending = false;
     const batchStart = history.length;
     let batchFailures = 0, batchSucceeded = false;
+    let automaticStop = null, automaticOutputBytes = 0;
     const loopNotices = [];
     let batchLoopDetected = false;
     history.push({ role: 'assistant', content: result.content || null, tool_calls: result.toolCalls });
@@ -989,6 +1053,10 @@ export async function runMemoryChat({
     // gets, so history, execution steps, failure tracking, and the circuit
     // breaker observe exactly what a sequential batch produced. Every other
     // tool keeps its inline await unchanged.
+    const readBatchMetadata = index => batchPolicy?.safe ? { readBatch: {
+      id: result.toolCalls[0].id, index: Math.floor(index / MAX_TOOL_CALLS_PER_RESPONSE) + 1,
+      total: Math.ceil(result.toolCalls.length / MAX_TOOL_CALLS_PER_RESPONSE),
+    } } : {};
     const pendingEntries = [];
     const settleEntry = async (entry) => {
       let output;
@@ -996,10 +1064,11 @@ export async function runMemoryChat({
       try {
         if (entry.failure) throw entry.failure;
         output = await entry.outcome;
-        signal?.throwIfAborted();
+        if (!batchPolicy?.safe) signal?.throwIfAborted();
         let result = output;
         if (typeof output === 'string') { try { result = JSON.parse(output); } catch { /* Plain text tool result. */ } }
-        formatted = formatToolResult(output, entry.call.function.name, { workspaceRoot });
+        formatted = formatToolResult(output, entry.call.function.name, { workspaceRoot,
+          nativeTool: entry.step.serverName === 'native' ? entry.call.function.name : undefined });
         entry.step.result = formatted.displayResult;
         const failure = failedToolReason?.(output, entry.call.function.name);
         entry.step.status = result?.isError || result?.success === false || failure ? 'error' : 'complete';
@@ -1022,11 +1091,19 @@ export async function runMemoryChat({
         if (entry.lspStarted != null) entry.step.durationMs = now() - entry.lspStarted;
         publishSteps(true);
       }
-      signal?.throwIfAborted();
-      formatted ??= formatToolResult(output, entry.call.function.name, { workspaceRoot });
-      const guarded = guardToolContent(formatted.content);
-      const evidenceNotice = projectId && JSON.stringify(guarded) !== JSON.stringify(formatted.content) ? `\n[Stored evidence: tool call ${entry.call.id}. Retrieve original via get_recent_chat_history with source_step_id=${JSON.stringify(entry.call.id)}; activate native memory tools if needed. Historical observation may be stale.]` : '';
-      history.push({ role: 'tool', tool_call_id: entry.call.id, content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded });
+      if (!batchPolicy?.safe) signal?.throwIfAborted();
+      formatted ??= formatToolResult(output, entry.call.function.name, { workspaceRoot,
+        nativeTool: entry.step.serverName === 'native' ? entry.call.function.name : undefined });
+      automaticOutputBytes += new TextEncoder().encode(JSON.stringify(output) ?? '').length;
+      let guarded = guardToolContent(formatted.content);
+      let evidenceNotice = projectId && JSON.stringify(guarded) !== JSON.stringify(formatted.content) ? `\n[Stored evidence: tool call ${entry.call.id}. Retrieve original via get_recent_chat_history with source_step_id=${JSON.stringify(entry.call.id)}; activate native memory tools if needed. Historical observation may be stale.]` : '';
+      if (entry.step.serverName === 'native' && entry.call.function.name === 'read_project_file' && guarded !== formatted.content) {
+        const page = boundNativeFilePage(formatted.content, guardToolContent, evidenceNotice);
+        if (page !== null) { guarded = page; evidenceNotice = ''; }
+      }
+      history.push({ role: 'tool', tool_call_id: entry.call.id,
+        [NATIVE_RESULT]: entry.step.serverName === 'native' ? entry.call.function.name : undefined,
+        content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded });
       toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
       if (projectId && failedToolReason) {
         if (failedToolReason(output, entry.call.function.name)) batchFailures++;
@@ -1038,17 +1115,43 @@ export async function runMemoryChat({
     const drainPending = async () => {
       while (pendingEntries.length) await settleEntry(pendingEntries.shift());
     };
-    for (const call of result.toolCalls) {
+    for (const [callIndex, call] of result.toolCalls.entries()) {
+      if (batchPolicy?.safe && callIndex % MAX_TOOL_CALLS_PER_RESPONSE === 0 && !automaticStop) {
+        await drainPending();
+        try {
+          automaticStop = await toolBatchPolicy.checkReadBatch(result.toolCalls.slice(callIndex, callIndex + MAX_TOOL_CALLS_PER_RESPONSE),
+            { preflight: preflightIndependentRead, checkState: getTaskState, signal, outputBytes: automaticOutputBytes });
+        } catch (error) { automaticStop = signal?.aborted ? 'cancellation' : /deleted/i.test(error.message) ? 'deletion' : 'ownership or permission change'; }
+      }
+      if (batchPolicy?.safe && signal?.aborted) automaticStop ??= 'cancellation';
+      if (batchPolicy?.safe && automaticOutputBytes >= toolBatchPolicy.MAX_AUTOMATIC_OUTPUT_BYTES) automaticStop ??= 'aggregate output limit';
+      const skipped = batchPolicy?.skipped[callIndex] ?? (automaticStop ? toolBatchPolicy.manifest(call, callIndex, 'rejected', 'Not executed due to ' + automaticStop + '.') : null);
+      if (skipped) {
+        await drainPending();
+        if (!automaticStop) if (!batchPolicy?.safe) signal?.throwIfAborted();
+        let step = executionSteps.find(step => step.id === call.id);
+        if (!step) { step = { id: call.id, type: 'tool_call', toolName: call.function.name }; executionSteps.push(step); }
+        let retainedArgs = null;
+        try {
+          const parsed = JSON.parse(call.function.arguments || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) retainedArgs = parsed;
+        } catch { /* Malformed rejected arguments are not retained. */ }
+        Object.assign(step, readBatchMetadata(callIndex), { status: skipped.status, result: skipped, args: retainedArgs });
+        delete step.streamingArguments;
+        publishSteps(true);
+        history.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(skipped) });
+        continue;
+      }
       // A non-sub-agent call runs exactly where it always has: after every
       // earlier call — including dispatched sub-agents — has fully settled.
       if (!SUB_AGENT_TOOL_NAMES.has(call.function.name)) await drainPending();
-      signal?.throwIfAborted();
+      if (!batchPolicy?.safe) signal?.throwIfAborted();
       let step = executionSteps.find(step => step.id === call.id);
       if (!step) {
         step = { id: call.id, type: 'tool_call', toolName: call.function.name };
         executionSteps.push(step);
       }
-      Object.assign(step, { serverName: null, args: null, status: 'pending' });
+      Object.assign(step, readBatchMetadata(callIndex), { serverName: null, args: null, status: 'pending' });
       delete step.streamingArguments;
       delete step.streamingParameter;
       const entry = { call, step, outcome: null, failure: null };
@@ -1072,7 +1175,7 @@ export async function runMemoryChat({
         publishSteps(true);
         if (casualMode && casualToolCount >= maxAllowedTools) {
           const allowed = await onToolLimit({ currentCount: casualToolCount, nextTool: call.function.name });
-          signal?.throwIfAborted();
+          if (!batchPolicy?.safe) signal?.throwIfAborted();
           if (allowed !== true) {
             finalResponseOnly = true;
             throw new Error('Tool execution budget denied by user.');
@@ -1105,6 +1208,22 @@ export async function runMemoryChat({
       if (!SUB_AGENT_TOOL_NAMES.has(call.function.name)) await drainPending();
     }
     await drainPending();
+    if (automaticStop) {
+      onTaskIncomplete({ reason: 'automatic-read-interrupted', detail: automaticStop });
+      const notice = '\n\n[System: Task incomplete: automatic reads interrupted due to ' + automaticStop + '.]';
+      text += notice; onText(notice);
+      return text;
+    }
+    if (batchPolicy && !batchPolicy.safe) {
+      history.push({ role: 'system', content: 'Tool batch overflow. Explicit not-executed results identify every deferred/rejected operation. Continue the original task; do not replay executed operations. Issue at most ' + MAX_TOOL_CALLS_PER_RESPONSE + ' calls in your next response.' });
+      if (!batchPolicy.safe && overflowCorrections > 2) {
+        const notice = '\n\n[System: Task incomplete: tool-batch-correction-exhausted; no operations from rejected batches executed.]';
+        text += notice; onText(notice);
+        onTaskIncomplete({ reason: 'tool-batch-correction-exhausted', attempts: 2 });
+        onStats({ ...mergePhaseStats(phases, startTime), raw: phases.map(phase => phase.raw) });
+        return text;
+      }
+    }
     // Casual-Chat just-in-time guardrails: the static prompt carries only the
     // safety core, so the deferred details arrive here as a system notice on
     // the first relevant tool call of the turn. Gated on projectId (not the

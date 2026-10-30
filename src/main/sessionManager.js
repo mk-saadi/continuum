@@ -546,6 +546,7 @@ function normalizeStats(stats) {
     for (const key of ['currency', 'completeness', 'source']) {
       if (typeof stats.cost[key] === 'string') cost[key] = stats.cost[key];
     }
+    if (typeof stats.cost.estimated === 'boolean') cost.estimated = stats.cost.estimated;
     result.cost = cost;
   }
   return result;

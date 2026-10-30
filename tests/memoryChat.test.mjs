@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runMemoryChat } from '../src/lib/memoryChat.mjs';
 import reasoningControls from '../src/lib/reasoningControls.cjs';
+import { TOOL_BATCH_GUIDANCE } from '../src/lib/toolBatchPolicy.cjs';
 
 const localReasoningModel = {
   hasReasoning: true, supportsReasoningEffort: true, supportsReasoningBudget: true,
@@ -197,7 +198,7 @@ test('usage-only final chunk supplies message stats and requests usage', async (
     // rather than a fabricated zero. Coverage says no request reported one.
     providerCost: null, providerCostCoverage: 'unavailable', lastProviderCost: null,
     usageSemantics: 'per-request' });
-  assert.deepEqual(stats.raw, [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null }]);
+  assert.deepEqual(stats.raw, [{ usage: { prompt_tokens: 10, completion_tokens: 20 }, timings: null, finishReason: 'stop', maxTokens: -1 }]);
 });
 
 test('provider reasoning tokens are a measured subset of output, not a second total', async () => {
@@ -533,7 +534,7 @@ test('every tool round sends one leading system message without mutating session
   await runMemoryChat({ ...base, messages, executeTool: async () => 'OK',
     fetchImpl: async (_url, options) => {
       const sent = JSON.parse(options.body).messages;
-      assert.deepEqual(sent[0], { role: 'system', content: 'Base instructions\n\nMemory\n\nSummary' });
+      assert.deepEqual(sent[0], { role: 'system', content: 'Base instructions\n\nMemory\n\nSummary\n\n' + TOOL_BATCH_GUIDANCE });
       assert.equal(sent.filter(message => message.role === 'system').length, 1);
       assert.deepEqual(sent[1], messages[1]);
       if (++round === 1) return stream([chunk({ tool_calls: [{ index: 0, id: 'call', function: { name: 'search_memory', arguments: '{}' } }] }, 'tool_calls')]);
@@ -751,18 +752,14 @@ test('streamed tool-call sparse indexes above 15 retain separate calls and fragm
   assert.equal(result.toolCalls[1].function.arguments, '{"query":"test"}');
 });
 
-test('sparse indexes do not bypass the 16-call accumulation bound', async () => {
+test('sparse indexes retain oversized batches for shared execution policy', async () => {
   const { readCompletion } = await import('../src/lib/memoryChat.mjs');
-  const calls = Array.from({ length: 17 }, (_, i) => ({ index: i * 100, id: `call-${i}`,
+  const calls = Array.from({ length: 50 }, (_, i) => ({ index: i * 100, id: `call-${i}`,
     function: { name: 'search_memory', arguments: '{}' } }));
-  const accepted = await readCompletion(stream([chunk({ tool_calls: calls.slice(0, 16) }), chunk({}, 'tool_calls')]),
+  const accepted = await readCompletion(stream([chunk({ tool_calls: calls }), chunk({}, 'tool_calls')]),
     () => {}, undefined, () => 1, () => {});
-  assert.equal(accepted.toolCalls.length, 16);
-  let executed = 0;
-  await assert.rejects(runMemoryChat({ ...base, fetchImpl: async () => stream([
-    chunk({ tool_calls: calls }), chunk({}, 'tool_calls')]),
-    executeTool: async () => { executed++; return {}; } }), /Too many streamed tool calls/);
-  assert.equal(executed, 0);
+  assert.equal(accepted.toolCalls.length, 50);
+  assert.deepEqual(accepted.toolCalls.map(call => call.id), calls.map(call => call.id));
 });
 
 test('stopping during a tool persists completed phase usage and elapsed run time', async () => {

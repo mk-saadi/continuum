@@ -1,6 +1,6 @@
 import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { LuCheck, LuChevronDown } from "react-icons/lu";
+import { LuCheck, LuChevronDown, LuSearch, LuStar, LuX } from "react-icons/lu";
 
 const fieldFrame =
 	"flex min-h-8 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[select:disabled]:opacity-50 has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50";
@@ -35,6 +35,63 @@ function FieldShell({ id, label, hint, required, children, className = "" }) {
 			)}
 		</div>
 	);
+}
+
+// Shared dropdown placement for the custom selects: keeps the menu inside the
+// viewport and any containing <dialog>, flipping above the trigger when there
+// is no room below. Returns coordinates for the fixed-position menu.
+function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
+	const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, width: 0 });
+	useLayoutEffect(() => {
+		if (!isOpen) return;
+		const trigger = triggerRef.current;
+		const menu = menuRef.current;
+		if (!trigger || !menu) return;
+		const owner = trigger.closest("dialog");
+		const placeMenu = () => {
+			const rect = trigger.getBoundingClientRect();
+			const boundary = owner?.getBoundingClientRect();
+			// Remain inside the modal's clipping boundary and the viewport.
+			const leftEdge = Math.max(8, (boundary?.left ?? 0) + 8);
+			const rightEdge = Math.min(window.innerWidth - 8, (boundary?.right ?? window.innerWidth) - 8);
+			const topEdge = Math.max(8, (boundary?.top ?? 0) + 8);
+			const bottomEdge = Math.min(window.innerHeight - 8, (boundary?.bottom ?? window.innerHeight) - 8);
+			if (rect.bottom < topEdge || rect.top > bottomEdge) {
+				setIsOpen(false);
+				return;
+			}
+			const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
+			const below = Math.max(0, bottomEdge - rect.bottom - 6);
+			const above = Math.max(0, rect.top - topEdge - 6);
+			const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
+			const upwards = openTop
+				? above >= desiredHeight || above >= below
+				: below < desiredHeight && above > below;
+			const maxHeight = Math.min(288, upwards ? above : below);
+			const height = Math.min(desiredHeight, maxHeight);
+			const next = {
+				left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
+				top: upwards ? rect.top - 6 - height : rect.bottom + 6,
+				width,
+				maxHeight,
+			};
+			setMenuCoords((previous) =>
+				Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next,
+			);
+		};
+		placeMenu();
+		window.addEventListener("resize", placeMenu);
+		document.addEventListener("scroll", placeMenu, true);
+		const observer = new ResizeObserver(placeMenu);
+		observer.observe(trigger);
+		observer.observe(menu);
+		return () => {
+			window.removeEventListener("resize", placeMenu);
+			document.removeEventListener("scroll", placeMenu, true);
+			observer.disconnect();
+		};
+	}, [isOpen, openTop]);
+	return menuCoords;
 }
 
 export const TextField = forwardRef(function TextField(
@@ -100,10 +157,10 @@ export const SelectField = forwardRef(function SelectField(
 	const generatedId = useId();
 	const id = suppliedId || generatedId;
 	const [isOpen, setIsOpen] = useState(false);
-	const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, width: 0 });
 
 	const triggerRef = useRef(null);
 	const menuRef = useRef(null);
+	const menuCoords = useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen });
 
 	const options =
 		items.length > 0
@@ -120,56 +177,6 @@ export const SelectField = forwardRef(function SelectField(
 	const handleOpen = () => {
 		if (!disabled) setIsOpen(true);
 	};
-
-	useLayoutEffect(() => {
-		if (!isOpen) return;
-		const trigger = triggerRef.current;
-		const menu = menuRef.current;
-		if (!trigger || !menu) return;
-		const owner = trigger.closest("dialog");
-		const placeMenu = () => {
-			const rect = trigger.getBoundingClientRect();
-			const boundary = owner?.getBoundingClientRect();
-			// Remain inside the modal's clipping boundary and the viewport.
-			const leftEdge = Math.max(8, (boundary?.left ?? 0) + 8);
-			const rightEdge = Math.min(window.innerWidth - 8, (boundary?.right ?? window.innerWidth) - 8);
-			const topEdge = Math.max(8, (boundary?.top ?? 0) + 8);
-			const bottomEdge = Math.min(window.innerHeight - 8, (boundary?.bottom ?? window.innerHeight) - 8);
-			if (rect.bottom < topEdge || rect.top > bottomEdge) {
-				setIsOpen(false);
-				return;
-			}
-			const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
-			const below = Math.max(0, bottomEdge - rect.bottom - 6);
-			const above = Math.max(0, rect.top - topEdge - 6);
-			const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
-			const upwards = openTop
-				? above >= desiredHeight || above >= below
-				: below < desiredHeight && above > below;
-			const maxHeight = Math.min(288, upwards ? above : below);
-			const height = Math.min(desiredHeight, maxHeight);
-			const next = {
-				left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
-				top: upwards ? rect.top - 6 - height : rect.bottom + 6,
-				width,
-				maxHeight,
-			};
-			setMenuCoords((previous) =>
-				Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next,
-			);
-		};
-		placeMenu();
-		window.addEventListener("resize", placeMenu);
-		document.addEventListener("scroll", placeMenu, true);
-		const observer = new ResizeObserver(placeMenu);
-		observer.observe(trigger);
-		observer.observe(menu);
-		return () => {
-			window.removeEventListener("resize", placeMenu);
-			document.removeEventListener("scroll", placeMenu, true);
-			observer.disconnect();
-		};
-	}, [isOpen, openTop]);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -368,6 +375,321 @@ export const SelectField = forwardRef(function SelectField(
 										: dropdownFooter}
 								</div>
 							)}
+						</div>,
+						triggerRef.current?.closest("dialog") ?? document.body,
+					)}
+			</div>
+		</FieldShell>
+	);
+});
+
+export const SearchableSelect = forwardRef(function SearchableSelect(
+	{
+		label,
+		hint,
+		id: suppliedId,
+		className,
+		required,
+		value,
+		onChange,
+		placeholder = "Select...",
+		searchPlaceholder = "Search…",
+		disabled,
+		openTop = false,
+		icon,
+		items = [], // Array of { value, label, description, icon }
+		starred = [], // Values currently starred as favorites
+		onToggleStar, // (value) => void; omit to hide the star affordance
+		triggerLabel,
+		hideChevron = false,
+		dropdownFooter,
+		...selectProps
+	},
+	ref,
+) {
+	const generatedId = useId();
+	const id = suppliedId || generatedId;
+	const [isOpen, setIsOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const searchRef = useRef(null);
+	const triggerRef = useRef(null);
+	const menuRef = useRef(null);
+	const menuCoords = useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen });
+
+	const normalized = (text) => (text ?? "").toString().toLowerCase();
+	const filtered = search
+		? items.filter((item) =>
+				normalized(`${item.label} ${item.value} ${item.description ?? ""}`).includes(normalized(search)),
+			)
+		: items;
+	const selectedOption = items.find((item) => String(item.value) === String(value));
+
+	useEffect(() => {
+		if (!isOpen) {
+			setSearch("");
+			return;
+		}
+		searchRef.current?.focus();
+	}, [isOpen]);
+
+	useEffect(() => {
+		if (!isOpen) return;
+		const handleClickOutside = (e) => {
+			if (
+				menuRef.current &&
+				!menuRef.current.contains(e.target) &&
+				triggerRef.current &&
+				!triggerRef.current.contains(e.target)
+			) {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, [isOpen]);
+
+	const focusOption = (key) => {
+		const options = [...(menuRef.current?.querySelectorAll('[role="option"]') || [])];
+		if (!options.length) return;
+		const index = options.indexOf(document.activeElement);
+		options[
+			key === "Home"
+				? 0
+				: key === "End"
+					? options.length - 1
+					: (index + (key === "ArrowDown" ? 1 : -1) + options.length) % options.length
+		]?.focus();
+	};
+
+	const pick = (itemValue) => {
+		onChange?.({ target: { value: itemValue } });
+		setIsOpen(false);
+		triggerRef.current?.focus();
+	};
+
+	return (
+		<FieldShell
+			id={id}
+			label={label}
+			hint={hint}
+			required={required}
+			className={className}
+		>
+			<div className={`${fieldFrame} relative`}>
+				<select
+					{...selectProps}
+					ref={ref}
+					value={value}
+					onChange={onChange}
+					required={required}
+					disabled={disabled}
+					className="sr-only"
+					aria-hidden="true"
+					tabIndex={-1}
+				>
+					<option
+						value=""
+						disabled
+					>
+						{placeholder}
+					</option>
+					{items.map((item) => (
+						<option
+							key={item.value}
+							value={item.value}
+						>
+							{item.label}
+						</option>
+					))}
+				</select>
+
+				<button
+					type="button"
+					id={id}
+					ref={triggerRef}
+					disabled={disabled}
+					aria-haspopup="listbox"
+					aria-expanded={isOpen}
+					aria-describedby={hint ? `${id}-hint` : undefined}
+					onClick={() => (isOpen ? setIsOpen(false) : setIsOpen(true))}
+					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+				>
+					<div className="flex items-center gap-1.5 truncate pr-2">
+						{icon && (
+							<span className="flex shrink-0 items-center text-[var(--text-muted)]">
+								{icon}
+							</span>
+						)}
+						<span
+							className={
+								!selectedOption && !triggerLabel ? "text-[var(--text-primary)]" : "truncate"
+							}
+						>
+							{triggerLabel !== undefined
+								? triggerLabel
+								: selectedOption
+									? selectedOption.label
+									: placeholder}
+						</span>
+					</div>
+					{!hideChevron && (
+						<LuChevronDown
+							size={14}
+							aria-hidden="true"
+							className={`shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+						/>
+					)}
+				</button>
+
+				{isOpen &&
+					createPortal(
+						<div
+							ref={menuRef}
+							role="listbox"
+							aria-label={label || "Select options"}
+							style={{
+								left: menuCoords.left,
+								top: menuCoords.top,
+								width: menuCoords.width,
+								maxHeight: menuCoords.maxHeight,
+								margin: 0,
+							}}
+							className="fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-xl"
+							onMouseDown={(e) => e.stopPropagation()}
+							onKeyDown={(event) => {
+								if (event.key === "Escape") {
+									event.preventDefault();
+									setIsOpen(false);
+									triggerRef.current?.focus();
+									return;
+								}
+								if (event.key === "Tab") {
+									setIsOpen(false);
+									return;
+								}
+								if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+									event.preventDefault();
+									focusOption(event.key);
+								}
+							}}
+						>
+							<div className="shrink-0 border-b border-[var(--border)] p-1.5">
+								<div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2">
+									<LuSearch
+										size={13}
+										className="shrink-0 text-[var(--text-muted)]"
+										aria-hidden="true"
+									/>
+									<input
+										ref={searchRef}
+										type="text"
+										aria-label={label ? `Search ${label}` : "Search options"}
+										placeholder={searchPlaceholder}
+										value={search}
+										onChange={(event) => setSearch(event.target.value)}
+										onKeyDown={(event) => {
+											if (event.key === "Enter") {
+												event.preventDefault();
+												menuRef.current?.querySelector('[role="option"]')?.click();
+											} else if (event.key === "ArrowDown") {
+												event.preventDefault();
+												focusOption("ArrowDown");
+											}
+										}}
+										className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-[var(--text-muted)]"
+									/>
+									{search && (
+										<button
+											type="button"
+											aria-label="Clear search"
+											onClick={() => setSearch("")}
+											className="grid size-5 shrink-0 cursor-pointer place-items-center rounded hover:bg-[var(--surface-hover)]"
+										>
+											<LuX size={11} aria-hidden="true" />
+										</button>
+									)}
+								</div>
+							</div>
+							<div className="min-h-0 flex-1 overflow-y-auto p-1">
+								{filtered.map((item) => {
+									const selected = String(item.value) === String(value);
+									const isStarred = starred.map(String).includes(String(item.value));
+									return (
+										<div
+											key={item.value}
+											role="option"
+											tabIndex={0}
+											aria-selected={selected}
+											onClick={() => pick(item.value)}
+											onKeyDown={(event) => {
+												if (event.key === "Enter" || event.key === " ") {
+													event.preventDefault();
+													pick(item.value);
+												}
+											}}
+											className={`group flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 my-0.5 text-left text-xs transition-colors hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none ${selected ? "bg-[var(--surface-hover)] font-medium" : ""}`}
+										>
+											<div className="flex min-w-0 items-center gap-2 pr-1">
+												{item.icon && (
+													<span
+														className={`shrink-0 ${selected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
+													>
+														{item.icon}
+													</span>
+												)}
+												<span className="truncate">{item.label}</span>
+											</div>
+											<div className="flex shrink-0 items-center gap-0.5">
+												{onToggleStar && (
+													<button
+														type="button"
+														aria-label={
+															isStarred
+																? `Remove ${item.label} from favorites`
+																: `Add ${item.label} to favorites`
+														}
+														aria-pressed={isStarred}
+														onClick={(event) => {
+															event.stopPropagation();
+															onToggleStar(item.value);
+														}}
+														className={`grid size-6 cursor-pointer place-items-center rounded hover:bg-[var(--surface-hover)] ${isStarred ? "text-[var(--accent)]" : "text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
+													>
+														<LuStar
+															size={13}
+															aria-hidden="true"
+															style={isStarred ? { fill: "currentColor" } : undefined}
+														/>
+													</button>
+												)}
+												{selected && (
+													<LuCheck
+														size={14}
+														className="shrink-0 text-[var(--accent)]"
+													/>
+												)}
+											</div>
+										</div>
+									);
+								})}
+								{!filtered.length && (
+									<p className="px-2.5 py-2 text-[11px] text-[var(--text-muted)]">
+										No matches for “{search}”.
+									</p>
+								)}
+								{dropdownFooter && (
+									<div className="mt-1 border-t border-[var(--border)] pt-1">
+										{typeof dropdownFooter === "function"
+											? dropdownFooter({
+													close: () => {
+														setIsOpen(false);
+														triggerRef.current?.focus();
+													},
+												})
+											: dropdownFooter}
+									</div>
+								)}
+							</div>
 						</div>,
 						triggerRef.current?.closest("dialog") ?? document.body,
 					)}

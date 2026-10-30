@@ -26,6 +26,7 @@ import RecoveryHistoryModal from "./chat/RecoveryHistoryModal";
 import DiffReviewModal from "./chat/DiffReviewModal";
 import {
 	extractSubagentRuns,
+	formatSessionDuration,
 	getNextTabIndex,
 	isPromptDirty,
 	summarizeActivity,
@@ -144,7 +145,29 @@ export default function RightSidebar({
     }, [open, sessionId, runtime?.streaming, latestResponse?.stats?.cost?.total]);
     const chatSpend = sessionSpend?.sessionId === sessionId ? sessionSpend : null;
 	const tabs = useRef([]);
-	const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
+		const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
+	// Agent-run timer: starts when a run begins, ticks each second, and
+	// clears as soon as the run ends (idle shows no timer).
+	const runActiveNow = Boolean(
+		runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
+	);
+	const [runStartedAt, setRunStartedAt] = useState(null);
+	const [runNow, setRunNow] = useState(null);
+	useEffect(() => {
+		if (runActiveNow) {
+			setRunStartedAt((prev) => prev ?? Date.now());
+			setRunNow(Date.now());
+			const timer = setInterval(() => setRunNow(Date.now()), 1000);
+			return () => clearInterval(timer);
+		}
+		setRunStartedAt(null);
+		setRunNow(null);
+		return undefined;
+	}, [runActiveNow]);
+	const runDuration =
+		runActiveNow && runStartedAt != null && runNow != null
+			? formatSessionDuration(runNow - runStartedAt)
+			: null;
     useEffect(() => {
       const inspect = event => { if (isWorkspace && event.detail?.sessionId === sessionId) setTab("context"); };
       window.addEventListener('continuum:inspect-checkpoint', inspect);
@@ -633,6 +656,14 @@ export default function RightSidebar({
 						className={`size-2 shrink-0 rounded-full ${STATUS_DOT[activity.status] ?? STATUS_DOT.idle}`}
 					/>
 					<h3 className="text-xs font-semibold">{activity.statusLabel}</h3>
+					{runDuration && (
+						<span
+							className="ml-auto text-[11px] font-normal text-[var(--text-muted)]"
+							title="Time since the current agent run started"
+						>
+							{runDuration}
+						</span>
+					)}
 				</div>
 				<p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					{activity.toolStats.total === 0

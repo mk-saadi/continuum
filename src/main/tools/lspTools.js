@@ -46,7 +46,13 @@ async function executeLspTool(name, args, context, signal) {
   try {
     const permissions = require('../toolPermissions');
     await permissions.guardTool({ name, args, permissionMode: context.permissionMode, project: permissions.sessionProject(context.sessionId), signal });
-  } catch (error) { return fail(signal?.aborted ? 'LSP_CANCELLED' : error.code === 'PERMISSION_DENIED' ? 'LSP_PERMISSION_DENIED' : 'LSP_SERVER_UNAVAILABLE'); }
+  } catch (error) {
+    const result = fail(signal?.aborted ? 'LSP_CANCELLED' : ['PERMISSION_DENIED', 'PERMISSION_REVOKED', 'APPROVAL_DENIED'].includes(error.code) ? 'LSP_PERMISSION_DENIED' : 'LSP_SERVER_UNAVAILABLE');
+    return { ...result, language: 'JavaScript/TypeScript', phase: 'authorization',
+      reason: ['PERMISSION_DENIED', 'PERMISSION_REVOKED', 'APPROVAL_DENIED'].includes(error.code) ? error.code : 'AUTHORIZATION_CHECK_FAILED',
+      ...(['SQLITE_BUSY', 'SQLITE_LOCKED', 'ENOENT', 'ENOTDIR', 'EACCES', 'EPERM'].includes(error.code) ? { cause_code: error.code } : {}),
+      operation_executed: false, recovery: 'Continue with native file reads, project search, or existing tests. Do not repeatedly retry this LSP operation.' };
+  }
   const result = await require('../lspCodeIntelligence').codeIntelligence[descriptions[name][0]]({
     filePath: args.path, line: args.line, column: args.column, query: args.query,
     includeDeclaration: args.include_declaration, pageSize: Math.min(args.page_size ?? 25, 25), cursor: args.cursor,
@@ -69,6 +75,7 @@ function available(project) {
   // project root may be an alias of it. Resolve through the manager's bounded
   // alias index so a failed server is actually hidden.
   const canonical = manager.aliases.get(project.root_path) ?? project.root_path;
-  return manager.instances.get(canonical)?.state !== 'failed';
+  const entry = manager.instances.get(canonical);
+  return entry?.state !== 'failed' || (entry.crashed === true && (manager.restarts.get(canonical) ?? 0) < manager.maxRestarts);
 }
 module.exports = { available, LSP_TOOL_NAMES, lspTools, executeLspTool, validate };

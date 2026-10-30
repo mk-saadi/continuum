@@ -105,7 +105,14 @@ class LspCodeIntelligence {
           return this.store(entry, op, unique, { ...meta, excludedCount, serverCompleteness: 'final-response-no-partial-results-requested' }, size, normalizationTruncated, input.outputLimit, context);
         }
       });
-    } catch (e) { return { success: false, ...(op === 'diagnostics' && ['SERVER_UNAVAILABLE', 'SERVER_TERMINATED', 'INITIALIZATION_FAILED', 'UNSUPPORTED_CAPABILITY'].includes(e.code) ? { state: 'unavailable' } : {}), error: { code: `LSP_${codes[e.code] ?? (typeof e.code === 'string' ? e.code : 'SERVER_UNAVAILABLE')}` } }; }
+    } catch (e) {
+      const unavailable = ['SERVER_UNAVAILABLE', 'SERVER_TERMINATED', 'INITIALIZATION_FAILED', 'UNSUPPORTED_CAPABILITY'].includes(e.code);
+      return { success: false, ...(op === 'diagnostics' && unavailable ? { state: 'unavailable' } : {}),
+        error: { code: `LSP_${codes[e.code] ?? (typeof e.code === 'string' ? e.code : 'SERVER_UNAVAILABLE')}` },
+        ...(unavailable || e.code === 'REQUEST_TIMEOUT' ? { language: 'JavaScript/TypeScript',
+          phase: e.phase ?? 'request', reason: e.reason ?? e.code, operation_executed: e.phase ? false : 'unknown',
+          recovery: 'Continue with native file reads, project search, or existing tests. Do not repeatedly restart an unavailable server.' } : {}) };
+    }
   }
   async diagnosticResult(input, root, size) {
     if (input.severities !== undefined && (!Array.isArray(input.severities) || input.severities.some(v => ![1, 2, 3, 4].includes(v)))) throw error('INVALID_REQUEST');

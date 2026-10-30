@@ -4,30 +4,35 @@ import { toolKind, toolVerb, summarizeStage } from '../src/lib/executionEvents.m
 
 test('no native tool renders as raw snake_case', () => {
   const verbs = {
-    str_replace_editor: 'Edit',
-    edit_project_files: 'Edit',
-    apply_patch: 'Edit',
-    write_project_file: 'Write',
-    move_project_file: 'Move',
-    delete_project_file: 'Delete',
-    save_memory: 'Save',
-    search_memory: 'Search',
-    manage_mcp_servers: 'Manage MCP servers',
-    approve_mcp_mutation: 'Approve MCP operation',
-    execute_command: 'Run',
-    read_project_file: 'Read',
+    str_replace_editor: 'Replace text',
+    edit_project_files: 'Edit files',
+    apply_patch: 'Apply patch',
+    write_project_file: 'Write file',
+    move_project_file: 'Move file',
+    delete_project_file: 'Delete file',
+    save_memory: 'Save memory',
+    search_memory: 'Search memory',
+    execute_command: 'Shell',
+    read_project_file: 'Read file',
     git_status: 'Git status',
     git_log: 'Git log',
     git_commit: 'Git commit',
-    git_sync: 'Git sync',
-    ask_user: 'Question',
-    delegate_task: 'Subagent',
-    update_plan: 'Plan',
+    git_sync: 'Sync remote',
+    ask_user: 'Ask user',
+    delegate_task: 'Delegate task',
+    update_plan: 'Update plan',
+    // Previously-colliding generic verbs now differ per tool.
+    search_project_content: 'Search project',
+    web_search: 'Web search',
+    run_tests: 'Run test',
   };
   for (const [name, verb] of Object.entries(verbs)) {
     assert.equal(toolVerb({ toolName: name }), verb, name);
     assert.doesNotMatch(toolVerb({ toolName: name }), /_/);
   }
+  // Kind verbs stay distinct across the previously-ambiguous pairs.
+  assert.notEqual(toolVerb({ toolName: 'search_project_content' }), toolVerb({ toolName: 'web_search' }));
+  assert.notEqual(toolVerb({ toolName: 'read_project_file' }), toolVerb({ toolName: 'search_project_content' }));
 });
 
 test('batch edits and moves summarize with files, not raw names', () => {
@@ -85,4 +90,22 @@ test('MCP labels describe the action and keep server tools identifiable', async 
   assert.equal(toolDisplayName({ toolName: 'manage_mcp_servers', args: { action: 'activate' } }), 'Activate MCP tools');
   assert.equal(toolDisplayName({ toolName: 'browser_navigate', serverName: 'browsermcp' }), 'Browser navigate (browsermcp)');
   assert.equal(toolDisplayName({ toolName: 'fetch', serverName: 'fetch' }), 'Fetch');
+});
+
+test('native tool display names are distinct human-readable labels', async () => {
+  const { toolDisplayName, NATIVE_TOOL_LABELS } = await import('../src/lib/executionEvents.mjs');
+  const labels = Object.values(NATIVE_TOOL_LABELS);
+  assert.equal(new Set(labels).size, labels.length, 'labels must be unique');
+  assert.ok(labels.every((label) => !label.includes('_')), 'no raw snake_case');
+  // Previously-ambiguous tools no longer share a display name.
+  assert.notEqual(toolDisplayName({ toolName: 'search_project_content' }), toolDisplayName({ toolName: 'web_search' }));
+  assert.equal(toolDisplayName({ toolName: 'search_project_content' }), 'Search project');
+  assert.equal(toolDisplayName({ toolName: 'web_search' }), 'Web search');
+  assert.equal(toolDisplayName({ toolName: 'search_memory' }), 'Search memory');
+  assert.equal(toolDisplayName({ toolName: 'get_recent_chat_history' }), 'Chat history');
+  assert.equal(toolDisplayName({ toolName: 'read_project_file' }), 'Read file');
+  assert.equal(toolDisplayName({ toolName: 'str_replace_editor' }), 'Replace text');
+  assert.equal(toolDisplayName({ toolName: 'execute_command' }), 'Shell');
+  // Unknown native names fall back to the recorded identifier.
+  assert.equal(toolDisplayName({ toolName: 'some_future_tool' }), 'some_future_tool');
 });

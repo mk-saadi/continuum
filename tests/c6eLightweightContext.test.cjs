@@ -70,7 +70,7 @@ for(const count of [5,20,50,100]) test(`covered unknown briefs: serialized ${cou
  for(let i=0;i<count;i++) sessions.saveMessage(id,'user',`Historical widget ${i}: ${'Implement an isolated widget. '.repeat(20)}`);
  const finding=sessions.saveMessage(id,'assistant','EARLY_FINDING: config uses monotonic IDs.');
  const w2=require('../src/main/workspaceCompactCandidate');
- const generated=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,
+ const generated=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,measure:require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),
   generate:async request=>{const input=JSON.parse(request.messages[1].content); const draft={objective:'Inspect current configuration',briefIds:input.briefs.map(b=>b.id)};
    for(const key of w2.ARRAY_KEYS)draft[key]=[];
    draft.research=[{text:'EARLY_FINDING: config uses monotonic IDs.',sources:[{messageId:finding.id}]}];
@@ -88,7 +88,7 @@ for(const count of [5,20,50,100]) test(`covered unknown briefs: serialized ${cou
  assert.equal(briefs.getAllBriefs(id).length,count+2);
  assert.match(evidence.retrieve(id,{source_message_id:first.id}).text,/TypeScript/);
  const checkpointSection=checkpoints.workspaceCompactSection(generated.candidate);
- assert.ok(checkpointSection.workingStateEstimatedTokens<3000);
+ assert.ok(checkpointSection.summaryTokens<3000);
  captures.push({count,before:composition(before),after:composition(after),essentialInformationCoverage:true,requests:{before,after}});
 });
 test('bounded source navigation finds old references and rejects missing required source',()=>{
@@ -142,7 +142,7 @@ test('eleven compactions reuse archived evidence beyond the per-generation ceili
  for(let round=0;round<11;round++){
   const message=sessions.saveMessage(id,'assistant','Inspecting',[],null,null,null,null,null,
    Array.from({length:12},(_,i)=>({id:`e-${round}-${i}`,type:'tool_call',toolName:'read_project_file',status:'complete',args:{relative_path:`config-${i}.js`},result:`Finding ${round}-${i}: `+'configuration evidence '.repeat(35)})));
-  final=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,
+  final=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,measure:require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),
    generate:async request=>{const input=JSON.parse(request.messages[1].content);
     if(round>0){assert.ok(input.messages.every(m=>m.id===message.id));assert.equal(input.evidence.length,12);}
     const draft={objective:'Inspect configuration',briefIds:input.briefs.map(b=>b.id)};
@@ -162,7 +162,7 @@ test('covered unknown attachment requirements stay available without inferred re
  const file=path.join(directory,'attachments','requirements.txt');fs.writeFileSync(file,'ATTACHMENT_REQUIREMENT: components target ES2022.');
  sessions.saveMessage(id,'user','Review the attached specification.',[{file_path:file,mime_type:'text/plain'}]);
  const w2=require('../src/main/workspaceCompactCandidate');
- const result=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,
+ const result=await w2.generateWorkspaceCompactCandidate({sessionId:id,modelId:'fixture',capacityTokens:90000,persist:false,measure:require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(),
   generate:async request=>{const input=JSON.parse(request.messages[1].content);const draft={objective:'Review specification',briefIds:input.briefs.map(b=>b.id)};for(const key of w2.ARRAY_KEYS)draft[key]=[];
    return {choices:[{message:{content:JSON.stringify(draft)},finish_reason:'stop'}]};}});
  assert.ok(result.ok,JSON.stringify(result));

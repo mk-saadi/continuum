@@ -271,6 +271,13 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_message_attachments_message
     ON message_attachments(message_id, id);
 
+  -- Opaque read references have the lifetime of one attachment row. Cascading
+  -- deletion prevents SQLite row-ID reuse from resurrecting a detached grant.
+  CREATE TABLE IF NOT EXISTS attachment_read_refs (
+    attachment_id INTEGER PRIMARY KEY REFERENCES message_attachments(id) ON DELETE CASCADE,
+    reference TEXT NOT NULL UNIQUE
+  );
+
   DROP TABLE IF EXISTS checklist_state;
 
   CREATE TABLE IF NOT EXISTS session_summaries (
@@ -369,6 +376,16 @@ const SCHEMA = `
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS workspace_plan_step_ids (id INTEGER PRIMARY KEY AUTOINCREMENT);
+
+  CREATE TABLE IF NOT EXISTS workspace_plan_history (
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    snapshot TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (session_id, revision)
   );
 
   CREATE TABLE IF NOT EXISTS workspace_plan_steps (
@@ -605,6 +622,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
           DELETE FROM workspace_task_briefs WHERE session_id = OLD.id;
           DELETE FROM workspace_checkpoints WHERE session_id = OLD.id;
           DELETE FROM workspace_turn_digests WHERE session_id = OLD.id;
+          DELETE FROM workspace_plan_history WHERE session_id = OLD.id;
           DELETE FROM workspace_plan_steps WHERE session_id = OLD.id;
           DELETE FROM workspace_plans WHERE session_id = OLD.id;
           DELETE FROM run_steering_messages WHERE session_id = OLD.id;

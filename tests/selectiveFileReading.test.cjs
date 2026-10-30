@@ -84,7 +84,8 @@ test.after(() => {
 test('1-7. schema, compatibility, defaults, page cap, and existing limits', async () => {
 	const root = makeWorkspace({ 'full.txt': 'line one\nline two\n', 'large.txt': `${'x'.repeat(25000)}\n` });
 	const definition = agentTools.find((tool) => tool.function.name === 'read_project_file').function;
-	assert.deepEqual(definition.parameters.required, ['relative_path']);
+	assert.deepEqual(definition.parameters.required, []);
+	assert.ok(definition.parameters.properties.attachment_id);
 	for (const key of ['start_line', 'end_line', 'if_content_hash', 'expected_content_hash']) {
 		assert.ok(definition.parameters.properties[key], `missing ${key}`);
 	}

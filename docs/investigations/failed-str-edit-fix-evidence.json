@@ -1,0 +1,170 @@
+{
+  "session_id": "08ddc2e3-f282-4d8a-b247-816f1d76b953",
+  "method": "Native executeAgentTool replay against disposable projects using recorded requests and saved recovery source snapshots. Each request replayed independently.",
+  "native_replay": {
+    "requests": 14,
+    "accepted": 13,
+    "rejected": 1,
+    "verification": "All 14 outcome assertions passed in tests/failedStrEditingReplay.test.cjs.",
+    "outcomes": [
+      {
+        "tool_index": 8,
+        "tool": "edit_project_files",
+        "success": true
+      },
+      {
+        "tool_index": 20,
+        "tool": "edit_project_files",
+        "success": true
+      },
+      {
+        "tool_index": 23,
+        "tool": "edit_project_files",
+        "success": true
+      },
+      {
+        "tool_index": 41,
+        "tool": "str_replace_editor",
+        "success": true
+      },
+      {
+        "tool_index": 45,
+        "tool": "str_replace_editor",
+        "success": true
+      },
+      {
+        "tool_index": 46,
+        "tool": "apply_patch",
+        "success": true
+      },
+      {
+        "tool_index": 47,
+        "tool": "apply_patch",
+        "success": true
+      },
+      {
+        "tool_index": 48,
+        "tool": "str_replace_editor",
+        "success": true
+      },
+      {
+        "tool_index": 49,
+        "tool": "str_replace_editor",
+        "success": true
+      },
+      {
+        "tool_index": 50,
+        "tool": "str_replace_editor",
+        "success": false
+      },
+      {
+        "tool_index": 52,
+        "tool": "edit_project_files",
+        "success": true
+      },
+      {
+        "tool_index": 53,
+        "tool": "apply_patch",
+        "success": true
+      },
+      {
+        "tool_index": 55,
+        "tool": "str_replace_editor",
+        "success": true
+      },
+      {
+        "tool_index": 56,
+        "tool": "apply_patch",
+        "success": true
+      }
+    ]
+  },
+  "matcher_replay": [
+    {
+      "index": 8,
+      "tool": "edit_project_files",
+      "before_edit": 3,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 20,
+      "after": "accepted"
+    },
+    {
+      "index": 20,
+      "tool": "edit_project_files",
+      "before_edit": 3,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 12,
+      "after": "accepted"
+    },
+    {
+      "index": 23,
+      "tool": "edit_project_files",
+      "before_edit": 3,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 12,
+      "after": "accepted"
+    },
+    {
+      "index": 41,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    },
+    {
+      "index": 45,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    },
+    {
+      "index": 48,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    },
+    {
+      "index": 49,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    },
+    {
+      "index": 50,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "no-match: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "no-match: old_str omits existing source at line 508: \"</span>\". Include the intervening source lines or use a smaller unique target. Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_blocker": null
+    },
+    {
+      "index": 52,
+      "tool": "edit_project_files",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    },
+    {
+      "index": 55,
+      "tool": "str_replace_editor",
+      "before_edit": 1,
+      "before": "unsafe-normalization: old_str was not found; Provide complete surrounding lines from a small relevant range or use apply_patch.",
+      "after_edit": 1,
+      "after": "accepted"
+    }
+  ],
+  "fixture_sha256": "9243c22c83d096bbfea085f1fcc2d509fd61a9f16f2d8e70bff7949363e1e0fe",
+  "limitations": [
+    "Independent deterministic replay, not a live model run or measured future failure rate.",
+    "Acceptance validates target matching and tool execution; it does not guarantee generated replacement code is correct."
+  ]
+}

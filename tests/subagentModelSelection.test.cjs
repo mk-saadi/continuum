@@ -738,8 +738,9 @@ test('13. the parent-facing protocol advertises the investigate invocation', () 
     'the invocation rule states investigate is exclusive with url/target_file');
   assert.ok(deferred.includes('Its tool set is fixed and read-only'),
     'the protocol promises the read-only guarantee');
-  assert.ok(deferred.includes('"investigate": true,'),
-    'the example invocation shows the flag');
+  const schema = require('../src/main/tools/subagent').spawnSubagentTool.function.parameters;
+  assert.equal(schema.properties.investigate.type, 'boolean',
+    'the invocation flag is specified by the tool schema without a duplicate prompt example');
 
   const withoutDelegation = buildSessionSystemPrompt({
     sessionId: null, modelId: 'local-model', delegationAvailable: false, userText: '',

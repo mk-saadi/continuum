@@ -140,4 +140,4 @@ function attachmentName(filePath) {
 	return path.basename(filePath).replace(/^\d+-[0-9a-f-]{36}-/i, "");
 }
 
-module.exports = { processUploads, validateAttachments, attachmentName, inspectFile };
+module.exports = { processUploads, validateAttachments, attachmentName, inspectFile, MAX_FILE_BYTES };

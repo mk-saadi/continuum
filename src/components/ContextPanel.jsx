@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 
@@ -5,8 +6,8 @@ import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 // current and historical checkpoints, the verbatim task brief, per-brief work
 // logs of recorded tool activity, the rolling summary, and the archived
 // original messages. Workspace-only; Casual Chat never mounts this panel.
-// All checkpoint text and tool output render as plain text (React-escaped),
-// never as markup.
+// Saved C9 summaries render Markdown with raw HTML, external images and links
+// disabled. Legacy checkpoint fields and tool output remain React-escaped text.
 
 const cardClass =
 	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]";
@@ -78,6 +79,23 @@ function CheckpointDetail({ record, evidence }) {
 	const { checkpoint } = record;
 	if (!checkpoint) return <EmptyNote>This checkpoint record is unreadable.</EmptyNote>;
 	const created = formatTimestamp(record.created_at);
+  if (record.workingState?.format === 'c9-markdown') return (
+    <div className="min-w-0">
+      <SectionTitle>Summary · Checkpoint v{record.id}</SectionTitle>
+      <p className={bodyClass}>{record.status}{record.stale ? ' · stale; verify current context before acting' : ''}{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
+      <div className="space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+        <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}>{record.workingState.content}</ReactMarkdown>
+      </div>
+      <details className="mt-3"><summary>Evidence</summary>
+        <p className={bodyClass}>{record.workingState.consumedToolCount} covered tool operations · {record.workingState.durableEvidenceCount} durable evidence records</p>
+        {(checkpoint.evidence ?? []).map((source, index) => <EvidenceRef key={index} source={source} evidence={evidence} />)}
+      </details>
+      <details className="mt-3"><summary>Technical details</summary>
+        <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify(checkpoint, null, 2)}</pre>
+      </details>
+    </div>
+  );
+
 	return (
 		<div className="min-w-0">
 			<div className="flex flex-wrap items-center gap-1.5">
@@ -116,7 +134,7 @@ function CheckpointDetail({ record, evidence }) {
 					: ""}
 			</p>
             {record.workingState && <section aria-label="Saved continuation working state">
-              <SectionTitle>Saved continuation working state</SectionTitle>
+              <SectionTitle>Legacy structured checkpoint · Saved continuation working state</SectionTitle>
               <p className={bodyClass}>{record.workingState.representation} · {record.workingState.consumedToolCount} covered tool operations · {record.workingState.durableEvidenceCount} durable evidence records{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
               <p className={bodyClass}>Objective and working findings are model-drafted. Requirements include deterministically retained prior constraints. Plan, pending operations, evidence and retrieval metadata are deterministic. Integrity metadata stays in durable storage; these labels are UI descriptions.</p>
               {(() => { try {

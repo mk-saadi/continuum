@@ -1,0 +1,864 @@
+{
+  "milestone": "R5",
+  "client_date": "2026-10-31",
+  "timezone": "Asia/Dhaka",
+  "status": "implemented; matched failures retained; real-GLM acceptance not run",
+  "preservation": {
+    "pre_existing_worktree_changes_retained": true,
+    "commit_push_stash_reset_clean": false,
+    "dependency_installation": false,
+    "real_model_inference": false,
+    "live_database_mutations": false,
+    "fixture_storage": "disposable /tmp projects and databases"
+  },
+  "baseline": {
+    "method": "Initial restricted baseline plus separate reconstructed pre-R5 behavioral snapshot. R5 behavioral changes reversed while prior worktree changes retained. Additive schema/timestamps remain; not byte-identical pre-edit source.",
+    "snapshot": "/tmp/r5-before",
+    "reconstruction_script": "import shutil,pathlib\nroot=pathlib.Path.cwd(); out=pathlib.Path('/tmp/r5-before')\nout.mkdir(exist_ok=True)\nfor name in ['src','tests']:\n shutil.copytree(root/name,out/name,dirs_exist_ok=True)\nshutil.copy(root/'package.json',out/'package.json')\nif not (out/'node_modules').exists(): (out/'node_modules').symlink_to(root/'node_modules',target_is_directory=True)\ndef edit(file,fn):\n p=out/file;p.write_text(fn(p.read_text()))\ndef agent(s):\n s=s.replace(\"const gitExecutionScope = new (require('node:async_hooks').AsyncLocalStorage)();\\n\",'').replace(\" uncontained = uncontained || gitExecutionScope.getStore()?.host === true;\\n\",'')\n start=s.index('async function executeGitTool(root,'); end=s.index('\\n\\tif (name === \"git_status\")',start)\n s=s[:start]+'async function executeGitTool(root, name, args, signal, uncontained = false, approval = null, fullAccess = false) {'+s[end:]\n s=s.replace('return evidence.complete ? \"passed\" : \"inconclusive\";', 'return \"passed\";')\n s=s.replace('if (result?.spawnError || result?.status === \"output_capture_failed\") return \"error\";', 'if (result?.spawnError) return \"error\";')\n s=s.replace('\\n if (require(\"../executionCapabilities\").displayFailure(result)) return \"inconclusive\";', '')\n s=s.replace('success: [\"passed\", \"inconclusive\"].includes(status),','success: status === \"passed\",')\n s='\\n'.join(line for line in s.split('\\n') if 'executionStatus: result?.spawnError' not in line)\n s=s.replace(\"? (require('../executionCapabilities').displayFailure(result) ? 'Graphical infrastructure unavailable; source assertions were not verified. See captured process output.' : 'No complete authoritative test result was captured, or command syntax may mask the runner exit status. Execution completed; verification is inconclusive.')\", \"? 'Test output is incomplete or command syntax may mask the runner exit status. Run the test directly using bounded tool output.'\")\n s=s.replace(\"...require('../executionCapabilities').manifest(workspaceRoot ? 'workspace_write' : 'full_access', cwd), \",'')\n s=s.replace(\"\\tconst capabilityFailure = require('../executionCapabilities').preflight(args, !uncontained, capabilityRunId, require('../lspExecutionContext').revision(sessionId));\\n if (capabilityFailure) { validateAuthorization(); return { result: capabilityFailure, cwd: root }; }\\n\",'')\n s='\\n'.join(line for line in s.split('\\n') if \"require('../executionCapabilities').remember(\" not in line)\n s=s.replace('if (result.code === \"EXECUTION_CAPABILITY_UNAVAILABLE\") return result;\\n ','')\n return s\nedit('src/main/tools/agentTools.js',agent)\ndef plan(s):\n s=s.replace('\\n    steps: plan ? plan.steps.map(({ id, position, status }) => ({ id, position, status })) : [],','')\n s=s.replace('Use exact step ids above, never ordinal positions; ids are database integers, not step numbers. ','')\n s=s.replace(\"...(['UNKNOWN_STEP', 'STALE_PLAN'].includes(error.code) ? { current_plan: planState(sessionId) } : {}),\\n        \",'')\n return s\nedit('src/main/workspacePlan.js',plan)\ndef prompt(s):\n start=s.index('function buildExecutionEnvironmentSection('); end=s.index('function buildSessionSystemPrompt',start);s=s[:start]+s[end:]\n s=s.replace(\"'Execution capabilities are supplied in the current COMMAND ENVIRONMENT section; do not assume a host runtime or display.'\", \"'[COMMAND ENVIRONMENT] /bin/sh on POSIX: no Bash process substitution/pipefail. Sandbox HOME is isolated; host NVM/startup scripts unavailable. Use node/npm from PATH when available. Run tests directly with bounded tool output, not pipelines.'\")\n return '\\n'.join(line for line in s.split('\\n') if 'buildExecutionEnvironmentSection(sessionId),' not in line and '    buildExecutionEnvironmentSection,' not in line)\nedit('src/main/promptBuilder.js',prompt)\nedit('src/lib/memoryChat.mjs',lambda s:s.replace('getSessionPlanState = null, getExecutionEnvironment = null,','getSessionPlanState = null,').replace('''    if (getExecutionEnvironment) {\n      const environment = await getExecutionEnvironment();\n      for (let i = history.length - 1; i >= 0; i--) if (history[i].workspaceExecutionEnvironment) history.splice(i, 1);\n      if (environment) history.splice(1, 0, environment);\n    }\n''',''))\nedit('src/main/engineManager.js',lambda s:s.replace('''if (toolName === 'run_tests' && output.executionStatus === 'completed') {\n        if (output.verificationState === 'inconclusive') return null;\n        if (output.verificationState === 'failed') return 'Test verification failed; command execution completed.';\n    }\n\\t''',''))\nedit('src/lib/executionEvents.mjs',lambda s:'\\n'.join(line for line in s.split('\\n') if 'step.result?.executionStatus' not in line))\nedit('tests/verification.test.cjs',lambda s:s.replace(\"test('a successful probe completes with inconclusive verification and exit code 0'\", \"test('a successful command returns passed with exit code 0'\").replace(\"assert.equal(result.status, 'inconclusive');\\n  assert.equal(result.executionStatus, 'completed');\", \"assert.equal(result.status, 'passed');\",1).replace(\"{ exitCode: 0 }, null, 45000, '.').status, 'inconclusive'\", \"{ exitCode: 0 }, null, 45000, '.').status, 'passed'\"))\n",
+    "mcp_isolation_preload": "const Module = require('node:module');\nconst load = Module._load;\nModule._load = function(name, ...args) {\n const result = load.call(this, name, ...args);\n if (/mcpManager(?:\\.js)?$/.test(name) && result?.configPath) {\n  result.configPath = '/tmp/r5-empty-mcp/config.json';\n  result.getNativeServers = () => ({});\n }\n return result;\n};\n",
+    "outer_sandbox_child_process_limitation": "EPERM; not used to attribute app regressions",
+    "temporary_dependency_symlink_artifact": {
+      "identity": "packaging configuration ships the bundled server and its runtime dependencies",
+      "resolution": "35/35 baseline LSP checks pass with --preserve-symlinks"
+    },
+    "source_sha256": {
+      "src/main/executionCapabilities.js": "9d7baf2f7906f546132017f3978eb0034fcc17627fb73ebc2c667899672e146f",
+      "src/main/tools/agentTools.js": "a41aa2f799daad46e8283f70c141d256ebed528a2fcf01fe8bb09e0781197aad",
+      "src/main/workspacePlan.js": "6912075f98106942e34abf39daf1cebe6d02867d2f2ced4550a1c4ed3aa4cb0d",
+      "src/main/promptBuilder.js": "c36e07b59dc6ff56df4f71694c3836126f4d98ac66b879c8ee31caae1d0c921c",
+      "src/main/ipcHandlers.js": "e2d31cb196577930273d458bce24fceed6af03f92fa0fdd558226f2461afda66",
+      "src/main/engineManager.js": "276a86a413ac5ff6c2780fa9facd3943c14a6c51c580ac80cf947dddeb531109",
+      "src/main/foregroundCommand.js": "8e975ddac3ee0bcc149549b5c74ecb42fbc11d8962f5c37a7f77e110d6fe0ef0",
+      "src/lib/memoryChat.mjs": "b66a2417750f4bb95b069a4012bef7cd245e0526d92f7228f0f9417df05fb871",
+      "src/lib/executionEvents.mjs": "1e25c65dc1deabe5420615865d9e68df69ca5ccc9dc6290ad7e4475ce587a822",
+      "src/components/ChatInputBar.jsx": "0cd819e4a76d32cfa5ce48346c37332f8a254536292a9f05874be7383c54d205",
+      "tests/r5Execution.test.cjs": "8d938faccc7e2b47a3b68e69f1c6c01d3e83c41d3d5ebab9ac9d31db6992bb50",
+      "tests/verification.test.cjs": "a69e0ce4d12e623f2c73e05c7438def79f55c92348599fe166e0410d1c5c5dd6",
+      "tests/permissionMode.ui.cjs": "c3fd09989cbf81e66f6c6001ed2590d0ea474c6e15ceba9eaaa3cd3c2ae6f091"
+    }
+  },
+  "results": {
+    "final_combined": {
+      "existing_tests": 476,
+      "initial_r5_tests": 10,
+      "total": 486,
+      "passed": 484,
+      "failed": 2
+    },
+    "final_r5_expanded": {
+      "tests": 14,
+      "passed": 14,
+      "failed": 0
+    },
+    "unique_final_coverage": {
+      "tests": 490,
+      "passed": 488,
+      "failed": 2
+    },
+    "persistent_failing_identities": [
+      "permission restrictions and workspace boundaries stay enforced",
+      "workspace retains safety, activation, task continuity and MCP discovery"
+    ],
+    "new_final_failing_identities": [],
+    "intermediate_regression": {
+      "identity": "W4 full parent loop: long-horizon",
+      "observed": "16 rather than 11 compactions with verbose capability context",
+      "repair": "Compact capability prompt; unchanged assertion passes, 26/26 advanced suite"
+    },
+    "build": "passed; existing chunk-size advisory",
+    "diff_check": "passed",
+    "electron_activity_ui": "passed",
+    "electron_permission_ui": "passed"
+  },
+  "routing": {
+    "shell_before": "Full Access already host; Workspace Write bwrap",
+    "git_before": "Inspection and helpers defaulted to sandbox; dispatcher supplied false for mutation uncontained argument",
+    "git_after": "Invocation-local AsyncLocalStorage host scope only for explicit Full Access, including nested helpers; live revision checked",
+    "lsp": "Existing trusted bundled host lifecycle authorized only in Workspace Write/Full Access; unchanged",
+    "recovery": "Shell recovery uses filesystem snapshots; separate recovery UI read-only Git retains existing sandbox policy without session Full Access authority"
+  },
+  "verification_contract": {
+    "executionStatus": "independent of verification verdict",
+    "process": [
+      "exitCode",
+      "signal",
+      "started_at",
+      "finished_at",
+      "duration_ms",
+      "stdout",
+      "stderr",
+      "command"
+    ],
+    "verificationStatus": [
+      "passed",
+      "failed",
+      "inconclusive"
+    ],
+    "legacy": "status and verificationState retained; legacy execution_error values remain only compatibility fields",
+    "inconclusive_completed_tool_success": true,
+    "authoritative_runner": "complete consistent TAP; failure evidence can override shell zero",
+    "direct_plain_probe_baseline": "passed incorrectly; compound/list probe reproduces red inconclusive result"
+  },
+  "plan_contract": {
+    "step_id_type": "database integer, not ordinal position",
+    "context": [
+      "plan_id",
+      "revision",
+      "steps[].id",
+      "steps[].position",
+      "steps[].status"
+    ],
+    "ordinal_aliasing": false,
+    "unknown_or_stale_error_returns_current_plan": true,
+    "three_completed_tasks": "A, B, C; five historical snapshots"
+  },
+  "reproductions": {
+    "script": "const {createRequire}=require('node:module');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const Module=require('node:module');const cp=require('node:child_process');\nconst req=createRequire(path.join(process.argv[2],'tests/fixture.cjs'));const root=fs.mkdtempSync(path.join(os.tmpdir(),'r5-repro-')); const projectRoot=path.join(root,'workspace');fs.mkdirSync(projectRoot);\nconst load=Module._load;Module._load=function(name,...args){if(name==='electron')return {app:{isReady:()=>true,getPath:()=>root}};return load.call(this,name,...args)};\nconst db=req('../src/main/db');db.initDatabase(root);const p=req('../src/main/projectManager').createProject({name:'R5',root_path:projectRoot});req('../src/main/sessionManager').getOrCreateSession('r5','model',p.id);cp.execFileSync('git',['init','-q',projectRoot]);\n(async()=>{const call=(name,args)=>req('./helpers/approvedNativeCommand.cjs')({name,arguments:JSON.stringify(args),sessionId:'r5',permissionMode:'full_access'});const results=[];\nfor(const command of ['printf SYNTAX_OK','printf SYNTAX_OK; true','printf XVFB_OK; true']){const r=await call('run_tests',{command});results.push({command,result:r});}\nconst dir=path.join(projectRoot,'.llm_workspace/sandbox/tmp/.X11-unix');fs.mkdirSync(dir,{recursive:true});const net=require('node:net');const server=net.createServer();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(path.join(dir,'X77'),resolve)});\ntry{results.push({tool:'git_status',staleSocket:true,result:await call('git_status',{})});}finally{await new Promise(resolve=>server.close(resolve));}\nprocess.stdout.write(JSON.stringify(results,null,2));db.closeDatabase();fs.rmSync(root,{recursive:true,force:true});})().catch(e=>{console.error(e);process.exitCode=1});\n",
+    "before": [
+      {
+        "command": "printf SYNTAX_OK",
+        "result": {
+          "success": true,
+          "status": "passed",
+          "command": "printf SYNTAX_OK",
+          "cwd": "/tmp/r5-repro-jjOlwX/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "passed",
+          "exitCode": 0,
+          "stdout": "SYNTAX_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "shell": "/bin/sh",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.082Z",
+          "finished_at": "2026-10-30T18:59:19.088Z",
+          "duration_ms": 6,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 1,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "message": "Verification passed (exit 0)."
+        }
+      },
+      {
+        "command": "printf SYNTAX_OK; true",
+        "result": {
+          "success": false,
+          "status": "inconclusive",
+          "command": "printf SYNTAX_OK; true",
+          "cwd": "/tmp/r5-repro-jjOlwX/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "inconclusive",
+          "exitCode": 0,
+          "stdout": "SYNTAX_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "shell": "/bin/sh",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.102Z",
+          "finished_at": "2026-10-30T18:59:19.104Z",
+          "duration_ms": 2,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 2,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "reason": "Test output is incomplete or command syntax may mask the runner exit status. Run the test directly using bounded tool output.",
+          "failure_excerpt": "SYNTAX_OK"
+        }
+      },
+      {
+        "command": "printf XVFB_OK; true",
+        "result": {
+          "success": false,
+          "status": "inconclusive",
+          "command": "printf XVFB_OK; true",
+          "cwd": "/tmp/r5-repro-jjOlwX/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "inconclusive",
+          "exitCode": 0,
+          "stdout": "XVFB_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "shell": "/bin/sh",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.113Z",
+          "finished_at": "2026-10-30T18:59:19.116Z",
+          "duration_ms": 3,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 3,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "reason": "Test output is incomplete or command syntax may mask the runner exit status. Run the test directly using bounded tool output.",
+          "failure_excerpt": "XVFB_OK"
+        }
+      },
+      {
+        "tool": "git_status",
+        "staleSocket": true,
+        "result": {
+          "success": false,
+          "error": "Sandbox socket path is not permitted: /tmp/r5-repro-jjOlwX/workspace/.llm_workspace/sandbox/tmp/.X11-unix/X77"
+        }
+      }
+    ],
+    "after": [
+      {
+        "command": "printf SYNTAX_OK",
+        "result": {
+          "success": true,
+          "executionStatus": "completed",
+          "status": "inconclusive",
+          "command": "printf SYNTAX_OK",
+          "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "inconclusive",
+          "verificationStatus": "inconclusive",
+          "exitCode": 0,
+          "stdout": "SYNTAX_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "profile": "Host",
+            "sandboxed": false,
+            "shell": "/bin/sh",
+            "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+            "home": "available",
+            "runtimes": {
+              "node": "available",
+              "npm": "available",
+              "python3": "available",
+              "git": "available"
+            },
+            "hostNvmInitialization": "unknown",
+            "network": "unknown (normal OS policy)",
+            "temporaryFiles": "inherited host environment",
+            "unixSockets": "unknown (normal OS policy)",
+            "display": "unknown (configured, not verified)",
+            "graphicalTests": "unknown",
+            "packages": "normal permission policy",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.427Z",
+          "finished_at": "2026-10-30T18:59:19.440Z",
+          "duration_ms": 13,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 1,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "reason": "No complete authoritative test result was captured, or command syntax may mask the runner exit status. Execution completed; verification is inconclusive.",
+          "failure_excerpt": "SYNTAX_OK"
+        }
+      },
+      {
+        "command": "printf SYNTAX_OK; true",
+        "result": {
+          "success": true,
+          "executionStatus": "completed",
+          "status": "inconclusive",
+          "command": "printf SYNTAX_OK; true",
+          "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "inconclusive",
+          "verificationStatus": "inconclusive",
+          "exitCode": 0,
+          "stdout": "SYNTAX_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "profile": "Host",
+            "sandboxed": false,
+            "shell": "/bin/sh",
+            "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+            "home": "available",
+            "runtimes": {
+              "node": "available",
+              "npm": "available",
+              "python3": "available",
+              "git": "available"
+            },
+            "hostNvmInitialization": "unknown",
+            "network": "unknown (normal OS policy)",
+            "temporaryFiles": "inherited host environment",
+            "unixSockets": "unknown (normal OS policy)",
+            "display": "unknown (configured, not verified)",
+            "graphicalTests": "unknown",
+            "packages": "normal permission policy",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.475Z",
+          "finished_at": "2026-10-30T18:59:19.481Z",
+          "duration_ms": 6,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 2,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "reason": "No complete authoritative test result was captured, or command syntax may mask the runner exit status. Execution completed; verification is inconclusive.",
+          "failure_excerpt": "SYNTAX_OK"
+        }
+      },
+      {
+        "command": "printf XVFB_OK; true",
+        "result": {
+          "success": true,
+          "executionStatus": "completed",
+          "status": "inconclusive",
+          "command": "printf XVFB_OK; true",
+          "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+          "testEvidence": {
+            "runner": null,
+            "complete": false,
+            "failures": 0,
+            "totals": {},
+            "detected": false
+          },
+          "verificationState": "inconclusive",
+          "verificationStatus": "inconclusive",
+          "exitCode": 0,
+          "stdout": "XVFB_OK",
+          "stderr": "",
+          "commandEnvironment": {
+            "profile": "Host",
+            "sandboxed": false,
+            "shell": "/bin/sh",
+            "cwd": "/tmp/r5-repro-vLX3vc/workspace",
+            "home": "available",
+            "runtimes": {
+              "node": "available",
+              "npm": "available",
+              "python3": "available",
+              "git": "available"
+            },
+            "hostNvmInitialization": "unknown",
+            "network": "unknown (normal OS policy)",
+            "temporaryFiles": "inherited host environment",
+            "unixSockets": "unknown (normal OS policy)",
+            "display": "unknown (configured, not verified)",
+            "graphicalTests": "unknown",
+            "packages": "normal permission policy",
+            "isolatedHome": false,
+            "runtimeExecutables": [
+              "node",
+              "npm",
+              "python3",
+              "git"
+            ]
+          },
+          "started_at": "2026-10-30T18:59:19.512Z",
+          "finished_at": "2026-10-30T18:59:19.519Z",
+          "duration_ms": 7,
+          "timeout_ms": 60000,
+          "requested_timeout_ms": 60000,
+          "output_truncated": false,
+          "signal": null,
+          "recoveryCheckpointId": 3,
+          "recoveryChangedTotal": 0,
+          "recoveryChanged": [],
+          "recoveryComplete": true,
+          "reason": "No complete authoritative test result was captured, or command syntax may mask the runner exit status. Execution completed; verification is inconclusive.",
+          "failure_excerpt": "XVFB_OK"
+        }
+      },
+      {
+        "tool": "git_status",
+        "staleSocket": true,
+        "result": {
+          "output": "## No commits yet on master\n"
+        }
+      }
+    ],
+    "note": "Reproduction outputs precede additive canonical verificationStatus field and compact prompt; final focused suite verifies final fields."
+  },
+  "acceptance_mapping": [
+    {
+      "requested_cases": [
+        1,
+        2,
+        7
+      ],
+      "subject": "Full Access shell/test dispatch and inherited HOME/PATH/TMPDIR",
+      "evidence": "r5Execution: Full Access shell and test production dispatch; real Node runners",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        3,
+        4,
+        6
+      ],
+      "subject": "Git host routing and real stale X11 socket",
+      "evidence": "r5Execution: real stale workspace X11 socket; sandbox poison sentinel",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        5,
+        17
+      ],
+      "subject": "Mode changes and live revision",
+      "evidence": "r5Execution: metadata refresh/provider change; existing permissionIsolationReliability and backgroundCommands",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        8,
+        9
+      ],
+      "subject": "OS boundary/no privilege elevation",
+      "evidence": "r5Execution: chmod-denied file; source review of unchanged host spawn identity and absence of privilege escalation",
+      "kind": "automated + source inspection"
+    },
+    {
+      "requested_cases": [
+        10,
+        14,
+        16
+      ],
+      "subject": "Workspace containment, ordinary dispatch and no host fallback",
+      "evidence": "permissionIsolationReliability, sandboxFilesystem, gitShellReadOnly; R5 sandbox poison",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        11,
+        12,
+        15
+      ],
+      "subject": "NVM, display and network capability contract",
+      "evidence": "r5Execution capability manifest; sandboxFilesystem mount/network source",
+      "kind": "automated + source inspection"
+    },
+    {
+      "requested_cases": [
+        13
+      ],
+      "subject": "Repeated proven display failures do not relaunch",
+      "evidence": "r5Execution production run_tests suppression and scope invalidation",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        18,
+        19,
+        25
+      ],
+      "subject": "Probe results match provider, settlement and persisted activity",
+      "evidence": "r5Execution SYNTAX_OK/XVFB_OK model loop and disposable database reload",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        20,
+        21,
+        22,
+        24
+      ],
+      "subject": "TAP completeness and masked exit accounting",
+      "evidence": "r4Verification, verification, R5 real Node runners and masked failing pipeline",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        23
+      ],
+      "subject": "Missing X server is inconclusive environment evidence",
+      "evidence": "r5Execution classifier and repeat suppression",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        26
+      ],
+      "subject": "Rendered tool failure versus assertion failure",
+      "evidence": "r5Activity.ui.cjs using real Electron/Xvfb",
+      "kind": "automated UI"
+    },
+    {
+      "requested_cases": [
+        27,
+        28,
+        30,
+        32,
+        33,
+        37
+      ],
+      "subject": "Create/update, lifecycle, history, ownership/revision guards",
+      "evidence": "workspacePlan, compactPlanResults, R5 three-task fixture",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        29,
+        31
+      ],
+      "subject": "Current exact IDs, no ordinal aliasing",
+      "evidence": "workspacePlan request-boundary state, R5 returned IDs/current-plan errors",
+      "kind": "automated + source inspection"
+    },
+    {
+      "requested_cases": [
+        34
+      ],
+      "subject": "Three separate completed tasks in one session",
+      "evidence": "r5Execution Task A/B/C and five historical snapshots",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        35,
+        36
+      ],
+      "subject": "Refresh after context rebuild, compaction and steering",
+      "evidence": "workspacePlan rebuild/model-loop, c93PrematureStopIpc, request-boundary callback source; R5 provider mode refresh",
+      "kind": "automated + source inspection"
+    },
+    {
+      "requested_cases": [
+        38
+      ],
+      "subject": "C9.3 does not resume unrelated completed plans",
+      "evidence": "c93PrematureStop.test.mjs and c93PrematureStopIpc.test.cjs",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        39
+      ],
+      "subject": "R3 attachment/hash compatibility",
+      "evidence": "r3Reliability.test.cjs",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        40
+      ],
+      "subject": "T1/T1.1 batching compatibility",
+      "evidence": "t1ToolBatch.test.mjs and t11ChildReadBatch.test.mjs",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        41
+      ],
+      "subject": "E1/E2 editing compatibility",
+      "evidence": "e1FileEditingNative.test.cjs and e2EditingReliability.test.cjs",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        42
+      ],
+      "subject": "P2 compact/full profiles",
+      "evidence": "p2CompactNativeTools.test.cjs",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        43
+      ],
+      "subject": "Compaction safeguards and unchanged long-horizon assertion",
+      "evidence": "workspaceAdvancedCompaction 26/26; workspaceSafeCompaction, c9SimpleCompaction, subagentLongHorizonCompaction",
+      "kind": "automated"
+    },
+    {
+      "requested_cases": [
+        44
+      ],
+      "subject": "No unexpected external MCP startup",
+      "evidence": "empty disposable singleton config and disabled native discovery before initialization; selected offline fixtures, no real-model calls",
+      "kind": "harness isolation + source inspection"
+    }
+  ],
+  "logs": [
+    {
+      "path": "/tmp/r5-baseline.log",
+      "sha256": "8a6659a33985b8355782201358f8210cb70203fd45b6de1114a5ac7c70b91596",
+      "summary": {
+        "tests": 5,
+        "pass": 2,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "tests/sandboxFilesystem.test.cjs",
+        "tests/sandboxGitRelay.test.cjs",
+        "tests/verification.test.cjs"
+      ]
+    },
+    {
+      "path": "/tmp/r5-regression-before.log",
+      "sha256": "605a66ad2b536f6ec2fd420e81ab091284408389aad4ecd745591bcfa38e6f20",
+      "summary": {
+        "tests": 15,
+        "pass": 12,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "tests/gitShellReadOnly.test.cjs",
+        "tests/lspFoundation.test.cjs",
+        "tests/lspProduction.test.cjs"
+      ]
+    },
+    {
+      "path": "/tmp/r5-regression-before-host.log",
+      "sha256": "4be993f30c183fb6ccaf3f54ae558a670265bc1d2554512caf835c0f1dc5b9ea",
+      "summary": {
+        "tests": 324,
+        "pass": 322,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "packaging configuration ships the bundled server and its runtime dependencies",
+        "permission restrictions and workspace boundaries stay enforced"
+      ]
+    },
+    {
+      "path": "/tmp/r5-baseline-lsp-path.log",
+      "sha256": "c2648094d155bdde1a2f80176c3f4c52d5bd855ab098146fd691fe59bd7eb56a",
+      "summary": {
+        "tests": 35,
+        "pass": 35,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-extra-before.log",
+      "sha256": "9904fe09205b20a9194a2ac18e768ab49be51836be64fc0544b65baa63dfea76",
+      "summary": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "workspace retains safety, activation, task continuity and MCP discovery"
+      ]
+    },
+    {
+      "path": "/tmp/r5-extra-after.log",
+      "sha256": "87fd799cc57a0683192b3aa33e95326b998cf85fcbcabed8653fe84863c52e61",
+      "summary": {
+        "tests": 152,
+        "pass": 150,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "workspace retains safety, activation, task continuity and MCP discovery",
+        "W4 full parent loop: long-horizon"
+      ]
+    },
+    {
+      "path": "/tmp/r5-regression-after-host.log",
+      "sha256": "ba7bdf236f1915f13c4670675c34894dd335ffe133283817b3b6df27a5ee176e",
+      "summary": {
+        "tests": 324,
+        "pass": 323,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "permission restrictions and workspace boundaries stay enforced"
+      ]
+    },
+    {
+      "path": "/tmp/r5-final-regressions.log",
+      "sha256": "08e292ce5c34f5d62e2099945d04ec5a0e5bcefed7c004512066e72c14e34c4a",
+      "summary": {
+        "tests": 486,
+        "pass": 484,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": [
+        "workspace retains safety, activation, task continuity and MCP discovery",
+        "permission restrictions and workspace boundaries stay enforced"
+      ]
+    },
+    {
+      "path": "/tmp/r5-final-focus.log",
+      "sha256": "21998367c0288e403d1e42d0a1d483edad4a1fa4ed90f27e84fb5d87f49d717b",
+      "summary": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-compaction-final.log",
+      "sha256": "74fdd566e39da550305752bbc8beea781dda6714bc1c4c9a6d848a2670349094",
+      "summary": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-ui.log",
+      "sha256": "07593522f5c1965abfc2dd83efb7db312a68afc269d65fe7a093463f25252551",
+      "summary": {},
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-permission-ui.log",
+      "sha256": "d709bcea8a5fb988a87985aa8a5ae2956a43e24f4d60b1b8d570a6f8b3c48f5b",
+      "summary": {},
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-build.log",
+      "sha256": "cef716fa023fbdf78121d0e4244a2c7682a41a9faeb06718eb2f7e25d7a5d8d7",
+      "summary": {},
+      "failing_identities": []
+    },
+    {
+      "path": "/tmp/r5-diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": {},
+      "failing_identities": []
+    }
+  ],
+  "source_sha256": {
+    "src/main/executionCapabilities.js": "9d9df87e7ae857e44088c2fa7982e2587c5fa5d6bf97986aa78b49605f0ae844",
+    "src/main/tools/agentTools.js": "1bcac72497b512f97614b5f79b2104a78134b50efbd34c223357d612b1235d23",
+    "src/main/workspacePlan.js": "73cd76414c0122e49394ba123f30c02d5631c75882b40c8a6b5cedb0cc33128f",
+    "src/main/promptBuilder.js": "461709ed242e0b6d3b575e5c310213b646673ae71117364a14a50b70fbbecdfd",
+    "src/main/ipcHandlers.js": "e2d31cb196577930273d458bce24fceed6af03f92fa0fdd558226f2461afda66",
+    "src/main/engineManager.js": "5881fef523fe9b19731d456f863b15de70f8ab17435a77432406f206a0744889",
+    "src/main/foregroundCommand.js": "8e975ddac3ee0bcc149549b5c74ecb42fbc11d8962f5c37a7f77e110d6fe0ef0",
+    "src/lib/memoryChat.mjs": "c4ab4f2e9daaed4c92997f97dc31468e94621ffa4545fd1657043e93709f0041",
+    "src/lib/executionEvents.mjs": "c3d71ce2fb387aeed258065093e491e80e1d86e0e854a04dfd4de6f8835c432c",
+    "src/components/ChatInputBar.jsx": "0cd819e4a76d32cfa5ce48346c37332f8a254536292a9f05874be7383c54d205",
+    "tests/r5Execution.test.cjs": "3a96fd05c93bc07bb5918ca8d8784184ccd4237fe114c67ef44f37ec50644537",
+    "tests/r5Activity.ui.cjs": "8d73cc00417de95255a32c3e23610ee37d8a1ef5fbd0d10ce2b977a76d21ddf0",
+    "tests/verification.test.cjs": "f23f1ef6e8a7754cacdfc585fdc5b6f57d4f76314bc01eec17150c8dcd50bb59",
+    "tests/permissionMode.ui.cjs": "9a3a26aa6b10b91fb29174a040bdedd3d394e11400171d14b748ba6c5def3c92"
+  },
+  "commands": {
+    "main": "node --require /tmp/r5-mcp-isolation.cjs --test tests/verification.test.cjs tests/r4Verification.test.cjs tests/workspacePlan.test.cjs tests/sandboxFilesystem.test.cjs tests/sandboxGitRelay.test.cjs tests/permissionPolicy.test.cjs tests/nativePermissions.test.cjs tests/permissionIsolationReliability.test.cjs tests/gitShellReadOnly.test.cjs tests/backgroundCommands.test.cjs tests/lspFoundation.test.cjs tests/lspProduction.test.cjs tests/r3Reliability.test.cjs tests/p2CompactNativeTools.test.cjs tests/t1ToolBatch.test.mjs tests/t11ChildReadBatch.test.mjs tests/compactPlanResults.test.cjs tests/c93PrematureStop.test.mjs tests/subagentLongHorizonCompaction.test.cjs tests/workspaceSafeCompaction.test.cjs",
+    "additional": "node --require /tmp/r5-mcp-isolation.cjs --test tests/e1FileEditingNative.test.cjs tests/e2EditingReliability.test.cjs tests/toolResultFormatter.test.mjs tests/h1HistoryDeletion.test.cjs tests/workLog.test.cjs tests/workspaceAdvancedCompaction.test.cjs tests/c9SimpleCompaction.test.cjs tests/c93PrematureStopIpc.test.cjs tests/permissionSelector.test.mjs tests/sessionPromptWording.test.cjs",
+    "focus": "node --require /tmp/r5-mcp-isolation.cjs tests/r5Execution.test.cjs",
+    "activity_ui": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron tests/r5Activity.ui.cjs",
+    "permission_ui": "env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron tests/permissionMode.ui.cjs",
+    "build": "npm run build",
+    "whitespace": "git diff --check",
+    "final_combined": "node --require /tmp/r5-mcp-isolation.cjs --test tests/verification.test.cjs tests/r4Verification.test.cjs tests/workspacePlan.test.cjs tests/sandboxFilesystem.test.cjs tests/sandboxGitRelay.test.cjs tests/permissionPolicy.test.cjs tests/nativePermissions.test.cjs tests/permissionIsolationReliability.test.cjs tests/gitShellReadOnly.test.cjs tests/backgroundCommands.test.cjs tests/lspFoundation.test.cjs tests/lspProduction.test.cjs tests/r3Reliability.test.cjs tests/p2CompactNativeTools.test.cjs tests/t1ToolBatch.test.mjs tests/t11ChildReadBatch.test.mjs tests/compactPlanResults.test.cjs tests/c93PrematureStop.test.mjs tests/subagentLongHorizonCompaction.test.cjs tests/workspaceSafeCompaction.test.cjs tests/e1FileEditingNative.test.cjs tests/e2EditingReliability.test.cjs tests/toolResultFormatter.test.mjs tests/h1HistoryDeletion.test.cjs tests/workLog.test.cjs tests/workspaceAdvancedCompaction.test.cjs tests/c9SimpleCompaction.test.cjs tests/c93PrematureStopIpc.test.cjs tests/permissionSelector.test.mjs tests/sessionPromptWording.test.cjs tests/r5Execution.test.cjs",
+    "baseline_lsp_path_recheck": "node --preserve-symlinks --require /tmp/r5-mcp-isolation.cjs --test tests/lspProduction.test.cjs"
+  },
+  "limitations": [
+    "No full-repository green claim",
+    "No fresh distribution packaging or real GLM inference",
+    "Host OS permissions, display, networking and authentication remain authoritative",
+    "Sandbox runtime startup not advertised as verified merely from host PATH",
+    "Unknown compound GUI workflows can require one concrete failed launch",
+    "Non-TAP runner adapters are not added; exit-zero checks can remain inconclusive"
+  ]
+}

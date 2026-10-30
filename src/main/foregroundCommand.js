@@ -23,6 +23,7 @@ function capture() {
 
 function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeoutMs = timeoutMs, timeoutReason = 'timed_out', windowsVerbatimArguments = false, onState = null, validateAuthorization = null }) {
   const started = performance.now();
+  const startedAt = new Date().toISOString();
   return new Promise(resolve => {
     const stdout = capture(), stderr = capture();
     let child, timer, forceTimer, finishTimer, revocationTimer, status, code = null, exitSignal = null, spawnError = null, settled = false;
@@ -47,7 +48,7 @@ function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeo
       child?.stdout?.destroy(); child?.stderr?.destroy();
       resolve({ stdout: stdout.text(), stderr: stderr.text(), exitCode: code,
         status: status ?? (spawnError ? 'spawn_failed' : code === 0 ? 'completed' : 'nonzero_exit'),
-        signal: exitSignal, duration_ms: Math.round(performance.now() - started),
+        signal: exitSignal, started_at: startedAt, finished_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - started),
         timeout_ms: timeoutMs, requested_timeout_ms: requestedTimeoutMs,
         output_truncated: stdout.truncated || stderr.truncated,
         ...(status === 'timed_out' ? { timedOut: true } : {}),

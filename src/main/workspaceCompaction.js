@@ -6,6 +6,9 @@ const w2 = require('./workspaceCompactCandidate');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const capabilities = new WeakMap();
 const inflight = new Map();
+// One rejected boundary per owning run. Never cache dispatch authorization:
+// every continuation still rebuilds and measures the unchanged full request.
+const rejectedBoundaries = new WeakMap();
 function fail(code, diagnostics = null) {
   const detail = diagnostics ? ` Stage: ${diagnostics.rejectionStage ?? diagnostics.stage}; evidence: ${JSON.stringify(diagnostics.evidenceFailure ?? null)}; history not altered by generation; checkpoint not activated; generation retry ${diagnostics.safeToRetryGeneration ? 'allowed after resolving condition' : 'requires a fresh run'}.` : '';
   throw Object.assign(new Error(`Workspace compaction: ${code}.${detail} Retry the run after resolving this condition; saved history is preserved.`), { code, recoverable: true, compactionDiagnostics: diagnostics });
@@ -98,8 +101,9 @@ async function compactAtBoundary(options) {
     if (existing.owner === options.owner && existing.payloadHash === hash(options.payload)) return existing.promise;
     fail('compaction-busy');
   }
-  let activity;
+  let activity, planningSummary;
   const progress = (status, values) => {
+    if (values?.planningSummary) planningSummary = values.planningSummary;
     try {
     if (!activity) activity = require('./workspaceCompactionActivity').create({ sessionId,
       runId: options.owner?.runId, messageId: options.messageId,
@@ -115,9 +119,12 @@ async function compactAtBoundary(options) {
       activity.update(result.compressed ? 'completed' : result.optionalContinued ? 'checking-fit' : 'deferred', {
         code: result.reason, afterTokens: result.compressed ? d.actualTokens : undefined,
         afterMeasurementMethod: result.compressed ? d.actualMeasurementMethod : undefined,
+        checkpointOutcome: d.generation?.checkpointOutcome ?? d.generation?.plan?.outcome, coverageMessages: d.generation?.coverageMessages, coverageOperations: d.generation?.coverageOperations,
+        planningSummary: d.generation?.planningSummary,
         checkpointId: result.checkpointId, generationStages: d.generation?.generationStages ?? 0,
         targetTokens: d.softTarget?.targetTokens, targetMet: d.softTarget?.status === 'within-soft-target',
         targetReason: d.targetReason, percentageSaved: d.percentageSaved, tokensSaved: d.reductionTokens,
+        summaryTokens: d.summaryTokens, summaryTokenMethod: d.summaryTokenMethod,
         tokensUntilNextTrigger: d.tokensUntilNextTrigger, workingCheckpointTokens: d.workingCheckpointMeasurement?.tokens,
         protectedContextTokens: d.protectedContextMeasurement?.tokens, irreducibleContextTokens: d.irreducibleContextTokens, durationMs: d.durationMs,
       });
@@ -125,7 +132,8 @@ async function compactAtBoundary(options) {
         const validate = result.validateDispatch;
         result.validateDispatch = async () => {
           try { return await validate(); } catch (error) {
-            activity.update(options.owner?.signal.aborted ? 'cancelled' : 'failed', { code: error.code }); throw error;
+            if (d.generation?.continuation) d.generation.continuation.reason = error.code ?? 'fallback-failed';
+            activity.update(options.owner?.signal.aborted ? 'cancelled' : 'failed', { code: error.code, continuationDiagnostics: d.generation?.continuation }); throw error;
           }
         };
       }
@@ -133,7 +141,8 @@ async function compactAtBoundary(options) {
     }
     return result;
   }, error => {
-    activity?.update(options.owner?.signal.aborted || error.name === 'AbortError' ? 'cancelled' : 'failed', { code: error.code });
+    activity?.update(options.owner?.signal.aborted || error.name === 'AbortError' ? 'cancelled' : 'failed', { code: error.code,
+      planningSummary: planningSummary ? { ...planningSummary, activationOutcome: 'activation-or-continuation-blocked', reason: error.code } : undefined });
     throw error;
   });
   inflight.set(sessionId, { promise, owner: options.owner, payloadHash: hash(options.payload) });
@@ -142,7 +151,20 @@ async function compactAtBoundary(options) {
 async function perform({ sessionId, modelId, owner, messageId, payload, tail, buildRequest, measure, generate,
   isCurrent, mcpToolNames = [], force = false, signal = owner.signal, inject = () => {}, progress = () => {}, softTargetTokens = 17000, reasoningTarget = null, localModel = null }) {
   const started = performance.now();
+  const measureRequest = measure;
+  measure = async (...args) => {
+    const value = await measureRequest(...args);
+    if (!Number.isSafeInteger(value?.tokens) || value.tokens < 0 ||
+        value.limit != null && (!Number.isSafeInteger(value.limit) || value.limit <= 0) ||
+        value.budgetContract && (!Number.isSafeInteger(value.budget) || value.budget < 0)) fail('invalid-context-measurement');
+    return value;
+  };
   const guard = () => { signal.throwIfAborted(); if (!isCurrent()) fail('runtime-state-changed'); };
+  const requireContinuationMeasurement = value => {
+    if (value.method !== 'server-template-tokenizer' ||
+        !['runtime-reported', 'provider-advertised'].includes(value.budgetContract?.capacityMethod))
+      fail('continuation-measurement-unavailable');
+  };
   guard();
   const before = await measure(payload);
   guard();
@@ -151,13 +173,21 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     return { compressed: false, reason: 'compaction-disabled' };
   }
   const component = value => value?.length ? Math.ceil(Buffer.byteLength(JSON.stringify(value), 'utf8') / 3) : 0;
-  const diagnostics = { beforeComposition: require('./compactionPerformance').requestComposition(payload, before), sessionModelId: modelId, provider: before.budgetContract.provider ?? 'local', modelId: before.budgetContract.modelId ?? modelId, beforeTokens: before.tokens, effectiveCapacityTokens: before.limit, usableInputTokens: before.budget,
+  const previousSummary = require('./taskCheckpoints').getLatestCheckpoint(sessionId)?.checkpoint;
+  const summaryBefore = previousSummary?.summaryFormat === 'c9-markdown' ? previousSummary.savedWorkingState : undefined;
+  const diagnostics = { beforeComposition: require('./compactionPerformance').requestComposition(payload, before, { summaryContent: summaryBefore }), sessionModelId: modelId, provider: before.budgetContract.provider ?? 'local', modelId: before.budgetContract.modelId ?? modelId, beforeTokens: before.tokens, effectiveCapacityTokens: before.limit, usableInputTokens: before.budget,
     reservedOutputTokens: before.budgetContract.reservedOutputTokens, safetyTokens: before.budgetContract.reservedSafetyTokens,
     nativeSchemaTokens: component(payload.tools?.filter(t => !mcpToolNames.includes(t.function.name))),
     activatedMcpSchemaTokens: component(payload.tools?.filter(t => mcpToolNames.includes(t.function.name))),
     componentMeasurementMethod: 'serialized-utf8-bytes/3-estimate-not-additive',
     triggerTokens: before.budgetContract.autoCompactionTriggerTokens, measurementMethod: before.method };
-  if (!force && !require('./contextBudget').atCompactionPressure(before.budgetContract)) return { compressed: false, diagnostics };
+  const liveSteps = require('./executionSteps').readExecutionSteps(db.prepare('SELECT * FROM messages WHERE id=? AND session_id=?').get(messageId, sessionId) ?? {});
+  const covered = new Set(previousSummary?.projection?.consumedToolIds ?? []);
+  const uncoveredOperations = liveSteps.filter(s => s.type === 'tool_call' && !covered.has(s.id)).length;
+  diagnostics.trigger = require('./compactionTrigger').decision({ inputTokens: before.tokens, usableInput: before.budget,
+    projectedGrowth: component(tail.slice(-4)), uncoveredOperations,
+    uncoveredTokens: Math.max(0, before.tokens - (previousSummary?.triggerState?.requestTokens ?? before.tokens)) });
+  if (!force && !diagnostics.trigger.trigger && !require('./contextBudget').atCompactionPressure(before.budgetContract)) return { compressed: false, diagnostics };
   progress('started', { beforeTokens: before.tokens, usableInputTokens: before.budget,
     triggerTokens: diagnostics.triggerTokens, measurementMethod: before.method });
   const cut = completedPrefix(tail);
@@ -169,15 +199,15 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   }
   const captured = w2.snapshot(sessionId);
   const latestUser = [...captured.messages].reverse().find(m => m.role === 'user')?.id;
-  const archiveIds = captured.messages.filter(m => !m.archived && m.id !== messageId && m.id !== latestUser && m.status !== 'in_progress').map(m => m.id);
+  let archiveIds = captured.messages.filter(m => !m.archived && m.id !== messageId && m.id !== latestUser && m.status !== 'in_progress').map(m => m.id);
   if (!archiveIds.length && !cut) {
     if (before.tokens > before.budget) fail('irreducible-context-overflow');
     return { compressed: false, reason: 'no-reducible-history', diagnostics };
   }
-  const consumed = tail.slice(0, cut), retained = [...consumed.filter(m => !['assistant', 'tool'].includes(m.role)), ...tail.slice(cut)];
+  const consumed = tail.slice(0, cut); let retained = [...consumed.filter(m => !['assistant', 'tool'].includes(m.role)), ...tail.slice(cut)];
   diagnostics.protectedLiveTailTokens = component(retained);
   diagnostics.beforeMeasuredComposition = await require('./compactionPerformance').measuredComposition(payload, measure, before,
-    { eligibleToolIds: consumed.flatMap(m => (m.tool_calls ?? []).map(call => call.id)) });
+    { summaryContent: summaryBefore, eligibleToolIds: consumed.flatMap(m => (m.tool_calls ?? []).map(call => call.id)) });
   const prior = require('./taskCheckpoints').getLatestCheckpoint(sessionId)?.checkpoint;
   const priorIds = prior?.projection?.runId === owner.runId ? prior.projection.consumedToolIds : [];
   const stepIds = [...new Set([...priorIds, ...consumed.flatMap(m => (m.tool_calls ?? []).map(c => c.id))])];
@@ -204,16 +234,27 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   }
   progress('generating', { sourceVersion: captured.version });
   inject('generation-start');
-  const generated = await w2.generateWorkspaceCompactCandidate({ sessionId, modelId, generate, measure,
+  const rejectionIdentity = hash({ sessionId, modelId, sourceVersion: captured.version, payload,
+    permissionRevision: capability.permissionRevision, operations: capability.operationIdentity, budget: budgetIdentity(before) });
+  const previousRejection = rejectedBoundaries.get(owner);
+  const reusedRejection = !force && previousRejection?.identity === rejectionIdentity;
+  const generated = reusedRejection ? previousRejection.generated : await w2.generateWorkspaceCompactCandidate({ sessionId, modelId, generate, measure,
     reasoningTarget, localModel, capacityTokens: before.limit, provider: before.budgetContract.provider ?? 'local', signal, persist: false, safePoint: token, isCurrent, onProgress: progress });
+  progress('checking-fit', { planningSummary: generated.diagnostics?.planningSummary });
+  if (generated.diagnostics?.rejections?.length) progress('validating', { rejectionDiagnostics: generated.diagnostics.rejections });
   Object.assign(diagnostics, { generation: generated.diagnostics });
   if (!generated.ok) {
     // Only candidate-generation/validation failures qualify. A pressure
     // estimate never authorizes dispatch; rebuild and measure independently.
     const eligible = new Set(['invalid-json', 'schema-invalid', 'missing-required-data', 'invalid-reference',
-      'missing-task-brief-reference', 'unsupported-completion-claim', 'unsupported-file-claim',
-      'output-truncated', 'empty-response', 'incomplete-response', 'provider-error']);
+      'missing-task-brief-reference', 'unsupported-completion-claim', 'unsupported-file-claim', 'unsupported-finding-claim',
+      'output-truncated', 'empty-response', 'incomplete-response', 'provider-error', 'generation-stage-budget', 'generation-token-budget', 'generation-plan-token-budget', 'generation-plan-stage-ceiling', 'generation-plan-context-overflow', 'generation-measurement-unavailable', 'evidence-item-budget-exceeded', 'budget-exceeded']);
+    generated.diagnostics.continuation = { eligible: !force && eligible.has(generated.code),
+      reason: force ? 'forced-compaction' : eligible.has(generated.code) ? 'requires-authoritative-original-request-fit' : 'failure-not-eligible' };
+    progress('checking-fit', { generationBudgetDiagnostics: generated.diagnostics.generationBudget, continuationDiagnostics: generated.diagnostics.continuation });
     if (force || !eligible.has(generated.code)) { capabilities.delete(token); fail(generated.code, generated.diagnostics); }
+    rejectedBoundaries.set(owner, { identity: rejectionIdentity, generated });
+    diagnostics.generationRetrySuppressed = reusedRejection;
     try {
       const current = () => { guard(); w2.assertCurrent(sessionId, captured, signal); validateSafePoint(token, w2.snapshot(sessionId)); };
       current();
@@ -232,18 +273,41 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
         return fit;
       };
       const fit = await verify();
+      generated.diagnostics.continuation.reason = 'authoritative-original-request-fits';
+      progress('checking-fit', { continuationDiagnostics: generated.diagnostics.continuation });
       Object.assign(diagnostics, { generation: generated.diagnostics, actualTokens: fit.tokens, actualMeasurementMethod: fit.method });
       return { compressed: false, optionalContinued: true, reason: generated.code, payload: original, tail,
         diagnostics, validateDispatch: verify };
-    } catch (error) { capabilities.delete(token); throw error; }
+    } catch (error) {
+      generated.diagnostics.continuation.reason = error.code ?? 'fallback-failed';
+      progress('checking-fit', { continuationDiagnostics: generated.diagnostics.continuation });
+      capabilities.delete(token); throw error;
+    }
   }
   Object.assign(diagnostics, { generation: generated.diagnostics });
   guard();
   // W2 uses the exact pre-generation snapshot, not a subsequently refreshed one.
   if (generated.candidate.lifecycle !== 'validated-candidate' || generated.candidate.sourceVersion !== captured.version) fail('stale-candidate');
+  const coverageIds = new Set(generated.candidate.sourceCoverage.map(ref => ref.messageId));
+  archiveIds = archiveIds.filter(id => coverageIds.has(id));
+  // An uncovered live message keeps every protocol round. Never project all
+  // consumed operations merely because some older messages were checkpointed.
+  const representedSteps = new Set(generated.candidate.evidence.filter(r => r.messageId === messageId).map(r => r.stepId));
+  let coveredCut = cut;
+  while (coveredCut > 0 && (!paired(tail.slice(0, coveredCut)) || tail.slice(0, coveredCut).some(m =>
+    (m.tool_calls ?? []).some(call => !representedSteps.has(call.id) && !priorIds.includes(call.id))))) coveredCut--;
+  const coveredConsumed = tail.slice(0, coveredCut);
+  retained = [...coveredConsumed.filter(m => !['assistant', 'tool'].includes(m.role)), ...tail.slice(coveredCut)];
+  const coveredStepIds = [...new Set([...(priorIds ?? []), ...coveredConsumed.flatMap(m => (m.tool_calls ?? []).map(call => call.id))])];
   const checkpoint = { ...generated.candidate, lifecycle: 'w3-current',
     pending: { ...generated.candidate.pending, operations: capability.operations },
-    projection: { runId: owner.runId, messageId, consumedToolIds: stepIds, sourceVersion: captured.version } };
+    projection: { runId: owner.runId, messageId, consumedToolIds: coveredStepIds, sourceVersion: captured.version } };
+  // Reverify the saved projection before activation using the owning context guard.
+  // Its content is immutable across prospective and committed rebuilds.
+  const summary = require('./compactionSummary');
+  checkpoint.summaryMeasurement = await summary.verifySummaryBudget({ content: checkpoint.savedWorkingState, modelId, measure, signal });
+  diagnostics.summaryTokens = checkpoint.summaryMeasurement.tokens;
+  diagnostics.summaryTokenMethod = checkpoint.summaryMeasurement.method;
   const projection = { checkpoint, archiveIds };
   progress('checking-fit');
   inject('prospective-build');
@@ -284,7 +348,13 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
   diagnostics.prospectiveMeasurementMethod = fit.method;
   if (budgetIdentity(before) !== budgetIdentity(fit)) fail('capacity-changed');
   if (fit.tokens > fit.budget) fail('prospective-context-overflow');
-  if (fit.tokens >= before.tokens) fail('no-meaningful-reduction');
+  requireContinuationMeasurement(fit);
+  // A partial/exact operational prefix may concern older evidence outside the
+  // current sliding prompt. Advancing its durable coverage is useful progress
+  // even when the small new checkpoint increases this particular request.
+  const coverageProgress = ['partial', 'degraded'].includes(checkpoint.checkpointOutcome) && (archiveIds.length > 0 || coveredStepIds.some(id => !priorIds.includes(id)));
+  if (fit.tokens >= before.tokens && !coverageProgress) fail('no-meaningful-reduction');
+  checkpoint.triggerState = { requestTokens: fit.tokens, consumedOperations: coveredStepIds.length };
   guard();
   const previous = db.prepare("SELECT id FROM workspace_checkpoints WHERE session_id = ? AND status = 'current'").all(sessionId);
   let checkpointId;
@@ -312,15 +382,17 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     const actual = await buildRequest(null, retained);
     const measurementStarted = performance.now();
     const actualFit = await measure(actual);
+    requireContinuationMeasurement(actualFit);
     diagnostics.postCommitMeasurementMs = performance.now() - measurementStarted;
-    diagnostics.afterComposition = require('./compactionPerformance').requestComposition(actual, actualFit);
-    diagnostics.afterMeasuredComposition = await require('./compactionPerformance').measuredComposition(actual, measure, actualFit);
+    diagnostics.afterComposition = require('./compactionPerformance').requestComposition(actual, actualFit, { summaryContent: checkpoint.savedWorkingState });
+    diagnostics.afterMeasuredComposition = await require('./compactionPerformance').measuredComposition(actual, measure, actualFit, { summaryContent: checkpoint.savedWorkingState });
     diagnostics.softTarget = require('./compactionPerformance').softTarget(actualFit.tokens, actualFit.budget, softTargetTokens);
     guard(); w2.assertCurrent(sessionId, committed, signal);
     validateSafePoint(token, committed);
     if (!paired(actual.messages)) fail('incomplete-tool-pair');
     if (hash(actual) !== hash(prospective) || budgetIdentity(actualFit) !== budgetIdentity(fit) || actualFit.tokens > actualFit.budget) fail('post-commit-mismatch');
     diagnostics.commitOutcome = 'committed-and-verified';
+    if (diagnostics.generation.planningSummary) diagnostics.generation.planningSummary.activationOutcome = 'activated';
     diagnostics.actualBudgetContract = actualFit.budgetContract;
     diagnostics.actualTokens = actualFit.tokens;
     diagnostics.actualMeasurementMethod = actualFit.method;
@@ -331,6 +403,7 @@ async function perform({ sessionId, modelId, owner, messageId, payload, tail, bu
     return { compressed: true, payload: actual, tail: retained, checkpointId, archivedCount: archiveIds.length, diagnostics,
       validateDispatch: async () => {
         const dispatchFit = await measure(actual);
+        requireContinuationMeasurement(dispatchFit);
         if (budgetIdentity(dispatchFit) !== budgetIdentity(fit) || dispatchFit.tokens > dispatchFit.budget) fail('capacity-changed');
         guard(); w2.assertCurrent(sessionId, committed, signal);
         if (hash(operationReferences(w2.snapshot(sessionId), capability)) !== capability.operationIdentity) fail('operation-state-changed'); } };

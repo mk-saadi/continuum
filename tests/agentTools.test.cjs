@@ -184,15 +184,15 @@ const run = (
 				content: "  alpha\rinside \nlast",
 				old_str: "alphainside",
 				new_str: "first",
-				error: /not found/,
+				error: /no-match:/,
 			},
 			{ content: "before\n  last  ", old_str: "last", new_str: "", expected: "before\n    " },
 			{ content: "  first\nlast\n", old_str: "first\nlast\n", new_str: "whole", expected: "  whole" },
-			{ content: "alpha\n  alpha  \n", old_str: "alpha", error: /not unique/ },
-			{ content: "x\n x \nx", old_str: "x\nx", error: /not unique/ },
-			{ content: "alpha beta\n", old_str: "alpha  beta", error: /not found/ },
+			{ content: "alpha\n  alpha  \n", old_str: "alpha", error: /ambiguous-match:/ },
+			{ content: "x\n x \nx", old_str: "x\nx", error: /ambiguous-match:/ },
+			{ content: "alpha beta\n", old_str: "alpha  beta", error: /no-match:/ },
 			{ content: "alpha\n\nbeta", old_str: "alpha\nbeta", expected: "oops" },
-			{ content: "alpha", old_str: "alpha\nbeta", error: /not found/ },
+			{ content: "alpha", old_str: "alpha\nbeta", error: /no-match:/ },
 		];
 		for (const { content, old_str, new_str = "oops", expected, error } of editCases) {
 			const relative_path = "whitespace.txt";
