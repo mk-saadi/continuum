@@ -21,14 +21,14 @@ export default function BackgroundCommandCard({ sessionId }) {
   }, [sessionId]);
   if (!records.length) return null;
   const running = records.filter(r => ['starting', 'running'].includes(r.status)).length;
-  return <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" aria-label="Background commands">
+  return <section className="aero-panel p-3" aria-label="Background commands">
     <h3 className="text-xs font-semibold">Background commands · {running} running</h3>
     {records.slice(-12).reverse().map(r => <details key={r.command_id} className="mt-2 text-[11px] break-words">
       <summary>{r.command_summary} · {r.status} · {r.notification_state === 'delivered' ? 'Agent informed' : `Notification: ${r.notification_state}`}</summary>
       <p>{r.command_id} · Started {r.started_at}{r.duration_ms != null ? ` · ${r.duration_ms} ms` : ''}{r.exitCode != null ? ` · Exit ${r.exitCode}` : ''}</p>
       {r.persistence_error && <p>{r.persistence_error}</p>}
       {r.output_truncated && <p>Output truncated</p>}
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap">{`${r.stdout ?? ''}\n${r.stderr ?? ''}`.slice(-2000)}</pre>
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--terminal)] p-2 text-[var(--terminal-text)]">{`${r.stdout ?? ''}\n${r.stderr ?? ''}`.slice(-2000)}</pre>
     </details>)}
   </section>;
 }

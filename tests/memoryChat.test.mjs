@@ -504,7 +504,8 @@ test('multiple thought blocks in one round remain separate', async () => {
   await runMemoryChat({ ...base, onExecutionSteps: value => steps = value,
     fetchImpl: async () => stream([chunk({ content: '<think>First</think>Text<think>Second</think>End' }, 'stop')]),
   });
-  assert.deepEqual(steps.map(step => step.content), ['First', 'Second']);
+  assert.deepEqual(steps.map(step => step.type), ['thought', 'text', 'thought']);
+  assert.deepEqual(steps.map(step => step.content), ['First', 'Text', 'Second']);
 });
 
 test('tool failures, malformed arguments, and cancellation finalize the matching step', async () => {
@@ -829,4 +830,29 @@ test('incomplete tool retries are bounded and content filtering is not retried',
     }), /Incomplete tool-call/);
     assert.equal(requests, reason === 'length' ? 3 : 1);
   }
+});
+
+test('progress prose keeps its position between thoughts and tools without duplicating the final answer', async () => {
+  const { splitStages, progressTextOffset } = await import('../src/lib/executionEvents.mjs');
+  const { normalizeExecutionSteps } = await import('../src/main/executionSteps.js');
+  let steps = [], request = 0;
+  const content = await runMemoryChat({ ...base,
+    onExecutionSteps: value => { steps = value; },
+    executeTool: async () => [],
+    fetchImpl: async () => ++request === 1 ? stream([
+      chunk({ reasoning_content: 'Need to look.' }),
+      chunk({ content: 'I will search first.\n\n' }),
+      chunk({ tool_calls: [{ index: 0, id: 'lookup', function: { name: 'search_memory', arguments: '{"query":"test"}' } }] }),
+      chunk({}, 'tool_calls'),
+    ]) : stream([
+      chunk({ reasoning_content: 'Now verified.' }),
+      chunk({ content: 'Here is the answer. [TASK COMPLETE]' }), chunk({}, 'stop'),
+    ]),
+  });
+  assert.deepEqual(steps.map(step => step.type), ['thought', 'text', 'tool_call', 'thought']);
+  assert.equal(steps[1].content, 'I will search first.\n\n');
+  assert.equal(content.slice(progressTextOffset(steps)), 'Here is the answer. [TASK COMPLETE]');
+  assert.deepEqual(normalizeExecutionSteps(JSON.parse(JSON.stringify(steps))), steps);
+  assert.deepEqual(splitStages(steps).map(stage => stage.text ? 'text' : stage.events.length ? 'tools' : 'thought'), ['thought', 'text', 'tools', 'thought']);
+  assert.equal(progressTextOffset([{ type: 'tool_call' }]), 0);
 });

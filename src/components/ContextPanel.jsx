@@ -10,10 +10,10 @@ import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 // disabled. Legacy checkpoint fields and tool output remain React-escaped text.
 
 const cardClass =
-	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]";
+	"aero-panel p-3";
 const headingClass = "text-xs font-semibold";
 const bodyClass = "text-[11px] leading-relaxed text-[var(--text-muted)]";
-const pillClass = "shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-medium";
+const pillClass = "aero-badge shrink-0 px-2 py-0.5 text-[10px] font-medium";
 const verifiedClass = "text-[var(--accent)]";
 const unverifiedClass = "text-[var(--text-muted)]";
 const errorClass = "text-[var(--error)]";
@@ -30,6 +30,7 @@ function StatusPill({ tone, children }) {
 	return (
 		<span
 			role="status"
+			data-tone={tone}
 			className={`${pillClass} ${tone === "good" ? verifiedClass : tone === "bad" ? errorClass : tone === "warn" ? warnClass : unverifiedClass}`}
 		>
 			{children}
@@ -83,7 +84,7 @@ function CheckpointDetail({ record, evidence }) {
     <div className="min-w-0">
       <SectionTitle>Summary · Checkpoint v{record.id}</SectionTitle>
       <p className={bodyClass}>{record.status}{record.stale ? ' · stale; verify current context before acting' : ''}{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
-      <div className="space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+      <div className="aero-flat p-2 space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
         <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}>{record.workingState.content}</ReactMarkdown>
       </div>
       <details className="mt-3"><summary>Evidence</summary>
@@ -715,7 +716,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 					<button
 						type="button"
 						onClick={() => void refreshUsage()}
-						className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="shrink-0 aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 					>
 						Refresh
 					</button>
@@ -812,7 +813,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 						type="button"
 						onClick={() => void refresh()}
 						disabled={loading}
-						className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+						className="shrink-0 aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 					>
 						Refresh
 					</button>
@@ -922,7 +923,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 										(() => { setFocusId(null); focusRef.current = null; setSelectedId((current) => (current === row.id ? null : row.id)); })()
 									}
 									aria-pressed={selectedId === row.id}
-									className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${selectedId === row.id ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--bg-secondary)] hover:bg-[var(--surface-hover)]"}`}
+									className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 								>
 									v{row.id} · {row.status}
 									{row.stale ? " · stale" : ""}
@@ -1201,7 +1202,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 								onClick={() =>
 									void loadArchived(Math.max(0, archived.offset - archived.limit))
 								}
-								className="cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+								className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 							>
 								Older
 							</button>
@@ -1219,7 +1220,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 									archived.offset + archived.limit >= archived.total || archivedLoading
 								}
 								onClick={() => void loadArchived(archived.offset + archived.limit)}
-								className="cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+								className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 							>
 								Newer
 							</button>

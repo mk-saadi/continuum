@@ -28,7 +28,7 @@ app.whenReady().then(async () => {
     const assets = path.join(process.cwd(), 'dist/assets');
     const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));
     await fs.copyFile(path.join(assets, css), path.join(directory, 'fixture.css'));
-    await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d;--control-border:#343c53;--on-accent:#10131c}</style><div id="root"></div><script src="fixture.js"></script>');
+    await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--bg-secondary:#10131c;--window-shadow:#00000066;--edit-border:#65718c;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d;--control-border:#343c53;--on-accent:#10131c}</style><div id="root"></div><script src="fixture.js"></script>');
     await window.loadFile(path.join(directory, 'index.html'));
     await window.webContents.executeJavaScript(`(async () => {
       const tick = () => new Promise(resolve => setTimeout(resolve, 80));

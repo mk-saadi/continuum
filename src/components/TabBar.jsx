@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTabs } from "../context/TabContext.jsx";
 import { getTabShortcut } from "../lib/tabShortcuts.mjs";
 import { PiWarning } from "react-icons/pi";
-import { LuPlus, LuX } from "react-icons/lu";
+import { LuX } from "react-icons/lu";
 import { getTabTypeIcon } from "../lib/tabIcons.mjs";
 import Tooltip from "./Tooltip.jsx";
 
@@ -59,7 +59,7 @@ export default function TabBar() {
 	return (
 		<nav
 			aria-label="Chat tabs"
-			className="flex h-8 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface-raised)] px-2"
+			className="aero-tabbar flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
 			onDragOver={(event) => {
 				if (dragIdRef.current == null) return;
 				event.preventDefault();
@@ -95,6 +95,8 @@ export default function TabBar() {
 				<div
 					data-tab-id={tab.id}
 					data-tab-index={index}
+					data-active={tab.id === activeTabId}
+					data-dragging={dragId === tab.id}
 					draggable
 					onDragStart={(event) => {
 						dragIdRef.current = tab.id;
@@ -106,7 +108,7 @@ export default function TabBar() {
 							/* setData is required by some browsers; failures still drag. */
 						}
 					}}
-					className={`group flex max-w-48 min-w-32 cursor-grab items-center gap-2 rounded-t-lg border border-b-0 px-2 py-1 text-xs duration-300 select-none active:cursor-grabbing ${tab.id === activeTabId ? "border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]" : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"} ${dragId === tab.id ? "opacity-40" : ""}`}
+					className="aero-tab group flex max-w-48 min-w-32 cursor-grab items-center gap-2 px-2 py-1 text-xs select-none active:cursor-grabbing"
 					onAuxClick={(event) => {
 						if (event.button === 1) {
 							event.preventDefault();
@@ -126,7 +128,7 @@ export default function TabBar() {
 							}}
 							onClick={() => activateTab(tab.id)}
 							aria-current={tab.id === activeTabId ? "page" : undefined}
-							className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+							className="aero-tab-label flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
 						>
 							{(() => {
 								if (tab.status === "awaiting_approval") {
@@ -156,7 +158,7 @@ export default function TabBar() {
 						type="button"
 						onClick={() => closeTab(tab.id)}
 						aria-label={`Close ${tab.title}`}
-						className="rounded p-1 hover:bg-[var(--surface-hover)] cursor-pointer duration-300"
+						className="aero-chrome-button p-1 cursor-pointer"
 					>
 						<LuX />
 					</button>
@@ -174,7 +176,7 @@ export default function TabBar() {
 				onClick={() => openTab(activeTab?.modelId || "")}
 				aria-label="New chat tab"
 				title="New chat tab"
-				className="rounded p-1 px-2 duration-300 cursor-pointer hover:bg-[var(--accent)]/60"
+				className="aero-orb aero-fill mb-0.5 size-7 shrink-0 cursor-pointer"
 			>
 				✦
 			</button>

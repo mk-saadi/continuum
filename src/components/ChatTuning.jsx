@@ -140,7 +140,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 					</p>
 					<button
 						type="button"
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+						className="aero-control aero-fill w-full cursor-pointer px-3 py-2 text-xs font-medium"
 						disabled={disabled || !Object.keys(state.overrides).length || status === "Saving…"}
 						onClick={() => save(null)}
 					>

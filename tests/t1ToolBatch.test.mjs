@@ -169,7 +169,7 @@ test('permission revision between internal batches stops pending reads', async (
   assert.equal(executed, 24);
   assert.equal(result.requests.length, 1);
   assert.equal(result.states[0].reason, 'automatic-read-interrupted');
-  assert.ok(result.steps.slice(24).every(step => step.status === 'rejected'));
+  assert.ok(result.steps.filter(step => step.type === 'tool_call').slice(24).every(step => step.status === 'rejected'));
 });
 for (const mode of ['sse', 'xml']) test(`${mode} overflow executes all reads after full assembly`, async () => {
   let requests = 0, executed = 0;
@@ -221,7 +221,7 @@ test('aggregate UTF-8 output guard blocks remaining calls without losing complet
   const result = await run([calls(50)], { executeTool: async () => { count++; return { success: true, content: 'line\n'.repeat(220000) }; } });
   assert.equal(count, 2);
   assert.equal(result.states[0].detail, 'aggregate output limit');
-  assert.equal(result.steps[0].result.content.length, 1100000);
+  assert.equal(result.steps.find(step => step.type === 'tool_call').result.content.length, 1100000);
   assert.equal(result.steps.filter(s => s.status === 'rejected').length, 48);
 });
 test('every internal boundary revalidates the complete next slice before starting it', async () => {

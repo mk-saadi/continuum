@@ -524,6 +524,15 @@ export async function runMemoryChat({
     onExecutionSteps(structuredClone(executionSteps));
   };
   let text = '', thinkingText = '', thinkingDuration = 0;
+  let textBoundary = 0;
+  // Seal visible prose when execution resumes, retaining the full response for
+  // history/copy while recording its actual position for presentation.
+  const sealProgressText = () => {
+    if (text.length <= textBoundary) return;
+    executionSteps.push({ id: `text_${executionSteps.length}`, type: 'text',
+      content: text.slice(textBoundary), startOffset: textBoundary, endOffset: text.length });
+    textBoundary = text.length;
+  };
   const startTime = now();
   const phases = []; // Fresh for every chat invocation.
   let requestSequence = 0;
@@ -847,6 +856,7 @@ export async function runMemoryChat({
     const thinking = createThinkingStream({ now,
       onThought: value => {
         if (!activeThought) {
+          sealProgressText();
           activeThought = { id: `thought_${round}_${executionSteps.length}`, type: 'thought' };
           executionSteps.push(activeThought);
         }
@@ -884,6 +894,7 @@ export async function runMemoryChat({
     try { result = await readCompletion(response, thinking.text, requestSignal, now, thinking.reasoning, () => loopController.abort(), event => {
       let step = executionSteps.find(step => step.id === event.id);
       if (event.type === 'tool_start') {
+        sealProgressText();
         step = { id: event.id, type: 'tool_call', toolName: event.functionName, status: 'preparing', streamingArguments: '' };
         executionSteps.push(step);
       } else if (step) {
@@ -1038,6 +1049,8 @@ export async function runMemoryChat({
       overflowPending = !batchPolicy.safe;
       if (!batchPolicy.safe) overflowCorrections++;
     } else overflowPending = false;
+    sealProgressText();
+    publishSteps(true);
     const batchStart = history.length;
     let batchFailures = 0, batchSucceeded = false;
     let automaticStop = null, automaticOutputBytes = 0;

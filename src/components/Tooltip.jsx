@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { fixedPortalPosition } from "../lib/portalCoordinates.mjs";
 import { resolvePortalTarget, resolveTooltipPosition } from "../lib/tooltip.mjs";
 
 function mergeRefs(...refs) {
@@ -89,7 +90,10 @@ export default function Tooltip({
 		const size = { width: node.offsetWidth, height: node.offsetHeight };
 		const viewport = { width: window.innerWidth, height: window.innerHeight };
 		setPos(
-			resolveTooltipPosition(rect, size, viewport, placement, offset, cursorRef.current?.x ?? null),
+			fixedPortalPosition(
+				resolveTooltipPosition(rect, size, viewport, placement, offset, cursorRef.current?.x ?? null),
+				resolvePortalTarget(trigger),
+			),
 		);
 	}, [open, placement, offset, content]);
 
@@ -163,7 +167,7 @@ export default function Tooltip({
 						ref={nodeRef}
 						id={tooltipId}
 						role="tooltip"
-						className="pointer-events-none fixed z-[9999] max-w-xs break-words rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs leading-snug text-[var(--text-primary)] shadow-xl transition-opacity motion-reduce:transition-none"
+						className="aero-tooltip pointer-events-none fixed z-[9999] max-w-xs break-words px-2 py-1 text-xs leading-snug text-[var(--text-primary)] transition-opacity motion-reduce:transition-none"
 						style={{
 							top: pos?.top ?? 0,
 							left: pos?.left ?? 0,

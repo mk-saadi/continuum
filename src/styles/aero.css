@@ -1,0 +1,743 @@
+/* ==========================================================================
+   Aero Glass utilities
+   ========================================================================== */
+
+/* L0 — flat content surface. Use inside glass panels for transcript, code,
+   tables, terminal output, and any long-form text. No blur, no gloss. */
+.aero-flat {
+	border: 1px solid var(--subtle-border);
+	background: var(--surface);
+	border-radius: var(--aero-radius-well);
+}
+
+/* L3 — nested fill. A bevel without a second blur. */
+.aero-fill {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-control);
+	background: var(--aero-gloss-panel), var(--aero-glass);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade);
+}
+
+/* Page stage. Every page that uses glass needs a lit backdrop behind it. */
+.aero-stage {
+	position: relative;
+	isolation: isolate;
+	background-color: var(--bg-secondary);
+	background-image:
+		linear-gradient(180deg, color-mix(in srgb, #ffffff 5%, transparent), transparent 22%),
+		radial-gradient(
+			52rem 30rem at 14% -14%,
+			color-mix(in srgb, var(--accent) 22%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			38rem 26rem at 94% 2%,
+			color-mix(in srgb, var(--accent) 11%, transparent),
+			transparent 72%
+		),
+		radial-gradient(
+			34rem 22rem at 58% 118%,
+			color-mix(in srgb, var(--accent) 9%, transparent),
+			transparent 70%
+		);
+}
+html[data-bg-image="true"] .aero-stage {
+	background-color: transparent;
+	background-image: none;
+}
+
+/* L3 — glass panel. */
+.aero-panel {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-panel);
+	background: var(--aero-gloss-panel), var(--aero-glass);
+	-webkit-backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
+	backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
+	box-shadow: var(--aero-bevel-panel);
+}
+
+/* Interactive panel (clickable card). Do not use on static cards. */
+.aero-panel--interactive {
+	transition:
+		transform var(--aero-dur-panel) var(--aero-ease),
+		box-shadow var(--aero-dur-panel) var(--aero-ease),
+		border-color var(--aero-dur-panel) var(--aero-ease);
+}
+.aero-panel--interactive:hover {
+	border-color: color-mix(in srgb, var(--accent) 48%, var(--aero-line));
+	transform: translateY(-2px);
+	box-shadow:
+		var(--aero-bevel-panel-hover),
+		0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* L2 — raised control (secondary button, tab, chip). */
+.aero-control {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-control);
+	background: var(--aero-gloss-control), var(--aero-glass-raised);
+	-webkit-backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
+	backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
+	box-shadow: var(--aero-bevel-control);
+	transition:
+		transform var(--aero-dur-control) var(--aero-ease),
+		box-shadow var(--aero-dur-control) var(--aero-ease),
+		border-color var(--aero-dur-control) var(--aero-ease),
+		background-color var(--aero-dur-control) var(--aero-ease);
+}
+.aero-control:hover {
+	border-color: color-mix(in srgb, #ffffff 28%, transparent);
+	background: var(--aero-gloss-control-hover), color-mix(in srgb, var(--surface-hover) 72%, transparent);
+}
+.aero-control:active,
+.aero-control[data-pressed="true"] {
+	transform: translateY(1px);
+	background: var(--aero-gloss-pressed), color-mix(in srgb, var(--surface-hover) 60%, transparent);
+	box-shadow: var(--aero-bevel-pressed);
+}
+.aero-control[aria-pressed="true"],
+.aero-control[aria-selected="true"],
+.aero-control[data-selected="true"] {
+	border-color: color-mix(in srgb, #ffffff 30%, transparent);
+	border-bottom-color: var(--aero-line-bottom-strong);
+	background: var(--aero-gloss-accent), var(--accent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 32%, transparent),
+		0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		var(--aero-glow);
+	color: var(--on-accent);
+}
+.aero-control[aria-pressed="true"]:active,
+.aero-control[aria-selected="true"]:active,
+.aero-control[data-selected="true"]:active {
+	transform: translateY(1px);
+	background: var(--aero-gloss-pressed), var(--accent-hover);
+	box-shadow: var(--aero-bevel-pressed), var(--aero-glow);
+}
+
+/* L5 — primary CTA. */
+.aero-primary {
+	border: 1px solid color-mix(in srgb, #ffffff 40%, transparent);
+	border-bottom-color: var(--aero-line-bottom-strong);
+	border-radius: var(--aero-radius-primary);
+	background: var(--aero-gloss-accent), var(--accent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 35%, transparent),
+		0 2px 4px color-mix(in srgb, #000000 42%, transparent),
+		0 10px 20px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+	color: var(--on-accent);
+	transition:
+		transform var(--aero-dur-control) var(--aero-ease),
+		box-shadow var(--aero-dur-control) var(--aero-ease),
+		background-color var(--aero-dur-control) var(--aero-ease);
+}
+.aero-primary:hover {
+	background: var(--aero-gloss-accent-hover), var(--accent-hover);
+}
+.aero-primary:active {
+	transform: translateY(1px);
+	background: var(--aero-gloss-pressed), var(--accent-hover);
+	box-shadow:
+		inset 0 3px 6px color-mix(in srgb, #000000 52%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #ffffff 10%, transparent);
+}
+
+/* L1 — sunken well (input, search, path chip, track). */
+.aero-well {
+	border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+	border-radius: var(--aero-radius-well);
+	background: var(--aero-gloss-well), var(--aero-well-fill);
+	-webkit-backdrop-filter: blur(var(--aero-blur-well)) saturate(var(--aero-saturate-control));
+	backdrop-filter: blur(var(--aero-blur-well)) saturate(var(--aero-saturate-control));
+	box-shadow: var(--aero-bevel-well);
+}
+.aero-well:hover {
+	border-color: color-mix(in srgb, #ffffff 24%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, #000000 10%, transparent) 0%, transparent 32%),
+		color-mix(in srgb, var(--input) 70%, transparent);
+}
+.aero-well:focus,
+.aero-well:focus-within {
+	border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+	box-shadow:
+		inset 0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+		var(--aero-glow);
+}
+.aero-well[aria-invalid="true"],
+.aero-well:has([aria-invalid="true"]) {
+	border-color: color-mix(in srgb, var(--error) 80%, transparent);
+	box-shadow:
+		inset 0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--error) 55%, transparent),
+		0 0 18px -4px color-mix(in srgb, var(--error) 70%, transparent);
+}
+
+/* Raised orb (icon toggle, pin, knob). */
+.aero-orb {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-orb);
+	background: var(--aero-gloss-orb), color-mix(in srgb, var(--surface-raised) 45%, transparent);
+	-webkit-backdrop-filter: blur(var(--aero-blur-orb)) saturate(var(--aero-saturate-control));
+	backdrop-filter: blur(var(--aero-blur-orb)) saturate(var(--aero-saturate-control));
+	box-shadow: var(--aero-bevel-orb);
+	color: var(--text-secondary);
+	transition:
+		color var(--aero-dur-control) var(--aero-ease),
+		border-color var(--aero-dur-control) var(--aero-ease),
+		box-shadow var(--aero-dur-control) var(--aero-ease),
+		transform var(--aero-dur-control) var(--aero-ease);
+}
+.aero-orb:hover {
+	color: var(--text-primary);
+	border-color: color-mix(in srgb, #ffffff 34%, transparent);
+}
+.aero-orb[aria-pressed="true"]:active {
+	transform: translateY(1px);
+	box-shadow: var(--aero-bevel-pressed);
+}
+.aero-orb[aria-pressed="true"] {
+	color: var(--on-accent);
+	border-color: color-mix(in srgb, #ffffff 46%, transparent);
+	border-bottom-color: var(--aero-line-bottom-strong);
+	background: var(--aero-gloss-orb-selected), var(--accent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
+		0 2px 6px color-mix(in srgb, #000000 40%, transparent),
+		0 0 16px -3px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+/* Raised pill (badge, status, chip that is not a button). */
+.aero-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-orb);
+	background: var(--aero-gloss-control), var(--aero-glass-raised);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		0 1px 2px var(--aero-shade);
+	color: var(--text-secondary);
+}
+.aero-badge--accent {
+	border-color: color-mix(in srgb, #ffffff 30%, transparent);
+	border-bottom-color: var(--aero-line-bottom-strong);
+	background: var(--aero-gloss-accent), var(--accent);
+	color: var(--on-accent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 32%, transparent),
+		0 1px 3px color-mix(in srgb, #000000 35%, transparent);
+}
+
+/* L4 — dialog. Apply to the <dialog> itself. */
+.aero-dialog {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-float);
+	background: var(--aero-gloss-panel), var(--aero-glass-strong);
+	-webkit-backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
+	backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
+	box-shadow: var(--aero-shadow-float);
+	color: var(--text-primary);
+}
+.aero-dialog::backdrop {
+	background: color-mix(in srgb, #000000 55%, transparent);
+	-webkit-backdrop-filter: blur(6px) saturate(120%);
+	backdrop-filter: blur(6px) saturate(120%);
+}
+/* Existing perf guard: animated backgrounds must not pay for a per-frame blur. */
+html[data-bg-animated="true"] .aero-dialog::backdrop {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+/* L4 — popover, menu, dropdown, toast. */
+.aero-popover {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-popover);
+	background: var(--aero-gloss-panel), var(--aero-glass-strong);
+	-webkit-backdrop-filter: blur(20px) saturate(var(--aero-saturate-float));
+	backdrop-filter: blur(20px) saturate(var(--aero-saturate-float));
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
+		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
+		0 22px 48px -16px color-mix(in srgb, #000000 70%, transparent);
+}
+
+/* L4 — tooltip. No gloss: it is text and must stay crisp. */
+.aero-tooltip {
+	border: 1px solid var(--aero-line);
+	border-bottom-color: var(--aero-line-bottom);
+	border-radius: var(--aero-radius-tooltip);
+	background: var(--aero-glass-strong);
+	-webkit-backdrop-filter: blur(12px) saturate(140%);
+	backdrop-filter: blur(12px) saturate(140%);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-soft),
+		0 6px 16px -6px var(--aero-shade-strong);
+}
+
+/* Selected tab. Uses the app's existing aria-current/data-active marker. */
+.aero-tab {
+	border: 1px solid transparent;
+	border-bottom: 0;
+	border-radius: 8px 8px 0 0;
+	background: transparent;
+	box-shadow: none;
+	transition:
+		background-color var(--aero-dur-control) var(--aero-ease),
+		box-shadow var(--aero-dur-control) var(--aero-ease),
+		color var(--aero-dur-control) var(--aero-ease);
+}
+.aero-tab:hover {
+	background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+}
+.aero-tab[data-active="true"],
+.aero-tab[aria-selected="true"],
+.aero-tab[aria-current="page"] {
+	border-color: var(--aero-line);
+	background: var(--aero-gloss-control), var(--aero-glass-raised);
+	box-shadow:
+		var(--aero-bevel-control),
+		inset 0 -2px 0 var(--accent);
+	color: var(--text-primary);
+}
+
+/* Well + accent fill for progress and sliders. */
+.aero-track {
+	border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+	border-radius: var(--aero-radius-orb);
+	background: var(--aero-gloss-well), var(--aero-well-fill);
+	box-shadow: var(--aero-bevel-well);
+	overflow: hidden;
+}
+.aero-track__fill {
+	background: var(--aero-gloss-accent), var(--accent);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent);
+}
+
+/* Empty state. Dashed glass, not a solid card. */
+.aero-empty {
+	border: 1px dashed color-mix(in srgb, var(--aero-line) 55%, var(--border));
+	border-radius: var(--aero-radius-panel);
+	background: var(--aero-glass-subtle);
+	-webkit-backdrop-filter: blur(12px) saturate(140%);
+	backdrop-filter: blur(12px) saturate(140%);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 26%, transparent),
+		0 10px 24px -14px color-mix(in srgb, #000000 55%, transparent);
+}
+
+/* Shared focus + disabled contract. */
+.aero-control:focus-visible,
+.aero-primary:focus-visible,
+.aero-orb:focus-visible,
+.aero-tab:focus-visible,
+.aero-badge:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.aero-control:disabled,
+.aero-control[aria-disabled="true"],
+.aero-primary:disabled,
+.aero-primary[aria-disabled="true"] {
+	cursor: not-allowed;
+	opacity: 0.45;
+	transform: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+/* Keep bottom rims in shadow even when hover changes the other edges. */
+.aero-control:hover,
+.aero-orb:hover,
+.aero-panel--interactive:hover {
+	border-bottom-color: var(--aero-line-bottom);
+}
+.aero-primary:hover,
+.aero-control[aria-pressed="true"],
+.aero-control[aria-selected="true"],
+.aero-control[data-selected="true"],
+.aero-orb[aria-pressed="true"] {
+	border-bottom-color: var(--aero-line-bottom-strong);
+}
+/* Nested material retains its shape and bevel without another blur layer. */
+.aero-fill {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+.aero-orb:active {
+	transform: translateY(1px);
+	box-shadow: var(--aero-bevel-pressed);
+}
+.aero-orb:disabled,
+.aero-orb[aria-disabled="true"],
+.aero-tab:disabled,
+.aero-tab[aria-disabled="true"],
+.aero-well:disabled,
+.aero-well:has(> input:disabled, > textarea:disabled, > select:disabled) {
+	cursor: not-allowed;
+	opacity: 0.45;
+	transform: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+.aero-control:disabled,
+.aero-control[aria-disabled="true"],
+.aero-primary:disabled,
+.aero-primary[aria-disabled="true"],
+.aero-orb:disabled,
+.aero-orb[aria-disabled="true"],
+.aero-tab:disabled,
+.aero-tab[aria-disabled="true"] {
+	pointer-events: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.aero-panel {
+		background: var(--surface);
+	}
+	.aero-control {
+		background: var(--surface-raised);
+	}
+	.aero-well {
+		background: var(--input);
+	}
+	.aero-dialog,
+	.aero-popover,
+	.aero-tooltip {
+		background: var(--surface-raised);
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.aero-panel,
+	.aero-control,
+	.aero-well,
+	.aero-orb,
+	.aero-badge,
+	.aero-dialog,
+	.aero-popover,
+	.aero-tooltip,
+	.aero-fill,
+	.aero-empty {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+	.aero-panel {
+		background: var(--surface);
+	}
+	.aero-control {
+		background: var(--surface-raised);
+	}
+	.aero-well {
+		background: var(--input);
+	}
+	.aero-dialog,
+	.aero-popover {
+		background: var(--surface-raised);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.aero-panel,
+	.aero-panel--interactive,
+	.aero-control,
+	.aero-primary,
+	.aero-orb {
+		transition: none;
+	}
+	.aero-panel--interactive:hover {
+		transform: none;
+	}
+}
+/* Wallpaper animations must not force per-frame backdrop filtering. */
+html[data-bg-animated="true"]
+	:is(
+		.aero-panel,
+		.aero-control,
+		.aero-well,
+		.aero-orb,
+		.aero-empty,
+		.aero-dialog,
+		.aero-popover,
+		.aero-tooltip
+	) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	:is(.aero-panel--interactive, .aero-control, .aero-primary, .aero-orb):is(
+		:hover,
+		:active,
+		[data-pressed="true"]
+	) {
+		transform: none;
+	}
+}
+@media (forced-colors: active) {
+	:is(
+		.aero-panel,
+		.aero-fill,
+		.aero-control,
+		.aero-primary,
+		.aero-well,
+		.aero-orb,
+		.aero-badge,
+		.aero-dialog,
+		.aero-popover,
+		.aero-tooltip,
+		.aero-empty,
+		.aero-track,
+		.aero-tab
+	) {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	:is(.aero-fill, .aero-orb, .aero-badge, .aero-empty) {
+		background: var(--surface-raised);
+	}
+	.aero-track {
+		background: var(--input);
+	}
+}
+@media (prefers-reduced-transparency: reduce) {
+	:is(.aero-fill, .aero-orb, .aero-badge, .aero-empty, .aero-tooltip) {
+		background: var(--surface-raised);
+	}
+	.aero-track {
+		background: var(--input);
+	}
+}
+
+/* A nested utility keeps its own bevel/shape but never stacks backdrop blur.
+   Portaled menus remain outside the ancestor and retain their L4 material. */
+:is(.aero-panel, .aero-dialog, .aero-popover, .aero-well)
+	:is(.aero-control, .aero-well, .aero-orb, .aero-empty) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+/* Native checkbox input stays semantic; its adjacent span paints the well. */
+.aero-checkbox {
+	border: 1px solid var(--aero-line);
+	border-radius: 5px;
+	background: var(--aero-gloss-well), var(--aero-well-fill);
+	box-shadow: var(--aero-bevel-well);
+	color: transparent;
+}
+input:checked + .aero-checkbox {
+	border-color: var(--aero-line-bottom-strong);
+	background: var(--aero-gloss-accent), var(--accent);
+	color: var(--on-accent);
+}
+input:focus-visible + .aero-checkbox {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+input:disabled + .aero-checkbox {
+	opacity: 0.45;
+}
+@media (forced-colors: active) {
+	.aero-checkbox {
+		background: Canvas;
+		border-color: ButtonBorder;
+		box-shadow: none;
+	}
+	input:checked + .aero-checkbox {
+		background: Highlight;
+		color: HighlightText;
+	}
+}
+
+/* Lightweight row feedback: no blur or lift on dense lists and menus. */
+.aero-list-item {
+	border-radius: var(--aero-radius-control);
+	background: transparent;
+	transition: background-color var(--aero-dur-control) var(--aero-ease);
+}
+.aero-list-item[aria-selected="true"] {
+	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+	box-shadow: inset 3px 0 0 var(--accent);
+}
+.aero-list-item:hover,
+.aero-list-item:focus-visible {
+	background: var(--aero-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade);
+	/* inset 3px 0 0 var(--accent); */
+	color: var(--text-primary);
+}
+.aero-list-item:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.aero-list-item:active {
+	background: var(--aero-gloss-pressed), color-mix(in srgb, var(--accent) 28%, var(--surface));
+	box-shadow:
+		var(--aero-bevel-pressed),
+		inset 3px 0 0 var(--accent);
+}
+.aero-list-item:disabled {
+	pointer-events: none;
+	cursor: not-allowed;
+}
+/* Read-only copy sits in an opaque, sunken well with a restrained bevel. */
+.aero-inset {
+	border: 1px solid var(--aero-line);
+	border-radius: var(--aero-radius-well);
+	background: var(--aero-gloss-well), var(--surface);
+	box-shadow: var(--aero-bevel-well);
+}
+@media (prefers-reduced-motion: reduce) {
+	.aero-list-item {
+		transition: none;
+	}
+}
+@media (forced-colors: active) {
+	.aero-list-item:is(:hover, :focus-visible, [aria-selected="true"]) {
+		background: Highlight;
+		color: HighlightText;
+		box-shadow: none;
+	}
+	.aero-inset {
+		border-color: ButtonBorder;
+		background: Canvas;
+		box-shadow: none;
+	}
+}
+
+/* Select triggers need a clearer hover/open rim than text-entry wells. */
+.aero-well:has(> button[aria-haspopup="listbox"]):hover,
+.aero-well:has(> button[aria-haspopup="listbox"][aria-expanded="true"]) {
+	border-color: color-mix(in srgb, var(--accent) 65%, var(--aero-line));
+	background: var(--aero-gloss-well), color-mix(in srgb, var(--accent) 12%, var(--input));
+	box-shadow:
+		var(--aero-bevel-well),
+		0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/* Flat window chrome supports raised tabs without a large blurred surface. */
+.aero-tabbar {
+	border-bottom: 1px solid var(--aero-line-bottom);
+	background: linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 65%), var(--surface-raised);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+.aero-tab { color: var(--text-secondary); }
+.aero-tab:hover {
+	border-color: var(--aero-line-soft);
+	background: var(--aero-gloss-panel), color-mix(in srgb, var(--surface-hover) 72%, transparent);
+	color: var(--text-primary);
+}
+.aero-tab[data-active="true"]:hover {
+	border-color: var(--aero-line-strong);
+	background: var(--aero-gloss-control-hover), var(--aero-glass-raised);
+}
+.aero-tab:has(.aero-tab-label:active) {
+	background: var(--aero-gloss-pressed), var(--surface-hover);
+	box-shadow: var(--aero-bevel-pressed);
+}
+.aero-tab[data-active="true"]:has(.aero-tab-label:active) {
+	box-shadow: var(--aero-bevel-pressed), inset 0 -2px 0 var(--accent);
+}
+.aero-tab:has(:focus-visible) {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.aero-tab-label:focus-visible { outline: none; }
+.aero-tab[data-dragging="true"] { opacity: 0.4; }
+/* Ghost chrome buttons stay light until hovered; no nested glass. */
+.aero-chrome-button {
+	border-radius: var(--aero-radius-control);
+	background: transparent;
+	color: var(--text-muted);
+}
+.aero-chrome-button:hover {
+	background: var(--aero-gloss-control), color-mix(in srgb, var(--error) 20%, var(--surface));
+	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	color: var(--text-primary);
+}
+.aero-chrome-button:active { background: var(--aero-gloss-pressed), var(--surface-hover); }
+.aero-chrome-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .aero-tab { transition: none; } }
+@media (forced-colors: active) {
+	.aero-tabbar { background: Canvas; border-color: ButtonBorder; box-shadow: none; }
+	.aero-tab[data-active="true"] { border-color: Highlight; background: Canvas; color: CanvasText; }
+	.aero-tab:hover, .aero-chrome-button:hover { background: Highlight; color: HighlightText; box-shadow: none; }
+}
+
+/* Header is window chrome: top-lit, opaque, and never backdrop-blurred. */
+.aero-header {
+	border-bottom: 1px solid var(--aero-line-bottom);
+	background: var(--aero-gloss-panel), var(--surface);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-soft),
+		inset 0 -1px 0 var(--aero-shade);
+	color: var(--text-primary);
+}
+@media (forced-colors: active) {
+	.aero-header { border-color: ButtonBorder; background: Canvas; color: CanvasText; box-shadow: none; }
+}
+
+/* Sidebar is the unblurred frame; only its individual cards use glass. */
+.sidebar-frame {
+	border-left: 1px solid var(--border);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+}
+.sidebar-frame .aero-tab:focus-visible { outline-offset: -2px; }
+/* Status badges keep their semantic tone above the shared material color. */
+.aero-badge[data-tone="good"] { color: var(--accent); }
+.aero-badge[data-tone="bad"] { color: var(--error); }
+.aero-badge[data-tone="warn"] { color: var(--warning); }
+/* Current model/provider rows remain identifiable between hover states. */
+.aero-list-item[aria-current="true"] {
+	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+	box-shadow: inset 3px 0 0 var(--accent);
+}
+.aero-list-item[aria-current="true"]:hover {
+	background: var(--aero-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
+	box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+}
+/* Menus/tooltips must stay in a native dialog's top-layer subtree. The
+   dialog already supplies blur, so these portal surfaces only need their fill. */
+.aero-dialog :is(.aero-popover, .aero-tooltip) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+/* Flat chrome band with the same top border geometry as existing footers. */
+.aero-footer {
+	border-top: 1px solid var(--aero-line);
+	background: var(--aero-gloss-panel), var(--surface);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+@media (forced-colors: active) {
+	.aero-footer { border-color: ButtonBorder; background: Canvas; box-shadow: none; }
+}

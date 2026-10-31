@@ -1,0 +1,69 @@
+{
+  "title": "Session Failure Audit - update uiux tool call names",
+  "steps": [
+    {
+      "title": "1. Extract Operations",
+      "body": "Pull all 195 tool calls from session 60322ed9 via get_recent_chat_history and evidence JSON"
+    },
+    {
+      "parallel": [
+        {
+          "title": "2a. Group Failures by Tool",
+          "body": "Count failures per tool name: edit_project_files, execute_command, web_search, get_recent_chat_history, search_project_content"
+        },
+        {
+          "title": "2b. Group Failures by Error Code",
+          "body": "Classify by error type: tool_infra, stale_content, invalid_args, match_error, model_mistake, nonzero_exit, sandbox_timeout, invalid_cmd"
+        }
+      ]
+    },
+    {
+      "parallel": [
+        {
+          "title": "3a. Infra vs Legit Failures",
+          "body": "Separate tool infrastructure failures (network, timeout, auth) from legitimate test/build failures (assertion, compile, lint)"
+        },
+        {
+          "title": "3b. Edit Failure Root Causes",
+          "body": "For each edit_project_files failure: stale_content_hash, invalid_args, fuzzy_match_error, or model_generated_wrong_patch"
+        }
+      ]
+    },
+    {
+      "parallel": [
+        {
+          "title": "4a. Plan Failures",
+          "body": "Check update_plan calls: ownership_mismatch, revision_conflict (STALE_PLAN), invalid_transition (new_task vs supersede)"
+        },
+        {
+          "title": "4b. Shell Failures",
+          "body": "Analyze execute_command: exit_code≠0, sandbox_restriction (no net/X11), timeout_ms exceeded, invalid_syntax"
+        }
+      ]
+    },
+    {
+      "title": "5. Repeated Error Patterns",
+      "body": "Find operations retried without adaptation: same tool, same args, same error → model didn't learn from feedback"
+    },
+    {
+      "parallel": [
+        {
+          "title": "6a. Pre-Prompt Failures",
+          "body": "Failure rate & types before additional user prompts (turns 1-N)"
+        },
+        {
+          "title": "6b. Post-Prompt Failures",
+          "body": "Failure rate & types after additional prompts — did guidance reduce infra vs legit failures?"
+        }
+      ]
+    },
+    {
+      "title": "7. Smallest Proven Defects",
+      "body": "Report minimal reproducible bugs: e.g., get_recent_chat_history returns empty on session_boundary, web_search rejects quoted phrases >500 chars"
+    },
+    {
+      "title": "8. Audit Report",
+      "body": "Emit findings as structured JSON + markdown summary — no code changes, read-only"
+    }
+  ]
+}

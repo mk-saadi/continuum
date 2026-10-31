@@ -1,0 +1,79 @@
+/* One global opt-out, including portals and native top-layer dialogs.
+   Keep geometry and semantic states; remove the Aero material/compositing. */
+html[data-appearance="flat"] {
+	--aero-glass: var(--surface);
+	--aero-glass-raised: var(--surface-raised);
+	--aero-glass-strong: var(--surface-raised);
+	--aero-glass-subtle: var(--bg-secondary);
+	--aero-well-fill: var(--input);
+	--aero-line: var(--border);
+	--aero-line-strong: var(--border);
+	--aero-line-soft: var(--subtle-border);
+	--aero-line-bottom: var(--border);
+	--aero-line-bottom-strong: var(--accent);
+	--aero-blur-panel: 0px;
+	--aero-blur-control: 0px;
+	--aero-blur-well: 0px;
+	--aero-blur-float: 0px;
+	--aero-blur-orb: 0px;
+	--aero-saturate: 100%;
+	--aero-saturate-control: 100%;
+	--aero-saturate-float: 100%;
+	--aero-gloss-panel: none;
+	--aero-gloss-control: none;
+	--aero-gloss-control-hover: none;
+	--aero-gloss-accent: none;
+	--aero-gloss-accent-hover: none;
+	--aero-gloss-well: none;
+	--aero-gloss-pressed: none;
+	--aero-gloss-orb: none;
+	--aero-gloss-orb-selected: none;
+	--aero-bevel-panel: none;
+	--aero-bevel-panel-hover: none;
+	--aero-bevel-control: none;
+	--aero-bevel-well: none;
+	--aero-bevel-pressed: none;
+	--aero-bevel-orb: none;
+	--aero-shadow-float: none;
+	--aero-glow: 0 0 transparent;
+}
+html[data-appearance="flat"] :is([class*="aero-"], .project-heading-icon, .project-path),
+html[data-appearance="flat"] :is([class*="aero-"], .project-heading-icon, .project-path):is(:hover, :active, :focus-within, [aria-selected="true"], [aria-pressed="true"], [data-active="true"]) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	background-image: none;
+	box-shadow: none;
+	text-shadow: none;
+	transform: none;
+	transition-property: color, background-color, border-color;
+}
+html[data-appearance="flat"] dialog::backdrop {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+html[data-appearance="flat"] .aero-stage { background-color: var(--bg-secondary); }
+html[data-appearance="flat"][data-bg-image="true"] .aero-stage { background-color: transparent; }
+html[data-appearance="flat"] :is(.aero-orb, .project-heading-icon) {
+	border-color: var(--border);
+	background-color: var(--surface-raised);
+}
+html[data-appearance="flat"] :is(.aero-well, .aero-track, .aero-checkbox, .project-path) {
+	border-color: var(--control-border);
+	background-color: var(--input);
+}
+html[data-appearance="flat"] :is(.aero-control, .aero-orb):hover { background-color: var(--surface-hover); }
+html[data-appearance="flat"] :is(.aero-control, .aero-orb):is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]) {
+	border-color: var(--accent);
+	background-color: var(--accent);
+}
+html[data-appearance="flat"] :is(.aero-control, .aero-orb):is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):hover { background-color: var(--accent-hover); }
+html[data-appearance="flat"] input:checked + .aero-checkbox { background-color: var(--accent); border-color: var(--accent); }
+html[data-appearance="flat"] .aero-primary { border-color: var(--accent); }
+html[data-appearance="flat"] .aero-tab[data-active="true"] {
+	background-color: var(--surface);
+	box-shadow: inset 0 -2px 0 var(--accent);
+}
+html[data-appearance="flat"] .aero-tab:not([data-active="true"]):hover { background-color: var(--surface-hover); }
+html[data-appearance="flat"] .aero-well:is(:focus-within, :focus) { border-color: var(--accent); }
+html[data-appearance="flat"] .aero-well:is([aria-invalid="true"], :has([aria-invalid="true"])) { border-color: var(--error); }
+html[data-appearance="flat"] .projects-heading h1 { text-shadow: none; }

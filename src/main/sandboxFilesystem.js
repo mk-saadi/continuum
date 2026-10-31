@@ -25,7 +25,8 @@ function validateExtraPaths(paths, { home = os.homedir(), maskedPaths = [] } = {
 // Pure: inputs contain already resolved paths. Mount ordering is security-critical.
 function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [], maskedSockets = [] }) {
   const argv = ['--tmpfs', '/', '--tmpfs', '/tmp', '--dir', '/sandbox-home'];
-  if (tmp) argv.push('--bind', tmp, '/tmp');
+  // Scratch is invocation-local: never re-expose masked host storage.
+  if (home) argv.push('--tmpfs', '/sandbox-home');
   const bound = new Set();
   const bind = (source, destination, write = false) => argv.push(write ? '--bind' : '--ro-bind', source, destination);
   for (const entry of [...system, ...etc, ...runtimes]) {
@@ -40,27 +41,37 @@ function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = 
   for (const socket of maskedSockets) bind('/dev/null', socket);
   for (const p of gitMetadata) bind(p, p);
   // Hidden data is an empty read-only mount, not writable scratch space.
-  const masked = [];
-  for (const p of [...new Set(maskedPaths)].sort((a, b) => a.length - b.length)) {
-    if (masked.some(parent => inside(parent, p))) continue;
-    if ((workspace && inside(workspace, p)) || [...system, ...runtimes].some(e => inside(e.source, p))) {
-      argv.push('--tmpfs', p, '--remount-ro', p); masked.push(p);
-    }
+  for (const p of effectiveMasks({ workspace, system, runtimes, maskedPaths })) {
+    if (gitMetadata.some(root => inside(p, root)) || (askpassDirectory && inside(p, askpassDirectory)))
+      throw unavailable(p); // A later rebind would invalidate the exclusion.
+    argv.push('--tmpfs', p, '--remount-ro', p);
   }
-  if (home) bind(home, '/sandbox-home', true);
   if (askpassDirectory) bind(askpassDirectory, askpassDirectory);
   argv.push('--proc', '/proc', '--dev', '/dev', '--remount-ro', '/');
   return argv;
+}
+// Shared by validation and mount construction; only actual covering mounts qualify.
+function effectiveMasks({ workspace, system = [], runtimes = [], maskedPaths = [] }) {
+  const result = [];
+  for (const p of [...new Set(maskedPaths)].sort((a, b) => a.length - b.length)) {
+    if (!result.some(parent => inside(parent, p)) &&
+        ((workspace && inside(workspace, p)) || [...system, ...runtimes].some(e => inside(e.source, p)))) result.push(p);
+  }
+  return result;
 }
 function environment(host = process.env, { home = '/sandbox-home', pathValue = '/usr/local/bin:/usr/bin:/bin' } = {}) {
   const env = { PATH: pathValue, LANG: 'C.UTF-8', HOME: home, TMPDIR: '/tmp' };
   for (const [key, value] of Object.entries(host)) if (/^(?:LANG|LC_[A-Z_]+|TERM|TZ)$/.test(key)) env[key] = value;
   return env;
 }
-function assertNoSockets(directory, maskedSockets) {
+function assertNoSockets(directory, maskedSockets, excluded = []) {
   const pending = [directory];
   while (pending.length) {
     const p = pending.pop();
+    if (excluded.includes(p)) {
+      if (fs.realpathSync(p) !== p || !fs.lstatSync(p).isDirectory()) throw unavailable(p);
+      continue;
+    }
     const stat = fs.lstatSync(p);
     if (stat.isSocket()) {
       if (maskedSockets) maskedSockets.push(p);
@@ -71,15 +82,16 @@ function assertNoSockets(directory, maskedSockets) {
 }
 // The kernel's active Unix socket table also covers sockets in system runtime
 // trees without recursively walking hundreds of thousands of /usr files.
-function assertNoExposedHostSockets(roots, maskedSockets = []) {
+function assertNoExposedHostSockets(roots, maskedSockets = [], excluded = []) {
   let table;
   try { table = fs.readFileSync('/proc/net/unix', 'utf8'); } catch { throw unavailable('/proc/net/unix'); }
   for (const line of table.split('\n').slice(1)) {
-    const socket = line.match(/^(?:\S+\s+){7}(\/.*)$/)?.[1];
-    if (socket && !maskedSockets.includes(socket) && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
+    const spelling = line.match(/^(?:\S+\s+){7}(\/.*)$/)?.[1];
+    const socket = spelling && path.resolve(spelling);
+    if (socket && !excluded.some(p => inside(p, socket)) && !maskedSockets.includes(socket) && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
   }
 }
-function resolveFilesystem({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false, maskWorkspaceSockets = false }) {
+function resolveFilesystemImpl({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false, maskWorkspaceSockets = false }) {
   if (!config || !userData) {
     const { app } = require('electron');
     config ??= require('./configStore').getConfig();
@@ -94,7 +106,8 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     if ([config.appDataDirectory, userData].map(p => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } }).some(p => inside(p, scratch) && inside(workspace, p))) throw unavailable(scratch);
   }
   const maskedSockets = [];
-  assertNoSockets(workspace, maskWorkspaceSockets && !protectGitMetadata ? maskedSockets : undefined);
+  const excluded = effectiveMasks({ workspace, system, maskedPaths });
+  assertNoSockets(workspace, maskWorkspaceSockets && !protectGitMetadata ? maskedSockets : undefined, excluded);
   const extras = validateExtraPaths(config.extraReadOnlyRuntimePaths ?? [], { maskedPaths });
   for (const p of extras) assertNoSockets(p);
   const runtimes = extras.map(p => ({ source: p, destination: p }));
@@ -137,17 +150,35 @@ function resolveFilesystem({ workspace, network = false, writable = true, home, 
     runtimes.push({ source: validated, destination: validated });
     bins.push(path.join(validated, 'bin'), parent);
   }
-  assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[home, tmp, askpassDirectory].filter(Boolean)], maskedSockets);
-  const gitMetadata = protectGitMetadata ? require('./gitMetadata').resolveGitMetadata(workspace) : [];
+  assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[askpassDirectory].filter(Boolean)], maskedSockets, excluded);
+  const gitMetadata = protectGitMetadata ? require('./gitMetadata').resolveGitMetadata(workspace, excluded) : [];
   const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata, maskedSockets }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
-  if (!network && writable && protectGitMetadata) shellPlans.set(plan, { workspace, mounts: [...plan.mounts], env: { ...plan.env } });
+  if (!network && writable && protectGitMetadata) shellPlans.set(plan, { options: { workspace, network, writable, home, tmp, askpassDirectory, config, userData, hostEnv, protectGitMetadata, maskWorkspaceSockets }, workspace, mounts: [...plan.mounts], env: { ...plan.env } });
   return plan;
+}
+function resolveFilesystem(options) {
+  try { return resolveFilesystemImpl(options); }
+  catch (error) {
+    error.sandboxPreparation = {
+      code: 'SANDBOX_PREPARATION_FAILED', stage: 'sandbox_preparation',
+      operation_executed: false, executionStarted: false,
+      restrictionCategory: /socket path/.test(error.message) ? 'exposed_socket' : 'filesystem_boundary',
+      retryable: false,
+      suggested_action: 'Inspect the identified exposed path or runtime configuration; retry only after correcting it. Keep internal recovery data intact.',
+    };
+    throw error;
+  }
 }
 // The selected profile is not enough: require a plan built by this module and
 // check the actual invocation immediately before handing it to the executor.
 function assertShellInvocation(plan, { file, argv, cwd, workspace }) {
   const facts = shellPlans.get(plan);
+  // Recheck after asynchronous preparation; never trust a stale socket scan.
+  if (facts) {
+    const current = resolveFilesystem(facts.options);
+    if (JSON.stringify(current.mounts) !== JSON.stringify(facts.mounts)) throw unavailable(workspace);
+  }
   const mountStart = argv.indexOf('--tmpfs');
   if (!facts || file !== 'bwrap' || facts.workspace !== fs.realpathSync(workspace) ||
       !inside(facts.workspace, fs.realpathSync(cwd)) ||

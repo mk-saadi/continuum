@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
-import { toolDisplayName } from "../lib/executionEvents.mjs";
+import { progressTextOffset, toolDisplayName } from "../lib/executionEvents.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
@@ -306,21 +306,23 @@ function makeComponents(isStreaming) {
 	};
 }
 
-function StreamingText({ buffer, onFrame }) {
-	const text = useSyncExternalStore(buffer.subscribe, buffer.getSnapshot, buffer.getSnapshot);
+function StreamingText({ buffer, onFrame, offset = 0 }) {
+	const text = useSyncExternalStore(buffer.subscribe, buffer.getSnapshot, buffer.getSnapshot).slice(offset);
 	const spanRef = useRef(null);
 	const renderedLength = useRef(0);
+	const renderedOffset = useRef(offset);
 	useLayoutEffect(() => {
 		const span = spanRef.current;
 		if (!span) return;
-		if (text.length < renderedLength.current || !span.firstChild) {
+		if (offset !== renderedOffset.current || text.length < renderedLength.current || !span.firstChild) {
 			span.textContent = text;
 		} else if (text.length > renderedLength.current) {
 			span.firstChild.appendData(text.slice(renderedLength.current));
 		}
 		renderedLength.current = text.length;
+		renderedOffset.current = offset;
 		onFrame?.();
-	}, [text, onFrame]);
+	}, [text, offset, onFrame]);
 	return (
 		<span
 			ref={spanRef}
@@ -362,6 +364,8 @@ const ChatMessage = React.memo(
 		const thinkingDuration = activeVariant.thinking_duration ?? activeVariant.thinkingDuration;
 		const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
 		const steps = hideSteps ? [] : activeVariant.executionSteps;
+		const textOffset = progressTextOffset(activeVariant.executionSteps);
+		const responseText = (activeVariant.content || "").slice(textOffset);
 		return (
 			<div className="min-w-0 w-full whitespace-normal">
 				{showHeader && message.role !== "assistant" && <MessageContextStatus message={message} />}
@@ -372,6 +376,7 @@ const ChatMessage = React.memo(
 						className="message-execution-timeline mb-3 space-y-2"
 					>
 						{steps.map((step, idx) => {
+							if (step.type === "text") return <ProgressText key={step.id ?? idx} text={step.content} />;
 							if (step.type === "thought") {
 								return (
 									<ThoughtBlock
@@ -460,11 +465,12 @@ const ChatMessage = React.memo(
 						streamBuffer ? (
 							<StreamingText
 								buffer={streamBuffer}
+								offset={textOffset}
 								onFrame={onStreamFrame}
 							/>
 						) : (
 							<span className="whitespace-pre-wrap break-words">
-								{activeVariant.content || ""}
+								{responseText}
 							</span>
 						)
 					) : (
@@ -475,7 +481,7 @@ const ChatMessage = React.memo(
 							components={makeComponents(!!message.streaming)}
 						>
 							{normalizeLatexArrows(
-								activeVariant.content ||
+								responseText ||
 									(message.streaming || steps?.length || toolCalls?.length || thinking
 										? ""
 										: "..."),
@@ -1116,4 +1122,11 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 			)}
 		</details>
 	);
+}
+
+export function ProgressText({ text }) {
+  return <div className="assistant-markdown prose max-w-none text-inherit select-text [&_p]:my-3">
+    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
+      urlTransform={mediaUrlTransform} components={makeComponents(false)}>{normalizeLatexArrows(text)}</ReactMarkdown>
+  </div>;
 }

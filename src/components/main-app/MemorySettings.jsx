@@ -14,6 +14,7 @@ import NotificationSettings from "../settings/NotificationSettings";
 import SkillsSettingsTab from "../settings/SkillsSettingsTab";
 import GeneralSettingsTab from "../settings/GeneralSettingsTab";
 import BackgroundSettings from "../settings/BackgroundSettings";
+import AppearanceSettings from "../settings/AppearanceSettings";
 import GitIdentitySettings from "../GitIdentitySettings";
 import DirectorySettings from "../DirectorySettings";
 import RecoveryStorageSettings from "../settings/RecoveryStorageSettings";
@@ -493,6 +494,7 @@ function MemorySettings({
 						</div>
 
 						<LazyPanel id="appearance" visited={visited} hidden={tab !== "appearance"}>
+							<AppearanceSettings />
 							<SettingsCard
 								icon={LuPalette}
 								title="Color theme"

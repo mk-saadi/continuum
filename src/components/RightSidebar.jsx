@@ -321,7 +321,7 @@ export default function RightSidebar({
 	};
 
 	const secondaryButton =
-		"flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
+		"aero-control aero-fill flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
 
 	const handleSavePrompt = async (e) => {
 		e.preventDefault();
@@ -358,8 +358,8 @@ export default function RightSidebar({
 		<div
 			className={
 				compact
-					? "rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
-					: "mx-4 mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+					? "aero-panel p-3"
+					: "mx-4 mt-3 aero-panel p-3"
 			}
 		>
 			<button
@@ -367,7 +367,7 @@ export default function RightSidebar({
 				disabled={disabled || selecting || saving}
 				onClick={resetOverrides}
 				aria-describedby="chat-reset-hint"
-				className="w-full cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+				className="aero-control aero-fill w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
 			>
 				{confirmReset ? "Click again to confirm reset" : "Reset chat overrides"}
 			</button>
@@ -382,7 +382,7 @@ export default function RightSidebar({
 	);
 
 	const renderAgentSelect = () => (
-		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+		<div className="aero-panel p-3">
 			<div className="mb-3 flex items-center gap-2">
 				<LuUsers
 					size={16}
@@ -447,7 +447,7 @@ export default function RightSidebar({
 
 	const renderPromptForm = () => (
 		<form
-			className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+			className="aero-panel p-3"
 			onSubmit={handleSavePrompt}
 		>
 			<div className="mb-3 flex items-center gap-2">
@@ -503,7 +503,7 @@ export default function RightSidebar({
 				</span>
 				<button
 					type="submit"
-					className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+					className="aero-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
 					disabled={disabled || saving || selecting}
 				>
 					<LuSave
@@ -518,7 +518,7 @@ export default function RightSidebar({
 
 	const renderSampling = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<div className="mb-3 flex items-center gap-2">
 					<LuSlidersHorizontal
 						size={16}
@@ -534,7 +534,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<ChatTuning
 					key={`${sessionId}:${modelId}:${tuningVersion}`}
 					disabled={!sessionId || disabled || selecting}
@@ -548,7 +548,7 @@ export default function RightSidebar({
 
 	const renderMemory = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBrain
 						size={16}
@@ -574,7 +574,7 @@ export default function RightSidebar({
 			{memoryLoading ? (
 				<p
 					role="status"
-					className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)] text-xs text-[var(--text-secondary)]"
+					className="aero-panel p-3 text-xs text-[var(--text-secondary)]"
 				>
 					Loading memory settings…
 				</p>
@@ -585,7 +585,7 @@ export default function RightSidebar({
 					return (
 						<div
 							key={key}
-							className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+							className="aero-panel p-3"
 						>
 							<CheckboxField
 								label={label}
@@ -603,7 +603,7 @@ export default function RightSidebar({
 									aria-label={`Use model default for ${label}`}
 									disabled={disabled || memoryBusyKey !== null || !isOverride}
 									onClick={() => saveMemorySetting({ [key]: null })}
-									className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+									className="aero-control aero-fill shrink-0 cursor-pointer px-2.5 py-1.5 text-[11px] font-medium"
 								>
 									Use model default
 								</button>
@@ -649,7 +649,7 @@ export default function RightSidebar({
 		<>
 			{isWorkspace && <WorkspacePlanCard sessionId={sessionId} />}
             {isWorkspace && <BackgroundCommandCard sessionId={sessionId} />}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<div className="flex items-center gap-2">
 					<span
 						aria-hidden="true"
@@ -733,7 +733,7 @@ export default function RightSidebar({
 				/>
 			)}
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<h3 className="mb-2 text-xs font-semibold">Recent tool activity</h3>
 				{activity.recentTools.length === 0 ? (
 					<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
@@ -741,7 +741,7 @@ export default function RightSidebar({
 						answered in the chat.
 					</p>
 				) : (
-					<ul className="space-y-1.5">
+					<ul className="aero-flat space-y-1.5 p-2">
 						{activity.recentTools.map((call) => (
 							<li
 								key={call.id}
@@ -763,7 +763,7 @@ export default function RightSidebar({
 
 	const renderAgentsPanel = () => (
 		<>
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBot
 						size={16}
@@ -780,7 +780,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<h3 className="mb-1 text-xs font-semibold">Available subagents</h3>
 				<p className="mb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Fixed capabilities the main model can call. There is no per-session enablement setting;
@@ -813,7 +813,7 @@ export default function RightSidebar({
 				</ul>
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<h3 className="mb-1 text-xs font-semibold">Sub-agent model</h3>
 				<p className="mb-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Global setting — applies to every chat&apos;s future subagents, not just this session.
@@ -822,7 +822,7 @@ export default function RightSidebar({
 				<SubagentModelSelect disabled={disabled} />
 			</div>
 
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+			<div className="aero-panel p-3">
 				<h3 className="mb-2 text-xs font-semibold">
 					Running subagents{subagentRuns.length > 0 && ` · ${subagentRuns.length}`}
 				</h3>
@@ -831,7 +831,7 @@ export default function RightSidebar({
 						No subagents spawned in this chat yet.
 					</p>
 				) : (
-					<ul className="space-y-1.5">
+					<ul className="aero-flat space-y-1.5 p-2">
 						{subagentRuns.slice(0, 10).map((run) => (
 							<li
 								key={run.id}
@@ -883,10 +883,10 @@ export default function RightSidebar({
 			 * translate/opacity, so the transcript is not re-laid-out on every
 			 * frame of the transition.
 			 */}
-			<div className={`absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}>
-				<header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4">
+			<div className={`sidebar-frame absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}>
+				<header className="aero-header flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
-						<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--active-chat)] text-[var(--accent)]">
+						<span className="aero-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
 							{isWorkspace ? (
 								<LuActivity
 									size={18}
@@ -914,7 +914,7 @@ export default function RightSidebar({
 					<button
 						type="button"
 						aria-label="Close chat controls"
-						className="flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300"
+						className="aero-orb aero-fill size-7 cursor-pointer shrink-0"
 						onClick={onClose}
 					>
 						<LuX
@@ -924,7 +924,7 @@ export default function RightSidebar({
 					</button>
 				</header>
 
-                <div className="mx-4 mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" aria-label="Response cost">
+                <div className="aero-panel mx-4 mt-4 p-3" aria-label="Response cost">
                         <div className="flex items-center justify-between gap-3">
                             <span className="text-xs text-[var(--text-secondary)]">{runtime?.streaming ? 'Live response estimate' : 'Latest response cost'}</span>
                             <span className="font-semibold tabular-nums text-[var(--accent)]">
@@ -955,7 +955,7 @@ export default function RightSidebar({
 				<div
 					role="tablist"
 					aria-label={isWorkspace ? "Workspace sections" : "Chat control sections"}
-					className="mt-3 flex shrink-0 gap-1 overflow-hidden border-b border-[var(--border)] bg-[var(--surface)] px-3 pt-2"
+					className="aero-tabbar mt-3 flex shrink-0 gap-1 px-3 pt-2"
 				>
 					{sections.map(({ id, label, Icon }, index) => (
 						<button
@@ -973,7 +973,7 @@ export default function RightSidebar({
 							tabIndex={tab === id ? 0 : -1}
 							onClick={() => setTab(id)}
 							onKeyDown={(event) => handleTabKey(event, index)}
-							className={`flex min-w-0 flex-1 cursor-pointer items-center justify-center border-b-2 px-1 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${tab === id ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
+							className="aero-tab flex min-w-0 flex-1 cursor-pointer items-center justify-center px-1 py-3"
 						>
 							<Icon
 								size={17}

@@ -6,6 +6,7 @@ import ProjectModal from '../../src/components/ProjectModal';
 import Sidebar from '../../src/components/Sidebar';
 const records = [{ id: 'p1', name: 'Website', description: '**Launch** the site', custom_instructions: 'Keep it simple', root_path: '/work/site', is_pinned: 1, created_at: '2026-09-29 10:00:00', files: [] }];
 window.api = {
+  listSkills: async () => [],
   getProject: async id => structuredClone(records.find(p => p.id === id)),
   updateProject: async (id, patch) => { Object.assign(records.find(p => p.id === id), patch); return structuredClone(records.find(p => p.id === id)); },
   pickDirectory: async () => '/work/new-folder',
@@ -19,7 +20,7 @@ function Fixture() {
   const [view, setView] = useState('projects');
   const [id, setId] = useState('p1');
   const [modal, setModal] = useState(false);
-  const groups = [{ folder_name: 'Uncategorized', sessions: [{ id: 'c1', title: 'Project chat', project_id: 'p1' }, { id: 'g1', title: 'Global chat' }] }];
+  const groups = [{ folder_name: 'Uncategorized', sessions: [{ id: 'c1', title: 'Project chat', project_id: 'p1' }, ...Array.from({ length: 22 }, (_, i) => ({ id: `extra${i}`, title: `Older chat ${i}`, project_id: 'p1' })), { id: 'g1', title: 'Global chat' }] }];
   const update = value => setProjects(old => old.map(p => p.id === value.id ? value : p));
   const open = id => { setId(id); setView('project'); };
   return <div style={{ height: '100vh', display: 'flex' }}>

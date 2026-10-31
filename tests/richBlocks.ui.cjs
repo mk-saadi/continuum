@@ -72,6 +72,13 @@ app.whenReady().then(async () => {
       window.renderMessage(fence + 'json:flow\\n' + flow + '\\n' + fence);
       await waitFor(() => document.querySelector('.rich-arrow'));
       out.flow = document.querySelector('.rich-flow').textContent.includes('s1');
+      // 6d. Parallel flow rows: branches side by side, arrow after the row.
+      const pflow = JSON.stringify({ title: 'P', steps: [{ title: 'a' }, { parallel: [{ title: 'b1' }, { title: 'b2' }, { title: 'b3' }] }, { title: 'c' }] });
+      window.renderMessage(fence + 'json:flow\\n' + pflow + '\\n' + fence);
+      await waitFor(() => document.querySelector('.rich-flow-row'));
+      out.parallelLanes = document.querySelectorAll('.rich-flow-row .rich-card').length;
+      out.parallelArrows = document.querySelectorAll('.rich-arrow').length;
+      out.parallelConverges = [...document.querySelectorAll('.rich-card-title')].some(el => el.textContent === 'c');
       // 6b. Bare-array cards (models improvise [...] instead of {"items":[...]}).
       const bare = JSON.stringify([
         { title: 'Cloud', body: 'Managed infrastructure with elastic scaling.' },
@@ -106,6 +113,9 @@ app.whenReady().then(async () => {
     if (!result.scriptLiteral || !result.noScriptTag) throw new Error('script not rendered as literal text');
     if (!result.clipped) throw new Error('strings not clipped');
     if (!result.flow) throw new Error('flow missing');
+    if (result.parallelLanes !== 3) throw new Error('parallel lanes wrong: ' + result.parallelLanes);
+    if (result.parallelArrows !== 2) throw new Error('parallel arrows wrong: ' + result.parallelArrows);
+    if (!result.parallelConverges) throw new Error('parallel row did not converge to next step');
     if (result.bareArray !== 'Cloud|Local|Hybrid') throw new Error('bare-array cards failed: ' + result.bareArray);
     if (!result.emptyFallback) throw new Error('empty items did not fall back');
     const got = hexOf(result.chartSwatch) || (result.chartFill || '').toUpperCase();

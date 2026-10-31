@@ -1561,9 +1561,168 @@ pre {
 	display: grid;
 	gap: 4px;
 }
+.rich-flow-row {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	gap: 8px;
+	align-items: stretch;
+}
+@media (max-width: 640px) {
+	.rich-flow-row {
+		grid-auto-flow: row;
+		grid-auto-columns: auto;
+	}
+}
 .rich-arrow {
 	text-align: center;
 	color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Aero Glass tokens
+   Derive from the active theme. Do not duplicate per theme.
+   Plain, unlayered CSS: intentionally wins over Tailwind utilities.
+   ========================================================================== */
+:root {
+	/* Material */
+	--aero-blur-panel: 16px;
+	--aero-blur-control: 10px;
+	--aero-blur-well: 12px;
+	--aero-blur-float: 24px;
+	--aero-saturate: 155%;
+	--aero-saturate-control: 150%;
+	--aero-blur-orb: 8px;
+	--aero-radius-popover: 12px;
+	--aero-radius-tooltip: 8px;
+	--aero-saturate-float: 160%;
+
+	--aero-glass: color-mix(in srgb, var(--surface) 54%, transparent);
+	--aero-glass-raised: color-mix(in srgb, var(--surface-raised) 66%, transparent);
+	--aero-glass-strong: color-mix(in srgb, var(--surface-raised) 84%, transparent);
+	--aero-glass-subtle: color-mix(in srgb, var(--surface) 38%, transparent);
+	--aero-well-fill: color-mix(in srgb, var(--input) 62%, transparent);
+
+	/* Light */
+	--aero-line: color-mix(in srgb, #ffffff 16%, transparent);
+	--aero-line-strong: color-mix(in srgb, #ffffff 34%, transparent);
+	--aero-line-soft: color-mix(in srgb, #ffffff 8%, transparent);
+	/* Raised rims fall off toward the bottom edge: the top/sides catch light,
+	   the bottom sits in shadow. Wells are the inverse and keep their full
+	   rim. */
+	--aero-line-bottom: color-mix(in srgb, #ffffff 9%, transparent);
+	--aero-line-bottom-strong: color-mix(in srgb, #ffffff 24%, transparent);
+	--aero-shade: color-mix(in srgb, #000000 32%, transparent);
+	--aero-shade-strong: color-mix(in srgb, #000000 45%, transparent);
+
+	/* Gloss */
+	--aero-gloss-panel: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 12%, transparent) 0%,
+		color-mix(in srgb, #ffffff 3%, transparent) 38%,
+		transparent 40%,
+		color-mix(in srgb, #000000 8%, transparent) 100%
+	);
+	--aero-gloss-control: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 28%, transparent) 0%,
+		color-mix(in srgb, #ffffff 9%, transparent) 48%,
+		transparent 49%,
+		color-mix(in srgb, #000000 10%, transparent) 100%
+	);
+	--aero-gloss-control-hover: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 36%, transparent) 0%,
+		color-mix(in srgb, #ffffff 12%, transparent) 48%,
+		transparent 49%,
+		color-mix(in srgb, #000000 8%, transparent) 100%
+	);
+	--aero-gloss-accent: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 58%, transparent) 0%,
+		color-mix(in srgb, #ffffff 14%, transparent) 46%,
+		transparent 47%,
+		color-mix(in srgb, #000000 22%, transparent) 100%
+	);
+	--aero-gloss-accent-hover: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 66%, transparent) 0%,
+		color-mix(in srgb, #ffffff 18%, transparent) 46%,
+		transparent 47%,
+		color-mix(in srgb, #000000 18%, transparent) 100%
+	);
+	--aero-gloss-well: linear-gradient(
+		180deg,
+		color-mix(in srgb, #000000 12%, transparent) 0%,
+		color-mix(in srgb, #000000 3%, transparent) 12%,
+		transparent 32%
+	);
+	--aero-gloss-pressed: linear-gradient(
+		180deg,
+		color-mix(in srgb, #000000 24%, transparent) 0%,
+		transparent 58%
+	);
+	--aero-gloss-orb: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 26%, transparent) 0%,
+		color-mix(in srgb, #ffffff 6%, transparent) 48%,
+		transparent 49%,
+		color-mix(in srgb, #000000 14%, transparent) 100%
+	);
+
+	--aero-gloss-orb-selected: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 55%, transparent) 0%,
+		color-mix(in srgb, #ffffff 12%, transparent) 48%,
+		transparent 49%,
+		color-mix(in srgb, #000000 18%, transparent) 100%
+	);
+
+	/* Bevels and elevation */
+	--aero-bevel-panel:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade),
+		0 1px 2px color-mix(in srgb, #000000 45%, transparent),
+		0 14px 30px -12px color-mix(in srgb, #000000 60%, transparent);
+	--aero-bevel-panel-hover:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade),
+		0 2px 4px color-mix(in srgb, #000000 40%, transparent),
+		0 24px 46px -14px color-mix(in srgb, #000000 68%, transparent);
+	--aero-bevel-control:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
+		0 2px 4px color-mix(in srgb, #000000 38%, transparent);
+	--aero-bevel-well:
+		inset 0 2px 4px color-mix(in srgb, #000000 30%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #ffffff 8%, transparent),
+		0 1px 0 color-mix(in srgb, #ffffff 6%, transparent);
+	--aero-bevel-pressed:
+		inset 0 2px 5px color-mix(in srgb, #000000 48%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #ffffff 7%, transparent),
+		0 1px 0 color-mix(in srgb, #ffffff 5%, transparent);
+	--aero-bevel-orb:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
+		0 2px 5px color-mix(in srgb, #000000 38%, transparent);
+	--aero-shadow-float:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
+		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
+		0 32px 80px -24px color-mix(in srgb, #000000 72%, transparent);
+	--aero-glow: 0 0 18px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+
+	/* Geometry */
+	--aero-radius-panel: 14px;
+	--aero-radius-control: 9px;
+	--aero-radius-primary: 12px;
+	--aero-radius-well: 12px;
+	--aero-radius-float: 16px;
+	--aero-radius-orb: 999px;
+
+	/* Motion */
+	--aero-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--aero-dur-control: 120ms;
+	--aero-dur-panel: 180ms;
 }
 
 /* Custom Global Scrollbar for Electron */

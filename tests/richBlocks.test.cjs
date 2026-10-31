@@ -42,6 +42,7 @@ test('richLevel off/basic/full produce expected text', () => {
   assert.match(basic, /MUST have a "title"/);
   assert.match(full, /"steps"/);
   assert.match(full, /MUST have a "title"/);
+  assert.match(full, /parallel/);
 });
 
 test('V1-worded rich bases are still recognized and stripped', () => {

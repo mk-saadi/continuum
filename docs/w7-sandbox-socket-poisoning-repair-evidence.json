@@ -1,0 +1,256 @@
+{
+  "task": "W7 sandbox socket poisoning repair",
+  "date": "2026-10-31",
+  "timezone": "Asia/Dhaka",
+  "scope": "Workspace sandbox socket scanning, private scratch mounts, typed preparation diagnostics and regression fixtures",
+  "production_callers": [
+    "tools/agentTools.js executeCommand (shell, run_tests, background)",
+    "tools/agentTools.js runGit (inspection and authorized Git operations)"
+  ],
+  "source_sha256": {
+    "src/main/sandboxFilesystem.js": "29164017e108296a7f88ab055a549ba6db1226e0184961b7f55659cdd042bdf2",
+    "src/main/gitMetadata.js": "b026fab350af4f5283a4928bc304fdd28a5f4131a47fd5094ad3bb823abb3bbf",
+    "src/main/tools/agentTools.js": "7951e4b4e71f102f90abc9723508775e529c176e912e23b88daec501e90a2c7b",
+    "tests/sandboxFilesystem.test.cjs": "e6dd5ace273c1d832b4c131b636cbaa9e454e0af4b6310aa2bec76551bebdc84",
+    "tests/nativePermissions.test.cjs": "583212fc1223d4b360d5d4283c077ed0496c7b2a8b6fd4fb1294d4c187094875",
+    "tests/r5Execution.test.cjs": "6c4ae5736694d31d08657dea66ac42e1518e57dace2183da724c7e5649b10754",
+    "tests/w7SandboxSockets.test.cjs": "dab781102d0fba8a43d9773c767f94e53b053c7faa0cdc2f17c8263c6cc5ac3c"
+  },
+  "baseline": {
+    "snapshot": "/tmp/w7-matched-before",
+    "method": "Snapshot of current src/tests; saved pre-edit sandboxFilesystem and HEAD versions of initially clean gitMetadata/agentTools and legacy R5/filesystem tests restore pre-W7 behavior; installed dependencies symlinked. Existing user edits retained.",
+    "unchanged_snapshot_source_test_mismatches": []
+  },
+  "runs": {
+    "focused_before": {
+      "log": "/tmp/w7-baseline-host.log",
+      "sha256": "00c92697c51ac00a4d9eddc1f42045abc35b154cfbbff590b10728f7ba5bddb2",
+      "summary": {
+        "tests": 46,
+        "pass": 46,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "failed_identities": [],
+      "skips": []
+    },
+    "matched_before": {
+      "log": "/tmp/w7-isolated-before.log",
+      "sha256": "5729996e6bf1c01552e45fcd4eb52fb049a29d70d04f63a8d714e7f7529209f8",
+      "summary": {
+        "tests": 315,
+        "pass": 310,
+        "fail": 4,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      "failed_identities": [
+        "automatic rollback preserves a labelled pre-rollback snapshot",
+        "rollback failure is reported once without recursion",
+        "17. batch write failure mid-sequence rolls back and keeps a durable point",
+        "permission restrictions and workspace boundaries stay enforced"
+      ],
+      "skips": [
+        "ok 43 - real main loop returns a beyond-45-second command to the same transcript and then receives steering # SKIP"
+      ]
+    },
+    "final_combined": {
+      "log": "/tmp/w7-final.log",
+      "sha256": "9886a36c18bc8949cf9451ab19581ef68b416381ca45253dc9a122446fd90eb3",
+      "summary": {
+        "tests": 367,
+        "pass": 362,
+        "fail": 4,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      "failed_identities": [
+        "automatic rollback preserves a labelled pre-rollback snapshot",
+        "rollback failure is reported once without recursion",
+        "17. batch write failure mid-sequence rolls back and keeps a durable point",
+        "permission restrictions and workspace boundaries stay enforced"
+      ],
+      "skips": [
+        "ok 43 - real main loop returns a beyond-45-second command to the same transcript and then receives steering # SKIP"
+      ]
+    },
+    "final_focused": {
+      "log": "/tmp/w7-last-focused.log",
+      "sha256": "2e1ee3acbd0ef6e8ad4f590b850bed7802133ddd1563fdc8502df3808faacfca",
+      "summary": {
+        "tests": 52,
+        "pass": 52,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "failed_identities": [],
+      "skips": []
+    },
+    "final_acceptance": {
+      "log": "/tmp/w7-acceptance-final.log",
+      "sha256": "0bd7a03e1897d9c20cadd6788169cd9c09fecadfb997f8a67374df63ec0c7b80",
+      "summary": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "failed_identities": [],
+      "skips": []
+    },
+    "final_security": {
+      "log": "/tmp/w7-security-final.log",
+      "sha256": "953aec71d379624c0785b8cf724c22a0f5ce3ac3333157288c0f2168007618a5",
+      "summary": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "failed_identities": [],
+      "skips": []
+    },
+    "reproduction": {
+      "log": "/tmp/w7-reproduction.log",
+      "sha256": "d5e73ddfed0c008bbd631505ee396e48926e890f29defe3ddb9ebec5cde8fc70",
+      "summary": {},
+      "failed_identities": [],
+      "skips": []
+    },
+    "build": {
+      "log": "/tmp/w7-build.log",
+      "sha256": "588445177cbd6cf809b76f70db5adf3150cec08b8d8883eb5d79a70a38057180",
+      "summary": {},
+      "failed_identities": [],
+      "skips": []
+    }
+  },
+  "commands": {
+    "focused_before": "node --test tests/sandboxFilesystem.test.cjs tests/r5Execution.test.cjs tests/w6WorkspaceGit.test.cjs",
+    "matched_before": "node --preserve-symlinks --require /tmp/w7-isolate.cjs --test tests/permissionIsolationReliability.test.cjs tests/verification.test.cjs tests/recoveryPostState.test.cjs tests/gitShellReadOnly.test.cjs tests/t1ToolBatch.test.mjs tests/gitMetadata.test.cjs tests/nativePermissions.test.cjs tests/workspacePlan.test.cjs tests/r4Verification.test.cjs tests/permissionPolicy.test.cjs tests/recoveryScanPerf.test.cjs tests/commandExecutionReliability.test.cjs tests/recoveryStore.test.cjs tests/t11ChildReadBatch.test.mjs tests/recoveryStartupMemory.test.cjs tests/backgroundCommands.test.cjs tests/recoveryReferenceIndex.test.cjs tests/recoveryBoundary.test.cjs tests/r3Reliability.test.cjs tests/gitTools.test.cjs tests/sandboxGitRelay.test.cjs tests/recoverySafety.test.cjs tests/recoveryIpc.test.cjs tests/backgroundExecution.test.cjs",
+    "final_combined": "node --require /tmp/w7-isolate.cjs --test tests/permissionIsolationReliability.test.cjs tests/verification.test.cjs tests/recoveryPostState.test.cjs tests/gitShellReadOnly.test.cjs tests/t1ToolBatch.test.mjs tests/gitMetadata.test.cjs tests/nativePermissions.test.cjs tests/workspacePlan.test.cjs tests/r4Verification.test.cjs tests/permissionPolicy.test.cjs tests/recoveryScanPerf.test.cjs tests/commandExecutionReliability.test.cjs tests/recoveryStore.test.cjs tests/t11ChildReadBatch.test.mjs tests/recoveryStartupMemory.test.cjs tests/backgroundCommands.test.cjs tests/recoveryReferenceIndex.test.cjs tests/recoveryBoundary.test.cjs tests/r3Reliability.test.cjs tests/gitTools.test.cjs tests/sandboxGitRelay.test.cjs tests/recoverySafety.test.cjs tests/recoveryIpc.test.cjs tests/backgroundExecution.test.cjs tests/w7SandboxSockets.test.cjs tests/sandboxFilesystem.test.cjs tests/r5Execution.test.cjs tests/w6WorkspaceGit.test.cjs",
+    "build": "npm run build",
+    "whitespace": "git diff --check"
+  },
+  "comparison": {
+    "new_final_failing_identities": [],
+    "persistent_failures": [
+      "17. batch write failure mid-sequence rolls back and keeps a durable point",
+      "automatic rollback preserves a labelled pre-rollback snapshot",
+      "permission restrictions and workspace boundaries stay enforced",
+      "rollback failure is reported once without recursion"
+    ]
+  },
+  "reproduction": "BEFORE: Sandbox socket path is not permitted: /tmp/w7-reproduce-jNIPPG/project/.llm_workspace/sandbox/tmp/.X11-unix/X77\nAFTER: {\"exitCode\":0,\"stdout\":\"/tmp/w7-reproduce-jNIPPG/project\\n\",\"stderr\":\"\",\"socketIntact\":true}",
+  "real_execution": {
+    "actual_unix_sockets": true,
+    "actual_bubblewrap": true,
+    "socket_retained": true,
+    "production_shell_commands": [
+      "pwd",
+      "node --version",
+      "find docs/ -type f",
+      "grep -rn example docs/"
+    ],
+    "production_tests": "node --test w7-pass.cjs",
+    "committed_repository_bwrap_git": [
+      "status",
+      "diff",
+      "log",
+      "show",
+      "branch"
+    ],
+    "concurrent_scratch_isolation": true,
+    "recovery_manifest_user_file": "docs/w7.md",
+    "recovery_manifest_excludes_internal_storage": true
+  },
+  "security_coverage": [
+    "X77 and arbitrary hidden sockets",
+    "HOME and recovery internal sockets",
+    "root and nested exposed sockets",
+    "Git socket",
+    "similar-prefix sibling",
+    "ordinary .X11-unix is not excluded",
+    "workspace .. normalization",
+    "socket table .. normalization",
+    "exposed symlink to masked storage",
+    "masked symlink to exposed storage",
+    "late socket before dispatch",
+    "mask replaced by symlink before dispatch",
+    "tampered actual argv masks",
+    "conflicting askpass mask",
+    "real alias inaccessibility",
+    "fresh and simultaneous scratch isolation"
+  ],
+  "compatibility_suites": [
+    "tests/permissionIsolationReliability.test.cjs",
+    "tests/verification.test.cjs",
+    "tests/recoveryPostState.test.cjs",
+    "tests/gitShellReadOnly.test.cjs",
+    "tests/t1ToolBatch.test.mjs",
+    "tests/gitMetadata.test.cjs",
+    "tests/nativePermissions.test.cjs",
+    "tests/workspacePlan.test.cjs",
+    "tests/r4Verification.test.cjs",
+    "tests/permissionPolicy.test.cjs",
+    "tests/recoveryScanPerf.test.cjs",
+    "tests/commandExecutionReliability.test.cjs",
+    "tests/recoveryStore.test.cjs",
+    "tests/t11ChildReadBatch.test.mjs",
+    "tests/recoveryStartupMemory.test.cjs",
+    "tests/backgroundCommands.test.cjs",
+    "tests/recoveryReferenceIndex.test.cjs",
+    "tests/recoveryBoundary.test.cjs",
+    "tests/r3Reliability.test.cjs",
+    "tests/gitTools.test.cjs",
+    "tests/sandboxGitRelay.test.cjs",
+    "tests/recoverySafety.test.cjs",
+    "tests/recoveryIpc.test.cjs",
+    "tests/backgroundExecution.test.cjs"
+  ],
+  "diagnostic": {
+    "code": "SANDBOX_PREPARATION_FAILED",
+    "stage": "sandbox_preparation",
+    "operation_executed": false,
+    "executionStarted": false,
+    "restrictionCategory": [
+      "exposed_socket",
+      "filesystem_boundary"
+    ],
+    "retryable": false,
+    "run_tests_verificationState": "execution_error",
+    "run_tests_verificationStatus": "inconclusive"
+  },
+  "mcp_isolation": {
+    "config": "disposable empty mcpServers",
+    "native_discovery_disabled": true,
+    "unexpected_singleton_connection": "throws sentinel error",
+    "unexpected_external_process_observed": false,
+    "preloader_sha256": "306f2601a1d6969a38d1f60b45148cea192b458fe89f0db124767398faa85cf6"
+  },
+  "checks": {
+    "build_passed": true,
+    "whitespace_passed": true
+  },
+  "limitations": [
+    "Initial outer-restricted baseline blocked subprocesses with EPERM; authorized runs completed.",
+    "Four exact pre-existing failing test identities retained.",
+    "Existing beyond-45-second main-loop scenario skipped by test definition.",
+    "No full repository or packaged distribution check, other-platform live test or GLM inference.",
+    "Pathname scan-to-launch host mutation window is not atomic; deterministic pre-dispatch changes are rechecked."
+  ],
+  "preservation": {
+    "committed": false,
+    "pushed": false,
+    "stashed_reset_or_cleaned": false,
+    "deleted_internal_socket_or_recovery_as_fix": false,
+    "live_sqlite_modified": false,
+    "dependencies_installed": false,
+    "model_inference": false,
+    "compaction_batching_attachment_or_git_approval_changes": false
+  }
+}

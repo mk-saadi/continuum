@@ -182,7 +182,7 @@ test('execution environment refresh follows live permission revision without lea
 });
 
 
-test('real stale workspace X11 socket is masked for Git, still blocks shell sandbox and never blocks Full Access', async () => {
+test('real stale workspace X11 socket is masked for Git, does not block shell preparation and never blocks Full Access', async () => {
  const net = require('node:net');
  const dir = path.join(workspace, '.llm_workspace/sandbox/tmp/.X11-unix'); fs.mkdirSync(dir, { recursive: true });
  const socket = path.join(dir, 'X77'); const server = net.createServer();
@@ -190,7 +190,26 @@ test('real stale workspace X11 socket is masked for Git, still blocks shell sand
  try {
   const isolated = await call('git_status', {}, 'workspace_write');
   assert.ok(isolated.output, JSON.stringify(isolated));
-  assert.throws(() => require('../src/main/sandboxFilesystem').resolveFilesystem({ workspace, protectGitMetadata: true }), /Sandbox socket path is not permitted/);
+  assert.doesNotThrow(() => require('../src/main/sandboxFilesystem').resolveFilesystem({ workspace, protectGitMetadata: true }));
+  for (const name of ['git_status', 'git_diff', 'git_log', 'git_show', 'git_branch']) {
+   // log/show on an empty repository retain their ordinary Git diagnostic.
+   const out = await call(name, {}, 'workspace_write');
+   assert.doesNotMatch(JSON.stringify(out), /Sandbox socket path is not permitted/);
+  }
+  fs.mkdirSync(path.join(workspace, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(workspace, 'docs/w7.md'), 'example\n');
+  for (const command of ['pwd', 'node --version', 'find docs/ -type f', 'grep -rn example docs/']) {
+   const out = await call('execute_command', { command }, 'workspace_write'); assert.equal(out.exitCode, 0, JSON.stringify(out));
+  }
+  fs.writeFileSync(path.join(workspace, 'w7-pass.cjs'), "require('node:test')('w7',()=>{});\n");
+  const tested = await call('run_tests', { command: 'node --test w7-pass.cjs' }, 'workspace_write');
+  assert.equal(tested.verificationState, 'passed', JSON.stringify(tested));
+  const recovery = require('../src/main/recoveryStore');
+  assert.ok(tested.recoveryCheckpointId);
+  const checkpoint = recovery.getCheckpoint(tested.recoveryCheckpointId);
+  assert.ok(checkpoint.manifest.paths['docs/w7.md']);
+  assert.ok(!Object.keys(checkpoint.manifest.paths).some(p => p.startsWith('.llm_workspace/')));
+  assert.ok(fs.lstatSync(socket).isSocket());
   const host = await call('git_status', {}); assert.ok(host.output, JSON.stringify(host));
   const shell = await call('execute_command', { command: 'printf HOST_OK' }); assert.equal(shell.stdout, 'HOST_OK');
  } finally { await new Promise(resolve => server.close(resolve)); }
@@ -252,4 +271,16 @@ test('real Node runners and a masked failing pipeline retain authoritative verif
   const masked = await call('run_tests', { command: 'node --test --test-reporter=tap r5-fail.cjs | tail -100' });
   assert.equal(masked.exitCode, 0); assert.equal(masked.verificationStatus, 'failed'); assert.match(masked.stdout, /expected assertion/);
  } finally { if (saved !== undefined) process.env.NODE_TEST_CONTEXT = saved; }
+});
+
+test('W7 exposed socket preparation failure is typed and never an assertion failure', async () => {
+ const socket = path.join(workspace, 'w7-exposed.sock'); const server = require('node:net').createServer();
+ await new Promise((resolve, reject) => { server.once('error', reject); server.listen(socket, resolve); });
+ try {
+  const out = await call('run_tests', { command: 'node --test w7-pass.cjs' }, 'workspace_write');
+  assert.equal(out.code, 'SANDBOX_PREPARATION_FAILED', JSON.stringify(out));
+  assert.equal(out.stage, 'sandbox_preparation'); assert.equal(out.operation_executed, false);
+  assert.equal(out.verificationState, 'execution_error'); assert.equal(out.verificationStatus, 'inconclusive');
+  assert.equal(out.restrictionCategory, 'exposed_socket'); assert.equal(out.retryable, false);
+ } finally { await new Promise(resolve => server.close(resolve)); }
 });

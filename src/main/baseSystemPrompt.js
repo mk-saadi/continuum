@@ -91,11 +91,19 @@ RICH BLOCKS (only when a visual summary beats prose; otherwise plain Markdown):
 Valid JSON only. Plain text inside strings, no Markdown. Never nest blocks.
 `;
 
-const RICH_BLOCKS_FLOW = `- Process/flow:
+// Previous flow wording (kept so older sessions' prompts are still stripped).
+const RICH_BLOCKS_FLOW_V2 = `- Process/flow:
 \`\`\`json:flow
 {"title":"...","steps":[{"title":"...","body":"..."}]}
 \`\`\`
 Every flow step MUST have a "title".
+`;
+
+const RICH_BLOCKS_FLOW = `- Process/flow:
+\`\`\`json:flow
+{"title":"...","steps":[{"title":"...","body":"..."}]}
+\`\`\`
+Every flow step MUST have a "title". For parallel steps use {"parallel":[{"title":"..."},{"title":"..."}]} (2-4 branches) as one step; branches run side by side, then flow continues.
 `;
 
 const RICH_BLOCKS_FLOW_V1 = `- Process/flow: \`\`\`json:flow {"steps":[{"title":"","body":""}]}
@@ -139,6 +147,7 @@ function richSuffixes(core, flow) {
 }
 const RICH_SUFFIX_HISTORY = [
 	...richSuffixes(RICH_BLOCKS_BASIC_CORE, ""),
+	...richSuffixes(RICH_BLOCKS_BASIC_CORE, RICH_BLOCKS_FLOW_V2),
 	...richSuffixes(RICH_BLOCKS_BASIC_CORE, RICH_BLOCKS_FLOW),
 	...richSuffixes(RICH_BLOCKS_BASIC_CORE_V1, ""),
 	...richSuffixes(RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V1),
@@ -218,4 +227,4 @@ function prependBaseSystemPrompt(messages, memoryEnabled = true, mediaGeneration
 	];
 }
 
-module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, PASTEL_COLOR_RULE, RICH_BLOCKS_BASIC, RICH_BLOCKS_FULL, RICH_BLOCK_RULES, RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V1, buildTemporalAnchor, prependBaseSystemPrompt };
+module.exports = { BASE_SYSTEM_PROMPT_WITH_TOOLS, MEDIA_GENERATION_RULES, MEDIA_GENERATION_TOOL_RULE, PASTEL_COLOR_RULE, RICH_BLOCKS_BASIC, RICH_BLOCKS_FULL, RICH_BLOCK_RULES, RICH_BLOCKS_BASIC_CORE_V1, RICH_BLOCKS_FLOW_V2, RICH_BLOCKS_FLOW_V1, buildTemporalAnchor, prependBaseSystemPrompt };

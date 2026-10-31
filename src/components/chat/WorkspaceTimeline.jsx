@@ -2,7 +2,7 @@ import CompactionActivity from './CompactionActivity.jsx';
 import { activitySegments } from '../../lib/compactionActivity.mjs';
 import React from "react";
 import { useRowUiState } from "../../hooks/useRowUiState.js";
-import ChatMessage from "../ChatMessage.jsx";
+import ChatMessage, { ProgressText } from "../ChatMessage.jsx";
 import AdditionalPrompts from "../AdditionalPrompts.jsx";
 import AssistantAvatar from "../AssistantAvatar.jsx";
 import MessageActions from "../MessageActions.jsx";
@@ -407,7 +407,7 @@ function RunSection({
 					role="list"
 					aria-label="Run execution stages"
 				>
-					{stages.map((stage) => stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
+					{stages.map((stage) => stage.text ? <div role="listitem" key={stage.key}><ProgressText text={stage.text.content} /></div> : stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
 						<StageSection
 							key={stage.key}
 							stage={stage}

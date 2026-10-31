@@ -37,7 +37,13 @@ app.whenReady().then(async () => {
       document.querySelector('.project-drop').dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer })); await wait();
       check(document.querySelector('.project-file').textContent.includes('spec.md'), 'Context uploaded');
       document.querySelector('[aria-label="Remove spec.md"]').click(); await wait(); check(!document.querySelector('.project-file'), 'Context removed');
-      type(document.querySelector('textarea[placeholder="What would you like to work on?"]'), 'Build the homepage'); await wait(); button('Start New Chat').click(); await wait();
+      check(document.querySelectorAll('.project-chat').length === 10, 'Chat list has ten rows per page');
+      button('Next').click(); await wait();
+      check(document.querySelector('[aria-label="Chat list pagination"]').textContent.includes('Page 2 of 3'), 'Next chat page');
+      button('Previous').click(); await wait();
+      check(document.querySelector('[aria-label="Attach files"]'), 'Shared composer attachment control');
+      type(document.querySelector('textarea[aria-label="Message"]'), 'Build the homepage'); await wait();
+      document.querySelector('button[aria-label="Send"]').click(); await wait();
       check(window.startedChat.id === 'p1' && window.startedChat.prompt === 'Build the homepage', 'Project chat dispatch');
       document.querySelector('.project-chat').click(); await wait(); check(window.loadedChat === 'c1', 'Recent chat navigation');
       button('All Projects').click(); await wait(); document.querySelector('[aria-label="Unpin Website"]').click(); await wait();

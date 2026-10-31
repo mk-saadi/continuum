@@ -94,7 +94,10 @@ export function isCancelledStep(step) {
 export function isBlockedStep(step) {
   if (!step || step.type !== 'tool_call') return false;
   if (step?.error?.code === 'APPROVAL_DENIED' || step?.error?.code === 'PERMISSION_DENIED') return true;
-  const text = `${errorText(step)} ${typeof step.result === 'string' ? step.result : ''}`;
+  // Successful tool output is data: memory/file searches can quote old
+  // permission errors without the current operation being blocked. Legacy
+  // string failures are relevant only when execution actually failed.
+  const text = `${errorText(step)} ${step.status === 'error' && typeof step.result === 'string' ? step.result : ''}`;
   return BLOCKED_RE.test(text);
 }
 
@@ -595,10 +598,15 @@ export function splitStages(steps) {
       stages.push(current);
       continue;
     }
+    if (step.type === 'text') {
+      stages.push({ key: `text:${step.id ?? stages.length}`, text: step, thought: null, events: [] });
+      current = null;
+      continue;
+    }
     if (step.type !== 'tool_call') continue;
     ensure().events.push(step);
   }
-  return stages.filter((stage) => stage.thought || stage.events.length > 0);
+  return stages.filter((stage) => stage.text || stage.thought || stage.events.length > 0);
 }
 
 function distinctStagePaths(events) {
@@ -830,4 +838,10 @@ export function languageOfPath(filePath) {
   if (typeof filePath !== 'string') return '';
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   return EXTENSION_LANGUAGES[ext] ?? '';
+}
+
+// Full content remains canonical; only recorded progress prefixes move inline.
+export function progressTextOffset(steps) {
+  return (steps ?? []).reduce((offset, step) => step?.type === 'text' && Number.isSafeInteger(step.endOffset)
+    ? Math.max(offset, step.endOffset) : offset, 0);
 }

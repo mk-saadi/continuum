@@ -3290,6 +3290,10 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             result.code = error.code || (/approval|approve/i.test(error.message) ? 'APPROVAL_REQUIRED' : 'GIT_OPERATION_FAILED');
             if (error.name === 'AbortError' || error.code === 'ABORT_ERR') result.code = 'GIT_OPERATION_CANCELLED';
         }
+        if (error.sandboxPreparation) {
+            Object.assign(result, error.sandboxPreparation, { executionStatus: 'launch_failure' });
+            if (name === 'run_tests') Object.assign(result, { verificationState: 'execution_error', verificationStatus: 'inconclusive' });
+        }
         if (name === 'read_project_file' && /^FILE_NOT_FOUND:/.test(error.message)) result.code = 'FILE_NOT_FOUND';
         if (name === 'read_project_file' && /(?:Path|Symlink) escapes the project root\./.test(error.message)) result.code = 'UNAUTHORIZED_PATH';
         if (error.editDetails) Object.assign(result, error.editDetails);

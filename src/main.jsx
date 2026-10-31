@@ -1,12 +1,17 @@
 import React from "react";
+import { initializeAppearance } from "./lib/appearance.mjs";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
+import "./styles/aero.css";
+import "./styles/appearance.css";
 import "./components/memoryPalace.css";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { ToastProvider } from "react-toast-master";
 import "react-toast-master/dist/style.css";
+
+initializeAppearance();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>

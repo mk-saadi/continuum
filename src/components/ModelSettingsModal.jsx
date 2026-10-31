@@ -12,8 +12,8 @@ import {
 } from "react-icons/lu";
 import {
 	CheckboxField,
-	NumberField as BaseNumberField,
-	SelectField as BaseSelectField,
+	NumberField,
+	SelectField,
 } from "./FormControls";
 import Tooltip from "./Tooltip";
 import { estimateMemoryUsage } from "../lib/memoryEstimate.mjs";
@@ -39,53 +39,19 @@ const integerFields = [
 	],
 ];
 
-// Compact presentation is scoped to this modal; shared controls keep their behavior.
-function CompactField({ Component, hint, ...props }) {
-	return (
-		<Tooltip
-			content={hint}
-			placement="top"
-			delay={350}
-		>
-			<div className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_120px] [&>div]:items-center [&>div]:gap-3 [&>div>label]:mb-0 [&>div>label]:text-[11px] [&>div>label]:font-normal [&_input]:text-xs [&_input]:py-1 [&_input]:px-2 [&_button]:text-[11px] [&_p]:sr-only">
-				<Component
-					{...props}
-					hint={hint}
-				/>
-			</div>
-		</Tooltip>
-	);
-}
+const cardClass = "aero-fill min-w-0 p-3";
+const secondaryButton = "aero-control aero-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
 
-function NumberField(props) {
-	return (
-		<CompactField
-			Component={BaseNumberField}
-			{...props}
-		/>
-	);
-}
-function SelectField(props) {
-	return (
-		<CompactField
-			Component={BaseSelectField}
-			{...props}
-		/>
-	);
-}
 function SectionHeading({ Icon, title, description }) {
-	return (
-		<Tooltip content={description}>
-			<h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)]">
-				<Icon
-					size={14}
-					className="text-[var(--accent)]"
-					aria-hidden="true"
-				/>
-				{title}
-			</h3>
-		</Tooltip>
-	);
+    return (
+        <div className="mb-3">
+            <h3 className="flex items-center gap-2 text-xs font-semibold">
+                <Icon size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+                {title}
+            </h3>
+            {description && <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">{description}</p>}
+        </div>
+    );
 }
 
 export default function ModelSettingsModal({ model, onClose, onLoaded }) {
@@ -239,14 +205,18 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="aero-dialog fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip p-0"
 		>
 			<form
 				onSubmit={submit}
 				className="flex max-h-[85dvh] flex-col"
 			>
-				<header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-3.5">
-					<div className="min-w-0">
+				<header className="aero-header flex shrink-0 items-center justify-between gap-3 px-4 py-4">
+					<div className="flex min-w-0 items-center gap-3">
+                        <span className="aero-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
+                            <LuSlidersHorizontal size={18} aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
 						<h2
 							id="load-settings-title"
 							className="text-sm font-semibold"
@@ -254,17 +224,18 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 							Model load settings
 						</h2>
 						<Tooltip content={model.name || model.id}>
-							<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
+							<p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
 								{model.generalName || model.name || model.id}
 							</p>
 						</Tooltip>
+                        </div>
 					</div>
 					<button
 						type="button"
 						aria-label="Close settings"
 						onClick={onClose}
 						disabled={busy}
-						className="flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300"
+						className="aero-orb aero-fill size-7 cursor-pointer shrink-0"
 					>
 						<LuX
 							size={17}
@@ -273,11 +244,9 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					</button>
 				</header>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
-					<section className="mb-4 space-y-2 border-b border-[var(--border)] pb-3">
-						<h3 className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-							Model information
-						</h3>
+				<div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4">
+					<section className={`${cardClass} space-y-3`}>
+						<SectionHeading Icon={LuCpu} title="Model information" />
 						<dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 text-[11px]">
 							{[
 								["Architecture", model.architecture],
@@ -289,12 +258,12 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 									key={label}
 									className="min-w-0"
 								>
-									<dt className="text-[10px] text-[var(--text-muted)]">{label}</dt>
+									<dt className="text-[11px] leading-relaxed text-[var(--text-muted)]">{label}</dt>
 									<dd className="truncate tabular-nums">{value ?? "—"}</dd>
 								</div>
 							))}
 						</dl>
-						<details className="group text-[10px] text-[var(--text-muted)]">
+						<details className="group text-[11px] text-[var(--text-muted)]">
 							<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 transition-colors hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 								More model metadata
 								<LuChevronRight
@@ -321,7 +290,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								))}
 							</dl>
 						</details>
-						<p className="text-[10px] text-[var(--text-muted)]">
+						<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
 							Image: {model.declaredCapabilities?.image ? "inferred" : "unknown"} · Audio:{" "}
 							{model.declaredCapabilities?.audio ? "inferred" : "unknown"} · Video: unknown.
 							Media support is verified after loading. Declared context is not the runtime
@@ -361,7 +330,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{error && (
 						<p
 							role="alert"
-							className="mb-3 whitespace-pre-line break-words rounded-lg border border-[var(--error)] px-3 py-2 text-xs text-[var(--error-strong)]"
+							className="whitespace-pre-line break-words rounded-xl border border-[var(--error)] bg-[var(--surface)] p-3 text-[11px] leading-relaxed text-[var(--error)]"
 						>
 							{error}
 						</p>
@@ -369,7 +338,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{vramWarning && (
 						<div
 							role="alert"
-							className="mb-3 rounded-lg border border-[var(--accent)] bg-[var(--active-chat)] px-3 py-2 text-xs text-[var(--text-primary)]"
+							className="rounded-xl border border-[var(--accent)] bg-[var(--active-chat)] p-3 text-[11px] leading-relaxed text-[var(--text-primary)]"
 						>
 							<p className="flex items-start gap-2">
 								<LuTriangleAlert
@@ -384,7 +353,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 									type="button"
 									disabled={busy}
 									onClick={() => runLaunch(true)}
-									className="cursor-pointer rounded-md border border-[var(--control-border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+									className={secondaryButton}
 								>
 									Continue anyway
 								</button>
@@ -395,7 +364,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 										setVramWarning(null);
 										onClose();
 									}}
-									className="cursor-pointer rounded-md px-2.5 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+									className={secondaryButton}
 								>
 									Cancel load
 								</button>
@@ -414,15 +383,15 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{config && (
 						<fieldset
 							disabled={busy}
-							className="grid gap-x-6 gap-y-4 sm:grid-cols-2 disabled:opacity-60"
+							className="grid min-w-0 items-start gap-3 sm:grid-cols-2 disabled:opacity-40"
 						>
-							<div className="border-b border-[var(--border)] pb-4 sm:col-span-2">
+							<div className={`${cardClass} sm:col-span-2`}>
 								<SectionHeading
 									Icon={LuCpu}
 									title="Compute & context"
 									description="Tune how much the model can process at once."
 								/>
-								<div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+								<div className="grid items-start gap-3 sm:grid-cols-2">
 									{integerFields.map(([key, label, hint]) => (
 										<NumberField
 											key={key}
@@ -443,8 +412,8 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 											}
 										/>
 									))}
-									<div className="space-y-1">
-										<p className="text-[10px] text-[var(--text-muted)]">
+									<div className="space-y-3">
+										<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
 											GPU offload layers
 										</p>
 										<CheckboxField
@@ -477,13 +446,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="border-b border-[var(--border)] pb-4">
+							<div className={cardClass}>
 								<SectionHeading
 									Icon={LuLayers}
 									title="Cache & attention"
 									description="KV cache precision, placement, and attention behavior."
 								/>
-								<div className="grid gap-y-2">
+								<div className="grid gap-3">
 									{[
 										[
 											"cacheTypeK",
@@ -530,13 +499,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="border-b border-[var(--border)] pb-4">
+							<div className={cardClass}>
 								<SectionHeading
 									Icon={LuHardDrive}
 									title="Model loading & memory"
 									description="How model weights are read into memory for this model."
 								/>
-								<div className="grid gap-y-2">
+								<div className="grid gap-3">
 									<SelectField
 										label="Load Mode"
 										hint="Auto keeps llama-server's default memory mapping. 'none' disables mmap-style model loading (recommended when tensors are pinned to CPU); mlock variants keep weights resident in RAM."
@@ -601,13 +570,13 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								</div>
 							</div>
 
-							<div className="border-b border-[var(--border)] pb-4 sm:col-span-2">
+							<div className={`${cardClass} sm:col-span-2`}>
 								<SectionHeading
 									Icon={LuSlidersHorizontal}
 									title="Template & sampling"
 									description="Per-model defaults for templating and generation."
 								/>
-								<div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+								<div className="grid items-start gap-3 sm:grid-cols-2">
 									<SelectField
 										label="Chat Template"
 										value={config.chatTemplate}
@@ -652,7 +621,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				{(confirmTextOnly || projectorNotice) && (
 					<div
 						role="alert"
-						className="shrink-0 border-t border-[var(--border)] bg-[var(--active-chat)] px-5 py-3 text-xs text-[var(--text-primary)]"
+						className="shrink-0 border-t border-[var(--border)] bg-[var(--active-chat)] px-4 py-3 text-[11px] leading-relaxed text-[var(--text-primary)]"
 					>
 						{projectorNotice && <p>{projectorNotice}</p>}
 						{confirmTextOnly && (
@@ -667,7 +636,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 
 				{config && memory && (
 					<Tooltip content={memoryTitle}>
-						<div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[11px]">
+						<div className="aero-footer flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3 text-[11px]">
 							<span className="inline-flex items-center gap-1.5">
 								<LuCpu
 									size={13}
@@ -686,7 +655,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								<span className="text-[var(--text-muted)]">System RAM</span>
 								<strong className="tabular-nums">{formatMemory(memory.ramMiB)}</strong>
 							</span>
-							<span className="text-[10px] text-[var(--text-muted)]">
+							<span className="text-[11px] leading-relaxed text-[var(--text-muted)]">
 								rough estimate · excludes OS/driver overhead
 								{memory.confidence !== "high" || memory.ramIncomplete
 									? " · some sizes unknown"
@@ -696,7 +665,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					</Tooltip>
 				)}
 
-				<footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3">
+				<footer className="aero-footer flex shrink-0 flex-wrap items-center justify-end gap-2 px-4 py-3">
 					<div className="mr-auto">
 						<CheckboxField
 							label="Remember settings for this model"
@@ -709,14 +678,14 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						type="button"
 						disabled={busy}
 						onClick={onClose}
-						className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 cursor-pointer duration-300"
+						className={secondaryButton}
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
 						disabled={busy || !config}
-						className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 cursor-pointer duration-300"
+						className="aero-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
 					>
 						{busy ? (
 							<LuSparkles

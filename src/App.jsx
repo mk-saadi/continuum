@@ -519,7 +519,7 @@ const TabPane = memo(function TabPane({
 				onProject={onProject}
 				onCreateProject={onCreateProject}
 				onChat={onChat}
-				renderWorkspace={({ groups, loadChat, startProjectChat, busy, canStartChat }) =>
+				renderWorkspace={({ groups, loadChat, startProjectChat, busy, canStartChat, chatComposer }) =>
 					view === "projects" ? (
 						<ProjectsView
 							projects={projects}
@@ -543,6 +543,7 @@ const TabPane = memo(function TabPane({
 							onUpdated={updateProject}
 							onLoadChat={loadChat}
 							onStartChat={startProjectChat}
+                            chatComposer={chatComposer}
 							chatDisabled={busy}
 							canStartChat={canStartChat}
 						/>

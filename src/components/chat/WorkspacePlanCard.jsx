@@ -145,7 +145,7 @@ export function WorkspacePlanCard({ sessionId }) {
 			aria-labelledby={headingId}
 			data-plan-session={sessionId ?? ""}
 			data-plan-revision={plan?.revision ?? ""}
-			className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+			className="aero-panel p-3"
 		>
 			<div className="flex items-center justify-between gap-2">
 				<h3 id={headingId} className="text-xs font-semibold">
@@ -165,7 +165,7 @@ export function WorkspacePlanCard({ sessionId }) {
 						onClick={load}
 						aria-label="Refresh task plan"
 						title="Refresh task plan"
-						className="rounded px-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
+						className="aero-control aero-fill cursor-pointer px-2 py-1 text-[11px]"
 					>
 						↻
 					</button>
@@ -184,7 +184,7 @@ export function WorkspacePlanCard({ sessionId }) {
 					<button
 						type="button"
 						onClick={load}
-						className="mt-1 rounded border border-[var(--border)] px-2 py-0.5 text-[10px] hover:bg-[var(--surface-raised)]"
+						className="aero-control aero-fill mt-1 cursor-pointer px-2 py-0.5 text-[10px]"
 					>
 						Retry
 					</button>
@@ -217,10 +217,10 @@ export function WorkspacePlanCard({ sessionId }) {
 							aria-valuemin={0}
 							aria-valuemax={total}
 							aria-valuenow={completed}
-							className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--border)]"
+							className="aero-track mt-1.5 h-1"
 						>
 							<div
-								className="h-full bg-[var(--accent)] transition-[width] duration-300 motion-reduce:transition-none"
+								className="aero-track__fill h-full transition-[width] duration-300 motion-reduce:transition-none"
 								style={{ width: `${Math.round((completed / total) * 100)}%` }}
 							/>
 						</div>
@@ -235,7 +235,7 @@ export function WorkspacePlanCard({ sessionId }) {
 							No steps recorded.
 						</p>
 					) : (
-						<ul className="mt-2 space-y-2">
+						<ul className="aero-flat mt-2 space-y-2 p-2">
 							{steps.map((step) => (
 								<PlanStep key={step.id} step={step} />
 							))}

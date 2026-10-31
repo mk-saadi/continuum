@@ -7,6 +7,10 @@ function normalizeExecutionSteps(steps) {
     if (!step || typeof step !== 'object') throw new TypeError('Invalid execution step.');
     if (step.type === 'thought') {
       if (typeof step.content !== 'string' || !Number.isFinite(step.durationMs) || step.durationMs < 0) throw new TypeError('Invalid thought step.');
+    } else if (step.type === 'text') {
+      if (typeof step.content !== 'string' || !Number.isSafeInteger(step.startOffset) ||
+          !Number.isSafeInteger(step.endOffset) || step.startOffset < 0 ||
+          step.endOffset - step.startOffset !== step.content.length) throw new TypeError('Invalid text step.');
     } else if (step.type === 'tool_call') {
       if (typeof step.toolName !== 'string' || !['preparing', 'pending', 'running', 'complete', 'error', 'deferred', 'rejected'].includes(step.status) ||
           (step.serverName != null && typeof step.serverName !== 'string') ||

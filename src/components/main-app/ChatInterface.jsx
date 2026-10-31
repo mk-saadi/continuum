@@ -728,7 +728,7 @@ export function ChatInterface({
 			setLoading(false);
 		}
 	};
-	const startProjectChat = async (projectId, text) => {
+	const startProjectChat = async (projectId, text, initialPermissionMode) => {
 		if (busyRef.current || agentLoading)
 			throw new Error("Wait for the current chat operation to finish.");
 		if (!chatAvailable || !selectedModel)
@@ -738,6 +738,12 @@ export function ChatInterface({
 		try {
 			const id = crypto.randomUUID();
 			await palace.api.getOrCreateSession(id, selectedModel, projectId);
+            if (initialPermissionMode) {
+                await window.memoryPalace?.setPermissionMode?.(id, initialPermissionMode);
+                setPermissionBySession((current) => ({ ...current, [id]: initialPermissionMode }));
+            }
+            // Reprocess attachments against the new session before sending.
+            uploadCache.current.clear();
 			// Persist the submitted prompt as a draft until generation accepts it.
 			try {
 				localStorage.setItem(`chat_draft_${id}`, text);
@@ -753,12 +759,11 @@ export function ChatInterface({
 			onTabUpdate?.({
 				projectId,
 				title: "New chat",
-				permissionMode: defaultPermissionMode(
+				permissionMode: initialPermissionMode ?? defaultPermissionMode(
 					projects.find((candidate) => candidate.id === projectId) ?? null,
 				),
 			});
 			setMessages([]);
-			clearFiles();
 			setEditing(null);
 			palace.setDraftTokens(0);
 			onChat();
@@ -1956,6 +1961,21 @@ export function ChatInterface({
 				startProjectChat,
 				busy: streaming || loading || agentLoading,
 				canStartChat: !!chatAvailable && !!selectedModel,
+                chatComposer: {
+                    modelId: selectedModel, activeChatProvider,
+                    onAttach: () => fileInputRef.current?.click(),
+                    onPasteFiles: addAttachments,
+                    attachDisabled: !window.api?.processUploads,
+                    attachmentTooltip: uploadPolicy.tooltip,
+                    hasAttachments: selectedFiles.length > 0,
+                    attachments: <><p role="status" className="text-[11px] text-[var(--error)]">{historyError}</p>{selectedFiles.length > 0 && <div className="flex gap-2 overflow-auto py-2" aria-label="Selected attachments">
+                        {selectedFiles.map((file, index) => <SelectedFilePreview key={`${file.name}-${index}`} file={file}
+                            disabled={streaming || loading} onRemove={() => {
+                                uploadCache.current.delete(file);
+                                setSelectedFiles((files) => files.filter((_, i) => i !== index));
+                            }} />)}
+                    </div>}</>,
+                },
 			})}
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}

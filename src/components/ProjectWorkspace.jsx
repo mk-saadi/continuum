@@ -11,6 +11,7 @@ import {
 	FiTrash2,
 	FiUpload,
 } from "react-icons/fi";
+import { LuTarget, LuMessageSquare, LuFiles, LuShield, LuSparkles } from "react-icons/lu";
 import { projectDate } from "./ProjectsView";
 import ProjectSkillsCard from "./project/ProjectSkillsCard";
 import {
@@ -18,6 +19,8 @@ import {
 	availablePermissionModes,
 	defaultPermissionMode,
 } from "../lib/permissionModes.mjs";
+import ChatInput from "./ChatInput";
+import { TextField, TextAreaField, SelectField } from "./FormControls";
 import "./projects.css";
 
 export default function ProjectWorkspace({
@@ -26,9 +29,10 @@ export default function ProjectWorkspace({
 	onBack,
 	onUpdated,
 	onLoadChat,
-	onStartChat,
 	chatDisabled,
 	canStartChat,
+	chatComposer = {},
+	onStartChat,
 }) {
 	const [project, setProject] = useState(null);
 	const [loading, setLoading] = useState(true);
@@ -38,9 +42,11 @@ export default function ProjectWorkspace({
 	const [name, setName] = useState("");
 	const [goal, setGoal] = useState("");
 	const [instructions, setInstructions] = useState("");
-	const [prompt, setPrompt] = useState("");
+	const [chatPage, setChatPage] = useState(1);
 	const [dragging, setDragging] = useState(false);
 	const [version, setVersion] = useState(0);
+	const composerRef = useRef(null);
+	const [permissionMode, setPermissionMode] = useState(null);
 	const input = useRef(null);
 	const lock = useRef(false);
 	useEffect(() => {
@@ -116,14 +122,17 @@ export default function ProjectWorkspace({
 	const chats = sessions
 		.filter((session) => session.project_id === projectId)
 		.sort((a, b) => (b.last_active_at || "").localeCompare(a.last_active_at || ""));
+	const pageCount = Math.max(1, Math.ceil(chats.length / 10));
+	const currentPage = Math.min(chatPage, pageCount);
+	const visibleChats = chats.slice((currentPage - 1) * 10, currentPage * 10);
 	return (
 		<main
-			className="projects-page"
+			className="aero-stage projects-page project-workspace"
 			aria-label="Project workspace"
 		>
 			<div className="projects-content">
 				<button
-					className="project-button mb-6"
+					className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mb-6"
 					onClick={onBack}
 				>
 					<FiArrowLeft /> All Projects
@@ -136,7 +145,7 @@ export default function ProjectWorkspace({
 						{error}{" "}
 						{!project && (
 							<button
-								className="project-button"
+								className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 								onClick={() => setVersion((value) => value + 1)}
 							>
 								Retry
@@ -150,12 +159,20 @@ export default function ProjectWorkspace({
 					project && (
 						<>
 							<header className="projects-heading">
-								<div className="min-w-0">
-									<p className="projects-muted mb-2">PROJECT WORKSPACE</p>
-									<h1 className="break-words">{project.name}</h1>
+								<div className="flex min-w-0 items-center gap-3">
+									<span className="project-heading-icon">
+										<FiFolder
+											size={18}
+											aria-hidden="true"
+										/>
+									</span>
+									<div className="min-w-0">
+										<p className="projects-muted mb-2">Project workspace</p>
+										<h1 className="break-words">{project.name}</h1>
+									</div>
 								</div>
 								<button
-									className="project-button"
+									className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 									aria-pressed={!!project.is_pinned}
 									disabled={busy}
 									onClick={() =>
@@ -175,12 +192,15 @@ export default function ProjectWorkspace({
 							</header>
 							<div className="project-hub">
 								<div className="project-stack">
-									<section className="project-panel">
-										<div className="flex justify-between items-center gap-4">
-											<h2>Project Goal</h2>
+									<section className="aero-panel project-panel">
+										<div className="flex justify-between items-center gap-4 mb-2">
+											<h2>
+												<LuTarget aria-hidden="true" />
+												Project goal
+											</h2>
 											{!editing && (
 												<button
-													className="project-button"
+													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={busy}
 													onClick={() => setEditing(true)}
 												>
@@ -198,30 +218,25 @@ export default function ProjectWorkspace({
 													});
 												}}
 											>
-												<label className="project-field mb-3">
-													Project Title
-													<input
-														required
-														className="project-input"
-														value={name}
-														disabled={busy}
-														onChange={(event) => setName(event.target.value)}
-													/>
-												</label>
-												<label className="project-field">
-													Goal (Markdown)
-													<textarea
-														className="project-input"
-														rows={6}
-														value={goal}
-														disabled={busy}
-														onChange={(event) => setGoal(event.target.value)}
-													/>
-												</label>
+												<TextField
+													label="Project title"
+													className="mb-3"
+													required
+													value={name}
+													disabled={busy}
+													onChange={(event) => setName(event.target.value)}
+												/>
+												<TextAreaField
+													label="Goal (Markdown)"
+													rows={6}
+													value={goal}
+													disabled={busy}
+													onChange={(event) => setGoal(event.target.value)}
+												/>
 												<div className="project-actions">
 													<button
 														type="button"
-														className="project-button"
+														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={busy}
 														onClick={() => {
 															setName(project.name);
@@ -232,7 +247,7 @@ export default function ProjectWorkspace({
 														Cancel
 													</button>
 													<button
-														className="project-button primary"
+														className="aero-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
 														disabled={busy || !name.trim()}
 													>
 														Save Goal
@@ -240,7 +255,7 @@ export default function ProjectWorkspace({
 												</div>
 											</form>
 										) : (
-											<div className="project-markdown">
+											<div className="aero-inset project-markdown p-3">
 												<ReactMarkdown remarkPlugins={[remarkGfm]}>
 													{normalizeLatexArrows(
 														project.description ||
@@ -250,69 +265,121 @@ export default function ProjectWorkspace({
 											</div>
 										)}
 									</section>
-									<section className="project-panel">
-										<h2>Start New Chat in Project</h2>
-										<form
-											onSubmit={(event) => {
+									<section className="aero-panel project-panel">
+										<h2>
+											<LuMessageSquare aria-hidden="true" />
+											Start a new chat
+										</h2>
+										<div
+											className="aero-well aero-fill project-composer"
+											onDragOver={(event) => event.preventDefault()}
+											onDrop={(event) => {
 												event.preventDefault();
-												perform(() => onStartChat(projectId, prompt));
+												if (!busy && !chatDisabled)
+													chatComposer.onPasteFiles?.(
+														Array.from(event.dataTransfer.files),
+													);
 											}}
 										>
-											<label className="project-field">
-												<span className="sr-only">New project chat prompt</span>
-												<textarea
-													className="project-input"
-													placeholder="What would you like to work on?"
-													value={prompt}
-													disabled={busy || chatDisabled}
-													onChange={(event) => setPrompt(event.target.value)}
-												/>
-											</label>
-											{!canStartChat && (
-												<p className="projects-muted mt-3">
-													Select and start a model to begin chatting.
-												</p>
-											)}
-											<div className="project-actions">
-												<button
-													className="project-button primary"
-													disabled={
-														busy ||
-														chatDisabled ||
-														!canStartChat ||
-														!prompt.trim()
-													}
-												>
-													<FiMessageSquare /> Start New Chat
-												</button>
-											</div>
-										</form>
-									</section>
-									<section className="project-panel">
-										<h2>
-											Recent Chats{" "}
-											<span className="projects-muted">({chats.length})</span>
-										</h2>
-										{chats.length ? (
-											chats.map((chat) => (
-												<button
-													className="project-chat disabled:opacity-40"
-													disabled={chatDisabled || busy}
-													key={chat.id}
-													onClick={() => onLoadChat(chat.id)}
-												>
-													<FiMessageSquare />
-													<span>{chat.title || "Untitled chat"}</span>
-													<time className="projects-muted">
-														{projectDate(chat.last_active_at)}
-													</time>
-												</button>
-											))
-										) : (
-											<p className="projects-muted">
-												No conversations yet. Start with a question above.
+											{chatComposer.attachments}
+											<ChatInput
+												{...chatComposer}
+												ref={composerRef}
+												sessionId={`project-${projectId}`}
+												settingsSessionId={null}
+												permissionMode={
+													permissionMode ?? defaultPermissionMode(project)
+												}
+												permissionModes={availablePermissionModes(project)}
+												onPermissionModeChange={setPermissionMode}
+												allowMidRunQuestions
+												midRunQuestionsLocked
+												attachDisabled={
+													busy || chatDisabled || chatComposer.attachDisabled
+												}
+												loading={busy || chatDisabled}
+												canSubmit={canStartChat && !busy && !chatDisabled}
+												onSubmit={(text) =>
+													perform(async () => {
+														await onStartChat(
+															projectId,
+															text,
+															permissionMode ?? defaultPermissionMode(project),
+														);
+														composerRef.current?.clearSubmitted(
+															text,
+															`project-${projectId}`,
+														);
+													})
+												}
+											/>
+										</div>
+										{!canStartChat && (
+											<p className="projects-muted mt-2">
+												Select and start a model to begin chatting.
 											</p>
 										)}
+									</section>
+									<section className="aero-panel project-panel">
+										<h2>
+											<LuMessageSquare aria-hidden="true" />
+											Recent chats{" "}
+											<span className="projects-muted">({chats.length})</span>
+										</h2>
+										<div className="aero-flat px-2">
+											{chats.length ? (
+												visibleChats.map((chat) => (
+													<button
+														className="aero-list-item project-chat disabled:opacity-40"
+														disabled={chatDisabled || busy}
+														key={chat.id}
+														onClick={() => onLoadChat(chat.id)}
+													>
+														<FiMessageSquare />
+														<span>{chat.title || "Untitled chat"}</span>
+														<time className="projects-muted">
+															{projectDate(chat.last_active_at)}
+														</time>
+													</button>
+												))
+											) : (
+												<p className="projects-muted">
+													No conversations yet. Start with a question above.
+												</p>
+											)}
+											{chats.length > 10 && (
+												<nav
+													className="project-pagination"
+													aria-label="Chat list pagination"
+												>
+													<span
+														className="projects-muted"
+														role="status"
+													>
+														{(currentPage - 1) * 10 + 1}–
+														{Math.min(currentPage * 10, chats.length)} of{" "}
+														{chats.length} chats
+													</span>
+													<button
+														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														disabled={currentPage === 1}
+														onClick={() => setChatPage(currentPage - 1)}
+													>
+														Previous
+													</button>
+													<span className="projects-muted">
+														Page {currentPage} of {pageCount}
+													</span>
+													<button
+														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														disabled={currentPage === pageCount}
+														onClick={() => setChatPage(currentPage + 1)}
+													>
+														Next
+													</button>
+												</nav>
+											)}
+										</div>
 									</section>
 								</div>
 								<aside
@@ -320,33 +387,34 @@ export default function ProjectWorkspace({
 									aria-label="Project controls"
 								>
 									<details
-										className="project-panel"
+										className="aero-panel project-panel"
 										open
 									>
-										<summary>Custom Instructions</summary>
+										<summary>
+											<LuSparkles
+												className="inline mr-2"
+												aria-hidden="true"
+											/>
+											Custom instructions
+										</summary>
 										<form
 											onSubmit={(event) => {
 												event.preventDefault();
 												perform(() => save({ custom_instructions: instructions }));
 											}}
 										>
-											<label className="project-field">
-												<span className="projects-muted">
-													Applied to every chat in this project.
-												</span>
-												<textarea
-													aria-label="Custom Instructions"
-													className="project-input"
-													rows={5}
-													value={instructions}
-													disabled={busy}
-													onChange={(event) => setInstructions(event.target.value)}
-													placeholder="How should the assistant approach this work?"
-												/>
-											</label>
+											<TextAreaField
+												hint="Applied to every chat in this project."
+												aria-label="Custom Instructions"
+												rows={5}
+												value={instructions}
+												disabled={busy}
+												onChange={(event) => setInstructions(event.target.value)}
+												placeholder="How should the assistant approach this work?"
+											/>
 											<div className="project-actions">
 												<button
-													className="project-button"
+													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={
 														busy ||
 														instructions === (project.custom_instructions || "")
@@ -357,13 +425,14 @@ export default function ProjectWorkspace({
 											</div>
 										</form>
 									</details>
-									<section className="project-panel">
+									<section className="aero-panel project-panel">
 										<h2>
-											Context Files{" "}
+											<LuFiles aria-hidden="true" />
+											Context files{" "}
 											<span className="projects-muted">({project.files.length})</span>
 										</h2>
 										<div
-											className="project-drop"
+											className="aero-empty aero-fill project-drop"
 											data-dragging={dragging}
 											onDragOver={(event) => {
 												event.preventDefault();
@@ -382,7 +451,7 @@ export default function ProjectWorkspace({
 											<FiUpload className="mx-auto mb-2" />
 											<p className="projects-muted">Drop reference files here</p>
 											<button
-												className="project-button mt-3"
+												className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-3"
 												disabled={busy}
 												onClick={() => input.current.click()}
 											>
@@ -413,7 +482,7 @@ export default function ProjectWorkspace({
 												<FiFileText />
 												<span title={file.file_path}>{file.file_name}</span>
 												<button
-													className="project-button"
+													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													aria-label={`Remove ${file.file_name}`}
 													disabled={busy}
 													onClick={() =>
@@ -440,7 +509,7 @@ export default function ProjectWorkspace({
 											onUpdated(updated);
 										}}
 									/>
-									<section className="project-panel">
+									<section className="aero-panel project-panel">
 										<h2 className="flex items-center gap-2">
 											<FiFolder /> Root Directory
 										</h2>
@@ -455,40 +524,36 @@ export default function ProjectWorkspace({
 											workspace context.
 										</p>
 										<button
-											className="project-button mt-4"
+											className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-4"
 											disabled={busy}
 											onClick={changeFolder}
 										>
 											{project.root_path ? "Change Folder" : "Connect Folder"}
 										</button>
 									</section>
-									<section className="project-panel">
-										<h2>Default Permission Mode</h2>
-										<label className="project-field">
-											<span className="projects-muted">
-												Applied to every new chat started in this project.
-											</span>
-											<select
-												aria-label="Default permission mode"
-												className="project-input"
-												value={defaultPermissionMode(project)}
-												disabled={busy}
-												onChange={(event) =>
-													perform(() =>
-														save({ permissionMode: event.target.value }),
-													)
-												}
-											>
-												{availablePermissionModes(project).map((mode) => (
-													<option
-														key={mode}
-														value={mode}
-													>
-														{PERMISSION_MODE_LABELS[mode]}
-													</option>
-												))}
-											</select>
-										</label>
+									<section className="aero-panel project-panel">
+										<h2>
+											<LuShield aria-hidden="true" />
+											Default permission mode
+										</h2>
+										<SelectField
+											hint="Applied to every new chat started in this project."
+											aria-label="Default permission mode"
+											value={defaultPermissionMode(project)}
+											disabled={busy}
+											onChange={(event) =>
+												perform(() => save({ permissionMode: event.target.value }))
+											}
+										>
+											{availablePermissionModes(project).map((mode) => (
+												<option
+													key={mode}
+													value={mode}
+												>
+													{PERMISSION_MODE_LABELS[mode]}
+												</option>
+											))}
+										</SelectField>
 										{!project.root_path && (
 											<p className="projects-muted mt-3">
 												Connect a root folder to make Workspace Write available.

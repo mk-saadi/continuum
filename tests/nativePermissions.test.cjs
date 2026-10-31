@@ -41,7 +41,7 @@ test('native tool guard prevents writes and model self-approval, full access can
       }, 'workspace_write');
       assert.equal(git.exitCode, 0, git.stderr);
       assert.equal(await fs.readFile(path.join(root, 'tracked.txt'), 'utf8'), 'safe');
-      // $HOME and /tmp are workspace-local and writable inside the sandbox.
+      // $HOME and /tmp are invocation-local and writable inside the sandbox.
       const env = await run('execute_command', { command: 'echo "$HOME|$TMPDIR"' }, 'workspace_write');
       assert.equal(env.exitCode, 0, env.stderr);
       assert.deepEqual(env.stdout.trim().split('|'), [
@@ -50,8 +50,10 @@ test('native tool guard prevents writes and model self-approval, full access can
       ]);
       const writable = await run('execute_command', { command: 'touch "$HOME/marker" "$TMPDIR/marker"' }, 'workspace_write');
       assert.equal(writable.exitCode, 0, writable.stderr);
-      await fs.stat(path.join(root, '.llm_workspace', 'sandbox', 'home', 'marker'));
-      await fs.stat(path.join(root, '.llm_workspace', 'sandbox', 'tmp', 'marker'));
+      await assert.rejects(fs.stat(path.join(root, '.llm_workspace', 'sandbox', 'home', 'marker')), /ENOENT/);
+      await assert.rejects(fs.stat(path.join(root, '.llm_workspace', 'sandbox', 'tmp', 'marker')), /ENOENT/);
+      const fresh = await run('execute_command', { command: 'test ! -e "$HOME/marker" && test ! -e "$TMPDIR/marker"' }, 'workspace_write');
+      assert.equal(fresh.exitCode, 0, fresh.stderr);
       await assert.rejects(fs.stat(path.join(os.tmpdir(), 'marker')), /ENOENT/, 'sandbox /tmp is not the host /tmp');
     }
     // The boundary is the sandbox, not shell-string matching: an absolute

@@ -17,6 +17,7 @@ const ChatInputBar = memo(
 	forwardRef(function ChatInputBar(
 		{
 			sessionId,
+			settingsSessionId = sessionId,
 			onSubmit,
 			onQueue,
 			onSteer,
@@ -139,7 +140,7 @@ const ChatInputBar = memo(
 								aria-label="Attach files"
 								disabled={streaming || loading || attachDisabled}
 								onClick={onAttach}
-								className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-muted)] hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+								className="aero-orb aero-fill size-8 shrink-0 cursor-pointer"
 							>
 								<GrAttachment className="size-3.5" />
 							</button>
@@ -156,7 +157,7 @@ const ChatInputBar = memo(
 					{/* Right: Consolidated Settings Popover & Send Button */}
 					<div className="flex items-center gap-1.5">
 						<AgentSettingsPopover
-							sessionId={sessionId}
+							sessionId={settingsSessionId}
 							modelId={modelId}
 							disabled={!modelId || streaming || loading}
 							allowMidRunQuestions={allowMidRunQuestions}
@@ -180,7 +181,7 @@ const ChatInputBar = memo(
 									aria-label="Steer running agent"
 									onClick={submit}
 									disabled={!canSteer}
-									className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--accent)] bg-transparent text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent)] hover:text-[var(--on-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+									className="aero-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<IoSend className="size-3" />
 								</button>
@@ -189,7 +190,7 @@ const ChatInputBar = memo(
 									title="Stop"
 									aria-label="Stop"
 									onClick={onStop}
-									className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] transition-all duration-200 hover:bg-[var(--surface-raised)]"
+									className="aero-control aero-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<FaStop className="size-3" />
 								</button>
@@ -201,7 +202,7 @@ const ChatInputBar = memo(
 								aria-label="Send"
 								onClick={submit}
 								disabled={!ready}
-								className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 bg-[var(--accent)] text-[var(--on-accent)] transition-all duration-200 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+								className="aero-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 							>
 								<IoSend className="size-3" />
 							</button>

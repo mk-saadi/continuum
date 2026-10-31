@@ -171,12 +171,12 @@ export function ReasoningSelector({ sessionId, modelId, activeChatProvider, disa
 					step="256"
 					value={customValue}
 					onChange={(event) => setCustomValue(event.target.value)}
-					className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs outline-none focus:border-[var(--accent)]"
+					className="aero-well aero-fill min-w-0 flex-1 px-2 py-1 text-xs"
 				/>
 				<button
 					type="submit"
 					disabled={!customValid || saving}
-					className="cursor-pointer rounded bg-[var(--accent)] px-3 py-1 text-xs text-[var(--on-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+					className="aero-primary cursor-pointer px-3 py-1 text-xs"
 				>
 					Set
 				</button>
@@ -265,8 +265,23 @@ export function AgentSettingsPopover({
 				setIsOpen(false);
 			}
 		};
+		const onKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setIsOpen(false);
+				triggerRef.current?.focus();
+			}
+		};
+		const dismiss = () => setIsOpen(false);
 		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
+		document.addEventListener("keydown", onKeyDown);
+		window.addEventListener("scroll", dismiss, true);
+		window.addEventListener("resize", dismiss);
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("scroll", dismiss, true);
+			window.removeEventListener("resize", dismiss);
+		};
 	}, [isOpen]);
 
 	return (
@@ -278,11 +293,9 @@ export function AgentSettingsPopover({
 				disabled={disabled}
 				onClick={handleToggle}
 				title="Agent Run Settings"
-				className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs transition-colors outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] ${
-					allowMidRunQuestions || isOpen
-						? "border-[var(--control-border)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
-						: "border-[var(--control-border)] bg-[var(--input)] text-[var(--text-muted)] hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)]"
-				} disabled:cursor-not-allowed disabled:opacity-40`}
+				aria-expanded={isOpen}
+				aria-haspopup="dialog"
+				className="aero-control aero-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
 			>
 				<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
 				<span className="font-medium">Settings</span>
@@ -295,12 +308,14 @@ export function AgentSettingsPopover({
 				createPortal(
 					<div
 						ref={menuRef}
+						role="dialog"
+						aria-label="Run Settings"
 						style={{
 							top: coords.top,
 							left: coords.left,
 							transform: "translate(-100%, -100%)",
 						}}
-						className="absolute z-[9999] w-72 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-primary)] shadow-2xl space-y-3"
+						className="aero-popover absolute z-[9999] w-72 p-3 text-xs text-[var(--text-primary)] space-y-3"
 					>
 						<div className="font-semibold text-[var(--text-secondary)] border-b border-[var(--subtle-border)] pb-2">
 							Run Settings

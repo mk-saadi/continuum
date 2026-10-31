@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FiFolder, FiPlus, FiStar } from "react-icons/fi";
+import { TextField } from "./FormControls";
 import "./projects.css";
 
 export function projectDate(value) {
@@ -35,25 +36,27 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 	}
 	return (
 		<main
-			className="projects-page"
+			className="aero-stage projects-page"
 			aria-label="Projects dashboard"
 		>
 			<div className="projects-content">
 				<header className="projects-heading">
-					<div>
+					<div className="flex min-w-0 items-center gap-3">
+                        <span className="project-heading-icon"><FiFolder size={18} aria-hidden="true" /></span><div>
 						<h1>Projects</h1>
-						<p className="projects-muted">A home for your goals, context, and conversations.</p>
+						<p className="projects-muted">A home for your goals, context, and conversations.</p></div>
 					</div>
 					<button
-						className="project-button primary"
+						className="aero-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
 						onClick={onCreate}
 					>
 						<FiPlus /> Create New Project
 					</button>
 				</header>
 				<div className="projects-toolbar">
-					<input
-						className="project-input"
+					<TextField
+						className="flex-1"
+						frameClassName="aero-well flex min-h-8 items-center text-[var(--text-primary)]"
 						type="search"
 						aria-label="Search projects"
 						placeholder="Search projects by name, goal, or folder…"
@@ -61,7 +64,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 						onChange={(event) => setQuery(event.target.value)}
 					/>
 					<button
-						className="project-button"
+						className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 						aria-pressed={pinnedOnly}
 						onClick={() => setPinnedOnly(!pinnedOnly)}
 					>
@@ -76,7 +79,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 						{error || actionError}{" "}
 						{error && (
 							<button
-								className="project-button"
+								className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 								onClick={onRetry}
 							>
 								Retry
@@ -87,7 +90,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 				{loading ? (
 					<p role="status">Loading projects…</p>
 				) : !filtered.length ? (
-					<div className="project-empty">
+					<div className="aero-empty project-empty">
 						<FiFolder className="mx-auto mb-4 size-8" />
 						<p>
 							{projects.length
@@ -104,14 +107,14 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 					<div className="projects-grid">
 						{filtered.map((project) => (
 							<article
-								className="project-card"
+								className="aero-panel aero-panel--interactive project-card"
 								key={project.id}
 							>
 								<button
 									className="project-card-link"
 									onClick={() => onOpen(project.id)}
 								>
-									<FiFolder className="size-6 text-[var(--accent)]" />
+									<FiFolder className="size-4 text-[var(--accent)]" />
 									<h2>{project.name}</h2>
 									<p className="project-card-goal">
 										{project.description || "Add a goal to give this project direction."}
@@ -129,7 +132,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 									</div>
 								</button>
 								<button
-									className="project-button project-pin"
+									className="aero-orb aero-fill project-pin cursor-pointer text-[11px] font-medium"
 									aria-label={`${project.is_pinned ? "Unpin" : "Pin"} ${project.name}`}
 									aria-pressed={!!project.is_pinned}
 									disabled={pinning !== null}

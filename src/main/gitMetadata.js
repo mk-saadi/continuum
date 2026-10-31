@@ -6,7 +6,7 @@ const SHELL_HINT = 'Git metadata is read-only in the shell; use the git_* tools 
 const MESSAGE = 'Git metadata is read-only here; use the git_* tools';
 // Resolve gitfiles relative to their containing directory, and commondir relative
 // to gitdir. Do not invoke git or trust repository configuration for discovery.
-function resolveGitMetadata(workspace) {
+function resolveGitMetadata(workspace, excluded = []) {
   const found = new Set();
   function metadata(marker) {
     const real = fs.realpathSync(marker);
@@ -22,6 +22,7 @@ function resolveGitMetadata(workspace) {
   function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, entry.name);
+      if (excluded.includes(p)) continue;
       if (entry.name === '.git') { metadata(p); continue; }
       if (entry.isDirectory()) walk(p);
     }

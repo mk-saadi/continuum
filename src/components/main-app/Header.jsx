@@ -63,15 +63,16 @@ export default function Header({
 
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
-		"flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300";
+		"aero-orb aero-fill size-7 cursor-pointer shrink-0";
 
 	return (
-		<header className="relative flex h-9 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 shadow-[0_2px_30px_var(--window-shadow)]">
+		<header className="aero-header relative flex h-9 shrink-0 items-center gap-3 px-3">
 			<button
 				type="button"
 				className={button}
 				aria-label="Toggle chat history"
 				aria-expanded={isSidebarOpen}
+				aria-pressed={isSidebarOpen}
 				aria-controls="chat-sidebar"
 				onClick={onToggleSidebar}
 			>
@@ -82,7 +83,7 @@ export default function Header({
 				<div className="flex min-w-0 items-center gap-1.5">
 					<button
 						type="button"
-						className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] active:translate-y-0.5 duration-300"
+						className="aero-orb aero-fill size-7 shrink-0 cursor-pointer"
 						aria-label="Workspace Home"
 						title="Workspace Home"
 						onClick={workspace.onOpenHome}
@@ -99,7 +100,7 @@ export default function Header({
 							</span>
 							<button
 								type="button"
-								className="flex min-w-0 max-w-44 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:translate-y-0.5 duration-300 max-[700px]:max-w-24"
+								className="aero-control aero-fill flex min-h-7 min-w-0 max-w-44 cursor-pointer items-center gap-1.5 px-1.5 py-1 text-xs text-[var(--text-primary)] max-[700px]:max-w-24"
 								aria-label="Open workspace"
 								title="Open workspace"
 								onClick={workspace.onOpenWorkspace}
@@ -119,8 +120,9 @@ export default function Header({
 				<button
 					type="button"
 					onClick={onOpenModels}
-					className="pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-4 py-1 text-xs cursor-pointer hover:bg-[var(--surface-hover)] duration-300"
+					className="aero-control aero-fill pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 px-4 py-1 text-xs cursor-pointer"
 					aria-label="Select or load model"
+					aria-haspopup="dialog"
 				>
 					<span
 						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
@@ -158,7 +160,6 @@ export default function Header({
 					)}
 					<span
 						aria-hidden="true"
-						className="group-active:translate-y-0.5 duration-300"
 					>
 						<FiChevronDown />
 					</span>
@@ -178,10 +179,10 @@ export default function Header({
 						aria-valuemax={100}
 						aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
 						aria-valuetext={tooltip}
-						className="mt-1 h-1 overflow-hidden rounded bg-[var(--surface-hover)]"
+						className="aero-track mt-1 h-1"
 					>
 						<div
-							className="h-full bg-[var(--accent)] transition-[width]"
+							className="aero-track__fill h-full transition-[width] motion-reduce:transition-none"
 							style={{ width: `${percent}%` }}
 						/>
 					</div>
@@ -200,6 +201,7 @@ export default function Header({
 				className={button}
 				aria-label="Toggle chat controls"
 				aria-expanded={isRightSidebarOpen}
+				aria-pressed={isRightSidebarOpen}
 				aria-controls="right-sidebar"
 				onClick={onToggleRightSidebar}
 			>

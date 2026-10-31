@@ -51,27 +51,61 @@ function Cards({ data }) {
 	);
 }
 
+function laneOf(entry) {
+	if (typeof entry === "string") return { title: entry };
+	if (!entry || typeof entry !== "object") return null;
+	const title = pickLabel(entry, "title");
+	if (!title) return null;
+	return { title, body: typeof entry.body === "string" ? entry.body : undefined };
+}
+
 function Flow({ data }) {
 	const steps = (data.steps ?? []).slice(0, 8);
 	return (
 		<div className="rich-block">
 			{data.title && <div className="rich-title">{clip(data.title, 120)}</div>}
 			<div className="rich-flow">
-				{steps.map((s, i) => (
-					<div key={i}>
-						<div className="rich-card">
-							<div className="rich-card-main">
-								<div className="rich-card-title">{clip(s.title, 100)}</div>
-								{s.body && <p className="rich-card-body">{clip(s.body, 240)}</p>}
-							</div>
-						</div>
-						{i < steps.length - 1 && (
+				{steps.map((s, i) => {
+					const arrow =
+						i < steps.length - 1 ? (
 							<div className="rich-arrow" aria-hidden="true">
 								↓
 							</div>
-						)}
-					</div>
-				))}
+						) : null;
+					// A step may be a parallel row: {"parallel":[{title,...},...]} —
+					// lanes render side by side, then flow continues to the next step.
+					const lanes = Array.isArray(s?.parallel)
+						? s.parallel.slice(0, 4).map(laneOf).filter(Boolean)
+						: null;
+					if (lanes?.length) {
+						return (
+							<div key={i}>
+								<div className="rich-flow-row">
+									{lanes.map((lane, j) => (
+										<div className="rich-card" key={j}>
+											<div className="rich-card-main">
+												<div className="rich-card-title">{clip(lane.title, 100)}</div>
+												{lane.body && <p className="rich-card-body">{clip(lane.body, 240)}</p>}
+											</div>
+										</div>
+									))}
+								</div>
+								{arrow}
+							</div>
+						);
+					}
+					return (
+						<div key={i}>
+							<div className="rich-card">
+								<div className="rich-card-main">
+									<div className="rich-card-title">{clip(s?.title ?? "", 100)}</div>
+									{s?.body && <p className="rich-card-body">{clip(s.body, 240)}</p>}
+								</div>
+							</div>
+							{arrow}
+						</div>
+					);
+				})}
 			</div>
 		</div>
 	);

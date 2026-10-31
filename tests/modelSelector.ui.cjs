@@ -14,7 +14,7 @@ app.whenReady().then(async () => {
       import React from 'react';
       import { createRoot } from 'react-dom/client';
       import ModelSelectorModal from './src/components/main-app/ModelSelectorModal';
-      const models = ['Gemma 4 26B A4B', 'Qwen 3.6 35B A3B', 'Qwen 3.8 27B', 'Spark 2.5 4B', 'Llama 3.1 8B'].map((name, index) => ({ id: '/models/' + index + '.gguf', modelPath: '/models/' + index + '.gguf', generalName: name, name, architecture: index ? 'qwen3moe' : 'gemma4', paramSize: index ? '35B' : '26B', quantization: 'Q4_K_M', sizeFormatted: '15.76 GB', hasVision: !index, hasTools: true, hasReasoning: !!index }));
+      const models = ['Gemma 4 26B A4B', 'Qwen 3.6 35B A3B', 'Qwen 3.8 27B', 'Spark 2.5 4B', 'Llama 3.1 8B'].map((name, index) => ({ id: '/models/' + index + '.gguf', modelPath: '/models/' + index + '.gguf', generalName: name, name, architecture: index ? 'qwen3moe' : 'gemma4', paramSize: index ? '35B' : '26B', quantization: 'Q4_K_M', fileIdentity: { size: (index + 1) * 1000000 }, sizeFormatted: '15.76 GB', hasVision: !index, hasTools: true, hasReasoning: !!index }));
       const cloudProviders = [{ id: 'deepseek', name: 'DeepSeek Flash', modelId: 'deepseek/deepseek-v4.1-flash', apiType: 'openai', configured: true }, { id: 'gemini', name: 'Gemini Flash Lite', modelId: 'google/gemini-2.5-flash-lite', configured: true }];
       window.savedOverrides = {}; window.api = { fetchCloudModels: async ({ id }) => ({ models: id === 'deepseek' ? ['deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-chat'] : ['google/gemini-2.5-flash-lite'] }), getCapabilityOverrides: async () => window.savedOverrides, saveCapabilityOverrides: async (target, overrides) => { const key = target.type === 'local' ? JSON.stringify(['local',target.modelId]) : JSON.stringify(['cloud',target.provider,null,target.model]); window.savedOverrides[key] = overrides; return {...window.savedOverrides}; }, getCloudModelMetadata: async () => [{providerId:'deepseek', modelId:'deepseek/deepseek-v4.1-flash', providerName:'OpenRouter', contextLength:128000, maxOutputTokens:16000, pricing:{input:0.000001,output:0.000002}, capabilities:{reasoning:true,tools:true,image:false}}], getModelLoadConfig: async () => ({ config: {}, remembered: false }) };
       window.terminalAPI = { kill: async () => { window.unloaded = true; return { success: true }; } };
@@ -25,16 +25,21 @@ app.whenReady().then(async () => {
     const assets = path.join(__dirname, '../dist/assets');
     const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));
     await fs.copyFile(path.join(assets, css), path.join(directory, 'fixture.css'));
-    await fs.writeFile(path.join(directory, 'index.html'), `<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d}</style><div id="root"></div><script src="fixture.js"></script>`);
+    await fs.writeFile(path.join(directory, 'index.html'), `<link rel="stylesheet" href="fixture.css"><style>body{background:#10131c;--surface:#191e2e;--bg-secondary:#10131c;--control-border:#47516c;--edit-border:#65718c;--window-shadow:#00000066;--border:#343c53;--text-primary:#e6e8f0;--text-secondary:#b4bdce;--text-muted:#8290aa;--input:#141925;--accent:#eba074;--active-chat:#3c3048;--surface-hover:#252b3d}</style><div id="root"></div><script src="fixture.js"></script>`);
     await window.loadFile(path.join(directory, 'index.html'));
     await new Promise(resolve => setTimeout(resolve, 200));
     await fs.writeFile('/tmp/model-selector-preview.png', (await window.webContents.capturePage()).toPNG());
     const result = await window.webContents.executeJavaScript(`(async () => {
       const tick = () => new Promise(resolve => setTimeout(resolve, 50));
       const check = (value, message) => { if (!value) throw new Error(message); };
-      const list = () => [...document.querySelectorAll('ul[aria-label="Available models"] > li')];
-      check(list().length === 7, 'Both sources in one list');
-      check(list()[0].getBoundingClientRect().height <= 55, 'Compact row height');
+      const list = () => [...document.querySelectorAll('section[data-model-source] > ul > li')];
+      check(list().length === 7, 'Both groups visible together');
+      check(list()[0].getBoundingClientRect().height <= 64, 'Compact card height with 12px padding');
+      const sortSelect = document.querySelector('[aria-label="Sort models"]');
+      sortSelect.value = 'size'; sortSelect.dispatchEvent(new Event('change', {bubbles:true})); await tick();
+      check(document.querySelector('[data-model-source="local"] > ul > li').textContent.includes('Llama'), 'Size sort stays within local group');
+      check(document.querySelector('[data-model-source="cloud"] > ul > li').textContent.includes('DeepSeek'), 'Cloud group retains alphabetical order');
+      sortSelect.value = 'name'; sortSelect.dispatchEvent(new Event('change', {bubbles:true})); await tick();
       check(document.querySelector('[aria-label="Image input: verified by loaded engine"]'), 'Runtime verification shown');
       check(document.querySelector('[aria-label="Audio input: unsupported"]'), 'Unsupported media distinguished');
       check(document.querySelectorAll('[title="Edit model capabilities"]').length === 7, 'Every model has an editor');
@@ -52,6 +57,8 @@ app.whenReady().then(async () => {
       check(document.querySelector('[aria-label="Audio input: unsupported"]'), 'Reset restores runtime detection');
       const search = document.querySelector('[aria-label="Search models"]');
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(search, 'no matching model'); search.dispatchEvent(new Event('input', {bubbles:true})); await tick();
+      check(!list().length && document.body.textContent.includes('No models match your search.'), 'Empty search state');
       setter.call(search, 'deepseek'); search.dispatchEvent(new Event('input', {bubbles:true})); await tick();
       check(list().length === 1 && list()[0].textContent.includes('DeepSeek'), 'Search includes cloud models');
       document.querySelector('[aria-label="Edit capabilities for DeepSeek Flash"]').click(); await tick();
@@ -67,13 +74,13 @@ app.whenReady().then(async () => {
       [...document.querySelectorAll('[role="option"]')].find(option => option.textContent.includes('deepseek/deepseek-v4.1-flash')).click(); await tick();
       check(window.selectedProvider.provider === 'deepseek' && window.selectedProvider.model === 'deepseek/deepseek-v4.1-flash' && window.pickerClosed, 'Cloud model selection preserved');
       document.querySelector('[aria-label="Clear model search"]').click(); await tick();
-      const filters = [...document.querySelectorAll('[aria-label="Model source"] button')];
-      filters[1].click(); await tick(); check(list().length === 5, 'Local filter');
-      filters[2].click(); await tick(); check(list().length === 2, 'Cloud filter');
+      check(!document.querySelector('[aria-label="Model source"]'), 'Source filter tabs removed');
+      check(document.querySelectorAll('[data-model-source="local"] > ul > li').length === 5, 'Local models grouped');
+      check(document.querySelectorAll('[data-model-source="cloud"] > ul > li').length === 2, 'Cloud models grouped');
+      check(document.querySelector('[data-model-source="local"]').textContent.includes('Quantization'), 'Local-specific columns');
       check(document.body.textContent.includes('Max output'), 'Cloud-specific columns');
       check(list().some(row => row.textContent.includes('OpenRouter') && row.textContent.includes('256k') && row.textContent.includes('16k') && row.textContent.includes('$1 / $2')), 'Provider metadata displayed');
       check(document.querySelector('[aria-label="Tool use: reported by provider"]'), 'Cloud tool capability displayed');
-      filters[1].click(); await tick();
       [...list()].find(row => row.textContent.includes('Gemma')).querySelector('button').click(); await tick();
       check(window.selectedModel === '/models/0.gguf' && window.selectedProvider.type === 'local', 'Loaded model reuse');
       [...document.querySelectorAll('button')].find(button => button.textContent === 'Unload').click(); await tick(); check(window.unloaded, 'Unload preserved');
@@ -82,7 +89,7 @@ app.whenReady().then(async () => {
       return true;
     })()`);
     assert.equal(result, true);
-    console.log('Compact model list, capabilities, cloud search, source filters, selection, unload and load dialog passed.');
+    console.log('Compact model list, capabilities, cloud search, grouped sources, selection, unload and load dialog passed.');
   } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
   app.exit(0);
 }).catch(error => { console.error(error); app.exit(1); });

@@ -72,7 +72,7 @@ export default function RecoveryCard({
 	const skippedCount = latest?.skipped?.length ?? 0;
 
 	return (
-		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+		<div className="aero-panel p-3">
 			<div className="flex items-center gap-2">
 				<span
 					aria-hidden="true"
@@ -148,7 +148,7 @@ export default function RecoveryCard({
 				type="button"
 				onClick={onOpenHistory}
 				disabled={disabled || !overview || overview.state === "empty"}
-				className="mt-2 w-full cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+				className="aero-control aero-fill mt-2 w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
 			>
 				View recovery history
 			</button>
@@ -156,7 +156,7 @@ export default function RecoveryCard({
 				type="button"
 				onClick={onOpenReview}
 				disabled={disabled || !onOpenReview}
-				className="mt-2 w-full cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+				className="aero-control aero-fill mt-2 w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
 			>
 				Review changes
 			</button>

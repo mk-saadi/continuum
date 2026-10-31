@@ -24,13 +24,15 @@ function available(t, offline = false) {
   return true;
 }
 test.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-test('pure mount builder starts empty, preserves symlinks and masks after workspace before scratch', () => {
+test('pure mount builder starts empty, preserves symlinks and masks after workspace and uses private scratch', () => {
   const a = buildSandboxMounts({ system: [{ source: '/usr', destination: '/usr' }, { source: '/usr/bin', destination: '/bin', symlink: true }], etc: [], workspace: '/w', maskedPaths: ['/w/data', '/w/.llm_workspace'], home: '/w/.llm_workspace/sandbox/home', tmp: '/w/.llm_workspace/sandbox/tmp' });
   assert.deepEqual(a.slice(0, 2), ['--tmpfs', '/']);
   assert.ok(!a.join(' ').includes('--ro-bind / /'));
   assert.ok(a.join(' ').includes('--symlink /usr/bin /bin'));
   assert.ok(a.indexOf('/w/data') > a.indexOf('/w'));
-  assert.ok(a.lastIndexOf('/sandbox-home') > a.indexOf('/w/.llm_workspace'));
+  assert.ok(a.join(' ').includes('--tmpfs /sandbox-home'));
+  assert.ok(!a.includes('/w/.llm_workspace/sandbox/home'));
+  assert.ok(!a.includes('/w/.llm_workspace/sandbox/tmp'));
   assert.ok(a.includes('--remount-ro'));
 });
 test('network profile adds only hosts/resolver; offline omits them; no host root/run/mnt/media/home bind', () => {

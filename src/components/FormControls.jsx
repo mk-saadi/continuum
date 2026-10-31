@@ -1,9 +1,10 @@
 import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import { fixedPortalPosition } from "../lib/portalCoordinates.mjs";
 import { LuCheck, LuChevronDown, LuSearch, LuStar, LuX } from "react-icons/lu";
 
 const fieldFrame =
-	"flex min-h-8 items-center rounded-xl border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[select:disabled]:opacity-50 has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50";
+	"aero-well flex min-h-8 items-center text-[var(--text-primary)]";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -69,12 +70,12 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 				: below < desiredHeight && above > below;
 			const maxHeight = Math.min(288, upwards ? above : below);
 			const height = Math.min(desiredHeight, maxHeight);
-			const next = {
+			const next = fixedPortalPosition({
 				left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
 				top: upwards ? rect.top - 6 - height : rect.bottom + 6,
 				width,
 				maxHeight,
-			};
+			}, owner);
 			setMenuCoords((previous) =>
 				Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next,
 			);
@@ -95,7 +96,7 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 }
 
 export const TextField = forwardRef(function TextField(
-	{ label, hint, id: suppliedId, className, inputClassName = "", required, ...inputProps },
+	{ label, hint, id: suppliedId, className, inputClassName = "", frameClassName, required, ...inputProps },
 	ref,
 ) {
 	const generatedId = useId();
@@ -108,14 +109,14 @@ export const TextField = forwardRef(function TextField(
 			required={required}
 			className={className}
 		>
-			<div className={fieldFrame}>
+			<div className={frameClassName || fieldFrame}>
 				<input
 					{...inputProps}
 					id={id}
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none rounded-xl! placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none rounded-[inherit] placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 				/>
 			</div>
 		</FieldShell>
@@ -290,7 +291,7 @@ export const SelectField = forwardRef(function SelectField(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="fixed z-[9999] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
+							className="aero-popover fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -324,9 +325,9 @@ export const SelectField = forwardRef(function SelectField(
 									type="button"
 									role="option"
 									aria-selected={String(opt.value) === String(value)}
-									className={`flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 my-0.5 text-left text-xs transition-colors hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none ${
+									className={`aero-list-item flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
 										String(opt.value) === String(value)
-											? "bg-[var(--surface-hover)] font-medium"
+											? "font-medium"
 											: ""
 									}`}
 									onClick={() => {
@@ -554,7 +555,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-xl"
+							className="aero-popover fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -574,7 +575,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 							}}
 						>
 							<div className="shrink-0 border-b border-[var(--border)] p-1.5">
-								<div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2">
+								<div className="aero-well aero-fill flex items-center gap-2 px-2">
 									<LuSearch
 										size={13}
 										className="shrink-0 text-[var(--text-muted)]"
@@ -627,7 +628,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 													pick(item.value);
 												}
 											}}
-											className={`group flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 my-0.5 text-left text-xs transition-colors hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] focus-visible:outline-none ${selected ? "bg-[var(--surface-hover)] font-medium" : ""}`}
+											className={`aero-list-item group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
 										>
 											<div className="flex min-w-0 items-center gap-2 pr-1">
 												{item.icon && (
@@ -708,7 +709,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 		<div className={`min-w-0 ${className}`}>
 			<label
 				htmlFor={id}
-				className={`group relative flex w-full cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 transition-colors hover:bg-[var(--surface-hover)] ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
 			>
 				<input
 					{...inputProps}
@@ -721,7 +722,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 				/>
 				<span
 					aria-hidden="true"
-					className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"
+					className="aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center"
 				>
 					<LuCheck
 						size={12}
@@ -758,14 +759,14 @@ export const TextAreaField = forwardRef(function TextAreaField(
 			required={required}
 			className={className}
 		>
-			<div className="flex rounded-xl! border border-[var(--control-border)] bg-[var(--input)] text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] has-[:disabled]:opacity-50">
+			<div className="aero-well flex text-[var(--text-primary)]">
 				<textarea
 					{...inputProps}
 					id={id}
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full rounded-xl! bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
+					className={`min-w-0 w-full rounded-[inherit] bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
 				/>
 			</div>
 		</FieldShell>
@@ -819,19 +820,13 @@ export const SliderField = forwardRef(function SliderField(
 		>
 			<div className={`relative flex h-11 items-center ${inputProps.disabled ? "opacity-40" : ""}`}>
 				{/* Visual track */}
-				<div
-					aria-hidden="true"
-					className="pointer-events-none absolute inset-x-0 h-1.5 rounded-full overflow-hidden transition-[height] duration-200"
-					style={{
-						background: `linear-gradient(to right, var(--accent) ${percentage}%, var(--active-chat) ${percentage}%)`,
-					}}
-				/>
+				<div aria-hidden="true" className="aero-track pointer-events-none absolute inset-x-0 h-1.5">
+					<div className="aero-track__fill h-full" style={{ width: `${percentage}%` }} />
+				</div>
 
-				{/* Visual thumb — scales up when pressed or hovered */}
 				<div
 					aria-hidden="true"
-					className={`pointer-events-none absolute rounded-full bg-[var(--accent)] shadow-sm -translate-x-1/2 transition-[width,height,box-shadow] duration-200 ease-out
-                    ${isActive ? "size-5 shadow-md" : "size-3"}`}
+					className={`aero-orb aero-fill pointer-events-none absolute -translate-x-1/2 ${isActive ? "size-5" : "size-3"}`}
 					style={{ left: `calc(${percentage}% + ${8 - percentage * 0.16}px)` }}
 				/>
 
@@ -909,10 +904,11 @@ export const PillToggle = forwardRef(function PillToggle(
 			type="button"
 			role="switch"
 			aria-checked={active}
+			data-selected={active}
 			disabled={disabled}
 			title={title}
 			onClick={() => onToggle?.(!active)}
-			className={`flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1 text-xs text-[var(--text-primary)] transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+			className={`aero-control flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
 		>
 			{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
 			<span>{active ? activeLabel || label : label}</span>
