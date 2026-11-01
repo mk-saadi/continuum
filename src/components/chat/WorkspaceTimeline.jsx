@@ -512,7 +512,7 @@ function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
 				type="button"
 				aria-expanded={!collapsed}
 				onClick={() => setCollapsed(!collapsed)}
-				className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-white/[0.02] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+				className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 			>
 				<span
 					aria-hidden="true"

@@ -16,7 +16,7 @@ export default function AdditionalPrompts({ prompts = [], interactions = [] }) {
 	return (
 		<section
 			aria-label="Additional prompts"
-			className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-xs"
+			className="aero-chat-detail mt-3 w-full rounded-xl px-3 py-2.5 text-xs"
 		>
 			<h3 className="font-semibold text-[var(--text-secondary)]">Additional prompts</h3>
 			<p className="mt-0.5 text-[11px] text-[var(--text-muted)]">

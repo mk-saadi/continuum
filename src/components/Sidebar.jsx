@@ -28,10 +28,7 @@ export default function Sidebar({
 	const workspaceGroups = mapSessionGroups(history.groups, (list) =>
 		sessionsForProject(list, chatProjectId),
 	).filter((group) => group.sessions.length > 0);
-	const workspaceChatCount = workspaceGroups.reduce(
-		(count, group) => count + group.sessions.length,
-		0,
-	);
+	const workspaceChatCount = workspaceGroups.reduce((count, group) => count + group.sessions.length, 0);
 	if (!isWorkspace) {
 		return (
 			<aside
@@ -41,6 +38,7 @@ export default function Sidebar({
 				<div className="min-h-0 flex-1">
 					<ChatHistory
 						{...history}
+						embedded
 						mode="casual"
 						showRecents
 						groups={globalGroups}
@@ -56,7 +54,7 @@ export default function Sidebar({
 					</summary>
 					<div className="max-h-48 min-h-0 overflow-y-auto px-2 pb-2">
 						<button
-							className="project-nav-link w-full"
+							className="aero-list-item project-nav-link w-full cursor-pointer"
 							onClick={onChat}
 						>
 							<FiMessageSquare />
@@ -69,7 +67,7 @@ export default function Sidebar({
 									.map((project) => (
 										<button
 											key={project.id}
-											className="project-nav-link w-full"
+											className="aero-list-item project-nav-link w-full"
 											onClick={() => onProject(project.id)}
 										>
 											<FiStar className="shrink-0" />
@@ -79,14 +77,14 @@ export default function Sidebar({
 							</section>
 						)}
 						<button
-							className="project-nav-link w-full"
+							className="aero-list-item project-nav-link w-full"
 							onClick={onProjects}
 						>
 							<FiGrid />
 							<span>All projects</span>
 						</button>
 						<button
-							className="project-nav-link w-full"
+							className="aero-list-item project-nav-link w-full"
 							onClick={onCreateProject}
 						>
 							<FiPlus />
@@ -108,7 +106,7 @@ export default function Sidebar({
 		>
 			<div className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 pt-3 pb-2">
 				<button
-					className="project-nav-link w-full"
+					className="aero-list-item project-nav-link w-full cursor-pointer"
 					onClick={onChat}
 					aria-current={view === "chat" ? "page" : undefined}
 				>
@@ -116,7 +114,7 @@ export default function Sidebar({
 					<span>Back to Chat</span>
 				</button>
 				<button
-					className="project-nav-link w-full"
+					className="aero-list-item project-nav-link w-full cursor-pointer"
 					onClick={onProjects}
 					aria-current={view === "projects" ? "page" : undefined}
 				>
@@ -127,6 +125,7 @@ export default function Sidebar({
 			<div className="min-h-0 flex-1">
 				<ChatHistory
 					{...history}
+					embedded
 					mode="workspace"
 					workspaceName={workspaceProject?.name ?? null}
 					workspaceChatCount={workspaceChatCount}

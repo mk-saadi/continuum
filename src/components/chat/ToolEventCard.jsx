@@ -371,9 +371,10 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			aria-label={isSubagent ? "Sub-agent execution" : "Tool execution"}
 			data-tool={step.toolName}
 			data-status={classification.key}
+			data-expanded={expanded}
 			className={
 				timeline
-					? `min-w-0 overflow-hidden rounded-md text-[13px] ${containerTone}`
+					? `aero-chat-tool min-w-0 overflow-hidden rounded-md text-[13px] ${containerTone}`
 					: `min-w-0 overflow-hidden rounded-lg border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
 			}
 		>
@@ -384,7 +385,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				onClick={() => setUserExpanded(!expanded)}
 				className={
 					timeline
-						? "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/[0.03] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						? "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 						: "flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 				}
 			>

@@ -25,7 +25,7 @@ function clampOpacity(value) {
 //
 // `animated` marks an asset that keeps decoding frames. It is exposed to CSS so
 // per-frame compositor effects that would otherwise re-run for every GIF frame
-// can be gated off (see the dialog::backdrop rule in index.css).
+// can be gated off on decorative surfaces. Modal backdrops always retain blur.
 function applyBackgroundState(imageUrl, opacity, animated = false) {
 	const root = document.documentElement;
 	try {

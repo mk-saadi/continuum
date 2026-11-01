@@ -26,7 +26,7 @@ const costLabel = (value, coverage) => typeof value !== 'number' ? '—'
 
 function Metric({ label, value, muted = false }) {
   return (
-    <p className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2.5">
+    <p className="aero-inset p-2.5">
       <span className="block text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
       <strong className={`mt-1 block text-sm font-semibold tabular-nums ${muted ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
         {value}
@@ -35,7 +35,7 @@ function Metric({ label, value, muted = false }) {
   );
 }
 
-export default function TokenHistory({ section = 'all' }) {
+export default function TokenHistory({ section = 'all', includeCosts = true }) {
   const [groupBy, setGroupBy] = useState('month');
   const [projectId, setProjectId] = useState('');
   const [modelId, setModelId] = useState('');
@@ -96,14 +96,14 @@ export default function TokenHistory({ section = 'all' }) {
   const cacheRatio = cacheReadCoverage === 'measured' && totals.prompt > 0 && totals.cacheRead != null
     ? totals.cacheRead / totals.prompt * 100 : null;
   const costs = history?.costs ?? null;
-  const showCosts = costs && (costs.billableTurns > 0 || costs.notApplicableTurns > 0);
+  const showCosts = includeCosts && costs && (costs.billableTurns > 0 || costs.notApplicableTurns > 0);
   const modelCosts = (history?.models ?? []).filter(model => typeof model.costTotal === 'number' || (model.costMeasuredTurns ?? 0) > 0);
   const models = history?.models ?? [];
   return <div className="space-y-3">
     {section !== 'retention' && <>
       <SettingsCard
         title="Token usage"
-        description="Reported token usage from new chat turns, including tool follow-ups. Missing server counts are not estimated. Totals remain after a chat is deleted."
+        description="Local and cloud model token usage from new chat turns, including tool follow-ups. Missing server counts are not estimated. Totals remain after a chat is deleted."
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SelectField label="Project" value={projectId} onChange={event => setProjectId(event.target.value)}>
@@ -147,7 +147,7 @@ export default function TokenHistory({ section = 'all' }) {
             {cacheReadCoverage === 'partially_measured' ? <p>Cache totals marked “≥” are known subtotals; unreported turns are excluded.</p> : null}
             {cacheReadCoverage === 'unavailable' && totals.turns > 0 ? <p>This history has no reported cache reads (legacy or non-cache provider). They are unknown, not zero.</p> : null}
           </div>
-          {showCosts ? <section className="mt-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3" aria-label="Estimated cloud cost">
+          {showCosts ? <section className="aero-flat mt-3 space-y-2 p-3" aria-label="Estimated cloud cost">
             <h4 className="text-xs font-semibold">Estimated cloud cost ({costs.currency})</h4>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <Metric label="Total" value={costLabel(costs.total, costs.coverage)} />

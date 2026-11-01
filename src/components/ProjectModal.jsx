@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { TextField, TextAreaField } from "./FormControls";
 import "./projects.css";
 
 export default function ProjectModal({ onClose, onCreate }) {
@@ -44,15 +45,15 @@ export default function ProjectModal({ onClose, onCreate }) {
 	return createPortal(
 		<dialog
 			ref={ref}
-			className="project-dialog"
+			className="aero-dialog m-auto w-[min(540px,calc(100vw-32px))] max-h-[calc(100dvh-48px)] overflow-auto p-7"
 			aria-labelledby="new-project-title"
 			onCancel={(event) => {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
 		>
-			<form onSubmit={submit}>
-				<div>
+			<form onSubmit={submit} className="grid gap-[18px]">
+				<div className="aero-header -mx-7 -mt-7 px-7 py-5">
 					<h2
 						id="new-project-title"
 						className="text-xl font-semibold"
@@ -65,49 +66,37 @@ export default function ProjectModal({ onClose, onCreate }) {
 					disabled={busy}
 					className="grid gap-4"
 				>
-					<label className="project-field">
-						Name
-						<input
+					<TextField label="Name" disabled={busy}
 							autoFocus
 							required
 							maxLength={200}
-							className="project-input"
 							value={fields.name}
 							onChange={(event) => setFields({ ...fields, name: event.target.value })}
 							placeholder="e.g. Personal website"
 						/>
-					</label>
-					<label className="project-field">
-						Goal / Description
-						<textarea
-							className="project-input"
+					<TextAreaField label="Goal / Description" rows={4} disabled={busy}
 							value={fields.description}
 							onChange={(event) => setFields({ ...fields, description: event.target.value })}
 							placeholder="What are you working toward? Markdown is supported."
 						/>
-					</label>
-					<label className="project-field">
-						Custom Instructions
-						<textarea
-							className="project-input"
+					<TextAreaField label="Custom Instructions" rows={4} disabled={busy}
 							value={fields.custom_instructions}
 							onChange={(event) =>
 								setFields({ ...fields, custom_instructions: event.target.value })
 							}
 							placeholder="Preferences and rules for every chat in this project"
 						/>
-					</label>
 					<div className="project-field">
 						<span>Root folder (optional)</span>
 						<span
-							className="project-path"
+							className="aero-inset break-all px-3 py-2 font-mono text-xs text-[var(--text-muted)]"
 							title={fields.root_path || ""}
 						>
 							{fields.root_path || "No folder selected"}
 						</span>
 						<button
 							type="button"
-							className="project-button"
+							className="aero-control aero-fill px-3 py-2 text-xs font-medium"
 							onClick={pickFolder}
 						>
 							Choose Folder
@@ -122,17 +111,17 @@ export default function ProjectModal({ onClose, onCreate }) {
 						{error}
 					</p>
 				)}
-				<div className="project-actions">
+				<div className="aero-footer -mx-7 -mb-7 flex justify-end gap-2 px-7 py-4">
 					<button
 						type="button"
-						className="project-button"
+						className="aero-control aero-fill px-3 py-2 text-xs font-medium"
 						disabled={busy}
 						onClick={onClose}
 					>
 						Cancel
 					</button>
 					<button
-						className="project-button primary"
+						className="aero-primary aero-fill px-3 py-2 text-xs font-semibold"
 						disabled={busy || !fields.name.trim()}
 					>
 						{busy ? "Saving…" : "Create Project"}

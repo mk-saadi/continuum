@@ -47,10 +47,6 @@ html[data-appearance="flat"] :is([class*="aero-"], .project-heading-icon, .proje
 	transform: none;
 	transition-property: color, background-color, border-color;
 }
-html[data-appearance="flat"] dialog::backdrop {
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
-}
 html[data-appearance="flat"] .aero-stage { background-color: var(--bg-secondary); }
 html[data-appearance="flat"][data-bg-image="true"] .aero-stage { background-color: transparent; }
 html[data-appearance="flat"] :is(.aero-orb, .project-heading-icon) {

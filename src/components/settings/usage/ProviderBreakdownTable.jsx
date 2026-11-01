@@ -3,15 +3,15 @@ import { costValue, coverageLabel, tokenValue } from './usageDashboardFormat.mjs
 
 export default function ProviderBreakdownTable({ providers = [], onSelectProvider }) {
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-provider-title">
+    <section className="aero-panel p-3" aria-labelledby="usage-provider-title">
       <h3 id="usage-provider-title" className="text-xs font-semibold">Spending by provider</h3>
       <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
         Direct Anthropic and OpenRouter remain distinct billing identities. Local inference is listed for usage only.
       </p>
       {providers.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No provider usage recorded for this selection.</p>
+        <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">No provider usage recorded for this selection.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
+        <div className="aero-flat mt-3 overflow-x-auto p-2">
           <table className="w-full min-w-[720px] text-left text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">

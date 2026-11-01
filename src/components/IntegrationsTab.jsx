@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useContext } from "react";
 import { FaAngleRight } from "react-icons/fa";
 import { LuX, LuTriangleAlert, LuCircleCheck, LuLoaderCircle, LuCircleMinus } from "react-icons/lu";
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import {
+	SettingsMaterialContext,
 	SettingsButton,
 	SettingsCheckRow,
 	SettingsIconButton,
@@ -38,6 +39,7 @@ export default function IntegrationsTab({
 	onDelete,
 	onConfigure,
 }) {
+	const aero = useContext(SettingsMaterialContext);
 	const servers = Object.entries(config?.mcpServers ?? {});
 
 	return (
@@ -45,7 +47,13 @@ export default function IntegrationsTab({
 			<SettingsMessage>{error || status?.error}</SettingsMessage>
 
 			{!servers.length && (
-				<div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+				<div
+					className={
+						aero
+							? "aero-empty p-6 text-center"
+							: "rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center"
+					}
+				>
 					<p className="text-[11px] text-[var(--text-secondary)]">No MCP servers configured.</p>
 					<div className="mt-3">
 						<SettingsButton
@@ -60,8 +68,10 @@ export default function IntegrationsTab({
 
 			{servers.map(([name, definition]) => {
 				const server = status?.servers?.find((item) => item.name === name);
-				const enabled = definition?.disabled !== true &&
-					(definition?.uiEnabled === true || (definition?.uiEnabled !== false && definition?.disabled === false));
+				const enabled =
+					definition?.disabled !== true &&
+					(definition?.uiEnabled === true ||
+						(definition?.uiEnabled !== false && definition?.disabled === false));
 				const tools = server?.tools || [];
 				const disabledTools = new Set(definition?.disabledTools || []);
 				const allEnabled = tools.length > 0 && tools.every((tool) => !disabledTools.has(tool.label));
@@ -69,27 +79,42 @@ export default function IntegrationsTab({
 				const connected = enabled && server?.status === "connected" && !failed;
 				const badgeContent = !enabled ? (
 					<>
-						<LuCircleMinus size={12} className="shrink-0" />
+						<LuCircleMinus
+							size={12}
+							className="shrink-0"
+						/>
 						<span>Disabled</span>
 					</>
 				) : failed ? (
 					<>
-						<LuTriangleAlert size={12} className="shrink-0" />
+						<LuTriangleAlert
+							size={12}
+							className="shrink-0"
+						/>
 						<span>Error: {server?.error || "Connection failed"}</span>
 					</>
 				) : connected ? (
 					<>
-						<LuCircleCheck size={12} className="shrink-0" />
+						<LuCircleCheck
+							size={12}
+							className="shrink-0"
+						/>
 						<span>Connected</span>
 					</>
 				) : server?.status === "connecting" ? (
 					<>
-						<LuLoaderCircle size={12} className="shrink-0 animate-spin" />
+						<LuLoaderCircle
+							size={12}
+							className="shrink-0 animate-spin"
+						/>
 						<span>Connecting…</span>
 					</>
 				) : (
 					<>
-						<IoIosCloseCircleOutline size={12} className="shrink-0" />
+						<IoIosCloseCircleOutline
+							size={12}
+							className="shrink-0"
+						/>
 						<span>Disconnected</span>
 					</>
 				);
@@ -97,19 +122,27 @@ export default function IntegrationsTab({
 				const badgeStyle = failed ? errorBadge : connected ? connectedBadge : neutralBadge;
 
 				return (
-					<article key={name} className={serverCard}>
+					<article
+						key={name}
+						className={aero ? "aero-panel" : serverCard}
+					>
 						<div className="flex items-start gap-3 p-3">
 							<button
 								type="button"
 								role="switch"
 								aria-checked={enabled}
+								aria-pressed={enabled}
 								aria-label={`Enable server ${name}`}
 								disabled={busy}
 								onClick={() => onServerToggle(name, !enabled)}
-								className={`relative mt-0.5 h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)] ring-1 ring-inset ring-[var(--control-border)]"}`}
+								className={
+									aero
+										? "aero-control aero-fill relative mt-0.5 h-5 w-9 shrink-0"
+										: `relative mt-0.5 h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)] ring-1 ring-inset ring-[var(--control-border)]"}`
+								}
 							>
 								<span
-									className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-[var(--surface-raised)] shadow-sm transition-transform ${enabled ? "translate-x-4" : ""}`}
+									className={`${aero ? "aero-orb aero-fill" : "rounded-full bg-[var(--surface-raised)] shadow-sm"} absolute top-0.5 left-0.5 h-3 w-3 transition-transform ${enabled ? "translate-x-4" : ""}`}
 								/>
 							</button>
 
@@ -136,10 +169,9 @@ export default function IntegrationsTab({
 						</div>
 
 						<details className="group border-t border-[var(--border)]">
-							<summary className="flex cursor-pointer list-none items-center px-3 py-2 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] [&::-webkit-details-marker]:hidden">
+							<summary className="flex cursor-pointer list-none items-center px-3 py-2 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] [&::-webkit-details-marker]:hidden rounded-b-xl!">
 								<FaAngleRight className="mr-2 transition-transform duration-200 group-open:rotate-90" />
-								Tools{" "}
-								<span className="ml-1 text-[var(--text-muted)]">{tools.length}</span>
+								Tools <span className="ml-1 text-[var(--text-muted)]">{tools.length}</span>
 							</summary>
 							<div className="space-y-2 px-3 pb-3">
 								<div className="flex items-center justify-between gap-2 text-[11px]">
@@ -169,9 +201,7 @@ export default function IntegrationsTab({
 									<SettingsCheckRow
 										key={tool.name}
 										className="px-2 py-1"
-										label={
-											<span className="break-all font-mono">{tool.label}</span>
-										}
+										label={<span className="break-all font-mono">{tool.label}</span>}
 										checked={!disabledTools.has(tool.label)}
 										disabled={busy}
 										onChange={(event) =>

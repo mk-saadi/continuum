@@ -1,5 +1,8 @@
-import React, { useId } from "react";
+import React, { createContext, useContext, useId } from "react";
 import { LuCheck } from "react-icons/lu";
+
+// Opt in per settings subtree; unconverted tabs keep their existing materials.
+export const SettingsMaterialContext = createContext(false);
 
 // Shared primitives for every settings panel. They encode the card recipe from
 // docs/right-sidebar-design-language-report.md so all ten tabs read as one
@@ -39,12 +42,13 @@ export function SettingsCard({
 	className = "",
 	...rest
 }) {
+	const aero = useContext(SettingsMaterialContext);
 	const headingId = useId();
 	const hasHeader = Boolean(title || description || action);
 	return (
 		<Element
 			aria-labelledby={title ? headingId : undefined}
-			className={`${settingsCard} ${className}`}
+			className={`${aero ? "aero-panel p-3" : settingsCard} ${className}`}
 			{...rest}
 		>
 			{hasHeader && (
@@ -85,21 +89,24 @@ export function SettingsCard({
 }
 
 export function SettingsButton({ variant = "secondary", className = "", type = "button", ...props }) {
+	const aero = useContext(SettingsMaterialContext);
+	const material = variant === "primary" ? "aero-primary" : variant === "ghost" ? "aero-list-item" : "aero-control";
 	return (
 		<button
 			type={type}
-			className={`${buttonBase} ${buttonVariants[variant] || buttonVariants.secondary} ${className}`}
+			className={`${buttonBase} ${aero ? `${material} aero-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
 			{...props}
 		/>
 	);
 }
 
 export function SettingsIconButton({ label, icon: Icon, size = 16, className = "", ...props }) {
+	const aero = useContext(SettingsMaterialContext);
 	return (
 		<button
 			type="button"
 			aria-label={label}
-			className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+			className={`${aero ? "aero-orb aero-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
 			{...props}
 		>
 			{Icon ? <Icon size={size} aria-hidden="true" /> : null}
@@ -135,9 +142,10 @@ export function SettingsMessage({ tone = "error", children, className = "" }) {
 }
 
 export function SettingsEmpty({ children, className = "" }) {
+	const aero = useContext(SettingsMaterialContext);
 	return (
 		<p
-			className={`rounded-lg border border-dashed border-[var(--border)] px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
+			className={`${aero ? "aero-empty aero-fill" : "rounded-lg border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
 		>
 			{children}
 		</p>
@@ -154,6 +162,7 @@ export function SettingsCheckRow({
 	className = "",
 	...inputProps
 }) {
+	const aero = useContext(SettingsMaterialContext);
 	const generatedId = useId();
 	const id = suppliedId || generatedId;
 	return (
@@ -172,7 +181,7 @@ export function SettingsCheckRow({
 			/>
 			<span
 				aria-hidden="true"
-				className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"
+				className={aero ? "aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
 			>
 				<LuCheck
 					size={12}

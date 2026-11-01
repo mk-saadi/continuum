@@ -11,11 +11,11 @@ const controls = [
 
 const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 	const [revision, setRevision] = useState(0);
-    useEffect(() => {
-      const changed = () => setRevision(value => value + 1);
-      window.addEventListener("generation-settings-changed", changed);
-      return () => window.removeEventListener("generation-settings-changed", changed);
-    }, []);
+	useEffect(() => {
+		const changed = () => setRevision((value) => value + 1);
+		window.addEventListener("generation-settings-changed", changed);
+		return () => window.removeEventListener("generation-settings-changed", changed);
+	}, []);
 	const [state, setState] = useState(null);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("Loading…");
@@ -24,8 +24,8 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 
 	useEffect(() => {
 		alive.current = true;
-        let active = true;
-        version.current++;
+		let active = true;
+		version.current++;
 		(async () => {
 			try {
 				if (!window.api?.getSamplingParams)
@@ -44,7 +44,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 		})();
 		return () => {
 			alive.current = false;
-            active = false;
+			active = false;
 		};
 	}, [sessionId, modelId, revision]);
 
@@ -57,7 +57,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 			if (alive.current && request === version.current) {
 				setState(result);
 				setStatus("Saved");
-                    onChanged?.();
+				onChanged?.();
 			}
 		} catch (err) {
 			if (alive.current && request === version.current) {
@@ -113,7 +113,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 								key={control.key}
 								{...commonProps}
 								valueLabel={state.params[control.key]}
-                                onCommit={event => save({ [control.key]: Number(event.target.value) })}
+								onCommit={(event) => save({ [control.key]: Number(event.target.value) })}
 							/>
 						);
 					}

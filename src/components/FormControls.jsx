@@ -3,8 +3,7 @@ import { createPortal } from "react-dom";
 import { fixedPortalPosition } from "../lib/portalCoordinates.mjs";
 import { LuCheck, LuChevronDown, LuSearch, LuStar, LuX } from "react-icons/lu";
 
-const fieldFrame =
-	"aero-well flex min-h-8 items-center text-[var(--text-primary)]";
+const fieldFrame = "aero-well flex min-h-8 items-center text-[var(--text-primary)]";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -70,12 +69,15 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 				: below < desiredHeight && above > below;
 			const maxHeight = Math.min(288, upwards ? above : below);
 			const height = Math.min(desiredHeight, maxHeight);
-			const next = fixedPortalPosition({
-				left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
-				top: upwards ? rect.top - 6 - height : rect.bottom + 6,
-				width,
-				maxHeight,
-			}, owner);
+			const next = fixedPortalPosition(
+				{
+					left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)),
+					top: upwards ? rect.top - 6 - height : rect.bottom + 6,
+					width,
+					maxHeight,
+				},
+				owner,
+			);
 			setMenuCoords((previous) =>
 				Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next,
 			);
@@ -243,6 +245,7 @@ export const SelectField = forwardRef(function SelectField(
 				<button
 					type="button"
 					id={id}
+					aria-label={selectProps["aria-label"]}
 					ref={triggerRef}
 					disabled={disabled}
 					aria-haspopup="listbox"
@@ -326,9 +329,7 @@ export const SelectField = forwardRef(function SelectField(
 									role="option"
 									aria-selected={String(opt.value) === String(value)}
 									className={`aero-list-item flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
-										String(opt.value) === String(value)
-											? "font-medium"
-											: ""
+										String(opt.value) === String(value) ? "font-medium" : ""
 									}`}
 									onClick={() => {
 										onChange?.({ target: { value: opt.value } });
@@ -420,7 +421,9 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 	const normalized = (text) => (text ?? "").toString().toLowerCase();
 	const filtered = search
 		? items.filter((item) =>
-				normalized(`${item.label} ${item.value} ${item.description ?? ""}`).includes(normalized(search)),
+				normalized(`${item.label} ${item.value} ${item.description ?? ""}`).includes(
+					normalized(search),
+				),
 			)
 		: items;
 	const selectedOption = items.find((item) => String(item.value) === String(value));
@@ -606,7 +609,10 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 											onClick={() => setSearch("")}
 											className="grid size-5 shrink-0 cursor-pointer place-items-center rounded hover:bg-[var(--surface-hover)]"
 										>
-											<LuX size={11} aria-hidden="true" />
+											<LuX
+												size={11}
+												aria-hidden="true"
+											/>
 										</button>
 									)}
 								</div>
@@ -659,7 +665,11 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 														<LuStar
 															size={13}
 															aria-hidden="true"
-															style={isStarred ? { fill: "currentColor" } : undefined}
+															style={
+																isStarred
+																	? { fill: "currentColor" }
+																	: undefined
+															}
 														/>
 													</button>
 												)}
@@ -820,8 +830,14 @@ export const SliderField = forwardRef(function SliderField(
 		>
 			<div className={`relative flex h-11 items-center ${inputProps.disabled ? "opacity-40" : ""}`}>
 				{/* Visual track */}
-				<div aria-hidden="true" className="aero-track pointer-events-none absolute inset-x-0 h-1.5">
-					<div className="aero-track__fill h-full" style={{ width: `${percentage}%` }} />
+				<div
+					aria-hidden="true"
+					className="aero-track pointer-events-none absolute inset-x-0 h-1.5"
+				>
+					<div
+						className="aero-track__fill h-full"
+						style={{ width: `${percentage}%` }}
+					/>
 				</div>
 
 				<div

@@ -24,6 +24,11 @@ app.whenReady().then(async () => {
       for (let i = 0; i < 100 && !row('a'); i++) await tick();
       check(document.querySelector('nav section').getAttribute('aria-label') === 'Empty folder', 'Folders first including empty folders');
       check(row('a').textContent.includes('12K tokens'), 'Compact token count');
+      const searchBox = document.querySelector('input[type=search]').getBoundingClientRect();
+      const folderButton = document.querySelector('button[aria-label="New Folder"]').getBoundingClientRect();
+      check(folderButton.width <= 40, 'New Folder stays compact');
+      check(Math.abs(searchBox.top + searchBox.height / 2 - folderButton.top - folderButton.height / 2) < 2, 'New Folder shares the search row');
+      check(getComputedStyle(row('a')).backdropFilter === 'none', 'Chat rows stay unblurred');
       const before = row('b').getBoundingClientRect().top;
       const actions = row('a').querySelector('[aria-haspopup]');
       actions.click(); await tick();

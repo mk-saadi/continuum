@@ -60,6 +60,8 @@ app.whenReady().then(async () => {
       const text = () => document.body.textContent;
       for (let i = 0; i < 80 && !text().includes('Workspace Recovery'); i++) await tick();
       check(document.querySelector('dialog').open, 'modal opens over content');
+      check(document.querySelector('dialog').classList.contains('aero-dialog'), 'recovery uses shared Aero frame');
+      check([...document.querySelectorAll('dialog [class*="aero-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'recovery has no nested blur');
       for (let i = 0; i < 80 && !text().includes('This chat (2)'); i++) await tick();
       check(text().includes('Other chats in this workspace'), 'other-chat checkpoints separated, origin kept');
       for (let i = 0; i < 80 && !text().includes('a.txt'); i++) await tick();

@@ -67,7 +67,7 @@ export default function AttributionView({ filters }) {
   const rows = attribution?.rows ?? [];
   return (
     <div className="space-y-3">
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-attribution-title">
+      <section className="aero-panel p-3" aria-labelledby="usage-attribution-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h3 id="usage-attribution-title" className="text-xs font-semibold">Where usage originated</h3>
@@ -79,9 +79,9 @@ export default function AttributionView({ filters }) {
         </div>
         <SettingsMessage>{error}</SettingsMessage>
         {loading ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading attribution…</p> : rows.length === 0 ? (
-          <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No usage to attribute for this selection.</p>
+          <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">No usage to attribute for this selection.</p>
         ) : (
-          <div className="mt-3 overflow-x-auto">
+          <div className="aero-flat mt-3 overflow-x-auto p-2">
             <table className="w-full min-w-[680px] text-left text-xs">
               <thead>
                 <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
@@ -118,7 +118,7 @@ export default function AttributionView({ filters }) {
         </p>
       </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-records-title">
+      <section className="aero-panel p-3" aria-labelledby="usage-records-title">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 id="usage-records-title" className="text-xs font-semibold">Detailed usage records</h3>

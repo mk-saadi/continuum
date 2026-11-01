@@ -42,9 +42,18 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 			<div className="projects-content">
 				<header className="projects-heading">
 					<div className="flex min-w-0 items-center gap-3">
-                        <span className="project-heading-icon"><FiFolder size={18} aria-hidden="true" /></span><div>
-						<h1>Projects</h1>
-						<p className="projects-muted">A home for your goals, context, and conversations.</p></div>
+						<span className="project-heading-icon">
+							<FiFolder
+								size={18}
+								aria-hidden="true"
+							/>
+						</span>
+						<div>
+							<h1>Projects</h1>
+							<p className="projects-muted">
+								A home for your goals, context, and conversations.
+							</p>
+						</div>
 					</div>
 					<button
 						className="aero-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"

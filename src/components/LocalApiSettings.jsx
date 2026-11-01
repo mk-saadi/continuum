@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { LuServer } from "react-icons/lu";
 import { TextField } from "./FormControls";
 import {
+	SettingsMaterialContext,
 	SettingsButton,
 	SettingsCard,
 	SettingsHint,
@@ -10,6 +11,7 @@ import {
 } from "./settings/SettingsSection";
 
 export default function LocalApiSettings() {
+	const aero = useContext(SettingsMaterialContext);
 	const [settings, setSettings] = useState(null);
 	const [draft, setDraft] = useState("8080");
 	const [activePort, setActivePort] = useState(null);
@@ -103,7 +105,7 @@ export default function LocalApiSettings() {
 					{busy ? "Saving…" : "Save port"}
 				</SettingsButton>
 			</form>
-			<div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+			<div className={`${aero ? "aero-inset" : "rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]"} mt-3 space-y-2 p-3`}>
 				<SettingsStatus active={Boolean(activePort)}>
 					{activePort ? "Current engine endpoint" : "Configured endpoint (engine stopped)"}
 				</SettingsStatus>

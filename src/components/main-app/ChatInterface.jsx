@@ -1829,7 +1829,7 @@ export function ChatInterface({
 		}
 	}, []);
 	return (
-		<div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+		<div data-chat-mode={isWorkspaceChat ? "workspace" : "casual"} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
 			{toolApprovals[0] && (
 				<ToolApprovalToast
 					key={toolApprovals[0].approvalId}
@@ -2192,7 +2192,7 @@ export function ChatInterface({
 												<div
 													className={`min-w-0 max-w-full break-words whitespace-pre-wrap select-text text-[var(--text-primary)] ${
 														msg.role === "user"
-															? "rounded-2xl rounded-br-md bg-[var(--user-bubble)] px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
+															? "aero-chat-user rounded-2xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
 															: "w-full text-sm leading-[1.7] [overflow-wrap:anywhere]"
 													} ${
 														msg.streaming
@@ -2452,7 +2452,8 @@ export function ChatInterface({
 						setDragActive(false);
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
-					className={`mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 rounded-xl border ${dragActive ? "border-[var(--accent)]" : "border-[var(--border)]"} bg-[var(--surface-raised)] px-3.5 py-2.5 shadow-[0_4px_20px_var(--window-shadow)] max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]`}
+					data-dragging={dragActive}
+					className="aero-chat-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]"
 				>
 					{dragActive && (
 						<div

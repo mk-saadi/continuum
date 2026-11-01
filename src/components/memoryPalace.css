@@ -31,7 +31,6 @@
 .palace-form { display: grid; gap: 9px; margin-top: 14px; }
 .palace-form h3 { font-size: 13px; }
 .palace-form label { display: grid; gap: 4px; }
-.palace-dialog input, .palace-dialog select, .palace-dialog textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-input); color: var(--text-primary); min-width: 0; }
 .palace-form textarea { resize: vertical; min-height: 54px; }
 .palace-form .palace-check { display: flex; align-items: center; font-size: 11px; }
 .palace-add { padding: 8px 12px; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer; }

@@ -18,7 +18,7 @@ window.api = {
   getSubagentModel: async () => null,
   listSkills: async () => [],
   listProjects: async () => [],
-  getTokenHistory: async options => ({ ...options, retentionMonths: 12, data: [] }),
+  getTokenHistory: async options => { window.tokenHistoryQuery = options; return { ...options, retentionMonths: 12, data: [{ period: '2026-10-01', promptTokens: 120, completionTokens: 30, turns: 2 }], models: [{ modelId: 'local-model', provider: 'local' }] }; },
   setTokenRetention: async months => { window.retained = months; },
   getSubagentBudgets: async () => ({
     settings: { mode: 'auto', maxInputTokens: null, maxOutputTokens: null, maxToolCalls: null, maxTurns: null, maxAggregateToolCalls: null, maxRuntimeMs: null, requestTimeoutMs: null, requestInactivityMs: null },

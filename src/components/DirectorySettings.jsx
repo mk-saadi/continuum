@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { LuDatabase, LuFolder } from 'react-icons/lu';
-import { SettingsButton, SettingsCard, SettingsMessage } from './settings/SettingsSection';
+import { SettingsMaterialContext, SettingsButton, SettingsCard, SettingsMessage } from './settings/SettingsSection';
 
 const destinations = [
   { key: 'modelDirectory', title: 'Model Directory', icon: LuFolder },
@@ -8,6 +8,7 @@ const destinations = [
 ];
 
 export default function DirectorySettings() {
+	const aero = useContext(SettingsMaterialContext);
   const [config, setConfig] = useState(null);
   const [busy, setBusy] = useState(false);
   const [migrating, setMigrating] = useState(false);
@@ -50,7 +51,7 @@ export default function DirectorySettings() {
     <div className="space-y-3">
       {destinations.map(({ key, title, icon: Icon }) => (
         <SettingsCard key={key} icon={Icon} title={title}>
-          <p className="break-all rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]">
+          <p className={`${aero ? "aero-inset" : "rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]"} break-all px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]`}>
             {config?.[key] || 'Loading…'}
           </p>
           {key === 'appDataDirectory' && (

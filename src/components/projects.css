@@ -245,24 +245,6 @@ textarea.project-input {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.project-dialog {
-	margin: auto;
-	width: min(540px, calc(100vw - 32px));
-	max-height: calc(100vh - 48px);
-	overflow: auto;
-	padding: 28px;
-	border: 1px solid var(--border);
-	border-radius: 16px;
-	background: var(--surface);
-	color: var(--text-primary);
-}
-.project-dialog::backdrop {
-	background: #0009;
-}
-.project-dialog form {
-	display: grid;
-	gap: 18px;
-}
 .project-error {
 	color: var(--error);
 	font-size: 11px;

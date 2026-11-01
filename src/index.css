@@ -1680,19 +1680,17 @@ pre {
 
 	/* Bevels and elevation */
 	--aero-bevel-panel:
-		inset 0 1px 0 var(--aero-line-strong),
-		inset 0 -1px 0 var(--aero-shade),
-		0 1px 2px color-mix(in srgb, #000000 45%, transparent),
-		0 14px 30px -12px color-mix(in srgb, #000000 60%, transparent);
+		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade),
+		0 1px 2px color-mix(in srgb, #000000 30%, transparent),
+		0 8px 20px -10px color-mix(in srgb, #000000 40%, transparent);
 	--aero-bevel-panel-hover:
-		inset 0 1px 0 var(--aero-line-strong),
-		inset 0 -1px 0 var(--aero-shade),
-		0 2px 4px color-mix(in srgb, #000000 40%, transparent),
-		0 24px 46px -14px color-mix(in srgb, #000000 68%, transparent);
+		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade),
+		0 1px 3px color-mix(in srgb, #000000 28%, transparent),
+		0 12px 28px -12px color-mix(in srgb, #000000 46%, transparent);
 	--aero-bevel-control:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
-		0 2px 4px color-mix(in srgb, #000000 38%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-bevel-well:
 		inset 0 2px 4px color-mix(in srgb, #000000 30%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #ffffff 8%, transparent),
@@ -1703,12 +1701,11 @@ pre {
 		0 1px 0 color-mix(in srgb, #ffffff 5%, transparent);
 	--aero-bevel-orb:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
-		0 2px 5px color-mix(in srgb, #000000 38%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-shadow-float:
-		inset 0 1px 0 var(--aero-line-strong),
-		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
-		0 32px 80px -24px color-mix(in srgb, #000000 72%, transparent);
+		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 20px 52px -20px color-mix(in srgb, #000000 52%, transparent);
 	--aero-glow: 0 0 18px -4px color-mix(in srgb, var(--accent) 70%, transparent);
 
 	/* Geometry */
@@ -1766,16 +1763,42 @@ html[data-bg-image="true"] dialog {
 	opacity: var(--bg-ui-opacity, 1);
 }
 
-html[data-bg-image="true"] dialog::backdrop {
-	backdrop-filter: blur(2px);
+/* Every native modal blurs the content behind it, in every appearance mode
+ * and with static, animated, or no custom background. */
+html dialog::backdrop {
+	-webkit-backdrop-filter: blur(2px) saturate(120%);
+	backdrop-filter: blur(2px) saturate(120%);
 }
 
-/* An animated background keeps invalidating the compositor every frame, and a
- * backdrop blur must be recomputed each time it does. Measured cost of the blur
- * behind an animating GIF: ~2.5-3x frame time (50th percentile 42-54 ms vs
- * ~16.5 ms) at 1280x800 and 1920x1080, plus paint work per frame. The blur is
- * therefore dropped only while an animated background is active; static
- * backgrounds (and the no-background case) keep the production look. */
-html[data-bg-image="true"][data-bg-animated="true"] dialog::backdrop {
-	backdrop-filter: none;
+/* Modal focus must not add browser or component outline borders. Keep focus
+ * behavior and the controls' existing active, selected, and input states. */
+html dialog:focus,
+html dialog:focus-visible,
+html dialog :focus,
+html dialog :focus-visible,
+html dialog .aero-tab:has(:focus-visible),
+html dialog input:focus-visible + .aero-checkbox {
+	outline: none !important;
+}
+
+/* Button labels behave as controls rather than selectable document text.
+ * Include semantic buttons so custom controls follow the same rule. */
+button,
+[role="button"],
+input:is([type="button"], [type="submit"], [type="reset"]) {
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* Native text selection follows the theme, including inputs and code. */
+::selection {
+	background-color: var(--accent);
+	color: var(--on-accent);
+	text-shadow: none;
+}
+@media (forced-colors: active) {
+	::selection {
+		background-color: Highlight;
+		color: HighlightText;
+	}
 }

@@ -144,6 +144,12 @@ app.whenReady().then(async () => {
         check(Math.abs(current.list.bottom - current.files.bottom) < 1, state + ': file list fills section');
       };
       checkStableLayout('initial');
+      if (window.checkLayout) {
+        const modal = document.querySelector('dialog');
+        check(modal.classList.contains('aero-dialog'), 'diff review uses shared Aero frame');
+        check([...modal.querySelectorAll('[class*="aero-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'diff review has no nested blur');
+        check(getComputedStyle(document.querySelector('[aria-label="Side-by-side diff"]')).backdropFilter === 'none', 'diff code stays unblurred');
+      }
       const overwrite = document.querySelector('[aria-label="Revert controls"] input[type="checkbox"]');
       overwrite.click(); await tick(); await tick();
       checkStableLayout('overwrite preview');

@@ -299,17 +299,17 @@ Chromium, so it is safe in this app.
 	--aero-bevel-panel:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 var(--aero-shade),
-		0 1px 2px color-mix(in srgb, #000000 45%, transparent),
-		0 14px 30px -12px color-mix(in srgb, #000000 60%, transparent);
+		0 1px 2px color-mix(in srgb, #000000 30%, transparent),
+		0 8px 20px -10px color-mix(in srgb, #000000 40%, transparent);
 	--aero-bevel-panel-hover:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 var(--aero-shade),
-		0 2px 4px color-mix(in srgb, #000000 40%, transparent),
-		0 24px 46px -14px color-mix(in srgb, #000000 68%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 28%, transparent),
+		0 12px 28px -12px color-mix(in srgb, #000000 46%, transparent);
 	--aero-bevel-control:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
-		0 2px 4px color-mix(in srgb, #000000 38%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-bevel-well:
 		inset 0 2px 4px color-mix(in srgb, #000000 30%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #ffffff 8%, transparent),
@@ -320,12 +320,12 @@ Chromium, so it is safe in this app.
 		0 1px 0 color-mix(in srgb, #ffffff 5%, transparent);
 	--aero-bevel-orb:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
-		0 2px 5px color-mix(in srgb, #000000 38%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-shadow-float:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
-		0 32px 80px -24px color-mix(in srgb, #000000 72%, transparent);
+		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 20px 52px -20px color-mix(in srgb, #000000 52%, transparent);
 	--aero-glow: 0 0 18px -4px color-mix(in srgb, var(--accent) 70%, transparent);
 
 	/* Geometry */
@@ -484,8 +484,8 @@ html[data-bg-image="true"] .aero-stage {
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 35%, transparent),
-		0 2px 4px color-mix(in srgb, #000000 42%, transparent),
-		0 10px 20px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 30%, transparent),
+		0 6px 14px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 	color: var(--on-accent);
 	transition:
 		transform var(--aero-dur-control) var(--aero-ease),
@@ -572,7 +572,7 @@ html[data-bg-image="true"] .aero-stage {
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 40%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 28%, transparent),
 		0 0 16px -3px color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
@@ -634,8 +634,8 @@ html[data-bg-animated="true"] .aero-dialog::backdrop {
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
-		0 22px 48px -16px color-mix(in srgb, #000000 70%, transparent);
+		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 14px 32px -14px color-mix(in srgb, #000000 48%, transparent);
 }
 
 /* L4 — tooltip. No gloss: it is text and must stay crisp. */
@@ -1480,7 +1480,7 @@ Counts at time of writing: **10 dialogs**, **94 `bg-[var(--surface)]` uses acros
 | `main-app/Titlebar.jsx` | L2 chrome | Rim + top sheen; no blur |
 | `main-app/Header.jsx` | L2 chrome / controls | Migrated: unblurred `aero-header`, nested controls/orbs, context track |
 | `TabBar.jsx` | L2 tabs | Migrated: `aero-tab` with `data-active`, gloss and accent underline; flat `aero-tabbar` |
-| `Sidebar.jsx` | L0 root / L3 cards | Flat sidebar; inner cards glass |
+| `Sidebar.jsx` / `ChatHistory.jsx` | L0 root / L3 cards | Migrated: borderless frame, glass folder cards, flat chat rows and compact search toolbar |
 | `RightSidebar.jsx` | L0 root / L3 cards | Migrated: unblurred frame, Aero cards and tabs across casual/workspace modes |
 | `ContextPanel.jsx` | L3 cards | Individual cards glass |
 | `settings/SettingsSection.jsx` | L3 / L2 / L1 | Convert primitives once |
@@ -1729,7 +1729,7 @@ above, it is not Aero.*
 ### Workspace polish: list feedback and read-only wells
 
 Use `.aero-list-item` for chat rows and select options. Hover/focus adds a
-theme-derived accent tint, a slim accent edge and a restrained bevel; selected
+theme-derived accent tint and a restrained bevel; selected
 options retain a quieter tint at rest. Rows never blur or lift. Select triggers
 brighten their rim on hover and while open. `.aero-inset` gives read-only goal
 copy a sunken bevel over an opaque fill, without blur or a raised gloss layer.
@@ -1802,3 +1802,150 @@ primary recipes. Existing shared FormControls retain their Aero treatment.
 Error/warning semantics, load options, projector safeguards, memory estimates
 and persistence are unchanged. The system-wide flat preference applies to
 the dialog, cards, fields and actions.
+
+### Chat-history navigation migration
+
+The outer `Sidebar` and standalone `ChatHistory` use borderless frames.
+Embedded `ChatHistory` fills its available width. Selected list rows use
+an accent-tinted fill without a bright vertical stripe. Search and the compact New Folder button share one toolbar row.
+Workspace/folder/recent cards use `.aero-panel`; chat lists stay opaque and
+unblurred, with `.aero-list-item` hover and current-chat feedback. Row action
+buttons remain keyboard reachable and reveal on hover or focus. Stable row
+components preserve focus when menus close. Action dialogs, portaled menus
+and export toasts use shared floating materials and honor flat mode.
+
+### Appearance settings tab migration
+
+Only the Appearance panel opts into `SettingsMaterialContext`. Its Visual
+effects, Color theme, Background image and avatar cards use shared Aero
+materials; theme choices and nested actions use `.aero-fill`. Shared settings
+primitives retain their previous defaults outside this subtree. Theme swatches
+keep their palette colors, selected descriptions use the accent foreground,
+and file upload inputs retain native picker behavior and keyboard focus.
+The modal frame, navigation and other tabs are unchanged. Flat mode applies
+to the new cards and controls through the global appearance preference.
+
+### Additional Settings tab migrations
+
+Notifications, MCP Integrations, Agents & Skills, Engine & API, and Storage
+& Data opt into the same settings material context as Appearance. The
+provider is scoped to each panel and preserves lazy mounting. Shared cards,
+actions, icon buttons, check rows and empty states use Aero; fields retain
+the FormControls well. MCP mode buttons and server switches use nested
+controls, and notification volume uses the shared slider. Directory paths
+and local API details use opaque inset wells. Tool lists, budget copy and
+other dense content stay flat; no nested blur is added. Flat mode and all
+settings handlers remain supported. Unconverted panels retain their defaults.
+
+### Unified model settings
+
+Avatar & Branding owns the single per-model list. Each entry combines its
+name and avatar controls with a lazy, expandable memory/prompt/sampling
+profile. Appearance contains only visual settings; Models & Generation
+retains provider setup and the global generation profile; Memory retains
+the current-chat switch, global memory profile and saved memories. Existing
+avatar keys, model-path profile keys, patch saves and inheritance reset are
+preserved. Nested model profiles use `.aero-fill` to avoid another blur. The
+new panel follows the same lazy mounting and flat-mode rules as other tabs.
+
+### Remaining Settings tabs
+
+Models & Generation, Memory, Usage & Logs, and Usage & Costs now opt into
+the settings material context. Cloud provider categories use nested Aero
+controls and rate fields use an inset well. Shared profile, memory, token
+history and terminal cards inherit the same treatment. Spending filters,
+metrics, timeline frames, detail cards, attribution and pricing sections
+use Aero panels; dashboard tabs use `.aero-tab`. Charts and tables have
+opaque flat content surfaces, terminal output keeps its terminal palette,
+and saved-memory text stays flat. Nested model timelines use `.aero-fill`.
+Warning metrics preserve their semantic border. Global flat mode remains
+available across every settings tab.
+
+### Settings modal frame
+
+`MemorySettings` uses `.aero-dialog` instead of the legacy `palace-dialog`
+class. Main and section headers use `.aero-header`, navigation uses unblurred
+`.aero-navigation`, and selected vertical tab buttons use nested `.aero-control` with
+`aria-selected`. Inactive tabs remain flat, with a quiet hover tint and
+keyboard focus ring. The close action uses a nested orb. Existing dialog sizing,
+responsive navigation, lazy panels, focus handling and keyboard tab routing
+remain in place. The dialog supplies the only backdrop filter: nested panels
+as well as controls and wells suppress their filters through the shared
+material rule. Flat mode applies to the frame and navigation through the
+same global preference.
+
+### Diff review modal
+
+`chat/DiffReviewModal.jsx` uses the shared dialog, header, footer, close orb
+and nested action/layout controls. Changed files use an opaque list with
+quiet current-file tint and shared hover feedback. Diff panes keep their
+code palette, syntax colors, line numbers and addition/removal tones; no
+blur or gloss is added to code. Revert previews use an opaque inset well.
+The dialog supplies the only blur and honors global flat mode. Existing
+split/unified geometry, scrolling, preview/confirm flow, risk authorization,
+overwrite flags and active-run/busy guards remain unchanged.
+
+### Recovery history modal
+
+`chat/RecoveryHistoryModal.jsx` uses the shared dialog/header, close orb,
+pin, preview and restore controls. History entries use quiet current-item
+feedback inside an opaque list; checkpoint details use a nested panel,
+with flat file content and an inset restore preview. Native overwrite and
+content-authorization checkboxes use the shared `.aero-checkbox` visual.
+Only the dialog blurs, and global flat mode remains supported. Checkpoint
+selection, pinning, partial-capture notices and restoration safeguards keep
+their existing behavior.
+
+### Right-sidebar card separation
+
+Right-sidebar panels override shared `--aero-panel-fill` and
+`--aero-panel-gloss` slots in Aero mode. A 94% theme-surface fill limits
+background tint, and a 2% lower gloss shade keeps light-theme cards distinct
+from the frame. Other panels retain their standard material; flat mode
+retains its existing opaque theme fills. This rule is scoped to the sidebar
+frame and inherited across every sidebar tab, without component recipes.
+
+### Reading-first chat materials
+
+`ChatInterface` exposes `data-chat-mode` for casual/workspace styling. Casual
+user bubbles use `.aero-chat-user`: an opaque theme bubble with a faint top
+highlight and 1px shadow. Workspace messages remain undecorated. Both modes
+use `.aero-chat-composer`, with an even shorter shadow and no gradient in
+workspace mode. No new material uses backdrop blur or text shadows.
+
+`.aero-chat-detail` adds only a subtle rim and inset highlight to supporting
+content. Expanded workspace tool rows use `.aero-chat-tool` with an opaque
+fill and faint edge; collapsed rows remain plain, with theme-aware hover
+feedback. Assistant prose, thought text, code and tool output remain flat.
+Global flat mode removes these highlights and shadows. Transcript widths,
+streaming, message actions, tool expansion and composer input stay unchanged.
+
+### Model capabilities editor
+
+`ModelCapabilitiesModal` uses the shared Aero dialog, header, footer, close
+orb and save action. Capability dropdowns use `SelectField`, and cloud context
+length uses `NumberField`. Menus remain inside the native dialog top layer
+and account for its filtered coordinate system. `SelectField` forwards an
+explicit accessible label to its visible trigger as well as the native
+backing select. Local/cloud save targets, automatic detection, reset and
+context validation remain unchanged. The editor honors global flat mode.
+
+### Project creation modal
+
+`ProjectModal` uses the shared Aero dialog, header/footer chrome and nested
+actions. Name uses `TextField`; goal and custom instructions use
+`TextAreaField`. Root-folder selection displays an opaque inset path well.
+The obsolete `.project-dialog` material rules are removed. Required-name
+validation, folder picking, busy/error handling and creation payload remain
+unchanged; shared flat-mode overrides apply throughout.
+
+### Consolidated usage navigation
+
+The duplicate Usage & Logs tab is removed. Usage & Costs owns cloud spending
+and a Token usage subtab preserving all-model (local and cloud) totals,
+filters and history charts. That subtab mounts lazily and stays mounted to
+preserve filter state; its duplicate cloud-cost summary is suppressed. The
+spending dashboard retains provider/model attribution and pricing evidence.
+Engine logs live in Engine & API and subscribe only while that main tab is
+active. Retention stays in Storage & Data. No usage records or aggregation
+APIs are removed or migrated.

@@ -322,7 +322,8 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 				type="button"
 				onClick={() => setSelectedPath(entry.path)}
 				aria-pressed={selectedPath === entry.path}
-				className={`flex w-full cursor-pointer flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${selectedPath === entry.path ? "border-[var(--accent)] bg-[var(--active-chat)]" : "border-[var(--subtle-border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"}`}
+				className="aero-list-item flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left"
+				aria-current={selectedPath === entry.path ? "true" : undefined}
 			>
 				<span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${STATUS_TONE[entry.status] ?? "text-[var(--text-muted)]"}`}>
 					{entry.status}
@@ -363,10 +364,10 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 			onClick={(event) => {
 				if (event.target === dialogRef.current && !busy) onClose();
 			}}
-			className="fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="aero-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-3">
+				<header className="aero-header flex shrink-0 items-center gap-2 px-4 py-3">
 					<FiEye aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
 					<h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
 						Review changes{projectName ? <span className="font-normal text-[var(--text-muted)]"> · {projectName}</span> : null}
@@ -375,8 +376,9 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 					<button
 						type="button"
 						aria-label="Close diff review"
+						disabled={busy}
 						onClick={() => { if (!busy) onClose(); }}
-						className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="aero-orb aero-fill flex size-11 shrink-0 items-center justify-center"
 					>
 						<FiX aria-hidden="true" />
 					</button>
@@ -405,7 +407,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 								{filesTruncated && (
 									<p className="text-[11px] text-[var(--text-muted)]">List truncated for display.</p>
 								)}
-								<ul className="min-h-0 flex-1 space-y-1.5 overflow-auto">{files.map(renderRow)}</ul>
+								<ul className="aero-flat min-h-0 flex-1 space-y-1.5 overflow-auto p-1">{files.map(renderRow)}</ul>
 							</section>
 							<section aria-label="File diff" className="flex min-h-0 min-w-0 flex-col gap-3">
 								{selectedPath == null ? (
@@ -422,7 +424,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													onClick={() => setView("split")}
 													aria-pressed={effectiveView === "split"}
 													disabled={!splitAvailable}
-													className="cursor-pointer rounded-md border border-[var(--subtle-border)] px-2 py-0.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:border-[var(--accent)]"
+													className="aero-control aero-fill px-2 py-0.5 text-[11px]"
 												>
 													Side-by-side
 												</button>
@@ -430,7 +432,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													type="button"
 													onClick={() => setView("unified")}
 													aria-pressed={effectiveView === "unified"}
-													className="cursor-pointer rounded-md border border-[var(--subtle-border)] px-2 py-0.5 text-[11px] aria-pressed:border-[var(--accent)]"
+													className="aero-control aero-fill px-2 py-0.5 text-[11px]"
 												>
 													Unified
 												</button>
@@ -489,7 +491,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											</p>
 										) : null}
 										{preview && (
-											<div className="space-y-1 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface-hover)]/40 p-2.5 text-[11px]" aria-label="Revert preview">
+											<div className="aero-inset space-y-1 p-2.5 text-[11px]" aria-label="Revert preview">
 												<p className="font-medium">
 													{preview.strategy === "refused" ? "Preview: revert refused"
 														: preview.strategy === "authorization-required" ? "Preview: revert needs confirmation"
@@ -552,7 +554,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										</div>
 									</>
 								)}
-							<div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[var(--subtle-border)] pt-3" role="group" aria-label="Revert controls">
+							<div className="aero-footer flex shrink-0 flex-wrap items-center gap-2 pt-3" role="group" aria-label="Revert controls">
 								<CheckboxField
 									label="Overwrite files changed since the checkpoint (off = skip conflicts)"
 									checked={force}
@@ -571,7 +573,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 									type="button"
 									onClick={() => loadFiles(false)}
 									disabled={busy}
-									className="shrink-0 cursor-pointer rounded-md border border-[var(--subtle-border)] px-3 py-2 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+									className="aero-control aero-fill shrink-0 px-3 py-2 text-[11px]"
 								>
 									Refresh
 								</button>
@@ -579,7 +581,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 									type="button"
 									onClick={runPreview}
 									disabled={busy || running || revertBlocked}
-									className="shrink-0 cursor-pointer rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-3 py-2 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+									className="aero-control aero-fill shrink-0 px-3 py-2 text-[11px] font-medium"
 								>
 									Preview revert
 								</button>
@@ -588,7 +590,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										type="button"
 										onClick={() => setConfirming(true)}
 										disabled={revertBlocked || invalidSelection}
-										className="shrink-0 cursor-pointer rounded-md bg-[var(--accent)] px-3 py-2 text-[11px] font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+										className="aero-primary aero-fill shrink-0 px-3 py-2 text-[11px] font-semibold"
 									>
 										Revert this file…
 									</button>
@@ -598,7 +600,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											type="button"
 											onClick={() => setConfirming(false)}
 											disabled={busy}
-											className="cursor-pointer rounded-md border border-[var(--border)] px-3 py-1.5 text-[11px] font-medium disabled:opacity-40"
+											className="aero-control aero-fill px-3 py-1.5 text-[11px] font-medium"
 										>
 											Cancel
 										</button>
@@ -606,7 +608,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											type="button"
 											onClick={runRevert}
 											disabled={confirmBlocked}
-											className="cursor-pointer rounded-md bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40"
+											className="aero-primary aero-fill px-3 py-1.5 text-[11px] font-semibold"
 										>
 											{busy ? "Reverting…" : "Confirm revert"}
 										</button>

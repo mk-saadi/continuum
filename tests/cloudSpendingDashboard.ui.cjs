@@ -30,7 +30,12 @@ app.whenReady().then(async () => {
       const selectByLabel = prefix => {
         const label = [...document.querySelectorAll('label')].find(element => element.textContent.trim().startsWith(prefix));
         if (!label) throw new Error('Missing select labelled ' + prefix);
-        return label.querySelector('select');
+        return document.getElementById(label.htmlFor);
+      };
+      const choose = async (prefix, text) => {
+        selectByLabel(prefix).click(); await wait(30);
+        const option = [...document.querySelectorAll('[role=option]')].find(element => element.textContent.trim().startsWith(text));
+        check(option, 'Missing option ' + text); option.click(); await wait();
       };
       const metric = label => {
         const heading = [...document.querySelectorAll('p')].find(element => element.textContent.trim() === label);
@@ -62,9 +67,7 @@ app.whenReady().then(async () => {
       check(light !== 'rgba(0, 0, 0, 0)' && dark !== 'rgba(0, 0, 0, 0)', 'dashboard surfaces are painted, not transparent');
 
       // Local-only selection: cost is "not applicable", never $0.00.
-      let providerSelect = selectByLabel('Provider');
-      providerSelect.value = 'local';
-      fire(providerSelect);
+      await choose('Provider', 'Local models');
       await wait();
       check(metric('Total priced spend').includes('Not applicable'), 'local-only selection shows not applicable');
       check(!metric('Total priced spend').includes('$0.00'), 'local-only selection never shows $0.00');
@@ -84,6 +87,8 @@ app.whenReady().then(async () => {
       await wait();
       check(modelsPanel.textContent.includes('Rate snapshots recorded for this model'), 'the model detail loads');
       check(modelsPanel.textContent.includes('anthropic catalog'), 'recorded catalog snapshots are shown');
+      check([...modelsPanel.querySelectorAll('.aero-panel .aero-panel')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'nested timeline has no second blur');
+      check([...modelsPanel.querySelectorAll('table')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'model data tables remain unblurred');
       check(modelsPanel.textContent.includes('Effective date unavailable'), 'the UI does not invent an effective date');
       check(modelsPanel.textContent.includes('Mixed evidence, never fully verified'), 'combined spend keeps its mixed-evidence label');
       check(window.queries.some(query => query.method === 'getUsageModelDetail'
@@ -98,7 +103,7 @@ app.whenReady().then(async () => {
       check(providersPanel.textContent.includes('Not applicable'), 'local provider usage is not applicable');
       button(providersPanel, 'Claude').click();
       await wait();
-      check(selectByLabel('Provider').value === 'anthropic-p', 'selecting a provider applies the shared filter');
+      check(selectByLabel('Provider').textContent.includes('Claude'), 'selecting a provider applies the shared filter');
       check(tab('Models').getAttribute('aria-selected') === 'true', 'selecting a provider opens the filtered model view');
       button(document, 'Reset filters').click();
       await wait();
@@ -109,9 +114,7 @@ app.whenReady().then(async () => {
       const conversations = document.getElementById('usage-costs-panel-conversations');
       check(conversations.textContent.includes('Where usage originated'), 'attribution is shown');
       check(conversations.textContent.includes('Chat one') && conversations.textContent.includes('$0.0151'), 'conversation totals are attributed');
-      const groupSelect = selectByLabel('Group by');
-      groupSelect.value = 'agent';
-      fire(groupSelect);
+      await choose('Group by', 'Main agent / subagent');
       await wait();
       check(conversations.textContent.includes('Subagent · Researcher'), 'sub-agent attribution is separate from the main agent');
       check(conversations.textContent.includes('Main agent'), 'main-agent attribution is shown');
@@ -137,13 +140,7 @@ app.whenReady().then(async () => {
       check(pricing.textContent.includes('of 2 rate snapshots'), 'pricing history pagination states its total');
 
       // Honest error state and recovery.
-      providerSelect = selectByLabel('Provider');
-      const broken = document.createElement('option');
-      broken.value = 'error-p';
-      broken.textContent = 'Broken provider';
-      providerSelect.appendChild(broken);
-      providerSelect.value = 'error-p';
-      fire(providerSelect);
+      await choose('Provider', 'Broken provider');
       await wait();
       const alert = document.querySelector('[role="alert"]');
       check(alert && alert.textContent.includes('Dashboard unavailable'), 'backend errors are surfaced');

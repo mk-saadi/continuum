@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { SliderField } from "../FormControls";
 import { LuBell } from "react-icons/lu";
 import { SettingsCard, SettingsCheckRow, SettingsMessage, SettingsButton } from "./SettingsSection";
 
@@ -95,13 +96,10 @@ export default function NotificationSettings() {
         <SettingsCard icon={LuBell} title="Notification Sounds" description="Short, gentle chimes for agent work, including background tabs.">
             <SettingsCheckRow role="switch" label="Enable notification sounds" checked={prefs?.notificationSounds?.enabled ?? true} disabled={disabled}
                 onChange={e => update({ notificationSounds: { enabled: e.target.checked } })} />
-            <label className="mt-3 block text-xs">
-                Volume — {prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}%
-                <input className="mt-2 w-full accent-[var(--accent)]" type="range" min="0" max="100" step="1"
-                    aria-label="Notification sound volume" disabled={disabled}
-                    value={prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}
-                    onChange={e => update({ notificationSounds: { volume: Number(e.target.value) } })} />
-            </label>
+            <SliderField className="mt-3" label="Volume" valueLabel={`${prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}%`}
+                min={0} max={100} step={1} aria-label="Notification sound volume" disabled={disabled}
+                value={prefs?.notificationSounds?.volume ?? defaultSoundPrefs.volume}
+                onChange={e => update({ notificationSounds: { volume: Number(e.target.value) } })} />
             {[["completed", "Task completed"], ["interrupted", "Task interrupted"], ["inputRequired", "User input required"]].map(([key, label]) => (
                 <div key={key} className="mt-2 flex items-center justify-between gap-2">
                     <SettingsCheckRow label={label} checked={prefs?.notificationSounds?.[key] ?? true} disabled={disabled}

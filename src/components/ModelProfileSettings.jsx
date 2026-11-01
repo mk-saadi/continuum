@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { LuChevronDown, LuSlidersHorizontal } from 'react-icons/lu';
 import { SliderField, NumberField, TextAreaField } from './FormControls';
 import {
+  SettingsMaterialContext,
   SettingsButton,
   SettingsCheckRow,
   SettingsHint,
@@ -14,7 +15,8 @@ const controls = [
   ['topK', 'Top-K', 1, 100, 1], ['repeatPenalty', 'Repeat penalty', 1, 1.5, 0.01],
   ['maxTokens', 'Max tokens', -1, undefined, 1],
 ];
-export default function ModelProfileSettings({ modelPath, section = 'all', heading }) {
+export default function ModelProfileSettings({ modelPath, section = 'all', heading, nested = false }) {
+  const aero = useContext(SettingsMaterialContext);
   const [open, setOpen] = useState(false);
   const [effective, setEffective] = useState(null);
   const [patch, setPatch] = useState({});
@@ -38,10 +40,10 @@ export default function ModelProfileSettings({ modelPath, section = 'all', headi
     } catch (error) { setError(error.message); }
     finally { setSaving(false); }
   }
-  const label = section === 'memory'
+  const label = section === 'all' ? 'Memory, prompt & sampling' : section === 'memory'
     ? (modelPath ? 'Model memory overrides' : 'Global memory defaults')
     : (modelPath ? 'Model default prompt & sampling' : 'Global default prompt & sampling');
-  return <details className={`${settingsCard} group`} onToggle={event => setOpen(event.currentTarget.open)}>
+  return <details className={`${aero ? `aero-panel ${nested ? "aero-fill" : ""} p-3` : settingsCard} group`} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
       <span className="flex min-w-0 items-center gap-2">
         <LuSlidersHorizontal size={16} aria-hidden="true" className="shrink-0 text-[var(--accent)]" />

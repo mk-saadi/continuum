@@ -90,6 +90,7 @@ const providers = [
 
 const filterOptions = {
   providers: [
+    { providerId: 'error-p', label: 'Broken provider', family: 'test', familyLabel: 'Test' },
     { providerId: 'anthropic-p', label: 'Claude', family: 'anthropic', familyLabel: 'Direct Anthropic' },
     { providerId: 'openai-p', label: 'OpenAI', family: 'openai', familyLabel: 'Direct OpenAI' },
     { providerId: 'or-p', label: 'OpenRouter', family: 'openrouter', familyLabel: 'OpenRouter' },

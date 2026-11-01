@@ -20,9 +20,15 @@ import DirectorySettings from "../DirectorySettings";
 import RecoveryStorageSettings from "../settings/RecoveryStorageSettings";
 import ModelProfileSettings from "../ModelProfileSettings";
 import { CheckboxField } from "../FormControls";
-import { SettingsCard, SettingsHint, SettingsStatus } from "../settings/SettingsSection";
+import {
+	SettingsMaterialContext,
+	SettingsCard,
+	SettingsHint,
+	SettingsStatus,
+} from "../settings/SettingsSection";
 import {
 	LuPalette,
+	LuUserRound,
 	LuBell,
 	LuCpu,
 	LuBot,
@@ -30,7 +36,6 @@ import {
 	LuPlug,
 	LuServer,
 	LuHardDrive,
-	LuChartNoAxesCombined,
 	LuWallet,
 	LuX,
 } from "react-icons/lu";
@@ -48,7 +53,14 @@ const tabs = [
 		group: "Preferences",
 		label: "Appearance",
 		icon: LuPalette,
-		description: "Themes, backgrounds, and assistant identity.",
+		description: "Themes, backgrounds, and visual effects.",
+	},
+	{
+		id: "branding",
+		group: "Preferences",
+		label: "Avatar & Branding",
+		icon: LuUserRound,
+		description: "Model names, avatars, memory, prompts, and sampling overrides.",
 	},
 	{
 		id: "notifications",
@@ -83,14 +95,14 @@ const tabs = [
 		group: "AI configuration",
 		label: "Memory",
 		icon: LuBrain,
-		description: "Memory defaults, model overrides, and saved memories.",
+		description: "Global memory defaults and saved memories.",
 	},
 	{
 		id: "engine",
 		group: "System",
 		label: "Engine & API",
 		icon: LuServer,
-		description: "Local runtime and API server preferences.",
+		description: "Local runtime, API server preferences, and engine logs.",
 	},
 	{
 		id: "storage",
@@ -100,36 +112,13 @@ const tabs = [
 		description: "File locations and token-history retention.",
 	},
 	{
-		id: "usage",
-		group: "System",
-		label: "Usage & Logs",
-		icon: LuChartNoAxesCombined,
-		description: "Token consumption and engine diagnostics.",
-	},
-	{
 		id: "usage-costs",
 		group: "System",
 		label: "Usage & Costs",
 		icon: LuWallet,
-		description: "Cloud spending, provider charges, and pricing evidence.",
+		description: "Local and cloud token usage, spending, and pricing evidence.",
 	},
 ];
-
-function ProfileSettingsList({ models, section }) {
-	return (
-		<div className="space-y-3">
-			<ModelProfileSettings section={section} />
-			{models.map((model) => (
-				<ModelProfileSettings
-					key={model.id}
-					modelPath={model.modelPath || model.path || model.id}
-					heading={model.name || model.id}
-					section={section}
-				/>
-			))}
-		</div>
-	);
-}
 
 const themeGroups = [
 	{
@@ -294,7 +283,22 @@ function LazyPanel({ id, visited, children, ...rest }) {
 			className={panelClass}
 			{...rest}
 		>
-			{shouldMountPanel(visited, id) ? children : null}
+			<SettingsMaterialContext.Provider
+				value={[
+					"appearance",
+					"branding",
+					"notifications",
+					"integrations",
+					"agents",
+					"engine",
+					"storage",
+					"models",
+					"memory",
+					"usage-costs",
+				].includes(id)}
+			>
+				{shouldMountPanel(visited, id) ? children : null}
+			</SettingsMaterialContext.Provider>
 		</section>
 	);
 }
@@ -407,7 +411,7 @@ function MemorySettings({
 		<dialog
 			ref={dialog}
 			aria-labelledby="memory-settings-title"
-			className="palace-dialog m-auto overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/50"
+			className="aero-dialog m-auto overflow-hidden p-0"
 			style={{
 				width: "min(920px, calc(100vw - 32px))",
 				maxWidth: "none",
@@ -420,7 +424,7 @@ function MemorySettings({
 			}}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-5 py-4 sm:px-6">
+				<header className="aero-header flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
 					<div>
 						<h2
 							id="memory-settings-title"
@@ -432,7 +436,7 @@ function MemorySettings({
 					</div>
 					<button
 						type="button"
-						className="flex size-7 cursor-pointer shrink-0 items-center justify-center active:translate-y-0.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] duration-300"
+						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						onClick={onClose}
 						autoFocus
@@ -446,7 +450,7 @@ function MemorySettings({
 						role="tablist"
 						aria-label="Settings sections"
 						aria-orientation="vertical"
-						className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:border-r sm:border-b-0 sm:px-3 sm:py-5"
+						className="aero-navigation flex shrink-0 gap-1.5 overflow-x-auto px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:px-3 sm:py-5"
 					>
 						{tabs.map(({ id, label, group, icon: Icon }, index) => (
 							<React.Fragment key={id}>
@@ -468,11 +472,11 @@ function MemorySettings({
 									tabIndex={tab === id ? 0 : -1}
 									onKeyDown={(event) => onTabKey(event, index)}
 									onClick={() => selectTab(id)}
-									className={`flex shrink-0 items-center cursor-pointer gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors sm:w-full ${tab === id ? "bg-[var(--active-chat)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+									className={`${tab === id ? "aero-control aero-fill" : "cursor-pointer rounded-xl border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
 								>
 									<span
 										aria-hidden="true"
-										className={`grid size-7 shrink-0 place-items-center rounded-lg text-base ${tab === id ? "bg-[var(--surface-raised)] text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
+										className={`grid size-7 shrink-0 place-items-center text-base ${tab === id ? "text-current" : "text-[var(--text-muted)]"}`}
 									>
 										<Icon size={17} />
 									</span>
@@ -485,215 +489,273 @@ function MemorySettings({
 						</div>
 					</nav>
 
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--bg-secondary)]">
-						<div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:px-6">
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
+						<div className="aero-header shrink-0 px-5 py-4 sm:px-6">
 							<h3 className="text-sm font-semibold">{activeTab.label}</h3>
 							<p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
 								{activeTab.description}
 							</p>
 						</div>
 
-						<LazyPanel id="appearance" visited={visited} hidden={tab !== "appearance"}>
-							<AppearanceSettings />
-							<SettingsCard
-								icon={LuPalette}
-								title="Color theme"
-								description="Choose a palette for the whole app. The original dark theme is preserved."
-							>
-								<div className="space-y-4">
-									{themeGroups.map((group) => (
-										<fieldset key={group.heading}>
-											<legend className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-												{group.heading}
-											</legend>
-											<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
-												{group.themes.map((option) => {
-													const selected = theme === option.id;
-													return (
-														<button
-															key={option.id}
-															type="button"
-															aria-pressed={selected}
-															disabled={!onChangeTheme}
-															onClick={() => onChangeTheme?.(option.id)}
-															className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-left shadow-[0_2px_4px_var(--window-shadow)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 ${selected ? "border-[var(--accent)] bg-[var(--active-chat)]" : "border-[var(--border)] bg-[var(--surface)]"}`}
-														>
-															<span
-																aria-hidden="true"
-																className="flex h-12 w-14 shrink-0 items-end gap-1 overflow-hidden rounded-lg border border-[var(--border)] p-1.5"
-																style={{ backgroundColor: option.swatches[0] }}
-															>
-																<span
-																	className="h-7 w-3 rounded-sm"
-																	style={{ backgroundColor: option.swatches[1] }}
-																/>
-																<span
-																	className="h-4 w-5 rounded-sm"
-																	style={{ backgroundColor: option.swatches[2] }}
-																/>
-															</span>
-															<span className="min-w-0 flex-1">
-																<span className="block text-xs font-semibold">
-																	{option.label}
-																</span>
-																<span className="mt-0.5 block text-[11px] leading-relaxed text-[var(--text-muted)]">
-																	{option.description}
-																</span>
-															</span>
-															<span
-																aria-hidden="true"
-																className={`grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${selected ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-[var(--control-border)]"}`}
-															>
-																{selected ? "✓" : ""}
-															</span>
-														</button>
-													);
-												})}
-											</div>
-										</fieldset>
-									))}
+						<LazyPanel
+							id="appearance"
+							visited={visited}
+							hidden={tab !== "appearance"}
+						>
+							<SettingsMaterialContext.Provider value={true}>
+								<div className="appearance-settings space-y-3">
+									<AppearanceSettings />
+									<SettingsCard
+										icon={LuPalette}
+										title="Color theme"
+										description="Choose a palette for the whole app. The original dark theme is preserved."
+									>
+										<div className="space-y-4">
+											{themeGroups.map((group) => (
+												<fieldset key={group.heading}>
+													<legend className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+														{group.heading}
+													</legend>
+													<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
+														{group.themes.map((option) => {
+															const selected = theme === option.id;
+															return (
+																<button
+																	key={option.id}
+																	type="button"
+																	aria-pressed={selected}
+																	disabled={!onChangeTheme}
+																	onClick={() => onChangeTheme?.(option.id)}
+																	className="aero-control aero-fill flex items-center gap-3 p-3 text-left cursor-pointer"
+																>
+																	<span
+																		aria-hidden="true"
+																		className="flex h-12 w-14 shrink-0 items-end gap-1 overflow-hidden rounded-lg border border-[var(--border)] p-1.5"
+																		style={{
+																			backgroundColor:
+																				option.swatches[0],
+																		}}
+																	>
+																		<span
+																			className="h-7 w-3 rounded-sm"
+																			style={{
+																				backgroundColor:
+																					option.swatches[1],
+																			}}
+																		/>
+																		<span
+																			className="h-4 w-5 rounded-sm"
+																			style={{
+																				backgroundColor:
+																					option.swatches[2],
+																			}}
+																		/>
+																	</span>
+																	<span className="min-w-0 flex-1">
+																		<span className="block text-xs font-semibold">
+																			{option.label}
+																		</span>
+																		<span
+																			className={`mt-0.5 block text-[11px] leading-relaxed ${selected ? "text-[var(--on-accent)]" : "text-[var(--text-muted)]"}`}
+																		>
+																			{option.description}
+																		</span>
+																	</span>
+																	<span
+																		aria-hidden="true"
+																		className={`grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${selected ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-[var(--control-border)]"}`}
+																	>
+																		{selected ? "✓" : ""}
+																	</span>
+																</button>
+															);
+														})}
+													</div>
+												</fieldset>
+											))}
+										</div>
+										{!onChangeTheme && (
+											<SettingsHint>
+												Pass an onChangeTheme handler from the app to enable theme
+												selection.
+											</SettingsHint>
+										)}
+									</SettingsCard>
+									<BackgroundSettings />
 								</div>
-								{!onChangeTheme && (
-									<SettingsHint>
-										Pass an onChangeTheme handler from the app to enable theme selection.
-									</SettingsHint>
-								)}
-							</SettingsCard>
-							<BackgroundSettings />
+							</SettingsMaterialContext.Provider>
+						</LazyPanel>
+
+						<LazyPanel
+							id="branding"
+							visited={visited}
+							hidden={tab !== "branding"}
+						>
 							<AvatarSettings
 								avatars={avatars}
 								models={models}
 							/>
 						</LazyPanel>
 
-						<LazyPanel id="memory" visited={visited} hidden={tab !== "memory"}>
+						<LazyPanel
+							id="memory"
+							visited={visited}
+							hidden={tab !== "memory"}
+						>
 							<CheckboxField
 								label="Enable memory for this chat (facts & past chats)"
 								checked={palace.enabled}
 								onChange={() => palace.toggle()}
 							/>
-							<ProfileSettingsList
-								models={models}
-								section="memory"
-							/>
+							<ModelProfileSettings section="memory" />
 							<MemoryTab palace={palace} />
 						</LazyPanel>
 
-						<LazyPanel id="integrations" visited={visited} hidden={tab !== "integrations"} aria-busy={busy}>
+						<LazyPanel
+							id="integrations"
+							visited={visited}
+							hidden={tab !== "integrations"}
+							aria-busy={busy}
+						>
 							{loading ? (
-								<p role="status" className="text-[11px] text-[var(--text-muted)]">
+								<p
+									role="status"
+									className="text-[11px] text-[var(--text-muted)]"
+								>
 									Loading MCP servers…
 								</p>
 							) : config ? (
-									<McpSettingsTab
+								<McpSettingsTab
+									config={config}
+									status={palace.mcpStatus}
+									busy={busy}
+									error={error}
+									onConfigure={() => {
+										mcpForm.current?.scrollIntoView({
+											block: "start",
+											behavior: "smooth",
+										});
+										mcpForm.current?.focus({ preventScroll: true });
+									}}
+									onServerToggle={(name, enabled) =>
+										change(() => window.mcpAPI.setServerEnabled(name, enabled))
+									}
+									onToolToggle={(name, tool, enabled) =>
+										change(() => window.mcpAPI.setToolEnabled(tool, enabled, name))
+									}
+									onAllToolsToggle={(name, enabled) =>
+										change(() => window.mcpAPI.setAllToolsEnabled(name, enabled))
+									}
+									onDelete={(name) =>
+										change(() => {
+											const servers = { ...config.mcpServers };
+											delete servers[name];
+											return window.api.saveMcpConfig({
+												...config,
+												mcpServers: servers,
+											});
+										})
+									}
+								/>
+							) : (
+								<p
+									role="alert"
+									className="text-[11px] font-medium leading-relaxed text-[var(--error)]"
+								>
+									{error}
+								</p>
+							)}
+							<div
+								ref={mcpForm}
+								tabIndex={-1}
+							>
+								{loading ? (
+									<p
+										role="status"
+										className="text-[11px] text-[var(--text-muted)]"
+									>
+										Loading configuration…
+									</p>
+								) : (
+									<ServerConfigTab
 										config={config}
-										status={palace.mcpStatus}
 										busy={busy}
 										error={error}
-										onConfigure={() => {
-											mcpForm.current?.scrollIntoView({
-												block: "start",
-												behavior: "smooth",
-											});
-											mcpForm.current?.focus({ preventScroll: true });
-										}}
-										onServerToggle={(name, enabled) =>
-											change(() => window.mcpAPI.setServerEnabled(name, enabled))
-										}
-										onToolToggle={(name, tool, enabled) =>
-											change(() => window.mcpAPI.setToolEnabled(tool, enabled, name))
-										}
-										onAllToolsToggle={(name, enabled) =>
-											change(() => window.mcpAPI.setAllToolsEnabled(name, enabled))
-										}
-										onDelete={(name) =>
-											change(() => {
-												const servers = { ...config.mcpServers };
-												delete servers[name];
-												return window.api.saveMcpConfig({
-													...config,
-													mcpServers: servers,
-												});
-											})
-										}
+										onError={setError}
+										onSave={(value) => change(() => window.api.saveMcpConfig(value))}
 									/>
-								) : (
-									<p
-										role="alert"
-										className="text-[11px] font-medium leading-relaxed text-[var(--error)]"
-									>
-										{error}
-									</p>
 								)}
-								<div
-									ref={mcpForm}
-									tabIndex={-1}
-								>
-									{loading ? (
-										<p role="status" className="text-[11px] text-[var(--text-muted)]">
-											Loading configuration…
-										</p>
-									) : (
-										<ServerConfigTab
-											config={config}
-											busy={busy}
-											error={error}
-											onError={setError}
-											onSave={(value) => change(() => window.api.saveMcpConfig(value))}
-										/>
-									)}
-								</div>
+							</div>
 						</LazyPanel>
 
-						<LazyPanel id="notifications" visited={visited} hidden={tab !== "notifications"}>
-								<NotificationSettings />
+						<LazyPanel
+							id="notifications"
+							visited={visited}
+							hidden={tab !== "notifications"}
+						>
+							<NotificationSettings />
 						</LazyPanel>
 
-						<LazyPanel id="models" visited={visited} hidden={tab !== "models"}>
+						<LazyPanel
+							id="models"
+							visited={visited}
+							hidden={tab !== "models"}
+						>
 							<CloudProviderSettings />
-							<ProfileSettingsList
-								models={models}
-								section="generation"
-							/>
+							<ModelProfileSettings section="generation" />
 						</LazyPanel>
 
-						<LazyPanel id="agents" visited={visited} hidden={tab !== "agents"}>
+						<LazyPanel
+							id="agents"
+							visited={visited}
+							hidden={tab !== "agents"}
+						>
 							<GeneralSettingsTab />
 							<GitIdentitySettings />
 							<SkillsSettingsTab />
 						</LazyPanel>
 
-						<LazyPanel id="engine" visited={visited} hidden={tab !== "engine"}>
+						<LazyPanel
+							id="engine"
+							visited={visited}
+							hidden={tab !== "engine"}
+						>
 							<EngineIdleSettings />
 							<SettingsCard className="px-3 py-2.5">
 								<SettingsStatus
 									active={engineRunning}
 									pulse={engineRunning}
 								>
-									{engineRunning ? `Engine running on port ${serverPort}` : "Engine stopped"}
+									{engineRunning
+										? `Engine running on port ${serverPort}`
+										: "Engine stopped"}
 								</SettingsStatus>
 							</SettingsCard>
 							<LocalApiSettings />
-						</LazyPanel>
-
-						<LazyPanel id="storage" visited={visited} hidden={tab !== "storage"}>
-							<DirectorySettings />
-							<RecoveryStorageSettings />
-							<RagSettings />
-							<TokenHistory section="retention" />
-						</LazyPanel>
-
-						<LazyPanel id="usage" visited={visited} hidden={tab !== "usage"}>
-							<TokenHistory section="usage" />
 							<TerminalLog
-								active={tab === "usage"}
+								active={tab === "engine"}
 								engineRunning={engineRunning}
 								serverPort={serverPort}
 								serverError={serverError}
 							/>
 						</LazyPanel>
 
-						<LazyPanel id="usage-costs" visited={visited} hidden={tab !== "usage-costs"}>
+						<LazyPanel
+							id="storage"
+							visited={visited}
+							hidden={tab !== "storage"}
+						>
+							<DirectorySettings />
+							<RecoveryStorageSettings />
+							<RagSettings />
+							<TokenHistory section="retention" />
+						</LazyPanel>
+
+						<LazyPanel
+							id="usage-costs"
+							visited={visited}
+							hidden={tab !== "usage-costs"}
+						>
 							<UsageCostsDashboard />
 						</LazyPanel>
 					</div>

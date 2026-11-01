@@ -23,7 +23,7 @@ import { getRecentSessions } from "../lib/sidebarHistory.mjs";
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
 const buttonStyle =
-	"flex items-center gap-2 rounded-lg px-3 py-1 cursor-pointer text-sm transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-default disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
+	"aero-list-item flex items-center gap-2 rounded-lg px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
 const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
@@ -47,7 +47,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 		<dialog
 			ref={dialog}
 			aria-labelledby="chat-action-title"
-			className="m-auto w-[min(420px,calc(100vw-32px))] rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/50"
+			className="aero-dialog m-auto w-[min(420px,calc(100vw-32px))] p-5"
 			onCancel={(event) => {
 				event.preventDefault();
 				if (!busy) onClose();
@@ -155,7 +155,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						disabled={busy || disabled}
 						onChange={(event) => setValue(event.target.value)}
 						placeholder={action.kind === "New Folder" ? "Folder name" : "Chat name"}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+						className="aero-well aero-fill w-full px-3 py-2 text-sm"
 					/>
 				)}
 				{error && (
@@ -176,7 +176,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						Cancel
 					</button>
 					<button
-						className={`${buttonStyle} bg-[var(--active-chat)]`}
+						className={`${action.kind === "Delete" ? "aero-control aero-control--danger" : "aero-primary"} aero-fill px-3 py-1.5 text-sm cursor-pointer`}
 						disabled={busy || disabled || (action.kind !== "Delete" && !value.trim())}
 					>
 						{busy
@@ -198,6 +198,60 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 	);
 }
 
+function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLoad, setDropTarget }) {
+	return (
+		<div
+			key={session.id}
+			data-session-id={session.id}
+			draggable={!locked}
+			onDragStart={(event) => {
+				if (locked) {
+					event.preventDefault();
+					return;
+				}
+				closeMenu();
+				event.dataTransfer.setData(DRAG_TYPE, session.id);
+				event.dataTransfer.effectAllowed = "move";
+			}}
+			onDragEnd={() => setDropTarget(null)}
+			onContextMenu={(event) =>
+				openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
+			}
+			aria-current={activeId === session.id ? "true" : undefined}
+			className="aero-list-item group relative flex items-center rounded-lg py-1"
+		>
+			<button
+				className="min-w-0 flex-1 truncate rounded-lg py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
+				disabled={locked}
+				aria-current={activeId === session.id ? "page" : undefined}
+				title={session.title || "Untitled chat"}
+				onClick={() => {
+					closeMenu();
+					onLoad(session.id);
+				}}
+			>
+				{session.title || "Untitled chat"}
+			</button>
+			<span
+				className="shrink-0 block group-hover:invisible group-focus-within:invisible text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
+				title={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}
+			>
+				{tokenFormatter.format(session.total_tokens || 0)} tokens
+			</span>
+			<button
+				className="aero-list-item absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 rounded-md px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
+				aria-label={`Actions for ${session.title || "Untitled chat"}`}
+				aria-haspopup="menu"
+				aria-expanded={menu?.session.id === session.id}
+				disabled={locked}
+				onClick={(event) => openMenu(event, session)}
+			>
+				<FiMoreHorizontal />
+			</button>
+		</div>
+	);
+}
+
 export default function ChatHistory({
 	groups,
 	activeId,
@@ -207,6 +261,7 @@ export default function ChatHistory({
 	onNew,
 	onAction,
 	mode = "casual",
+	embedded = false,
 	workspaceName = null,
 	workspaceChatCount = null,
 	onNewWorkspaceChat = null,
@@ -345,83 +400,34 @@ export default function ChatHistory({
 		if (session && session.folder_name !== folder) perform("Move to Folder", id, folder);
 	}
 
-	function SessionRow({ session }) {
-		return (
-			<div
-				key={session.id}
-				data-session-id={session.id}
-				draggable={!locked}
-				onDragStart={(event) => {
-					if (locked) {
-						event.preventDefault();
-						return;
-					}
-					closeMenu();
-					event.dataTransfer.setData(DRAG_TYPE, session.id);
-					event.dataTransfer.effectAllowed = "move";
-				}}
-				onDragEnd={() => setDropTarget(null)}
-				onContextMenu={(event) =>
-					openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
-				}
-				className={`group relative flex py-1 duration-300 items-center rounded-lg transition-colors ${activeId === session.id ? "bg-[var(--active-chat)]" : "bg-transparent hover:bg-[var(--surface-hover)]"}`}
-			>
-				<button
-					className="min-w-0 flex-1 truncate rounded-lg py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
-					disabled={locked}
-					aria-current={activeId === session.id ? "page" : undefined}
-					title={session.title || "Untitled chat"}
-					onClick={() => {
-						closeMenu();
-						onLoad(session.id);
-					}}
-				>
-					{session.title || "Untitled chat"}
-				</button>
-				<span
-					className="shrink-0 block group-hover:hidden text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
-					title={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}
-				>
-					{tokenFormatter.format(session.total_tokens || 0)} tokens
-				</span>
-				<button
-					className="shrink-0 hidden group-hover:block rounded-md px-1.5 text-[var(--text-muted)] cursor-pointer hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-40"
-					aria-label={`Actions for ${session.title || "Untitled chat"}`}
-					aria-haspopup="menu"
-					aria-expanded={menu?.session.id === session.id}
-					disabled={locked}
-					onClick={(event) => openMenu(event, session)}
-				>
-					<FiMoreHorizontal />
-				</button>
-			</div>
-		);
-	}
-
 	return (
 		<aside
 			aria-label="Chat history"
-			className="flex h-full w-[272px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] max-[650px]:w-[220px]"
+			className={`flex h-full min-h-0 shrink-0 flex-col bg-[var(--bg-secondary)] text-[var(--text-primary)] ${embedded ? "w-full" : "w-[272px] max-[650px]:w-[220px]"}`}
 		>
-			<div className="space-y-3 px-3 pt-4 pb-2">
+			<div className="shrink-0 space-y-3 px-3 pt-4 pb-2">
 				{mode === "workspace" ? (
-				<div
-					className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
-					aria-label="Workspace conversations"
-				>
-					<div className="mb-2 flex min-w-0 items-center gap-2">
-						<FiActivity size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
-						<h3 className="min-w-0 truncate text-xs font-semibold">
-							{workspaceName ?? "Workspace chats"}
-						</h3>
-						{workspaceChatCount != null && (
-							<span className="ml-auto shrink-0 text-xs text-[var(--text-muted)]">
-								{workspaceChatCount}
-							</span>
-						)}
-					</div>
+					<div
+						className="aero-panel p-3"
+						aria-label="Workspace conversations"
+					>
+						<div className="mb-2 flex min-w-0 items-center gap-2">
+							<FiActivity
+								size={16}
+								className="shrink-0 text-[var(--accent)]"
+								aria-hidden="true"
+							/>
+							<h3 className="min-w-0 truncate text-xs font-semibold">
+								{workspaceName ?? "Workspace chats"}
+							</h3>
+							{workspaceChatCount != null && (
+								<span className="ml-auto shrink-0 text-xs text-[var(--text-muted)]">
+									{workspaceChatCount}
+								</span>
+							)}
+						</div>
 						<button
-							className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--accent)] py-1 text-[var(--on-accent)] transition-all duration-300 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+							className="aero-primary aero-fill mt-2 flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
 							disabled={locked || !canCreateWorkspaceChat}
 							title={
 								canCreateWorkspaceChat
@@ -442,7 +448,7 @@ export default function ChatHistory({
 				) : (
 					<div className="flex items-center gap-1">
 						<button
-							className="flex-1 w-full py-1 shrink-0 items-center justify-center rounded-md border-0 text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
+							className="aero-primary flex w-full flex-1 items-center justify-center py-1.5 text-sm"
 							disabled={locked}
 							onClick={onNew}
 						>
@@ -450,34 +456,38 @@ export default function ChatHistory({
 						</button>
 					</div>
 				)}
-			<label className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text-muted)] shadow-[0_2px_4px_var(--window-shadow)] focus-within:border-[var(--accent)]">
-				<FiSearch className="shrink-0 text-[var(--accent)]" />
-					<input
-						type="search"
-						aria-label={
-							mode === "workspace" ? "Search workspace chats and folders" : "Search chats and folders"
-						}
-						placeholder="Search chats…"
-						value={search}
-						onChange={(event) => {
-							setSearch(event.target.value);
-							closeMenu();
+				<div className="flex items-center gap-2">
+					<label className="aero-well flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[var(--text-muted)]">
+						<FiSearch className="shrink-0 text-[var(--accent)]" />
+						<input
+							type="search"
+							aria-label={
+								mode === "workspace"
+									? "Search workspace chats and folders"
+									: "Search chats and folders"
+							}
+							placeholder="Search chats…"
+							value={search}
+							onChange={(event) => {
+								setSearch(event.target.value);
+								closeMenu();
+							}}
+							className="min-w-0 w-full bg-transparent text-sm text-[var(--text-primary)] outline-none"
+						/>
+					</label>
+					<button
+						className="aero-control grid size-9 shrink-0 place-items-center"
+						disabled={locked}
+						onClick={() => {
+							setAction({ kind: "New Folder" });
+							setError("");
 						}}
-						className="min-w-0 w-full bg-transparent text-sm text-[var(--text-primary)] outline-none"
-					/>
-				</label>
-				<button
-					className={buttonStyle}
-					disabled={locked}
-					onClick={() => {
-						setAction({ kind: "New Folder" });
-						setError("");
-					}}
-					title="New Folder"
-					aria-label="New Folder"
-				>
-					<FiFolderPlus className="size-4" />
-				</button>
+						title="New Folder"
+						aria-label="New Folder"
+					>
+						<FiFolderPlus className="size-4" />
+					</button>
+				</div>
 			</div>
 			<nav
 				aria-label="Saved chats"
@@ -486,15 +496,28 @@ export default function ChatHistory({
 				{showRecents && !query && recentSessions.length > 0 && (
 					<section
 						aria-label="Recent chats"
-						className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_2px_4px_var(--window-shadow)]"
+						className="aero-panel mt-3 p-2"
 					>
 						<div className="mb-1 flex items-center gap-2 px-1">
-							<FiClock size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
+							<FiClock
+								size={16}
+								className="shrink-0 text-[var(--accent)]"
+								aria-hidden="true"
+							/>
 							<h3 className="text-xs font-semibold">Recent</h3>
 						</div>
-						<div className="space-y-0.5">
+						<div className="aero-flat mt-1 space-y-0.5 p-1">
 							{recentSessions.map((session) => (
 								<SessionRow
+									{...{
+										locked,
+										activeId,
+										closeMenu,
+										openMenu,
+										menu,
+										onLoad,
+										setDropTarget,
+									}}
 									key={`recent-${session.id}`}
 									session={session}
 								/>
@@ -508,7 +531,7 @@ export default function ChatHistory({
 						<section
 							key={group.folder_name}
 							aria-label={group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
-						className={`mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_2px_4px_var(--window-shadow)] ${dropTarget === group.folder_name ? "bg-[var(--active-chat)] ring-1 ring-[var(--accent)]" : ""}`}
+							className={`aero-panel mt-3 p-2 ${dropTarget === group.folder_name ? "ring-1 ring-[var(--accent)]" : ""}`}
 							onDragOver={(event) => {
 								if (!locked && [...event.dataTransfer.types].includes(DRAG_TYPE)) {
 									event.preventDefault();
@@ -533,16 +556,24 @@ export default function ChatHistory({
 									})
 								}
 							>
-						{expanded ? (
-							<FiChevronDown className="shrink-0 text-[var(--text-muted)]" />
-						) : (
-							<FiChevronRight className="shrink-0 text-[var(--text-muted)]" />
-						)}
-						{group.folder_name !== UNASSIGNED ? (
-							<FiFolder size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
-						) : (
-							<FiMessageSquare size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />
-						)}
+								{expanded ? (
+									<FiChevronDown className="shrink-0 text-[var(--text-muted)]" />
+								) : (
+									<FiChevronRight className="shrink-0 text-[var(--text-muted)]" />
+								)}
+								{group.folder_name !== UNASSIGNED ? (
+									<FiFolder
+										size={16}
+										className="shrink-0 text-[var(--accent)]"
+										aria-hidden="true"
+									/>
+								) : (
+									<FiMessageSquare
+										size={16}
+										className="shrink-0 text-[var(--accent)]"
+										aria-hidden="true"
+									/>
+								)}
 								<span
 									className="min-w-0 flex-1 truncate text-left"
 									title={group.folder_name}
@@ -552,7 +583,7 @@ export default function ChatHistory({
 								<span>{group.sessions.length}</span>
 							</button>
 							{expanded && (
-								<div className="space-y-0.5 ml-4">
+								<div className="aero-flat mt-1 space-y-0.5 p-1">
 									{!group.sessions.length && (
 										<p className="px-8 py-2 text-xs text-[var(--text-muted)]">
 											{query
@@ -564,6 +595,15 @@ export default function ChatHistory({
 									)}
 									{group.sessions.map((session) => (
 										<SessionRow
+											{...{
+												locked,
+												activeId,
+												closeMenu,
+												openMenu,
+												menu,
+												onLoad,
+												setDropTarget,
+											}}
 											key={session.id}
 											session={session}
 										/>
@@ -595,7 +635,7 @@ export default function ChatHistory({
 						role="menu"
 						aria-label="Chat actions"
 						style={{ left: menu.left, top: menu.top }}
-						className="absolute z-50 w-[184px] rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 text-[var(--text-primary)] shadow-xl"
+						className="aero-popover absolute z-50 w-[184px] p-1"
 						onKeyDown={(event) => {
 							if (event.key === "Escape") {
 								event.preventDefault();
@@ -641,7 +681,7 @@ export default function ChatHistory({
 				createPortal(
 					<div
 						role={toast.error ? "alert" : "status"}
-						className="fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-xl"
+						className="aero-popover fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 px-4 py-3 text-sm"
 					>
 						{toast.text}
 					</div>,

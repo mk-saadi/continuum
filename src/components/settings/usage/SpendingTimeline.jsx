@@ -18,7 +18,7 @@ function TimelineTooltip({ active, payload }) {
   if (!row) return null;
   const turnText = row.turns === 1 ? '1 turn' : `${row.turns ?? 0} turns`;
   return (
-    <div className="max-w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-2.5 text-xs text-[var(--text-primary)] shadow-lg">
+    <div className="aero-inset max-w-64 p-2.5 text-xs text-[var(--text-primary)]">
       <p className="font-semibold">{row.period}</p>
       <p className="mt-1 text-[var(--text-muted)]">{turnText} · {row.billableTurns ?? 0} billable</p>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
@@ -38,7 +38,7 @@ function TimelineTooltip({ active, payload }) {
 // Spending timeline. Values are already aggregated by SQLite; the chart only
 // splits rate-based estimates from authoritative provider charges so the two
 // evidence classes are never visually merged into one verified total.
-export default function SpendingTimeline({ data = [], groupBy = 'day', title = 'Spending over time' }) {
+export default function SpendingTimeline({ nested = false, data = [], groupBy = 'day', title = 'Spending over time' }) {
   const chartData = data.map(row => ({
     ...row,
     estimatedCost: typeof row.estimatedCost === 'number' ? row.estimatedCost : 0,
@@ -48,16 +48,16 @@ export default function SpendingTimeline({ data = [], groupBy = 'day', title = '
   const hasPriced = chartData.some(row => row.estimatedCost > 0 || row.providerReported > 0);
   if (!chartData.length || !hasActivity) {
     return (
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]">
+      <section className={`aero-panel ${nested ? "aero-fill" : ""} p-3`}>
         <h3 className="text-xs font-semibold">{title}</h3>
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">
+        <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">
           No cloud usage recorded for this period.
         </p>
       </section>
     );
   }
   return (
-    <figure className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-label={`${title}, grouped by ${groupBy} in UTC`}>
+    <figure className={`aero-panel ${nested ? "aero-fill" : ""} p-3`} aria-label={`${title}, grouped by ${groupBy} in UTC`}>
       <figcaption className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">{title}</h3>
@@ -68,7 +68,7 @@ export default function SpendingTimeline({ data = [], groupBy = 'day', title = '
           <span><span className="mr-1 inline-block size-2.5 rounded-sm bg-[#34b27b]" />Provider-reported</span>
         </div>
       </figcaption>
-      <div className="h-56 w-full" role="img" aria-label={`Spending chart. ${hasPriced ? 'Priced spend is shown.' : 'No turn in this period has price evidence.'}`}>
+      <div className="aero-flat h-56 w-full p-2" role="img" aria-label={`Spending chart. ${hasPriced ? 'Priced spend is shown.' : 'No turn in this period has price evidence.'}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="18%">
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />

@@ -54,7 +54,7 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px solid var(--aero-line);
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--aero-radius-panel);
-	background: var(--aero-gloss-panel), var(--aero-glass);
+	background: var(--aero-panel-gloss, var(--aero-gloss-panel)), var(--aero-panel-fill, var(--aero-glass));
 	-webkit-backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
 	backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
 	box-shadow: var(--aero-bevel-panel);
@@ -130,8 +130,8 @@ html[data-bg-image="true"] .aero-stage {
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 35%, transparent),
-		0 2px 4px color-mix(in srgb, #000000 42%, transparent),
-		0 10px 20px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+		0 1px 3px color-mix(in srgb, #000000 30%, transparent),
+		0 6px 14px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 	color: var(--on-accent);
 	transition:
 		transform var(--aero-dur-control) var(--aero-ease),
@@ -216,7 +216,7 @@ html[data-bg-image="true"] .aero-stage {
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 40%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 28%, transparent),
 		0 0 16px -3px color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
@@ -258,13 +258,6 @@ html[data-bg-image="true"] .aero-stage {
 }
 .aero-dialog::backdrop {
 	background: color-mix(in srgb, #000000 55%, transparent);
-	-webkit-backdrop-filter: blur(6px) saturate(120%);
-	backdrop-filter: blur(6px) saturate(120%);
-}
-/* Existing perf guard: animated backgrounds must not pay for a per-frame blur. */
-html[data-bg-animated="true"] .aero-dialog::backdrop {
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
 }
 
 /* L4 — popover, menu, dropdown, toast. */
@@ -278,8 +271,8 @@ html[data-bg-animated="true"] .aero-dialog::backdrop {
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
-		0 2px 6px color-mix(in srgb, #000000 45%, transparent),
-		0 22px 48px -16px color-mix(in srgb, #000000 70%, transparent);
+		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 14px 32px -14px color-mix(in srgb, #000000 48%, transparent);
 }
 
 /* L4 — tooltip. No gloss: it is text and must stay crisp. */
@@ -539,7 +532,7 @@ html[data-bg-animated="true"]
 /* A nested utility keeps its own bevel/shape but never stacks backdrop blur.
    Portaled menus remain outside the ancestor and retain their L4 material. */
 :is(.aero-panel, .aero-dialog, .aero-popover, .aero-well)
-	:is(.aero-control, .aero-well, .aero-orb, .aero-empty) {
+	:is(.aero-panel, .aero-control, .aero-well, .aero-orb, .aero-empty) {
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
 }
@@ -584,7 +577,6 @@ input:disabled + .aero-checkbox {
 }
 .aero-list-item[aria-selected="true"] {
 	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-	box-shadow: inset 3px 0 0 var(--accent);
 }
 .aero-list-item:hover,
 .aero-list-item:focus-visible {
@@ -592,7 +584,6 @@ input:disabled + .aero-checkbox {
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 var(--aero-shade);
-	/* inset 3px 0 0 var(--accent); */
 	color: var(--text-primary);
 }
 .aero-list-item:focus-visible {
@@ -601,9 +592,7 @@ input:disabled + .aero-checkbox {
 }
 .aero-list-item:active {
 	background: var(--aero-gloss-pressed), color-mix(in srgb, var(--accent) 28%, var(--surface));
-	box-shadow:
-		var(--aero-bevel-pressed),
-		inset 3px 0 0 var(--accent);
+	box-shadow: var(--aero-bevel-pressed);
 }
 .aero-list-item:disabled {
 	pointer-events: none;
@@ -720,11 +709,10 @@ input:disabled + .aero-checkbox {
 /* Current model/provider rows remain identifiable between hover states. */
 .aero-list-item[aria-current="true"] {
 	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-	box-shadow: inset 3px 0 0 var(--accent);
 }
 .aero-list-item[aria-current="true"]:hover {
 	background: var(--aero-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
-	box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
 }
 /* Menus/tooltips must stay in a native dialog's top-layer subtree. The
    dialog already supplies blur, so these portal surfaces only need their fill. */
@@ -740,4 +728,53 @@ input:disabled + .aero-checkbox {
 }
 @media (forced-colors: active) {
 	.aero-footer { border-color: ButtonBorder; background: Canvas; box-shadow: none; }
+}
+
+/* Warning metrics keep their semantic boundary above the shared panel rim. */
+.aero-panel[data-tone="warn"] { border-color: var(--warning); }
+
+/* Modal navigation is chrome: lighting without another backdrop filter. */
+.aero-navigation {
+	background: var(--aero-gloss-panel), var(--surface);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+
+/* Dense sidebar chrome needs separation from its opaque frame. Keep the
+   material translucent, but do not let the frame tint dominate the cards. */
+html:not([data-appearance="flat"]) .sidebar-frame {
+	--aero-panel-fill: color-mix(in srgb, var(--surface) 94%, transparent);
+	--aero-panel-gloss: linear-gradient(
+		180deg,
+		color-mix(in srgb, #ffffff 12%, transparent) 0%,
+		color-mix(in srgb, #ffffff 3%, transparent) 38%,
+		transparent 40%,
+		color-mix(in srgb, #000000 2%, transparent) 100%
+	);
+}
+
+/* Reading-first chat materials: opaque fills, shallow edges, no blur. */
+.aero-chat-user {
+	border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--user-bubble));
+	background: linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent 28%), var(--user-bubble);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 1px 2px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+.aero-chat-composer {
+	border: 1px solid var(--border);
+	border-radius: var(--aero-radius-well);
+	background: linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 24%), var(--surface-raised);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 2px 6px color-mix(in srgb, var(--shadow) 35%, transparent);
+}
+.aero-chat-composer:is(:focus-within, [data-dragging="true"]) { border-color: var(--accent); }
+[data-chat-mode="workspace"] .aero-chat-composer {
+	background: var(--surface-raised);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 1px 3px color-mix(in srgb, var(--shadow) 24%, transparent);
+}
+.aero-chat-detail {
+	border: 1px solid var(--subtle-border);
+	background: var(--surface);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+.aero-chat-tool[data-expanded="true"] {
+	background: var(--surface);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }

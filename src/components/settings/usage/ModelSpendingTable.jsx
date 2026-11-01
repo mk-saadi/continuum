@@ -52,7 +52,7 @@ export default function ModelSpendingTable({ models = [], selectedKey = null, on
   };
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]" aria-labelledby="usage-model-table-title">
+    <section className="aero-panel p-3" aria-labelledby="usage-model-table-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 id="usage-model-table-title" className="text-xs font-semibold">Spending by model</h3>
@@ -68,11 +68,11 @@ export default function ModelSpendingTable({ models = [], selectedKey = null, on
         />
       </div>
       {models.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No model usage recorded for this selection.</p>
+        <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">No model usage recorded for this selection.</p>
       ) : sorted.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-[11px] text-[var(--text-muted)]">No model matches “{search}”.</p>
+        <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">No model matches “{search}”.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
+        <div className="aero-flat mt-3 overflow-x-auto p-2">
           <table className="w-full min-w-[820px] text-left text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
