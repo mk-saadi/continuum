@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
       window.api = { fetchCloudModels: async () => ({ models: [] }), getCapabilityOverrides: async () => window.savedOverrides, saveCapabilityOverrides: async (target, overrides) => { window.savedOverrides = { ...window.savedOverrides, ...overrides }; return { ...window.savedOverrides }; }, getCloudModelMetadata: async () => [], getModelLoadConfig: async () => ({ config: {}, remembered: false }), launchEngine: async () => ({ success: true }) };
       window.terminalAPI = { kill: async () => ({ success: true }) };
       const root = createRoot(document.getElementById('root'));
-      root.render(<ModelSelectorModal models={models} cloudProviders={[]} loadedLocalModel={{modelPath: models[0].id, name: models[0].generalName, capabilities: { image: false, audio: false }}} activeChatProvider={{type: 'local'}} selectedModel={models[0].id} engineRunning onSelectProvider={() => {}} onSelectModel={() => {}} onClose={() => {}} onScan={() => {}} onLoaded={() => {}} />);
+      root.render(<ModelSelectorModal models={models} cloudProviders={[]} engines={[{modelPath: models[0].id, modelName: models[0].generalName, isLoaded: true, capabilities: { image: false, audio: false }}]} activeChatProvider={{type: 'local'}} selectedModel={models[0].id} engineRunning onSelectProvider={() => {}} onSelectModel={() => {}} onClose={() => {}} onScan={() => {}} onLoaded={() => {}} />);
     `, loader: 'jsx', resolveDir: process.cwd() }, bundle: true, outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' } });
     const assets = path.join(__dirname, '../dist/assets');
     const css = (await fs.readdir(assets)).find(name => name.endsWith('.css'));

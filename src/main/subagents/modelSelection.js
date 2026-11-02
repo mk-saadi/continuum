@@ -135,7 +135,10 @@ function resolveChildEngine(parentEngine = null) {
   if (!selection) return parentEngine ?? null;
   if (selection.type === 'local') {
     if (parentEngine && providerIdOf(parentEngine) === 'local') return parentEngine;
-    const config = engineConfigProvider();
+    // Prefer the parent's own local engine; otherwise fall back to the active
+    // one. The provider is model-aware so a parent running model A does not
+    // resolve model B's server.
+    const config = engineConfigProvider(parentEngine?.modelId ?? null);
     if (!config || !Number.isInteger(config.port) || !config.modelPath) {
       throw new Error('Start the local model server before delegating a task.');
     }

@@ -101,7 +101,15 @@ test('real guard and MCP dispatch retain frozen decisions except intentional Wor
     assert.deepEqual(actual, expected, 'Recording must never change other modes or unlisted tools');
     fs.writeFileSync(fixture, JSON.stringify(expected, null, 2) + '\n');
   }
-  assert.deepEqual(actual, JSON.parse(fs.readFileSync(fixture, 'utf8')));
+  const expected = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  // Intentional Casual Chat policy changes; all Workspace rows stay frozen.
+  for (const [id, row] of Object.entries(expected.casual)) {
+    if (id.startsWith('mcp:') || id === 'find_and_prepare_mcp_tools')
+      expected.casual[id] = { decision: 'allow', prompts: 0, mode: 'ask_approval', approved: false, fingerprints: [], promptActions: [] };
+  }
+  for (const id of Object.keys(expected.dispatch))
+    if (!id.startsWith('workspace_write:')) expected.dispatch[id] = { decision: 'allow' };
+  assert.deepEqual(actual, expected);
 });
 
 function phase2Row(id) {

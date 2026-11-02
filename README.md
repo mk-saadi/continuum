@@ -8,6 +8,28 @@ Continuum is a local-first desktop AI assistant combining local GGUF models, clo
 
 Conversations, memories, settings, and usage records are stored locally in SQLite. Local inference runs on your machine; cloud requests send their contents to the selected provider. External tools, web access, and model-asset downloads can also use the network.
 
+
+## 🖼️ A Desktop Experience, Your Way
+
+Continuum brings personality back to desktop AI with an expressive, customizable interface inspired by classic Aero Glass design.
+
+### ✨ Flat vs. Aero Glass
+
+Switch between lightweight flat surfaces and glossy, layered Aero Glass effects.
+
+![Continuum — Flat vs Aero Glass](docs/images/aero-flat.png)
+
+### 🎨 Make It Yours
+
+Explore a collection of light and dark themes, each with its own colors, surfaces, and personality.
+
+![Continuum — Six Theme Showcase](docs/images/theme-showcase.png)
+
+Customize your experience with theme palettes, background images, and optional glass effects.
+
+---
+
+
 ## Features
 
 ### Local & Cloud Models

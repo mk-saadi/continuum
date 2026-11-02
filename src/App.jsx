@@ -16,7 +16,6 @@ import { CompressionEventsProvider } from "./context/CompressionEventsContext.js
 import { UIStateProvider, useModalActions, useModalState, useTheme } from "./context/UIStateContext.jsx";
 import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
-import { LuTriangleAlert, LuX } from "react-icons/lu";
 
 // Global modal visibility lives in UIStateContext, so this subscriber is the
 // only thing that re-renders when a modal opens or closes — AppContent, the tab
@@ -24,7 +23,7 @@ import { LuTriangleAlert, LuX } from "react-icons/lu";
 function GlobalModals({
 	models,
 	selectedModel,
-	loadedLocalModel,
+	engines,
 	cloudProviders,
 	activeChatProvider,
 	onSelectProvider,
@@ -34,6 +33,7 @@ function GlobalModals({
 	engineRunning,
 	serverError,
 	onLoadedModel,
+	onUnloadModel,
 	onCreateProject,
 }) {
 	const actions = useModalActions();
@@ -44,7 +44,7 @@ function GlobalModals({
 				<ModelSelectorModal
 					models={models}
 					selectedModel={selectedModel}
-					loadedLocalModel={loadedLocalModel}
+					engines={engines}
 					cloudProviders={cloudProviders}
 					activeChatProvider={activeChatProvider}
 					onSelectProvider={onSelectProvider}
@@ -54,6 +54,7 @@ function GlobalModals({
 					engineRunning={engineRunning}
 					serverError={serverError}
 					onLoaded={onLoadedModel}
+					onUnloadModel={onUnloadModel}
 					onClose={actions.closeModelSelector}
 				/>
 			)}
@@ -137,8 +138,11 @@ function AppContent() {
 	useBackgroundSettings();
 	const [models, setModels] = useState([]);
 	const selectedModel = activeTab.modelId;
-	const [loadedLocalModel, setLoadedLocalModel] = useState(null);
-	const activeModelPath = loadedLocalModel?.modelPath ?? null;
+	// Every running local engine (one per loaded model). The pool is shared by
+	// all chat tabs; a tab routes to whichever engine matches its model.
+	const [engines, setEngines] = useState([]);
+	// The engine the UI last acted on, used when a tab falls back to "local".
+	const [activeModelPath, setActiveModelPath] = useState(null);
 	const activeChatProvider = activeTab.modelId?.startsWith("cloud:")
 		? {
 				type: "cloud",
@@ -167,15 +171,7 @@ function AppContent() {
 	}, []);
 	const [scanning, setScanning] = useState(false);
 	const scanInProgress = useRef(false);
-	const [contextStatus, setContextStatus] = useState("stopped");
-	const [engineRunning, setEngineRunning] = useState(false);
-	const [activeModelConfig, setActiveModelConfig] = useState(null);
-	const [enginePid, setEnginePid] = useState(null);
-	const [serverPort, setServerPort] = useState(null); // dynamic port reported by main/preload, null until known
 	const [serverError, setServerError] = useState(null); // last bridge-level error (spawn/bind failure, etc.)
-	// Set from the engine's own startup log when the model loads with fewer GPU
-	// layers than requested (e.g. another model is holding VRAM).
-	const [loadWarning, setLoadWarning] = useState(null);
 	// Stable array: rebuilt only when the underlying model/cloud lists change,
 	// so unrelated AppContent renders do not invalidate every TabPane.
 	// Cloud providers no longer store a single model. A provider's legacy saved
@@ -234,59 +230,34 @@ function AppContent() {
 		window.addEventListener("model-directory-changed", handleScanClick);
 		return () => window.removeEventListener("model-directory-changed", handleScanClick);
 	}, [handleScanClick]);
-	// Listen for engine status changes from main process. `status` now
-	// carries the dynamically bound `port` alongside `running`/`pid` — this
-	// is the only place `serverPort` is written, so it always reflects
-	// whatever the backend actually bound, not what the launch command
-	// happened to ask for.
+	// Listen for engine status changes from the main process. Status now
+	// carries the full `engines` pool (one entry per loaded model); this is the
+	// only place the pool is written, so its ports always reflect what the
+	// backend actually bound.
 	useEffect(() => {
-		const { terminalAPI, engineAPI, electronAPI } = window;
+		const { terminalAPI, electronAPI } = window;
 		if (!terminalAPI) return;
-		// Refresh the authoritative port and applied load settings on engine startup.
 		let statusVersion = 0;
 		let disposed = false;
-		const refreshConfig = async (version) => {
-			if (!engineAPI) return;
-			try {
-				const cfg = await engineAPI.getConfig();
-				if (disposed || version !== statusVersion) return;
-				setActiveModelConfig(cfg?.activeModelConfig ?? null);
-				setServerPort(cfg?.port ?? null);
-			} catch (err) {
-				console.error("Failed to read engine config:", err);
-			}
-		};
-		const applyStatus = ({
-			running,
-			pid,
-			activeModelConfig: config,
-			contextStatus: status,
-			modelPath,
-			modelName,
-            capabilities,
-			offloadWarning,
-		}) => {
+		const applyStatus = (payload) => {
 			if (disposed) return;
-			const version = ++statusVersion;
-			setActiveModelConfig(running ? (config ?? null) : null);
-			setEngineRunning(running);
-			setLoadWarning(running ? (offloadWarning ?? null) : null);
-			setLoadedLocalModel(running && modelPath ? { modelPath, name: modelName || modelPath, capabilities } : null);
-			if (running && modelPath) {
+			statusVersion++;
+			const list = Array.isArray(payload?.engines)
+				? payload.engines
+				: payload?.modelPath
+					? [payload]
+					: [];
+			setEngines(list);
+			const activePath = payload?.modelPath ?? list.at(-1)?.modelPath ?? null;
+			setActiveModelPath(activePath);
+			if (payload?.modelPath) {
 				try {
-					localStorage.setItem("lastSelectedModelPath", modelPath);
+					localStorage.setItem("lastSelectedModelPath", payload.modelPath);
 				} catch {
 					/* Selection still works without storage. */
 				}
 			}
-			setContextStatus(running ? status || "loading" : "stopped");
-			setEnginePid(pid ?? null);
-			if (running) {
-				setServerError(null);
-				refreshConfig(version);
-			} else {
-				setServerPort(null);
-			}
+			if (list.length) setServerError(null);
 		};
 		const cleanupStatus = terminalAPI.onStatus(applyStatus);
 		// Initial status check
@@ -316,15 +287,16 @@ function AppContent() {
 	// Bound to the active tab. Kept stable per active tab so the model selector
 	// consumer is not invalidated by unrelated shell renders.
 	const setSelectedModel = useCallback((modelId) => updateTab(activeTabId, { modelId }), [updateTab, activeTabId]);
+	const defaultLocalModel = activeModelPath ?? engines[0]?.modelPath ?? selectedModel;
 	const setActiveChatProvider = useCallback(
 		(provider) =>
 			updateTab(activeTabId, {
 				modelId:
 					provider.type === "cloud"
 						? `cloud:${provider.provider}:${provider.model}`
-						: activeModelPath || selectedModel,
+						: defaultLocalModel,
 			}),
-		[updateTab, activeTabId, activeModelPath, selectedModel],
+		[updateTab, activeTabId, defaultLocalModel],
 	);
 	const onLoadedModel = useCallback(
 		(result) => {
@@ -340,6 +312,14 @@ function AppContent() {
 		},
 		[setSelectedModel],
 	);
+	// Unload one engine without touching the others in the pool.
+	const onUnloadModel = useCallback(async (modelPath) => {
+		try {
+			await window.api.unloadEngine(modelPath);
+		} catch (error) {
+			setServerError(error.message);
+		}
+	}, []);
 	const handleCreateProject = useCallback(
 		async (fields) => {
 			const project = await window.api.createProject(fields);
@@ -355,16 +335,17 @@ function AppContent() {
 			<GlobalModals
 				models={models}
 				selectedModel={selectedModel}
-				loadedLocalModel={loadedLocalModel}
+				engines={engines}
 				cloudProviders={cloudProviders}
 				activeChatProvider={activeChatProvider}
 				onSelectProvider={setActiveChatProvider}
 				onSelectModel={setSelectedModel}
 				scanning={scanning}
 				onScan={handleScanClick}
-				engineRunning={engineRunning}
+				engineRunning={engines.length > 0}
 				serverError={serverError}
 				onLoadedModel={onLoadedModel}
+				onUnloadModel={onUnloadModel}
 				onCreateProject={handleCreateProject}
 			/>
 			{tabs.map((tab) => (
@@ -382,37 +363,11 @@ function AppContent() {
 					models={chatModels}
 					localModels={models}
 					onCreateProject={modalActions.openProjectModal}
-					engineRunning={engineRunning}
-					loadedLocalModel={loadedLocalModel}
-					contextStatus={contextStatus}
-					activeModelConfig={activeModelConfig}
-					serverPort={serverPort}
+					engines={engines}
 					serverError={serverError}
-					loadWarning={loadWarning}
 					markTabSaved={markTabSaved}
 				/>
 			))}
-			{loadWarning && engineRunning && (
-				<div
-					role="alert"
-					className="fixed bottom-4 left-4 z-40 flex max-w-md items-start gap-2 rounded-lg border border-[var(--accent)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-primary)] shadow-lg"
-				>
-					<LuTriangleAlert
-						size={15}
-						className="mt-0.5 shrink-0 text-[var(--accent)]"
-						aria-hidden="true"
-					/>
-					<span className="min-w-0">{loadWarning}</span>
-					<button
-						type="button"
-						aria-label="Dismiss GPU offload warning"
-						onClick={() => setLoadWarning(null)}
-						className="ml-1 grid size-5 shrink-0 cursor-pointer place-items-center rounded text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-					>
-						<LuX size={13} />
-					</button>
-				</div>
-			)}
 		</div>
 	);
 }
@@ -435,13 +390,8 @@ const TabPane = memo(function TabPane({
 	models,
 	localModels,
 	onCreateProject,
-	engineRunning,
-	loadedLocalModel,
-	contextStatus,
-	activeModelConfig,
-	serverPort,
+	engines,
 	serverError,
-	loadWarning,
 	markTabSaved,
 }) {
 	const update = useCallback((patch) => updateTab(tab.id, patch), [updateTab, tab.id]);
@@ -458,7 +408,15 @@ const TabPane = memo(function TabPane({
 				: { type: "local" },
 		[isCloud, tab.modelId],
 	);
-	const localReady = engineRunning && loadedLocalModel?.modelPath === tab.modelId;
+	// This tab routes to its own engine in the shared pool (if loaded).
+	const tabEngine = isCloud
+		? null
+		: engines.find((engine) => engine.modelPath === tab.modelId) ?? null;
+	const localReady = !!tabEngine?.isLoaded;
+	const contextStatus = tabEngine?.contextStatus ?? "stopped";
+	const activeModelConfig = tabEngine?.activeModelConfig ?? null;
+	const serverPort = tabEngine?.port ?? null;
+	const loadWarning = tabEngine?.offloadWarning ?? null;
 	const palace = useMemoryPalace(
 		tab.modelId,
 		localReady ? activeModelConfig : null,
@@ -486,7 +444,7 @@ const TabPane = memo(function TabPane({
 						? models.find((model) => model.id === tab.modelId)?.name ||
 							`${parts[1]} / ${parts.slice(2).join(":")}`
 						: localReady
-							? loadedLocalModel?.name || tab.modelId
+							? tabEngine?.modelName || tab.modelId
 							: models.find((model) => model.id === tab.modelId)?.name || tab.modelId
 				}
 				engineRunning={localReady}
@@ -498,7 +456,7 @@ const TabPane = memo(function TabPane({
 				palace={palace}
 				avatars={avatars}
 				models={localModels}
-				engineRunning={engineRunning}
+				engineRunning={engines.length > 0}
 				serverPort={serverPort}
 				serverError={serverError}
 			/>

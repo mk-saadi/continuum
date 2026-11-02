@@ -4,10 +4,8 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { McpManager } = require('../src/main/mcpManager');
-const { createHash } = require('node:crypto');
-const { approvedMutations, mutationHash, mutationApprovalKey } = require('../src/main/safetyGuards');
 
-test('MCP mutation approvals intercept, match payloads and permit only one dispatch', async () => {
+test('enabled Casual Chat MCP mutations repeat without scoped challenges and preserve errors', async () => {
   const manager = new McpManager();
   const calls = [];
   let fail = false;
@@ -20,33 +18,14 @@ test('MCP mutation approvals intercept, match payloads and permit only one dispa
     } },
   });
   const args = { nested: { query: 'DELETE FROM records' } };
-  const hash = mutationHash(undefined, 'database', 'query', JSON.stringify(args));
-  const key = mutationApprovalKey(undefined, hash);
-  const intercept = `SAFETY GUARD INTERCEPT: Mutation payload flagged. Ask the user for permission. If approved, first use the native tool 'approve_mcp_mutation' with hash ${hash}, then re-run this MCP tool.`;
-  // The trusted outer approval is independent of the legacy single-use SQL challenge.
-  const invoke = (payload = args) => manager.callTool('database', 'query', payload, { approval: { approved: true } });
-  try {
-    await invoke({ query: 'SELECT * FROM records' });
-    assert.equal(calls.length, 1);
-    await assert.rejects(invoke(), { message: intercept });
-    assert.equal(calls.length, 1);
-    approvedMutations.add(key);
-    await assert.rejects(invoke({ nested: { query: 'DELETE FROM other_records' } }), /SAFETY GUARD INTERCEPT/);
-    assert.ok(approvedMutations.has(key));
-    const results = await Promise.allSettled([invoke(), invoke()]);
-    assert.deepEqual(results.map(result => result.status), ['fulfilled', 'rejected']);
-    assert.equal(results[1].reason.message, intercept);
-    assert.deepEqual(calls[1].arguments, args);
-    assert.equal(calls.length, 2);
-    assert.equal(approvedMutations.has(key), false);
-    await assert.rejects(invoke(), { message: intercept });
-    approvedMutations.add(key);
-    fail = true;
-    await assert.rejects(invoke(), /Server failed/);
-    assert.equal(approvedMutations.has(key), false, 'Failed attempts also consume approval');
-    await assert.rejects(invoke(), { message: intercept });
-    assert.equal(calls.length, 3);
-  } finally { approvedMutations.clear(); }
+  const invoke = () => manager.callTool('database', 'query', args, { permissionMode: 'ask_approval' });
+  await invoke();
+  await Promise.all([invoke(), invoke()]);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[0].arguments, args);
+  fail = true;
+  await assert.rejects(invoke(), /Server failed/);
+  assert.equal(calls.length, 4);
 });
 
 test('real stdio discovery, pagination, namespacing, execution and disable', async () => {

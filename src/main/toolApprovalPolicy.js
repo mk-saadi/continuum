@@ -119,6 +119,8 @@ function capabilityDecision({ capability, mode, hasWorkspace, native }) {
 		return { decision: 'deny', reason: 'Execution blocked: Task plans require a project workspace.' };
 	}
 
+	if (!hasWorkspace && native === false) return { decision: 'allow' };
+
 	// Full Access authorizes host execution as well as ordinary tools.
 	// A plan, however, has no meaning without a Workspace session to own it; a
 	// casual chat stays casual even in full access. File deletion is likewise
@@ -257,6 +259,14 @@ function rawDecision(input) {
   const ask = (reason, route) => ({ decision: 'ask', reason, ...(route ? { route } : {}) });
   const block = reason => ({ decision: 'block', reason });
 
+  if (native && input.trustedMcpActivation === true) return allow('immediate');
+  if (native === false && input.trustedNativePlaywright === true) return allow('immediate');
+
+  // Availability and user enablement are enforced by McpManager before dispatch.
+  if (native === false && !workspaceRoot && !input.workspaceMcp && mode !== 'workspace_write') return allow('immediate');
+  if (native && !workspaceRoot && (tool === 'find_and_prepare_mcp_tools' ||
+      (tool === 'manage_mcp_servers' && ['search', 'inspect', 'activate'].includes(args.action)))) return allow('immediate');
+
   if (stage === 'mcp_dispatch') {
     // Order and mode/session exceptions match the independent dispatch backstop.
     if (['workspace_write', 'ask_approval'].includes(mode) && tool === 'delete_project_file' && !approved)
@@ -352,6 +362,8 @@ function rawDecision(input) {
 // whitelist deliberately excludes ambiguous shell syntax, flags and paths.
 function rememberDetails(input) {
   const { tool, args = {}, workspaceRoot, native = true } = input;
+  if (native && isCommand(tool) && !workspaceRoot && input.mode === 'ask_approval')
+    return { rememberKey: JSON.stringify(['native-casual-terminal', tool]), rememberLabel: tool, casualTerminal: true };
   if (input.mode !== 'workspace_write' || !workspaceRoot ||
       input.containment?.blocked || input.uncontained) return null;
   if (native && isCommand(tool)) {

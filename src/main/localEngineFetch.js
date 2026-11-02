@@ -19,8 +19,10 @@ function setLocalCapabilityProvider(provider) {
   require('./contextBudget').setContextRuntimeProvider(provider);
 }
 const localEngineFetch = createContextGuardedFetch(createMediaGuardedFetch(rawFetch, endpoint => {
-  const engine = capabilityProvider();
-  if (!engine?.modelPath || Number(endpoint.port) !== engine.port) return {};
+  // The provider resolves the engine by port so several engines can serve
+  // different models at once; an unknown port yields no overrides.
+  const engine = capabilityProvider(Number(endpoint.port));
+  if (!engine?.modelPath) return {};
   return require('./capabilityOverrides').getOverrides({ type: 'local', modelId: engine.modelPath });
 }));
 

@@ -145,6 +145,7 @@ contextBridge.exposeInMainWorld('api', {
   saveMcpConfig: config => ipcRenderer.invoke('mcp:save-config', config),
   getModelLoadConfig: (modelId) => ipcRenderer.invoke('engine:get-load-config', { modelId }),
   launchEngine: (modelId, config) => ipcRenderer.invoke('engine:launch', { modelId, config }),
+  unloadEngine: (modelId) => ipcRenderer.invoke('engine:unload', { modelId }),
   getAttachmentPolicy: target => ipcRenderer.invoke('file:attachment-policy', target),
   processUploads: (files, target) => {
     const paths = Array.from(files, (file) => {

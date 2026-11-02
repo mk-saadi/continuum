@@ -166,7 +166,8 @@ function inside(root, target) {
  * policy table as guardTool so what the model sees always matches what it can
  * execute.
  */
-function isToolVisible(name, { permissionMode, project, native = true } = {}) {
+function isToolVisible(name, { permissionMode, project, native = true, trustedNativePlaywright = false } = {}) {
+	if (!native && trustedNativePlaywright) return true;
 	if (native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(name)) return true; // Search is read-only; mutation actions are guarded separately.
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
@@ -260,7 +261,7 @@ function requestToolApproval({ controller, sender, requestId, sessionId, name, a
     const contexts = require('./lspExecutionContext');
     const revision = contexts.revision(sessionId);
     const projectId = require('./db').isInitialized?.() ? sessionProject(sessionId)?.id : null;
-    const rememberable = Boolean(policy?.rememberable && projectId && sessionId);
+    const rememberable = Boolean(policy?.rememberable && (projectId || policy.casualTerminal) && sessionId);
     const approvalId = require('node:crypto').randomUUID();
     let untrack = () => {};
     const finish = choice => {
@@ -285,7 +286,7 @@ function requestToolApproval({ controller, sender, requestId, sessionId, name, a
     controller.signal.addEventListener('abort', stop, { once: true });
     if (controller.signal.aborted || sender.isDestroyed()) return stop();
     sender.send('engine:request-tool-approval', { requestId, sessionId, approvalId, name, args,
-      rememberable, ...(rememberable ? { rememberLabel: policy.rememberLabel } : {}) });
+      casualTerminal: Boolean(policy?.casualTerminal), rememberable, ...(rememberable ? { rememberLabel: policy.rememberLabel } : {}) });
   });
 }
 
@@ -338,11 +339,14 @@ async function requestApproval(kind, name, args, requestApprovalHandler, signal,
 // not remove workspace containment. guardTool issues a single-use capability.
 // ---------------------------------------------------------------------------
 
-async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName, annotations, serverTrusted = false, sessionId }) {
+async function evaluateTool({ name, args = {}, permissionMode, project, requestApproval: approvalHandlerFn, signal, native = true, serverName, annotations, serverTrusted = false, trustedNativePlaywright = false, sessionId }) {
 	const root = projectRoot(project);
 	const mode = normalizeMode(resolveMode(permissionMode, project), root);
 	signal?.throwIfAborted();
-	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted, remembered: require('./rememberedToolRules').list(project?.id, sessionId) };
+	const policyInput = { tool: name, args, mode, workspaceRoot: root, native, serverName, annotations, serverTrusted, trustedNativePlaywright, remembered: require('./rememberedToolRules').list(project?.id, sessionId) };
+	if (native && name === 'manage_mcp_servers' && ['inspect', 'activate'].includes(args.action) &&
+        Array.isArray(args.server_names) && args.server_names.length === 1)
+        policyInput.trustedMcpActivation = require('./mcpManager').getApprovalFacts(args.server_names[0]).trustedNativePlaywright === true;
 	if (name === 'generate_image' && native && mode === 'workspace_write' && root && require('./db').isInitialized?.()) {
 		const provider = require('./cloudProviders').getActiveMediaModel('image');
 		if (provider) { policyInput.imageProviderKey = require('./rememberedToolRules').providerKey(provider); policyInput.imageProviderLabel = provider.name; }
@@ -383,11 +387,12 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
 			: 'Runs in a sandbox: it can read and write only inside this project, has no network access, and cannot see your home folder or app data.' }, approvalHandlerFn, signal, policy);
 		return { mode, approved: policy.decision === 'ask' || Boolean(policy.savedRule), commandUncontained: uncontained, savedRule: policy.savedRule,
-			...(policy.decision === 'allow' ? { executionProfile: 'bwrap_workspace' } : {}) };
+			...(!uncontained && policy.decision === 'allow' ? { executionProfile: 'bwrap_workspace' } : {}) };
 	}
 	if (policy.route === 'full_access') return { mode, approved: true };
 	if (policy.route === 'immediate') return { mode, approved: policy.decision === 'ask'
-		? await requestApproval('tool', name, args, approvalHandlerFn, signal, policy) : Boolean(policy.savedRule), savedRule: policy.savedRule };
+		? await requestApproval('tool', name, args, approvalHandlerFn, signal, policy) : Boolean(policy.savedRule), savedRule: policy.savedRule,
+        ...(policyInput.trustedMcpActivation ? { trustedMcpActivation: true } : {}) };
 	if (policy.route === 'git_sync') {
 		if (!root) throw new Error('Git tools require a project workspace.');
 		if (!['fetch', 'pull', 'push'].includes(args.action)) throw new Error('action must be one of "fetch", "pull", or "push".');
@@ -569,6 +574,7 @@ module.exports = {
 	isSystemAffecting,
 	sessionProject,
 	workspacePath,
+	projectRoot,
 	guardTool,
 	requestToolApproval,
 };

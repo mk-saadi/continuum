@@ -5,6 +5,8 @@ import SubagentBudgetSettings from "../SubagentBudgetSettings";
 import { SettingsCard, SettingsMessage } from "./SettingsSection";
 import { LuBot, LuShieldCheck } from "react-icons/lu";
 
+import RememberedToolApprovals from "./RememberedToolApprovals";
+
 const limits = [
 	{
 		key: "maxConsecutiveToolFailures",
@@ -54,6 +56,7 @@ export default function GeneralSettingsTab() {
 
 	return (
 		<>
+            <RememberedToolApprovals />
 			<SettingsCard
 				icon={LuBot}
 				title="Sub-agent model"

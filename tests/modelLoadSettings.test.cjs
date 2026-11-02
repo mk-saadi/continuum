@@ -36,7 +36,7 @@ function writeGguf(file, kvs) {
 try {
   initDatabase();
 
-  // 1. Default config and default command line are unchanged.
+  // 1. Defaults include an explicit disabled host snapshot cache.
   const defaults = normalizeLoadConfig({});
   assert.deepEqual(defaults, DEFAULT_LOAD_CONFIG);
   assert.equal(defaults.loadMode, 'auto');
@@ -46,7 +46,19 @@ try {
   assert.deepEqual(buildLlamaServerArgs(model, { seed: 42 }, 12345), [
     '-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048',
     '-ub', '512', '-np', '1', '-fa', 'auto', '--cache-type-k', 'f16', '--cache-type-v', 'f16',
-    '--reasoning-format', 'auto', '-s', '42', '--port', '12345']);
+    '--cache-ram', '0', '--reasoning-format', 'auto', '-s', '42', '--port', '12345']);
+  assert.equal(defaults.promptCacheMiB, 0);
+  for (const promptCacheMiB of [0, 2048, 8192, 2147483647]) {
+    assert.equal(flagValue(buildLlamaServerArgs(model, { promptCacheMiB }, 8080), '--cache-ram'), String(promptCacheMiB));
+    saveLoadConfig('host-cache', { promptCacheMiB });
+    closeDatabase(); initDatabase();
+    assert.equal(getLoadConfig('host-cache').config.promptCacheMiB, promptCacheMiB);
+  }
+  for (const promptCacheMiB of [-1, 0.5, 2147483648, '2048', '', null, NaN, Infinity]) {
+    assert.throws(() => normalizeLoadConfig({ promptCacheMiB }), /Host prompt cache/);
+  }
+  forgetLoadConfig('host-cache');
+  assert.equal(getLoadConfig('host-cache').config.promptCacheMiB, 0);
   // Architecture metadata alone never adds an override.
   assert.equal(buildLlamaServerArgs(model, {}, 8080).includes('--override-kv'), false);
 
@@ -82,6 +94,7 @@ try {
   assert.equal(legacy.config.loadMode, 'auto');
   assert.equal(legacy.config.kvCacheOffload, 'gpu');
   assert.equal(legacy.config.moeExpertCount, null);
+  assert.equal(legacy.config.promptCacheMiB, 0);
   forgetLoadConfig('legacy-model');
 
   // 3./4. KV cache offload: GPU default omits the flag, CPU emits the supported disable flag.

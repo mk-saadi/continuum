@@ -360,7 +360,14 @@ function getToolContext(mcpTools = [], memoryEnabled = true, sessionId = null, p
 			function: { name, description, parameters: input_schema },
 		})),
 		...availableSessionTools,
-		...mcpTools.filter(tool => visible(tool.function?.name, false)),
+		...mcpTools.filter(tool => {
+            const manager = require('./mcpManager');
+            try {
+                const target = manager.resolveTool(tool.function?.name, sessionId);
+                return isToolVisible(tool.function?.name, { permissionMode: require('./lspExecutionContext').currentMode(sessionId, permissionMode),
+                    project, native: false, ...manager.getApprovalFacts(target.serverName, target.toolName) });
+            } catch { return visible(tool.function?.name, false); }
+        }),
 	].filter((tool) => memoryEnabled || !["search_memory", "save_memory"].includes(tool.function.name));
 	// The legacy file-delegation twin is shadowed whenever command execution
 	// is offered: the request path (engine:chat) already drops it then, so the

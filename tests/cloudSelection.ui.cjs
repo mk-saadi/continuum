@@ -40,7 +40,7 @@ app.whenReady().then(async () => {
       check(!document.querySelector('dialog[open]'), 'Cloud selection closes dialog');
       check(window.fixtureState.target.type === 'cloud', 'Cloud selected');
       check(window.fixtureState.target.model === 'gpt-test', 'Chosen cloud model selected');
-      check(window.fixtureState.loaded.id === '/first.gguf', 'Local stays in VRAM');
+      check(window.fixtureState.engines.some(engine => engine.modelPath === '/first.gguf'), 'Local stays in VRAM');
       check(!window.calls.loads.length && !window.calls.kills, 'No engine operations for cloud');
       document.querySelector('#open').click(); await tick();
       button('First local').click(); await tick();
@@ -55,8 +55,8 @@ app.whenReady().then(async () => {
       await chooseModel('OpenAI', 'gpt-other');
       check(window.fixtureState.target.model === 'gpt-other', 'Another model from the same provider is selectable');
       document.querySelector('#open').click(); await tick();
-      button('Unload').click(); await tick();
-      check(!window.fixtureState.loaded && window.fixtureState.target.type === 'cloud', 'Unload keeps cloud active');
+      document.querySelector('footer [aria-label^="Unload"]').click(); await tick();
+      check(!window.fixtureState.engines.some(engine => engine.modelPath === '/first.gguf') && window.fixtureState.target.type === 'cloud', 'Unload removes one engine and keeps cloud active');
       document.querySelector('[aria-label="Close model selector"]').click(); await tick();
       const form = [...document.querySelectorAll('form')].find(form => form.textContent.includes('OpenAI'));
       const key = form.querySelector('input[type=password]');

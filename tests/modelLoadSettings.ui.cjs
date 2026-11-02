@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
       const check = (value, message) => { if (!value) throw new Error(message); };
       const change = (element, value) => { element.value = value; element.dispatchEvent(new Event('change', { bubbles: true })); };
       const field = label => { const node = [...document.querySelectorAll('label')].find(node => node.textContent === label); return node?.parentElement.querySelector('select'); };
-      const numberField = label => { const node = [...document.querySelectorAll('label')].find(node => node.textContent === label); return node?.parentElement.querySelector('input[type=number]'); };
+      const numberField = label => { const node = [...document.querySelectorAll('label')].find(node => node.textContent.replaceAll('*', '').trim() === label); return node?.parentElement.querySelector('input[type=number]'); };
       const toggle = label => { const node = [...document.querySelectorAll('label')].find(node => node.textContent.includes(label)); return node?.querySelector('input'); };
       const setNumber = (element, value) => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, value);
@@ -56,16 +56,21 @@ app.whenReady().then(async () => {
         const dialogBounds = document.querySelector('dialog').getBoundingClientRect();
         const triggerBounds = trigger.getBoundingClientRect();
         check(bounds.bottom <= dialogBounds.bottom && bounds.right <= dialogBounds.right, 'Dropdown stays inside dialog bounds');
-        check(bounds.top < triggerBounds.top, 'Bottom dropdown opens upwards');
+        if (dialogBounds.bottom - triggerBounds.bottom - 14 < bounds.height)
+          check(bounds.top < triggerBounds.top, 'Dropdown opens upwards when there is insufficient space below');
         const last = menu.querySelector('button[role=option]:last-child');
         const lastBounds = last.getBoundingClientRect();
         check(lastBounds.bottom <= bounds.bottom, 'Last option is visible');
         check(document.elementFromPoint(lastBounds.x + lastBounds.width / 2, lastBounds.y + lastBounds.height / 2)?.closest('[role=option]') === last, 'Last option is not clipped or covered');
         const scroller = trigger.closest('fieldset').parentElement;
         const oldScroll = scroller.scrollTop;
-        const oldTop = menu.getBoundingClientRect().top;
         scroller.scrollTop -= 20; scroller.dispatchEvent(new Event('scroll')); await tick();
-        if (oldScroll !== scroller.scrollTop) check(Math.abs(menu.getBoundingClientRect().top - oldTop - (oldScroll - scroller.scrollTop)) < 2, 'Dropdown follows scrolling trigger: ' + JSON.stringify({oldScroll, scroll: scroller.scrollTop, oldTop, top: menu.getBoundingClientRect().top, trigger: trigger.getBoundingClientRect().top, height: menu.getBoundingClientRect().height, scrollHeight: menu.scrollHeight, style: menu.getAttribute("style")}));
+        if (oldScroll !== scroller.scrollTop) {
+          const movedMenu = menu.getBoundingClientRect();
+          const movedTrigger = trigger.getBoundingClientRect();
+          check(Math.abs(movedMenu.top - movedTrigger.bottom - 6) < 2 || Math.abs(movedTrigger.top - movedMenu.bottom - 6) < 2,
+            'Dropdown stays attached when scrolling, including when it flips direction');
+        }
         menu.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await tick();
         check(!document.querySelector('[role=listbox]'), 'Escape closes dropdown');
       }
@@ -73,6 +78,7 @@ app.whenReady().then(async () => {
       check(field('KV Cache Offload'), 'KV cache offload control exists');
       check(field('Load Mode'), 'Load mode control exists');
       check(numberField('MoE Expert Count'), 'MoE expert count control exists');
+      check(numberField('Host prompt cache (MiB)').value === '0', 'Host snapshots default to disabled');
       check(field('KV Cache Offload').value === 'gpu', 'KV offload defaults to GPU');
       check(field('Load Mode').value === 'auto', 'Load mode defaults to auto');
       check(numberField('MoE Expert Count').value === '', 'MoE expert count defaults to auto');
@@ -87,10 +93,12 @@ app.whenReady().then(async () => {
       change(field('KV Cache Offload'), 'cpu'); await tick();
       change(field('K-Cache Precision'), 'q8_0'); await tick();
       setNumber(numberField('MoE Expert Count'), '120'); await tick();
+      setNumber(numberField('Host prompt cache (MiB)'), '2048'); await tick();
       submit(); await tick();
       check(window.launched.loadMode === 'none', 'Load mode none reaches the launch payload');
       check(window.launched.kvCacheOffload === 'cpu', 'KV offload reaches the launch payload');
       check(window.launched.moeExpertCount === 120, 'MoE expert count reaches the launch payload');
+      check(window.launched.promptCacheMiB === 2048, 'Custom host cache budget reaches launch payload');
       check(window.launched.cacheTypeK === 'q8_0' && window.launched.cacheTypeV === 'f16', 'Explicit K/V precision is not overwritten');
       check(window.launched.mlock === false, 'mlock off for load mode none');
 
@@ -99,6 +107,17 @@ app.whenReady().then(async () => {
       check(field('Load Mode').value === 'none', 'Load mode persisted');
       check(field('KV Cache Offload').value === 'cpu', 'KV offload persisted');
       check(numberField('MoE Expert Count').value === '120', 'MoE expert count persisted');
+      check(numberField('Host prompt cache (MiB)').value === '2048', 'Custom cache budget restored');
+      for (const value of ['', '-1', '0.5', '2147483648']) {
+        setNumber(numberField('Host prompt cache (MiB)'), value); await tick();
+        window.launched = null; submit(); await tick();
+        check(!window.launched, 'Invalid host cache budget blocks launch: ' + value);
+      }
+      setNumber(numberField('Host prompt cache (MiB)'), '0'); await tick();
+      submit(); await tick();
+      check(window.launched.promptCacheMiB === 0, 'Zero explicitly disables host snapshots');
+      await remount();
+      check(numberField('Host prompt cache (MiB)').value === '0', 'Disabled snapshot choice restored');
       check(field('K-Cache Precision').value === 'q8_0', 'K precision persisted');
       check(field('V-Cache Precision').value === 'f16', 'V precision persisted');
 

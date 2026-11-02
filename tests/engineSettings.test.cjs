@@ -77,7 +77,7 @@ try {
   assert.throws(() => normalizeLoadConfig({ seed: 1.5 }), /Seed/);
   const model = { modelPath: '/models/a b;$(echo nope).gguf', isVision: true, mmprojPath: '/models/mmproj a.gguf' };
   const args = buildLlamaServerArgs(model, { seed: 42 }, 12345);
-  assert.deepEqual(args, ['-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048', '-ub', '512', '-np', '1', '-fa', 'auto', '--cache-type-k', 'f16', '--cache-type-v', 'f16', '--reasoning-format', 'auto', '-s', '42', '--port', '12345', '--mmproj', model.mmprojPath]);
+  assert.deepEqual(args, ['-m', model.modelPath, '--jinja', '-c', '8192', '-ngl', 'auto', '-t', '4', '-b', '2048', '-ub', '512', '-np', '1', '-fa', 'auto', '--cache-type-k', 'f16', '--cache-type-v', 'f16', '--cache-ram', '0', '--reasoning-format', 'auto', '-s', '42', '--port', '12345', '--mmproj', model.mmprojPath]);
   for (const loadMode of ['auto', 'none', 'mmap', 'mlock', 'mmap+mlock', 'dio']) {
     const result = buildLlamaServerArgs({ modelPath: 'test.gguf' }, { loadMode, gpuOffload: 0 }, 8080);
     assert.equal(result.includes('-lm'), false);

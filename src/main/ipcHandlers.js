@@ -119,6 +119,7 @@ function registerIpcHandlers({
 	getReasoningEfforts = () => [],
 	getLocalModelMetadata = () => null,
 	getEngineConfig,
+	getEngineForPort = () => null,
 } = {}) {
 	if (typeof isTrustedSender !== "function") {
 		throw new TypeError("isTrustedSender must be a function.");
@@ -128,7 +129,11 @@ function registerIpcHandlers({
 	// config (port + loaded model) when the configured child model is the local
 	// server. The app hands that accessor to this composition root, so the
 	// subagent runtime never reaches for Electron state on its own.
-	require("./subagents/modelSelection").setEngineConfigProvider(() => getEngineConfig?.() ?? null);
+	// The provider is model-aware: a child that follows a local parent resolves
+	// that parent's engine, not whichever engine happens to be active.
+	require("./subagents/modelSelection").setEngineConfigProvider(
+		(modelId) => getEngineConfig?.(modelId) ?? null,
+	);
 
 	const requests = new Map();
     let standaloneDelegation = false;
@@ -171,15 +176,15 @@ function registerIpcHandlers({
 		if (canceled || !filePaths?.length) return null;
 		return filePaths[0];
 	};
-	require('./localEngineFetch').setLocalCapabilityProvider?.(() => getEngineConfig?.());
+	require('./localEngineFetch').setLocalCapabilityProvider?.((port) => getEngineForPort?.(port) ?? null);
     const handlers = {
         "models:capability-overrides": () => require('./capabilityOverrides').readOverrides(),
         "models:save-capability-overrides": ({ target, overrides }) => require('./capabilityOverrides').saveOverrides(target, overrides),
         "engine:capabilities": async ({ modelId }) => {
-            const config = getEngineConfig?.();
+            const config = getEngineConfig?.(modelId);
             if (!config || config.modelPath !== modelId) throw new Error('Load the selected local model before verifying media support.');
             const capabilities = await require('./modelCapabilities').queryCapabilities(config.port);
-            const current = getEngineConfig?.();
+            const current = getEngineConfig?.(modelId);
             if (!current || current.port !== config.port || current.modelPath !== modelId) throw new Error('The loaded model changed during capability verification.');
             return capabilities;
         },
@@ -297,7 +302,7 @@ function registerIpcHandlers({
         // unsupported values come back as warnings, never as a coerced setting.
         "reasoning:capabilities": async ({ sessionId, modelId, activeChatProvider } = {}) => {
             const target = validateChatProvider(activeChatProvider);
-            const config = target.type === 'local' ? getEngineConfig?.() : null;
+            const config = target.type === 'local' ? getEngineConfig?.(modelId) : null;
             const resolution = await reasoningRuntime.resolveChatReasoning({
                 sessionId: sessionId ?? null,
                 modelId,
@@ -614,14 +619,14 @@ function registerIpcHandlers({
 				persistTimer = null;
 				persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status });
 			};
-            const finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
+            const finishEngineRequest = cloud ? undefined : beginEngineRequest?.(modelId);
 			try {
                 require('./nativeToolActivation').begin(sessionId, runId);
                 mcpManager.beginRun?.(sessionId, runId);
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
 				controller.signal.throwIfAborted();
-				const config = getEngineConfig?.();
+				const config = getEngineConfig?.(modelId);
 				if (!cloud && !config) throw new Error("Start the local model server first.");
                 if (!cloud && config.modelPath && config.modelPath !== modelId) throw new Error("The selected local model is no longer loaded.");
 				// What a delegated child inherits as its model: this chat's own
@@ -796,13 +801,13 @@ function registerIpcHandlers({
                             const measurement = cloud ? require('./promptMeasurement').createCloudWorkspaceMeasurer(target)
                                 : require('./contextBudget').createPromptMeasurer(require('./localEngineFetch').localEngineFetch);
                             const policyRevision = require('./lspExecutionContext').revision(sessionId);
-                            const runtime = getEngineConfig?.();
+                            const runtime = getEngineConfig?.(modelId);
                             const providerIdentity = cloud ? JSON.stringify(require('./cloudProviders').getStoredProvider(target.provider)) : null;
                             const isCurrent = () => (cloud ? JSON.stringify(require('./cloudProviders').getStoredProvider(target.provider)) === providerIdentity : (runtime?.modelPath === config.modelPath && runtime?.port === config.port &&
                                 runtime?.runtimeIdentity === config.runtimeIdentity &&
-                                JSON.stringify(getEngineConfig?.()?.activeModelConfig) === JSON.stringify(runtime?.activeModelConfig) && !controller.signal.aborted && activeStreams.get(streamKey) === controller &&
-                                getEngineConfig?.()?.runtimeIdentity === runtime?.runtimeIdentity &&
-                                getEngineConfig?.()?.modelPath === runtime?.modelPath && getEngineConfig?.()?.port === runtime?.port)) &&
+                                JSON.stringify(getEngineConfig?.(modelId)?.activeModelConfig) === JSON.stringify(runtime?.activeModelConfig) && !controller.signal.aborted && activeStreams.get(streamKey) === controller &&
+                                getEngineConfig?.(modelId)?.runtimeIdentity === runtime?.runtimeIdentity &&
+                                getEngineConfig?.(modelId)?.modelPath === runtime?.modelPath && getEngineConfig?.(modelId)?.port === runtime?.port)) &&
                                 !controller.signal.aborted && activeStreams.get(streamKey) === controller &&
                                 require('./lspExecutionContext').revision(sessionId) === policyRevision &&
                                 require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === configuration;
@@ -838,7 +843,7 @@ function registerIpcHandlers({
                             const recoveryIdentity = config.runtimeIdentity;
                             const recoveryConfiguration = require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId);
                             const recoveryIsCurrent = () => {
-                                const current = getEngineConfig?.();
+                                const current = getEngineConfig?.(modelId);
                                 return current?.runtimeIdentity === recoveryIdentity && current?.modelPath === config.modelPath && current?.port === config.port &&
                                     require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === recoveryConfiguration;
                             };
@@ -907,7 +912,7 @@ function registerIpcHandlers({
                                     { code: protectedReason ? 'casual-protected-context-too-large' : 'casual-recovery-unavailable' });
                             }
                             if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, ...result });
-                            const current = getEngineConfig?.();
+                            const current = getEngineConfig?.(modelId);
                             if (current?.modelPath !== config.modelPath || current?.port !== config.port) throw new Error('The local model changed during context recovery. Send again with the loaded model.');
                             const fresh = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode, modelId).tools);
                             return { messages: rebuildChatMessages({ sessionId, modelId, excludeMessageIds,
@@ -1368,7 +1373,7 @@ function registerIpcHandlers({
 			if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Invalid prompt.");
 			const target = validateChatProvider(activeChatProvider);
 			const cloud = target.type === "cloud";
-			const config = getEngineConfig?.();
+			const config = getEngineConfig?.(modelId);
 			if (!cloud && !config) throw new Error("Start the local model server first.");
 			const engine = require("./subagents/modelSelection").buildChatEngine({ cloud, target, config, modelId });
 			const { resolveProvider, isEngineReady, engineNotReadyError } = require("./subagents/providers");
@@ -1380,7 +1385,7 @@ function registerIpcHandlers({
 			const timeout = setTimeout(() => controller.abort(), 30_000);
 			let finishEngineRequest;
 			try {
-				finishEngineRequest = cloud ? undefined : beginEngineRequest?.();
+				finishEngineRequest = cloud ? undefined : beginEngineRequest?.(modelId);
 				const { ok, result, status } = await resolveProvider(engine).chatCompletion({
 					engine,
 					signal: controller.signal,
@@ -1499,7 +1504,7 @@ function registerIpcHandlers({
 		// after prompt state changes. Failures degrade to a labeled estimate.
 		"session:measure-context": async ({ sessionId, modelId, cloud = false, permissionMode = undefined, userText = "" }) => {
 			try {
-			const config = getEngineConfig?.();
+			const config = getEngineConfig?.(modelId);
 			return await require("./promptMeasurement").measurePreparedContext({ sessionId, modelId, cloud, permissionMode, userText,
 				engine: cloud || !config ? null : { port: config.port, modelPath: config.modelPath ?? config.activeModelConfig?.modelPath ?? null,
 					contextLength: config.activeModelConfig?.contextLength ?? 32768,
@@ -1527,7 +1532,7 @@ function registerIpcHandlers({
         // Explicit W2 preparation only. This API never calls the compaction
         // commit path and never changes the prompt or active history.
         "session:generate-compact-candidate": async ({ sessionId, modelId }) => {
-            const config = getEngineConfig?.();
+            const config = getEngineConfig?.(modelId);
             if (!config || config.modelPath !== modelId || !config.port || typeof llmCheckpointCallback !== 'function')
                 return { ok: false, code: 'model-unavailable' };
             const identity = config.runtimeIdentity;
@@ -1535,14 +1540,14 @@ function registerIpcHandlers({
             const { localEngineFetch } = require('./localEngineFetch');
             const measure = createPromptMeasurer(localEngineFetch);
             return require('./compressionEngine').generateWorkspaceCompactCandidate({ sessionId, modelId,
-                isCurrent: () => getEngineConfig?.()?.runtimeIdentity === identity && getEngineConfig?.()?.modelPath === modelId,
+                isCurrent: () => getEngineConfig?.(modelId)?.runtimeIdentity === identity && getEngineConfig?.(modelId)?.modelPath === modelId,
                 localModel: config.modelMetadata ?? null, capacityTokens: config.activeModelConfig?.contextLength ?? 8192,
                 measure: (payload, { signal }) => measure(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
                     { signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 8192 }),
                 generate: async (request, { signal, onProgress }) => {
-                    if (getEngineConfig?.()?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
+                    if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
                     const result = await llmCheckpointCallback(null, modelId, { signal, onProgress, candidateRequest: request });
-                    if (getEngineConfig?.()?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
+                    if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
                     return result;
                 },
             });
@@ -1563,16 +1568,16 @@ function registerIpcHandlers({
 					: null,
                 {
                     resolveMeasurement: async ({ signal } = {}) => {
-                        const config = getEngineConfig?.();
+                        const config = getEngineConfig?.(modelId);
                         const currentModel = config?.modelPath ?? config?.activeModelConfig?.modelPath;
                         if (!config || currentModel !== modelId || !config.port) return null;
                         const identity = config.runtimeIdentity;
                         const measured = await require('./promptMeasurement').measurePreparedContext({ sessionId, modelId, signal,
                             engine: { port: config.port, modelPath: currentModel, runtimeIdentity: identity,
                                 contextLength: config.activeModelConfig?.contextLength, localModel: config.modelMetadata } });
-                        if (getEngineConfig?.()?.runtimeIdentity !== identity) return null;
-                        return { ...measured, isCurrent: () => require('./promptMeasurement').isPreparedContextCurrent(sessionId, modelId, measured.stateIdentity) && getEngineConfig?.()?.runtimeIdentity === identity &&
-                            (getEngineConfig?.()?.modelPath ?? getEngineConfig?.()?.activeModelConfig?.modelPath) === modelId };
+                        if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) return null;
+                        return { ...measured, isCurrent: () => require('./promptMeasurement').isPreparedContextCurrent(sessionId, modelId, measured.stateIdentity) && getEngineConfig?.(modelId)?.runtimeIdentity === identity &&
+                            (getEngineConfig?.(modelId)?.modelPath ?? getEngineConfig?.(modelId)?.activeModelConfig?.modelPath) === modelId };
                     },
                 },
 			);

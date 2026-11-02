@@ -14,6 +14,7 @@ const DEFAULT_LOAD_CONFIG = Object.freeze({
 	chatTemplate: "auto",
 	reasoningFormat: "auto",
 	kvCacheOffload: "gpu",
+	promptCacheMiB: 0,
 	loadMode: "auto",
 	moeExpertCount: null,
 	mmprojOffload: true,
@@ -40,6 +41,8 @@ function normalizeLoadConfig(input = {}) {
 	}
 	if (!KV_CACHE_OFFLOAD.includes(config.kvCacheOffload))
 		throw new Error("Invalid KV cache offload setting.");
+	if (!Number.isSafeInteger(config.promptCacheMiB) || config.promptCacheMiB < 0 || config.promptCacheMiB > 2147483647)
+		throw new Error("Host prompt cache must be a non-negative integer in MiB (0 disables snapshots).");
 	if (config.moeExpertCount === "" || config.moeExpertCount === undefined) config.moeExpertCount = null;
 	if (
 		config.moeExpertCount !== null &&

@@ -145,7 +145,7 @@ test('MCP annotations and explicit trust are read from the server catalog', () =
   const manager = new McpManager();
   const annotations = { readOnlyHint: true, destructiveHint: false };
   manager.servers.set('fixture', { tools: [{ name: 'read_records', annotations }], definition: {} });
-  assert.deepEqual(manager.getApprovalFacts('fixture', 'read_records'), { annotations, serverTrusted: false });
+  assert.deepEqual(manager.getApprovalFacts('fixture', 'read_records'), { annotations, serverTrusted: false, trustedNativePlaywright: false });
   manager.servers.get('fixture').definition.trusted = true;
-  assert.deepEqual(manager.getApprovalFacts('fixture', 'read_records'), { annotations, serverTrusted: true });
+  assert.deepEqual(manager.getApprovalFacts('fixture', 'read_records'), { annotations, serverTrusted: true, trustedNativePlaywright: false });
 });

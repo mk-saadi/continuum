@@ -26,14 +26,15 @@ window.api = {
 };
 function Fixture() {
   const [open, setOpen] = useState(true);
-  const [loaded, setLoaded] = useState(models[0]);
+  const [engines, setEngines] = useState([{ modelPath: models[0].id, modelName: models[0].name, isLoaded: true, capabilities: {} }]);
   const [target, setTarget] = useState({ type: 'local' });
-  window.terminalAPI = { kill: async () => { window.calls.kills++; setLoaded(null); return { success: true }; } };
-  window.fixtureState = { loaded, target };
+  window.terminalAPI = { kill: async () => { window.calls.kills++; return { success: true }; } };
+  window.fixtureState = { engines, target };
   return <><button id="open" onClick={() => setOpen(true)}>Open selector</button>
-    {open && <ModelSelectorModal models={models} loadedLocalModel={loaded} activeChatProvider={target} cloudProviders={rows}
-      engineRunning={!!loaded} onSelectProvider={setTarget} onSelectModel={() => {}} onClose={() => setOpen(false)}
-      onLoaded={result => { setLoaded(models.find(row => row.id === result.modelPath)); setTarget({ type: 'local' }); }} onScan={() => {}} />}
+    {open && <ModelSelectorModal models={models} engines={engines} activeChatProvider={target} cloudProviders={rows}
+      engineRunning={engines.length > 0} onSelectProvider={setTarget} onSelectModel={() => {}} onClose={() => setOpen(false)}
+      onUnloadModel={async modelPath => { window.calls.kills++; setEngines(list => list.filter(engine => engine.modelPath !== modelPath)); }}
+      onLoaded={result => { setEngines(list => [...list.filter(engine => engine.modelPath !== result.modelPath), { modelPath: result.modelPath, modelName: result.modelPath, isLoaded: true, capabilities: {} }]); setTarget({ type: 'local' }); }} onScan={() => {}} />}
     <CloudProviderSettings />
   </>;
 }

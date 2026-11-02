@@ -2830,9 +2830,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         };
 		signal?.throwIfAborted();
 		if (name === "find_and_prepare_mcp_tools") {
-            if (permissionMode === 'read_only') return { ...require('../mcpManager').searchCapabilities(args, sessionId), ready: false,
-                message: 'Read Only permits capability search only. Preparation and external execution require a permitted mode.' };
-            return require("../mcpManager").findAndPrepare(args, sessionId, { signal, validate: validateMcpActivation, validateAuthorization });
+            return require("../mcpManager").findAndPrepare(args, sessionId, { signal, respectUserDisabled: !project?.root_path, validate: validateMcpActivation, validateAuthorization });
         }
 		if (name === "manage_mcp_servers") {
 			if (require('../configManager').getAppSettings().mcpMode === 'manual')
@@ -2842,7 +2840,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             if (['inspect', 'activate'].includes(args.action)) {
                 if (!Array.isArray(args.server_names) || args.server_names.length !== 1) throw new Error('Select exactly one server identifier.');
                 return manager.activateTools(args.server_names[0], args.action === 'inspect' ? [] : args.tool_names, sessionId,
-                    { signal, trustedOnly: guardDecision?.trustedMcpActivation === true, validate: validateMcpActivation, validateAuthorization });
+                    { signal, respectUserDisabled: !project?.root_path, protectDisabled: !project?.root_path || guardDecision?.trustedMcpActivation === true, trustedOnly: guardDecision?.trustedMcpActivation === true, validate: validateMcpActivation, validateAuthorization });
             }
             return await manager.manageServers(args.action, args.server_names, sessionId, { signal, trustedOnly: guardDecision?.trustedMcpActivation === true });
 		}

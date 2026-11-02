@@ -114,7 +114,7 @@ function Capabilities({ model, local, runtime, overrides = {} }) {
 
 export default function ModelSelectorModal({
 	models = [],
-	loadedLocalModel,
+	engines = [],
 	cloudProviders = [],
 	activeChatProvider,
 	onSelectProvider,
@@ -125,6 +125,7 @@ export default function ModelSelectorModal({
 	engineRunning,
 	onClose,
 	onLoaded,
+	onUnloadModel,
 	serverError,
 }) {
 	const dialog = useRef(null);
@@ -518,14 +519,20 @@ export default function ModelSelectorModal({
 										{group.entries.map((entry) => {
 											if (entry.kind === "local") {
 												const { model, name } = entry;
-												const loaded =
-													loadedLocalModel?.modelPath ===
-													(model.modelPath || model.path || model.id);
+												const modelPath =
+													model.modelPath || model.path || model.id;
+												const loadedEngine =
+													engines.find(
+														(engine) => engine.modelPath === modelPath,
+													) ?? null;
+												const loaded = !!loadedEngine?.isLoaded;
+												const loading =
+													!!loadedEngine && !loaded;
 												const active =
 													activeChatProvider?.type === "local" &&
 													selectedModel === model.id;
 												const runtime = loaded
-													? loadedLocalModel.capabilities
+													? loadedEngine.capabilities
 													: undefined;
 												return (
 													<li
@@ -534,15 +541,15 @@ export default function ModelSelectorModal({
 													>
 														<button
 															type="button"
-															disabled={busy}
-															aria-label={`${active ? "Selected" : loaded ? "Use loaded" : "Load"} ${name}`}
+															disabled={busy || loading}
+															aria-label={`${active ? "Selected" : loaded ? "Use loaded" : loading ? "Loading" : "Load"} ${name}`}
 															aria-current={active ? "true" : undefined}
 															onClick={() => {
 																if (loaded) {
 																	onSelectModel(model.id);
 																	onSelectProvider({ type: "local" });
 																	onClose();
-																} else setConfiguring(model);
+																} else if (!loading) setConfiguring(model);
 															}}
 															className={`${rowGrid} aero-list-item group w-full cursor-pointer pl-3 pr-12 py-3 text-left disabled:opacity-40`}
 														>
@@ -559,6 +566,11 @@ export default function ModelSelectorModal({
 																		{loaded && (
 																			<span className="shrink-0 text-[9px] font-normal text-[var(--accent)]">
 																				Loaded
+																			</span>
+																		)}
+																		{loading && (
+																			<span className="shrink-0 text-[9px] font-normal text-[var(--text-muted)]">
+																				Loading…
 																			</span>
 																		)}
 																	</span>
@@ -609,7 +621,7 @@ export default function ModelSelectorModal({
 																	</>
 																) : (
 																	<>
-																		{loaded ? "Use" : "Load"}
+																		{loading ? "Loading" : loaded ? "Use" : "Load"}
 																		<LuArrowRight
 																			size={12}
 																			aria-hidden="true"
@@ -1002,39 +1014,49 @@ export default function ModelSelectorModal({
 						</p>
 					)}
 				</div>
-				<footer className="aero-fill flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
-					<span className="flex min-w-0 items-center gap-2">
+				<footer className="aero-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
-							className={`size-1.5 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
+							className={`size-1.5 shrink-0 rounded-full ${engines.length ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 						/>
-						<Tooltip content={loadedLocalModel?.name}>
-							<span className="max-w-[360px] truncate">
-								{loadedLocalModel?.name ||
-									(engineRunning ? "Local engine loading…" : "Local engine stopped")}
-							</span>
-						</Tooltip>
-						{engineRunning && (
-							<button
-								type="button"
-								disabled={busy}
-								className={secondaryButton}
-								onClick={async () => {
-									setBusy(true);
-									setError("");
-									try {
-										const result = await window.terminalAPI.kill();
-										if (!result.success) throw new Error(result.error);
-									} catch (err) {
-										setError(err.message);
-									} finally {
-										setBusy(false);
-									}
-								}}
+						<span className="shrink-0 text-[var(--text-secondary)]">
+							{engines.length
+								? `${engines.length} local ${engines.length === 1 ? "engine" : "engines"} loaded`
+								: "No local engine loaded"}
+						</span>
+						{engines.map((engine) => (
+							<span
+								key={engine.modelPath}
+								className="aero-badge flex min-w-0 items-center gap-1 py-0.5 pr-1 pl-2"
 							>
-								Unload
-							</button>
-						)}
-					</span>
+								<span className="max-w-[220px] truncate">
+									{engine.modelName || engine.modelPath}
+								</span>
+								<button
+									type="button"
+									disabled={busy}
+									aria-label={`Unload ${engine.modelName || engine.modelPath}`}
+									className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+									onClick={async () => {
+										setBusy(true);
+										setError("");
+										try {
+											await onUnloadModel?.(engine.modelPath);
+										} catch (err) {
+											setError(err.message);
+										} finally {
+											setBusy(false);
+										}
+									}}
+								>
+									<LuX
+										size={10}
+										aria-hidden="true"
+									/>
+								</button>
+							</span>
+						))}
+					</div>
 					<span>
 						{metadataStatus && <span className="block">{metadataStatus}</span>}
 						Icons: image · audio · video · reasoning · tools. Hover for support status; muted

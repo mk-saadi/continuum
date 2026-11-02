@@ -169,6 +169,8 @@ function buildLlamaServerArgs(model, input, port) {
 	};
 	for (const [key, flag] of Object.entries(flags)) args.push(flag, String(config[key]));
 	args.push("--cache-type-k", config.cacheTypeK, "--cache-type-v", config.cacheTypeV);
+	// Bound host snapshots explicitly, independently of active KV placement.
+	args.push("--cache-ram", String(config.promptCacheMiB));
 	// KV offload defaults to GPU, so the disabling flag is only emitted for CPU placement.
 	if (config.kvCacheOffload === "cpu") args.push("--no-kv-offload");
 	if (config.mlock) args.push("--mlock");

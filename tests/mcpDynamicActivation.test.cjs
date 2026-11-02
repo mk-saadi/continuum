@@ -153,3 +153,39 @@ test('authorized chat enable permits inspection of a globally disabled server wi
     await assert.rejects(f.manager.activateTools('unknown', [], 'enabled-chat'), /SERVER_DISABLED/);
   } finally { await f.close(); }
 });
+
+test('Casual Chat automatic preparation respects every explicit integration disable flag', async () => {
+  const f = await fixture();
+  try {
+    f.manager.beginRun('casual', 'run');
+    for (const flag of [{ disabled: true }, { enabled: false }, { uiEnabled: false }]) {
+      await f.manager.saveConfig({ mcpServers: { unknown: { command: 'mock-only', ...flag } } });
+      await assert.rejects(f.manager.activateTools('unknown', [], 'casual', { respectUserDisabled: true }), /MCP_SERVER_DISABLED/);
+      assert.equal(f.launches(), 0);
+    }
+  } finally { await f.close(); }
+});
+
+test('exact bundled Playwright executes without approval in every mode and chat context', async () => {
+  const f = await fixture();
+  try {
+    await f.manager.manageServers('enable', ['playwright-native'], 'browser-chat');
+    const facts = f.manager.getApprovalFacts('playwright-native', 'browser_snapshot');
+    assert.equal(facts.trustedNativePlaywright, true);
+    for (const project of [null, { root_path: '/workspace' }]) {
+      for (const permissionMode of ['read_only', 'ask_approval', 'workspace_write', 'full_access']) {
+        const approval = await guardTool({ name: 'browser_snapshot', native: false, project, permissionMode, ...facts,
+          requestApproval: () => assert.fail('Bundled Playwright must not prompt') });
+        assert.equal(require('../src/main/toolPermissions').isToolVisible('browser_snapshot', { native: false, project, permissionMode, ...facts }), true);
+        await f.manager.callTool('playwright-native', 'browser_snapshot', {}, { permissionMode, approval });
+      }
+    }
+    const server = f.manager.servers.get('playwright-native');
+    server.definition = { ...server.definition, command: 'replacement', trusted: true };
+    assert.equal(f.manager.getApprovalFacts('playwright-native', 'browser_snapshot').trustedNativePlaywright, false);
+    await assert.rejects(guardTool({ name: 'browser_snapshot', native: false, project: { root_path: '/workspace' }, permissionMode: 'ask_approval',
+      ...f.manager.getApprovalFacts('playwright-native', 'browser_snapshot') }), /approval denied/);
+    await f.manager.setServerEnabled('playwright-native', false);
+    await assert.rejects(f.manager.callTool('playwright-native', 'browser_snapshot', {}, { permissionMode: 'full_access' }), /disabled/);
+  } finally { await f.close(); }
+});

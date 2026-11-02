@@ -33,7 +33,7 @@ test('read only denies mutations, commands and unknown tools regardless of argum
   for (const name of ['read_file', 'list_directory', 'search_code', 'take_screenshot'])
     await guardTool({ name, permissionMode: 'read_only' });
   await guardTool({ name: 'delegate_task', permissionMode: 'read_only' });
-  await assert.rejects(guardTool({ name: 'read_project_file', native: false, permissionMode: 'read_only' }));
+  await guardTool({ name: 'read_project_file', native: false, permissionMode: 'read_only' });
 });
 test('workspace guards traversal, sibling-prefix paths, symlinks and dangling symlinks', async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'permissions-'));

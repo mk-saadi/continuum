@@ -17,7 +17,7 @@ async function getAttachmentPolicy({ modelId, activeChatProvider = { type: "loca
 		});
 	}
 	if (activeChatProvider.type !== "local") throw new Error("Invalid chat provider.");
-	const engine = getEngineConfig?.();
+	const engine = getEngineConfig?.(modelId);
 	let capabilities = {};
 	if (engine && engine.modelPath === modelId) {
 		try {
@@ -25,7 +25,7 @@ async function getAttachmentPolicy({ modelId, activeChatProvider = { type: "loca
 		} catch {
 			/* Unknown media support stays disabled; documents still work. */
 		}
-		const current = getEngineConfig?.();
+		const current = getEngineConfig?.(modelId);
 		if (!current || current.modelPath !== modelId || current.port !== engine.port)
 			throw new Error("The loaded model changed. Retry attaching the file.");
 	}

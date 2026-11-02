@@ -85,6 +85,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						mlock: false,
 						chatTemplate: "auto",
 						kvCacheOffload: "gpu",
+						promptCacheMiB: 0,
 						loadMode: "auto",
 						moeExpertCount: null,
 						mmprojOffload: true,
@@ -450,7 +451,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								<SectionHeading
 									Icon={LuLayers}
 									title="Cache & attention"
-									description="KV cache precision, placement, and attention behavior."
+									description="KV cache, host prompt snapshots, and attention behavior."
 								/>
 								<div className="grid gap-3">
 									{[
@@ -486,6 +487,16 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 										<option value="gpu">GPU (default)</option>
 										<option value="cpu">CPU</option>
 									</SelectField>
+									<NumberField
+										label="Host prompt cache (MiB)"
+										hint="System RAM budget for prompt snapshots. 0 disables snapshots (default); enter a positive value such as 2048 to reuse prompts across requests. Active KV reuse and context checkpoint settings are unchanged. Retained snapshots are excluded from the RAM estimate."
+										min={0}
+										max={2147483647}
+										step={1}
+										required
+										value={config.promptCacheMiB}
+										onChange={(event) => update("promptCacheMiB", event.target.value === "" ? "" : Number(event.target.value))}
+									/>
 									<SelectField
 										label="Flash attention"
 										value={config.flashAttention}
@@ -656,7 +667,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 								<strong className="tabular-nums">{formatMemory(memory.ramMiB)}</strong>
 							</span>
 							<span className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-								rough estimate · excludes OS/driver overhead
+									rough estimate · excludes host prompt snapshots and runtime/OS/driver overhead
 								{memory.confidence !== "high" || memory.ramIncomplete
 									? " · some sizes unknown"
 									: ""}

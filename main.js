@@ -8,7 +8,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 const path = require("path");
 const fs = require("fs");
-const { spawn, exec } = require("child_process");
+const { spawn } = require("child_process");
 const net = require("net");
 const { pathToFileURL } = require("url");
 const { initDatabase, syncSystemDate, closeDatabase } = require("./src/main/db.js");
@@ -21,6 +21,7 @@ const {
 	createIdleService,
 	resolveEngineCommand,
 	describeEngineSpawnError,
+	ENGINE_BINARY,
 } = require("./src/main/engineManager");
 const {
 	normalizeLoadConfig,
@@ -39,19 +40,18 @@ const {
 	DEFAULT_SAFETY_MARGIN_MIB,
 } = require("./src/main/gpuMemory");
 const scannedModels = new Map();
+// One heavy load at a time; each loaded model owns its own entry below.
 let launching = false;
-let currentlyLoadedModelPath = null;
-let startupHandler = null;
+// modelPath -> engine entry. Several engines may run at once (one per model).
+const engines = new Map();
+// The last engine the UI acted on; used as the default for accessors that take
+// no explicit model id (sub-agent default, capability probe, status queries).
+let activeModelPath = null;
 
 const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow = null;
 require("./src/main/services/notificationService").configureNotificationService(() => mainWindow);
-let childProcess = null;
-let childPid = null;
-let killTimeout = null;
-let idleService = null;
-let engineLifecycle = null;
 const transportRequestCounts = new WeakMap();
 // Retain retired endpoints as unavailable so queued requests cannot dispatch
 // to a process we already observed exiting. A new owner replaces its port entry.
@@ -60,6 +60,51 @@ require('./src/main/localEngineFetch').setLocalRequestOwner?.(url => {
   const endpoint = new URL(url);
   return ['127.0.0.1', 'localhost'].includes(endpoint.hostname) ? localRequestOwners.get(Number(endpoint.port)) : null;
 });
+
+// Two app instances each own a separate detached llama-server. The second
+// window then reports the first model as unloaded while both still hold VRAM.
+// Keep a single app instance and focus the existing window instead.
+const hasSingleInstanceLock =
+	typeof app.requestSingleInstanceLock === "function"
+		? app.requestSingleInstanceLock()
+		: true;
+if (!hasSingleInstanceLock) {
+	app.quit();
+} else if (typeof app.on === "function") {
+	app.on("second-instance", () => {
+		if (!mainWindow || mainWindow.isDestroyed()) return;
+		if (mainWindow.isMinimized()) mainWindow.restore();
+		mainWindow.show();
+		mainWindow.focus();
+	});
+}
+
+// Electron skips before-quit/window-all-closed for SIGINT/SIGTERM (the usual
+// way `npm run dev` is stopped). Without this the detached engine outlives the
+// app and the next launch loads a second model beside it.
+if (process.type === "browser") {
+	const stopAllSync = () => {
+		for (const entry of engines.values()) {
+			if (!Number.isInteger(entry.childPid)) continue;
+			entry.lifecycle?.requestStop("app-shutdown", "electron-app");
+			killProcessTreeSync(entry.childPid);
+		}
+		engineRuntimeState.clear();
+	};
+	let terminating = false;
+	const terminate = (code) => {
+		if (terminating) return;
+		terminating = true;
+		for (const entry of engines.values()) entry.idleService?.dispose();
+		stopAllSync();
+		process.exit(code);
+	};
+	process.once("SIGINT", () => terminate(130));
+	process.once("SIGTERM", () => terminate(143));
+	process.once("SIGHUP", () => terminate(129));
+	// Last-resort synchronous cleanup for ordinary exits and uncaught errors.
+	process.once("exit", stopAllSync);
+}
 
 // ---------------------------------------------------------------------------
 // External link handling
@@ -198,18 +243,111 @@ function createWindow() {
 	});
 }
 
-// Store the active config globally in main.js
-let engineConfig = { port: 8080, activeModelConfig: null, contextStatus: "stopped", warmupError: null };
+// Resolve an engine entry by model path, or the active engine when omitted.
+function getEngine(modelPath = null) {
+	if (modelPath) return engines.get(modelPath) ?? null;
+	return activeModelPath ? engines.get(activeModelPath) ?? null : null;
+}
 
-function getEngineStatus() {
-	const modelPath = childProcess && engineConfig.contextStatus !== "stopped" ? currentlyLoadedModelPath : null;
+function getEngineStatus(modelPath = null) {
+	const entry = getEngine(modelPath);
+	const modelPathValue =
+		entry && entry.childProcess && entry.contextStatus !== "stopped" ? entry.modelPath : null;
 	return {
 		isLoaded:
-			!!childProcess && ["warming", "ready", "warmup-failed"].includes(engineConfig.contextStatus),
-		modelPath,
-		modelName: modelPath ? path.basename(modelPath) : null,
+			!!entry &&
+			!!entry.childProcess &&
+			["warming", "ready", "warmup-failed"].includes(entry.contextStatus),
+		modelPath: modelPathValue,
+		modelName: modelPathValue ? path.basename(modelPathValue) : null,
 	};
 }
+
+// Full renderer-facing snapshot of one engine.
+function serializeEngine(entry) {
+	return {
+		modelPath: entry.modelPath,
+		modelName: entry.modelPath ? path.basename(entry.modelPath) : null,
+		running: true,
+		isLoaded:
+			!!entry.childProcess && ["warming", "ready", "warmup-failed"].includes(entry.contextStatus),
+		contextStatus: entry.contextStatus,
+		warmupError: entry.warmupError,
+		port: entry.port,
+		pid: entry.childPid ?? null,
+		capabilities: entry.childProcess ? entry.capabilities : null,
+		offloadDiagnostics: entry.childProcess ? entry.offloadDiagnostics : null,
+		offloadWarning: entry.childProcess ? entry.offloadWarning : null,
+		activeModelConfig:
+			entry.childProcess && entry.activeModelConfig
+				? { ...entry.activeModelConfig, runtimeIdentity: entry.runtimeIdentity }
+				: null,
+	};
+}
+function serializeEngines() {
+	return [...engines.values()].map(serializeEngine);
+}
+
+// The per-model config accessor consumed by the IPC composition root. No
+// argument returns the active engine, preserving the single-model lookups that
+// remain (sub-agent default, capability probe).
+function getEngineConfig(modelPath = null) {
+	const entry = getEngine(modelPath);
+	if (!entry || !entry.childProcess || ["stopped", "idle_unloaded"].includes(entry.contextStatus))
+		return null;
+	return {
+		port: entry.port,
+		contextStatus: entry.contextStatus,
+		warmupError: entry.warmupError,
+		capabilities: entry.capabilities,
+		offloadDiagnostics: entry.offloadDiagnostics,
+		offloadWarning: entry.offloadWarning,
+		activeModelConfig: entry.activeModelConfig,
+		runtimeIdentity: entry.runtimeIdentity,
+		modelPath: entry.modelPath,
+		modelMetadata: scannedModels.get(entry.modelPath) ?? null,
+	};
+}
+
+// Port-keyed config lookup for the transport layer (localEngineFetch, the
+// context budget) so each in-flight request resolves its own engine.
+function getEngineForPort(port) {
+	const numeric = Number(port);
+	if (!Number.isInteger(numeric)) return null;
+	for (const entry of engines.values())
+		if (entry.port === numeric && entry.childProcess) return getEngineConfig(entry.modelPath);
+	return null;
+}
+
+// Single-engine snapshot of the active engine, kept alongside the pool for
+// callers/events that predate multi-model support.
+function activeEngineSnapshot() {
+	const active = getEngine();
+	return {
+		...getEngineStatus(),
+		contextStatus: active?.contextStatus ?? "stopped",
+		warmupError: active?.warmupError ?? null,
+		capabilities: active?.childProcess ? active.capabilities : null,
+		offloadDiagnostics: active?.childProcess ? active.offloadDiagnostics : null,
+		offloadWarning: active?.childProcess ? active.offloadWarning : null,
+		pid: active?.childPid ?? null,
+		port: active?.childProcess ? active.port : null,
+		activeModelConfig:
+			active?.childProcess && active.activeModelConfig
+				? { ...active.activeModelConfig, runtimeIdentity: active.runtimeIdentity }
+				: null,
+	};
+}
+
+function broadcastEngineStatus() {
+	if (!mainWindow || mainWindow.isDestroyed()) return;
+	mainWindow.webContents.send("terminal:status", {
+		running: engines.size > 0,
+		engines: serializeEngines(),
+		...activeEngineSnapshot(),
+	});
+}
+
 ipcMain.handle("engine:get-status", () => getEngineStatus());
 
 // Check the configured loopback port, or allocate one in automatic mode.
@@ -245,25 +383,33 @@ function getFreePort(requestedPort = null) {
 // Signaling the *negative* pid delivers the signal to every process in
 // that group at once (POSIX). Windows has no such concept, so we fall back
 // to `taskkill /T` there, which walks the actual process tree instead.
+const {
+	createEngineRuntimeState,
+	killProcessTree: moduleKillProcessTree,
+	killProcessTreeSync,
+} = require("./src/main/engineRuntimeState");
+
+// Declared as a function (not a const alias) so the engine-launch test harness
+// can substitute it when exercising model replacement.
 function killProcessTree(pid, signal = "SIGTERM") {
-	if (process.platform === "win32") {
-		return new Promise((resolve, reject) => {
-			exec(`taskkill /pid ${pid} /T /F`, (err) => {
-				if (err) reject(err);
-				else resolve();
-			});
-		});
-	}
-	return new Promise((resolve) => {
-		try {
-			process.kill(-pid, signal);
-		} catch (err) {
-			// ESRCH just means it's already dead — not an error worth surfacing.
-			if (err.code !== "ESRCH") console.error("killProcessTree error:", err);
-		}
-		resolve();
-	});
+	return moduleKillProcessTree(pid, signal);
 }
+
+function engineStatePath() {
+	if (typeof app.getPath !== "function") return null;
+	try {
+		return path.join(app.getPath("userData"), "engine-runtime.json");
+	} catch {
+		return null;
+	}
+}
+
+const engineRuntimeState = createEngineRuntimeState({
+	stateFile: engineStatePath(),
+	engineBinary: ENGINE_BINARY,
+	killTree: killProcessTree,
+	killTreeSync: killProcessTreeSync,
+});
 
 // Remove complete flag values, including quoted paths, without rewriting other arguments.
 function stripFlag(cmd, flag) {
@@ -303,93 +449,126 @@ ipcMain.on("window:close", (event) => {
 // ---------------------------------------------------------------------------
 // Terminal engine (child process) IPC
 // ---------------------------------------------------------------------------
+// Persisted descriptor for one engine, used to reap it after a crash.
+function runtimeStateEntry(entry) {
+	return {
+		enginePid: entry.childPid,
+		port: entry.port,
+		modelPath: entry.modelPath,
+		engineCommand: entry.engineCommand,
+	};
+}
+function persistEngines() {
+	engineRuntimeState.save([...engines.values()].map(runtimeStateEntry));
+}
+
 async function launchProcess(command, model = null, config = null) {
 	// Legacy shell launch is not a model loader and has no scoped approval.
 	// All supported UI callers select a scanned model and use argv below.
 	if (!model) return { success: false, error: 'Custom shell engine launch is disabled. Select a scanned local model.' };
 	if (require("./src/main/dataAccess").isMigrating())
 		return { success: false, error: "App data is migrating. Please wait." };
-	if (launching || childProcess)
-		return { success: false, error: "Unload the current engine before loading another model." };
+	if (launching) return { success: false, error: "Another model is already loading." };
+	if (engines.has(model.modelPath))
+		return { success: false, error: "This model is already loaded." };
 	launching = true;
 
+	const modelPath = model.modelPath;
 	let engineCommand = null;
+	let entry = null;
 	try {
 		const { apiServerPort } = getAppSettings();
-		engineConfig.port = await getFreePort(apiServerPort);
+		// The configured port belongs to the first engine. A later load falls
+		// back to an automatic port so it never collides with an engine that
+		// already holds the configured port.
+		const portTaken = [...engines.values()].some((existing) => existing.port === apiServerPort);
+		const requestedPort = apiServerPort != null && !portTaken ? apiServerPort : null;
+		const port = await getFreePort(requestedPort);
 
-		const appliedConfig = model ? normalizeLoadConfig(config) : null;
-		if (model) {
-			const args = buildLlamaServerArgs(model, appliedConfig, engineConfig.port);
-			engineCommand = resolveEngineCommand();
-			childProcess = spawn(engineCommand, args, {
-				shell: false,
-				detached: true,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: buildLlamaServerEnv(),
-			});
-		}
-		engineConfig.runtimeIdentity = require('node:crypto').randomUUID();
-        require('./src/main/promptMeasurement').clearCache();
-        const processForLaunch = childProcess;
+		const appliedConfig = normalizeLoadConfig(config);
+		const runtimeIdentity = require('node:crypto').randomUUID();
+		const args = buildLlamaServerArgs(model, appliedConfig, port);
+		engineCommand = resolveEngineCommand();
+		const proc = spawn(engineCommand, args, {
+			shell: false,
+			detached: true,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: buildLlamaServerEnv(),
+		});
+		entry = {
+			modelPath,
+			model,
+			config: appliedConfig,
+			port,
+			runtimeIdentity,
+			engineCommand,
+			childProcess: proc,
+			childPid: proc.pid,
+			contextStatus: "loading",
+			warmupError: null,
+			capabilities: null,
+			offloadDiagnostics: null,
+			offloadWarning: null,
+			activeModelConfig: null,
+			idleService: null,
+			lifecycle: null,
+			startupHandler: null,
+			killTimeout: null,
+		};
+		engines.set(modelPath, entry);
+		activeModelPath = modelPath;
+		require('./src/main/promptMeasurement').clearCache();
+
 		let idleUnloaded = false;
 		const processIdleService = createIdleService({
 			onIdle: () => {
-				if (childProcess !== processForLaunch) return;
+				if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
 				idleUnloaded = true;
-				void stopEngine('idle-timeout', 'engine-idle-policy', false);
+				void stopEngine(modelPath, 'idle-timeout', 'engine-idle-policy', false);
 			},
 		});
-		idleService = processIdleService;
-        const lifecycle = require('./src/main/engineLifecycle').createEngineLifecycle({
-            generation: engineConfig.runtimeIdentity, modelPath: model.modelPath, pid: processForLaunch.pid,
-            activeRequests: () => transportRequestCounts.get(processIdleService) ?? 0 });
-        engineLifecycle = lifecycle;
-        localRequestOwners.set(engineConfig.port, {
-            generation: engineConfig.runtimeIdentity,
-            get unavailable() { return lifecycle.terminated || lifecycle.stopping; },
-            get terminated() { return lifecycle.terminated; },
-            beginRequest: () => {
-                const release = processIdleService.beginRequest();
-                transportRequestCounts.set(processIdleService, (transportRequestCounts.get(processIdleService) ?? 0) + 1);
-                return () => { transportRequestCounts.set(processIdleService, transportRequestCounts.get(processIdleService) - 1); release(); };
-            },
-            record: lifecycle.record,
-        });
-        lifecycle.record('server-starting', { component: 'model-loader', reason: 'user-load', userAction: true });
-		currentlyLoadedModelPath = model?.modelPath ?? null;
-		engineConfig.contextStatus = "loading";
-		engineConfig.warmupError = null;
-        engineConfig.capabilities = null;
-		engineConfig.offloadDiagnostics = null;
-		engineConfig.offloadWarning = null;
+		entry.idleService = processIdleService;
+		const lifecycle = require('./src/main/engineLifecycle').createEngineLifecycle({
+			generation: runtimeIdentity,
+			modelPath,
+			pid: proc.pid,
+			activeRequests: () => transportRequestCounts.get(processIdleService) ?? 0,
+		});
+		entry.lifecycle = lifecycle;
+		localRequestOwners.set(port, {
+			generation: runtimeIdentity,
+			get unavailable() { return lifecycle.terminated || lifecycle.stopping; },
+			get terminated() { return lifecycle.terminated; },
+			beginRequest: () => {
+				const release = processIdleService.beginRequest();
+				transportRequestCounts.set(processIdleService, (transportRequestCounts.get(processIdleService) ?? 0) + 1);
+				return () => { transportRequestCounts.set(processIdleService, transportRequestCounts.get(processIdleService) - 1); release(); };
+			},
+			record: lifecycle.record,
+		});
+		lifecycle.record('server-starting', { component: 'model-loader', reason: 'user-load', userAction: true });
+
 		// Record the runtime's real offload state, but only judge it against a
 		// managed load. A custom shell command has no known intent, so it is
 		// never warned about.
 		const reportOffload = (diagnostics) => {
-			if (childProcess !== processForLaunch) return;
+			if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
 			const evaluation = evaluateOffloadResult({
 				diagnostics,
 				gpuOffload: appliedConfig?.gpuOffload,
 				layerCount: model?.layerCount ?? null,
 			});
 			// The runtime's own log wins over the preflight estimate.
-			engineConfig.offloadDiagnostics = {
+			entry.offloadDiagnostics = {
 				...diagnostics,
 				state: evaluation.state,
 				requestedLayers: evaluation.requestedLayers,
 			};
-			engineConfig.offloadWarning = evaluation.warning?.message ?? null;
-			if (mainWindow && !mainWindow.isDestroyed())
-				mainWindow.webContents.send("terminal:status", {
-					running: true,
-					pid: childPid,
-					...engineConfig,
-					...getEngineStatus(),
-				});
+			entry.offloadWarning = evaluation.warning?.message ?? null;
+			broadcastEngineStatus();
 		};
 		const startup = createStartupHandler({
-			port: engineConfig.port,
+			port,
 			getTools: async () => {
 				const mcp = require("./src/main/mcpManager");
 				await mcp.init();
@@ -397,32 +576,26 @@ async function launchProcess(command, model = null, config = null) {
 			},
 			onDiagnostics: appliedConfig ? reportOffload : undefined,
 			onStatus: async (contextStatus, error = null) => {
-				if (childProcess !== processForLaunch) return;
+				if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
 				if (contextStatus === 'ready' || contextStatus === 'warmup-failed') {
-                    let capabilities = null;
-                    try { capabilities = await require('./src/main/modelCapabilities').queryCapabilities(engineConfig.port); }
-                    catch { /* Older engines leave media support unknown. */ }
-                    if (childProcess !== processForLaunch) return;
-                    engineConfig.capabilities = capabilities;
-                }
-                engineConfig.contextStatus = contextStatus;
-				engineConfig.warmupError = error;
+					let capabilities = null;
+					try { capabilities = await require('./src/main/modelCapabilities').queryCapabilities(port); }
+					catch { /* Older engines leave media support unknown. */ }
+					if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
+					entry.capabilities = capabilities;
+				}
+				entry.contextStatus = contextStatus;
+				entry.warmupError = error;
 				if (contextStatus === "ready" || contextStatus === "warmup-failed")
 					processIdleService.resetIdleTimer();
-				if (mainWindow && !mainWindow.isDestroyed())
-					mainWindow.webContents.send("terminal:status", {
-						running: true,
-						pid: childPid,
-						...engineConfig,
-						...getEngineStatus(),
-					});
+				broadcastEngineStatus();
 			},
 		});
-		startupHandler = startup;
+		entry.startupHandler = startup;
 
-		childPid = childProcess.pid;
+		persistEngines();
 
-		childProcess.stdout.on("data", (data) => {
+		proc.stdout.on("data", (data) => {
 			const text = data.toString();
 			startup.onOutput(text, "stdout");
 			if (mainWindow && !mainWindow.isDestroyed()) {
@@ -430,7 +603,7 @@ async function launchProcess(command, model = null, config = null) {
 			}
 		});
 
-		childProcess.stderr.on("data", (data) => {
+		proc.stderr.on("data", (data) => {
 			const text = data.toString();
 			startup.onOutput(text, "stderr");
 			if (mainWindow && !mainWindow.isDestroyed()) {
@@ -438,7 +611,7 @@ async function launchProcess(command, model = null, config = null) {
 			}
 		});
 
-		childProcess.on("error", (err) => {
+		proc.on("error", (err) => {
 			startup.cancel();
 			// The renderer shows this in the load dialog, but the launching
 			// terminal is where a developer looks first. Without this the main
@@ -453,90 +626,78 @@ async function launchProcess(command, model = null, config = null) {
 			}
 		});
 
-		childProcess.on("exit", (code, signal) => {
-            lifecycle.exited(code, signal);
-            startup.cancel();
-            processIdleService.dispose();
-            if (childProcess === processForLaunch) {
-                engineConfig.contextStatus = "stopped";
-                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("terminal:status", {
-                    running: false, isLoaded: false, modelPath: null, modelName: null, contextStatus: "stopped", pid: null, port: null, activeModelConfig: null,
-                });
-            }
-        });
-		childProcess.on("close", (code, signal) => {
-            lifecycle.exited(code, signal);
+		proc.on("exit", (code, signal) => {
+			lifecycle.exited(code, signal);
 			startup.cancel();
-			if (startupHandler === startup) startupHandler = null;
 			processIdleService.dispose();
-			if (childProcess !== processForLaunch) return;
-			currentlyLoadedModelPath = null;
-            engineConfig.runtimeIdentity = null;
-            engineConfig.capabilities = null;
-            require('./src/main/promptMeasurement').clearCache();
-			engineConfig.contextStatus = idleUnloaded ? "idle_unloaded" : "stopped";
-			engineConfig.activeModelConfig = null;
-			engineConfig.offloadDiagnostics = null;
-			engineConfig.offloadWarning = null;
+			if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
+			entry.contextStatus = "stopped";
+			broadcastEngineStatus();
+		});
+		proc.on("close", (code, signal) => {
+			lifecycle.exited(code, signal);
+			startup.cancel();
+			if (entry.startupHandler === startup) entry.startupHandler = null;
+			processIdleService.dispose();
+			if (entry.childProcess !== proc) return;
+			entry.childProcess = null;
+			entry.childPid = null;
+			entry.runtimeIdentity = null;
+			entry.capabilities = null;
+			entry.activeModelConfig = null;
+			entry.offloadDiagnostics = null;
+			entry.offloadWarning = null;
+			entry.contextStatus = idleUnloaded ? "idle_unloaded" : "stopped";
+			require('./src/main/promptMeasurement').clearCache();
+			localRequestOwners.delete(port);
+			engineRuntimeState.clear(proc.pid);
+			if (engines.get(modelPath) === entry) {
+				engines.delete(modelPath);
+				if (activeModelPath === modelPath) activeModelPath = engines.keys().next().value ?? null;
+			}
+			if (entry.killTimeout) { clearTimeout(entry.killTimeout); entry.killTimeout = null; }
 			const msg = `\n[process exited] code=${code} signal=${signal}\n`;
 			if (mainWindow && !mainWindow.isDestroyed()) {
 				mainWindow.webContents.send("terminal:output", { stream: "stdout", data: msg });
 				if (idleUnloaded)
-					mainWindow.webContents.send("engine:status-changed", { status: "idle_unloaded" });
-				mainWindow.webContents.send("terminal:status", {
-					running: false,
-					contextStatus: engineConfig.contextStatus,
-					isLoaded: false,
-					modelPath: null,
-					modelName: null,
-					pid: null,
-					port: null,
-					activeModelConfig: null,
-				});
+					mainWindow.webContents.send("engine:status-changed", { status: "idle_unloaded", modelPath });
+				broadcastEngineStatus();
 			}
-			clearTimeout(killTimeout);
-			childProcess = null;
-			childPid = null;
 		});
 
 		await new Promise((resolve, reject) => {
-			processForLaunch.once("spawn", resolve);
-			processForLaunch.once("error", reject);
+			proc.once("spawn", resolve);
+			proc.once("error", reject);
 		});
-		engineConfig.activeModelConfig = appliedConfig ? { ...appliedConfig, runtimeIdentity: engineConfig.runtimeIdentity } : null;
-		if (mainWindow && !mainWindow.isDestroyed()) {
-			mainWindow.webContents.send("terminal:status", {
-				running: true,
-				...getEngineStatus(),
-				contextStatus: engineConfig.contextStatus,
-				pid: childPid,
-				port: engineConfig.port,
-				activeModelConfig: engineConfig.activeModelConfig,
-			});
-		}
+		entry.activeModelConfig = appliedConfig ? { ...appliedConfig, runtimeIdentity } : null;
+		broadcastEngineStatus();
 
 		return {
 			success: true,
-			...getEngineStatus(),
-			pid: childPid,
-			port: engineConfig.port,
-			activeModelConfig: engineConfig.activeModelConfig,
+			...getEngineStatus(modelPath),
+			modelPath,
+			pid: entry.childPid,
+			port,
+			activeModelConfig: entry.activeModelConfig,
 		};
 	} catch (err) {
-		idleService?.dispose();
+		entry?.idleService?.dispose();
 		// If the process was already spawned but setup failed afterwards, kill
 		// its tree before dropping the reference — otherwise it becomes an
 		// orphan holding the model and port with no way to unload from the UI.
-		const liveProcess = childProcess;
+		const liveProcess = entry?.childProcess;
 		if (liveProcess && typeof liveProcess.pid === "number" && !liveProcess.killed) {
-            engineLifecycle?.requestStop("launch-setup-failed", "model-loader");
+			entry.lifecycle?.requestStop("launch-setup-failed", "model-loader");
 			killProcessTree(liveProcess.pid, "SIGKILL");
 		}
-		currentlyLoadedModelPath = null;
-		engineConfig.contextStatus = "stopped";
-		engineConfig.activeModelConfig = null;
-		childProcess = null;
-		childPid = null;
+		if (entry) {
+			localRequestOwners.delete(entry.port);
+			engineRuntimeState.clear(liveProcess?.pid);
+			if (engines.get(modelPath) === entry) {
+				engines.delete(modelPath);
+				if (activeModelPath === modelPath) activeModelPath = engines.keys().next().value ?? null;
+			}
+		}
 		const spawnFailed =
 			engineCommand && typeof err?.syscall === "string" && err.syscall.startsWith("spawn");
 		const message = spawnFailed ? describeEngineSpawnError(err, engineCommand) : err.message;
@@ -552,8 +713,6 @@ async function launchProcess(command, model = null, config = null) {
 	}
 }
 ipcMain.handle("terminal:spawn", () => ({ success: false, error: 'Custom shell engine launch is disabled. Select a scanned local model.' }));
-
-let switchingLocalModel = false;
 
 // Advisory preflight before a fresh load: estimate whether full GPU offload
 // looks unlikely and, if so, describe it so the UI can ask the user. Returns
@@ -578,11 +737,44 @@ async function preflightGpuFit({ model, config, safetyMarginMiB = DEFAULT_SAFETY
 	return { ...fit, message: describeGpuFitWarning(fit) };
 }
 
+// Stop one engine and resolve once its process has actually closed. Used when
+// replacing an engine for the same model (settings change).
+async function stopAndWaitForEngine(modelPath, reason) {
+	const entry = engines.get(modelPath);
+	if (!entry || !entry.childProcess) return;
+	const proc = entry.childProcess;
+	await new Promise((resolve, reject) => {
+		let settled = false;
+		const cleanup = () => {
+			clearTimeout(timer);
+			proc.removeListener("close", closed);
+		};
+		const finish = (error) => {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			if (error) reject(error);
+			else resolve();
+		};
+		const closed = () => finish();
+		const timer = setTimeout(
+			() => finish(new Error("Previous local engine did not stop. Try unloading it again.")),
+			10000,
+		);
+		proc.once("close", closed);
+		stopEngine(modelPath, reason, "model-loader", true).then(
+			(result) => {
+				if (!result.success && result.error !== "No running process")
+					finish(new Error(result.error));
+			},
+			(error) => finish(error),
+		);
+	});
+}
+
 async function launchModel(modelId, input) {
-	if (switchingLocalModel || launching) throw new Error("A local model is already loading.");
-	switchingLocalModel = true;
-	try {
-		let model = scannedModels.get(modelId);
+	if (launching) throw new Error("A local model is already loading.");
+	let model = scannedModels.get(modelId);
 		if (!model) throw new Error("Scan and select a local model first.");
         if (input.mmprojPath !== undefined) {
             if (input.mmprojPath !== null && !model.projectorCandidates?.some(candidate => candidate.path === input.mmprojPath)) throw new Error('Select a projector from the scanned model directory.');
@@ -599,48 +791,16 @@ async function launchModel(modelId, input) {
 			throw new Error("Invalid partial-offload option.");
 		if (!fs.existsSync(model.modelPath) || (model.mmprojPath && !fs.existsSync(model.mmprojPath)))
 			throw new Error("Model or projector file no longer exists. Rescan your models.");
-		// Only preflight a fresh load: when replacing a running model, its
-		// current VRAM use would make the free-memory reading misleading.
-		// The post-load offload check still covers the replacement case.
-		if (!childProcess && !input.allowPartialOffload) {
+		// Preflight whenever this model is not already loaded. With a pool of
+		// engines, a second model reduces the free VRAM the estimate reads, so
+		// the warning correctly reflects "this may spill into system RAM".
+		if (!engines.has(modelId) && !input.allowPartialOffload) {
 			const assessment = await preflightGpuFit({ model, config });
 			if (assessment) return { success: false, requiresConfirmation: true, assessment };
 		}
-		if (childProcess) {
-			const previous = childProcess;
-			await new Promise((resolve, reject) => {
-				const cleanup = () => {
-					clearTimeout(timer);
-					previous.removeListener("close", closed);
-				};
-				const closed = () => {
-					cleanup();
-					resolve();
-				};
-				const timer = setTimeout(() => {
-					cleanup();
-					reject(new Error("Previous local engine did not stop. Try unloading it again."));
-				}, 10000);
-				previous.once("close", closed);
-				stopEngine(currentlyLoadedModelPath === modelId ? 'settings-reload' : 'model-switch', 'model-loader', true).then(
-					(result) => {
-						if (result.success) return; // wait for the "close" event below.
-						if (result.error === "No running process") {
-							// The previous engine exited on its own — nothing to wait for.
-							cleanup();
-							resolve();
-							return;
-						}
-						cleanup();
-						reject(new Error(result.error));
-					},
-					(error) => {
-						cleanup();
-						reject(error);
-					},
-				);
-			});
-		}
+		// Loading a model that is already loaded replaces its engine (settings
+		// reload). Other models in the pool are left running.
+		if (engines.has(modelId)) await stopAndWaitForEngine(modelId, "settings-reload");
 		const result = await launchProcess(null, model, config);
 		if (result.success) {
 			try {
@@ -655,34 +815,38 @@ async function launchModel(modelId, input) {
 			}
 		}
 		return result;
-	} finally {
-		switchingLocalModel = false;
-	}
 }
 
 ipcMain.handle("terminal:getConfig", () => {
-	return engineConfig;
+	const active = getEngine();
+	return {
+		port: active?.port ?? null,
+		contextStatus: active?.contextStatus ?? "stopped",
+		activeModelConfig: active?.activeModelConfig ?? null,
+		runtimeIdentity: active?.runtimeIdentity ?? null,
+		engines: serializeEngines(),
+	};
 });
 
-async function stopEngine(reason = "user-unload", component = "model-controls", userAction = true) {
-	idleService?.dispose();
-	if (!childProcess) {
+async function stopEngine(modelPath, reason = "user-unload", component = "model-controls", userAction = true) {
+	const entry = engines.get(modelPath);
+	if (!entry || !entry.childProcess) {
 		return { success: false, error: "No running process" };
 	}
-	if (engineLifecycle && !engineLifecycle.requestStop(reason, component, userAction)) return { success: true };
-	startupHandler?.cancel();
-	const processToStop = childProcess;
-	const pid = childPid;
+	entry.idleService?.dispose();
+	if (entry.lifecycle && !entry.lifecycle.requestStop(reason, component, userAction)) return { success: true };
+	entry.startupHandler?.cancel();
+	const proc = entry.childProcess;
+	const pid = entry.childPid;
 	try {
 		await killProcessTree(pid, "SIGTERM");
 		// llama-server (and some shells) can ignore SIGTERM outright. Give
-		// it a grace period to exit on its own — the `close` handler below
-		// clears childProcess/childPid and cancels this timeout when it
-		// does — then force-kill the tree if it's still alive.
-		clearTimeout(killTimeout);
-		killTimeout = setTimeout(() => {
-			if (childProcess === processToStop && childPid === pid) {
-				engineLifecycle?.record("stop-escalated", { component: "model-loader", reason: "shutdown-timeout" });
+		// it a grace period to exit on its own — the `close` handler above
+		// cancels this timeout when it does — then force-kill the tree.
+		if (entry.killTimeout) clearTimeout(entry.killTimeout);
+		entry.killTimeout = setTimeout(() => {
+			if (engines.get(modelPath) === entry && entry.childProcess === proc) {
+				entry.lifecycle?.record("stop-escalated", { component: "model-loader", reason: "shutdown-timeout" });
 				killProcessTree(pid, "SIGKILL");
 			}
 		}, 2000);
@@ -691,20 +855,19 @@ async function stopEngine(reason = "user-unload", component = "model-controls", 
 		return { success: false, error: err.message };
 	}
 }
-ipcMain.handle("terminal:kill", () => stopEngine());
+ipcMain.handle("terminal:kill", () => stopEngine(activeModelPath));
+// Unload one model's engine without touching the others in the pool.
+ipcMain.handle("engine:unload", (_event, payload = {}) => {
+	const { modelId } = payload ?? {};
+	if (typeof modelId !== "string" || !modelId) throw new Error("Invalid model id.");
+	return stopEngine(modelId);
+});
 
 ipcMain.handle("terminal:status", async () => {
 	return {
-		running: childProcess !== null && engineConfig.contextStatus !== "stopped",
-		...getEngineStatus(),
-		contextStatus: engineConfig.contextStatus,
-		warmupError: engineConfig.warmupError,
-        capabilities: childProcess ? engineConfig.capabilities : null,
-		offloadDiagnostics: childProcess ? engineConfig.offloadDiagnostics : null,
-		offloadWarning: childProcess ? engineConfig.offloadWarning : null,
-		pid: childPid,
-		port: childProcess !== null ? engineConfig.port : null,
-		activeModelConfig: childProcess !== null && engineConfig.activeModelConfig ? { ...engineConfig.activeModelConfig, runtimeIdentity: engineConfig.runtimeIdentity } : null,
+		running: engines.size > 0,
+		engines: serializeEngines(),
+		...activeEngineSnapshot(),
 	};
 });
 
@@ -732,8 +895,10 @@ ipcMain.handle("models:scanLocal", async (_event, scanPath) => {
 // Active models from local LLM server (bypasses CORS via Node.js fetch)
 // ---------------------------------------------------------------------------
 ipcMain.handle("get-active-models", async () => {
+	const active = getEngine();
+	if (!active?.childProcess) return { data: [] };
 	try {
-		const res = await fetch(`http://127.0.0.1:${engineConfig.port}/v1/models`);
+		const res = await fetch(`http://127.0.0.1:${active.port}/v1/models`);
 		if (!res.ok) return { data: [] };
 		const json = await res.json();
 		return json;
@@ -746,7 +911,11 @@ ipcMain.handle("get-active-models", async () => {
 // App lifecycle
 // ---------------------------------------------------------------------------
 const mcpManager = require("./src/main/mcpManager");
-app.whenReady().then(() => {
+if (hasSingleInstanceLock)
+	app.whenReady().then(async () => {
+	// A previous Electron process may have died without unloading its detached
+	// engine. Reap it before this session can start another model.
+	await engineRuntimeState.reap();
 	try { require('./src/main/gitIdentity').initializeHostGitIdentity(); }
 	catch (error) { console.error('Global Git identity could not be read:', error.message); }
 	if (process.platform === "win32") app.setAppUserModelId("com.continuum.assistant");
@@ -762,18 +931,19 @@ app.whenReady().then(() => {
 	require("./src/main/recoveryReferenceIndex").startBuild();
 	registerIpcHandlers({
 		launchEngine: launchModel,
-		beginEngineRequest: () => idleService?.beginRequest(),
+		// A request counts against the idle timer of the engine it targets.
+		beginEngineRequest: (modelId) => getEngine(modelId)?.idleService?.beginRequest(),
 		onIdleTimeoutChanged: () => {
-			if (["ready", "warmup-failed"].includes(engineConfig.contextStatus))
-				idleService?.resetIdleTimer();
+			for (const entry of engines.values())
+				if (["ready", "warmup-failed"].includes(entry.contextStatus))
+					entry.idleService?.resetIdleTimer();
 		},
 		getReasoningEfforts: (modelId) =>
-			modelId === currentlyLoadedModelPath ? (scannedModels.get(modelId)?.reasoningEfforts ?? []) : [],
+			engines.has(modelId) ? (scannedModels.get(modelId)?.reasoningEfforts ?? []) : [],
 		getLocalModelMetadata: (modelId) =>
-			modelId === currentlyLoadedModelPath ? (scannedModels.get(modelId) ?? null) : null,
-		getEngineConfig: () =>
-			childProcess && !["stopped", "idle_unloaded"].includes(engineConfig.contextStatus) ? { ...engineConfig, modelPath: currentlyLoadedModelPath,
-				modelMetadata: currentlyLoadedModelPath ? scannedModels.get(currentlyLoadedModelPath) ?? null : null } : null,
+			engines.has(modelId) ? (scannedModels.get(modelId) ?? null) : null,
+		getEngineConfig,
+		getEngineForPort,
 		isTrustedSender: (event) => {
 			if (!mainWindow || mainWindow.isDestroyed()) return false;
 			if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame)
@@ -791,15 +961,16 @@ app.whenReady().then(() => {
 			}
 		},
 		llmCheckpointCallback: async (checkpointInput, modelId, generation = {}) => {
-			if (!childProcess) throw new Error("Start the local model server before compressing context.");
+			const entry = getEngine(modelId);
+			if (!entry?.childProcess) throw new Error("Start the local model server before compressing context.");
 			// W2 consumes the complete response envelope, including finish metadata.
 			// The legacy compaction callback below remains isolated from candidates.
 			if (generation.candidateRequest) {
                 return require('./src/main/workspaceGenerationRuntime').generateLocalCandidate(localEngineFetch,
-                    `http://127.0.0.1:${engineConfig.port}/v1/chat/completions`, generation.candidateRequest, generation);
+                    `http://127.0.0.1:${entry.port}/v1/chat/completions`, generation.candidateRequest, generation);
 			}
 			const response = await localEngineFetch(
-				`http://127.0.0.1:${engineConfig.port}/v1/chat/completions`,
+				`http://127.0.0.1:${entry.port}/v1/chat/completions`,
 				{
 					method: "POST",
 					signal: generation.signal,
@@ -835,12 +1006,13 @@ app.whenReady().then(() => {
 			return JSON.parse(candidate);
 		},
 		llmSummarizeCallback: async (oldSummary, messageBatch, modelId, recovery = {}) => {
-            const launchProcess = childProcess, identity = engineConfig.runtimeIdentity, port = engineConfig.port;
+            const entry = getEngine(modelId);
+            const launchProcess = entry?.childProcess, identity = entry?.runtimeIdentity, port = entry?.port;
             if (!launchProcess) throw Object.assign(new Error("Start the local model server before recovering Casual context."), { code: 'casual-model-unavailable' });
             return require('./src/main/casualSummary').summarizeCasual({ oldSummary, messageBatch, modelId,
                 localModel: scannedModels.get(modelId) ?? null,
                 url: `http://127.0.0.1:${port}/v1/chat/completions`, fetchImpl: localEngineFetch, signal: recovery.signal,
-                isCurrent: () => childProcess === launchProcess && engineConfig.runtimeIdentity === identity && engineConfig.port === port });
+                isCurrent: () => { const current = engines.get(modelId); return current?.childProcess === launchProcess && current.runtimeIdentity === identity && current.port === port; } });
         },
 	});
 	createWindow();
@@ -852,13 +1024,18 @@ app.whenReady().then(() => {
 	});
 });
 
-app.on("window-all-closed", () => {
-	// Kill child process on exit — same tree-kill as Unload, not just the
-	// shell, so quitting the app doesn't leave llama-server running headless.
-	if (childPid) {
-        engineLifecycle?.requestStop("app-shutdown", "electron-app");
-		killProcessTree(childPid, "SIGTERM");
+// Stop every engine in the pool — same tree-kill as Unload, so quitting the
+// app never leaves a llama-server running headless.
+function stopAllEngines(reason = "app-shutdown") {
+	for (const entry of engines.values()) {
+		if (!entry.childPid) continue;
+		entry.lifecycle?.requestStop(reason, "electron-app");
+		killProcessTree(entry.childPid, "SIGTERM");
 	}
+}
+
+app.on("window-all-closed", () => {
+	stopAllEngines();
 	if (process.platform !== "darwin") {
 		app.quit();
 	}
@@ -870,7 +1047,7 @@ app.on("before-quit", (event) => {
 		event.preventDefault();
 		return;
 	}
-	idleService?.dispose();
+	for (const entry of engines.values()) entry.idleService?.dispose();
     require("./src/main/promptMeasurement").clearCache();
 	if (!mcpClosed) {
 		event.preventDefault();
@@ -879,10 +1056,7 @@ app.on("before-quit", (event) => {
 			app.quit();
 		});
 	}
-	if (childPid) {
-        engineLifecycle?.requestStop("app-shutdown", "electron-app");
-		killProcessTree(childPid, "SIGTERM");
-	}
+	stopAllEngines();
 });
 
 app.on("will-quit", () => {

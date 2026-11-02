@@ -24,7 +24,8 @@ function isContextOverflow(error) {
 let runtimeProvider = () => null;
 function setContextRuntimeProvider(provider) { runtimeProvider = provider; }
 function runtimeIdentityFor(url) {
-  const runtime = runtimeProvider();
+  // Resolve by port: multiple engines may be running concurrently.
+  const runtime = runtimeProvider(Number(new URL(url).port));
   return runtime && Number(new URL(url).port) === runtime.port ? runtime.runtimeIdentity ?? null : null;
 }
 function reserveTokens(payload, limit) {

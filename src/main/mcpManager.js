@@ -513,7 +513,7 @@ class McpManager extends EventEmitter {
     const selected = selections.get(serverName);
     return selected === null || selected?.has(toolName) === true;
   }
-  async activateTools(serverName, toolNames, sessionId, { signal, trustedOnly = false, protectDisabled = false, validate, validateAuthorization = () => {} } = {}) {
+  async activateTools(serverName, toolNames, sessionId, { signal, trustedOnly = false, protectDisabled = false, respectUserDisabled = false, validate, validateAuthorization = () => {} } = {}) {
     if (typeof sessionId !== 'string' || !sessionId || !text(serverName) ||
         !Array.isArray(toolNames) || toolNames.length > 20 || toolNames.some(name => !text(name) || !name))
       throw new Error('MCP_INVALID_SELECTION: Select one server and at most 20 exact tool names.');
@@ -532,6 +532,8 @@ class McpManager extends EventEmitter {
       const config = await this.getConfig();
       const definition = config.mcpServers[serverName];
       if (!definition) throw new Error('MCP_SERVER_REMOVED: Repeat capability search.');
+      if (respectUserDisabled && (definition.disabled === true || definition.enabled === false || definition.uiEnabled === false))
+        throw new Error('MCP_SERVER_DISABLED: Enable this server in MCP Settings.');
       if (definition.disabled === true && (protectDisabled || !this.isSessionEnabled(serverName, sessionId))) throw new Error('MCP_SERVER_DISABLED: This server is disabled. Use the authorized enable action for this chat, or enable it in MCP Settings, before inspecting or activating tools.');
       if (trustedOnly && !require('./nativePlaywright').isTrustedNativePlaywright(serverName, definition))
         throw new Error('MCP_ACTIVATION_UNAUTHORIZED: Configuration changed; approval required.');
@@ -619,7 +621,8 @@ class McpManager extends EventEmitter {
   getApprovalFacts(serverName, toolName) {
     const server = this.servers.get(serverName);
     const tool = server?.tools.find(tool => tool.name === toolName);
-    return { annotations: tool?.annotations, serverTrusted: server?.definition?.trusted === true };
+    return { annotations: tool?.annotations, serverTrusted: server?.definition?.trusted === true,
+      trustedNativePlaywright: require('./nativePlaywright').isTrustedNativePlaywright(serverName, server?.definition) };
   }
   async callTool(serverName, toolName, args, { signal, sessionId, permissionMode, permissionGranted = false, approval } = {}) {
     const server = this.servers.get(serverName);
@@ -637,7 +640,7 @@ class McpManager extends EventEmitter {
       if (!permissionGranted || permissionMode === 'read_only') approval = await require('./toolPermissions').guardTool({ name: toolName, args, sessionId, permissionMode, serverName, project: require('./toolPermissions').sessionProject(sessionId), native: false, signal, ...this.getApprovalFacts(serverName, toolName) });
     }
     const workspaceMcp = permissionMode === 'workspace_write' && sessionId && require('./toolPermissions').sessionProject(sessionId)?.root_path;
-    const policyInput = { workspaceMcp, workspaceRoot: workspaceMcp || null,
+    const policyInput = { workspaceMcp, workspaceRoot: require('./toolPermissions').projectRoot(require('./toolPermissions').sessionProject(sessionId)) || workspaceMcp || null,
       remembered: require('./rememberedToolRules').list(require('./toolPermissions').sessionProject(sessionId)?.id, sessionId), tool: toolName, args, mode: permissionMode, native: false, serverName,
       approved: Boolean(approval?.approved) && !approval?.savedRule, permissionGranted, ...this.getApprovalFacts(serverName, toolName), stage: 'mcp_dispatch' };
     // Preserve independent deletion/outbound enforcement before SQL gating.
