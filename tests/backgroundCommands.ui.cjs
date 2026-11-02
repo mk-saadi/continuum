@@ -13,6 +13,7 @@ app.whenReady().then(async () => {
       import BackgroundCommandCard from './src/components/chat/BackgroundCommandCard.jsx';
       window.memoryPalace = {
         getBackgroundCommands: async () => [{command_id:'cmd_a',command_summary:'npm run build',status:'running',notification_state:'pending'}],
+        stopBackgroundCommand: async (sessionId, commandId) => {window.stopped={sessionId,commandId};return {command_id:commandId,command_summary:'persistent server',status:'cancelled',reason:'user_stopped',notification_state:'undelivered',survive_run_completion:true};},
         onBackgroundCommand: fn => {window.pushBackground=fn;return ()=>{window.pushBackground=null;};}
       };
       function Fixture(){const [session,setSession]=useState('a');window.switchSession=setSession;return <BackgroundCommandCard sessionId={session}/>;}
@@ -35,7 +36,13 @@ app.whenReady().then(async () => {
       check(document.body.textContent.includes('Agent informed'),'delivery visible');
       window.pushBackground({sessionId:'a',record:{command_id:'cmd_b',command_summary:'server',status:'cancelled',notification_state:'undelivered'}});await wait();
       check(document.body.textContent.includes('Notification: undelivered'),'undelivered retained');
+      window.pushBackground({sessionId:'a',record:{command_id:'cmd_p',command_summary:'persistent server',status:'running',survive_run_completion:true,expires_at:new Date(Date.now()+60000).toISOString(),notification_state:'pending'}});await wait();
+      check(document.body.textContent.includes('Persistent')&&document.body.textContent.includes('s remaining'),'persistent lifetime visible');
+      const stop=[...document.querySelectorAll('details')].find(d=>d.textContent.includes('persistent server')).querySelector('button');
+      stop.click();await wait();
+      check(window.stopped.sessionId==='a'&&window.stopped.commandId==='cmd_p','scoped Stop action');
+      check(document.body.textContent.includes('user stopped'),'termination reason visible');
     })()`);
-    console.log('Background command Activity UI: 7 checks passed.');
+    console.log('Background command Activity UI: 10 checks passed.');
   } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
 }).then(() => app.quit()).catch(error => { console.error(error); app.exit(1); });

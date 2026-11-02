@@ -63,3 +63,30 @@ test('engine:chat owns real background command, pushes Activity and delivers sam
     assert.equal(result.executionSteps.find(step => step.result?.command_id === commandId).result.exitCode, 0);
   } finally { manager.events.removeListener('change', completion); }
 });
+test('successful engine:chat preserves explicit persistent command and UI stop terminates it', async () => {
+  const mcp = require('../src/main/mcpManager'); mcp.init = async () => {}; mcp.reload = async () => {}; mcp.load = async () => {}; mcp.getTools = () => [];
+  dispose?.();
+  dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true, getEngineConfig: () => ({ port: 12345, modelPath: 'model', activeModelConfig: { contextLength: 32768 } }), beginEngineRequest: () => () => {} });
+  const owner = new EventEmitter(); owner.isDestroyed = () => false; owner.send = () => {};
+  let round = 0;
+  const portFile = path.join(workspace, 'ipc-persistent-port');
+  const response = message => Response.json({ choices: [{ message: { role: 'assistant', ...message }, finish_reason: message.tool_calls ? 'tool_calls' : 'stop' }] });
+  const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
+  fetchMock = async () => {
+    if (round++ === 0) return response({ tool_calls: [call('activate', 'manage_native_tools', { action: 'activate', groups: ['commands'] })] });
+    if (round === 2) return response({ tool_calls: [call('persist', 'execute_command', { command: JSON.stringify(process.execPath) + ' -e ' + JSON.stringify(`require('http').createServer((q,r)=>r.end('IPC_OK')).listen(0,'127.0.0.1',function(){require('fs').writeFileSync(${JSON.stringify(portFile)},String(this.address().port))})`), background: true, survive_run_completion: true, background_lifetime_ms: 10000 })] });
+    return response({ content: 'Server remains managed.' });
+  };
+  const result = await handlers.get('engine:chat')({ sender: owner }, { requestId: 'persistent-ipc', modelId: 'model', sessionId: 'background-ipc', permissionMode: 'full_access', messages: [{ role: 'user', content: 'Keep running after answering.' }] });
+  const rows = await handlers.get('session:get-background-commands')({ sender: owner }, { sessionId: 'background-ipc' });
+  const record = rows.find(r => r.run_id === result.runId);
+  assert.ok(record, JSON.stringify(result));
+  assert.ok(['starting', 'running'].includes(record.status));
+  assert.equal(record.survive_run_completion, true);
+  for (let i=0;i<200 && !fs.existsSync(portFile);i++) await new Promise(resolve => setTimeout(resolve, 10));
+  const url = 'http://127.0.0.1:' + fs.readFileSync(portFile, 'utf8');
+  assert.equal((await fetch(url)).status, 200);
+  const stopped = await handlers.get('session:stop-background-command')({ sender: owner }, { sessionId: 'background-ipc', commandId: record.command_id });
+  assert.equal(stopped.status, 'cancelled'); assert.equal(stopped.reason, 'user_stopped');
+  await assert.rejects(fetch(url));
+});

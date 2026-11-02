@@ -200,6 +200,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   getCheckpoint: (sessionId) => ipcRenderer.invoke('session:get-checkpoint', { sessionId }),
   getCheckpointHistory: (sessionId, limit, checkpointId) => ipcRenderer.invoke('session:get-checkpoint-history', { sessionId, limit, checkpointId }),
   getBriefs: (sessionId) => ipcRenderer.invoke('session:get-briefs', { sessionId }),
+  stopBackgroundCommand: (sessionId, commandId) => ipcRenderer.invoke('session:stop-background-command', { sessionId, commandId }),
   getBackgroundCommands: sessionId => ipcRenderer.invoke('session:get-background-commands', { sessionId }),
   onBackgroundCommand: callback => {
     const listener = (_event, payload) => callback(payload);

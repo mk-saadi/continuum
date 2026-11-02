@@ -485,9 +485,11 @@ function registerIpcHandlers({
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
 			requests.get(sender)?.get(requestId)?.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
 		},
-		"engine:cancel-session": ({ sessionId }, _notify, sender) => {
+		"engine:cancel-session": async ({ sessionId }, _notify, sender) => {
 			const controller = activeStreams.get(sessionId);
-			if (controller && [...(requests.get(sender)?.values() ?? [])].includes(controller)) controller.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
+			if (controller && ![...(requests.get(sender)?.values() ?? [])].includes(controller)) throw new Error('This sender does not own the run.');
+            await require('./backgroundCommands').terminateSession(sessionId);
+            controller?.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
 		},
 		// Phase 2.1 live steering. Every mutation resolves the executing run from
 		// trusted in-memory state and requires the calling sender to own it; the
@@ -581,6 +583,7 @@ function registerIpcHandlers({
             controller.settled = new Promise(resolve => { settleRun = resolve; });
             const lspExecutionContext = require('./lspExecutionContext').createContext(sessionId, permissionMode, runId);
             const backgroundProject = require('./toolPermissions').sessionProject(sessionId);
+            let backgroundNormalCompletion = false;
             const backgroundContext = backgroundProject?.root_path ? { runId, sessionId, workspace: require('node:fs').realpathSync(backgroundProject.root_path) } : null;
             if (backgroundContext) require('./backgroundCommands').openRun({ ...backgroundContext, signal: controller.signal });
             const backgroundUpdate = record => {
@@ -1229,6 +1232,7 @@ function registerIpcHandlers({
 				}
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
 					interrupted: stoppedByLimit || !!incompleteTask, aborted: controller.signal.aborted });
+				backgroundNormalCompletion = !controller.signal.aborted && !stoppedByLimit && !stoppedByCircuitBreak && !incompleteTask;
 				return { text, stats: currentStats, executionSteps, runId, incompleteTask, message: { id: persistence?.messageId ?? messageId, role: "assistant", displayName: capturedDisplayName, content: text, executionSteps, status: controller.signal.aborted || stoppedByCircuitBreak || incompleteTask ? "interrupted" : "completed" } };
 			} catch (error) {
                 persist("interrupted");
@@ -1252,7 +1256,7 @@ function registerIpcHandlers({
 				if (!active.size) requests.delete(sender);
 				if (activeStreams.get(streamKey) === controller) activeStreams.delete(streamKey);
 				if (backgroundContext) {
-                    await require('./backgroundCommands').closeRun(backgroundContext);
+                    await require('./backgroundCommands').closeRun(backgroundContext, { normalCompletion: backgroundNormalCompletion });
                     require('./backgroundCommands').events.removeListener('change', backgroundUpdate);
                 }
 				steeringRuns.delete(runId);
@@ -1524,7 +1528,12 @@ function registerIpcHandlers({
 		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
 		// Read-only durable task plan for the workspace sidebar. Null for a
 		// casual session or a task that has not created a plan yet.
-		"session:get-background-commands": async ({ sessionId }) => {
+		"session:stop-background-command": async ({ sessionId, commandId }) => {
+            const project = require('./toolPermissions').sessionProject(sessionId);
+            if (!project?.root_path) throw new Error('Workspace session required.');
+            return require('./backgroundCommands').stopForSession(commandId, sessionId, await require('node:fs/promises').realpath(project.root_path));
+        },
+        "session:get-background-commands": async ({ sessionId }) => {
             const project = require('./toolPermissions').sessionProject(sessionId);
             return project?.root_path ? require('./backgroundCommands').list(sessionId, await require('node:fs/promises').realpath(project.root_path)) : [];
         },

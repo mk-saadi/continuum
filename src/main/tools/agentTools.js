@@ -137,12 +137,13 @@ const agentTools = [
 	),
 	define(
 		"execute_command",
-		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; all commands stop when the owning run ends. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. Package installation and publication require approval; other contained commands run without syntax or argument-path review when the sandbox is available. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Git metadata is read-only in the shell sandbox; git mutations must use the git_* tools. Output preserves the beginning and error tail.",
+		"Run an authorized shell command (60-second default; timeout_ms 1000-300000). background:true returns an owned command ID promptly and automatically reports completion in this run. Optional background_lifetime_ms allows 1000-1800000 ms for dev servers; ordinary commands stop when the owning run ends. survive_run_completion:true explicitly keeps a finite-lived background command managed after normal response completion, subject to current permissions and sandboxing. Use it for development servers the user wants accessible after the answer, not ordinary short commands. Startup output is not completion. Workspace Write runs eligible local commands inside the isolated bwrap workspace profile. Package installation and publication require approval; other contained commands run without syntax or argument-path review when the sandbox is available. Ask for Approval reviews every invocation. Full Access permits uncontained execution. Git metadata is read-only in the shell sandbox; git mutations must use the git_* tools. Output preserves the beginning and error tail.",
 		{
 			command: string("Shell command"),
             required_capability: { type: "string", enum: ["x11_display"], description: "Declare a concrete X11 display requirement; unsupported profiles reject before launch." },
             background: { type: "boolean", description: "Run asynchronously in this main workspace run." },
-            background_lifetime_ms: { type: "integer", minimum: 1000, maximum: 1800000, description: "Explicit background lifetime; mutually exclusive with timeout_ms. Default 60000; run cancellation/end remains authoritative." },
+            survive_run_completion: { type: "boolean", description: "Requires background:true. Explicitly survive normal response completion; default false. Finite lifetime and cancellation safeguards still apply." },
+            background_lifetime_ms: { type: "integer", minimum: 1000, maximum: 1800000, description: "Explicit background lifetime; mutually exclusive with timeout_ms. Default 60000; run cancellation remains authoritative; normal completion preserves only explicitly persistent commands." },
             timeout_ms: { type: "integer", minimum: 1000, maximum: 300000, description: "Foreground timeout in milliseconds; default 60000, maximum 300000. Agent cancellation/deadlines take precedence." },
 			cwd: string("Working directory; defaults to the project root"),
 			user_confirmed: {
@@ -2907,6 +2908,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         }
 		if (name === "execute_command") {
             if (Object.hasOwn(args, 'background') && typeof args.background !== 'boolean') throw new Error('background must be boolean.');
+            if (Object.hasOwn(args, 'survive_run_completion') && (typeof args.survive_run_completion !== 'boolean' || (args.survive_run_completion && args.background !== true))) throw new Error('survive_run_completion requires background:true and a boolean.');
             let timeoutMs = verificationTimeoutMs(args);
             if (Object.hasOwn(args, 'background_lifetime_ms')) {
                 if (args.background !== true || Object.hasOwn(args, 'timeout_ms') || !Number.isInteger(args.background_lifetime_ms) || args.background_lifetime_ms < 1000 || args.background_lifetime_ms > 1800000) throw new Error('background_lifetime_ms requires background:true, no timeout_ms, and an integer in 1000-1800000.');
@@ -2914,12 +2916,21 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             }
             if (args.background === true) {
                 if (!project?.root_path || !backgroundContext) throw new Error('Background commands require an active main workspace run.');
+                const persistent = args.survive_run_completion === true;
+                const contexts = require('../lspExecutionContext');
+                const policyRevision = contexts.persistentRevision(sessionId);
+                const validateBackground = persistent ? () => {
+                    if (contexts.persistentRevision(sessionId) !== policyRevision || contexts.currentMode(sessionId) !== permissionMode ||
+                        require('../toolPermissions').sessionProject(sessionId)?.root_path !== project.root_path ||
+                        require('node:fs').realpathSync(project.root_path) !== root) throw new Error('Command permission revoked.');
+                } : validateAuthorization;
+                validateAuthorization();
                 return require('../backgroundCommands').start({ runId: backgroundContext.runId, sessionId, workspace: root,
                     authorization: { mode: permissionMode, policyRevision: authorizationRevision, uncontained, approved: guardDecision.approved,
                         ...(guardDecision.executionProfile ? { executionProfile: guardDecision.executionProfile } : {}),
                         operationFingerprint: require('../advertisedTools').fingerprint([name, args]) } }, args.command, timeoutMs,
-                    (commandSignal, onState) => runScopedCommand('execute_command', args, { root, signal: commandSignal, uncontained, sessionId,
-                        recoveryRoot: project.root_path, timeoutMs, validateAuthorization, onState, requiredExecutionProfile, capabilityRunId: backgroundContext?.runId }).then(value => value.result), validateAuthorization);
+                    (commandSignal, onState, liveValidate) => runScopedCommand('execute_command', args, { root, signal: commandSignal, uncontained, sessionId,
+                        recoveryRoot: project.root_path, timeoutMs, validateAuthorization: liveValidate, onState, requiredExecutionProfile, capabilityRunId: backgroundContext?.runId }).then(value => value.result), validateBackground, persistent);
             }
 			// Every command has a consumed, scoped grant. Workspace consent
 			// retains the bwrap sandbox; only commandUncontained selects escape.

@@ -40,7 +40,7 @@ function restore(connection) {
   for (const row of rows.reverse()) {
     try {
       const r = JSON.parse(row.record);
-      if (active(r)) Object.assign(r, { status: 'cancelled', ended_at: new Date().toISOString(), interruption: 'Application stopped; process outcome unknown. Commands are never restarted.', exitCode: null });
+      if (active(r)) Object.assign(r, { status: 'cancelled', reason: 'application_interrupted', ended_at: new Date().toISOString(), interruption: 'Application stopped; process outcome unknown. Commands are never restarted.', exitCode: null });
       if (r.notification_state !== 'delivered') r.notification_state = r.notification_state === 'included' ? 'ambiguous' : 'undelivered';
       records.set(r.command_id, r);
       save(r);
@@ -64,7 +64,7 @@ function owned(id, context) {
   if (!r || r.session_id !== context.sessionId || r.workspace !== context.workspace) throw new Error('Background command not found in this workspace session.');
   return r;
 }
-function start(context, command, timeoutMs, operation, validate) {
+function start(context, command, timeoutMs, operation, validate, persistent = false) {
   const owner = ownerRun(context);
   validate(); owner.signal?.throwIfAborted(); prune();
   const all = [...records.values()];
@@ -74,25 +74,28 @@ function start(context, command, timeoutMs, operation, validate) {
   const r = { command_id: `cmd_${randomUUID()}`, run_id: owner.runId, session_id: owner.sessionId, workspace: owner.workspace,
     authorization: context.authorization ? structuredClone(context.authorization) : null,
     command_summary: command.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 160), background: true,
+    survive_run_completion: persistent, expires_at: new Date(Date.now() + timeoutMs).toISOString(),
     status: 'starting', started_at: new Date().toISOString(), timeout_ms: timeoutMs, exitCode: null,
     notification_state: 'pending', controller, validate, ownerSignal: owner.signal };
   // Fail closed before any operation starts if the initial durable record fails.
   save(r, true); records.set(r.command_id, r);
-  r.onAbort = () => controller.abort(owner.signal.reason);
+  r.onAbort = () => cancel(r, owner.signal.reason?.code === 'SUBAGENT_DEADLINE_EXCEEDED' ? 'agent_deadline_exceeded' : 'owning_run_cancelled', owner.signal.reason);
   owner.signal?.addEventListener('abort', r.onAbort, { once: true });
   if (owner.signal?.aborted) r.onAbort();
-  const revocation = setInterval(() => { try { validate(); } catch { controller.abort(new Error('Command permission revoked.')); } }, 50);
+  const guardedValidate = () => { try { validate(); } catch (error) { cancel(r, 'permission_revoked'); throw error; } };
+  const revocation = setInterval(() => { try { guardedValidate(); } catch {} }, 50);
   const began = performance.now();
   r.promise = Promise.resolve().then(() => operation(controller.signal, update => {
     if (!active(r)) return;
     Object.assign(r, update); save(r);
-  })).then(result => {
+  }, guardedValidate)).then(result => {
     Object.assign(r, result);
   }, error => {
     Object.assign(r, { status: controller.signal.aborted ? 'cancelled' : 'spawn_failed', success: false, exitCode: null, stderr: String(error.message).slice(0, 500) });
   }).finally(() => {
     clearInterval(revocation); owner.signal?.removeEventListener('abort', r.onAbort);
     if (active(r)) Object.assign(r, { status: 'spawn_failed', success: false, exitCode: null });
+    r.reason ??= r.status === 'timed_out' ? 'lifetime_expired' : r.status === 'agent_deadline_exceeded' ? 'agent_deadline_exceeded' : r.status === 'completed' ? 'process_completed' : 'unexpected_process_exit';
     r.ended_at = new Date().toISOString(); r.duration_ms ??= Math.round(performance.now() - began);
     r.notification_state = owner.ended || owner.signal?.aborted ? 'undelivered' : 'queued';
     delete r.readOutput; delete r.controller; delete r.ownerSignal; delete r.onAbort; delete r.validate;
@@ -102,9 +105,13 @@ function start(context, command, timeoutMs, operation, validate) {
   return publicRecord(r);
 }
 function status(id, context) { return publicRecord(owned(id, context)); }
+function cancel(r, reason, error = new Error(reason)) {
+  if (!active(r) || r.controller?.signal.aborted) return;
+  r.reason = reason; r.controller?.abort(error);
+}
 async function stop(id, context) {
   const r = owned(id, context);
-  r.controller?.abort(new Error('Background command explicitly stopped.'));
+  cancel(r, 'user_stopped');
   await r.promise;
   return publicRecord(r);
 }
@@ -128,7 +135,7 @@ function acknowledge(context, ids, accepted) {
     r.notification_state = accepted ? 'delivered' : 'undelivered'; save(r);
   }
 }
-async function closeRun(context) {
+async function closeRun(context, { normalCompletion = false } = {}) {
   const owner = runs.get(context?.runId);
   if (!owner) return;
   if (owner.sessionId !== context.sessionId || owner.workspace !== context.workspace) throw new Error('Background command ownership denied.');
@@ -139,20 +146,35 @@ async function closeRun(context) {
     for (const r of records.values()) {
       if (r.run_id !== owner.runId) continue;
       if (['queued', 'included'].includes(r.notification_state)) { r.notification_state = r.notification_state === 'included' ? 'ambiguous' : 'undelivered'; save(r); }
-      if (active(r)) { r.controller?.abort(new Error('Owning run ended.')); if (r.promise) pending.push(r.promise); }
+      if (active(r)) {
+        if (normalCompletion && r.survive_run_completion) {
+          r.ownerSignal?.removeEventListener('abort', r.onAbort);
+          delete r.ownerSignal; save(r);
+        } else { cancel(r, 'owning_run_ended'); if (r.promise) pending.push(r.promise); }
+      }
     }
     await Promise.allSettled(pending); runs.delete(owner.runId);
   })();
   return owner.closePromise;
 }
+async function terminateSession(sessionId, reason = 'session_terminated') {
+  await Promise.allSettled([...records.values()].filter(r => r.session_id === sessionId && active(r)).map(r => { cancel(r, reason); return r.promise; }));
+}
 async function forgetSession(sessionId) {
-  await Promise.all([...runs.values()].filter(owner => owner.sessionId === sessionId).map(closeRun));
+  await terminateSession(sessionId, 'session_deleted');
+  await Promise.all([...runs.values()].filter(owner => owner.sessionId === sessionId).map(owner => closeRun(owner)));
   for (const [id, r] of records) if (r.session_id === sessionId) records.delete(id);
 }
 async function shutdown() {
   closing = true;
+  await Promise.allSettled([...records.values()].filter(active).map(r => { cancel(r, 'application_shutdown'); return r.promise; }));
   await Promise.allSettled([...runs.values()].map(owner => closeRun(owner)));
 }
 function list(sessionId, workspace) { return [...records.values()].filter(r => r.session_id === sessionId && r.workspace === workspace).map(publicRecord); }
+async function stopForSession(id, sessionId, workspace) {
+  const r = records.get(id);
+  if (!r || r.session_id !== sessionId || r.workspace !== workspace) throw new Error('Background command not found in this workspace session.');
+  cancel(r, 'user_stopped'); await r.promise; return publicRecord(r);
+}
 function workspaceBusy(workspace) { return [...records.values()].some(r => active(r) && r.workspace === workspace); }
-module.exports = { workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
+module.exports = { terminateSession, stopForSession, workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };

@@ -313,13 +313,90 @@ test('shared executor settles a pipe capture failure without crashing or fabrica
   const result = await fixtureModule.exports.runForeground('fixture', [], { timeoutMs: 1000 });
   assert.equal(result.status, 'output_capture_failed'); assert.equal(result.exitCode, null); assert.match(result.stderr, /controlled broken pipe/);
 });
+test('persistent real HTTP server survives completion, later run and tab context, then scoped stop', async () => {
+  const f = setup();
+  const portFile = path.join(workspace, 'persistent-port');
+  const started = await f.dispatch('execute_command', { command: node(`const s=require('http').createServer((q,r)=>r.end('B1_OK'));s.listen(0,'127.0.0.1',()=>require('fs').writeFileSync(${JSON.stringify(portFile)},String(s.address().port)))`), background: true, survive_run_completion: true, background_lifetime_ms: 10000 });
+  for (let i=0;i<200 && !fs.existsSync(portFile);i++) await delay(10);
+  assert.ok(fs.existsSync(portFile), JSON.stringify(manager.list(f.context.sessionId, workspace)));
+  const url = 'http://127.0.0.1:' + fs.readFileSync(portFile, 'utf8');
+  assert.equal((await fetch(url)).status, 200);
+  await manager.closeRun(f.context, { normalCompletion: true });
+  f.controller.abort(); // closed response no longer owns the process
+  const laterContext = { ...f.context, runId: f.context.runId + '-later' };
+  const executionContext = contexts.createContext(f.context.sessionId, 'full_access', laterContext.runId);
+  manager.openRun(laterContext); fixtureContexts.push(laterContext);
+  const dispatch = (name, args) => executeAgentTool({ name, arguments: JSON.stringify(args), sessionId: f.context.sessionId, permissionMode: 'full_access', executionContext, backgroundContext: laterContext });
+  await delay(100);
+  assert.equal((await fetch(url)).status, 200);
+  assert.equal((await dispatch('get_command_status', { command_id: started.command_id })).status, 'running');
+  const other = setup();
+  assert.equal((await other.dispatch('get_command_status', { command_id: started.command_id })).success, false);
+  await assert.rejects(manager.stopForSession(started.command_id, f.context.sessionId, temporary), /not found/);
+  const stopped = await dispatch('stop_background_command', { command_id: started.command_id });
+  assert.equal(stopped.reason, 'user_stopped');
+  await assert.rejects(fetch(url));
+  console.log('B1_HTTP_REPRODUCTION', JSON.stringify({ before: 200, after_normal_completion: 200, after_stop: 'unreachable' }));
+});
+test('persistent lifetime, revocation, deletion and shutdown preserve structured causes', async () => {
+  const start = f => f.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true, survive_run_completion: true, background_lifetime_ms: 1000 });
+  const expired = setup(); const a = await start(expired);
+  await manager.closeRun(expired.context, { normalCompletion: true });
+  for (let i=0;i<200 && manager.list(expired.context.sessionId, workspace)[0].status !== 'timed_out';i++) await delay(10);
+  assert.equal(manager.list(expired.context.sessionId, workspace)[0].reason, 'lifetime_expired');
+  const revoked = setup(); const b = await start(revoked);
+  await manager.closeRun(revoked.context, { normalCompletion: true });
+  await contexts.setMode(revoked.context.sessionId, 'read_only');
+  for (let i=0;i<200 && manager.list(revoked.context.sessionId, workspace)[0].status !== 'cancelled';i++) await delay(10);
+  assert.equal(manager.list(revoked.context.sessionId, workspace)[0].reason, 'permission_revoked');
+  const deleted = setup(); const c = await start(deleted);
+  await manager.closeRun(deleted.context, { normalCompletion: true });
+  let ended;
+  const listener = r => { if(r.command_id === c.command_id) ended = r; };
+  manager.events.on('change', listener);
+  await manager.forgetSession(deleted.context.sessionId);
+  manager.events.removeListener('change', listener);
+  assert.equal(ended.reason, 'session_deleted');
+});
+test('detached persistent commands count toward global limits and retain bounded live output', async () => {
+  const fixtures = [setup(), setup()];
+  const ids = [];
+  for (const f of fixtures) {
+    for (let i=0;i<2;i++) ids.push(await f.dispatch('execute_command', { command: node("require('fs').writeSync(1,'a'.repeat(100000));setInterval(()=>{},100)"), background: true, survive_run_completion: true }));
+    await manager.closeRun(f.context, { normalCompletion: true });
+  }
+  const later = setup();
+  assert.equal((await later.dispatch('execute_command', { command: 'true', background: true })).success, false);
+  await delay(100);
+  for (const f of fixtures) {
+    const rows = manager.list(f.context.sessionId, workspace);
+    assert.ok(rows.every(r => r.stdout.length < 16500 && r.output_truncated));
+    for (const r of rows) await manager.stopForSession(r.command_id, f.context.sessionId, workspace);
+  }
+});
+test('governing deadline still overrides a detached persistent lifetime', async () => {
+  const f = setup();
+  const deadlines = require('../src/main/subagents/executionDeadline');
+  const deadline = deadlines.armExecutionDeadline({ id: f.context.sessionId }, { maxRuntimeMs: 250 });
+  try {
+    const started = await f.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true, survive_run_completion: true, background_lifetime_ms: 10000 });
+    await delay(50);
+    await manager.closeRun(f.context, { normalCompletion: true });
+    for (let i=0;i<200 && ['starting','running'].includes(manager.list(f.context.sessionId,workspace)[0].status);i++) await delay(10);
+    const ended = manager.list(f.context.sessionId,workspace)[0];
+    assert.equal(ended.status, 'agent_deadline_exceeded');
+    assert.equal(ended.reason, 'agent_deadline_exceeded');
+  } finally { deadline.clear(); deadlines.releaseExecutionDeadline(f.context.sessionId); }
+});
 test('shutdown awaits all owned background process cleanup', async () => {
   const a = setup(), b = setup();
-  await a.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true });
-  await b.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true });
+  await a.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true, survive_run_completion: true });
+  await b.dispatch('execute_command', { command: node('setInterval(()=>{},100)'), background: true, survive_run_completion: true });
+  await manager.closeRun(a.context, { normalCompletion: true });
+  await manager.closeRun(b.context, { normalCompletion: true });
   await delay(60);
   await Promise.all([manager.shutdown(), manager.closeRun(a.context), manager.closeRun(a.context)]);
-  for (const f of [a, b]) assert.ok(manager.list(f.context.sessionId, workspace).every(r => r.status === 'cancelled' && r.notification_state === 'undelivered'));
+  for (const f of [a, b]) assert.ok(manager.list(f.context.sessionId, workspace).every(r => r.status === 'cancelled' && r.reason === 'application_shutdown' && r.notification_state === 'undelivered'));
 });
 test('restart reconciles stale running and ambiguous transport claims without restarting', () => {
   const db = database.db;

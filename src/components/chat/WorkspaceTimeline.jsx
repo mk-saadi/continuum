@@ -402,11 +402,11 @@ function RunSection({
 				responseId={showFinal ? responseId : null}
 			/>
 			{stages.length > 0 && (
-				<div
-					className="flex min-w-0 flex-col gap-4"
-					role="list"
-					aria-label="Run execution stages"
-				>
+			<div
+				className="flex min-w-0 flex-col gap-4 text-[var(--text-primary)]"
+				role="list"
+				aria-label="Run execution stages"
+			>
 					{stages.map((stage) => stage.text ? <div role="listitem" key={stage.key}><ProgressText text={stage.text.content} /></div> : stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
 						<StageSection
 							key={stage.key}
