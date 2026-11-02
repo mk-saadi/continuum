@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { formatUsd } from '../lib/costFormat.mjs';
-import { activeReplyVariant } from '../lib/messageIdentity.mjs';
+import { formatUsd } from "../lib/costFormat.mjs";
+import { activeReplyVariant } from "../lib/messageIdentity.mjs";
 import {
 	LuActivity,
 	LuBot,
@@ -123,34 +123,46 @@ export default function RightSidebar({
 	projectName = null,
 	modelName = null,
 	cloudChat = false,
-    contextMeasurement = null,
-    contextLiveTelemetry = null,
-    contextRunTelemetry = null,
+	contextMeasurement = null,
+	contextLiveTelemetry = null,
+	contextRunTelemetry = null,
 	runtime = null,
 }) {
 	const sections = isWorkspace ? WORKSPACE_SECTIONS : CASUAL_SECTIONS;
-    const latestResponse = [...(runtime?.messages ?? [])].reverse().find(message => message.role === 'assistant');
-    const responseCost = runtime?.streaming ? runtime?.liveResponseCost
-        : latestResponse ? activeReplyVariant(latestResponse).stats?.cost : null;
-    const [sessionSpend, setSessionSpend] = useState(null);
-    useEffect(() => {
-        let active = true;
-        if (!open || !sessionId || !window.api?.getSessionCost) return;
-        const refresh = () => window.api.getSessionCost(sessionId)
-            .then(cost => { if (active) setSessionSpend({ sessionId, ...cost }); })
-            .catch(() => { if (active) setSessionSpend(null); });
-        refresh();
-        const timer = runtime?.streaming ? setInterval(refresh, 2000) : null;
-        return () => { active = false; if (timer) clearInterval(timer); };
-    }, [open, sessionId, runtime?.streaming, latestResponse?.stats?.cost?.total]);
-    const chatSpend = sessionSpend?.sessionId === sessionId ? sessionSpend : null;
+	const latestResponse = [...(runtime?.messages ?? [])]
+		.reverse()
+		.find((message) => message.role === "assistant");
+	const responseCost = runtime?.streaming
+		? runtime?.liveResponseCost
+		: latestResponse
+			? activeReplyVariant(latestResponse).stats?.cost
+			: null;
+	const [sessionSpend, setSessionSpend] = useState(null);
+	useEffect(() => {
+		let active = true;
+		if (!open || !sessionId || !window.api?.getSessionCost) return;
+		const refresh = () =>
+			window.api
+				.getSessionCost(sessionId)
+				.then((cost) => {
+					if (active) setSessionSpend({ sessionId, ...cost });
+				})
+				.catch(() => {
+					if (active) setSessionSpend(null);
+				});
+		refresh();
+		const timer = runtime?.streaming ? setInterval(refresh, 2000) : null;
+		return () => {
+			active = false;
+			if (timer) clearInterval(timer);
+		};
+	}, [open, sessionId, runtime?.streaming, latestResponse?.stats?.cost?.total]);
+	const chatSpend = sessionSpend?.sessionId === sessionId ? sessionSpend : null;
 	const tabs = useRef([]);
-		const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
+	const [tab, setTab] = useState(isWorkspace ? "activity" : "persona");
 	// Agent-run timer: starts when a run begins, ticks each second, and
 	// clears as soon as the run ends (idle shows no timer).
-	const runActiveNow = Boolean(
-		runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
-	);
+	const runActiveNow = Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading));
 	const [runStartedAt, setRunStartedAt] = useState(null);
 	const [runNow, setRunNow] = useState(null);
 	useEffect(() => {
@@ -168,11 +180,13 @@ export default function RightSidebar({
 		runActiveNow && runStartedAt != null && runNow != null
 			? formatSessionDuration(runNow - runStartedAt)
 			: null;
-    useEffect(() => {
-      const inspect = event => { if (isWorkspace && event.detail?.sessionId === sessionId) setTab("context"); };
-      window.addEventListener('continuum:inspect-checkpoint', inspect);
-      return () => window.removeEventListener('continuum:inspect-checkpoint', inspect);
-    }, [isWorkspace, sessionId]);
+	useEffect(() => {
+		const inspect = (event) => {
+			if (isWorkspace && event.detail?.sessionId === sessionId) setTab("context");
+		};
+		window.addEventListener("continuum:inspect-checkpoint", inspect);
+		return () => window.removeEventListener("continuum:inspect-checkpoint", inspect);
+	}, [isWorkspace, sessionId]);
 	const [prompt, setPrompt] = useState("");
 	const [savedPrompt, setSavedPrompt] = useState("");
 	const [notice, setNotice] = useState("");
@@ -355,13 +369,7 @@ export default function RightSidebar({
 	const memoryLoading = !effectiveState;
 	const memoryDisabled = () => disabled || memoryBusyKey !== null || !sessionId || memoryLoading;
 	const renderResetBlock = (compact = false) => (
-		<div
-			className={
-				compact
-					? "aero-panel p-3"
-					: "mx-4 mt-3 aero-panel p-3"
-			}
-		>
+		<div className={compact ? "aero-panel p-3" : "mx-4 mt-3 aero-panel p-3"}>
 			<button
 				type="button"
 				disabled={disabled || selecting || saving}
@@ -373,7 +381,7 @@ export default function RightSidebar({
 			</button>
 			<p
 				id="chat-reset-hint"
-				className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]"
+				className="mt-2! text-[11px] leading-relaxed text-[var(--text-muted)]"
 			>
 				Clears this chat&apos;s assistant, custom instructions, sampling overrides, and memory
 				settings. Model and global defaults are unchanged.
@@ -613,7 +621,7 @@ export default function RightSidebar({
 				})
 			)}
 
-			<p className="text-xs leading-relaxed text-[var(--text-muted)]">
+			<p className="text-[11px]! leading-relaxed text-[var(--text-muted)] mb-2!">
 				Turning compression off stops future summarization; existing summaries remain in use.
 			</p>
 			{(memoryStatus || memoryError) && (
@@ -648,7 +656,7 @@ export default function RightSidebar({
 	const renderActivity = () => (
 		<>
 			{isWorkspace && <WorkspacePlanCard sessionId={sessionId} />}
-            {isWorkspace && <BackgroundCommandCard sessionId={sessionId} />}
+			{isWorkspace && <BackgroundCommandCard sessionId={sessionId} />}
 			<div className="aero-panel p-3">
 				<div className="flex items-center gap-2">
 					<span
@@ -747,7 +755,12 @@ export default function RightSidebar({
 								key={call.id}
 								className="flex min-w-0 items-center justify-between gap-2 text-[11px]"
 							>
-								<span className="min-w-0 truncate" title={call.toolName}>{call.displayName}</span>
+								<span
+									className="min-w-0 truncate"
+									title={call.toolName}
+								>
+									{call.displayName}
+								</span>
 								<span
 									className={`shrink-0 ${TOOL_STATUS_STYLE[call.status] ?? TOOL_STATUS_STYLE.unknown}`}
 								>
@@ -795,7 +808,7 @@ export default function RightSidebar({
 								className="flex min-w-0 items-start justify-between gap-2 text-[11px]"
 							>
 								<span className="min-w-0">
-									<span className="block truncate font-medium">{label}</span>
+									<span className="block truncate font-medium mt-2!">{label}</span>
 									<span className="block leading-relaxed text-[var(--text-muted)]">
 										{description}
 										{localOnly && " Local chats only."}
@@ -803,7 +816,7 @@ export default function RightSidebar({
 								</span>
 								<span
 									role="status"
-									className={`shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
+									className={`shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 mt-2! ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
 								>
 									{available ? "Available" : "Unavailable"}
 								</span>
@@ -815,7 +828,7 @@ export default function RightSidebar({
 
 			<div className="aero-panel p-3">
 				<h3 className="mb-1 text-xs font-semibold">Sub-agent model</h3>
-				<p className="mb-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+				<p className="mb-3! text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Global setting — applies to every chat&apos;s future subagents, not just this session.
 					Same control as Settings → General.
 				</p>
@@ -883,7 +896,9 @@ export default function RightSidebar({
 			 * translate/opacity, so the transcript is not re-laid-out on every
 			 * frame of the transition.
 			 */}
-			<div className={`sidebar-frame absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}>
+			<div
+				className={`sidebar-frame absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}
+			>
 				<header className="aero-header flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
 						<span className="aero-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
@@ -924,32 +939,44 @@ export default function RightSidebar({
 					</button>
 				</header>
 
-                <div className="aero-panel mx-4 mt-4 p-3" aria-label="Response cost">
-                        <div className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-[var(--text-secondary)]">{runtime?.streaming ? 'Live response estimate' : 'Latest response cost'}</span>
-                            <span className="font-semibold tabular-nums text-[var(--accent)]">
-                                {!cloudChat ? 'Local · no charge' : formatUsd(responseCost?.total)}
-                            </span>
-                        </div>
-                        {cloudChat && <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                            {runtime?.streaming ? responseCost?.total == null
-                                ? 'Waiting for pricing or provider usage.'
-                                : runtime?.liveResponseCost?.partial
-                                ? 'Partial estimate; some requests have no pricing.'
-                                : 'Estimated tokens while generating. Final usage may change the charge.'
-                                : 'USD · Cost of the latest response, including tool follow-ups.'}
-                        </p>}
-                        <div className="mt-3 border-t border-[var(--border)] pt-3">
-                            <div className="flex items-center justify-between gap-3 text-xs">
-                                <span className="text-[var(--text-secondary)]">Total spent in this chat</span>
-                                <span className="font-semibold tabular-nums">{chatSpend?.partial && chatSpend.total != null ? '≥ ' : ''}{formatUsd(chatSpend?.total)}</span>
-                            </div>
-                            <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                                {chatSpend?.partial ? 'Known subtotal; some turns have no complete cost record.'
-                                    : 'Recorded USD spend, including agent runs. Kept after compaction.'}
-                            </p>
-                        </div>
-                </div>
+				<div
+					className="aero-panel mx-4 mt-4 p-3"
+					aria-label="Response cost"
+				>
+					<div className="flex items-center justify-between gap-3">
+						<span className="text-xs text-[var(--text-secondary)]">
+							{runtime?.streaming ? "Live response estimate" : "Latest response cost"}
+						</span>
+						<span className="font-semibold tabular-nums text-[var(--accent)]">
+							{!cloudChat ? "Local · no charge" : formatUsd(responseCost?.total)}
+						</span>
+					</div>
+					{cloudChat && (
+						<p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+							{runtime?.streaming
+								? responseCost?.total == null
+									? "Waiting for pricing or provider usage."
+									: runtime?.liveResponseCost?.partial
+										? "Partial estimate; some requests have no pricing."
+										: "Estimated tokens while generating. Final usage may change the charge."
+								: "USD · Cost of the latest response, including tool follow-ups."}
+						</p>
+					)}
+					<div className="mt-3 border-t border-[var(--border)] pt-3">
+						<div className="flex items-center justify-between gap-3 text-xs">
+							<span className="text-[var(--text-secondary)]">Total spent in this chat</span>
+							<span className="font-semibold tabular-nums">
+								{chatSpend?.partial && chatSpend.total != null ? "≥ " : ""}
+								{formatUsd(chatSpend?.total)}
+							</span>
+						</div>
+						<p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+							{chatSpend?.partial
+								? "Known subtotal; some turns have no complete cost record."
+								: "Recorded USD spend, including agent runs. Kept after compaction."}
+						</p>
+					</div>
+				</div>
 				{!isWorkspace && renderResetBlock(false)}
 
 				<div
@@ -1046,9 +1073,9 @@ export default function RightSidebar({
 							className={panelClass}
 						>
 							<ContextPanel
-                                measurement={contextMeasurement}
-                                liveTelemetry={contextLiveTelemetry}
-                                runTelemetry={contextRunTelemetry}
+								measurement={contextMeasurement}
+								liveTelemetry={contextLiveTelemetry}
+								runTelemetry={contextRunTelemetry}
 								sessionId={sessionId}
 								modelId={modelId}
 								active={tab === "context"}

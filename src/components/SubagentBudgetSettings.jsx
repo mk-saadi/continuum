@@ -49,9 +49,14 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 	const applyValue = (value) => {
 		setSettings(value.settings);
 		setPolicy(value.policy);
-		setDraft(Object.fromEntries(FIELDS.map(([key]) => [
-			key, value.settings[key] === UNBOUNDED ? "" : value.settings[key] ?? "",
-		])));
+		setDraft(
+			Object.fromEntries(
+				FIELDS.map(([key]) => [
+					key,
+					value.settings[key] === UNBOUNDED ? "" : (value.settings[key] ?? ""),
+				]),
+			),
+		);
 	};
 
 	useEffect(() => {
@@ -124,9 +129,13 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 				{policy
 					? ` (investigation up to ${policy.maxTurns.investigation} total model requests × ${policy.perRequestCeiling.investigation} output tokens; up to ${policy.maxToolCalls.investigation} tool calls; input ${policy.inputRule})`
 					: ""}
-				. The parent run shares {policy ? policy.maxAggregateToolCalls : "a bounded"} calls across its children.
-				The last investigation request is reserved for tool-free reporting; compaction and retries also consume requests. Custom overrides each limit independently; blank fields use Automatic, and "No limit" removes the numeric ceiling for that field.
-				Unbounded still respects permissions, the model context window, cancellation, concurrency and provider limits. Changing settings affects new children. Inspect child activity for effective limits and measured, estimated, or reserved usage.
+				. The parent run shares {policy ? policy.maxAggregateToolCalls : "a bounded"} calls across its
+				children. The last investigation request is reserved for tool-free reporting; compaction and
+				retries also consume requests. Custom overrides each limit independently; blank fields use
+				Automatic, and "No limit" removes the numeric ceiling for that field. Unbounded still respects
+				permissions, the model context window, cancellation, concurrency and provider limits. Changing
+				settings affects new children. Inspect child activity for effective limits and measured,
+				estimated, or reserved usage.
 			</p>
 			{custom && (
 				<div className="mt-3 grid grid-cols-2 gap-3">
@@ -136,20 +145,24 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 							<React.Fragment key={key}>
 								<NumberField
 									label={label}
-									value={unbounded ? "" : draft[key] ?? ""}
+									value={unbounded ? "" : (draft[key] ?? "")}
 									min={bounds(key).min}
 									max={bounds(key).max}
 									placeholder={unbounded ? "No limit" : placeholder}
 									disabled={disabled || saving || settings === undefined || unbounded}
-									onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
+									onChange={(event) =>
+										setDraft((current) => ({ ...current, [key]: event.target.value }))
+									}
 									onBlur={(event) => commitNumber(key, event.target.value)}
 								/>
-								<CheckboxField
-									label="No limit"
-									checked={unbounded}
-									disabled={disabled || saving || settings === undefined}
-									onChange={(event) => commitUnbounded(key, event.target.checked)}
-								/>
+								<div className="mt-3.5">
+									<CheckboxField
+										label="No limit"
+										checked={unbounded}
+										disabled={disabled || saving || settings === undefined}
+										onChange={(event) => commitUnbounded(key, event.target.checked)}
+									/>
+								</div>
 							</React.Fragment>
 						);
 					})}
@@ -157,25 +170,29 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 			)}
 			{custom && (
 				<p className="mt-2 text-xs text-[var(--text-muted)]">
-					Input counts every token sent across all requests (history re-sent each turn
-					counts again); output counts every generated token, including reasoning.
-					Retries and final reporting count as requests. Missing output usage reserves the request allowance.
-					Exhausted children return an explicit stop reason and available evidence; the last request is reserved for tool-free reporting.{unboundedHint}
+					Input counts every token sent across all requests (history re-sent each turn counts
+					again); output counts every generated token, including reasoning. Retries and final
+					reporting count as requests. Missing output usage reserves the request allowance.
+					Exhausted children return an explicit stop reason and available evidence; the last request
+					is reserved for tool-free reporting.{unboundedHint}
 				</p>
 			)}
 			{custom && (
 				<p className="mt-2 text-xs text-[var(--text-muted)]">
 					Time limits are in milliseconds and are independent of the token budgets. The execution
-					deadline covers the whole child run (requests, tools, retries, compaction); the model-request
-					timeout bounds one request end to end; the stream inactivity timeout fires only when a
-					streamed response stops producing data. Blank fields use Automatic, which has no deadline and
-					no request timeout, so long-horizon work is never cut off. A timed-out child stops at the next
-					safe boundary, keeps any findings already gathered, and is reported as timed out — never as
-					a success.
+					deadline covers the whole child run (requests, tools, retries, compaction); the
+					model-request timeout bounds one request end to end; the stream inactivity timeout fires
+					only when a streamed response stops producing data. Blank fields use Automatic, which has
+					no deadline and no request timeout, so long-horizon work is never cut off. A timed-out
+					child stops at the next safe boundary, keeps any findings already gathered, and is
+					reported as timed out — never as a success.
 				</p>
 			)}
 			{error && (
-				<p role="alert" className="mt-2 text-xs text-[var(--error)]">
+				<p
+					role="alert"
+					className="mt-2 text-xs text-[var(--error)]"
+				>
 					{error}
 				</p>
 			)}

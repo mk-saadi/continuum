@@ -519,15 +519,13 @@ export default function ModelSelectorModal({
 										{group.entries.map((entry) => {
 											if (entry.kind === "local") {
 												const { model, name } = entry;
-												const modelPath =
-													model.modelPath || model.path || model.id;
+												const modelPath = model.modelPath || model.path || model.id;
 												const loadedEngine =
 													engines.find(
 														(engine) => engine.modelPath === modelPath,
 													) ?? null;
 												const loaded = !!loadedEngine?.isLoaded;
-												const loading =
-													!!loadedEngine && !loaded;
+												const loading = !!loadedEngine && !loaded;
 												const active =
 													activeChatProvider?.type === "local" &&
 													selectedModel === model.id;
@@ -621,7 +619,11 @@ export default function ModelSelectorModal({
 																	</>
 																) : (
 																	<>
-																		{loading ? "Loading" : loaded ? "Use" : "Load"}
+																		{loading
+																			? "Loading"
+																			: loaded
+																				? "Use"
+																				: "Load"}
 																		<LuArrowRight
 																			size={12}
 																			aria-hidden="true"
@@ -1025,18 +1027,12 @@ export default function ModelSelectorModal({
 								: "No local engine loaded"}
 						</span>
 						{engines.map((engine) => (
-							<span
-								key={engine.modelPath}
-								className="aero-badge flex min-w-0 items-center gap-1 py-0.5 pr-1 pl-2"
-							>
-								<span className="max-w-[220px] truncate">
-									{engine.modelName || engine.modelPath}
-								</span>
-								<button
+							<Tooltip content={"Click to unload model"}>
+								<div
+									key={engine.modelPath}
+									className="aero-badge flex min-w-0 items-center gap-1 py-0.5 pr-1 pl-2 cursor-pointer"
 									type="button"
-									disabled={busy}
-									aria-label={`Unload ${engine.modelName || engine.modelPath}`}
-									className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+									tabIndex={0}
 									onClick={async () => {
 										setBusy(true);
 										setError("");
@@ -1049,12 +1045,21 @@ export default function ModelSelectorModal({
 										}
 									}}
 								>
-									<LuX
-										size={10}
-										aria-hidden="true"
-									/>
-								</button>
-							</span>
+									<span className="max-w-[220px] truncate">
+										{engine.modelName || engine.modelPath}
+									</span>
+									<button
+										disabled={busy}
+										aria-label={`Unload ${engine.modelName || engine.modelPath}`}
+										className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+									>
+										<LuX
+											size={10}
+											aria-hidden="true"
+										/>
+									</button>
+								</div>
+							</Tooltip>
 						))}
 					</div>
 					<span>

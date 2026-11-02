@@ -9,9 +9,8 @@ import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 // Saved C9 summaries render Markdown with raw HTML, external images and links
 // disabled. Legacy checkpoint fields and tool output remain React-escaped text.
 
-const cardClass =
-	"aero-panel p-3";
-const headingClass = "text-xs font-semibold";
+const cardClass = "aero-panel p-3";
+const headingClass = "text-xs font-semibold mb-2!";
 const bodyClass = "text-[11px] leading-relaxed text-[var(--text-muted)]";
 const pillClass = "aero-badge shrink-0 px-2 py-0.5 text-[10px] font-medium";
 const verifiedClass = "text-[var(--accent)]";
@@ -80,22 +79,45 @@ function CheckpointDetail({ record, evidence }) {
 	const { checkpoint } = record;
 	if (!checkpoint) return <EmptyNote>This checkpoint record is unreadable.</EmptyNote>;
 	const created = formatTimestamp(record.created_at);
-  if (record.workingState?.format === 'c9-markdown') return (
-    <div className="min-w-0">
-      <SectionTitle>Summary · Checkpoint v{record.id}</SectionTitle>
-      <p className={bodyClass}>{record.status}{record.stale ? ' · stale; verify current context before acting' : ''}{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
-      <div className="aero-flat p-2 space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
-        <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}>{record.workingState.content}</ReactMarkdown>
-      </div>
-      <details className="mt-3"><summary>Evidence</summary>
-        <p className={bodyClass}>{record.workingState.consumedToolCount} covered tool operations · {record.workingState.durableEvidenceCount} durable evidence records</p>
-        {(checkpoint.evidence ?? []).map((source, index) => <EvidenceRef key={index} source={source} evidence={evidence} />)}
-      </details>
-      <details className="mt-3"><summary>Technical details</summary>
-        <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify(checkpoint, null, 2)}</pre>
-      </details>
-    </div>
-  );
+	if (record.workingState?.format === "c9-markdown")
+		return (
+			<div className="min-w-0">
+				<SectionTitle>Summary · Checkpoint v{record.id}</SectionTitle>
+				<p className={bodyClass}>
+					{record.status}
+					{record.stale ? " · stale; verify current context before acting" : ""}
+					{record.workingState.redacted ? " · secrets redacted" : ""}
+				</p>
+				<div className="aero-flat p-2 space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+					<ReactMarkdown
+						skipHtml
+						components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}
+					>
+						{record.workingState.content}
+					</ReactMarkdown>
+				</div>
+				<details className="mt-3">
+					<summary>Evidence</summary>
+					<p className={bodyClass}>
+						{record.workingState.consumedToolCount} covered tool operations ·{" "}
+						{record.workingState.durableEvidenceCount} durable evidence records
+					</p>
+					{(checkpoint.evidence ?? []).map((source, index) => (
+						<EvidenceRef
+							key={index}
+							source={source}
+							evidence={evidence}
+						/>
+					))}
+				</details>
+				<details className="mt-3">
+					<summary>Technical details</summary>
+					<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">
+						{JSON.stringify(checkpoint, null, 2)}
+					</pre>
+				</details>
+			</div>
+		);
 
 	return (
 		<div className="min-w-0">
@@ -134,16 +156,47 @@ function CheckpointDetail({ record, evidence }) {
 					? ` · covers ${record.archivedCount} archived message${record.archivedCount === 1 ? "" : "s"}`
 					: ""}
 			</p>
-            {record.workingState && <section aria-label="Saved continuation working state">
-              <SectionTitle>Legacy structured checkpoint · Saved continuation working state</SectionTitle>
-              <p className={bodyClass}>{record.workingState.representation} · {record.workingState.consumedToolCount} covered tool operations · {record.workingState.durableEvidenceCount} durable evidence records{record.workingState.redacted ? ' · secrets redacted' : ''}</p>
-              <p className={bodyClass}>Objective and working findings are model-drafted. Requirements include deterministically retained prior constraints. Plan, pending operations, evidence and retrieval metadata are deterministic. Integrity metadata stays in durable storage; these labels are UI descriptions.</p>
-              {(() => { try {
-                const state = JSON.parse(record.workingState.content.split('\n').slice(1).join('\n'));
-                return Object.entries(state).map(([key, value]) => <details key={key}><summary>{key}</summary><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify(value, null, 2)}</pre></details>);
-              } catch { return null; } })()}
-              <details><summary>Raw working state</summary><pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">{record.workingState.content}</pre></details>
-            </section>}
+			{record.workingState && (
+				<section aria-label="Saved continuation working state">
+					<SectionTitle>
+						Legacy structured checkpoint · Saved continuation working state
+					</SectionTitle>
+					<p className={bodyClass}>
+						{record.workingState.representation} · {record.workingState.consumedToolCount} covered
+						tool operations · {record.workingState.durableEvidenceCount} durable evidence records
+						{record.workingState.redacted ? " · secrets redacted" : ""}
+					</p>
+					<p className={bodyClass}>
+						Objective and working findings are model-drafted. Requirements include
+						deterministically retained prior constraints. Plan, pending operations, evidence and
+						retrieval metadata are deterministic. Integrity metadata stays in durable storage;
+						these labels are UI descriptions.
+					</p>
+					{(() => {
+						try {
+							const state = JSON.parse(
+								record.workingState.content.split("\n").slice(1).join("\n"),
+							);
+							return Object.entries(state).map(([key, value]) => (
+								<details key={key}>
+									<summary>{key}</summary>
+									<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-[11px]">
+										{JSON.stringify(value, null, 2)}
+									</pre>
+								</details>
+							));
+						} catch {
+							return null;
+						}
+					})()}
+					<details>
+						<summary>Raw working state</summary>
+						<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px]">
+							{record.workingState.content}
+						</pre>
+					</details>
+				</section>
+			)}
 			<SectionTitle>Objective</SectionTitle>
 			<p className="text-[11px] leading-relaxed">{checkpoint.objective}</p>
 			<SectionTitle>
@@ -388,9 +441,7 @@ function WorkLogTurn({ turn }) {
 			className="min-w-0 rounded-lg bg-[var(--bg-secondary)] p-2"
 		>
 			<div className="flex flex-wrap items-center gap-1.5">
-				<span className="text-[11px] font-semibold">
-					Turn {turn.turnSeq ?? "?"}
-				</span>
+				<span className="text-[11px] font-semibold">Turn {turn.turnSeq ?? "?"}</span>
 				{turn.partial ? (
 					<StatusPill tone="warn">Partial</StatusPill>
 				) : (
@@ -459,7 +510,9 @@ function WorkLogTurn({ turn }) {
 				<p className={`${bodyClass} mt-1`}>
 					Omitted for budget:{" "}
 					{[
-						turn.omitted.entries ? `${turn.omitted.entries} entr${turn.omitted.entries === 1 ? "y" : "ies"}` : "",
+						turn.omitted.entries
+							? `${turn.omitted.entries} entr${turn.omitted.entries === 1 ? "y" : "ies"}`
+							: "",
 						turn.omitted.issues ? `${turn.omitted.issues} issue(s)` : "",
 					]
 						.filter(Boolean)
@@ -481,9 +534,7 @@ function WorkLogChips({ chips }) {
 		);
 	}
 	if (chips.read.length) {
-		items.push(
-			`read: ${chips.read.join(", ")}${chips.readMore ? ` (+${chips.readMore} more)` : ""}`,
-		);
+		items.push(`read: ${chips.read.join(", ")}${chips.readMore ? ` (+${chips.readMore} more)` : ""}`);
 	}
 	if (chips.openIssues) items.push(`${chips.openIssues} open issue${chips.openIssues === 1 ? "" : "s"}`);
 	if (!items.length) return null;
@@ -524,7 +575,14 @@ function BriefWorkLog({ workLog }) {
 	);
 }
 
-export default function ContextPanel({ sessionId, modelId = null, active = false, measurement = null, liveTelemetry = null, runTelemetry = null }) {
+export default function ContextPanel({
+	sessionId,
+	modelId = null,
+	active = false,
+	measurement = null,
+	liveTelemetry = null,
+	runTelemetry = null,
+}) {
 	const api = typeof window !== "undefined" ? window.memoryPalace : null;
 	const [usage, setUsage] = useState(null);
 	const [usageError, setUsageError] = useState("");
@@ -535,7 +593,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 	const [history, setHistory] = useState([]);
 	const [selectedId, setSelectedId] = useState(null);
 	const [focusId, setFocusId] = useState(null);
-    const focusRef = useRef(null);
+	const focusRef = useRef(null);
 	const [briefs, setBriefs] = useState(null);
 	const [summary, setSummary] = useState(null);
 	const [summaryError, setSummaryError] = useState("");
@@ -653,7 +711,11 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 				archivedCount: result.archivedCount ?? 0,
 				checkpointId: result.checkpointId ?? null,
 			});
-		} else if (result.deferred || result.reason === 'owning-request-required' || result.optionalContinued) {
+		} else if (
+			result.deferred ||
+			result.reason === "owning-request-required" ||
+			result.optionalContinued
+		) {
 			setLastAttempt(null);
 		} else if (result.error || result.reason) {
 			setLastAttempt({ ok: false, error: result.error ?? result.reason });
@@ -671,45 +733,124 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 		);
 	}
 
-  useEffect(() => {
-    const inspect = event => {
-      if (event.detail?.sessionId !== sessionId) return;
-      setFocusId(event.detail.checkpointId); focusRef.current = event.detail.checkpointId;
-      api?.getCheckpointHistory(sessionId, 25, event.detail.checkpointId).then(result => {
-        setHistory(result.checkpoints ?? []); setSelectedId(event.detail.checkpointId);
-      }).catch(error => setHistoryError(error.message));
-    };
-    window.addEventListener('continuum:inspect-checkpoint', inspect);
-    return () => window.removeEventListener('continuum:inspect-checkpoint', inspect);
-  }, [sessionId, api]);
-  useEffect(() => { setFocusId(null); focusRef.current = null; }, [sessionId]);
-  useEffect(() => { if (focusId != null && history.some(row => row.id === focusId)) setSelectedId(focusId); }, [history, focusId, loading]);
+	useEffect(() => {
+		const inspect = (event) => {
+			if (event.detail?.sessionId !== sessionId) return;
+			setFocusId(event.detail.checkpointId);
+			focusRef.current = event.detail.checkpointId;
+			api?.getCheckpointHistory(sessionId, 25, event.detail.checkpointId)
+				.then((result) => {
+					setHistory(result.checkpoints ?? []);
+					setSelectedId(event.detail.checkpointId);
+				})
+				.catch((error) => setHistoryError(error.message));
+		};
+		window.addEventListener("continuum:inspect-checkpoint", inspect);
+		return () => window.removeEventListener("continuum:inspect-checkpoint", inspect);
+	}, [sessionId, api]);
+	useEffect(() => {
+		setFocusId(null);
+		focusRef.current = null;
+	}, [sessionId]);
+	useEffect(() => {
+		if (focusId != null && history.some((row) => row.id === focusId)) setSelectedId(focusId);
+	}, [history, focusId, loading]);
 	const selected = selectedId == null ? null : (history.find((row) => row.id === selectedId) ?? null);
 
 	return (
 		<div className="space-y-3">
-            <div className={cardClass}>
-                <h3 className={headingClass}>Request context budget</h3>
-                <div className={bodyClass}>
-                    <p>Last dispatched request: {(liveTelemetry?.promptTokens ?? runTelemetry?.lastPromptTokens ?? usage?.telemetry?.lastPromptTokens)?.toLocaleString() ?? '—'} tokens</p>
-                    <p>Peak request: {(liveTelemetry?.telemetry?.peakPromptTokens ?? runTelemetry?.peakPromptTokens ?? usage?.telemetry?.peakPromptTokens)?.toLocaleString() ?? '—'} tokens</p>
-                    {liveTelemetry && <p>{liveTelemetry.method} · {liveTelemetry.isEstimate ? 'estimated' : 'measured'} · request {liveTelemetry.round} · {liveTelemetry.runId} · {liveTelemetry.timestamp}</p>}
-                    {!liveTelemetry && runTelemetry?.method && <p>{runTelemetry.method} · {runTelemetry.isEstimate ? 'estimated' : 'measured'} · {runTelemetry.runId} · {runTelemetry.timestamp}</p>}
-                    <p>Cumulative inference usage is separate from context occupancy.</p>
-                </div>
-                {measurement?.sessionId === sessionId && measurement?.modelId === modelId && measurement.budgetContract ? (
-                    <div className={bodyClass}>
-                        <p>Prepared next request: {measurement.tokens.toLocaleString()} / {measurement.budgetContract.usableInputTokens.toLocaleString()} usable input tokens ({(100 * measurement.tokens / measurement.budgetContract.usableInputTokens).toFixed(1)}%)</p>
-                        <p>{measurement.method} · {measurement.confidence}</p>
-                        <p>Configured: {measurement.budgetContract.configuredContextTokens?.toLocaleString() ?? 'unknown'}; runtime per request: {measurement.budgetContract.runtimeContextTokens?.toLocaleString() ?? 'unavailable'}; provider advertised: {measurement.budgetContract.advertisedContextTokens?.toLocaleString() ?? 'unavailable'}</p>
-                        <p>Output reserve: {measurement.budgetContract.reservedOutputTokens.toLocaleString()}; safety: {measurement.budgetContract.reservedSafetyTokens.toLocaleString()}</p>
-                        <p>Compaction: {measurement.budgetContract.autoCompactionTriggerTokens.toLocaleString()} (90% of usable input)</p>
-                        <p>Capacity: {measurement.budgetContract.capacityMethod} · {measurement.budgetContract.capacityConfidence}</p>
-                        {measurement.imageCount > 0 && <p>Image allowance: {measurement.imageAllowanceTokens.toLocaleString()} estimated tokens for {measurement.imageCount} image(s)</p>}
-                        <p>Prepared projection includes instructions, tool schemas, attachments and task state. Dispatch can change tool rounds, media shape and provider fields; its final guard remains authoritative. Component counts below are partial estimates.</p>
-                    </div>
-                ) : <p className={bodyClass}>Current request budget pending.</p>}
-            </div>
+			<div className={cardClass}>
+				<h3 className={headingClass}>Request context budget</h3>
+				<div className={bodyClass}>
+					<p>
+						Last dispatched request:{" "}
+						{(
+							liveTelemetry?.promptTokens ??
+							runTelemetry?.lastPromptTokens ??
+							usage?.telemetry?.lastPromptTokens
+						)?.toLocaleString() ?? "—"}{" "}
+						tokens
+					</p>
+					<p>
+						Peak request:{" "}
+						{(
+							liveTelemetry?.telemetry?.peakPromptTokens ??
+							runTelemetry?.peakPromptTokens ??
+							usage?.telemetry?.peakPromptTokens
+						)?.toLocaleString() ?? "—"}{" "}
+						tokens
+					</p>
+					{liveTelemetry && (
+						<p>
+							{liveTelemetry.method} · {liveTelemetry.isEstimate ? "estimated" : "measured"} ·
+							request {liveTelemetry.round} · {liveTelemetry.runId} · {liveTelemetry.timestamp}
+						</p>
+					)}
+					{!liveTelemetry && runTelemetry?.method && (
+						<p>
+							{runTelemetry.method} · {runTelemetry.isEstimate ? "estimated" : "measured"} ·{" "}
+							{runTelemetry.runId} · {runTelemetry.timestamp}
+						</p>
+					)}
+					<p>Cumulative inference usage is separate from context occupancy.</p>
+				</div>
+				{measurement?.sessionId === sessionId &&
+				measurement?.modelId === modelId &&
+				measurement.budgetContract ? (
+					<div className={bodyClass}>
+						<p>
+							Prepared next request: {measurement.tokens.toLocaleString()} /{" "}
+							{measurement.budgetContract.usableInputTokens.toLocaleString()} usable input
+							tokens (
+							{(
+								(100 * measurement.tokens) /
+								measurement.budgetContract.usableInputTokens
+							).toFixed(1)}
+							%)
+						</p>
+						<p>
+							{measurement.method} · {measurement.confidence}
+						</p>
+						<p>
+							Configured:{" "}
+							{measurement.budgetContract.configuredContextTokens?.toLocaleString() ??
+								"unknown"}
+							; runtime per request:{" "}
+							{measurement.budgetContract.runtimeContextTokens?.toLocaleString() ??
+								"unavailable"}
+							; provider advertised:{" "}
+							{measurement.budgetContract.advertisedContextTokens?.toLocaleString() ??
+								"unavailable"}
+						</p>
+						<p>
+							Output reserve: {measurement.budgetContract.reservedOutputTokens.toLocaleString()}
+							; safety: {measurement.budgetContract.reservedSafetyTokens.toLocaleString()}
+						</p>
+						<p>
+							Compaction:{" "}
+							{measurement.budgetContract.autoCompactionTriggerTokens.toLocaleString()} (90% of
+							usable input)
+						</p>
+						<p>
+							Capacity: {measurement.budgetContract.capacityMethod} ·{" "}
+							{measurement.budgetContract.capacityConfidence}
+						</p>
+						{measurement.imageCount > 0 && (
+							<p>
+								Image allowance: {measurement.imageAllowanceTokens.toLocaleString()} estimated
+								tokens for {measurement.imageCount} image(s)
+							</p>
+						)}
+						<p>
+							Prepared projection includes instructions, tool schemas, attachments and task
+							state. Dispatch can change tool rounds, media shape and provider fields; its final
+							guard remains authoritative. Component counts below are partial estimates.
+						</p>
+					</div>
+				) : (
+					<p className={bodyClass}>Current request budget pending.</p>
+				)}
+			</div>
 			<div className={cardClass}>
 				<div className="mb-2 flex items-center justify-between gap-2">
 					<h3 className={headingClass}>Token usage</h3>
@@ -920,7 +1061,11 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 									key={row.id}
 									type="button"
 									onClick={() =>
-										(() => { setFocusId(null); focusRef.current = null; setSelectedId((current) => (current === row.id ? null : row.id)); })()
+										(() => {
+											setFocusId(null);
+											focusRef.current = null;
+											setSelectedId((current) => (current === row.id ? null : row.id));
+										})()
 									}
 									aria-pressed={selectedId === row.id}
 									className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
@@ -1047,9 +1192,8 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
 							<>
 								<SectionTitle>Unassigned work</SectionTitle>
 								<p className={`${bodyClass} mb-2`}>
-									Recorded turns with no brief association. Only turns completed
-									through the agent engine are recorded; manual or direct saves
-									leave no work log.
+									Recorded turns with no brief association. Only turns completed through the
+									agent engine are recorded; manual or direct saves leave no work log.
 								</p>
 								<BriefWorkLog workLog={briefs.unassignedWorkLog} />
 							</>

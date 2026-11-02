@@ -15,10 +15,10 @@ import {
 	FiPlus,
 	FiSearch,
 	FiTrash2,
-	FiX,
 } from "react-icons/fi";
 
 import { getRecentSessions } from "../lib/sidebarHistory.mjs";
+import { LuX } from "react-icons/lu";
 
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
@@ -60,7 +60,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					onSubmit(value.trim());
 				}}
 			>
-				<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center justify-between gap-3 mb-2!">
 					<h2
 						id="chat-action-title"
 						className="font-semibold"
@@ -69,12 +69,12 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					</h2>
 					<button
 						type="button"
-						className={buttonStyle}
-						aria-label="Close dialog"
+						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						aria-label="Close settings"
 						disabled={busy}
 						onClick={onClose}
 					>
-						<FiX />
+						<LuX />
 					</button>
 				</div>
 				{action.kind === "Export Chat..." ? (
@@ -427,7 +427,7 @@ export default function ChatHistory({
 							)}
 						</div>
 						<button
-							className="aero-primary aero-fill mt-2 flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
+							className="aero-primary aero-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
 							disabled={locked || !canCreateWorkspaceChat}
 							title={
 								canCreateWorkspaceChat
@@ -440,7 +440,7 @@ export default function ChatHistory({
 							New workspace chat
 						</button>
 						{!canCreateWorkspaceChat && (
-							<p className="mt-1 text-[11px] text-[var(--text-muted)]">
+							<p className="mt-2! text-[11px] text-[var(--text-muted)]">
 								Select and start a model to begin chatting.
 							</p>
 						)}

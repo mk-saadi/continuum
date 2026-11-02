@@ -680,8 +680,8 @@ function UserBlock({
 			data-message-id={message.id}
 			className="group flex min-w-0 flex-col"
 		>
-			<p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-				You
+			<p className="mb-1 font-mono text-[11px] font-semibold tracking-wide text-[var(--text-secondary)]">
+				<span aria-hidden="true" className="text-[var(--accent)]">❯</span> YOU
 			</p>
 			{/* user message */}
 			<p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--text-primary)] select-text">
@@ -692,6 +692,7 @@ function UserBlock({
 					<AttachmentPreview attachments={message.attachments} />
 				</div>
 			)}
+			<div aria-hidden="true" className="workspace-prompt-divider" />
 			{(onDelete || onBranch || onStartEdit) && (
 				<MessageActions
 					message={message}

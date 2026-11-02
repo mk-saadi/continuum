@@ -28,7 +28,7 @@ function FieldShell({ id, label, hint, required, children, className = "" }) {
 			{hint && (
 				<p
 					id={`${id}-hint`}
-					className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]"
+					className="mt-1.5! text-[11px] leading-relaxed text-[var(--text-muted)]"
 				>
 					{hint}
 				</p>
@@ -328,7 +328,7 @@ export const SelectField = forwardRef(function SelectField(
 									type="button"
 									role="option"
 									aria-selected={String(opt.value) === String(value)}
-									className={`aero-list-item flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
+									className={`aero-list-item rounded-lg flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
 										String(opt.value) === String(value) ? "font-medium" : ""
 									}`}
 									onClick={() => {
@@ -634,7 +634,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 													pick(item.value);
 												}
 											}}
-											className={`aero-list-item group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
+											className={`aero-list-item rounded-lg group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
 										>
 											<div className="flex min-w-0 items-center gap-2 pr-1">
 												{item.icon && (
@@ -719,7 +719,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 		<div className={`min-w-0 ${className}`}>
 			<label
 				htmlFor={id}
-				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] rounded-xl aero-control aero-fill ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
 			>
 				<input
 					{...inputProps}

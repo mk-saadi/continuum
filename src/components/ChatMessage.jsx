@@ -3,6 +3,7 @@ import { useRowUiState } from "../hooks/useRowUiState.js";
 import ThoughtBlock from "./ThoughtBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import ToolEventCard from "./chat/ToolEventCard.jsx";
+import LinkPopover from "./chat/LinkPopover.jsx";
 import TurnOutcomes from "./chat/TurnOutcomes.jsx";
 import { readSkillDecision } from "./chat/PendingInteractions.jsx";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
@@ -293,10 +294,15 @@ function makeComponents(isStreaming) {
 				/>
 			);
 		}
-		// Everything else (http/https, etc.) -> normal external link
+		// Web URLs require an explicit action before opening the browser.
+		if (href && /^https?:\/\//i.test(href)) {
+			return <LinkPopover {...props} href={href} />;
+		}
+		// Keep other supported schemes on the existing external-link path.
 		return (
 			<a
 				{...props}
+				href={href}
 				target="_blank"
 				rel="noopener noreferrer"
 				className="text-[var(--link)] underline"
@@ -460,7 +466,7 @@ const ChatMessage = React.memo(
 						stateKey={message.id ?? null}
 					/>
 				)}
-				<div className="assistant-markdown prose max-w-none text-inherit [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:my-4 [&_h2]:my-4 [&_h3]:my-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-current [&_blockquote]:pl-3 [&_blockquote]:opacity-80 [&_hr]:my-4">
+				<div className="assistant-markdown max-w-none text-inherit">
 					{message.streaming ? (
 						streamBuffer ? (
 							<StreamingText
@@ -506,6 +512,7 @@ const ChatMessage = React.memo(
 				</span>
 			)} */}
 				{message.role === "assistant" &&
+					!message.streaming &&
 					(activeVariant.stats ||
 						message.created_at ||
 						message.is_summarized ||
@@ -1125,7 +1132,7 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 }
 
 export function ProgressText({ text }) {
-  return <div className="assistant-markdown prose max-w-none text-inherit select-text [&_p]:my-3">
+  return <div className="assistant-markdown max-w-none text-inherit select-text">
     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
       urlTransform={mediaUrlTransform} components={makeComponents(false)}>{normalizeLatexArrows(text)}</ReactMarkdown>
   </div>;

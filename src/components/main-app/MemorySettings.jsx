@@ -526,7 +526,7 @@ function MemorySettings({
 																	aria-pressed={selected}
 																	disabled={!onChangeTheme}
 																	onClick={() => onChangeTheme?.(option.id)}
-																	className="aero-control aero-fill flex items-center gap-3 p-3 text-left cursor-pointer"
+																	className="aero-control aero-fill aero-theme-choice flex items-center gap-3 p-3 text-left cursor-pointer"
 																>
 																	<span
 																		aria-hidden="true"

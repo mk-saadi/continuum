@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FiChevronDown, FiX } from "react-icons/fi";
-import { LuCheck, LuHistory, LuPin } from "react-icons/lu";
+import { FiChevronDown } from "react-icons/fi";
+import { LuCheck, LuHistory, LuPin, LuX } from "react-icons/lu";
 import { safetyVerdictInfo, restoreOutcomeMessage } from "../../lib/recoverySafety.mjs";
 
 const KIND_TONE = {
@@ -330,14 +330,15 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 					</h2>
 					<button
 						type="button"
-						aria-label="Close Workspace Recovery"
+						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						aria-label="Close settings"
 						disabled={busy}
 						onClick={() => {
 							if (!busy) onClose();
 						}}
-						className="aero-orb aero-fill flex size-11 shrink-0 items-center justify-center"
+						autoFocus
 					>
-						<FiX aria-hidden="true" />
+						<LuX />
 					</button>
 				</header>
 				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-xs">

@@ -11,7 +11,7 @@ import {
 	FiTrash2,
 	FiUpload,
 } from "react-icons/fi";
-import { LuTarget, LuMessageSquare, LuFiles, LuShield, LuSparkles } from "react-icons/lu";
+import { LuTarget, LuMessageSquare, LuFiles, LuShield, LuSparkles, LuChevronRight } from "react-icons/lu";
 import { projectDate } from "./ProjectsView";
 import ProjectSkillsCard from "./project/ProjectSkillsCard";
 import {
@@ -315,7 +315,7 @@ export default function ProjectWorkspace({
 											/>
 										</div>
 										{!canStartChat && (
-											<p className="projects-muted mt-2">
+											<p className="projects-muted mt-2!">
 												Select and start a model to begin chatting.
 											</p>
 										)}
@@ -326,7 +326,7 @@ export default function ProjectWorkspace({
 											Recent chats{" "}
 											<span className="projects-muted">({chats.length})</span>
 										</h2>
-										<div className="aero-flat px-2">
+										<div className="aero-flat px-2 pt-2">
 											{chats.length ? (
 												visibleChats.map((chat) => (
 													<button
@@ -349,7 +349,7 @@ export default function ProjectWorkspace({
 											)}
 											{chats.length > 10 && (
 												<nav
-													className="project-pagination"
+													className="project-pagination mb-2"
 													aria-label="Chat list pagination"
 												>
 													<span
@@ -387,15 +387,20 @@ export default function ProjectWorkspace({
 									aria-label="Project controls"
 								>
 									<details
-										className="aero-panel project-panel"
+										className="aero-panel project-panel group"
 										open
 									>
-										<summary>
+										<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 transition-colors hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 											<LuSparkles
 												className="inline mr-2"
 												aria-hidden="true"
 											/>
 											Custom instructions
+											<LuChevronRight
+												size={12}
+												aria-hidden="true"
+												className="transition-transform duration-200 group-open:rotate-90"
+											/>
 										</summary>
 										<form
 											onSubmit={(event) => {
@@ -457,7 +462,7 @@ export default function ProjectWorkspace({
 											>
 												Choose Files
 											</button>
-											<p className="projects-muted mt-2">
+											<p className="projects-muted mt-2!">
 												Text, Markdown, code, or PDF · up to 20 MB each
 											</p>
 											<input
@@ -519,7 +524,7 @@ export default function ProjectWorkspace({
 										>
 											{project.root_path || "No folder connected"}
 										</span>
-										<p className="projects-muted mt-3">
+										<p className="projects-muted mt-2!">
 											Connect your working folder to include repository guidelines and
 											workspace context.
 										</p>
@@ -555,7 +560,7 @@ export default function ProjectWorkspace({
 											))}
 										</SelectField>
 										{!project.root_path && (
-											<p className="projects-muted mt-3">
+											<p className="projects-muted mt-2!">
 												Connect a root folder to make Workspace Write available.
 											</p>
 										)}

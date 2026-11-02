@@ -81,8 +81,8 @@ html[data-bg-image="true"] .aero-stage {
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--aero-radius-control);
 	background: var(--aero-gloss-control), var(--aero-glass-raised);
-	-webkit-backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
-	backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow: var(--aero-bevel-control);
 	transition:
 		transform var(--aero-dur-control) var(--aero-ease),
@@ -154,8 +154,8 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
 	border-radius: var(--aero-radius-well);
 	background: var(--aero-gloss-well), var(--aero-well-fill);
-	-webkit-backdrop-filter: blur(var(--aero-blur-well)) saturate(var(--aero-saturate-control));
-	backdrop-filter: blur(var(--aero-blur-well)) saturate(var(--aero-saturate-control));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow: var(--aero-bevel-well);
 }
 .aero-well:hover {
@@ -190,8 +190,8 @@ html[data-bg-image="true"] .aero-stage {
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--aero-radius-orb);
 	background: var(--aero-gloss-orb), color-mix(in srgb, var(--surface-raised) 45%, transparent);
-	-webkit-backdrop-filter: blur(var(--aero-blur-orb)) saturate(var(--aero-saturate-control));
-	backdrop-filter: blur(var(--aero-blur-orb)) saturate(var(--aero-saturate-control));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow: var(--aero-bevel-orb);
 	color: var(--text-secondary);
 	transition:
@@ -571,7 +571,7 @@ input:disabled + .aero-checkbox {
 
 /* Lightweight row feedback: no blur or lift on dense lists and menus. */
 .aero-list-item {
-	border-radius: var(--aero-radius-control);
+	/* border-radius: var(--aero-radius-control); */
 	background: transparent;
 	transition: background-color var(--aero-dur-control) var(--aero-ease);
 }
@@ -636,10 +636,14 @@ input:disabled + .aero-checkbox {
 /* Flat window chrome supports raised tabs without a large blurred surface. */
 .aero-tabbar {
 	border-bottom: 1px solid var(--aero-line-bottom);
-	background: linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 65%), var(--surface-raised);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 65%),
+		var(--surface-raised);
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }
-.aero-tab { color: var(--text-secondary); }
+.aero-tab {
+	color: var(--text-secondary);
+}
 .aero-tab:hover {
 	border-color: var(--aero-line-soft);
 	background: var(--aero-gloss-panel), color-mix(in srgb, var(--surface-hover) 72%, transparent);
@@ -654,14 +658,20 @@ input:disabled + .aero-checkbox {
 	box-shadow: var(--aero-bevel-pressed);
 }
 .aero-tab[data-active="true"]:has(.aero-tab-label:active) {
-	box-shadow: var(--aero-bevel-pressed), inset 0 -2px 0 var(--accent);
+	box-shadow:
+		var(--aero-bevel-pressed),
+		inset 0 -2px 0 var(--accent);
 }
 .aero-tab:has(:focus-visible) {
 	outline: 2px solid var(--accent);
 	outline-offset: -2px;
 }
-.aero-tab-label:focus-visible { outline: none; }
-.aero-tab[data-dragging="true"] { opacity: 0.4; }
+.aero-tab-label:focus-visible {
+	outline: none;
+}
+.aero-tab[data-dragging="true"] {
+	opacity: 0.4;
+}
 /* Ghost chrome buttons stay light until hovered; no nested glass. */
 .aero-chrome-button {
 	border-radius: var(--aero-radius-control);
@@ -670,16 +680,40 @@ input:disabled + .aero-checkbox {
 }
 .aero-chrome-button:hover {
 	background: var(--aero-gloss-control), color-mix(in srgb, var(--error) 20%, var(--surface));
-	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade);
 	color: var(--text-primary);
 }
-.aero-chrome-button:active { background: var(--aero-gloss-pressed), var(--surface-hover); }
-.aero-chrome-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-@media (prefers-reduced-motion: reduce) { .aero-tab { transition: none; } }
+.aero-chrome-button:active {
+	background: var(--aero-gloss-pressed), var(--surface-hover);
+}
+.aero-chrome-button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.aero-tab {
+		transition: none;
+	}
+}
 @media (forced-colors: active) {
-	.aero-tabbar { background: Canvas; border-color: ButtonBorder; box-shadow: none; }
-	.aero-tab[data-active="true"] { border-color: Highlight; background: Canvas; color: CanvasText; }
-	.aero-tab:hover, .aero-chrome-button:hover { background: Highlight; color: HighlightText; box-shadow: none; }
+	.aero-tabbar {
+		background: Canvas;
+		border-color: ButtonBorder;
+		box-shadow: none;
+	}
+	.aero-tab[data-active="true"] {
+		border-color: Highlight;
+		background: Canvas;
+		color: CanvasText;
+	}
+	.aero-tab:hover,
+	.aero-chrome-button:hover {
+		background: Highlight;
+		color: HighlightText;
+		box-shadow: none;
+	}
 }
 
 /* Header is window chrome: top-lit, opaque, and never backdrop-blurred. */
@@ -692,7 +726,12 @@ input:disabled + .aero-checkbox {
 	color: var(--text-primary);
 }
 @media (forced-colors: active) {
-	.aero-header { border-color: ButtonBorder; background: Canvas; color: CanvasText; box-shadow: none; }
+	.aero-header {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+	}
 }
 
 /* Sidebar is the unblurred frame; only its individual cards use glass. */
@@ -701,18 +740,28 @@ input:disabled + .aero-checkbox {
 	background: var(--bg-secondary);
 	color: var(--text-primary);
 }
-.sidebar-frame .aero-tab:focus-visible { outline-offset: -2px; }
+.sidebar-frame .aero-tab:focus-visible {
+	outline-offset: -2px;
+}
 /* Status badges keep their semantic tone above the shared material color. */
-.aero-badge[data-tone="good"] { color: var(--accent); }
-.aero-badge[data-tone="bad"] { color: var(--error); }
-.aero-badge[data-tone="warn"] { color: var(--warning); }
+.aero-badge[data-tone="good"] {
+	color: var(--accent);
+}
+.aero-badge[data-tone="bad"] {
+	color: var(--error);
+}
+.aero-badge[data-tone="warn"] {
+	color: var(--warning);
+}
 /* Current model/provider rows remain identifiable between hover states. */
 .aero-list-item[aria-current="true"] {
 	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 .aero-list-item[aria-current="true"]:hover {
 	background: var(--aero-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
-	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade);
 }
 /* Menus/tooltips must stay in a native dialog's top-layer subtree. The
    dialog already supplies blur, so these portal surfaces only need their fill. */
@@ -727,11 +776,17 @@ input:disabled + .aero-checkbox {
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }
 @media (forced-colors: active) {
-	.aero-footer { border-color: ButtonBorder; background: Canvas; box-shadow: none; }
+	.aero-footer {
+		border-color: ButtonBorder;
+		background: Canvas;
+		box-shadow: none;
+	}
 }
 
 /* Warning metrics keep their semantic boundary above the shared panel rim. */
-.aero-panel[data-tone="warn"] { border-color: var(--warning); }
+.aero-panel[data-tone="warn"] {
+	border-color: var(--warning);
+}
 
 /* Modal navigation is chrome: lighting without another backdrop filter. */
 .aero-navigation {
@@ -755,19 +810,34 @@ html:not([data-appearance="flat"]) .sidebar-frame {
 /* Reading-first chat materials: opaque fills, shallow edges, no blur. */
 .aero-chat-user {
 	border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--user-bubble));
-	background: linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent 28%), var(--user-bubble);
-	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 1px 2px color-mix(in srgb, var(--shadow) 22%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent 28%),
+		var(--user-bubble);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-soft),
+		0 1px 2px color-mix(in srgb, var(--shadow) 22%, transparent);
 }
 .aero-chat-composer {
 	border: 1px solid var(--border);
 	border-radius: var(--aero-radius-well);
-	background: linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 24%), var(--surface-raised);
-	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 2px 6px color-mix(in srgb, var(--shadow) 35%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 24%),
+		var(--surface-raised);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-soft),
+		0 2px 6px color-mix(in srgb, var(--shadow) 35%, transparent);
 }
-.aero-chat-composer:is(:focus-within, [data-dragging="true"]) { border-color: var(--accent); }
+.aero-chat-composer:focus-within {
+	border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.aero-chat-composer[data-dragging="true"] {
+	border-color: var(--accent);
+}
 [data-chat-mode="workspace"] .aero-chat-composer {
 	background: var(--surface-raised);
-	box-shadow: inset 0 1px 0 var(--aero-line-soft), 0 1px 3px color-mix(in srgb, var(--shadow) 24%, transparent);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-soft),
+		0 1px 3px color-mix(in srgb, var(--shadow) 24%, transparent);
 }
 .aero-chat-detail {
 	border: 1px solid var(--subtle-border);
@@ -776,5 +846,59 @@ html:not([data-appearance="flat"]) .sidebar-frame {
 }
 .aero-chat-tool[data-expanded="true"] {
 	background: var(--surface);
+}
+
+/* Explicit geometry keeps the prompt separator visible above message actions. */
+.workspace-prompt-divider {
+	align-self: stretch;
+	flex: 0 0 auto;
+	height: 0;
+	margin-top: 12px;
+	border-top: 1px solid;
+	border-color: color-mix(in srgb, var(--accent), transparent 30%);
+}
+
+/* Quiet content surfaces: reserve the strongest lighting for active chrome. */
+.aero-metric {
+	border-color: var(--subtle-border);
+	background: var(--surface);
+	background-image: none;
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+.aero-metric[data-tone="warn"] {
+	border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+}
+.aero-theme-choice:not([aria-pressed="true"]) {
+	border-color: var(--border);
+	background: var(--surface);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+.aero-theme-choice:not([aria-pressed="true"]):hover {
+	border-color: var(--accent);
+	background: var(--surface-hover);
+}
+/* A theme scrim sits above the wallpaper, outside the UI opacity group.
+   This protects reading contrast without filtering animated image frames. */
+html[data-bg-image="true"]::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: color-mix(in srgb, var(--bg-primary, var(--surface)) 32%, transparent);
+}
+@media (forced-colors: active) {
+	.aero-metric,
+	.aero-theme-choice:not([aria-pressed="true"]),
+	.aero-theme-choice:not([aria-pressed="true"]):hover {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+	}
+	html[data-bg-image="true"]::before {
+		background: Canvas;
+	}
 }

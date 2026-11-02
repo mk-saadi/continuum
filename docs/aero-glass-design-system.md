@@ -1949,3 +1949,13 @@ spending dashboard retains provider/model attribution and pricing evidence.
 Engine logs live in Engine & API and subscribe only while that main tab is
 active. Retention stays in Storage & Data. No usage records or aggregation
 APIs are removed or migrated.
+
+## Material refinement experiment — 2026-11-02
+
+Shared tokens now use quieter panel gloss, softer shadows, denser fills, and
+12px panel / 18px floating blur. Controls, wells, and orbs retain their lighting
+and pressed states without live backdrop sampling. Static usage metrics use
+`.aero-metric`; unselected theme choices use `.aero-theme-choice` to keep the
+selected choice visually dominant. A theme-colored wallpaper scrim sits outside
+the UI opacity group so image detail is subdued without dimming text again.
+These runtime values supersede the earlier reference token examples above.

@@ -1416,6 +1416,77 @@ pre {
 	--tw-prose-td-borders: var(--attachment-border);
 }
 
+/* Shared block rhythm for replies and intermediate workspace Markdown.
+   Keep spacing on real blocks, independent of model heading conventions. */
+.assistant-markdown {
+	line-height: 1.65;
+	overflow-wrap: anywhere;
+}
+.assistant-markdown :is(p, ul, ol, blockquote, pre, .assistant-table-scroll) {
+	margin-block: 0.85em;
+}
+.assistant-markdown :is(h1, h2, h3, h4, h5, h6) {
+	margin-block: 1.35em 0.55em;
+	font-weight: 700;
+	line-height: 1.35;
+}
+.assistant-markdown h1 {
+	font-size: 1.4em;
+}
+.assistant-markdown h2 {
+	font-size: 1.25em;
+}
+.assistant-markdown h3 {
+	font-size: 1.1em;
+}
+.assistant-markdown :is(h4, h5, h6) {
+	font-size: 1em;
+}
+.assistant-markdown ul {
+	list-style-type: disc;
+	padding-left: 1.5em;
+}
+.assistant-markdown ol {
+	list-style-type: decimal;
+	padding-left: 1.5em;
+}
+.assistant-markdown li {
+	margin-block: 0em;
+}
+.assistant-markdown li > :is(ul, ol) {
+	margin-block: 0.35em;
+}
+.assistant-markdown li > p {
+	margin-block: 0.2em;
+}
+.assistant-markdown blockquote {
+	border-left: 2px solid var(--text-muted);
+	padding-left: 1em;
+	color: var(--text-secondary);
+}
+.assistant-markdown blockquote > :first-child {
+	margin-top: 0;
+}
+.assistant-markdown blockquote > :last-child {
+	margin-bottom: 0;
+}
+.assistant-markdown hr {
+	margin-block: 1.5em;
+	border-color: var(--subtle-border);
+}
+.assistant-markdown > :first-child {
+	margin-top: 0;
+}
+.assistant-markdown > :last-child {
+	margin-bottom: 0;
+}
+.assistant-markdown .assistant-table :is(th, td) > :first-child {
+	margin-top: 0;
+}
+.assistant-markdown .assistant-table :is(th, td) > :last-child {
+	margin-bottom: 0;
+}
+
 /* In-chat find (Ctrl+F) match highlights. Theme variables only. */
 .chat-find-mark {
 	background-color: var(--active-chat);
@@ -1586,67 +1657,67 @@ pre {
    ========================================================================== */
 :root {
 	/* Material */
-	--aero-blur-panel: 16px;
-	--aero-blur-control: 10px;
-	--aero-blur-well: 12px;
-	--aero-blur-float: 24px;
-	--aero-saturate: 155%;
-	--aero-saturate-control: 150%;
-	--aero-blur-orb: 8px;
+	--aero-blur-panel: 12px;
+	--aero-blur-control: 0px;
+	--aero-blur-well: 0px;
+	--aero-blur-float: 18px;
+	--aero-saturate: 125%;
+	--aero-saturate-control: 100%;
+	--aero-blur-orb: 0px;
 	--aero-radius-popover: 12px;
 	--aero-radius-tooltip: 8px;
-	--aero-saturate-float: 160%;
+	--aero-saturate-float: 135%;
 
-	--aero-glass: color-mix(in srgb, var(--surface) 54%, transparent);
-	--aero-glass-raised: color-mix(in srgb, var(--surface-raised) 66%, transparent);
+	--aero-glass: color-mix(in srgb, var(--surface) 76%, transparent);
+	--aero-glass-raised: color-mix(in srgb, var(--surface-raised) 88%, transparent);
 	--aero-glass-strong: color-mix(in srgb, var(--surface-raised) 84%, transparent);
 	--aero-glass-subtle: color-mix(in srgb, var(--surface) 38%, transparent);
-	--aero-well-fill: color-mix(in srgb, var(--input) 62%, transparent);
+	--aero-well-fill: color-mix(in srgb, var(--input) 94%, transparent);
 
 	/* Light */
 	--aero-line: color-mix(in srgb, #ffffff 16%, transparent);
-	--aero-line-strong: color-mix(in srgb, #ffffff 34%, transparent);
+	--aero-line-strong: color-mix(in srgb, #ffffff 25%, transparent);
 	--aero-line-soft: color-mix(in srgb, #ffffff 8%, transparent);
 	/* Raised rims fall off toward the bottom edge: the top/sides catch light,
 	   the bottom sits in shadow. Wells are the inverse and keep their full
 	   rim. */
 	--aero-line-bottom: color-mix(in srgb, #ffffff 9%, transparent);
 	--aero-line-bottom-strong: color-mix(in srgb, #ffffff 24%, transparent);
-	--aero-shade: color-mix(in srgb, #000000 32%, transparent);
+	--aero-shade: color-mix(in srgb, #000000 18%, transparent);
 	--aero-shade-strong: color-mix(in srgb, #000000 45%, transparent);
 
 	/* Gloss */
 	--aero-gloss-panel: linear-gradient(
 		180deg,
-		color-mix(in srgb, #ffffff 12%, transparent) 0%,
+		color-mix(in srgb, #ffffff 7%, transparent) 0%,
 		color-mix(in srgb, #ffffff 3%, transparent) 38%,
 		transparent 40%,
-		color-mix(in srgb, #000000 8%, transparent) 100%
+		color-mix(in srgb, #000000 3%, transparent) 100%
 	);
 	--aero-gloss-control: linear-gradient(
 		180deg,
-		color-mix(in srgb, #ffffff 28%, transparent) 0%,
+		color-mix(in srgb, #ffffff 18%, transparent) 0%,
 		color-mix(in srgb, #ffffff 9%, transparent) 48%,
 		transparent 49%,
-		color-mix(in srgb, #000000 10%, transparent) 100%
+		color-mix(in srgb, #000000 5%, transparent) 100%
 	);
 	--aero-gloss-control-hover: linear-gradient(
 		180deg,
-		color-mix(in srgb, #ffffff 36%, transparent) 0%,
-		color-mix(in srgb, #ffffff 12%, transparent) 48%,
+		color-mix(in srgb, #ffffff 25%, transparent) 0%,
+		color-mix(in srgb, #ffffff 7%, transparent) 48%,
 		transparent 49%,
-		color-mix(in srgb, #000000 8%, transparent) 100%
+		color-mix(in srgb, #000000 3%, transparent) 100%
 	);
 	--aero-gloss-accent: linear-gradient(
 		180deg,
-		color-mix(in srgb, #ffffff 58%, transparent) 0%,
+		color-mix(in srgb, #ffffff 38%, transparent) 0%,
 		color-mix(in srgb, #ffffff 14%, transparent) 46%,
 		transparent 47%,
-		color-mix(in srgb, #000000 22%, transparent) 100%
+		color-mix(in srgb, #000000 12%, transparent) 100%
 	);
 	--aero-gloss-accent-hover: linear-gradient(
 		180deg,
-		color-mix(in srgb, #ffffff 66%, transparent) 0%,
+		color-mix(in srgb, #ffffff 32%, transparent) 0%,
 		color-mix(in srgb, #ffffff 18%, transparent) 46%,
 		transparent 47%,
 		color-mix(in srgb, #000000 18%, transparent) 100%
@@ -1673,7 +1744,7 @@ pre {
 	--aero-gloss-orb-selected: linear-gradient(
 		180deg,
 		color-mix(in srgb, #ffffff 55%, transparent) 0%,
-		color-mix(in srgb, #ffffff 12%, transparent) 48%,
+		color-mix(in srgb, #ffffff 7%, transparent) 48%,
 		transparent 49%,
 		color-mix(in srgb, #000000 18%, transparent) 100%
 	);
@@ -1681,18 +1752,18 @@ pre {
 	/* Bevels and elevation */
 	--aero-bevel-panel:
 		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade),
-		0 1px 2px color-mix(in srgb, #000000 30%, transparent),
-		0 8px 20px -10px color-mix(in srgb, #000000 40%, transparent);
+		0 1px 2px color-mix(in srgb, #000000 18%, transparent),
+		0 8px 20px -10px color-mix(in srgb, #000000 26%, transparent);
 	--aero-bevel-panel-hover:
 		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade),
 		0 1px 3px color-mix(in srgb, #000000 28%, transparent),
 		0 12px 28px -12px color-mix(in srgb, #000000 46%, transparent);
 	--aero-bevel-control:
-		inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent),
-		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
+		inset 0 1px 0 color-mix(in srgb, #ffffff 32%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 18%, transparent),
 		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-bevel-well:
-		inset 0 2px 4px color-mix(in srgb, #000000 30%, transparent),
+		inset 0 2px 4px color-mix(in srgb, #000000 18%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #ffffff 8%, transparent),
 		0 1px 0 color-mix(in srgb, #ffffff 6%, transparent);
 	--aero-bevel-pressed:
@@ -1704,7 +1775,7 @@ pre {
 		0 1px 3px color-mix(in srgb, #000000 26%, transparent);
 	--aero-shadow-float:
 		inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
-		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 18%, transparent),
 		0 20px 52px -20px color-mix(in srgb, #000000 52%, transparent);
 	--aero-glow: 0 0 18px -4px color-mix(in srgb, var(--accent) 70%, transparent);
 

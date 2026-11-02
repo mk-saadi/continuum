@@ -36,14 +36,14 @@ const TABS = [
 function MetricCard({ label, value, hint, warning = false, local = false }) {
 	return (
 		<div
-			className="aero-panel p-3"
+			className="aero-panel aero-metric p-3"
 			data-tone={warning ? "warn" : undefined}
 		>
 			<p className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
 				{label}
 			</p>
 			<p
-				className={`mt-1 text-sm font-semibold tabular-nums ${local ? "text-[var(--text-muted)]" : ""}`}
+				className={`mt-1 text-lg leading-tight font-semibold tabular-nums ${local ? "text-[var(--text-muted)]" : ""}`}
 			>
 				{value}
 			</p>
