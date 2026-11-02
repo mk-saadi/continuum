@@ -23,7 +23,7 @@ Switch between lightweight flat surfaces and glossy, layered Aero Glass effects.
 
 Explore a collection of light and dark themes, each with its own colors, surfaces, and personality.
 
-![Continuum — Six Theme Showcase](docs/images/theme-showcase.png)
+![Continuum — Six Theme Showcase](docs/images/theme-showcase-update.png)
 
 Customize your experience with theme palettes, background images, and optional glass effects.
 
