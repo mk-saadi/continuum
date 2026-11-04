@@ -1,0 +1,148 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "productionSelectable": false,
+  "previousHostAddressWeaknessRepaired": false,
+  "initialGitStatus": [
+    " M main.js",
+    " M src/components/InteractiveChart.jsx",
+    " M src/components/chat/BackgroundCommandCard.jsx",
+    " M src/index.css",
+    " M src/main/backgroundCommands.js",
+    " M src/main/configStore.js",
+    " M src/main/executionCapabilities.js",
+    " M src/main/foregroundCommand.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/lspExecutionContext.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/sandboxFilesystem.js",
+    " M src/main/tools/agentTools.js",
+    " M src/preload.js",
+    " M tests/backgroundCommandIpc.test.cjs",
+    " M tests/backgroundCommands.ui.cjs",
+    "?? docs/b2-a-rootless-networking-feasibility.md",
+    "?? docs/b2-c-network-owner-evidence.json",
+    "?? docs/b2-c-network-owner-report.md",
+    "?? docs/b2-d-production-network-integration-evidence.json",
+    "?? docs/b2-d-production-network-integration-report.md",
+    "?? docs/b2-e-network-activation-readiness-evidence.json",
+    "?? docs/b2-e-network-activation-readiness-report.md",
+    "?? docs/b2-f-authenticated-previews-evidence.json",
+    "?? docs/b2-f-authenticated-previews-report.md",
+    "?? docs/b2-f1-development-previews-evidence.json",
+    "?? docs/b2-f1-development-previews-report.md",
+    "?? docs/b2-g1-host-address-safety-evidence.json",
+    "?? docs/b2-g1-host-address-safety-report.md",
+    "?? docs/b2-networking-prerequisite-report.md",
+    "?? docs/investigations/b2-a/",
+    "?? src/main/developmentPreviews.js",
+    "?? src/main/experimental/",
+    "?? src/main/networkDependencies.js",
+    "?? src/main/networkExecution.js",
+    "?? src/main/networkExecutionWorker.py",
+    "?? src/main/networkLaunchProtocol.js",
+    "?? src/main/networkPreviewBridge.py",
+    "?? src/main/previewIpc.js",
+    "?? src/main/workspaceNetworkAddressPolicy.json",
+    "?? src/main/workspaceNetworkPolicy.js",
+    "?? tests/b2cNetworkOwner.test.py",
+    "?? tests/b2dNetworkExecution.test.cjs",
+    "?? tests/b2eDependencies.test.cjs",
+    "?? tests/b2ePolicy.test.py",
+    "?? tests/b2fGateway.test.cjs",
+    "?? tests/b2fPreviewIpc.test.cjs",
+    "?? tests/b2fPreviews.test.cjs",
+    "?? tests/b2fResources.test.py",
+    "?? tests/b2fViteBrowser.test.cjs",
+    "?? tests/b2g1HostAddress.test.py",
+    "?? tests/chartTypes.render/",
+    "?? tests/helpers/previewWebSocket.cjs"
+  ],
+  "networkContract": "version 2 isolated / trusted_development; protected native-dialog consent; host/private IPv4 permitted; external IPv6 denied; slirp host-loopback suppression retained",
+  "results": {
+    "regressions-final": {
+      "tests": 93,
+      "pass": 93,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "dispatcher-final": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "previews-final": {
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "trust-final": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "archive": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "appimage-archive": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "deb-archive": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "python": {
+    "historicalPublicOnlyOwnerGroups": 5,
+    "addressPolicyGroups": 4,
+    "resourceProfileGroups": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "packageWorkflows": {
+    "npmInstall": "passed: real registry Vite 6.4.3",
+    "npmInstallPackage": "passed: is-number@7.0.0",
+    "pnpmInstall": "passed: is-number@7.0.0",
+    "pipInstall": "passed: six==1.17.0 into workspace-local target",
+    "yarnInstall": "unavailable in sandbox; not run",
+    "remoteGit": "passed: actual shallow fetch octocat/Hello-World into guest-private scratch; existing contained fetch/push relay regression also passed"
+  },
+  "ui": {
+    "networkSettings": "passed",
+    "backgroundPreviews": "passed"
+  },
+  "logsDirectory": "/tmp/continuum-b2g2",
+  "packaging": {
+    "AppImage": "built from frozen source; extracted archive integrity/source-match and fail-closed readiness passed",
+    "deb": "built from frozen source; extracted archive integrity/source-match and fail-closed readiness passed",
+    "installedNetworkingQualified": false,
+    "artifacts": {
+      "release/Continuum-1.0.0.AppImage": {
+        "size": 296940096,
+        "sha256": "1ab03e2a13b64c7ff2df72bd364ef719ec65cbf0c5192f878868ad42b935db37"
+      },
+      "release/continuum_1.0.0_amd64.deb": {
+        "size": 219873504,
+        "sha256": "b912acc9fe1295677044e6eca2d70fbf19d43413acd046f87415a894e2c44e6a"
+      }
+    }
+  }
+}

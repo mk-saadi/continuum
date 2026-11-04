@@ -1,0 +1,1383 @@
+{
+  "version": 1,
+  "phase": "B2-G.5",
+  "dates": {
+    "started": "2026-11-03",
+    "reportDate": "2026-11-04",
+    "timezone": "Asia/Dhaka"
+  },
+  "decision": {
+    "engineeringComplete": false,
+    "releaseApproved": false,
+    "maintenanceAccepted": false,
+    "productionActivated": false,
+    "productionSupportedTargets": [],
+    "blockers": [
+      "No responsible human has approved the exact helper/source/notices/relink materials and delivery mechanism.",
+      "No authorized maintainer has accepted helper/embedded-library/address-policy security maintenance.",
+      "Actual installed deb acceptance requires a disposable full Linux OS with qualified user session, kernel, tools, delegated cgroup v2 and GUI; none was available."
+    ]
+  },
+  "initialWorkingTree": {
+    "trackedModified": 27,
+    "untrackedEntries": 64,
+    "status": [
+      " M main.js",
+      " M src/components/InteractiveChart.jsx",
+      " M src/components/chat/BackgroundCommandCard.jsx",
+      " M src/components/main-app/MemorySettings.jsx",
+      " M src/components/main-app/ModelSelectorModal.jsx",
+      " M src/components/settings/TokenHistory.jsx",
+      " M src/components/settings/usage/AttributionView.jsx",
+      " M src/components/settings/usage/ModelDetailPanel.jsx",
+      " M src/components/settings/usage/ModelSpendingTable.jsx",
+      " M src/components/settings/usage/UsageCostsDashboard.jsx",
+      " M src/components/settings/usage/usageDashboardFormat.mjs",
+      " M src/index.css",
+      " M src/main/backgroundCommands.js",
+      " M src/main/configStore.js",
+      " M src/main/executionCapabilities.js",
+      " M src/main/foregroundCommand.js",
+      " M src/main/ipcHandlers.js",
+      " M src/main/lspExecutionContext.js",
+      " M src/main/promptBuilder.js",
+      " M src/main/sandboxFilesystem.js",
+      " M src/main/spendingDashboard.js",
+      " M src/main/tools/agentTools.js",
+      " M src/preload.js",
+      " M tests/backgroundCommandIpc.test.cjs",
+      " M tests/backgroundCommands.ui.cjs",
+      " M tests/cloudSpendingDashboard.ui.cjs",
+      " M tests/sandboxFilesystem.test.cjs",
+      "?? docs/b2-a-rootless-networking-feasibility.md",
+      "?? docs/b2-c-network-owner-evidence.json",
+      "?? docs/b2-c-network-owner-report.md",
+      "?? docs/b2-d-production-network-integration-evidence.json",
+      "?? docs/b2-d-production-network-integration-report.md",
+      "?? docs/b2-e-network-activation-readiness-evidence.json",
+      "?? docs/b2-e-network-activation-readiness-report.md",
+      "?? docs/b2-f-authenticated-previews-evidence.json",
+      "?? docs/b2-f-authenticated-previews-report.md",
+      "?? docs/b2-f1-development-previews-evidence.json",
+      "?? docs/b2-f1-development-previews-report.md",
+      "?? docs/b2-g1-host-address-safety-evidence.json",
+      "?? docs/b2-g1-host-address-safety-report.md",
+      "?? docs/b2-g2-trusted-development-networking-evidence.json",
+      "?? docs/b2-g2-trusted-development-networking-report.md",
+      "?? docs/b2-g3-helper-provenance.json",
+      "?? docs/b2-g3-production-networking-qualification-evidence.json",
+      "?? docs/b2-g3-production-networking-qualification-report.md",
+      "?? docs/b2-g4-helper-candidate.json",
+      "?? docs/b2-g4-networking-release-completion-evidence.json",
+      "?? docs/b2-g4-networking-release-completion-report.md",
+      "?? docs/b2-networking-prerequisite-report.md",
+      "?? docs/investigations/b2-a/",
+      "?? scripts/assemble-workspace-network.cjs",
+      "?? scripts/audit-workspace-network.cjs",
+      "?? scripts/collect-workspace-network-build.py",
+      "?? scripts/rebuild-workspace-network-helper.sh",
+      "?? scripts/workspace-network-staging.cjs",
+      "?? src/components/WorkspaceNetworkSettings.jsx",
+      "?? src/lib/modelDisplay.cjs",
+      "?? src/lib/modelDisplay.mjs",
+      "?? src/main/developmentPreviews.js",
+      "?? src/main/experimental/",
+      "?? src/main/networkDependencies.js",
+      "?? src/main/networkExecution.js",
+      "?? src/main/networkExecutionWorker.py",
+      "?? src/main/networkLaunchProtocol.js",
+      "?? src/main/networkPreviewBridge.py",
+      "?? src/main/networkRuntimePrerequisites.js",
+      "?? src/main/previewIpc.js",
+      "?? src/main/workspaceNetworkAddressPolicy.json",
+      "?? src/main/workspaceNetworkPolicy.js",
+      "?? tests/b2cNetworkOwner.test.py",
+      "?? tests/b2dNetworkExecution.test.cjs",
+      "?? tests/b2eDependencies.test.cjs",
+      "?? tests/b2ePolicy.test.py",
+      "?? tests/b2fGateway.test.cjs",
+      "?? tests/b2fPreviewIpc.test.cjs",
+      "?? tests/b2fPreviews.test.cjs",
+      "?? tests/b2fResources.test.py",
+      "?? tests/b2fViteBrowser.test.cjs",
+      "?? tests/b2g1HostAddress.test.py",
+      "?? tests/b2g2Packaged.test.cjs",
+      "?? tests/b2g2Settings.ui.cjs",
+      "?? tests/b2g2Trust.test.cjs",
+      "?? tests/b2g3Packaged.ui.cjs",
+      "?? tests/b2g3Packaging.test.cjs",
+      "?? tests/b2g3Runtime.test.cjs",
+      "?? tests/b2g4Assembly.test.cjs",
+      "?? tests/b2g4Packaged.ui.cjs",
+      "?? tests/chartTypes.render/",
+      "?? tests/helpers/networkSafeStorage.cjs",
+      "?? tests/helpers/previewWebSocket.cjs",
+      "?? tests/modelDisplay.test.cjs"
+    ],
+    "contentSnapshotFileCount": 1059,
+    "snapshotSha256": "e5cd10bd4d1c28ddd8196b0cf9d75a886c9b1992a5ddb05c533beb5e08d60a12"
+  },
+  "preservation": {
+    "changedExisting": [
+      "src/main/networkExecution.js"
+    ],
+    "missingExisting": [],
+    "addedFiles": [
+      "docs/b2-g5-installed-runtime-release-signoff-evidence.json",
+      "docs/b2-g5-installed-runtime-release-signoff-report.md",
+      "docs/b2-g5-release-decision-checklist.md",
+      "scripts/qualify-workspace-network.cjs",
+      "scripts/relink-workspace-network-helper.py",
+      "tests/b2g5AppImage.ui.cjs",
+      "tests/b2g5Lifecycle.ui.cjs",
+      "tests/b2g5Qualification.test.cjs",
+      "tests/b2g5QualificationBoundaries.ui.cjs",
+      "tests/b2g5Workflow.ui.cjs",
+      "tests/helpers/b2g5NativeDialog.py"
+    ],
+    "originalReleaseArtifactsPreserved": true,
+    "primaryProfileOrDatabasesUsed": false,
+    "primaryPackagesInstalled": false,
+    "hostFirewallKernelSettingsChanged": false,
+    "commitsPushesResetsStashesCleans": false
+  },
+  "originalVerifiedArtifacts": {
+    "helper": {
+      "path": "/tmp/continuum-b2g4/slirp4netns-candidate",
+      "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+      "size": 2391416,
+      "matched": true
+    },
+    "review": {
+      "path": "/tmp/continuum-b2g4/helper-review.tar.gz",
+      "sha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+      "size": 123977323,
+      "matched": true,
+      "hashedMembersVerified": 91
+    },
+    "appimage": {
+      "path": "/tmp/continuum-b2g4/candidate-packages/Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage",
+      "sha256": "ef47bff5d600cc9ca94d5493d90dbfc811c41f93fc4cde223ddd4c54c8bc3de0",
+      "size": 422026106,
+      "matched": true
+    },
+    "deb": {
+      "path": "/tmp/continuum-b2g4/candidate-packages/Continuum-B2G4-NONRELEASE-1.0.0-amd64.deb",
+      "sha256": "5aa4849b1d837d7d100d33c3bcf89138373ab0de2d093fe801e5ac85f26741a8",
+      "size": 415854252,
+      "matched": true
+    }
+  },
+  "newNonreleaseArtifacts": {
+    "Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage": {
+      "path": "/tmp/continuum-b2g5/fixed-packages/Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage",
+      "sha256": "292c007dac5f30e084ad168e022c6f869fa618396a62c13b739dd2423dd66b0f",
+      "size": 422026044
+    },
+    "Continuum-B2G5-NONRELEASE-1.0.0-amd64.deb": {
+      "path": "/tmp/continuum-b2g5/fixed-packages/Continuum-B2G5-NONRELEASE-1.0.0-amd64.deb",
+      "sha256": "5780b4081baa528c587d9d0d0f64d43399cca4b38d5c74c319cb310bb010af65",
+      "size": 415852370
+    },
+    "Continuum-B2G5-NONRELEASE-QUALIFICATION-FINAL-1.0.0-x86_64.AppImage": {
+      "path": "/tmp/continuum-b2g5/qualification-final-packages/Continuum-B2G5-NONRELEASE-QUALIFICATION-FINAL-1.0.0-x86_64.AppImage",
+      "sha256": "5c781aecb7fddfdc222d992d7f9ae4545806023fcdc9a8599dac8bd5f2af8cd0",
+      "size": 464668666
+    }
+  },
+  "materialsReview": {
+    "technicalInventoryVerified": true,
+    "archiveHashedMembersVerified": 91,
+    "candidateRecord": "docs/b2-g4-helper-candidate.json",
+    "candidateRecordSha256": "626b18d2e5970b18e17f42b0ac2af946917e318f8d00ba80db18dffca3ad37d4",
+    "sourceArchivesAndDistroPatchesPresent": true,
+    "actualLinkInputCount": 18,
+    "noticesAndLicenseTextsPresent": true,
+    "selectedComponents": [
+      "slirp4netns 1.3.7 / pinned Parson",
+      "libslirp 4.9.7",
+      "GLib 2.72.4-0ubuntu2.10",
+      "libseccomp 2.5.3-2ubuntu3~22.04.1",
+      "glibc 2.35-0ubuntu3.15",
+      "GCC runtime 11.4.0-1ubuntu1~22.04.3"
+    ],
+    "buildOnlyComponent": "libcap 1:2.44-1ubuntu0.22.04.3",
+    "newRelinkAddendum": {
+      "path": "/home/mk_saadi/projects/persona-projects/llm-electron/scripts/relink-workspace-network-helper.py",
+      "sha256": "708e459724f7f57f1cc4072549f8325b07e18e17f0c541ee869a552ffd9114c7",
+      "size": 2732
+    },
+    "relinkReproducedHelperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+    "replacementInterfacePositiveControl": "original GLib archive; no modified-library functional claim",
+    "legalSufficiencyDetermined": false,
+    "humanApprover": null,
+    "approvalDate": null,
+    "securityOwner": null,
+    "approvalStatus": "pending",
+    "addressPolicyReviewDeadlineUtc": "2026-12-03"
+  },
+  "target": {
+    "candidateOnly": true,
+    "os": "Pop!_OS 24.04 LTS",
+    "architecture": "x86-64",
+    "kernel": "6.17.9-76061709-generic",
+    "systemdUserManagerObservedState": "degraded; actual delegated scope controls exercised",
+    "fixedToolVersions": {
+      "versionsCompatible": true,
+      "runtimeQualified": false,
+      "checks": [
+        {
+          "file": "/usr/bin/python3",
+          "minimum": "3.11.0",
+          "version": "3.12.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/bwrap",
+          "minimum": "0.11.0",
+          "version": "0.11.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/unshare",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/nsenter",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/nft",
+          "minimum": "1.0.9",
+          "version": "1.0.9",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/ip",
+          "minimum": "6.1.0",
+          "version": "6.1.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/systemd-run",
+          "minimum": "255.0.0",
+          "version": "255",
+          "ok": true
+        }
+      ]
+    },
+    "externalIpv6": "unsupported/blocked",
+    "networkContract": "Trusted Development may reach host-local, LAN, VPN and private IPv4; no public-only guarantee"
+  },
+  "qualification": {
+    "finalDerivation": {
+      "kind": "B2G5-NONRELEASE-TECHNICAL-QUALIFICATION",
+      "productionQualified": false,
+      "sourceAsarSha256": "fa266fd6508312e58cd48275a118ae2c11abac2b454e558d989ed26a4f51088e",
+      "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+      "reviewSha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+      "root": "/tmp/continuum-b2g5/qualification-final",
+      "profile": "/tmp/continuum-b2g5/qualification-final/profile",
+      "childHome": "/tmp/continuum-b2g5/qualification-final/home",
+      "expiresAt": 1793815905392,
+      "qualificationAsarSha256": "0851ddc0cf8d0595fb601e911ea9c4850d4c42fe24dd01df01705e3acfa758bf"
+    },
+    "archiveChanges": [
+      "main.js",
+      "src/main/workspaceNetworkPolicy.js",
+      "src/main/b2g5Qualification.js"
+    ],
+    "normalClosedBuildContainsQualificationModule": false,
+    "shippingPolicyChanged": false,
+    "runtimeEnvironmentBypass": false,
+    "backendServiceSubstitution": false,
+    "nativeDialogSubstitution": false,
+    "safeStorageSubstitution": false,
+    "manifestOrHelperVerificationBypassed": false,
+    "permissionChecksOrCgroupLimitsBypassed": false,
+    "eligibility": "one hardwired private root/home/profile, 24-hour expiry, immutable read-only FUSE package; initial full pin/resource check cached per mount; real backend revalidates manifest on every owner startup",
+    "wrongProfileActualLaunch": {
+      "passed": true,
+      "wrongProfileRejected": true,
+      "nativeActivationRejected": true,
+      "status": {
+        "available": false,
+        "productionQualified": false,
+        "code": "QUALIFICATION_UNAVAILABLE",
+        "blockers": [
+          "Fixture profile/home/expiry boundary failed."
+        ],
+        "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+      }
+    },
+    "boundaryUnitTests": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "acceptanceLevels": {
+    "sourceTree": {
+      "status": "passed",
+      "serialNode": {
+        "tests": 118,
+        "pass": 118,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "python": {
+        "owner": 5,
+        "policy": 4,
+        "resources": 2,
+        "fail": 0,
+        "skip": 0
+      }
+    },
+    "extractedPackage": {
+      "status": "payload/material/archive audit passed; not installed GUI acceptance",
+      "closedAndInitialQualificationAudits": {
+        "closed": {
+          "root": "/tmp/continuum-b2g5/fixed-packages/linux-unpacked/resources/workspace-network",
+          "payloadIntegrity": true,
+          "reviewMaterialsIntegrity": true,
+          "productionQualified": false,
+          "checks": [
+            {
+              "file": "networkExecutionWorker.py",
+              "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+              "ok": true
+            },
+            {
+              "file": "networkPreviewBridge.py",
+              "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+              "ok": true
+            },
+            {
+              "file": "workspaceNetworkAddressPolicy.json",
+              "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+              "ok": true
+            },
+            {
+              "file": "experimental/network_owner.py",
+              "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+              "ok": true
+            },
+            {
+              "file": "x64/slirp4netns",
+              "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+              "ok": true
+            }
+          ],
+          "blockers": [
+            "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+            "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+            "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+          ],
+          "asarSha256": "fa266fd6508312e58cd48275a118ae2c11abac2b454e558d989ed26a4f51088e",
+          "hasQualificationModule": false
+        },
+        "qualification": {
+          "root": "/tmp/continuum-b2g5/qualification-fixed/app/resources/workspace-network",
+          "payloadIntegrity": true,
+          "reviewMaterialsIntegrity": true,
+          "productionQualified": false,
+          "checks": [
+            {
+              "file": "networkExecutionWorker.py",
+              "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+              "ok": true
+            },
+            {
+              "file": "networkPreviewBridge.py",
+              "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+              "ok": true
+            },
+            {
+              "file": "workspaceNetworkAddressPolicy.json",
+              "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+              "ok": true
+            },
+            {
+              "file": "experimental/network_owner.py",
+              "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+              "ok": true
+            },
+            {
+              "file": "x64/slirp4netns",
+              "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+              "ok": true
+            }
+          ],
+          "blockers": [
+            "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+            "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+            "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+          ],
+          "asarSha256": "bb0d1282fcd1dea395637e4acb2e8079ed35ce67b85ab7b2ba6a7ce522bb6cea",
+          "hasQualificationModule": true,
+          "changedArchiveFiles": [
+            "main.js",
+            "src/main/b2g5Qualification.js",
+            "src/main/workspaceNetworkPolicy.js"
+          ]
+        }
+      },
+      "finalQualificationAudit": {
+        "root": "/tmp/continuum-b2g5/qualification-final/app/resources/workspace-network",
+        "payloadIntegrity": true,
+        "reviewMaterialsIntegrity": true,
+        "productionQualified": false,
+        "checks": [
+          {
+            "file": "networkExecutionWorker.py",
+            "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+            "ok": true
+          },
+          {
+            "file": "networkPreviewBridge.py",
+            "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+            "ok": true
+          },
+          {
+            "file": "workspaceNetworkAddressPolicy.json",
+            "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+            "ok": true
+          },
+          {
+            "file": "experimental/network_owner.py",
+            "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+            "ok": true
+          },
+          {
+            "file": "x64/slirp4netns",
+            "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "ok": true
+          }
+        ],
+        "blockers": [
+          "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+          "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+          "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+        ],
+        "asarSha256": "0851ddc0cf8d0595fb601e911ea9c4850d4c42fe24dd01df01705e3acfa758bf",
+        "changedArchiveFiles": [
+          "main.js",
+          "src/main/b2g5Qualification.js",
+          "src/main/workspaceNetworkPolicy.js"
+        ]
+      },
+      "fixedDebResourceAudit": {
+        "root": "/tmp/continuum-b2g5/fixed-deb-extracted/opt/Continuum/resources/workspace-network",
+        "payloadIntegrity": true,
+        "reviewMaterialsIntegrity": true,
+        "productionQualified": false,
+        "checks": [
+          {
+            "file": "networkExecutionWorker.py",
+            "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+            "ok": true
+          },
+          {
+            "file": "networkPreviewBridge.py",
+            "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+            "ok": true
+          },
+          {
+            "file": "workspaceNetworkAddressPolicy.json",
+            "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+            "ok": true
+          },
+          {
+            "file": "experimental/network_owner.py",
+            "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+            "ok": true
+          },
+          {
+            "file": "x64/slirp4netns",
+            "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "ok": true
+          }
+        ],
+        "blockers": [
+          "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+          "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+          "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+        ]
+      }
+    },
+    "normallyLaunchedPackage": {
+      "status": "passed closed-gate GUI; each artifact launched twice",
+      "g4Original": {
+        "passed": true,
+        "artifactSha256": "ef47bff5d600cc9ca94d5493d90dbfc811c41f93fc4cde223ddd4c54c8bc3de0",
+        "evidenceLevel": "normally launched AppImage GUI; networking disabled",
+        "runs": [
+          {
+            "restart": 0,
+            "packaged": true,
+            "resources": "/tmp/.mount_Contin8lSGy0/resources",
+            "userData": "/tmp/continuum-g5-normal-3US9Be/profile",
+            "home": "/tmp/continuum-g5-normal-3US9Be/home",
+            "argv": [
+              "/tmp/.mount_Contin8lSGy0/continuum",
+              "--inspect=0",
+              "--remote-debugging-port=0",
+              "--user-data-dir=/tmp/continuum-g5-normal-3US9Be/profile",
+              "--disable-gpu"
+            ],
+            "dependencies": {
+              "python": "/usr/bin/python3",
+              "helper": "/tmp/.mount_Contin8lSGy0/resources/workspace-network/x64/slirp4netns",
+              "worker": "/tmp/.mount_Contin8lSGy0/resources/workspace-network/networkExecutionWorker.py"
+            },
+            "mountInfo": [
+              "259 33 0:50 / /tmp/.mount_Contin8lSGy0 ro,nosuid,nodev,relatime shared:412 - fuse.Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage ro,user_id=1000,group_id=1000"
+            ],
+            "helperMode": 493,
+            "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "status": {
+              "available": false,
+              "code": "WORKSPACE_NETWORK_NOT_READY",
+              "blockers": [
+                "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+                "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+              ],
+              "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+            },
+            "isolated": true,
+            "nativeActivationRejected": true
+          },
+          {
+            "restart": 1,
+            "packaged": true,
+            "resources": "/tmp/.mount_ContinQHpdiq/resources",
+            "userData": "/tmp/continuum-g5-normal-3US9Be/profile",
+            "home": "/tmp/continuum-g5-normal-3US9Be/home",
+            "argv": [
+              "/tmp/.mount_ContinQHpdiq/continuum",
+              "--inspect=0",
+              "--remote-debugging-port=0",
+              "--user-data-dir=/tmp/continuum-g5-normal-3US9Be/profile",
+              "--disable-gpu"
+            ],
+            "dependencies": {
+              "python": "/usr/bin/python3",
+              "helper": "/tmp/.mount_ContinQHpdiq/resources/workspace-network/x64/slirp4netns",
+              "worker": "/tmp/.mount_ContinQHpdiq/resources/workspace-network/networkExecutionWorker.py"
+            },
+            "mountInfo": [
+              "260 33 0:54 / /tmp/.mount_ContinQHpdiq ro,nosuid,nodev,relatime shared:412 - fuse.Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage ro,user_id=1000,group_id=1000"
+            ],
+            "helperMode": 493,
+            "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "status": {
+              "available": false,
+              "code": "WORKSPACE_NETWORK_NOT_READY",
+              "blockers": [
+                "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+                "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+              ],
+              "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+            },
+            "isolated": true,
+            "nativeActivationRejected": true
+          }
+        ],
+        "mountsCleaned": true
+      },
+      "g5Fixed": {
+        "passed": true,
+        "artifactSha256": "292c007dac5f30e084ad168e022c6f869fa618396a62c13b739dd2423dd66b0f",
+        "evidenceLevel": "normally launched AppImage GUI; networking disabled",
+        "runs": [
+          {
+            "restart": 0,
+            "packaged": true,
+            "resources": "/tmp/.mount_ContinUHgATv/resources",
+            "userData": "/tmp/continuum-g5-normal-heZZ3w/profile",
+            "home": "/tmp/continuum-g5-normal-heZZ3w/home",
+            "argv": [
+              "/tmp/.mount_ContinUHgATv/continuum",
+              "--inspect=0",
+              "--remote-debugging-port=0",
+              "--user-data-dir=/tmp/continuum-g5-normal-heZZ3w/profile",
+              "--disable-gpu"
+            ],
+            "dependencies": {
+              "python": "/usr/bin/python3",
+              "helper": "/tmp/.mount_ContinUHgATv/resources/workspace-network/x64/slirp4netns",
+              "worker": "/tmp/.mount_ContinUHgATv/resources/workspace-network/networkExecutionWorker.py"
+            },
+            "mountInfo": [
+              "259 33 0:50 / /tmp/.mount_ContinUHgATv ro,nosuid,nodev,relatime shared:412 - fuse.Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage ro,user_id=1000,group_id=1000"
+            ],
+            "helperMode": 493,
+            "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "status": {
+              "available": false,
+              "code": "WORKSPACE_NETWORK_NOT_READY",
+              "blockers": [
+                "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+                "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+              ],
+              "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+            },
+            "isolated": true,
+            "nativeActivationRejected": true
+          },
+          {
+            "restart": 1,
+            "packaged": true,
+            "resources": "/tmp/.mount_ContinqRmT1B/resources",
+            "userData": "/tmp/continuum-g5-normal-heZZ3w/profile",
+            "home": "/tmp/continuum-g5-normal-heZZ3w/home",
+            "argv": [
+              "/tmp/.mount_ContinqRmT1B/continuum",
+              "--inspect=0",
+              "--remote-debugging-port=0",
+              "--user-data-dir=/tmp/continuum-g5-normal-heZZ3w/profile",
+              "--disable-gpu"
+            ],
+            "dependencies": {
+              "python": "/usr/bin/python3",
+              "helper": "/tmp/.mount_ContinqRmT1B/resources/workspace-network/x64/slirp4netns",
+              "worker": "/tmp/.mount_ContinqRmT1B/resources/workspace-network/networkExecutionWorker.py"
+            },
+            "mountInfo": [
+              "260 33 0:54 / /tmp/.mount_ContinqRmT1B ro,nosuid,nodev,relatime shared:412 - fuse.Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage Continuum-B2G5-NONRELEASE-1.0.0-x86_64.AppImage ro,user_id=1000,group_id=1000"
+            ],
+            "helperMode": 493,
+            "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+            "status": {
+              "available": false,
+              "code": "WORKSPACE_NETWORK_NOT_READY",
+              "blockers": [
+                "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+                "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+              ],
+              "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+            },
+            "isolated": true,
+            "nativeActivationRejected": true
+          }
+        ],
+        "mountsCleaned": true
+      }
+    },
+    "installedPackage": {
+      "status": "not run",
+      "format": "deb",
+      "missing": "No available/provisioned disposable full installed Linux OS/session; no qemu/libvirt/nspawn/container executor available; KVM device alone is insufficient",
+      "primaryInstallationUntouched": true
+    },
+    "enabledPackagedNetworking": {
+      "status": "passed",
+      "coreWorkflow": {
+        "artifact": "/tmp/continuum-b2g5/qualification-final-packages/Continuum-B2G5-NONRELEASE-QUALIFICATION-FINAL-1.0.0-x86_64.AppImage",
+        "sha256": "5c781aecb7fddfdc222d992d7f9ae4545806023fcdc9a8599dac8bd5f2af8cd0",
+        "qualificationAsarSha256": "0851ddc0cf8d0595fb601e911ea9c4850d4c42fe24dd01df01705e3acfa758bf",
+        "nativeCommandApprovals": "explicit trusted harness decisions through guardTool; no permission bypass",
+        "checks": {
+          "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+          "protectedRestart": true,
+          "workspaceUi": true,
+          "packagedDnsTls": true,
+          "packagedSecurity": {
+            "nftMutationDenied": true,
+            "externalIpv6RequestDenied": true,
+            "inheritedNamespaceHandlesAbsent": true
+          },
+          "npm": {
+            "passed": true,
+            "containment": {
+              "home": "/sandbox-home",
+              "cache": "/tmp/continuum-cache/npm"
+            }
+          },
+          "rawHostVitePortAbsent": true,
+          "survivedCompletion": true,
+          "backgroundCardCreate": true,
+          "credentialFreeDenied": true,
+          "backgroundCardOpen": true,
+          "browserHandoff": {
+            "nativeOpen": true,
+            "javascript": true,
+            "css": true,
+            "routingReload": true,
+            "websocketHmr": true,
+            "disposableChrome": true
+          },
+          "stop": true,
+          "isolatedRevert": true
+        },
+        "runtime": {
+          "packaged": true,
+          "resources": "/tmp/.mount_ContinSz5fGw/resources",
+          "profile": "/tmp/continuum-b2g5/qualification-final/profile",
+          "storage": "gnome_libsecret",
+          "encryption": true,
+          "argv": [
+            "/tmp/.mount_ContinSz5fGw/continuum",
+            "--inspect=0",
+            "--remote-debugging-port=0",
+            "--user-data-dir=/tmp/continuum-b2g5/qualification-final/profile",
+            "--disable-gpu"
+          ]
+        },
+        "setup": {
+          "sessionId": "g5-1793729843551",
+          "workspace": "/tmp/continuum-b2g5/qualification-final/workspace"
+        },
+        "commandId": "cmd_0bd61750-1cd4-4f36-879b-eef07ee2fa2a",
+        "cgroup": {
+          "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-re4ae7dbc64354c949f742ef197872028.scope",
+          "memory.max": "1073741824",
+          "memory.swap.max": "0",
+          "pids.max": "128",
+          "cpu.max": "200000 100000",
+          "memory.oom.group": "1"
+        },
+        "preview": "http://127.180.148.247:34929/",
+        "passed": true
+      },
+      "lifecycle": {
+        "artifact": "/tmp/continuum-b2g5/qualification-final-packages/Continuum-B2G5-NONRELEASE-QUALIFICATION-FINAL-1.0.0-x86_64.AppImage",
+        "sha256": "5c781aecb7fddfdc222d992d7f9ae4545806023fcdc9a8599dac8bd5f2af8cd0",
+        "qualificationAsarSha256": "0851ddc0cf8d0595fb601e911ea9c4850d4c42fe24dd01df01705e3acfa758bf",
+        "nativeCommandApprovals": "explicit trusted harness decisions through guardTool; no permission bypass",
+        "checks": {
+          "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+          "protectedRestart": true,
+          "activeShutdownRestart": true,
+          "isolatedRevert": true
+        },
+        "runtime": {
+          "packaged": true,
+          "resources": "/tmp/.mount_ContinyRg6ZQ/resources",
+          "profile": "/tmp/continuum-b2g5/qualification-final/profile",
+          "storage": "gnome_libsecret",
+          "encryption": true,
+          "argv": [
+            "/tmp/.mount_ContinyRg6ZQ/continuum",
+            "--inspect=0",
+            "--remote-debugging-port=0",
+            "--user-data-dir=/tmp/continuum-b2g5/qualification-final/profile",
+            "--disable-gpu"
+          ]
+        },
+        "setup": {
+          "sessionId": "g5-1793729764334",
+          "workspace": "/tmp/continuum-b2g5/qualification-final/workspace"
+        },
+        "faults": [
+          {
+            "reason": "expiry",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r88929bde8a2c4fe78936aa476a2824b6.scope",
+            "capturedPids": [
+              "273550",
+              "273552",
+              "273554",
+              "273560",
+              "273561",
+              "273562",
+              "273563"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "permission",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r6c543d0125d14d058605ba7bf962874c.scope",
+            "capturedPids": [
+              "273616",
+              "273618",
+              "273620",
+              "273626",
+              "273627",
+              "273628",
+              "273629"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "termination",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r20f07e0f2a7048818017697b1acc95f7.scope",
+            "capturedPids": [
+              "273643",
+              "273651",
+              "273653",
+              "273659",
+              "273660",
+              "273661",
+              "273662"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "deletion",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r9c94c69e3b5b415c8e82019830bcf63a.scope",
+            "capturedPids": [
+              "273676",
+              "273678",
+              "273680",
+              "273686",
+              "273687",
+              "273688",
+              "273689"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "worker",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rfb67ba748f544b11ba136e36910b9d6b.scope",
+            "capturedPids": [
+              "273703",
+              "273705",
+              "273707",
+              "273718",
+              "273719",
+              "273720",
+              "273721"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "helper",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r9cbe4c7376e94c7985720a56c2197763.scope",
+            "capturedPids": [
+              "273736",
+              "273738",
+              "273740",
+              "273746",
+              "273747",
+              "273748",
+              "273749"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "owner",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-re90a3ab5db1c4e3482a7f19474f85491.scope",
+            "capturedPids": [
+              "273763",
+              "273765",
+              "273767",
+              "273773",
+              "273782",
+              "273783",
+              "273784"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "oom",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r766c962c78ec42d7b9589da1d184c133.scope",
+            "capturedPids": [
+              "273798",
+              "273800",
+              "273802",
+              "273808",
+              "273809",
+              "273810",
+              "273811"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "isolated",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r67378c2ef64f4adb9f52d645cb748b9a.scope",
+            "capturedPids": [
+              "273841",
+              "273843",
+              "273845",
+              "273851",
+              "273852",
+              "273853",
+              "273854"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          },
+          {
+            "reason": "shutdown",
+            "passed": true,
+            "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r3817abd016b34831b69283e2c7252edb.scope",
+            "capturedPids": [
+              "273884",
+              "273886",
+              "273888",
+              "273894",
+              "273895",
+              "273896",
+              "273897"
+            ],
+            "capturedScopePidsExited": true,
+            "scopeRemoved": true
+          }
+        ]
+      },
+      "supersededCoreRun": {
+        "artifact": "/tmp/continuum-b2g5/qualification-fixed-packages/Continuum-B2G5-NONRELEASE-QUALIFICATION-FIXED-1.0.0-x86_64.AppImage",
+        "sha256": "13d2fa8fd5aaa7b00a386959ce338ed4811888f600a14f04ea54d486c7e4513d",
+        "qualificationAsarSha256": "bb0d1282fcd1dea395637e4acb2e8079ed35ce67b85ab7b2ba6a7ce522bb6cea",
+        "nativeCommandApprovals": "explicit trusted harness decisions through guardTool; no permission bypass",
+        "checks": {
+          "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+          "protectedRestart": true,
+          "packagedDnsTls": true,
+          "npm": {
+            "passed": true,
+            "containment": {
+              "home": "/sandbox-home",
+              "cache": "/tmp/continuum-cache/npm"
+            }
+          },
+          "survivedCompletion": true,
+          "credentialFreeDenied": true,
+          "browserHandoff": {
+            "nativeOpen": true,
+            "javascript": true,
+            "css": true,
+            "routingReload": true,
+            "websocketHmr": true,
+            "disposableChrome": true
+          },
+          "stop": true,
+          "isolatedRevert": true
+        },
+        "runtime": {
+          "packaged": true,
+          "resources": "/tmp/.mount_ContinbDQPKS/resources",
+          "profile": "/tmp/continuum-b2g5/qualification-fixed/profile",
+          "storage": "gnome_libsecret",
+          "encryption": true,
+          "argv": [
+            "/tmp/.mount_ContinbDQPKS/continuum",
+            "--inspect=0",
+            "--remote-debugging-port=0",
+            "--user-data-dir=/tmp/continuum-b2g5/qualification-fixed/profile",
+            "--disable-gpu"
+          ]
+        },
+        "setup": {
+          "sessionId": "g5-1793727560477",
+          "workspace": "/tmp/continuum-b2g5/qualification-fixed/workspace"
+        },
+        "commandId": "cmd_8a893291-a00d-486a-8661-6e614b9fc152",
+        "cgroup": {
+          "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-reaa653b0b84b4fc39d2f52301d158ecb.scope",
+          "memory.max": "1073741824",
+          "memory.swap.max": "0",
+          "pids.max": "128",
+          "cpu.max": "200000 100000",
+          "memory.oom.group": "1"
+        },
+        "preview": "http://127.5.164.44:42945/"
+      },
+      "nativeCommandApprovalMethod": "trusted harness user decisions through real guardTool; no LLM turn or automatic approval UI claim"
+    },
+    "productionRelease": {
+      "status": "pending",
+      "approved": false,
+      "activated": false
+    }
+  },
+  "tests": {
+    "serialNode": {
+      "tests": 118,
+      "pass": 118,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "finalQualificationUnit": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "countOverlap": "One qualification boundary group overlaps the serial selection; do not sum reruns as independent groups. Lifecycle/core reruns supersede prior timing fixtures.",
+    "python": {
+      "owner": 5,
+      "policy": 4,
+      "resources": 2,
+      "fail": 0,
+      "skip": 0
+    },
+    "rendererFixtures": {
+      "settings": true,
+      "backgroundCommands": true
+    },
+    "productionViteBuild": true,
+    "fixedNonreleaseAppImageBuild": true,
+    "fixedNonreleaseDebBuild": true,
+    "validation": {
+      "passed": true,
+      "jsSyntax": [
+        "src/main/networkExecution.js",
+        "scripts/qualify-workspace-network.cjs",
+        "tests/b2g5AppImage.ui.cjs",
+        "tests/b2g5Workflow.ui.cjs",
+        "tests/b2g5Lifecycle.ui.cjs",
+        "tests/b2g5QualificationBoundaries.ui.cjs",
+        "tests/b2g5Qualification.test.cjs"
+      ],
+      "pythonAst": [
+        "scripts/relink-workspace-network-helper.py",
+        "tests/helpers/b2g5NativeDialog.py"
+      ],
+      "jsonParsed": [
+        "docs/b2-g5-installed-runtime-release-signoff-evidence.json",
+        "docs/b2-f1-development-previews-evidence.json",
+        "docs/b2-f-authenticated-previews-evidence.json",
+        "docs/b2-g2-trusted-development-networking-evidence.json",
+        "docs/b2-g3-production-networking-qualification-evidence.json",
+        "docs/b2-g1-host-address-safety-evidence.json",
+        "docs/b2-d-production-network-integration-evidence.json",
+        "docs/b2-g3-helper-provenance.json",
+        "docs/b2-c-network-owner-evidence.json",
+        "docs/b2-e-network-activation-readiness-evidence.json",
+        "docs/b2-g4-helper-candidate.json",
+        "docs/b2-g4-networking-release-completion-evidence.json",
+        "src/main/workspaceNetworkAddressPolicy.json",
+        "package.json"
+      ],
+      "gitDiffCheck": true,
+      "newFilesWhitespaceCheck": true
+    }
+  },
+  "intermediateFindings": [
+    "Initial Playwright normal launch added --no-sandbox by default; not accepted. Corrected sandbox-enabled normal launches passed.",
+    "Actual first enabled package request failed spawn ENOTDIR because cwd was inside app.asar; fixed only networkExecution.js cwd to /. Original failed fixture is preserved.",
+    "Restricted package build failed build-download DNS; completed host build in a new output directory.",
+    "Early GUI harness asserted success:true on a background record instead of command_id; corrected harness assertion.",
+    "Early navigation attempted the intentionally collapsed sidebar; corrected normal sidebar toggles and viewport.",
+    "Inspector evaluation re-entered SQLite rowFactory; main-loop-scheduled harness calls avoid re-entrant API use.",
+    "Initial qualification gate rehashed 124 MB/probed versions on each 50 ms preview poll, making timing/fault checks unreliable. Final qualification gate checks immutable FUSE materials once and retains backend manifest checks. Earlier OOM/lifecycle timing claims are superseded, not counted as final acceptance.",
+    "A foreground membership probe raced scope expiry; final lifecycle harness resolves the live packaged worker cgroup directly and requires a running server before fault injection.",
+    "One final-fixture launch began before package block-map completion and asserted disclosure before UI load; discarded and rerun after build completion/hash and disclosure wait."
+  ],
+  "cleanup": {
+    "checkedTaskMounts": [
+      "/tmp/.mount_Contin61bMVx",
+      "/tmp/.mount_Contin8lSGy0",
+      "/tmp/.mount_Contin93PSc2",
+      "/tmp/.mount_ContinNfVMz4",
+      "/tmp/.mount_ContinQHpdiq",
+      "/tmp/.mount_ContinSz5fGw",
+      "/tmp/.mount_ContinUHgATv",
+      "/tmp/.mount_ContinbDQPKS",
+      "/tmp/.mount_ContineXaPNs",
+      "/tmp/.mount_ContinerOJxp",
+      "/tmp/.mount_ContinqRmT1B",
+      "/tmp/.mount_ContinyRg6ZQ"
+    ],
+    "remainingTaskMounts": [],
+    "checkedFinalScopes": [
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r20f07e0f2a7048818017697b1acc95f7.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r3817abd016b34831b69283e2c7252edb.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r67378c2ef64f4adb9f52d645cb748b9a.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r6c543d0125d14d058605ba7bf962874c.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r766c962c78ec42d7b9589da1d184c133.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r88929bde8a2c4fe78936aa476a2824b6.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r9c94c69e3b5b415c8e82019830bcf63a.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r9cbe4c7376e94c7985720a56c2197763.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-re4ae7dbc64354c949f742ef197872028.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-re90a3ab5db1c4e3482a7f19474f85491.scope",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rfb67ba748f544b11ba136e36910b9d6b.scope"
+    ],
+    "remainingFinalScopes": [],
+    "remainingOwnedApplicationBrowserWorkers": [],
+    "capturedFaultPidsExitAssertions": "passed for each final lifecycle case",
+    "scratchDirectoryGlobalAbsenceClaimed": false,
+    "passed": true
+  },
+  "logsDirectory": "/tmp/continuum-b2g5",
+  "logs": {
+    "appimage-fixed-closed.log": {
+      "sha256": "fd6ec4e4709f715e876efd2f264f8110f1a034c73b2192287386571810d39c74",
+      "size": 3766
+    },
+    "appimage-normal-sandboxed.log": {
+      "sha256": "f9fe916ed95b731ca9af45ce4c19a2cdbc47e6a7d4b94149e8600ac12f0c3e23",
+      "size": 3766
+    },
+    "appimage-normal.log": {
+      "sha256": "9fbfb7486ffcaeedd3721268901d5350908af964444834966e600df246f21803",
+      "size": 354
+    },
+    "archive-audits.json": {
+      "sha256": "dff4f00da35062f959401f81f9e20775a4192950fc24e5f72d4c994a69ae34a0",
+      "size": 3340
+    },
+    "artifacts.json": {
+      "sha256": "e48ebe77c3dbf85a7e88a350e3a62e18809a2424fa75f69a387a5c7c22673a82",
+      "size": 7977
+    },
+    "background-ui.log": {
+      "sha256": "23a2e15e339a5a85337a66130c88ffc59f0a80a3154df4ad7364cddbcbe154d2",
+      "size": 82
+    },
+    "cgroup-controllers.txt": {
+      "sha256": "a1d3f9a7963cbedee1c50c26c826b35dfb1af3608d9c611731f8a21e56ea9bde",
+      "size": 49
+    },
+    "cleanup.json": {
+      "sha256": "08284e3b51692ca3a33201b74fdacc0a49fe1dc1c9c9e658f0c7a39646d1a273",
+      "size": 2029
+    },
+    "consent-final.log": {
+      "sha256": "b0ec8396e7f5e1b3889c81a0175bff5471950568217ad7b2b664e899784690b5",
+      "size": 1641
+    },
+    "consent.log": {
+      "sha256": "9ec7ef064e1238f556b8f71cbc064ecabe813b63946d21087afceda07782eb3f",
+      "size": 1396
+    },
+    "fault-loop.txt": {
+      "sha256": "388f358d4ca4a4c651e731098138ed3789794df6f388059d827b3948ce2a459c",
+      "size": 4018
+    },
+    "final-qualification-audit.json": {
+      "sha256": "d5ab20c6e37e27aa47b5106ec5534d1ea9f5c9c21692023e444a824863c88db0",
+      "size": 1594
+    },
+    "fixed-deb-audit.json": {
+      "sha256": "4571428ab1747810244ec38ca0bb8c60943fa513406643fada8655a33e95a366",
+      "size": 1395
+    },
+    "fixed-deb-depends.txt": {
+      "sha256": "5d10e298ef58139dae02a2f8d7e260b564d7a53048715dce48a55d301b671b63",
+      "size": 291
+    },
+    "fixed-package-build-host.log": {
+      "sha256": "6ec570f4418f19d21efa959d048ebe610b811c244298f441f339c5448fd2f83c",
+      "size": 11454
+    },
+    "fixed-package-build.log": {
+      "sha256": "a6f1cdca3328ab17bdb1e26871872b3e6ec4c478223938a364937bc399d05994",
+      "size": 2009
+    },
+    "host-runtime.json": {
+      "sha256": "2d6d32240ca938cc48365360803a9100aeebdf5f229b134a31e80607e365b74e",
+      "size": 895
+    },
+    "initial-sha256.json": {
+      "sha256": "e5cd10bd4d1c28ddd8196b0cf9d75a886c9b1992a5ddb05c533beb5e08d60a12",
+      "size": 113975
+    },
+    "initial-status.txt": {
+      "sha256": "fbf575512c996bda79cfc7bd7b4426d9d4351e17fa145979b0d4dd83e6fbf5a2",
+      "size": 3552
+    },
+    "layout.log": {
+      "sha256": "1f46a448211bfbbd0fe5c8205d2efa55962f5909e48ca12c06c6fef64df88aa5",
+      "size": 518
+    },
+    "lifecycle-authoritative.log": {
+      "sha256": "d0604154c36213ebc63ce86c8df34165985b150d9aa920387236a21f9bd23eb0",
+      "size": 443
+    },
+    "lifecycle-complete.log": {
+      "sha256": "301bf222761a15dc1598a1ed6e942220b3e5763cddbc73ae905adb3e268c9f71",
+      "size": 620
+    },
+    "lifecycle-eight-evidence.json": {
+      "sha256": "f302742328078ca4af852b7fc013240cc5246088236953b60711205e56e2f44e",
+      "size": 1959
+    },
+    "lifecycle-final-accepted.log": {
+      "sha256": "a80bc84f03cfadb0f7fe7ac76cb12dae8ef77da506d5a2436fc0fd6ac5d8ea45",
+      "size": 4177
+    },
+    "lifecycle-final-evidence.json": {
+      "sha256": "8ecdac893c34c1ad484c9b4d5882f52d066394276777741fe0af47303c608f06",
+      "size": 5376
+    },
+    "lifecycle-final.log": {
+      "sha256": "d74c7cea4b24b3612e8bda68791bec8e8cd186c620489e59b0fa4015549a3fb4",
+      "size": 1730
+    },
+    "lifecycle.log": {
+      "sha256": "d14593dba95fe4471616742d2b76f2100f0ca875227076594b33c4ffed2601ae",
+      "size": 1372
+    },
+    "open-controls.log": {
+      "sha256": "acb437fd7a9cd713facfc2c0d85a66c34ea0ff5473af595ed3ac353680bfc09e",
+      "size": 798
+    },
+    "owner.log": {
+      "sha256": "ae16ed6605c11124cff28b94d7d1f85ef5fb0b48caae68e38afdbb74d5860c7e",
+      "size": 2113
+    },
+    "policy.log": {
+      "sha256": "526fc987b620bbaaafbfbcbf23ea6bd65cb2c0264ab35a0b5a5bcbba9d849807",
+      "size": 444
+    },
+    "preservation.json": {
+      "sha256": "a75740c564b809d9f4b4fcffcb967dfe65b0f3307da3a9096a7b5dd4cbf93001",
+      "size": 121
+    },
+    "qualification-boundaries.log": {
+      "sha256": "70da40569b190933713bb38d1936ae9ffd2788bb186d4dcbd10af43888841b7b",
+      "size": 783
+    },
+    "qualification-build.log": {
+      "sha256": "29375b4344645e80bdca6856e91b2e5bc389d43e6ce6b9c6cd499ff814a2f6e7",
+      "size": 639
+    },
+    "qualification-final-artifact.sha256": {
+      "sha256": "d1c9ceeeb7bceb7919a83303fda4727186e7e9c453f06d8030ce459ae0cb303f",
+      "size": 183
+    },
+    "qualification-final-boundaries.log": {
+      "sha256": "70da40569b190933713bb38d1936ae9ffd2788bb186d4dcbd10af43888841b7b",
+      "size": 783
+    },
+    "qualification-final-build.log": {
+      "sha256": "022ac1cc90fca34e3664816b236850fb10dc82c5888a1e34c30f5beee1c73203",
+      "size": 657
+    },
+    "qualification-final-package.log": {
+      "sha256": "0a88a0390c5859a1b4df1910413d05ea0e13d6745d75aa1e5392e306bc3946ed",
+      "size": 1183
+    },
+    "qualification-final-unit.log": {
+      "sha256": "48a7e484847817133090466d96527006f8fac97def0aa8adc2ed41691b4a8d9f",
+      "size": 554
+    },
+    "qualification-fixed-build.log": {
+      "sha256": "26b13280ed36f660d5d8d76e9dd6e953cdeff98423d6b976b6379ebf3d64f46e",
+      "size": 657
+    },
+    "qualification-fixed-package.log": {
+      "sha256": "b299454e2e8104b04dc8be4ae46dd48b076be1ec732b18748149a1a3f450a7a2",
+      "size": 1183
+    },
+    "qualification-package.log": {
+      "sha256": "95d16ef5d6454bfcc31031e256f04526f25f0dfe4691ea86fba65a023e5a3d2c",
+      "size": 1159
+    },
+    "qualification-unit-host.log": {
+      "sha256": "5ee97862feb6274b981ff32348bfd6e333c286b873e62f343a55fcd0bb35f9ba",
+      "size": 554
+    },
+    "qualification-unit.log": {
+      "sha256": "e43e76e1d4f6bfd3a5c8fb90220f2cf4edb350fa072196a0ca73295f1c1b0323",
+      "size": 256
+    },
+    "regressions.log": {
+      "sha256": "5b0a917d9dcca41299a5edcfb51074e4a1b14d11d8b82050836823f9fd4ca73f",
+      "size": 31118
+    },
+    "relink-final.log": {
+      "sha256": "0ea0fd7987067173e474aafa9c3265210ebb99fcf9efe77ff54671ef808015e3",
+      "size": 1041
+    },
+    "relink-recipient.log": {
+      "sha256": "e4b9cff2230574159f363a8dca2a5ec5a9e02a0bf5e68d846cfa1153cdd255a8",
+      "size": 1047
+    },
+    "relink.log": {
+      "sha256": "49047aa8169308803aa444564c28a60487c06fde4530437496e9ba76251ce6cc",
+      "size": 50
+    },
+    "resources.log": {
+      "sha256": "802e525eee3365b054575caec3138d3a8a93c5f16fee3086a278b22ad16a815f",
+      "size": 344
+    },
+    "settings-ui.log": {
+      "sha256": "fe1f1e6ce8c4ba0b2c3a5a962e716a01041d7e7c6720b1a0c2dc766dc747d36a",
+      "size": 98
+    },
+    "stalled-fixture-cleanup.json": {
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2
+    },
+    "user-session.txt": {
+      "sha256": "78092fd7329d8ede4e39fbaa73bc07472a64e18f172d6c4df76e7cf5bcbbf890",
+      "size": 59
+    },
+    "validation.json": {
+      "sha256": "2b5e044f885f7cdc3d9e83b3934e51ee7ffb899f160091bf8ac01f70856ddb98",
+      "size": 1240
+    },
+    "vite-build.log": {
+      "sha256": "23b0c94f238381807b5f819f0635ac1af42091897da9101384426b471f1f1665",
+      "size": 1847
+    },
+    "workflow-card-faults-accepted.log": {
+      "sha256": "7c9b56a2915ddb9d2e9f676962439c5d9ffd69b5021eeb641a4408f146c7142e",
+      "size": 69
+    },
+    "workflow-card-faults-final.log": {
+      "sha256": "ffb164e4120d12f3a1f7155d0f6f0975cfc730eb26387be1ec9820ae40ec5845",
+      "size": 2731
+    },
+    "workflow-card-faults.log": {
+      "sha256": "24f1df27c902229f3a35aaab7de4278821914f69747b760bda9ef0827e7eef93",
+      "size": 2731
+    },
+    "workflow-complete.log": {
+      "sha256": "3b16ce3d4c584eca8f2703a4424ea4b66d63a7b8041e6207f918a8bcd0aeb479",
+      "size": 1601
+    },
+    "workflow-core-evidence.json": {
+      "sha256": "32b1dc13d69abacc25c58b3047b27fc355039bc2cb07b01137e14089c31627a2",
+      "size": 1987
+    },
+    "workflow-final-accepted.log": {
+      "sha256": "4890f619884bf7d16fa5a02632bb71ce885234faa3819fe6b06eaafdc5bb849b",
+      "size": 5399
+    },
+    "workflow-final-complete.log": {
+      "sha256": "5c772428361ecbd70859e819b98984b277c1af0e2d8b841fa8f4f7cb39fe1472",
+      "size": 5428
+    },
+    "workflow-final-evidence.json": {
+      "sha256": "00f1d00ef2885d9603193d9490fc26c7e12cec05f6d483a2c2028f3a6977fc46",
+      "size": 2250
+    },
+    "workflow-final.log": {
+      "sha256": "fb0868304d52c949e49ab5a0afe7162d6bf04295a9b772fe2c220497d09a04d3",
+      "size": 4216
+    },
+    "workflow-fixed.log": {
+      "sha256": "b1f73234a7cec55f3b5a1ec8ee05f9edd0a0c3766eae855a165bfdccecaef6a6",
+      "size": 1136
+    },
+    "workflow-immutable.log": {
+      "sha256": "a15f8b205bca20f0c4918a20b696ec181d481e87a90d1406f7f411a7880977de",
+      "size": 382
+    },
+    "workflow-initial.log": {
+      "sha256": "772940ae5f0c925c0f73fd5720684af4856c57d6a5a8b537a021541da9e2b952",
+      "size": 559
+    }
+  },
+  "reviewHandoff": "docs/b2-g5-release-decision-checklist.md"
+}

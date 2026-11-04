@@ -9,7 +9,7 @@ export default function AssistantAvatar({ settings, modelId, sessionAvatarUrl })
 
 	return (
 		<span
-			className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--surface-hover)]"
+			className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden ui-radius-control bg-[var(--surface-hover)]"
 			aria-hidden="true"
 		>
 			{url && failedUrl !== url ? (

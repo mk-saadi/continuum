@@ -453,11 +453,11 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 				type="button"
 				onClick={() => setSelectedPath(entry.path)}
 				aria-pressed={selectedPath === entry.path}
-				className="aero-list-item flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left rounded-lg"
+				className="aero-list-item flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left ui-radius-control"
 				aria-current={selectedPath === entry.path ? "true" : undefined}
 			>
 				<span
-					className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${STATUS_TONE[entry.status] ?? "text-[var(--text-muted)]"}`}
+					className={`shrink-0 ui-radius-control px-1.5 py-0.5 font-mono text-[10px] ${STATUS_TONE[entry.status] ?? "text-[var(--text-muted)]"}`}
 				>
 					{entry.status}
 				</span>
@@ -478,17 +478,17 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 				</span>
 				<span className="flex shrink-0 gap-1">
 					{entry.staged && (
-						<span className={`rounded px-1.5 py-0.5 text-[10px] ${FLAG_TONE.staged}`}>
+						<span className={`ui-radius-control px-1.5 py-0.5 text-[10px] ${FLAG_TONE.staged}`}>
 							staged
 						</span>
 					)}
 					{entry.unstaged && (
-						<span className={`rounded px-1.5 py-0.5 text-[10px] ${FLAG_TONE.unstaged}`}>
+						<span className={`ui-radius-control px-1.5 py-0.5 text-[10px] ${FLAG_TONE.unstaged}`}>
 							unstaged
 						</span>
 					)}
 					{entry.untracked && (
-						<span className={`rounded px-1.5 py-0.5 text-[10px] ${FLAG_TONE.untracked}`}>
+						<span className={`ui-radius-control px-1.5 py-0.5 text-[10px] ${FLAG_TONE.untracked}`}>
 							untracked
 						</span>
 					)}
@@ -564,7 +564,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 					{notice && (
 						<p
 							role="status"
-							className="rounded-lg bg-[var(--accent)]/10 px-2.5 py-2 text-[var(--accent-bright)]"
+							className="ui-radius-control bg-[var(--accent)]/10 px-2.5 py-2 text-[var(--accent-bright)]"
 						>
 							{notice}
 						</p>
@@ -664,7 +664,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 												</p>
 											) : effectiveView === "split" ? (
 												<div
-													className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)]"
+													className="flex min-h-0 flex-1 flex-col overflow-hidden ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]"
 													aria-label="Side-by-side diff"
 												>
 													<div className="grid shrink-0 grid-cols-2 divide-x divide-[var(--code-border)] border-b border-[var(--code-border)] bg-[var(--surface-hover)] text-[11px] font-medium text-[var(--text-secondary)]">
@@ -704,7 +704,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 															showing unified.
 														</p>
 													)}
-													<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)]">
+													<div className="min-h-0 flex-1 overflow-auto ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]">
 														<DiffCodePane
 															rows={unifiedRows}
 															side="right"
@@ -754,7 +754,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													</p>
 													{safetyInfo && (
 														<div
-															className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-[var(--warning)]/50"}`}
+															className={`space-y-1 ui-radius-control border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-[var(--warning)]/50"}`}
 															aria-label="Revert safety verdict"
 														>
 															<p
@@ -804,7 +804,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											)}
 											{confirming && (
 												<div
-													className="space-y-2 rounded-lg border border-[var(--error)]/40 p-2.5"
+													className="space-y-2 ui-radius-control border border-[var(--error)]/40 p-2.5"
 													role="alertdialog"
 													aria-label="Confirm revert"
 												>
@@ -841,7 +841,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 									</>
 								)}
 								<div
-									className="aero-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 rounded-lg"
+									className="aero-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 ui-radius-control"
 									role="group"
 									aria-label="Revert controls"
 								>
@@ -849,7 +849,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										label="Overwrite files changed since the checkpoint (off = skip conflicts)"
 										checked={force}
 										disabled={busy}
-										className="min-w-0 flex-1 [&>label]:items-center [&>label]:rounded-md [&>label]:px-3 [&>label]:py-2"
+										className="min-w-0 flex-1 [&>label]:items-center [&>label]:ui-radius-control [&>label]:px-3 [&>label]:py-2"
 										onChange={(event) => {
 											const next = event.target.checked;
 											setForce(next);

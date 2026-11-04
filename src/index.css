@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/radius.css";
 
 /* Bundled typefaces (see src/main.jsx fontsource imports): Inter Variable
    for UI prose, JetBrains Mono Variable for code. "Noto Sans CJK JP" is a
@@ -1491,7 +1492,7 @@ pre {
 .chat-find-mark {
 	background-color: var(--active-chat);
 	color: inherit;
-	border-radius: 3px;
+	border-radius: var(--ui-radius-small);
 	padding-inline: 1px;
 }
 .chat-find-mark[data-active="true"] {
@@ -1506,7 +1507,7 @@ pre {
 	height: 1em;
 	margin-inline: 0.3em;
 	border: 1px solid var(--border);
-	border-radius: 3px;
+	border-radius: var(--ui-radius-small);
 	vertical-align: -0.15em;
 }
 
@@ -1517,7 +1518,7 @@ pre {
 	min-width: 0;
 	overflow: clip;
 	border: 1px solid var(--attachment-border);
-	border-radius: 8px;
+	border-radius: var(--ui-radius-control);
 }
 .assistant-markdown .assistant-table {
 	width: 100%;
@@ -1564,7 +1565,7 @@ pre {
 .rich-block {
 	border: 1px solid var(--border);
 	background: var(--surface);
-	border-radius: 12px;
+	border-radius: var(--ui-radius-surface);
 	padding: 12px;
 	margin: 12px 0;
 }
@@ -1594,7 +1595,7 @@ pre {
 	gap: 10px;
 	padding: 10px;
 	border: 1px solid var(--subtle-border);
-	border-radius: 10px;
+	border-radius: var(--ui-radius-control);
 	background: var(--surface-raised);
 }
 .rich-card-title {
@@ -1617,14 +1618,14 @@ pre {
 	flex-shrink: 0;
 }
 .rich-swatches span {
-	border-radius: 4px;
+	border-radius: var(--ui-radius-small);
 	border: 1px solid var(--border);
 }
 .rich-badge {
 	display: inline-block;
 	font-size: 11px;
 	padding: 1px 8px;
-	border-radius: 999px;
+	border-radius: var(--ui-radius-round);
 	background: var(--bg-tertiary);
 	color: var(--text-secondary);
 }
@@ -1664,8 +1665,8 @@ pre {
 	--aero-saturate: 125%;
 	--aero-saturate-control: 100%;
 	--aero-blur-orb: 0px;
-	--aero-radius-popover: 12px;
-	--aero-radius-tooltip: 8px;
+
+
 	--aero-saturate-float: 135%;
 
 	--aero-glass: color-mix(in srgb, var(--surface) 76%, transparent);
@@ -1780,12 +1781,12 @@ pre {
 	--aero-glow: 0 0 18px -4px color-mix(in srgb, var(--accent) 70%, transparent);
 
 	/* Geometry */
-	--aero-radius-panel: 14px;
-	--aero-radius-control: 9px;
-	--aero-radius-primary: 12px;
-	--aero-radius-well: 12px;
-	--aero-radius-float: 16px;
-	--aero-radius-orb: 999px;
+
+
+
+
+
+
 
 	/* Motion */
 	--aero-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -1801,14 +1802,14 @@ pre {
 
 ::-webkit-scrollbar-track {
 	background: var(--scrollbar-track, var(--bg-tertiary));
-	border-radius: 9999px !important;
+	border-radius: var(--ui-radius-round) !important;
 }
 
 ::-webkit-scrollbar-thumb {
 	background-color: var(--scrollbar-thumb, var(--border));
 	background-clip: padding-box;
 	border: 2px solid transparent;
-	border-radius: 9999px !important;
+	border-radius: var(--ui-radius-round) !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -1872,4 +1873,13 @@ input:is([type="button"], [type="submit"], [type="reset"]) {
 		background-color: Highlight;
 		color: HighlightText;
 	}
+}
+
+/* Recharts' accessibility layer marks the chart SVG keyboard-focusable
+   (.recharts-surface with tabIndex=0), so clicking a chart focuses it and
+   Chromium paints its default focus ring — read as a stray yellow border on
+   the chart card. Charts here are mouse-driven: suppress the ring for
+   mouse-click focus only; keyboard :focus-visible still shows it. */
+svg.recharts-surface:focus:not(:focus-visible) {
+	outline: none;
 }

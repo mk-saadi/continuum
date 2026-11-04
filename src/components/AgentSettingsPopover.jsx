@@ -96,7 +96,7 @@ export function ReasoningSelector({ sessionId, modelId, activeChatProvider, disa
 	if (!modelId || unknown || (!controlsKnown && !noControl && ready && !capabilities?.reasoning)) {
 		const label = noControl ? "Unavailable" : "Unknown";
 		return (
-			<div className="w-full rounded-lg border border-[var(--subtle-border)] bg-[var(--input)] px-2.5 py-2">
+			<div className="w-full ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-2.5 py-2">
 				<div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)]">
 					<FaBrain /> Reasoning: {label}
 				</div>
@@ -300,7 +300,7 @@ export function AgentSettingsPopover({
 				<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
 				<span className="font-medium">Settings</span>
 				{/* Subtle active indicator dot when mid-run questions are on */}
-				{allowMidRunQuestions && <span className="size-1.5 rounded-full bg-[var(--accent)]" />}
+				{allowMidRunQuestions && <span className="size-1.5 ui-radius-round bg-[var(--accent)]" />}
 			</button>
 
 			{/* Popover Menu Panel */}

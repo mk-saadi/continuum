@@ -51,7 +51,10 @@ test('runtime settings reject root, home, credential directories, data overlaps 
 });
 test('environment allowlist strips ambient secrets and executable injection controls', () => {
   const e = environment({ PATH: '/evil', LANG: 'C', LC_ALL: 'C', TERM: 'xterm', TZ: 'UTC', NODE_OPTIONS: '--require evil', NPM_TOKEN: 'secret', AWS_SECRET_ACCESS_KEY: 'secret', SSH_AUTH_SOCK: '/run/socket', GIT_CONFIG_COUNT: '1' });
-  assert.deepEqual(Object.keys(e).sort(), ['HOME', 'LANG', 'LC_ALL', 'PATH', 'TERM', 'TMPDIR', 'TZ']);
+  assert.deepEqual(Object.keys(e).sort(), ['HOME', 'LANG', 'LC_ALL', 'PATH', 'PIP_CACHE_DIR', 'TERM', 'TMPDIR', 'TZ', 'XDG_CACHE_HOME', 'npm_config_cache']);
+  assert.equal(e.npm_config_cache, '/tmp/continuum-cache/npm');
+  assert.equal(e.PIP_CACHE_DIR, '/tmp/continuum-cache/pip');
+  assert.equal(e.XDG_CACHE_HOME, '/tmp/continuum-cache');
   assert.equal(e.PATH, '/usr/local/bin:/usr/bin:/bin');
 });
 test('workspace socket refuses setup before any process launch', async () => {

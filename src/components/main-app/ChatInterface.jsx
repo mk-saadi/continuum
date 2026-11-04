@@ -56,12 +56,12 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 		return () => URL.revokeObjectURL(url);
 	}, [file]);
 	return (
-		<div className="relative flex w-28 shrink-0 flex-col gap-1 rounded-md border border-[var(--border)] p-2 ">
+		<div className="relative flex w-28 shrink-0 flex-col gap-1 ui-radius-control border border-[var(--border)] p-2 ">
 			{previewUrl ? (
 				<img
 					src={previewUrl}
 					alt={file.name}
-					className="h-14 w-full rounded object-contain"
+					className="h-14 w-full ui-radius-control object-contain"
 				/>
 			) : (
 				<span className="flex h-16 items-center justify-center text-xs">Text file</span>
@@ -77,7 +77,7 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 				aria-label={`Remove ${file.name}`}
 				disabled={disabled}
 				onClick={onRemove}
-				className="absolute right-1 top-1 flex size-5 cursor-pointer items-center justify-center rounded-full bg-[var(--input)] text-[var(--text-primary)] shadow disabled:opacity-50"
+				className="absolute right-1 top-1 flex size-5 cursor-pointer items-center justify-center ui-radius-round bg-[var(--input)] text-[var(--text-primary)] shadow disabled:opacity-50"
 			>
 				<LuX />
 			</button>
@@ -1846,13 +1846,13 @@ export function ChatInterface({
 			{pausedLoop && (
 				<div
 					role="status"
-					className="absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-amber-400/40 bg-slate-900 p-4 text-white shadow-lg"
+					className="absolute top-3 left-1/2 z-50 -translate-x-1/2 ui-radius-surface border border-amber-400/40 bg-slate-900 p-4 text-white shadow-lg"
 				>
 					<p>Agent reached max autonomous turns.</p>
 					<div className="mt-2 flex gap-3">
 						<button
 							type="button"
-							className="rounded bg-blue-600 px-3 py-1"
+							className="ui-radius-control bg-blue-600 px-3 py-1"
 							onClick={() =>
 								window.chatAPI
 									.respondToLoop(pausedLoop.requestId, "continue")
@@ -1863,7 +1863,7 @@ export function ChatInterface({
 						</button>
 						<button
 							type="button"
-							className="rounded border px-3 py-1"
+							className="ui-radius-control border px-3 py-1"
 							onClick={() =>
 								window.chatAPI
 									.respondToLoop(pausedLoop.requestId, "stop")
@@ -2006,14 +2006,14 @@ export function ChatInterface({
 						type="button"
 						aria-label="Jump to latest"
 						onClick={jumpToLatest}
-						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
+						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 ui-radius-round border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
 					>
 						<FiArrowDown aria-hidden="true" />
 						Jump to latest
 					</button>
 				)}
 				<div
-					className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-auto px-4 py-6 max-[450px]:px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[var(--scrollbar-track)] [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]"
+					className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-auto px-4 py-6 max-[450px]:px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[var(--scrollbar-track)] [&::-webkit-scrollbar-thumb]:ui-radius-small [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]"
 					ref={messagesRef}
 					onScroll={handleScroll}
 				>
@@ -2128,7 +2128,7 @@ export function ChatInterface({
 													}}
 												>
 													<textarea
-														className="max-h-[300px] min-h-[150px] w-full! resize-y rounded-xl border border-[var(--accent)] bg-[var(--surface-raised)] p-3 text-sm leading-relaxed text-[var(--text-primary)] outline-none select-text"
+														className="max-h-[300px] min-h-[150px] w-full! resize-y ui-radius-surface border border-[var(--accent)] bg-[var(--surface-raised)] p-3 text-sm leading-relaxed text-[var(--text-primary)] outline-none select-text"
 														aria-label="Edit message"
 														autoFocus
 														value={editText}
@@ -2164,7 +2164,7 @@ export function ChatInterface({
 													<div className="flex items-center justify-end gap-2 mt-1">
 														<button
 															type="button"
-															className="cursor-pointer rounded-lg px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+															className="cursor-pointer ui-radius-control px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
 															disabled={streaming || loading}
 															onClick={() => setEditing(null)}
 														>
@@ -2172,7 +2172,7 @@ export function ChatInterface({
 														</button>
 														<button
 															type="submit"
-															className="rounded-lg text-[var(--on-accent)] cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-3.5 py-1.5 text-[11px] font-medium shadow-[0_4px_20px_var(--window-shadow)] hover:opacity-90"
+															className="ui-radius-control text-[var(--on-accent)] cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-3.5 py-1.5 text-[11px] font-medium shadow-[0_4px_20px_var(--window-shadow)] hover:opacity-90"
 															disabled={
 																streaming ||
 																loading ||
@@ -2192,7 +2192,7 @@ export function ChatInterface({
 												<div
 													className={`min-w-0 max-w-full break-words whitespace-pre-wrap select-text text-[var(--text-primary)] ${
 														msg.role === "user"
-															? "aero-chat-user rounded-2xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
+															? "aero-chat-user ui-radius-surface ui-radius-tail px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
 															: "w-full text-sm leading-[1.7] [overflow-wrap:anywhere]"
 													} ${
 														msg.streaming
@@ -2329,7 +2329,7 @@ export function ChatInterface({
 						</span>
 						<button
 							type="button"
-							className="rounded border border-[var(--border)] px-2 py-1"
+							className="ui-radius-control border border-[var(--border)] px-2 py-1"
 							onClick={handleStop}
 						>
 							Cancel
@@ -2385,11 +2385,11 @@ export function ChatInterface({
 									return (
 										<li
 											key={item.id}
-											className="flex items-start gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 text-xs text-[var(--text-secondary)]"
+											className="flex items-start gap-2 ui-radius-control border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 text-xs text-[var(--text-secondary)]"
 										>
 											<span
 												title={item.failureReason || undefined}
-												className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+												className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${
 													item.state === "delivered"
 														? "bg-[var(--accent)]/15 text-[var(--accent)]"
 														: item.state === "undelivered"
@@ -2458,7 +2458,7 @@ export function ChatInterface({
 					{dragActive && (
 						<div
 							aria-hidden="true"
-							className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent)]/10 text-sm font-medium text-[var(--accent)]"
+							className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center ui-radius-surface border-2 border-dashed border-[var(--accent)] bg-[var(--accent)]/10 text-sm font-medium text-[var(--accent)]"
 						>
 							Drop files to attach
 						</div>
@@ -2479,7 +2479,7 @@ export function ChatInterface({
 											previous.filter((entry) => entry !== item),
 										)
 									}
-									className="max-w-full truncate rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]"
+									className="max-w-full truncate ui-radius-control border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]"
 								>
 									<IoIosHourglass /> Queued ({promptQueue.length}): &quot;
 									{item.text.slice(0, 30)}
@@ -2494,7 +2494,7 @@ export function ChatInterface({
 								type="button"
 								onClick={generateReply}
 								disabled={loading || !chatAvailable || !selectedModel || !palace.api}
-								className="pointer-events-auto rounded-full text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-1.5 text-xs backdrop-blur-sm shadow-[0_4px_20px_var(--window-shadow)]"
+								className="pointer-events-auto ui-radius-round text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-1.5 text-xs backdrop-blur-sm shadow-[0_4px_20px_var(--window-shadow)]"
 							>
 								Generate a reply (Ctrl + R)
 							</button>
@@ -2518,7 +2518,7 @@ export function ChatInterface({
 					{quotedSelection ? (
 						<div
 							aria-label="Quoted selection"
-							className="min-w-0 rounded-lg border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-2"
+							className="min-w-0 ui-radius-control border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-2"
 						>
 							<p className="line-clamp-3 min-w-0 break-words whitespace-pre-wrap text-xs leading-relaxed text-[var(--text-secondary)] select-text">
 								{quotedSelection}
@@ -2532,7 +2532,7 @@ export function ChatInterface({
 									type="button"
 									aria-label="Remove quoted selection"
 									onClick={() => setQuotedSelection("")}
-									className="flex size-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+									className="flex size-5 cursor-pointer items-center justify-center ui-radius-round text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 								>
 									<LuX className="size-3" />
 								</button>

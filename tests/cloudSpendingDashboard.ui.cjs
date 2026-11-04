@@ -69,20 +69,20 @@ app.whenReady().then(async () => {
       // Local-only selection: cost is "not applicable", never $0.00.
       await choose('Provider', 'Local models');
       await wait();
-      check(metric('Total priced spend').includes('Not applicable'), 'local-only selection shows not applicable');
+      check(metric('Total priced spend').includes('—'), 'local-only selection shows not applicable');
       check(!metric('Total priced spend').includes('$0.00'), 'local-only selection never shows $0.00');
-      check(metric('Provider-reported').includes('Not applicable'), 'local provider-reported cost is not applicable');
+      check(metric('Provider-reported').includes('—'), 'local provider-reported cost is not applicable');
       check(window.queries.some(query => query.method === 'getSpendingDashboard' && query.options.providerId === 'local'), 'the local filter reaches the backend');
       button(document, 'Reset filters').click();
       await wait();
 
       // Model table, tiny cost formatting, and detail view.
-      tab('Models').click();
+      tab('Cloud models').click();
       await wait();
       const modelsPanel = document.getElementById('usage-costs-panel-models');
-      check(modelsPanel.textContent.includes('Spending by model'), 'the model table is shown');
+      check(modelsPanel.textContent.includes('Spending by cloud model'), 'the model table is shown');
       check(modelsPanel.textContent.includes('< $0.0001'), 'a tiny non-zero model cost never renders as $0.00');
-      check(modelsPanel.textContent.includes('llama-3') && modelsPanel.textContent.includes('Not applicable'), 'a local model row is not applicable');
+      check(!modelsPanel.textContent.includes('llama-3'), 'local models are excluded from cloud spending');
       button(modelsPanel, 'claude-sonnet-5').click();
       await wait();
       check(modelsPanel.textContent.includes('Rate snapshots recorded for this model'), 'the model detail loads');
@@ -100,11 +100,11 @@ app.whenReady().then(async () => {
       const providersPanel = document.getElementById('usage-costs-panel-providers');
       check(providersPanel.textContent.includes('Spending by provider'), 'the provider breakdown is shown');
       check(providersPanel.textContent.includes('Direct Anthropic') && providersPanel.textContent.includes('OpenRouter'), 'provider routes stay distinct');
-      check(providersPanel.textContent.includes('Not applicable'), 'local provider usage is not applicable');
+      check(providersPanel.textContent.includes('—'), 'local provider usage is not applicable');
       button(providersPanel, 'Claude').click();
       await wait();
       check(selectByLabel('Provider').textContent.includes('Claude'), 'selecting a provider applies the shared filter');
-      check(tab('Models').getAttribute('aria-selected') === 'true', 'selecting a provider opens the filtered model view');
+      check(tab('Cloud models').getAttribute('aria-selected') === 'true', 'selecting a provider opens the filtered model view');
       button(document, 'Reset filters').click();
       await wait();
 

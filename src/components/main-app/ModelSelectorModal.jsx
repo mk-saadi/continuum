@@ -1,3 +1,4 @@
+import { modelDisplayName } from "../../lib/modelDisplay.mjs";
 import React, { useEffect, useRef, useState } from "react";
 import ModelCapabilitiesModal from "../ModelCapabilitiesModal";
 import Tooltip from "../Tooltip";
@@ -98,7 +99,7 @@ function Capabilities({ model, local, runtime, overrides = {} }) {
 					>
 						<span
 							aria-label={`${label}: ${status}`}
-							className={`grid size-5 shrink-0 place-items-center rounded ${value === true ? "bg-[var(--active-chat)] text-[var(--accent)]" : "text-[var(--text-muted)] opacity-40"}`}
+							className={`grid size-5 shrink-0 place-items-center ui-radius-control ${value === true ? "bg-[var(--active-chat)] text-[var(--accent)]" : "text-[var(--text-muted)] opacity-40"}`}
 						>
 							<Icon
 								size={13}
@@ -670,7 +671,7 @@ export default function ModelSelectorModal({
 													: []),
 												...modelList.map((modelId) => ({
 													value: modelId,
-													label: modelId,
+													label: modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name }),
 												})),
 											];
 											const capabilityModelId =
@@ -910,19 +911,19 @@ export default function ModelSelectorModal({
 																						aria-hidden="true"
 																					/>
 																					<span className="truncate">
-																						{modelId}
+																						{modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name })}
 																					</span>
 																				</button>
 																				<button
 																					type="button"
-																					aria-label={`Remove ${modelId} from favorites`}
+																					aria-label={`Remove ${modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name })} from favorites`}
 																					onClick={() =>
 																						toggleFavorite(
 																							row.id,
 																							modelId,
 																						)
 																					}
-																					className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+																					className="grid size-4 shrink-0 cursor-pointer place-items-center ui-radius-round text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 																				>
 																					<LuX
 																						size={10}
@@ -1019,7 +1020,7 @@ export default function ModelSelectorModal({
 				<footer className="aero-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
-							className={`size-1.5 shrink-0 rounded-full ${engines.length ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
+							className={`size-1.5 shrink-0 ui-radius-round ${engines.length ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 						/>
 						<span className="shrink-0 text-[var(--text-secondary)]">
 							{engines.length
@@ -1051,7 +1052,7 @@ export default function ModelSelectorModal({
 									<button
 										disabled={busy}
 										aria-label={`Unload ${engine.modelName || engine.modelPath}`}
-										className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+										className="grid size-4 shrink-0 cursor-pointer place-items-center ui-radius-round text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 									>
 										<LuX
 											size={10}

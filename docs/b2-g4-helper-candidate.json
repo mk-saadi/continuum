@@ -1,0 +1,310 @@
+{
+  "version": 1,
+  "redistributionQualified": false,
+  "selection": "Traceable replacement review candidate; not a production release",
+  "artifact": {
+    "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+    "upstreamCommit": "7ea080d8635bc85487e232ec178701c6864151c9",
+    "libslirpCommit": "ce12dcddf710a71dc0de6450ec95edbadf8e9f66",
+    "repeatedBuildBinaryIdentical": true
+  },
+  "inputs": {
+    "ubuntu-base.tar.gz": {
+      "sha256": "242cd8898b33ea806ef5f13b1076ed7c76f9f989d18384452f7166692438ff1a",
+      "size": 29832285,
+      "url": "https://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-amd64.tar.gz"
+    },
+    "slirp4netns-source.tar.gz": {
+      "sha256": "26337b2ab119f7e64855e4617e91cf1fa7faeacd50329b4f262033e18e2b083b",
+      "size": 65116,
+      "url": "https://codeload.github.com/rootless-containers/slirp4netns/tar.gz/7ea080d8635bc85487e232ec178701c6864151c9"
+    },
+    "libslirp-source.tar.gz": {
+      "sha256": "d2567fa06a6357c7755d61c67293b2c0bf069b3f2173bde6b76cf768529a1938",
+      "size": 181672,
+      "url": "https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.9.7/libslirp-v4.9.7.tar.gz"
+    }
+  },
+  "linkInventory": {
+    "inputs": [
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crt1.o",
+        "resolved": "/usr/lib/x86_64-linux-gnu/crt1.o",
+        "sha256": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479",
+        "package": "libc6-dev:amd64",
+        "version": "2.35-0ubuntu3.15",
+        "sourcePackage": "glibc",
+        "sourceVersion": "2.35-0ubuntu3.15"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crti.o",
+        "resolved": "/usr/lib/x86_64-linux-gnu/crti.o",
+        "sha256": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3",
+        "package": "libc6-dev:amd64",
+        "version": "2.35-0ubuntu3.15",
+        "sourcePackage": "glibc",
+        "sourceVersion": "2.35-0ubuntu3.15"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crtn.o",
+        "resolved": "/usr/lib/x86_64-linux-gnu/crtn.o",
+        "sha256": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f",
+        "package": "libc6-dev:amd64",
+        "version": "2.35-0ubuntu3.15",
+        "sourcePackage": "glibc",
+        "sourceVersion": "2.35-0ubuntu3.15"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libc.a",
+        "resolved": "/usr/lib/x86_64-linux-gnu/libc.a",
+        "sha256": "7ceefe6c6ea90ba8323f3f24e225274eca2edc1f6b4c98bef90c9ec0dc53f294",
+        "package": "libc6-dev:amd64",
+        "version": "2.35-0ubuntu3.15",
+        "sourcePackage": "glibc",
+        "sourceVersion": "2.35-0ubuntu3.15"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libglib-2.0.a",
+        "resolved": "/usr/lib/x86_64-linux-gnu/libglib-2.0.a",
+        "sha256": "1465d87c94e1abe34cfe6a3839ff543cd23153b7754f5748e1fe1b13ea142e8e",
+        "package": "libglib2.0-dev:amd64",
+        "version": "2.72.4-0ubuntu2.10",
+        "sourcePackage": "glib2.0",
+        "sourceVersion": "2.72.4-0ubuntu2.10"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libpthread.a",
+        "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+        "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5",
+        "package": "libc6-dev:amd64",
+        "version": "2.35-0ubuntu3.15",
+        "sourcePackage": "glibc",
+        "sourceVersion": "2.35-0ubuntu3.15"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libseccomp.a",
+        "resolved": "/usr/lib/x86_64-linux-gnu/libseccomp.a",
+        "sha256": "9a6eec39f7896965fb81a4751a2f8a3acd2d68d24bc7336783a2cc5d43707334",
+        "package": "libseccomp-dev:amd64",
+        "version": "2.5.3-2ubuntu3~22.04.1",
+        "sourcePackage": "libseccomp",
+        "sourceVersion": "2.5.3-2ubuntu3~22.04.1"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+        "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+        "sha256": "26cdcaf355ea1e931d99da73b5f2cc825f4189d5f7755d8b9d05c33746aad07d",
+        "package": "libgcc-11-dev:amd64",
+        "version": "11.4.0-1ubuntu1~22.04.3",
+        "sourcePackage": "gcc-11",
+        "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+        "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+        "sha256": "98ac1d1fbb060865f24d2968437a9ccc34349f933c549158f624cbddf1b3d890",
+        "package": "libgcc-11-dev:amd64",
+        "version": "11.4.0-1ubuntu1~22.04.3",
+        "sourcePackage": "gcc-11",
+        "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+        "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+        "sha256": "881a1422df348396646d3cbee3d8edf2cd8909f51295ff821ce16cb949029883",
+        "package": "libgcc-11-dev:amd64",
+        "version": "11.4.0-1ubuntu1~22.04.3",
+        "sourcePackage": "gcc-11",
+        "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+      },
+      {
+        "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+        "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+        "sha256": "ecb9dca0513f07d84e65bf5713dd2e069db87abdbcdc0363ad448568370a9cb3",
+        "package": "libgcc-11-dev:amd64",
+        "version": "11.4.0-1ubuntu1~22.04.3",
+        "sourcePackage": "gcc-11",
+        "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+      },
+      {
+        "linkName": "/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+        "resolved": "/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+        "sha256": "b1fbc20c81804de9c2bf4796d197f42577443b01f422bd97ccfb92984555c8ef",
+        "source": "libslirp-source.tar.gz (pinned upstream archive)"
+      },
+      {
+        "linkName": "libparson.a",
+        "resolved": "/build/slirp4netns/libparson.a",
+        "sha256": "47ca6fc3b6114d59b1e277650fe3c14ba664f88c99e93c8bb07c40b4d13dc454",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      },
+      {
+        "linkName": "slirp4netns-api.o",
+        "resolved": "/build/slirp4netns/slirp4netns-api.o",
+        "sha256": "954278c23da7ed3fd259c472b0bf20aced17ccfff3e843ec0a0a5fabb6761b45",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      },
+      {
+        "linkName": "slirp4netns-main.o",
+        "resolved": "/build/slirp4netns/slirp4netns-main.o",
+        "sha256": "7a8994714b7c4f3f8667b6acc4ee924b90faf0b6c2f0e97e8ac12140cda58777",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      },
+      {
+        "linkName": "slirp4netns-sandbox.o",
+        "resolved": "/build/slirp4netns/slirp4netns-sandbox.o",
+        "sha256": "1ef540bd39beeeb67aa390b2fd1f9dbf801aae7e13df973448781c93e548c505",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      },
+      {
+        "linkName": "slirp4netns-seccompfilter.o",
+        "resolved": "/build/slirp4netns/slirp4netns-seccompfilter.o",
+        "sha256": "c28fa9a2e3a0d4542116f0fc56820aa19fb541cb4d008a804db2b9b1de9471a6",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      },
+      {
+        "linkName": "slirp4netns-slirp4netns.o",
+        "resolved": "/build/slirp4netns/slirp4netns-slirp4netns.o",
+        "sha256": "e3556023a511c344a2173305612ac4dc5f4491eb627a2a41b6ea6cfbb7a645b2",
+        "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+      }
+    ],
+    "distroSources": [
+      {
+        "package": "gcc-11",
+        "version": "11.4.0-1ubuntu1~22.04.3"
+      },
+      {
+        "package": "glib2.0",
+        "version": "2.72.4-0ubuntu2.10"
+      },
+      {
+        "package": "glibc",
+        "version": "2.35-0ubuntu3.15"
+      },
+      {
+        "package": "libcap2",
+        "version": "1:2.44-1ubuntu0.22.04.3"
+      },
+      {
+        "package": "libseccomp",
+        "version": "2.5.3-2ubuntu3~22.04.1"
+      }
+    ],
+    "releaseApproved": false,
+    "legalReview": "Required; no sufficiency determination made"
+  },
+  "releaseBlockers": [
+    "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+    "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership."
+  ],
+  "sourceArchives": {
+    "gcc-11_11.4.0-1ubuntu1~22.04.3.debian.tar.xz": {
+      "size": 554748,
+      "sha256": "c56b15ffe85a584e88adca971c94fb68ef7bde016258cac942a81b4c74e4a6a3"
+    },
+    "gcc-11_11.4.0-1ubuntu1~22.04.3.dsc": {
+      "size": 22819,
+      "sha256": "5b42ce66a7ec64f94a73ff07c79a2db387e7104b7eb07113f15d2cb49b681917"
+    },
+    "gcc-11_11.4.0.orig.tar.gz": {
+      "size": 86949353,
+      "sha256": "b05e5fb310748c2836a60fccbfdf0f924f4dcaecb78d3b6f177e0d9270a0b8f8"
+    },
+    "glib2.0_2.72.4-0ubuntu2.10.debian.tar.xz": {
+      "size": 170208,
+      "sha256": "e81d6f72522eb2092ddec06760753d5fe7866eab553237a4c237b613e592df69"
+    },
+    "glib2.0_2.72.4-0ubuntu2.10.dsc": {
+      "size": 3674,
+      "sha256": "29ad099fa2f59d77424dfc8bccb474df79e4c79f2d603228aef02a679a292ca9"
+    },
+    "glib2.0_2.72.4.orig.tar.xz": {
+      "size": 4884256,
+      "sha256": "8848aba518ba2f4217d144307a1d6cb9afcc92b54e5c13ac1f8c4d4608e96f0e"
+    },
+    "glibc_2.35-0ubuntu3.15.debian.tar.xz": {
+      "size": 962196,
+      "sha256": "ea3f016b1987d995addb1c2b093a8f2679179d9bb3ebb9e2ea086469d56498c5"
+    },
+    "glibc_2.35-0ubuntu3.15.dsc": {
+      "size": 8888,
+      "sha256": "7b3e318ea5ac8b039a0fb5ef2e78b1812346bb753365d6d09622f698427cee56"
+    },
+    "glibc_2.35.orig.tar.xz": {
+      "size": 18165952,
+      "sha256": "5123732f6b67ccd319305efd399971d58592122bcc2a6518a1bd2510dd0cf52e"
+    },
+    "glibc_2.35.orig.tar.xz.asc": {
+      "size": 833,
+      "sha256": "853aaaf17d7366817e814057a467625ee7c0b26240e8b878db0f33c389c7bcb6"
+    },
+    "libcap2_2.44-1ubuntu0.22.04.3.debian.tar.xz": {
+      "size": 24880,
+      "sha256": "6a6435b74e9b2ec65eb1ee2b7958c37777fe005312feac37d84f4167521d135a"
+    },
+    "libcap2_2.44-1ubuntu0.22.04.3.dsc": {
+      "size": 2318,
+      "sha256": "67523116f07081f3a8066f737b9c84f92f5e854f13f38487c1ce485a43d85bd7"
+    },
+    "libcap2_2.44.orig.tar.xz": {
+      "size": 125568,
+      "sha256": "92188359cd5be86e8e5bd3f6483ac6ce582264f912398937ef763def2205c8e1"
+    },
+    "libseccomp_2.5.3-2ubuntu3~22.04.1.debian.tar.xz": {
+      "size": 24328,
+      "sha256": "cd582c847ced99c97f487b3f4a851bc1f2bed9065f90729d90dc8721b6dc483e"
+    },
+    "libseccomp_2.5.3-2ubuntu3~22.04.1.dsc": {
+      "size": 2860,
+      "sha256": "e7f514056a28794c6a7067cd0881b5bf03e918578df3418eea6752cbfa83fd13"
+    },
+    "libseccomp_2.5.3.orig.tar.gz": {
+      "size": 637572,
+      "sha256": "59065c8733364725e9721ba48c3a99bbc52af921daf48df4b1e012fbc7b10a76"
+    },
+    "libseccomp_2.5.3.orig.tar.gz.asc": {
+      "size": 833,
+      "sha256": "cc1cbe9d9eb6a67b78de107eb37b2bc8d7599e3c1d36699ae2528db489cb5d44"
+    }
+  },
+  "reviewArchive": {
+    "sha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+    "size": 123977323,
+    "filename": "helper-review.tar.gz",
+    "status": "review required; not approved for redistribution"
+  },
+  "build": {
+    "rootfs": "Ubuntu Base 22.04.5 amd64, unprivileged bubblewrap user/PID/mount namespace",
+    "aptSnapshot": "https://snapshot.ubuntu.com/ubuntu/20261030T000000Z/",
+    "suites": [
+      "jammy",
+      "jammy-updates",
+      "jammy-security"
+    ],
+    "components": [
+      "main",
+      "universe"
+    ],
+    "sourceDateEpoch": 1793371908,
+    "packages": [
+      "build-essential",
+      "autoconf",
+      "automake",
+      "libtool",
+      "pkg-config",
+      "meson",
+      "ninja-build",
+      "libglib2.0-dev",
+      "libcap-dev",
+      "libseccomp-dev",
+      "ca-certificates"
+    ],
+    "libslirpFlags": "--default-library=both --prefix=/usr/local",
+    "configureFlags": "LDFLAGS=-static -Wl,-Map,/build/materials/slirp4netns.map,--cref -Wl,-t; --host=x86_64-linux-gnu",
+    "compiler": "GCC 11.4.0-1ubuntu1~22.04.3",
+    "relinkFromSavedInputsBinaryIdentical": true,
+    "independentReproduction": false,
+    "nssWarning": "glibc static getaddrinfo/getpwuid paths warn about matching runtime shared libraries; no universal AppImage portability claim"
+  }
+}

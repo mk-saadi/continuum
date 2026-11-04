@@ -103,7 +103,7 @@ const ChatInputBar = memo(
 				<textarea
 					ref={textarea}
 					aria-label="Message"
-					className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-hidden rounded-md py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+					className="max-h-[200px] sm:max-h-[350px] min-h-[38px] w-full resize-none overflow-y-hidden ui-radius-control py-[9px] text-sm leading-normal text-[var(--text-primary)] transition-colors duration-300 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 					value={draftText}
 					onChange={(event) => updateDraft(event.target.value)}
 					onPaste={(event) => {

@@ -50,7 +50,7 @@ function PlanStep({ step }) {
 			<div className="flex items-start gap-2">
 				<span
 					aria-hidden="true"
-					className={`mt-1 size-2 shrink-0 rounded-full ${meta.dotClass}`}
+					className={`mt-1 size-2 shrink-0 ui-radius-round ${meta.dotClass}`}
 				/>
 				<div className="min-w-0">
 					<p

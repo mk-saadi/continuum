@@ -76,7 +76,7 @@ export default function RecoveryCard({
 			<div className="flex items-center gap-2">
 				<span
 					aria-hidden="true"
-					className={`size-2 shrink-0 rounded-full ${tone}`}
+					className={`size-2 shrink-0 ui-radius-round ${tone}`}
 				/>
 				<h3 className="text-xs font-semibold">Workspace Recovery</h3>
 				<LuHistory

@@ -709,10 +709,10 @@ function truncateOutput(stdout, stderr = "") {
 		]),
 	);
 }
-async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 60000, validateAuthorization = () => {}, deadline = null, onState = null) {
+async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 60000, validateAuthorization = () => {}, deadline = null, onState = null, networkSessionId = null) {
  requireText(args.command, "command");
  const { runForeground } = require('../foregroundCommand');
- let file, argv, env, gitMetadata, runtimePath;
+ let file, argv, env, gitMetadata, runtimePath, networkFilesystem;
  if (workspaceRoot) {
   if (process.platform !== 'linux') return { success: false, status: 'spawn_failed', spawnError: 'SANDBOX_UNAVAILABLE', exitCode: null, stdout: '', stderr: 'Workspace shell sandbox is unavailable on this platform. Use Ask for Approval or Full Access.' };
   const sandboxHome = await scopedPath(workspaceRoot, '.llm_workspace/sandbox/home');
@@ -723,6 +723,7 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
   const filesystem = require('../sandboxFilesystem').resolveFilesystem({ workspace: workspaceRoot, home: sandboxHome, tmp: sandboxTmp, protectGitMetadata: true });
   gitMetadata = filesystem.gitMetadata;
   runtimePath = filesystem.env.PATH;
+  if (require('../workspaceNetworkPolicy').normalize(require('../configStore').getConfig().workspaceNetwork).policy === 'trusted_development') networkFilesystem = filesystem;
   argv = ['--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net', '--cap-drop', 'ALL',
    ...filesystem.mounts, '--setenv', 'PATH', filesystem.env.PATH,
    '--chdir', cwd, '/bin/sh', '-c', args.command];
@@ -736,7 +737,10 @@ async function executeCommand(args, cwd, signal, workspaceRoot, timeoutMs = 6000
  validateAuthorization();
  const remaining = deadline?.remainingMs() ?? Infinity;
  const effectiveTimeout = Math.max(1, Math.ceil(Math.min(timeoutMs, remaining)));
- const result = await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout, validateAuthorization,
+ const networkContext = networkFilesystem && networkSessionId && require('../lspExecutionContext').persistentRevision(networkSessionId) != null
+  ? require('../lspExecutionContext').forTool(networkSessionId) : null;
+ const result = networkFilesystem ? await require('../networkExecution').service.execute({ context: networkContext, workspace: workspaceRoot, cwd, command: args.command,
+  filesystem: networkFilesystem, signal, timeoutMs: effectiveTimeout, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out', validateAuthorization, onState }) : await runForeground(file, argv, { cwd, env, signal, timeoutMs: effectiveTimeout, validateAuthorization,
   windowsVerbatimArguments: process.platform === "win32", requestedTimeoutMs: args.timeout_ms ?? timeoutMs, onState, timeoutReason: remaining <= timeoutMs ? 'agent_deadline_exceeded' : 'timed_out' });
  if (workspaceRoot && result.exitCode !== 0) {
   const metadata = require('../gitMetadata');
@@ -928,7 +932,7 @@ async function runScopedCommand(name, args, { root, signal, uncontained, session
   }
   const remaining = deadline?.remainingMs() ?? Infinity;
   if (remaining <= 0) deadline.fire();
-  return executeCommand(args, cwd, commandSignal, uncontained ? undefined : root, timeoutMs, validateAuthorization, deadline, onState);
+  return executeCommand(args, cwd, commandSignal, uncontained ? undefined : root, timeoutMs, validateAuthorization, deadline, onState, sessionId);
  };
 	const projectRoot = recoveryRoot ? path.resolve(recoveryRoot) : null;
 	const result = projectRoot

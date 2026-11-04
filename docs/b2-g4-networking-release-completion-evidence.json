@@ -1,0 +1,1088 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "milestoneComplete": false,
+  "productionTrustedDevelopmentEnabled": false,
+  "initialGitStatus": " M main.js\n M src/components/InteractiveChart.jsx\n M src/components/chat/BackgroundCommandCard.jsx\n M src/components/main-app/MemorySettings.jsx\n M src/components/main-app/ModelSelectorModal.jsx\n M src/components/settings/TokenHistory.jsx\n M src/components/settings/usage/AttributionView.jsx\n M src/components/settings/usage/ModelDetailPanel.jsx\n M src/components/settings/usage/ModelSpendingTable.jsx\n M src/components/settings/usage/UsageCostsDashboard.jsx\n M src/components/settings/usage/usageDashboardFormat.mjs\n M src/index.css\n M src/main/backgroundCommands.js\n M src/main/configStore.js\n M src/main/executionCapabilities.js\n M src/main/foregroundCommand.js\n M src/main/ipcHandlers.js\n M src/main/lspExecutionContext.js\n M src/main/promptBuilder.js\n M src/main/sandboxFilesystem.js\n M src/main/spendingDashboard.js\n M src/main/tools/agentTools.js\n M src/preload.js\n M tests/backgroundCommandIpc.test.cjs\n M tests/backgroundCommands.ui.cjs\n M tests/cloudSpendingDashboard.ui.cjs\n M tests/sandboxFilesystem.test.cjs\n?? docs/b2-a-rootless-networking-feasibility.md\n?? docs/b2-c-network-owner-evidence.json\n?? docs/b2-c-network-owner-report.md\n?? docs/b2-d-production-network-integration-evidence.json\n?? docs/b2-d-production-network-integration-report.md\n?? docs/b2-e-network-activation-readiness-evidence.json\n?? docs/b2-e-network-activation-readiness-report.md\n?? docs/b2-f-authenticated-previews-evidence.json\n?? docs/b2-f-authenticated-previews-report.md\n?? docs/b2-f1-development-previews-evidence.json\n?? docs/b2-f1-development-previews-report.md\n?? docs/b2-g1-host-address-safety-evidence.json\n?? docs/b2-g1-host-address-safety-report.md\n?? docs/b2-g2-trusted-development-networking-evidence.json\n?? docs/b2-g2-trusted-development-networking-report.md\n?? docs/b2-g3-helper-provenance.json\n?? docs/b2-g3-production-networking-qualification-evidence.json\n?? docs/b2-g3-production-networking-qualification-report.md\n?? docs/b2-networking-prerequisite-report.md\n?? docs/investigations/b2-a/namespace-preview.json\n?? docs/investigations/b2-a/namespace_preview_probe.py\n?? docs/investigations/b2-a/results.json\n?? docs/investigations/b2-a/slirp_probe.py\n?? scripts/audit-workspace-network.cjs\n?? src/components/WorkspaceNetworkSettings.jsx\n?? src/lib/modelDisplay.cjs\n?? src/lib/modelDisplay.mjs\n?? src/main/developmentPreviews.js\n?? src/main/experimental/__pycache__/network_owner.cpython-312.pyc\n?? src/main/experimental/network_owner.py\n?? src/main/networkDependencies.js\n?? src/main/networkExecution.js\n?? src/main/networkExecutionWorker.py\n?? src/main/networkLaunchProtocol.js\n?? src/main/networkPreviewBridge.py\n?? src/main/networkRuntimePrerequisites.js\n?? src/main/previewIpc.js\n?? src/main/workspaceNetworkAddressPolicy.json\n?? src/main/workspaceNetworkPolicy.js\n?? tests/b2cNetworkOwner.test.py\n?? tests/b2dNetworkExecution.test.cjs\n?? tests/b2eDependencies.test.cjs\n?? tests/b2ePolicy.test.py\n?? tests/b2fGateway.test.cjs\n?? tests/b2fPreviewIpc.test.cjs\n?? tests/b2fPreviews.test.cjs\n?? tests/b2fResources.test.py\n?? tests/b2fViteBrowser.test.cjs\n?? tests/b2g1HostAddress.test.py\n?? tests/b2g2Packaged.test.cjs\n?? tests/b2g2Settings.ui.cjs\n?? tests/b2g2Trust.test.cjs\n?? tests/b2g3Packaged.ui.cjs\n?? tests/b2g3Packaging.test.cjs\n?? tests/b2g3Runtime.test.cjs\n?? tests/chartTypes.render/bundle.js\n?? tests/chartTypes.render/check.cjs\n?? tests/chartTypes.render/index.html\n?? tests/chartTypes.render/page.jsx\n?? tests/chartTypes.render/ssr.bundle.cjs\n?? tests/chartTypes.render/ssr.cjs\n?? tests/chartTypes.render/validate.bundle.cjs\n?? tests/chartTypes.render/validate.cjs\n?? tests/helpers/networkSafeStorage.cjs\n?? tests/helpers/previewWebSocket.cjs\n?? tests/modelDisplay.test.cjs\n",
+  "initialStatusCounts": {
+    "trackedModified": 27,
+    "untrackedPaths": 66
+  },
+  "preservation": {
+    "changedInitialFiles": [
+      "scripts/audit-workspace-network.cjs",
+      "src/main/experimental/network_owner.py",
+      "tests/b2g3Packaging.test.cjs"
+    ],
+    "missingInitialFiles": []
+  },
+  "changedExistingFiles": [
+    "scripts/audit-workspace-network.cjs",
+    "src/main/experimental/network_owner.py",
+    "tests/b2g3Packaging.test.cjs"
+  ],
+  "newFiles": [
+    "scripts/assemble-workspace-network.cjs",
+    "scripts/workspace-network-staging.cjs",
+    "scripts/rebuild-workspace-network-helper.sh",
+    "scripts/collect-workspace-network-build.py",
+    "tests/b2g4Assembly.test.cjs",
+    "tests/b2g4Packaged.ui.cjs",
+    "docs/b2-g4-helper-candidate.json",
+    "docs/b2-g4-networking-release-completion-report.md",
+    "docs/b2-g4-networking-release-completion-evidence.json"
+  ],
+  "helper": {
+    "version": 1,
+    "redistributionQualified": false,
+    "selection": "Traceable replacement review candidate; not a production release",
+    "artifact": {
+      "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+      "upstreamCommit": "7ea080d8635bc85487e232ec178701c6864151c9",
+      "libslirpCommit": "ce12dcddf710a71dc0de6450ec95edbadf8e9f66",
+      "repeatedBuildBinaryIdentical": true
+    },
+    "inputs": {
+      "ubuntu-base.tar.gz": {
+        "sha256": "242cd8898b33ea806ef5f13b1076ed7c76f9f989d18384452f7166692438ff1a",
+        "size": 29832285,
+        "url": "https://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-amd64.tar.gz"
+      },
+      "slirp4netns-source.tar.gz": {
+        "sha256": "26337b2ab119f7e64855e4617e91cf1fa7faeacd50329b4f262033e18e2b083b",
+        "size": 65116,
+        "url": "https://codeload.github.com/rootless-containers/slirp4netns/tar.gz/7ea080d8635bc85487e232ec178701c6864151c9"
+      },
+      "libslirp-source.tar.gz": {
+        "sha256": "d2567fa06a6357c7755d61c67293b2c0bf069b3f2173bde6b76cf768529a1938",
+        "size": 181672,
+        "url": "https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.9.7/libslirp-v4.9.7.tar.gz"
+      }
+    },
+    "linkInventory": {
+      "inputs": [
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crt1.o",
+          "resolved": "/usr/lib/x86_64-linux-gnu/crt1.o",
+          "sha256": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479",
+          "package": "libc6-dev:amd64",
+          "version": "2.35-0ubuntu3.15",
+          "sourcePackage": "glibc",
+          "sourceVersion": "2.35-0ubuntu3.15"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crti.o",
+          "resolved": "/usr/lib/x86_64-linux-gnu/crti.o",
+          "sha256": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3",
+          "package": "libc6-dev:amd64",
+          "version": "2.35-0ubuntu3.15",
+          "sourcePackage": "glibc",
+          "sourceVersion": "2.35-0ubuntu3.15"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/crtn.o",
+          "resolved": "/usr/lib/x86_64-linux-gnu/crtn.o",
+          "sha256": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f",
+          "package": "libc6-dev:amd64",
+          "version": "2.35-0ubuntu3.15",
+          "sourcePackage": "glibc",
+          "sourceVersion": "2.35-0ubuntu3.15"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libc.a",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libc.a",
+          "sha256": "7ceefe6c6ea90ba8323f3f24e225274eca2edc1f6b4c98bef90c9ec0dc53f294",
+          "package": "libc6-dev:amd64",
+          "version": "2.35-0ubuntu3.15",
+          "sourcePackage": "glibc",
+          "sourceVersion": "2.35-0ubuntu3.15"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libglib-2.0.a",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libglib-2.0.a",
+          "sha256": "1465d87c94e1abe34cfe6a3839ff543cd23153b7754f5748e1fe1b13ea142e8e",
+          "package": "libglib2.0-dev:amd64",
+          "version": "2.72.4-0ubuntu2.10",
+          "sourcePackage": "glib2.0",
+          "sourceVersion": "2.72.4-0ubuntu2.10"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libpthread.a",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+          "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5",
+          "package": "libc6-dev:amd64",
+          "version": "2.35-0ubuntu3.15",
+          "sourcePackage": "glibc",
+          "sourceVersion": "2.35-0ubuntu3.15"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/../../../x86_64-linux-gnu/libseccomp.a",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libseccomp.a",
+          "sha256": "9a6eec39f7896965fb81a4751a2f8a3acd2d68d24bc7336783a2cc5d43707334",
+          "package": "libseccomp-dev:amd64",
+          "version": "2.5.3-2ubuntu3~22.04.1",
+          "sourcePackage": "libseccomp",
+          "sourceVersion": "2.5.3-2ubuntu3~22.04.1"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+          "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+          "sha256": "26cdcaf355ea1e931d99da73b5f2cc825f4189d5f7755d8b9d05c33746aad07d",
+          "package": "libgcc-11-dev:amd64",
+          "version": "11.4.0-1ubuntu1~22.04.3",
+          "sourcePackage": "gcc-11",
+          "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+          "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+          "sha256": "98ac1d1fbb060865f24d2968437a9ccc34349f933c549158f624cbddf1b3d890",
+          "package": "libgcc-11-dev:amd64",
+          "version": "11.4.0-1ubuntu1~22.04.3",
+          "sourcePackage": "gcc-11",
+          "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+          "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+          "sha256": "881a1422df348396646d3cbee3d8edf2cd8909f51295ff821ce16cb949029883",
+          "package": "libgcc-11-dev:amd64",
+          "version": "11.4.0-1ubuntu1~22.04.3",
+          "sourcePackage": "gcc-11",
+          "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+        },
+        {
+          "linkName": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+          "resolved": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+          "sha256": "ecb9dca0513f07d84e65bf5713dd2e069db87abdbcdc0363ad448568370a9cb3",
+          "package": "libgcc-11-dev:amd64",
+          "version": "11.4.0-1ubuntu1~22.04.3",
+          "sourcePackage": "gcc-11",
+          "sourceVersion": "11.4.0-1ubuntu1~22.04.3"
+        },
+        {
+          "linkName": "/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+          "resolved": "/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+          "sha256": "b1fbc20c81804de9c2bf4796d197f42577443b01f422bd97ccfb92984555c8ef",
+          "source": "libslirp-source.tar.gz (pinned upstream archive)"
+        },
+        {
+          "linkName": "libparson.a",
+          "resolved": "/build/slirp4netns/libparson.a",
+          "sha256": "47ca6fc3b6114d59b1e277650fe3c14ba664f88c99e93c8bb07c40b4d13dc454",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        },
+        {
+          "linkName": "slirp4netns-api.o",
+          "resolved": "/build/slirp4netns/slirp4netns-api.o",
+          "sha256": "954278c23da7ed3fd259c472b0bf20aced17ccfff3e843ec0a0a5fabb6761b45",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        },
+        {
+          "linkName": "slirp4netns-main.o",
+          "resolved": "/build/slirp4netns/slirp4netns-main.o",
+          "sha256": "7a8994714b7c4f3f8667b6acc4ee924b90faf0b6c2f0e97e8ac12140cda58777",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        },
+        {
+          "linkName": "slirp4netns-sandbox.o",
+          "resolved": "/build/slirp4netns/slirp4netns-sandbox.o",
+          "sha256": "1ef540bd39beeeb67aa390b2fd1f9dbf801aae7e13df973448781c93e548c505",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        },
+        {
+          "linkName": "slirp4netns-seccompfilter.o",
+          "resolved": "/build/slirp4netns/slirp4netns-seccompfilter.o",
+          "sha256": "c28fa9a2e3a0d4542116f0fc56820aa19fb541cb4d008a804db2b9b1de9471a6",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        },
+        {
+          "linkName": "slirp4netns-slirp4netns.o",
+          "resolved": "/build/slirp4netns/slirp4netns-slirp4netns.o",
+          "sha256": "e3556023a511c344a2173305612ac4dc5f4491eb627a2a41b6ea6cfbb7a645b2",
+          "source": "slirp4netns-source.tar.gz (includes vendor/parson)"
+        }
+      ],
+      "distroSources": [
+        {
+          "package": "gcc-11",
+          "version": "11.4.0-1ubuntu1~22.04.3"
+        },
+        {
+          "package": "glib2.0",
+          "version": "2.72.4-0ubuntu2.10"
+        },
+        {
+          "package": "glibc",
+          "version": "2.35-0ubuntu3.15"
+        },
+        {
+          "package": "libcap2",
+          "version": "1:2.44-1ubuntu0.22.04.3"
+        },
+        {
+          "package": "libseccomp",
+          "version": "2.5.3-2ubuntu3~22.04.1"
+        }
+      ],
+      "releaseApproved": false,
+      "legalReview": "Required; no sufficiency determination made"
+    },
+    "releaseBlockers": [
+      "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+      "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership."
+    ],
+    "sourceArchives": {
+      "gcc-11_11.4.0-1ubuntu1~22.04.3.debian.tar.xz": {
+        "size": 554748,
+        "sha256": "c56b15ffe85a584e88adca971c94fb68ef7bde016258cac942a81b4c74e4a6a3"
+      },
+      "gcc-11_11.4.0-1ubuntu1~22.04.3.dsc": {
+        "size": 22819,
+        "sha256": "5b42ce66a7ec64f94a73ff07c79a2db387e7104b7eb07113f15d2cb49b681917"
+      },
+      "gcc-11_11.4.0.orig.tar.gz": {
+        "size": 86949353,
+        "sha256": "b05e5fb310748c2836a60fccbfdf0f924f4dcaecb78d3b6f177e0d9270a0b8f8"
+      },
+      "glib2.0_2.72.4-0ubuntu2.10.debian.tar.xz": {
+        "size": 170208,
+        "sha256": "e81d6f72522eb2092ddec06760753d5fe7866eab553237a4c237b613e592df69"
+      },
+      "glib2.0_2.72.4-0ubuntu2.10.dsc": {
+        "size": 3674,
+        "sha256": "29ad099fa2f59d77424dfc8bccb474df79e4c79f2d603228aef02a679a292ca9"
+      },
+      "glib2.0_2.72.4.orig.tar.xz": {
+        "size": 4884256,
+        "sha256": "8848aba518ba2f4217d144307a1d6cb9afcc92b54e5c13ac1f8c4d4608e96f0e"
+      },
+      "glibc_2.35-0ubuntu3.15.debian.tar.xz": {
+        "size": 962196,
+        "sha256": "ea3f016b1987d995addb1c2b093a8f2679179d9bb3ebb9e2ea086469d56498c5"
+      },
+      "glibc_2.35-0ubuntu3.15.dsc": {
+        "size": 8888,
+        "sha256": "7b3e318ea5ac8b039a0fb5ef2e78b1812346bb753365d6d09622f698427cee56"
+      },
+      "glibc_2.35.orig.tar.xz": {
+        "size": 18165952,
+        "sha256": "5123732f6b67ccd319305efd399971d58592122bcc2a6518a1bd2510dd0cf52e"
+      },
+      "glibc_2.35.orig.tar.xz.asc": {
+        "size": 833,
+        "sha256": "853aaaf17d7366817e814057a467625ee7c0b26240e8b878db0f33c389c7bcb6"
+      },
+      "libcap2_2.44-1ubuntu0.22.04.3.debian.tar.xz": {
+        "size": 24880,
+        "sha256": "6a6435b74e9b2ec65eb1ee2b7958c37777fe005312feac37d84f4167521d135a"
+      },
+      "libcap2_2.44-1ubuntu0.22.04.3.dsc": {
+        "size": 2318,
+        "sha256": "67523116f07081f3a8066f737b9c84f92f5e854f13f38487c1ce485a43d85bd7"
+      },
+      "libcap2_2.44.orig.tar.xz": {
+        "size": 125568,
+        "sha256": "92188359cd5be86e8e5bd3f6483ac6ce582264f912398937ef763def2205c8e1"
+      },
+      "libseccomp_2.5.3-2ubuntu3~22.04.1.debian.tar.xz": {
+        "size": 24328,
+        "sha256": "cd582c847ced99c97f487b3f4a851bc1f2bed9065f90729d90dc8721b6dc483e"
+      },
+      "libseccomp_2.5.3-2ubuntu3~22.04.1.dsc": {
+        "size": 2860,
+        "sha256": "e7f514056a28794c6a7067cd0881b5bf03e918578df3418eea6752cbfa83fd13"
+      },
+      "libseccomp_2.5.3.orig.tar.gz": {
+        "size": 637572,
+        "sha256": "59065c8733364725e9721ba48c3a99bbc52af921daf48df4b1e012fbc7b10a76"
+      },
+      "libseccomp_2.5.3.orig.tar.gz.asc": {
+        "size": 833,
+        "sha256": "cc1cbe9d9eb6a67b78de107eb37b2bc8d7599e3c1d36699ae2528db489cb5d44"
+      }
+    },
+    "reviewArchive": {
+      "sha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+      "size": 123977323,
+      "filename": "helper-review.tar.gz",
+      "status": "review required; not approved for redistribution"
+    },
+    "build": {
+      "rootfs": "Ubuntu Base 22.04.5 amd64, unprivileged bubblewrap user/PID/mount namespace",
+      "aptSnapshot": "https://snapshot.ubuntu.com/ubuntu/20261030T000000Z/",
+      "suites": [
+        "jammy",
+        "jammy-updates",
+        "jammy-security"
+      ],
+      "components": [
+        "main",
+        "universe"
+      ],
+      "sourceDateEpoch": 1793371908,
+      "packages": [
+        "build-essential",
+        "autoconf",
+        "automake",
+        "libtool",
+        "pkg-config",
+        "meson",
+        "ninja-build",
+        "libglib2.0-dev",
+        "libcap-dev",
+        "libseccomp-dev",
+        "ca-certificates"
+      ],
+      "libslirpFlags": "--default-library=both --prefix=/usr/local",
+      "configureFlags": "LDFLAGS=-static -Wl,-Map,/build/materials/slirp4netns.map,--cref -Wl,-t; --host=x86_64-linux-gnu",
+      "compiler": "GCC 11.4.0-1ubuntu1~22.04.3",
+      "relinkFromSavedInputsBinaryIdentical": true,
+      "independentReproduction": false,
+      "nssWarning": "glibc static getaddrinfo/getpwuid paths warn about matching runtime shared libraries; no universal AppImage portability claim"
+    }
+  },
+  "sourceDescriptors": [
+    {
+      "dsc": "gcc-11_11.4.0-1ubuntu1~22.04.3.dsc",
+      "validated": [
+        "gcc-11_11.4.0.orig.tar.gz",
+        "gcc-11_11.4.0-1ubuntu1~22.04.3.debian.tar.xz"
+      ]
+    },
+    {
+      "dsc": "glib2.0_2.72.4-0ubuntu2.10.dsc",
+      "validated": [
+        "glib2.0_2.72.4.orig.tar.xz",
+        "glib2.0_2.72.4-0ubuntu2.10.debian.tar.xz"
+      ]
+    },
+    {
+      "dsc": "glibc_2.35-0ubuntu3.15.dsc",
+      "validated": [
+        "glibc_2.35.orig.tar.xz",
+        "glibc_2.35.orig.tar.xz.asc",
+        "glibc_2.35-0ubuntu3.15.debian.tar.xz"
+      ]
+    },
+    {
+      "dsc": "libcap2_2.44-1ubuntu0.22.04.3.dsc",
+      "validated": [
+        "libcap2_2.44.orig.tar.xz",
+        "libcap2_2.44-1ubuntu0.22.04.3.debian.tar.xz"
+      ]
+    },
+    {
+      "dsc": "libseccomp_2.5.3-2ubuntu3~22.04.1.dsc",
+      "validated": [
+        "libseccomp_2.5.3.orig.tar.gz",
+        "libseccomp_2.5.3.orig.tar.gz.asc",
+        "libseccomp_2.5.3-2ubuntu3~22.04.1.debian.tar.xz"
+      ]
+    }
+  ],
+  "historicalHelper": {
+    "sha256": "1c177694fe6bf299debfd8ff601a2ee3c4f7554d9983acdf1f854a6b34d53e70",
+    "checksumFileSha256": "5174aaf82bce5adedcda870504e147fff967d8b5e3e8fcd5664f1de7f7591fb3",
+    "selectedForNewBuilds": false,
+    "upstreamLogDownload": "GitHub API HTTP 403; no credentials supplied; exact upstream static closure remains unestablished"
+  },
+  "artifacts": [
+    {
+      "path": "/tmp/continuum-b2g4/helper-review.tar.gz",
+      "size": 123977323,
+      "sha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+      "distributableRelease": false
+    },
+    {
+      "path": "/tmp/continuum-b2g4/slirp4netns-candidate",
+      "size": 2391416,
+      "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+      "distributableRelease": false
+    },
+    {
+      "path": "/tmp/continuum-b2g4/candidate-packages/Continuum-B2G4-NONRELEASE-1.0.0-x86_64.AppImage",
+      "size": 422026106,
+      "sha256": "ef47bff5d600cc9ca94d5493d90dbfc811c41f93fc4cde223ddd4c54c8bc3de0",
+      "distributableRelease": false
+    },
+    {
+      "path": "/tmp/continuum-b2g4/candidate-packages/Continuum-B2G4-NONRELEASE-1.0.0-amd64.deb",
+      "size": 415854252,
+      "sha256": "5aa4849b1d837d7d100d33c3bcf89138373ab0de2d093fe801e5ac85f26741a8",
+      "distributableRelease": false
+    }
+  ],
+  "resourceAudits": {
+    "staging": {
+      "root": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources/workspace-network",
+      "payloadIntegrity": true,
+      "reviewMaterialsIntegrity": true,
+      "productionQualified": false,
+      "checks": [
+        {
+          "file": "networkExecutionWorker.py",
+          "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "ok": true
+        },
+        {
+          "file": "networkPreviewBridge.py",
+          "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "ok": true
+        },
+        {
+          "file": "workspaceNetworkAddressPolicy.json",
+          "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "ok": true
+        },
+        {
+          "file": "experimental/network_owner.py",
+          "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "ok": true
+        },
+        {
+          "file": "x64/slirp4netns",
+          "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "ok": true
+        }
+      ],
+      "blockers": [
+        "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+        "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+        "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+      ]
+    },
+    "extractedAppImage": {
+      "root": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources/workspace-network",
+      "payloadIntegrity": true,
+      "reviewMaterialsIntegrity": true,
+      "productionQualified": false,
+      "checks": [
+        {
+          "file": "networkExecutionWorker.py",
+          "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "ok": true
+        },
+        {
+          "file": "networkPreviewBridge.py",
+          "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "ok": true
+        },
+        {
+          "file": "workspaceNetworkAddressPolicy.json",
+          "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "ok": true
+        },
+        {
+          "file": "experimental/network_owner.py",
+          "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "ok": true
+        },
+        {
+          "file": "x64/slirp4netns",
+          "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "ok": true
+        }
+      ],
+      "blockers": [
+        "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+        "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+        "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+      ]
+    },
+    "extractedDeb": {
+      "root": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources/workspace-network",
+      "payloadIntegrity": true,
+      "reviewMaterialsIntegrity": true,
+      "productionQualified": false,
+      "checks": [
+        {
+          "file": "networkExecutionWorker.py",
+          "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "ok": true
+        },
+        {
+          "file": "networkPreviewBridge.py",
+          "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "ok": true
+        },
+        {
+          "file": "workspaceNetworkAddressPolicy.json",
+          "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "ok": true
+        },
+        {
+          "file": "experimental/network_owner.py",
+          "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "ok": true
+        },
+        {
+          "file": "x64/slirp4netns",
+          "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "ok": true
+        }
+      ],
+      "blockers": [
+        "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+        "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+        "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+      ]
+    }
+  },
+  "finalResourceVerification": {
+    "staging": {
+      "manifest": {
+        "version": 1,
+        "sha256": {
+          "networkExecutionWorker.py": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "networkPreviewBridge.py": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "workspaceNetworkAddressPolicy.json": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "experimental/network_owner.py": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "x64/slirp4netns": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "review/helper-review.tar.gz": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225"
+        }
+      },
+      "allManifestPayloadsMatch": true,
+      "helperMode": "0o755",
+      "outsideAsar": true
+    },
+    "appimage": {
+      "manifest": {
+        "version": 1,
+        "sha256": {
+          "networkExecutionWorker.py": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "networkPreviewBridge.py": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "workspaceNetworkAddressPolicy.json": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "experimental/network_owner.py": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "x64/slirp4netns": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "review/helper-review.tar.gz": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225"
+        }
+      },
+      "allManifestPayloadsMatch": true,
+      "helperMode": "0o755",
+      "outsideAsar": true
+    },
+    "deb": {
+      "manifest": {
+        "version": 1,
+        "sha256": {
+          "networkExecutionWorker.py": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "networkPreviewBridge.py": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "workspaceNetworkAddressPolicy.json": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "experimental/network_owner.py": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "x64/slirp4netns": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "review/helper-review.tar.gz": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225"
+        }
+      },
+      "allManifestPayloadsMatch": true,
+      "helperMode": "0o755",
+      "outsideAsar": true
+    }
+  },
+  "asarVerification": [
+    {
+      "root": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources",
+      "sourceAndIntegrityMatch": [
+        "src/main/workspaceNetworkPolicy.js",
+        "src/main/networkDependencies.js",
+        "src/main/networkRuntimePrerequisites.js",
+        "src/main/networkExecution.js",
+        "src/main/configStore.js",
+        "src/main/executionCapabilities.js"
+      ]
+    },
+    {
+      "root": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources",
+      "sourceAndIntegrityMatch": [
+        "src/main/workspaceNetworkPolicy.js",
+        "src/main/networkDependencies.js",
+        "src/main/networkRuntimePrerequisites.js",
+        "src/main/networkExecution.js",
+        "src/main/configStore.js",
+        "src/main/executionCapabilities.js"
+      ]
+    },
+    {
+      "root": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources",
+      "sourceAndIntegrityMatch": [
+        "src/main/workspaceNetworkPolicy.js",
+        "src/main/networkDependencies.js",
+        "src/main/networkRuntimePrerequisites.js",
+        "src/main/networkExecution.js",
+        "src/main/configStore.js",
+        "src/main/executionCapabilities.js"
+      ]
+    }
+  ],
+  "runtime": {
+    "host": "Pop!_OS 24.04 LTS x86-64",
+    "kernel": "Linux mk-saadi 6.17.9-76061709-generic #202511241048~1764607909~24.04~df6b2b6 SMP PREEMPT_DYNAMIC Mon D x86_64 x86_64 x86_64 GNU/Linux",
+    "versions": {
+      "versionsCompatible": true,
+      "runtimeQualified": false,
+      "checks": [
+        {
+          "file": "/usr/bin/python3",
+          "minimum": "3.11.0",
+          "version": "3.12.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/bwrap",
+          "minimum": "0.11.0",
+          "version": "0.11.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/unshare",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/nsenter",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/nft",
+          "minimum": "1.0.9",
+          "version": "1.0.9",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/ip",
+          "minimum": "6.1.0",
+          "version": "6.1.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/systemd-run",
+          "minimum": "255.0.0",
+          "version": "255",
+          "ok": true
+        }
+      ]
+    },
+    "supportedProductionTargets": [],
+    "candidateOnly": true,
+    "debControl": "Package: continuum\nVersion: 1.0.0\nArchitecture: amd64\nDepends: libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0, libc6 (>= 2.34), libstdc++6 (>= 11), python3 (>= 3.11), util-linux (>= 2.39.3), bubblewrap (>= 0.11.0), nftables (>= 1.0.9), iproute2 (>= 6.1.0), systemd (>= 255), libpam-systemd (>= 255)\n",
+    "systemInstallationPerformed": false
+  },
+  "tests": {
+    "candidateNodeRegression": {
+      "tests": 120,
+      "pass": 120,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "finalFocusedNode": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "finalAssembly": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "uniqueNodeGroups": 121,
+    "overlap": "120 broad + 11 focused; 10 focused groups overlap the broad selection, 1 new review-archive group. Four assembly groups are a subset of the focused 11. The historical-helper 120 run is not additional unique coverage.",
+    "candidatePython": {
+      "owner": 5,
+      "policy": 4,
+      "resources": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "rendererFixtures": {
+      "settings": 1,
+      "backgroundCommands": 1,
+      "failed": 0
+    }
+  },
+  "actualPackagedGui": {
+    "staging": {
+      "passed": true,
+      "evidenceLevel": "actual extracted non-release package GUI",
+      "runs": [
+        {
+          "restart": 0,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources",
+          "userData": "/tmp/continuum-g4-gui-7Wejr2/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        },
+        {
+          "restart": 1,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources",
+          "userData": "/tmp/continuum-g4-gui-7Wejr2/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-packages/linux-unpacked/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        }
+      ],
+      "trustedConfirmation": "not reached: release gate closed",
+      "installedNetworkingAccepted": false
+    },
+    "extractedAppImage": {
+      "passed": true,
+      "evidenceLevel": "actual extracted non-release package GUI",
+      "runs": [
+        {
+          "restart": 0,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources",
+          "userData": "/tmp/continuum-g4-gui-00L9QB/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        },
+        {
+          "restart": 1,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources",
+          "userData": "/tmp/continuum-g4-gui-00L9QB/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-appimage/squashfs-root/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        }
+      ],
+      "trustedConfirmation": "not reached: release gate closed",
+      "installedNetworkingAccepted": false
+    },
+    "extractedDeb": {
+      "passed": true,
+      "evidenceLevel": "actual extracted non-release package GUI",
+      "runs": [
+        {
+          "restart": 0,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources",
+          "userData": "/tmp/continuum-g4-gui-B5tq3J/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        },
+        {
+          "restart": 1,
+          "packaged": true,
+          "resources": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources",
+          "userData": "/tmp/continuum-g4-gui-B5tq3J/profile",
+          "dependencies": {
+            "python": "/usr/bin/python3",
+            "helper": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources/workspace-network/x64/slirp4netns",
+            "worker": "/tmp/continuum-b2g4/candidate-deb/opt/Continuum/resources/workspace-network/networkExecutionWorker.py"
+          },
+          "isolated": true,
+          "trustDisabled": true,
+          "nativeActivationRejected": true
+        }
+      ],
+      "trustedConfirmation": "not reached: release gate closed",
+      "installedNetworkingAccepted": false
+    }
+  },
+  "appImageNormal": {
+    "guiAccepted": false,
+    "attempt": "normal AppImage launch inside disposable home/mount wrapper failed before GUI",
+    "wrapperMountDiagnostic": "fusermount: mount failed: Operation not permitted\n\nCannot mount AppImage, please check your FUSE setup.\nYou might still be able to extract the contents of this AppImage \nif you run it with the --appimage-extract option. \nSee https://github.com/AppImage/AppImageKit/wiki/FUSE \nfor more information\nopen dir error: No such file or directory\n",
+    "hostMountOnly": "/tmp/.mount_Continj1N9dT",
+    "hostMountCleaned": true,
+    "hostMountTimeoutExit": 124,
+    "extractedAcceptanceDoesNotReplaceNormalLaunch": true
+  },
+  "debInstalledAcceptance": {
+    "run": false,
+    "blocker": "No disposable supported VM/system with an actual installed package and qualified user-session/kernel/cgroup environment was provisioned. Primary installation forbidden without explicit approval."
+  },
+  "nativeEnabledConsentRestart": {
+    "run": false,
+    "reason": "Shipping release gate correctly rejects activation before confirmation. No readiness or protected-storage injection used in packaged GUIs."
+  },
+  "packagedNpmViteChromeLifecycle": {
+    "run": false,
+    "sourceTreeCandidatePassed": true,
+    "reason": "No qualified enabled packaged runtime; source-tree injections are not installed-package acceptance."
+  },
+  "build": {
+    "vitePassed": true,
+    "appImageFixtureBuilt": true,
+    "debFixtureBuilt": true,
+    "shippingExtraResourcesAdded": false,
+    "nonreleaseExtraResourcesAdded": true
+  },
+  "validation": {
+    "passed": true,
+    "files": [
+      "src/main/agentDefaults.js",
+      "src/main/compactionPerformance.js",
+      "src/main/dataAccess.js",
+      "src/main/workspacePlan.js",
+      "src/main/pathUtils.js",
+      "src/main/filesystemToolLimits.js",
+      "src/main/toolSchemaValidation.js",
+      "src/main/networkRuntimePrerequisites.js",
+      "src/main/contextBudget.js",
+      "src/main/runSteering.js",
+      "src/main/subAgentRunner.js",
+      "src/main/messageSearch.js",
+      "src/main/compactionOperationalCheckpoint.js",
+      "src/main/dataMigration.js",
+      "src/main/memorySearchRuntime.js",
+      "src/main/engineManager.js",
+      "src/main/nativePlaywright.js",
+      "src/main/mcpManager.js",
+      "src/main/testVerification.js",
+      "src/main/workLog.js",
+      "src/main/capabilityOverrides.js",
+      "src/main/workspaceEvidence.js",
+      "src/main/backgroundSettings.js",
+      "src/main/messageVariants.js",
+      "src/main/localMedia.js",
+      "src/main/safetyGuards.js",
+      "src/main/db.js",
+      "src/main/localEngineFetch.js",
+      "src/main/gpuMemory.js",
+      "src/main/memoryManager.js",
+      "src/main/runUsageSnapshot.js",
+      "src/main/memorySearchCore.js",
+      "src/main/nativeExecutionPolicy.js",
+      "src/main/compactionTrigger.js",
+      "src/main/compactNativeTools.js",
+      "src/main/contextInspection.js",
+      "src/main/advertisedTools.js",
+      "src/main/localRequestLifecycle.js",
+      "src/main/remoteMcp.js",
+      "src/main/lspExecutionContext.js",
+      "src/main/nativeExecutionKinds.js",
+      "src/main/previewIpc.js",
+      "src/main/compactionBudgetPlanner.js",
+      "src/main/spendingDashboard.js",
+      "src/main/ragManager.js",
+      "src/main/projectManager.js",
+      "src/main/workspaceCompactCandidate.js",
+      "src/main/executionCapabilities.js",
+      "src/main/mcpPermissionPolicy.js",
+      "src/main/sandboxFilesystem.js",
+      "src/main/skillsManager.js",
+      "src/main/workspaceGenerationRuntime.js",
+      "src/main/compressionEngine.js",
+      "src/main/lspManager.js",
+      "src/main/samplingManager.js",
+      "src/main/configStore.js",
+      "src/main/gitMetadata.js",
+      "src/main/permanentMemorySearch.js",
+      "src/main/compactionCore.js",
+      "src/main/networkExecution.js",
+      "src/main/legacyDataMigration.js",
+      "src/main/exportService.js",
+      "src/main/toolPermissions.js",
+      "src/main/promptBuilder.js",
+      "src/main/costEstimator.js",
+      "src/main/networkDependencies.js",
+      "src/main/taskCheckpoints.js",
+      "src/main/casualSummary.js",
+      "src/main/executionSteps.js",
+      "src/main/recoveryIpc.js",
+      "src/main/engineRuntimeState.js",
+      "src/main/engineLifecycle.js",
+      "src/main/baseSystemPrompt.js",
+      "src/main/ipcHandlers.js",
+      "src/main/taskBriefs.js",
+      "src/main/foregroundCommand.js",
+      "src/main/cloudProviders.js",
+      "src/main/attachmentAccess.js",
+      "src/main/memoryToolExecutor.js",
+      "src/main/recoveryBoundary.js",
+      "src/main/promptMeasurement.js",
+      "src/main/developmentPreviews.js",
+      "src/main/memorySearchWorker.js",
+      "src/main/workspaceGit.js",
+      "src/main/compactionRejectionDiagnostics.js",
+      "src/main/sessionDeletion.js",
+      "src/main/gifProcessor.js",
+      "src/main/recoveryReferenceIndex.js",
+      "src/main/sessionCosts.js",
+      "src/main/toolBatchPreflight.js",
+      "src/main/attachmentDocuments.js",
+      "src/main/cloudModelMetadata.js",
+      "src/main/nativeToolActivation.js",
+      "src/main/modelScanner.js",
+      "src/main/structuredOutput.js",
+      "src/main/rememberedToolRules.js",
+      "src/main/sessionManager.js",
+      "src/main/configManager.js",
+      "src/main/turnDigest.js",
+      "src/main/streamDispatcher.js",
+      "src/main/lspCodeIntelligence.js",
+      "src/main/workspaceCompaction.js",
+      "src/main/fileUploads.js",
+      "src/main/workspaceNetworkPolicy.js",
+      "src/main/gitIdentity.js",
+      "src/main/compactionSummary.js",
+      "src/main/profileSettings.js",
+      "src/main/recoveryStore.js",
+      "src/main/reasoningRuntime.js",
+      "src/main/settingsResolver.js",
+      "src/main/nativeTools.js",
+      "src/main/toolApprovalPolicy.js",
+      "src/main/modelCapabilities.js",
+      "src/main/attachmentReader.js",
+      "src/main/memoryNormalization.js",
+      "src/main/workspaceCompactionActivity.js",
+      "src/main/agentManager.js",
+      "src/main/nodeHttpFetch.js",
+      "src/main/workspaceSandboxProfile.js",
+      "src/main/networkLaunchProtocol.js",
+      "src/main/tokenUsage.js",
+      "src/main/workspaceCommandPolicy.js",
+      "src/main/backgroundCommands.js",
+      "src/main/services/notificationService.js",
+      "src/main/subagents/index.js",
+      "src/main/subagents/budgetSettings.js",
+      "src/main/subagents/executionManager.js",
+      "src/main/subagents/executionStore.js",
+      "src/main/subagents/agentLoop.js",
+      "src/main/subagents/inferenceScheduler.js",
+      "src/main/subagents/modelSelection.js",
+      "src/main/subagents/executionDeadline.js",
+      "src/main/subagents/completion.js",
+      "src/main/subagents/budgets.js",
+      "src/main/subagents/executionBudget.js",
+      "src/main/subagents/persistence.js",
+      "src/main/subagents/sessionManager.js",
+      "src/main/subagents/continuationState.js",
+      "src/main/subagents/contextRecovery.js",
+      "src/main/subagents/continuationManager.js",
+      "src/main/subagents/backgroundStore.js",
+      "src/main/tools/generateImage.js",
+      "src/main/tools/saveMemory.js",
+      "src/main/tools/subagent.js",
+      "src/main/tools/editDiagnostics.js",
+      "src/main/tools/webDiscovery.js",
+      "src/main/tools/lspTools.js",
+      "src/main/tools/agentTools.js",
+      "src/main/tools/searchMemory.js",
+      "src/main/tools/fileEditMatcher.js",
+      "src/main/tools/webSearch.js",
+      "src/main/subagents/providers/localProvider.js",
+      "src/main/subagents/providers/streamCompletion.js",
+      "src/main/subagents/providers/index.js",
+      "src/main/subagents/providers/cloudProvider.js",
+      "scripts/assemble-workspace-network.cjs",
+      "scripts/audit-workspace-network.cjs",
+      "scripts/workspace-network-staging.cjs",
+      "tests/b2g2Settings.ui.cjs",
+      "tests/b2fGateway.test.cjs",
+      "tests/b2g4Assembly.test.cjs",
+      "tests/b2eDependencies.test.cjs",
+      "tests/b2g3Runtime.test.cjs",
+      "tests/b2fViteBrowser.test.cjs",
+      "tests/b2g2Packaged.test.cjs",
+      "tests/b2g4Packaged.ui.cjs",
+      "tests/b2g2Trust.test.cjs",
+      "tests/b2fPreviews.test.cjs",
+      "tests/b2g3Packaged.ui.cjs",
+      "tests/b2g3Packaging.test.cjs",
+      "tests/b2fPreviewIpc.test.cjs",
+      "tests/b2dNetworkExecution.test.cjs",
+      "src/main/networkExecutionWorker.py",
+      "src/main/networkPreviewBridge.py",
+      "src/main/experimental/network_owner.py",
+      "tests/b2fResources.test.py",
+      "tests/b2cNetworkOwner.test.py",
+      "tests/b2ePolicy.test.py",
+      "tests/b2g1HostAddress.test.py",
+      "scripts/collect-workspace-network-build.py",
+      "docs/b2-f1-development-previews-evidence.json",
+      "docs/b2-f-authenticated-previews-evidence.json",
+      "docs/b2-g2-trusted-development-networking-evidence.json",
+      "docs/b2-g3-production-networking-qualification-evidence.json",
+      "docs/b2-g1-host-address-safety-evidence.json",
+      "docs/b2-d-production-network-integration-evidence.json",
+      "docs/b2-g3-helper-provenance.json",
+      "docs/b2-c-network-owner-evidence.json",
+      "docs/b2-e-network-activation-readiness-evidence.json",
+      "docs/b2-g4-helper-candidate.json",
+      "docs/b2-g4-networking-release-completion-evidence.json",
+      "src/main/workspaceNetworkAddressPolicy.json"
+    ],
+    "shellSyntax": true,
+    "gitDiffCheck": true
+  },
+  "releaseBlockers": [
+    "Review and approve the supplied exact-build source/notices/relink package, including static LGPL/glibc and GCC runtime treatment; assign a helper/policy security release owner. No legal sufficiency conclusion is made.",
+    "Normal AppImage GUI/native workflow acceptance on the supported target remains absent; disposable wrapper prohibits FUSE, while separate host mount-only probe succeeds.",
+    "Actual installed deb acceptance needs a disposable supported VM/system, not the primary installation.",
+    "Native confirmation cancel/accept, protected persistence after enable, packaged npm/Vite/Chrome/HMR, revocation and fault cleanup must pass from a qualified installed runtime before production eligibility can open."
+  ],
+  "intermediateFindings": [
+    "Single-UID rootfs apt provisioning initially failed changing to _apt; retry used namespace-root download user without host root or TLS bypass.",
+    "Initial G.4 packaged GUI harness used unavailable require global; corrected to process.getBuiltinModule; three final two-launch GUI checks passed.",
+    "Normal AppImage launch failed; never counted as passing.",
+    "Initial restricted Node runner returned file-level aggregation; final host TAP runs report individual groups."
+  ],
+  "logsDirectory": "/tmp/continuum-b2g4",
+  "logSha256": {
+    "appimage-extracted-gui.log": "1e512d2ec2348f3ede8be5fa45ac49a931df6c5a5c91580eae5b14ad15f40d9e",
+    "appimage-host-mount.log": "f3fe80884e490c111fd7c188cba5909e68a4eb25e8fe5e2a4a5bce45202c24d5",
+    "appimage-normal-attempt.log": "3f262282b5444f9cccd3d021e37643f2ce92f2574f46c22b4b2035c5d5d60f47",
+    "appimage-wrapper-mount.log": "fdec5bc44fd7ae543111ad1e5f2f79ba3ce2942cd416b5d4bb249ae23f235697",
+    "background-ui.log": "23a2e15e339a5a85337a66130c88ffc59f0a80a3154df4ad7364cddbcbe154d2",
+    "candidate-extraction.log": "3bfcf2a961397a4d08e307649a270f60579bd5a9aa4644c8c116d40b038c0020",
+    "candidate-owner.log": "e105726accc2776671d0b13aa526ab9bdfd755ddada6751eb8d55f3ffe8d8bbf",
+    "candidate-package-build.log": "17b80408782a10eb640bc94eb7e6fb40975a32e423ecd5bab4da939fec049908",
+    "candidate-regressions.log": "96f1047edf257f39592a4aa21a9065517326270d43e53f55f49c16adf3af43b3",
+    "deb-extracted-gui.log": "255dec6513e903dfbb7fa48ab3c10162a4c517d9d92630341a071cc4c398e6d3",
+    "final-assembly-tests.log": "3d4b692c3069c6cd788007eeb1ca7fc49ecc35912b4f72be2a478435a659c97a",
+    "final-focused.log": "8630d3e762bc1789d127d8395b91f5c22e41dcbe1ff6dd2f921f37aefb6f1d37",
+    "package-build.log": "3e557a2283ea0614d8ae40a341c13181331cb2838711e9471aebcaff9ab69778",
+    "policy.log": "0929a83a4666448ab970fc6561c604d1577f9743be0085ca68b401229feea620",
+    "rebuild-provision.log": "45ee366886739fe0ad47b7473dae1c71b38fca4a539705c8c5ab498422419cfc",
+    "rebuild-repeat.log": "2a80b370914e04d6ab81fa3e94fca2561537c214cc27194c1cf05ea19e41651a",
+    "rebuild.log": "44e0e3a3d4edf065d32c6628db6785cfd8158a63b3517d1c86a0510f907ec781",
+    "regressions.log": "c3a4efcaf3ae708de3464462d0122e0aef28f4c1e9e22af5a875f3fdba3a92ee",
+    "relink-smoke.log": "4f103c1f47233bf59c2997e41528f6b407260aca265b277f022decb2edfdb3a0",
+    "resources.log": "cda8d217d0887b1e19c94928b53b4f43b20df485879b28f8fe09e8bd11aef9cb",
+    "settings-ui.log": "fe1f1e6ce8c4ba0b2c3a5a962e716a01041d7e7c6720b1a0c2dc766dc747d36a",
+    "source-collection.log": "0caffa8c26c909cf3a9d77a0c3cf77b7f3c49febac355cb04b89fdbaf3966920",
+    "staging-gui-final.log": "b42c661481a7c026a5e0b4f02ec7cee00ae2b5be0365d28c7bdb2527d30e89b8",
+    "staging-gui.log": "9f00e675d8ae67e1c3fa3d1f58160736438b835b706e700a576be56d313338f5",
+    "vite-build.log": "6cd7faf4126bd1c7a4cbb57c6be8308016d8837036f3beefd09089dcbe747b1d"
+  }
+}

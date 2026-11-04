@@ -309,7 +309,7 @@ function RunHeader({
 					</Tooltip>
 					<span
 						aria-label={`Run status: ${statusLabel}`}
-						className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${
 							streaming
 								? "bg-amber-400/10 text-amber-500"
 								: interrupted
@@ -324,7 +324,7 @@ function RunHeader({
 							<button
 								type="button"
 								onClick={jumpToResponse}
-								className="flex items-center gap-2 shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+								className="flex items-center gap-2 shrink-0 cursor-pointer ui-radius-control px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
 								aria-label="Jump to final response"
 							>
 								Response <LuChevronDown />
@@ -512,7 +512,7 @@ function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
 				type="button"
 				aria-expanded={!collapsed}
 				onClick={() => setCollapsed(!collapsed)}
-				className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+				className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 ui-radius-control px-1 py-0.5 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 			>
 				<span
 					aria-hidden="true"
@@ -522,17 +522,17 @@ function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
 				</span>
 				<span className="truncate text-xs text-[var(--text-secondary)]">{summary.title}</span>
 				{summary.failed > 0 && (
-					<span className="shrink-0 rounded bg-[var(--error)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--error)]">
+					<span className="shrink-0 ui-radius-control bg-[var(--error)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--error)]">
 						{summary.failed} failed
 					</span>
 				)}
 				{summary.blocked > 0 && (
-					<span className="shrink-0 rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
+					<span className="shrink-0 ui-radius-control bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
 						needs approval
 					</span>
 				)}
 				{summary.running > 0 && (
-					<span className="shrink-0 rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
+					<span className="shrink-0 ui-radius-control bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
 						running
 					</span>
 				)}
@@ -601,7 +601,7 @@ function StageThought({ thought, standalone = false }) {
 		<details
 			className={`group/thought min-w-0 text-xs text-[var(--text-muted)] ${standalone ? "" : "pl-5"}`}
 		>
-			<summary className="flex w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded py-0.5 hover:text-[var(--text-secondary)] [&::-webkit-details-marker]:hidden">
+			<summary className="flex w-fit max-w-full cursor-pointer list-none items-center gap-1.5 ui-radius-control py-0.5 hover:text-[var(--text-secondary)] [&::-webkit-details-marker]:hidden">
 				<span aria-hidden="true">Thought</span>
 				{duration && <span className="tabular-nums">· {duration}</span>}
 			</summary>
@@ -643,7 +643,7 @@ function UserBlock({
 					}}
 				>
 					<textarea
-						className="max-h-[300px] min-h-[150px] w-full resize-y rounded-xl border border-[var(--accent)] bg-[var(--surface-raised)] p-3 text-sm leading-relaxed text-[var(--text-primary)] outline-none select-text"
+						className="max-h-[300px] min-h-[150px] w-full resize-y ui-radius-surface border border-[var(--accent)] bg-[var(--surface-raised)] p-3 text-sm leading-relaxed text-[var(--text-primary)] outline-none select-text"
 						aria-label="Edit message"
 						autoFocus
 						value={editText}
@@ -656,7 +656,7 @@ function UserBlock({
 					<div className="flex items-center justify-end gap-2">
 						<button
 							type="button"
-							className="cursor-pointer rounded-lg px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+							className="cursor-pointer ui-radius-control px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							disabled={disabled}
 							onClick={() => onCancelEdit?.()}
 						>
@@ -664,7 +664,7 @@ function UserBlock({
 						</button>
 						<button
 							type="submit"
-							className="rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--on-accent)] disabled:opacity-40"
+							className="ui-radius-control bg-[var(--accent)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--on-accent)] disabled:opacity-40"
 							disabled={disabled || !String(editText ?? "").trim()}
 						>
 							Save
@@ -725,7 +725,7 @@ function QuestionRecord({ step, request, live }) {
 		>
 			<p className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide">
 				<span
-					className={`rounded px-1.5 py-0.5 ${pending ? "bg-amber-400/15 text-amber-500" : "bg-[var(--bg-tertiary)] text-[var(--text-muted)]"}`}
+					className={`ui-radius-control px-1.5 py-0.5 ${pending ? "bg-amber-400/15 text-amber-500" : "bg-[var(--bg-tertiary)] text-[var(--text-muted)]"}`}
 				>
 					{resolved
 						? "Question answered"
@@ -766,7 +766,7 @@ function SkillRecord({ step }) {
 		>
 			<p className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
 				<span
-					className={`rounded px-1.5 py-0.5 ${pending && !failed ? "bg-amber-400/15 text-amber-500" : "bg-[var(--bg-tertiary)] text-[var(--text-muted)]"}`}
+					className={`ui-radius-control px-1.5 py-0.5 ${pending && !failed ? "bg-amber-400/15 text-amber-500" : "bg-[var(--bg-tertiary)] text-[var(--text-muted)]"}`}
 				>
 					{decision === "registered"
 						? "Skill registered"

@@ -82,7 +82,7 @@ export default function TerminalLog({ engineRunning, serverPort, serverError, ac
 				aria-label="Terminal output"
 				ref={scrollRef}
 				onScroll={handleScroll}
-				className="h-[45vh] select-text overflow-auto rounded-lg border border-[var(--border)] bg-[var(--terminal)] p-3 font-mono text-[11px] leading-relaxed text-[var(--terminal-text)]"
+				className="h-[45vh] select-text overflow-auto ui-radius-control border border-[var(--border)] bg-[var(--terminal)] p-3 font-mono text-[11px] leading-relaxed text-[var(--terminal-text)]"
 			>
 				{!log.lines.length
 					? "No output yet. Load a model to see logs."

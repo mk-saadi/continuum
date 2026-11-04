@@ -329,7 +329,7 @@ function AppContent() {
 		[updateTab, activeTabId],
 	);
 	return (
-		<div className="flex flex-col h-full w-full overflow-hidden rounded-xl bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
+		<div className="flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
 			<Titlebar />
 			<TabBar />
 			<GlobalModals
@@ -463,7 +463,7 @@ const TabPane = memo(function TabPane({
 			{palace.toast && (
 				<div
 					role="status"
-					className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-[var(--surface-raised)] px-4 py-2 text-xs shadow-lg"
+					className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 ui-radius-control bg-[var(--surface-raised)] px-4 py-2 text-xs shadow-lg"
 				>
 					{palace.toast}
 				</div>

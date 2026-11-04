@@ -258,7 +258,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 				aria-current={selectedId === entry.id ? "true" : undefined}
 			>
 				<span
-					className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${KIND_TONE[entry.kind] ?? KIND_TONE.op}`}
+					className={`shrink-0 ui-radius-control px-1.5 py-0.5 font-mono text-[10px] ${KIND_TONE[entry.kind] ?? KIND_TONE.op}`}
 				>
 					{entry.kind}
 				</span>
@@ -353,7 +353,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 					{notice && (
 						<p
 							role="status"
-							className="rounded-lg bg-[var(--accent)]/10 px-2.5 py-2 text-[var(--accent-bright)]"
+							className="ui-radius-control bg-[var(--accent)]/10 px-2.5 py-2 text-[var(--accent-bright)]"
 						>
 							{notice}
 						</p>
@@ -493,7 +493,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 												</span>
 											</span>
 											{item.diff && !item.diff.identical && (
-												<pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-2 font-mono text-[11px] text-[var(--code-text)]">
+												<pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-2 font-mono text-[11px] text-[var(--code-text)]">
 													{item.diff.truncated
 														? `Lines changed: −${item.diff.hunks[0]?.oldCount ?? "?"} / +${item.diff.hunks[0]?.newCount ?? "?"} (too large to preview)`
 														: (item.diff.hunks[0]?.oldLines ?? [])
@@ -589,7 +589,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										)}
 										{safetyInfo && (
 											<div
-												className={`space-y-1 rounded-md border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-[var(--warning)]/50"}`}
+												className={`space-y-1 ui-radius-control border p-2 ${safetyInfo.tone === "refused" ? "border-[var(--error)]/50" : "border-[var(--warning)]/50"}`}
 												aria-label="Restore safety verdict"
 											>
 												<p
@@ -671,7 +671,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									</button>
 								) : (
 									<div
-										className="space-y-2 rounded-lg border border-[var(--error)]/40 p-2.5"
+										className="space-y-2 ui-radius-control border border-[var(--error)]/40 p-2.5"
 										role="alertdialog"
 										aria-label="Confirm restoration"
 									>

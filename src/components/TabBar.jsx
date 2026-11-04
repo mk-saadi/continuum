@@ -89,7 +89,7 @@ export default function TabBar() {
 					{dropIndex === index && (
 						<div
 							aria-hidden="true"
-							className="h-6 w-[2px] shrink-0 self-center rounded-full bg-[var(--accent)]"
+							className="h-6 w-[2px] shrink-0 self-center ui-radius-round bg-[var(--accent)]"
 						/>
 					)}
 				<div
@@ -168,7 +168,7 @@ export default function TabBar() {
 			{dropIndex === tabs.length && tabs.length > 0 && (
 				<div
 					aria-hidden="true"
-					className="h-6 w-[2px] shrink-0 self-center rounded-full bg-[var(--accent)]"
+					className="h-6 w-[2px] shrink-0 self-center ui-radius-round bg-[var(--accent)]"
 				/>
 			)}
 			<button

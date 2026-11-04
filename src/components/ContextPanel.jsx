@@ -64,7 +64,7 @@ function EvidenceRef({ source, evidence }) {
 				{record.status ? ` · ${record.status}` : ""}
 			</summary>
 			{record.snippet ? (
-				<pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-secondary)] p-2 text-[10px] leading-relaxed text-[var(--text-secondary)]">
+				<pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--bg-secondary)] p-2 text-[10px] leading-relaxed text-[var(--text-secondary)]">
 					{record.snippet}
 				</pre>
 			) : (
@@ -211,7 +211,7 @@ function CheckpointDetail({ record, evidence }) {
 							key={index}
 							className="text-[11px] leading-relaxed"
 						>
-							<span className="mr-1.5 inline-block min-w-14 rounded-full border border-[var(--border)] px-1.5 py-px text-center text-[10px] font-medium text-[var(--text-secondary)]">
+							<span className="mr-1.5 inline-block min-w-14 ui-radius-round border border-[var(--border)] px-1.5 py-px text-center text-[10px] font-medium text-[var(--text-secondary)]">
 								{req.status}
 							</span>
 							{req.briefId != null ? (
@@ -438,7 +438,7 @@ function WorkLogTurn({ turn }) {
 	return (
 		<li
 			key={turn.turnSeq}
-			className="min-w-0 rounded-lg bg-[var(--bg-secondary)] p-2"
+			className="min-w-0 ui-radius-control bg-[var(--bg-secondary)] p-2"
 		>
 			<div className="flex flex-wrap items-center gap-1.5">
 				<span className="text-[11px] font-semibold">Turn {turn.turnSeq ?? "?"}</span>
@@ -555,7 +555,7 @@ function WorkLogChips({ chips }) {
 function BriefWorkLog({ workLog }) {
 	if (!workLog || !Array.isArray(workLog.turns) || !workLog.turns.length) return null;
 	return (
-		<details className="mt-2 rounded-lg border border-[var(--subtle-border)] px-2 py-1.5">
+		<details className="mt-2 ui-radius-control border border-[var(--subtle-border)] px-2 py-1.5">
 			<summary className="flex cursor-pointer items-center gap-2 text-[11px] font-semibold">
 				Work log
 				<span className="ml-auto font-normal text-[var(--text-muted)] tabular-nums">
@@ -1128,7 +1128,7 @@ export default function ContextPanel({
 											</span>
 										) : null}
 									</div>
-									<pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed">
+									<pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed">
 										{brief.content_text}
 									</pre>
 									{brief.attachments.length > 0 ? (
@@ -1173,7 +1173,7 @@ export default function ContextPanel({
 													{brief.kind}
 												</span>
 											</div>
-											<pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+											<pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
 												{brief.content_text}
 											</pre>
 											{brief.workLog ? (
@@ -1224,7 +1224,7 @@ export default function ContextPanel({
 							Generated historical summary — the model&apos;s paraphrase of older turns. It is
 							not the canonical brief or evidence.
 						</p>
-						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed">
+						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--bg-secondary)] p-2 text-[11px] leading-relaxed">
 							{summary}
 						</pre>
 					</>
@@ -1266,7 +1266,7 @@ export default function ContextPanel({
 							{archived.messages.map((message) => (
 								<li
 									key={message.id}
-									className="min-w-0 rounded-lg bg-[var(--bg-secondary)] p-2"
+									className="min-w-0 ui-radius-control bg-[var(--bg-secondary)] p-2"
 								>
 									<div className="flex flex-wrap items-center gap-1.5">
 										<span className={`${pillClass} ${unverifiedClass}`}>
@@ -1322,7 +1322,7 @@ export default function ContextPanel({
 																	</span>
 																) : null}
 																{step.result ? (
-																	<pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--surface)] p-1.5">
+																	<pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--surface)] p-1.5">
 																		{step.result}
 																		{step.resultTruncated
 																			? " …(truncated)"

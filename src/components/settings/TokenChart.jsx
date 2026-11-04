@@ -30,7 +30,7 @@ function TokenTooltip({ active, payload }) {
   const ratio = hitRatio(row);
   const cost = periodCost(row);
   return (
-    <div role="tooltip" className="rounded border border-[var(--border)] bg-[var(--surface)] p-2 text-xs shadow-lg">
+    <div role="tooltip" className="ui-radius-control border border-[var(--border)] bg-[var(--surface)] p-2 text-xs shadow-lg">
       <p>{row.label}</p>
       <p>Gross input: {number(row.promptTokens)}</p>
       <p>Cached input: {known(row.cacheReadTokens, row.cacheReadCoverage)}</p>
@@ -48,7 +48,7 @@ function TokenTooltip({ active, payload }) {
 export default function TokenChart({ data = [], groupBy = 'month' }) {
   const maximum = Math.max(1, ...data.map(row => row.promptTokens + row.completionTokens));
   if (!data.some(row => row.turns || row.promptTokens || row.completionTokens)) {
-    return <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[11px] text-[var(--text-muted)]">No token usage recorded for this period.</p>;
+    return <p className="ui-radius-surface border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[11px] text-[var(--text-muted)]">No token usage recorded for this period.</p>;
   }
   const chartData = data.map(row => {
     // Split only when this bucket's cache read is fully measured; a
@@ -65,14 +65,14 @@ export default function TokenChart({ data = [], groupBy = 'month' }) {
   });
   return <figure
     aria-label="Token consumption history"
-    className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+    className="space-y-3 ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
   >
     <h3 className="text-xs font-semibold text-[var(--text-primary)]">Token usage over time</h3>
     <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-secondary)]">
-      <span><span className="mr-1 inline-block size-3 rounded-sm bg-blue-500" />Input tokens (gross)</span>
-      <span><span className="mr-1 inline-block size-3 rounded-sm bg-indigo-400" />Cached input</span>
-      <span><span className="mr-1 inline-block size-3 rounded-sm bg-emerald-500" />Cache write</span>
-      <span><span className="mr-1 inline-block size-3 rounded-sm bg-amber-500" />Completion tokens</span>
+      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-blue-500" />Input tokens (gross)</span>
+      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-indigo-400" />Cached input</span>
+      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-emerald-500" />Cache write</span>
+      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-amber-500" />Completion tokens</span>
       <span>Scale: {number(maximum)} tokens · UTC{groupBy === 'week' ? ' · Weeks start Monday' : ''}</span>
     </figcaption>
     <div className="h-56 w-full">

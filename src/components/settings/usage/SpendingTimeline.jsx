@@ -64,8 +64,8 @@ export default function SpendingTimeline({ nested = false, data = [], groupBy = 
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">USD · UTC · {groupBy === 'week' ? 'weeks start Monday' : groupBy === 'month' ? 'monthly buckets' : 'daily buckets'}</p>
         </div>
         <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
-          <span><span className="mr-1 inline-block size-2.5 rounded-sm bg-[#5b9bff]" />Rate-based estimate</span>
-          <span><span className="mr-1 inline-block size-2.5 rounded-sm bg-[#34b27b]" />Provider-reported</span>
+          <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#5b9bff]" />Rate-based estimate</span>
+          <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#34b27b]" />Provider-reported</span>
         </div>
       </figcaption>
       <div className="aero-flat h-56 w-full p-2" role="img" aria-label={`Spending chart. ${hasPriced ? 'Priced spend is shown.' : 'No turn in this period has price evidence.'}`}>

@@ -7,7 +7,7 @@ export const COVERAGE_LABEL = Object.freeze({
   estimated: 'Estimated',
   fully_measured: 'Fully measured',
   unavailable: 'Unavailable',
-  not_applicable: 'Not applicable',
+  not_applicable: '—',
 });
 
 export const COMPLETENESS_LABEL = Object.freeze({
@@ -15,7 +15,7 @@ export const COMPLETENESS_LABEL = Object.freeze({
   estimated: 'Estimated',
   partially_estimated: 'Partially estimated',
   unavailable: 'Unavailable',
-  not_applicable: 'Not applicable',
+  not_applicable: '—',
 });
 
 export function coverageLabel(value) {
@@ -27,7 +27,7 @@ export function completenessLabel(value) {
 }
 
 export function numberValue(value, coverage = 'measured', { local = false } = {}) {
-  if (local || coverage === 'not_applicable') return 'Not applicable';
+  if (local || coverage === 'not_applicable') return '—';
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   const number = value.toLocaleString();
   return coverage === 'partially_measured' || coverage === 'partially_estimated' ? `≥ ${number}` : number;
@@ -38,7 +38,7 @@ export function tokenValue(value, coverage = 'measured', { local = false } = {})
 }
 
 export function costValue(value, coverage = 'measured', { local = false, prefixPartial = true } = {}) {
-  if (local || coverage === 'not_applicable') return 'Not applicable';
+  if (local || coverage === 'not_applicable') return '—';
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   if (prefixPartial && (coverage === 'partially_measured' || coverage === 'partially_estimated')) {
     return `≥ ${formatUsd(value)}`;
@@ -47,7 +47,7 @@ export function costValue(value, coverage = 'measured', { local = false, prefixP
 }
 
 export function savingsValue(value, coverage = 'measured', { local = false } = {}) {
-  if (local || coverage === 'not_applicable') return 'Not applicable';
+  if (local || coverage === 'not_applicable') return '—';
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   const prefix = coverage === 'partially_measured' ? '≥ ' : '';
   return `${prefix}${formatSignedUsd(value)}`;

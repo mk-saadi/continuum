@@ -9,6 +9,7 @@ import AvatarSettings from "../AvatarSettings";
 import MemoryTab from "../MemoryTab";
 import McpSettingsTab from "../settings/McpSettingsTab";
 import ServerConfigTab from "../ServerConfigTab";
+import WorkspaceNetworkSettings from "../WorkspaceNetworkSettings";
 import EngineIdleSettings from "../EngineIdleSettings";
 import NotificationSettings from "../settings/NotificationSettings";
 import SkillsSettingsTab from "../settings/SkillsSettingsTab";
@@ -472,7 +473,7 @@ function MemorySettings({
 									tabIndex={tab === id ? 0 : -1}
 									onKeyDown={(event) => onTabKey(event, index)}
 									onClick={() => selectTab(id)}
-									className={`${tab === id ? "aero-control aero-fill" : "cursor-pointer rounded-xl border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
+									className={`${tab === id ? "aero-control aero-fill" : "cursor-pointer ui-radius-surface border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
 								>
 									<span
 										aria-hidden="true"
@@ -530,21 +531,21 @@ function MemorySettings({
 																>
 																	<span
 																		aria-hidden="true"
-																		className="flex h-12 w-14 shrink-0 items-end gap-1 overflow-hidden rounded-lg border border-[var(--border)] p-1.5"
+																		className="flex h-12 w-14 shrink-0 items-end gap-1 overflow-hidden ui-radius-control border border-[var(--border)] p-1.5"
 																		style={{
 																			backgroundColor:
 																				option.swatches[0],
 																		}}
 																	>
 																		<span
-																			className="h-7 w-3 rounded-sm"
+																			className="h-7 w-3 ui-radius-small"
 																			style={{
 																				backgroundColor:
 																					option.swatches[1],
 																			}}
 																		/>
 																		<span
-																			className="h-4 w-5 rounded-sm"
+																			className="h-4 w-5 ui-radius-small"
 																			style={{
 																				backgroundColor:
 																					option.swatches[2],
@@ -563,7 +564,7 @@ function MemorySettings({
 																	</span>
 																	<span
 																		aria-hidden="true"
-																		className={`grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${selected ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-[var(--control-border)]"}`}
+																		className={`grid size-4 shrink-0 place-items-center ui-radius-round border text-[10px] ${selected ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-[var(--control-border)]"}`}
 																	>
 																		{selected ? "✓" : ""}
 																	</span>
@@ -721,6 +722,7 @@ function MemorySettings({
 							hidden={tab !== "engine"}
 						>
 							<EngineIdleSettings />
+                            <WorkspaceNetworkSettings />
 							<SettingsCard className="px-3 py-2.5">
 								<SettingsStatus
 									active={engineRunning}

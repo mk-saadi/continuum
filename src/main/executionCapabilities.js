@@ -18,6 +18,7 @@ function manifest(mode, cwd) {
     temporaryFiles: sandbox ? 'workspace scratch; host /tmp not shared' : 'inherited host environment',
     unixSockets: sandbox ? 'unavailable' : 'unknown (normal OS policy)',
     display: sandbox ? 'unavailable' : process.env.DISPLAY || process.env.WAYLAND_DISPLAY ? 'unknown (configured, not verified)' : 'unavailable',
+    developmentPreviews: 'unavailable (Trusted Development release qualification blocked)',
     graphicalTests: sandbox ? 'unavailable' : 'unknown',
     packages: sandbox ? 'approval required; network unavailable; no host fallback' : 'normal permission policy' };
 }

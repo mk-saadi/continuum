@@ -22,6 +22,8 @@
 		     transparent, so without this the first paint would be blank.
 		     Removed by src/main.jsx once React has mounted. -->
 		<style>
+			:root { --ui-radius-surface: 14px; --ui-radius-round: 9999px; }
+			html[data-appearance="flat"] { --ui-radius-surface: 6px; }
 			#boot-loader {
 				position: fixed;
 				inset: 0;
@@ -31,7 +33,7 @@
 				align-items: center;
 				justify-content: center;
 				gap: 22px;
-				border-radius: 12px;
+				border-radius: var(--ui-radius-surface);
 				background: #1f1f1f;
 				color: #ececec;
 				font-family: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -56,7 +58,7 @@
 				position: relative;
 				width: 132px;
 				height: 2px;
-				border-radius: 999px;
+				border-radius: var(--ui-radius-round);
 				background: rgba(255, 255, 255, 0.1);
 				overflow: hidden;
 			}

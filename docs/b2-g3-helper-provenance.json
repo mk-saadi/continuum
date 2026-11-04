@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "redistributionQualified": false,
+  "artifact": {
+    "release": "https://github.com/rootless-containers/slirp4netns/releases/tag/v1.3.7",
+    "url": "https://github.com/rootless-containers/slirp4netns/releases/download/v1.3.7/slirp4netns-x86_64",
+    "commit": "7ea080d8635bc85487e232ec178701c6864151c9",
+    "sha256": "1c177694fe6bf299debfd8ff601a2ee3c4f7554d9983acdf1f854a6b34d53e70",
+    "checksumFileSha256": "5174aaf82bce5adedcda870504e147fff967d8b5e3e8fcd5664f1de7f7591fb3",
+    "architecture": "ELF64 little-endian x86-64",
+    "versionOutput": "slirp4netns version 1.3.7\ncommit: 7ea080d8635bc85487e232ec178701c6864151c9\nlibslirp: 4.9.7\nSLIRP_CONFIG_VERSION_MAX: 6\nlibseccomp: 2.5.3\n"
+  },
+  "buildInputs": {
+    "Dockerfile.artifact": {
+      "url": "https://raw.githubusercontent.com/rootless-containers/slirp4netns/v1.3.7/Dockerfile.artifact",
+      "sha256": "1f988c4cae473eca19a457447811efece51b2daa9620c0b1baa17a2c16f54692",
+      "size": 2534,
+      "content": "# Usage:\n# docker buildx build \\\n#   -o /tmp/slirpbuilds \\\n#   --build-arg SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) \\\n#   --platform=amd64,arm64,arm,s390x,ppc64le,riscv64 \\\n#   -f Dockerfile.artifact .\n\nARG LIBSLIRP_COMMIT=v4.9.7\n# TODO: update from jammy (22.04) to noble (24.04)\nARG UBUNTU_VERSION=jammy-20261020\nARG XX_VERSION=1.10.0@sha256:40fe21f44bb8cddf1eb1226db190d0a984118f62ee02a91b77d99448d28264a6\nARG REPRO_SOURCES_LIST_VERSION=v0.1.4\n\nFROM --platform=$BUILDPLATFORM tonistiigi/xx:${XX_VERSION} AS xx\n\nFROM --platform=$BUILDPLATFORM ubuntu:${UBUNTU_VERSION} AS build-libslirp\nARG REPRO_SOURCES_LIST_VERSION\nADD --chmod=0755 \\\n  https://raw.githubusercontent.com/reproducible-containers/repro-sources-list.sh/${REPRO_SOURCES_LIST_VERSION}/repro-sources-list.sh \\\n  /usr/local/bin/repro-sources-list.sh\nENV DEBIAN_FRONTEND=noninteractive\nRUN \\\n  --mount=type=cache,target=/var/cache/apt,sharing=locked \\\n  --mount=type=cache,target=/var/lib/apt,sharing=locked \\\n  repro-sources-list.sh && \\\n  apt-get update && \\\n  apt-get install -y apt-utils automake autotools-dev file make git ninja-build meson\n# Set SOURCE_DATE_EPOCH after running repro-sources-list.sh, for cache efficiency\nARG SOURCE_DATE_EPOCH\nRUN git clone https://gitlab.freedesktop.org/slirp/libslirp.git /libslirp\nWORKDIR /libslirp\nARG LIBSLIRP_COMMIT\nRUN  git pull && git checkout ${LIBSLIRP_COMMIT}\nCOPY --from=xx / /\nARG TARGETPLATFORM\n# xx-apt-get cannot be used, as it clobbers /etc/apt/sources.list created by repro-sources-list.sh\nRUN \\\n  --mount=type=cache,target=/var/cache/apt,sharing=locked \\\n  --mount=type=cache,target=/var/lib/apt,sharing=locked \\\n  darch=\"$(xx-info debian-arch)\" && \\\n  dpkg --add-architecture ${darch} && \\\n  apt-get update && \\\n  gcc=\"gcc\" && \\\n  if xx-info is-cross; then gcc=\"gcc-$(xx-info triple)\"; fi; \\\n  apt-get install -y \"${gcc}\" \"libglib2.0-dev:${darch}\" \"libcap-dev:${darch}\" \"libseccomp-dev:${darch}\"\nCOPY Dockerfile.artifact.d/meson-cross /meson-cross\nRUN meson_setup_flags=\"--default-library=both\" ; \\\n if xx-info is-cross; then meson_setup_flags=\"${meson_setup_flags} --cross-file=/meson-cross/$(xx-info) -Dprefix=/usr/local/$(xx-info)\"; fi ; \\\n meson setup ${meson_setup_flags} build && ninja -C build install\n\nFROM build-libslirp AS build\nCOPY . /src\nWORKDIR /src\nRUN ./autogen.sh && \\\n  ./configure LDFLAGS=\"-static\" --host=$(xx-info) && \\\n  make && \\\n  $(xx-info)-strip slirp4netns && \\\n  xx-verify --static slirp4netns && \\\n  cp -a slirp4netns /\n\nFROM scratch\nCOPY --from=build /slirp4netns /slirp4netns\n"
+    },
+    "configure.ac": {
+      "url": "https://raw.githubusercontent.com/rootless-containers/slirp4netns/v1.3.7/configure.ac",
+      "sha256": "30bb47edb17b4e61724617338b9cbbe654fc78c96b8f67583a938ffd8a52816a",
+      "size": 1054,
+      "content": "AC_PREREQ([2.69])\nAC_INIT([slirp4netns], [1.3.7], [https://github.com/rootless-containers/slirp4netns/issues])\nAC_CONFIG_SRCDIR([main.c])\nAC_CONFIG_HEADERS([config.h])\n\nAC_PROG_CC\nAC_PROG_RANLIB\n\nAM_INIT_AUTOMAKE([1.11.2 foreign subdir-objects])\nAM_PROG_AR\n\nAC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/ioctl.h sys/mount.h sys/socket.h sys/timeb.h unistd.h getopt.h])\n\nAC_CHECK_HEADER_STDBOOL\nAC_C_INLINE\nAC_TYPE_INT16_T\nAC_TYPE_INT32_T\nAC_TYPE_INT64_T\nAC_TYPE_INT8_T\nAC_TYPE_PID_T\nAC_TYPE_SIZE_T\nAC_TYPE_SSIZE_T\nAC_TYPE_UINT16_T\nAC_TYPE_UINT32_T\nAC_TYPE_UINT64_T\nAC_TYPE_UINT8_T\n\nAC_FUNC_ALLOCA\nAC_FUNC_STRTOD\nAC_FUNC_FORK\nAC_FUNC_MALLOC\nAC_FUNC_REALLOC\nAC_CHECK_FUNCS([atexit clock_gettime dup2 getopt_long memmove memset mkdir regcomp rmdir socket strcasecmp strchr strdup strerror strstr strtol strtoul])\n\nPKG_CHECK_MODULES(GLIB, glib-2.0)\nPKG_CHECK_MODULES(SLIRP, slirp >= 4.1.0)\nPKG_CHECK_MODULES(LIBCAP, libcap)\nPKG_CHECK_MODULES(LIBSECCOMP, libseccomp)\n\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n"
+    }
+  },
+  "inventoryStatus": "incomplete; direct build dependencies identified; exact static closure not established",
+  "identifiedComponents": [
+    {
+      "name": "slirp4netns",
+      "version": "1.3.7",
+      "licenseStatus": "upstream GPL-2.0-or-later identified in prior handoff; exact notices and source bundle not supplied"
+    },
+    {
+      "name": "libslirp",
+      "version": "4.9.7",
+      "licenseStatus": "per-file notices/source inventory required"
+    },
+    {
+      "name": "libseccomp",
+      "version": "2.5.3",
+      "licenseStatus": "exact Ubuntu source package and notices required"
+    },
+    {
+      "name": "GLib",
+      "version": null,
+      "licenseStatus": "direct pkg-config dependency; exact static objects and source package not established"
+    },
+    {
+      "name": "libcap",
+      "version": null,
+      "licenseStatus": "direct pkg-config dependency; exact static objects and notices not established"
+    },
+    {
+      "name": "glibc and compiler/static transitive libraries",
+      "version": null,
+      "licenseStatus": "exact static link map, source package versions and per-component obligations unresolved"
+    }
+  ],
+  "releaseBlockers": [
+    "Exact static-link component inventory, required license texts and copyright notices are incomplete.",
+    "Exact-build corresponding sources/build materials or a legally reviewed compliant distribution mechanism are absent.",
+    "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership."
+  ],
+  "licenseInspection": {
+    "slirp4netnsCopying": {
+      "url": "https://raw.githubusercontent.com/rootless-containers/slirp4netns/v1.3.7/COPYING",
+      "sha256": "58db3cfabf8ec806bc060e54ab5466a31de4a3ae80fe4a8aa02fb6b1c053c93f",
+      "licenseText": "GNU GPL version 2",
+      "bundledForRedistribution": false
+    },
+    "libseccomp": {
+      "url": "https://github.com/seccomp/libseccomp",
+      "projectLicense": "LGPL-2.1",
+      "exactBuildNoticesVerified": false
+    },
+    "GLib": {
+      "url": "https://gnome.pages.gitlab.gnome.org/gtk/glib/",
+      "projectLicense": "LGPL-2.1-or-later",
+      "exactBuildVersionVerified": false
+    }
+  }
+}

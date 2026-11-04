@@ -661,7 +661,7 @@ export default function RightSidebar({
 				<div className="flex items-center gap-2">
 					<span
 						aria-hidden="true"
-						className={`size-2 shrink-0 rounded-full ${STATUS_DOT[activity.status] ?? STATUS_DOT.idle}`}
+						className={`size-2 shrink-0 ui-radius-round ${STATUS_DOT[activity.status] ?? STATUS_DOT.idle}`}
 					/>
 					<h3 className="text-xs font-semibold">{activity.statusLabel}</h3>
 					{runDuration && (
@@ -816,7 +816,7 @@ export default function RightSidebar({
 								</span>
 								<span
 									role="status"
-									className={`shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 mt-2! ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
+									className={`shrink-0 ui-radius-round border border-[var(--border)] px-2 py-0.5 mt-2! ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
 								>
 									{available ? "Available" : "Unavailable"}
 								</span>

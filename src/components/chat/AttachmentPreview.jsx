@@ -41,7 +41,7 @@ function AttachmentCard({ attachment }) {
 			title={`${name}\n${attachment?.file_path ?? ""}\nClick to open`}
 			aria-label={`Open attachment ${name}`}
 			onClick={open}
-			className="w-36 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-[var(--attachment-border)] bg-[var(--surface-raised)] text-left transition-colors hover:border-[var(--edit-border)]"
+			className="w-36 shrink-0 cursor-pointer overflow-hidden ui-radius-control border border-[var(--attachment-border)] bg-[var(--surface-raised)] text-left transition-colors hover:border-[var(--edit-border)]"
 		>
 			<span className="flex h-24 w-full items-center justify-center overflow-hidden bg-black/25">
 				{kind === "image" && src && !failed ? (
@@ -64,7 +64,7 @@ function AttachmentCard({ attachment }) {
 						/>
 						<span
 							aria-hidden="true"
-							className="absolute flex size-8 items-center justify-center rounded-full bg-black/60 text-white"
+							className="absolute flex size-8 items-center justify-center ui-radius-round bg-black/60 text-white"
 						>
 							<FiFilm size={15} />
 						</span>

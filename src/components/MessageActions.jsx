@@ -49,7 +49,7 @@ export default function MessageActions({
 	const navigate = (offset) =>
 		replyVersions ? onSelectReplyVariant(message, versionIndex + offset) : onSelectPromptVersion(offset);
 	const buttonClass =
-		"inline-flex items-center cursor-pointer gap-1 rounded p-1 hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
+		"inline-flex items-center cursor-pointer gap-1 ui-radius-control p-1 hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
 
 	return (
 		<div

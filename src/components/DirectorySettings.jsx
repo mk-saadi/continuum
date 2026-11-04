@@ -73,7 +73,7 @@ export default function DirectorySettings() {
 					title={title}
 				>
 					<p
-						className={`${aero ? "aero-inset" : "rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]"} break-all px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]`}
+						className={`${aero ? "aero-inset" : "ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)]"} break-all px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]`}
 					>
 						{config?.[key] || "Loading…"}
 					</p>
@@ -153,7 +153,7 @@ export default function DirectorySettings() {
 			<dialog
 				ref={overlay}
 				onCancel={(event) => event.preventDefault()}
-				className="fixed inset-0 m-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/70"
+				className="fixed inset-0 m-auto ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/70"
 			>
 				<div
 					role="status"
@@ -162,7 +162,7 @@ export default function DirectorySettings() {
 				>
 					<span
 						aria-hidden="true"
-						className="size-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent"
+						className="size-5 animate-spin ui-radius-round border-2 border-[var(--accent)] border-t-transparent"
 					/>
 					Migrating app data. Do not close the application...
 				</div>

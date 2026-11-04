@@ -114,7 +114,7 @@ export default function BackgroundSettings() {
 			description="Personalize the app with a static image behind the interface. Surfaces stay readable: only background colors turn translucent, never text or icons."
 		>
 			{hasImage ? (
-				<div className="overflow-hidden rounded-lg border border-[var(--border)]">
+				<div className="overflow-hidden ui-radius-control border border-[var(--border)]">
 					<img
 						src={previewUrl}
 						alt="Background preview"
@@ -126,7 +126,7 @@ export default function BackgroundSettings() {
 				settings.imagePath && (
 					<p
 						role="status"
-						className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+						className="ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-[11px] leading-relaxed text-[var(--text-secondary)]"
 					>
 						The saved image file is missing or unreadable. Choose a new one below; the
 						interface stays solid until then.

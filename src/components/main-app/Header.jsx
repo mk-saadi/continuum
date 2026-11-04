@@ -125,7 +125,7 @@ export default function Header({
 					aria-haspopup="dialog"
 				>
 					<span
-						className={`size-2 shrink-0 rounded-full ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
+						className={`size-2 shrink-0 ui-radius-round ${engineRunning ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
 					/>
 					<span className="truncate">{modelName || "Select Model"}</span>
 					{!isCloud && !engineRunning && modelName && (

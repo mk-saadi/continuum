@@ -10,12 +10,12 @@ export const SettingsMaterialContext = createContext(false);
 // shadow, 12px semibold titles and 11px muted body copy.
 
 export const settingsCard =
-	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]";
+	"ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]";
 
 // Native inputs/selects/textarea share the same frame as FormControls so a
 // hand-written field still matches a TextField/SelectField sitting next to it.
 export const settingsField =
-	"min-h-8 w-full rounded-xl border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+	"min-h-8 w-full ui-radius-surface border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const settingsLabel = "mb-1 block text-xs font-semibold text-[var(--text-primary)]";
 
@@ -24,11 +24,11 @@ const buttonBase =
 
 const buttonVariants = {
 	primary:
-		"rounded-xl bg-[var(--accent)] px-3 py-2 font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]",
+		"ui-radius-surface bg-[var(--accent)] px-3 py-2 font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]",
 	secondary:
-		"rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 font-medium transition-colors hover:bg-[var(--surface-hover)]",
+		"ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 font-medium transition-colors hover:bg-[var(--surface-hover)]",
 	ghost:
-		"rounded-lg px-2.5 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+		"ui-radius-control px-2.5 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
 };
 
 export function SettingsCard({
@@ -106,7 +106,7 @@ export function SettingsIconButton({ label, icon: Icon, size = 16, className = "
 		<button
 			type="button"
 			aria-label={label}
-			className={`${aero ? "aero-orb aero-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
+			className={`${aero ? "aero-orb aero-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
 			{...props}
 		>
 			{Icon ? <Icon size={size} aria-hidden="true" /> : null}
@@ -145,7 +145,7 @@ export function SettingsEmpty({ children, className = "" }) {
 	const aero = useContext(SettingsMaterialContext);
 	return (
 		<p
-			className={`${aero ? "aero-empty aero-fill" : "rounded-lg border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
+			className={`${aero ? "aero-empty aero-fill" : "ui-radius-control border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
 		>
 			{children}
 		</p>
@@ -168,7 +168,7 @@ export function SettingsCheckRow({
 	return (
 		<label
 			htmlFor={id}
-			className={`group flex cursor-pointer items-start gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--surface-hover)] ${
+			className={`group flex cursor-pointer items-start gap-3 ui-radius-control px-2 py-1.5 transition-colors hover:bg-[var(--surface-hover)] ${
 				disabled ? "cursor-not-allowed opacity-50" : ""
 			} ${className}`}
 		>
@@ -181,7 +181,7 @@ export function SettingsCheckRow({
 			/>
 			<span
 				aria-hidden="true"
-				className={aero ? "aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
+				className={aero ? "aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center ui-radius-small border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
 			>
 				<LuCheck
 					size={12}
@@ -206,7 +206,7 @@ export function SettingsStatus({ active, pulse = false, children, className = ""
 		<span className={`inline-flex min-w-0 items-center gap-2 text-[11px] ${className}`}>
 			<span
 				aria-hidden="true"
-				className={`size-2 shrink-0 rounded-full ${
+				className={`size-2 shrink-0 ui-radius-round ${
 					active ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"
 				} ${active && pulse ? "animate-pulse" : ""}`}
 			/>

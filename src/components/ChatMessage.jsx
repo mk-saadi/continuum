@@ -98,14 +98,14 @@ function CodeBlock({ code, language }) {
 		}
 	}
 	return (
-		<div className="my-3 min-w-0 overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] text-[var(--code-text)]">
+		<div className="my-3 min-w-0 overflow-hidden ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)] text-[var(--code-text)]">
 			<div className="flex items-center justify-between border-b border-[var(--code-border)] px-3 py-1.5 text-[11px] text-[var(--code-muted)]">
 				<span>{language || "text"}</span>
 				<button
 					type="button"
 					onClick={copy}
 					aria-label="Copy code"
-					className="flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-[var(--code-text)] hover:bg-[var(--code-button-hover)]"
+					className="flex cursor-pointer items-center gap-1 ui-radius-control px-2 py-1 text-[var(--code-text)] hover:bg-[var(--code-button-hover)]"
 				>
 					{copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
 					<span>{copied ? "Copied" : "Copy"}</span>
@@ -139,7 +139,7 @@ function ChartCodeBlock({ code }) {
 		return (
 			<div
 				role="alert"
-				className="my-3 rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-muted)]"
+				className="my-3 ui-radius-control border border-[var(--code-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-muted)]"
 			>
 				Unable to render chart: invalid JSON schema
 			</div>
@@ -169,7 +169,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 				controls
 				preload="metadata"
 				aria-label={alt || "Video"}
-				className="max-w-full rounded-lg my-2 max-h-[400px]"
+				className="max-w-full ui-radius-control my-2 max-h-[400px]"
 				onError={() => setFailedSource(source)}
 			>
 				{children}
@@ -182,7 +182,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 				controls
 				preload="metadata"
 				aria-label={alt || "Video"}
-				className="max-w-full rounded-lg my-2 max-h-[400px]"
+				className="max-w-full ui-radius-control my-2 max-h-[400px]"
 			>
 				{children}
 			</video>
@@ -193,7 +193,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 			src={source}
 			alt={alt}
 			loading="lazy"
-			className="max-w-full rounded-lg my-2 max-h-[500px] object-contain"
+			className="max-w-full ui-radius-control my-2 max-h-[500px] object-contain"
 			onError={() => setFailedSource(source)}
 		/>
 	);
@@ -273,7 +273,7 @@ function makeComponents(isStreaming) {
 		return (
 			<code
 				{...props}
-				className={`${className || ""} rounded bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
+				className={`${className || ""} ui-radius-control bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
 			>
 				{withColorSwatches(children)}
 			</code>
@@ -577,7 +577,7 @@ function AskUserRecord({ step, request, live }) {
 	return (
 		<div
 			aria-label="Agent question record"
-			className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
+			className="ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
 		>
 			<p className="mb-1 font-medium">{question}</p>
 			{options.length > 0 && <p className="text-[var(--text-muted)]">Options: {options.join(" · ")}</p>}
@@ -605,7 +605,7 @@ function SkillProposalRecord({ step }) {
 	return (
 		<div
 			aria-label="Skill proposal record"
-			className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
+			className="ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)] p-3 text-xs"
 		>
 			<p>
 				Proposed skill: <strong>{proposal.name}</strong>
@@ -648,7 +648,7 @@ function AskUserCard({ step, request, onAnswer }) {
 	return (
 		<section
 			aria-label="Agent question"
-			className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+			className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
 		>
 			<p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
 				Agent needs your input
@@ -746,7 +746,7 @@ function SkillProposalCard({ step, projectId }) {
 	}
 	return (
 		<div
-			className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+			className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
 			role="group"
 			aria-label="Skill proposal"
 		>
@@ -756,7 +756,7 @@ function SkillProposalCard({ step, projectId }) {
 			<p className="mt-2 text-[var(--text-muted)]">{proposal.description}</p>
 			<details className="mt-3">
 				<summary className="cursor-pointer">Preview instructions</summary>
-				<pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--input)] p-3 text-xs">
+				<pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap ui-radius-control bg-[var(--input)] p-3 text-xs">
 					{proposal.instructions}
 				</pre>
 			</details>
@@ -835,7 +835,7 @@ export function MessageContextStatus({ message, inline = false }) {
 					<span
 						aria-label={`Summarized. ${explanation}`}
 						tabIndex={0}
-						className="cursor-help rounded border border-[var(--subtle-border)] px-1.5 py-0.5"
+						className="cursor-help ui-radius-control border border-[var(--subtle-border)] px-1.5 py-0.5"
 					>
 						[⚡ Summarized]
 					</span>
@@ -966,7 +966,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 						placement="top"
 						delay={350}
 					>
-						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help">
+						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help">
 							<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
 							Multi-turn tool loop
 						</span>
@@ -977,7 +977,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 						placement="top"
 						delay={350}
 					>
-						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)] cursor-help">
+						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)] cursor-help">
 							<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
 							Single turn
 						</span>
@@ -1018,10 +1018,10 @@ export function SubAgentBadge({ step }) {
 	return (
 		<details
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
-			className="mb-2 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] text-xs"
+			className="mb-2 ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)] text-xs"
 			aria-label="Sub-agent delegation"
 		>
-			<summary className="cursor-pointer rounded-lg px-3 py-2 text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+			<summary className="cursor-pointer ui-radius-control px-3 py-2 text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
 				<span aria-live="polite">
 					[<RiRobot2Line /> Sub-Agent Delegated: {label}]
 				</span>
@@ -1113,7 +1113,7 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 		<details
 			open={expanded}
 			onToggle={(event) => setExpanded(event.currentTarget.open)}
-			className="group/thinking mb-3 text-xs text-[var(--text-muted)] bg-white/5 py-1 rounded-md"
+			className="group/thinking mb-3 text-xs text-[var(--text-muted)] bg-white/5 py-1 ui-radius-control"
 		>
 			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 py-1 tabular-nums hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 				<FiChevronDown

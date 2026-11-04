@@ -16,6 +16,7 @@ function createContext(sessionId, permissionMode, runId = null) {
   if (!sessionId) return null;
   const mode = require('./toolPermissions').effectiveMode(permissionMode, require('./toolPermissions').sessionProject(sessionId));
   const previous = sessions.get(sessionId);
+  if (previous && previous.mode !== mode) void require('./networkExecution').service.invalidateSession(sessionId);
   sessions.delete(sessionId); sessions.set(sessionId, { mode, revision: ++policyRevision,
     persistentRevision: previous?.mode === mode ? previous.persistentRevision : policyRevision });
   // Bounded live policy cache; eviction revokes old contexts instead of retaining a grant.
@@ -30,10 +31,12 @@ async function setMode(sessionId, mode) {
   if (!require('../lib/permissionModes.json').modes.includes(mode)) throw new Error('Invalid permission mode.');
   const project = p.sessionProject(sessionId);
   const previous = sessions.get(sessionId);
+  const invalidateNetwork = previous?.mode !== p.effectiveMode(mode, project);
   if (previous) { const nextMode = p.effectiveMode(mode, project);
     if (previous.mode !== nextMode) previous.persistentRevision = ++policyRevision;
     previous.mode = nextMode; previous.revision = ++policyRevision; }
   else sessions.set(sessionId, { mode: p.effectiveMode(mode, project), revision: ++policyRevision, persistentRevision: policyRevision });
+  if (invalidateNetwork) await require('./networkExecution').service.invalidateSession(sessionId);
   while (sessions.size > 256) sessions.delete(sessions.keys().next().value);
   const context = Object.freeze({ sessionId, get permissionMode() { return currentMode(sessionId, mode); } });
   if (project?.root_path) {
@@ -81,11 +84,12 @@ function forTool(sessionId, fallback) {
 }
 function invalidateRules(sessionIds) {
   for (const id of sessionIds) {
+    void require('./networkExecution').service.invalidateSession(id);
     const state = sessions.get(id);
     if (state) { state.revision = ++policyRevision; state.persistentRevision = policyRevision; }
     else inactiveRevisions.set(id, ++policyRevision);
   }
 }
-function forget(sessionId) { sessions.delete(sessionId); inactiveRevisions.delete(sessionId); require('./rememberedToolRules').forget(sessionId); }
+function forget(sessionId) { void require('./networkExecution').service.invalidateSession(sessionId); sessions.delete(sessionId); inactiveRevisions.delete(sessionId); require('./rememberedToolRules').forget(sessionId); }
 function isTrusted(context) { return context != null && trusted.has(context); }
 module.exports = { persistentRevision, invalidateRules, revision, childMode, eligible, createContext, forTool, currentMode, setMode, authorizeChild, childContext, forgetChild, setChildMode, forget, isTrusted };

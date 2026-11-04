@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { LuChevronDown, LuChevronUp, LuX } from "react-icons/lu";
 
 const barButton =
-	"flex size-7 cursor-pointer items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
+	"flex size-7 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
 
 // Browser-style in-chat find bar. Floating top-right of the chat column;
 // all colors come from the active theme, no hard-coded values.
@@ -27,7 +27,7 @@ export default function ChatFindBar({
 		<div
 			role="search"
 			aria-label="Find in chat"
-			className="absolute top-2 right-4 z-[60] flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 shadow-[0_8px_30px_var(--window-shadow)]"
+			className="absolute top-2 right-4 z-[60] flex items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 shadow-[0_8px_30px_var(--window-shadow)]"
 		>
 			<input
 				ref={inputRef}
@@ -46,7 +46,7 @@ export default function ChatFindBar({
 						onClose?.();
 					}
 				}}
-				className="w-44 rounded-lg border border-[var(--control-border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+				className="w-44 ui-radius-control border border-[var(--control-border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
 			/>
 			<span
 				aria-live="polite"

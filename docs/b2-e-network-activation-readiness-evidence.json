@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-03",
+  "activationEligible": false,
+  "hostAddressRaceResolved": false,
+  "packagedResourcesAdded": [],
+  "packagedAcceptance": "not performed",
+  "policySha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+  "deterministicPolicyGroupsPassed": 4,
+  "nodeSummary": "1..84\n# tests 84\n# suites 0\n# pass 84\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 11851.566572\n",
+  "realOwnerOutput": "test_01_before_after_public_dns_and_representations (__main__.OwnerTests.test_01_before_after_public_dns_and_representations) ... ok\ntest_02_guest_local_redirect_and_dns_changes (__main__.OwnerTests.test_02_guest_local_redirect_and_dns_changes) ... ok\ntest_03_hostile_commands_authority_and_w7 (__main__.OwnerTests.test_03_hostile_commands_authority_and_w7) ... ok\ntest_04_lifecycle (__main__.OwnerTests.test_04_lifecycle) ... ok\ntest_05_parent_death_and_failed_policy_setup (__main__.OwnerTests.test_05_parent_death_and_failed_policy_setup) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 14.087s\n\nOK\nB2C_EVIDENCE {\"cross_namespace_entry\": \"peer host namespace handle inaccessible inside fresh PID/proc sandbox\", \"cross_session_workspace\": \"denied before launch\", \"dns\": true, \"external_ipv6\": \"all denied, including ULA/link-local/gateway; counters increment\", \"guest_local_http\": 200, \"helper_hardening\": \"mount sandbox, no_new_privs, seccomp mode 2; no NET_ADMIN\", \"helper_startup_failure\": \"injected crash; no ready owner or host fallback\", \"host_loopback\": \"positive host control; separate guest loopback; alias nft rejection\", \"hostile_filter_route_interface_child_userns\": \"EPERM\", \"lifecycle\": [\"repeated_start_stop\", \"expiry\", \"helper_crash\", \"lost_exit_fd\", \"owner_control_EOF\", \"revocation\", \"session_cancel\", \"shutdown\", \"output_limit\", \"failed_start\"], \"mapped_integer_hex_forms\": \"rejected by nft actual-destination counters\", \"namespace_fds_and_owning_userns\": \"unavailable to guest\", \"parent_termination\": \"owner control EOF and helper exit-FD HUP stop both children\", \"policy_startup_failure\": \"no transport started; namespace torn down\", \"private_host\": {\"after\": \"nft rejection with counter increment\", \"before\": 200, \"positive_control\": 200}, \"public_https\": 200, \"raw_packet_bypass\": \"EPERM for AF_PACKET and raw IP\", \"redirect_and_dns_change\": \"private second destination rejected; counters increment\", \"special_ipv4_and_gateway\": \"rejected before egress; counters increment\", \"w7\": \"exposed socket rejected; masked internal socket preserved\"}\n",
+  "build": "npm run build passed; existing chunk-size warning",
+  "checks": [
+    "git diff --check",
+    "node --check src/main/networkDependencies.js",
+    "node --check tests/b2eDependencies.test.cjs",
+    "Python ast.parse changed Python files",
+    "policy JSON parsing"
+  ]
+}

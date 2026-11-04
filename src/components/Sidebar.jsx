@@ -106,7 +106,7 @@ export default function Sidebar({
 		>
 			<div className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 pt-3 pb-2">
 				<button
-					className="aero-list-item project-nav-link w-full cursor-pointer rounded-lg"
+					className="aero-list-item project-nav-link w-full cursor-pointer ui-radius-control"
 					onClick={onChat}
 					aria-current={view === "chat" ? "page" : undefined}
 				>
@@ -114,7 +114,7 @@ export default function Sidebar({
 					<span>Back to Chat</span>
 				</button>
 				<button
-					className="aero-list-item project-nav-link w-full cursor-pointer rounded-lg"
+					className="aero-list-item project-nav-link w-full cursor-pointer ui-radius-control"
 					onClick={onProjects}
 					aria-current={view === "projects" ? "page" : undefined}
 				>

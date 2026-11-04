@@ -62,7 +62,7 @@ function QuestionPanel({ request, onAnswer }) {
     }
   }
   return (
-    <div aria-label="Agent question" className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
+    <div aria-label="Agent question" className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Agent needs your input</p>
       <p className="font-medium">{request.question}</p>
       {options.length > 0 && (
@@ -128,14 +128,14 @@ function SkillApprovalPanel({ step, projectId, onDecision }) {
     onDecision?.(step.id, 'declined');
   }
   return (
-    <div role="group" aria-label="Skill proposal approval" className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
+    <div role="group" aria-label="Skill proposal approval" className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
       <p>
         The AI agent suggests saving this workflow as a new Skill: <strong>{proposal.name}</strong>
       </p>
       <p className="mt-1 text-[var(--text-muted)]">{proposal.description}</p>
       <details className="mt-2">
         <summary className="cursor-pointer">Preview instructions</summary>
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--input)] p-3 text-xs">
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap ui-radius-control bg-[var(--input)] p-3 text-xs">
           {proposal.instructions}
         </pre>
       </details>

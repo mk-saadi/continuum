@@ -26,7 +26,7 @@ const neutralBadge = {
 };
 
 const serverCard =
-	"overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_2px_4px_var(--window-shadow)]";
+	"overflow-hidden ui-radius-surface border border-[var(--border)] bg-[var(--surface)] shadow-[0_2px_4px_var(--window-shadow)]";
 
 export default function IntegrationsTab({
 	config,
@@ -51,7 +51,7 @@ export default function IntegrationsTab({
 					className={
 						aero
 							? "aero-empty p-6 text-center"
-							: "rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center"
+							: "ui-radius-surface border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center"
 					}
 				>
 					<p className="text-[11px] text-[var(--text-secondary)]">No MCP servers configured.</p>
@@ -138,11 +138,11 @@ export default function IntegrationsTab({
 								className={
 									aero
 										? "aero-control aero-fill relative mt-0.5 h-5 w-9 shrink-0"
-										: `relative mt-0.5 h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)] ring-1 ring-inset ring-[var(--control-border)]"}`
+										: `relative mt-0.5 h-5 w-9 shrink-0 cursor-pointer ui-radius-round transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)] ring-1 ring-inset ring-[var(--control-border)]"}`
 								}
 							>
 								<span
-									className={`${aero ? "aero-orb aero-fill" : "rounded-full bg-[var(--surface-raised)] shadow-sm"} absolute top-0.5 left-0.5 h-3 w-3 transition-transform ${enabled ? "translate-x-4" : ""}`}
+									className={`${aero ? "aero-orb aero-fill" : "ui-radius-round bg-[var(--surface-raised)] shadow-sm"} absolute top-0.5 left-0.5 h-3 w-3 transition-transform ${enabled ? "translate-x-4" : ""}`}
 								/>
 							</button>
 
@@ -153,7 +153,7 @@ export default function IntegrationsTab({
 								<span
 									role="status"
 									style={badgeStyle}
-									className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] break-words"
+									className="mt-1 inline-flex max-w-full items-center gap-1.5 ui-radius-round px-2 py-0.5 text-[10px] break-words"
 								>
 									{badgeContent}
 								</span>
@@ -169,7 +169,7 @@ export default function IntegrationsTab({
 						</div>
 
 						<details className="group border-t border-[var(--border)]">
-							<summary className="flex cursor-pointer list-none items-center px-3 py-2 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] [&::-webkit-details-marker]:hidden rounded-b-xl!">
+							<summary className="flex cursor-pointer list-none items-center px-3 py-2 text-[11px] font-medium transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] [&::-webkit-details-marker]:hidden ui-radius-bottom!">
 								<FaAngleRight className="mr-2 transition-transform duration-200 group-open:rotate-90" />
 								Tools <span className="ml-1 text-[var(--text-muted)]">{tools.length}</span>
 							</summary>

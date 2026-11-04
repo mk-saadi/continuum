@@ -14,7 +14,7 @@ import {
 } from "./settings/SettingsSection";
 
 const fileButtonClass =
-	"inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+	"inline-flex cursor-pointer items-center justify-center gap-1.5 ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
 
 export default function AvatarSettings({ avatars, models }) {
 	const aero = useContext(SettingsMaterialContext);
@@ -89,7 +89,7 @@ export default function AvatarSettings({ avatars, models }) {
 							accept=".png,.jpg,.jpeg"
 							disabled={busyId !== null}
 							onChange={(event) => upload(event)}
-							className={aero ? "peer sr-only" : "block w-full cursor-pointer text-[11px] text-[var(--text-secondary)] file:mr-2 file:cursor-pointer file:rounded-lg file:border file:border-[var(--border)] file:bg-[var(--bg-secondary)] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[var(--text-primary)] hover:file:bg-[var(--surface-hover)]"}
+							className={aero ? "peer sr-only" : "block w-full cursor-pointer text-[11px] text-[var(--text-secondary)] file:mr-2 file:cursor-pointer file:ui-radius-control file:border file:border-[var(--border)] file:bg-[var(--bg-secondary)] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[var(--text-primary)] hover:file:bg-[var(--surface-hover)]"}
 						/>
 						{aero && <label htmlFor={globalInputId} className={`aero-control aero-fill inline-flex items-center px-2.5 py-1.5 text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)] ${busyId !== null ? "pointer-events-none opacity-40" : ""}`}>Choose image…</label>}
 					</div>
@@ -107,7 +107,7 @@ export default function AvatarSettings({ avatars, models }) {
 							<img
 								src={settings.globalAvatarUrl}
 								alt="Global avatar preview"
-								className="size-12 rounded-lg object-cover"
+								className="size-12 ui-radius-control object-cover"
 							/>
 							<SettingsButton
 								disabled={busyId !== null}
@@ -169,15 +169,15 @@ function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, dis
 	const aero = useContext(SettingsMaterialContext);
 	const inputId = useId();
 	return (
-		<li data-model-profile={model.modelPath || model.path || model.id} className={`${aero ? "aero-panel aero-fill" : "rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]"} flex flex-wrap items-center gap-3 p-4`}>
+		<li data-model-profile={model.modelPath || model.path || model.id} className={`${aero ? "aero-panel aero-fill" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} flex flex-wrap items-center gap-3 p-4`}>
 			{avatarUrl ? (
 				<img
 					src={avatarUrl}
 					alt={`${model.name || model.id} avatar preview`}
-					className="size-10 shrink-0 rounded-lg object-cover"
+					className="size-10 shrink-0 ui-radius-control object-cover"
 				/>
 			) : (
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">
+				<div className="flex size-10 shrink-0 items-center justify-center ui-radius-control border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">
 					None
 				</div>
 			)}

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { FiCheck, FiCopy, FiExternalLink } from "react-icons/fi";
 import { clampMenuPosition } from "../../lib/textSelection.mjs";
 
-const itemClass = "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs whitespace-nowrap text-[var(--text-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
+const itemClass = "flex cursor-pointer items-center gap-1.5 ui-radius-control px-2.5 py-1.5 text-xs whitespace-nowrap text-[var(--text-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
 
 export default function LinkPopover({ href, children, ...props }) {
  const [position, setPosition] = useState(null);
@@ -48,7 +48,7 @@ export default function LinkPopover({ href, children, ...props }) {
    {children}
   </a>
   {position && createPortal(<div ref={panel} role="dialog" aria-label="Link actions"
-   className="fixed z-[80] flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
+   className="fixed z-[80] flex flex-wrap items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
    style={{ left: position.left, top: position.top, maxWidth: "calc(100vw - 16px)" }}>
    <button ref={copyButton} type="button" className={itemClass} onClick={async () => {
     try { await navigator.clipboard.writeText(href); setCopied(true); setError(""); }

@@ -155,7 +155,7 @@ ${isCasualChat ? '' : `Complete authorized work. Create a multi-step plan only w
 [SAFETY RULES]
 Never bulk-delete using loose filters, especially $ne/!= on optional fields. Test cleanup must use exact IDs created by the test. Before any other delete or bulk write, preview/count the affected records, report the scope, and obtain explicit human confirmation.
 [OUTPUT]
-For numerical charts use a valid json:chart fence with type (bar/line/area/pie), title, xAxisKey, series [{key,label,color}], and data rows containing matching keys and numeric values. Use soft pastel hues. Explain processes with prose, lists, or tables. Do not run commands to generate chart images. Propose reusable skills only after relevant complex work; proposals require user registration.`;
+For numerical charts use a valid json:chart fence with type (bar/line/area/pie/scatter/radar/candlestick), title, xAxisKey, series [{key,label,color}], and data rows containing matching keys and numeric values (candlestick ignores series; each row needs numeric open, high, low, close). Use soft pastel hues. Explain processes with prose, lists, or tables. Do not run commands to generate chart images. Propose reusable skills only after relevant complex work; proposals require user registration.`;
 
     if (projectId && delegationAvailable) prompt.content += `\n\n${SUB_AGENT_PROTOCOL}`;
 	return { ...prompt, memoryContext: true };

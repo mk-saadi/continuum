@@ -27,7 +27,7 @@ const GROUPS = [
 const TABS = [
 	{ id: "overview", label: "Overview" },
 	{ id: "tokens", label: "Token usage" },
-	{ id: "models", label: "Models" },
+	{ id: "models", label: "Cloud models" },
 	{ id: "providers", label: "Providers" },
 	{ id: "conversations", label: "Conversations" },
 	{ id: "pricing", label: "Pricing history" },
@@ -188,7 +188,7 @@ function TokenAnalytics({ summary, local }) {
 function Overview({ dashboard, onSelectModel }) {
 	const summary = dashboard.summary;
 	const localOnly = summary.billableTurns === 0 && summary.turns > 0;
-	const topModels = dashboard.models.slice(0, 5);
+	const topModels = dashboard.models.filter((row) => row.providerFamily !== "local").slice(0, 5);
 	return (
 		<div className="space-y-3">
 			<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -269,7 +269,7 @@ function Overview({ dashboard, onSelectModel }) {
 										onClick={() => onSelectModel(row)}
 										className="flex w-full flex-wrap items-center justify-between gap-2 py-2 text-left text-xs hover:text-[var(--accent)]"
 									>
-										<span className="font-medium">{row.modelId ?? "Unknown model"}</span>
+										<span className="font-medium">{row.modelLabel ?? row.modelId ?? "Unknown model"}</span>
 										<span className="text-[10px] text-[var(--text-muted)]">
 											{row.providerLabel}
 										</span>
@@ -576,7 +576,7 @@ export default function UsageCostsDashboard() {
 						className="space-y-3"
 					>
 						<ModelSpendingTable
-							models={dashboard.models}
+							models={dashboard.models.filter((row) => row.providerFamily !== "local")}
 							selectedKey={selectedModel?.key ?? null}
 							onSelect={setSelectedModel}
 						/>

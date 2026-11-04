@@ -11,15 +11,26 @@ import {
 	LineChart,
 	Pie,
 	PieChart,
+	PolarAngleAxis,
+	PolarGrid,
+	PolarRadiusAxis,
+	Radar,
+	RadarChart,
 	ResponsiveContainer,
+	Scatter,
+	ScatterChart,
 	Tooltip,
 	XAxis,
 	YAxis,
+	useYAxisScale,
 } from "recharts";
 
 const PASTEL_COLORS = ["#A8D8EA", "#F7C6D0", "#C9E4C5", "#FDE2B3", "#D4C5F0", "#B8E0D8"];
 const COLORS = PASTEL_COLORS;
-const CHART_TYPES = new Set(["bar", "line", "area", "pie"]);
+const CHART_TYPES = new Set(["bar", "line", "area", "pie", "scatter", "radar", "candlestick"]);
+
+const CANDLE_UP = "#22c55e";
+const CANDLE_DOWN = "#ef4444";
 
 function darken(hex, factor = 0.62) {
 	const match = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -33,24 +44,31 @@ function darken(hex, factor = 0.62) {
 
 function prepareChart(input) {
 	if (!input || typeof input !== "object" || Array.isArray(input) || !CHART_TYPES.has(input.type)) {
-		throw new Error("Chart type must be bar, line, area, or pie.");
+		throw new Error("Chart type must be bar, line, area, pie, scatter, radar, or candlestick.");
 	}
+	const isCandle = input.type === "candlestick";
 	if (
 		!Array.isArray(input.data) ||
 		!input.data.length ||
-		input.data.length > 200 ||
-		!Array.isArray(input.series) ||
-		!input.series.length ||
-		input.series.length > 8
+		input.data.length > 500 ||
+		(!isCandle && (!Array.isArray(input.series) || !input.series.length || input.series.length > 8))
 	) {
-		throw new Error("Charts need 1–200 data rows and 1–8 series.");
+		throw new Error(
+			isCandle ? "Candlestick charts need 2–500 data rows." : "Charts need 1–200 data rows and 1–8 series."
+		);
+	}
+	if (isCandle && input.data.length < 2) {
+		throw new Error("Candlestick charts need at least 2 data rows.");
+	}
+	if (input.type === "radar" && input.data.length < 3) {
+		throw new Error("Radar charts need at least 3 data rows.");
 	}
 	const xAxisKey = input.xAxisKey;
 	if (typeof xAxisKey !== "string" || !xAxisKey || xAxisKey.length > 100) {
 		throw new Error("Charts need a valid xAxisKey.");
 	}
 	const keys = new Set([xAxisKey]);
-	const series = input.series.map((item, index) => {
+	const series = isCandle ? [] : input.series.map((item, index) => {
 		if (!item || typeof item.key !== "string" || !item.key || item.key.length > 100) {
 			throw new Error("Each chart series needs a valid key.");
 		}
@@ -67,9 +85,42 @@ function prepareChart(input) {
 					: COLORS[index % COLORS.length],
 		};
 	});
-	const rows = input.data.map((row) => {
+	const rows = input.data.map((row, index) => {
 		if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error("Invalid chart data row.");
-		const result = { [xAxisKey]: String(row[xAxisKey] ?? "").slice(0, 100) };
+		if (isCandle) {
+			const result = { [xAxisKey]: String(row[xAxisKey] ?? `Row ${index + 1}`) };
+			for (const field of ["open", "high", "low", "close"]) {
+				const value = row[field];
+				if (typeof value !== "number" || !Number.isFinite(value)) {
+					throw new Error(`Candlestick chart requires numeric ${field} values.`);
+				}
+				result[field] = value;
+			}
+			if (
+				result.low > result.open ||
+				result.open > result.high ||
+				result.low > result.close ||
+				result.close > result.high
+			) {
+				console.warn(`Candlestick row ${index + 1} violates low ≤ open/close ≤ high; rendering anyway.`);
+			}
+			return result;
+		}
+		const xValue = row[xAxisKey];
+		if (input.type === "scatter" && (typeof xValue !== "number" || !Number.isFinite(xValue))) {
+			throw new Error("Scatter chart xAxisKey values must be numeric.");
+		}
+		const result = {
+			[xAxisKey]: input.type === "scatter" ? xValue : String(xValue ?? "").slice(0, 100),
+		};
+		if (input.type === "radar") {
+			for (const item of series) {
+				const value = row[item.key];
+				if (typeof value !== "number" || !Number.isFinite(value)) {
+					throw new Error("Radar chart values must be numeric.");
+				}
+			}
+		}
 		for (const item of series) {
 			const value = row[item.key];
 			result[item.key] = typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -95,11 +146,11 @@ function SeriesLegend({ items, hidden, toggle }) {
 					onClick={() => toggle(item.key)}
 					aria-pressed={!hidden.has(item.key)}
 					aria-label={`${hidden.has(item.key) ? "Show" : "Hide"} ${item.label}`}
-					className={`inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-[var(--text-primary)] hover:bg-[var(--surface-hover)] ${hidden.has(item.key) ? "opacity-45" : ""}`}
+					className={`inline-flex cursor-pointer items-center gap-1.5 ui-radius-control px-1.5 py-1 text-[var(--text-primary)] hover:bg-[var(--surface-hover)] ${hidden.has(item.key) ? "opacity-45" : ""}`}
 				>
 					<span
 						aria-hidden="true"
-						className="h-2.5 w-2.5 rounded-sm"
+						className="h-2.5 w-2.5 ui-radius-small"
 						style={{ backgroundColor: item.color }}
 					/>
 					{item.label}
@@ -122,7 +173,7 @@ export default function InteractiveChart({ data }) {
 		return (
 			<div
 				role="alert"
-				className="my-3 rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-muted)]"
+				className="my-3 ui-radius-control border border-[var(--code-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-muted)]"
 			>
 				Unable to render chart: invalid JSON schema
 			</div>
@@ -148,7 +199,7 @@ export default function InteractiveChart({ data }) {
 			contentStyle={{
 				background: "var(--surface-raised)",
 				border: "1px solid var(--border)",
-				borderRadius: 8,
+				borderRadius: "var(--ui-radius-control)",
 				color: "var(--text-primary)",
 			}}
 			labelStyle={{ color: "var(--text-primary)" }}
@@ -175,8 +226,47 @@ export default function InteractiveChart({ data }) {
 	const pieRows = rows.filter((_, index) => !hidden.has(String(index)));
 	const common = { data: rows, margin: { top: 8, right: 16, bottom: 4, left: 0 } };
 
+	const candleShape = (props) => {
+		const yScale = useYAxisScale();
+		if (!yScale) return null;
+		const { payload } = props;
+		const color = payload.close >= payload.open ? CANDLE_UP : CANDLE_DOWN;
+		const toPx = (value) => {
+			const pixel = yScale(value);
+			return Number.isFinite(pixel) ? pixel : null;
+		};
+		const lowPx = toPx(payload.low);
+		const highPx = toPx(payload.high);
+		const lowBodyPx = toPx(Math.min(payload.open, payload.close));
+		const highBodyPx = toPx(Math.max(payload.open, payload.close));
+		if (lowPx == null || highPx == null || lowBodyPx == null || highBodyPx == null) return null;
+		const centerX = props.x + props.width / 2;
+		return (
+			<g>
+				<line x1={centerX} y1={highPx} x2={centerX} y2={lowPx} stroke={color} strokeWidth={1.5} />
+				<rect
+					x={props.x}
+					y={Math.min(lowBodyPx, highBodyPx)}
+					width={props.width}
+					height={Math.max(1, Math.abs(highBodyPx - lowBodyPx))}
+					fill={color}
+				/>
+			</g>
+		);
+	};
 	let chart;
-	if (type === "pie") {
+	if (type === "candlestick") {
+		const candleSize = Math.max(3, Math.floor(400 / rows.length));
+		chart = (
+			<BarChart {...common}>
+				{grid}
+				<XAxis dataKey={xAxisKey} {...axis} />
+				<YAxis domain={["auto", "auto"]} {...axis} />
+				{tooltip}
+				<Bar dataKey="close" barSize={candleSize} shape={candleShape} isAnimationActive={false} />
+			</BarChart>
+		);
+	} else if (type === "pie") {
 		chart = (
 			<PieChart>
 				<Pie
@@ -255,7 +345,47 @@ export default function InteractiveChart({ data }) {
 			</>
 		);
 		chart =
-			type === "bar" ? (
+			type === "scatter" ? (
+				<ScatterChart {...common}>
+					{grid}
+					<XAxis type="number" dataKey={xAxisKey} {...axis} />
+					<YAxis {...axis} />
+					{tooltip}
+					<Legend content={() => legend(series)} />
+					{series.map((item) => (
+						<Scatter
+							key={item.key}
+							dataKey={item.key}
+							name={item.label}
+							fill={item.color}
+							stroke={darken(item.color)}
+							fillOpacity={0.75}
+							isAnimationActive
+							animationDuration={300}
+						/>
+					))}
+				</ScatterChart>
+			) : type === "radar" ? (
+				<RadarChart {...common} cx="50%" cy="50%" outerRadius="70%">
+					<PolarGrid stroke="var(--border)" />
+					<PolarAngleAxis dataKey={xAxisKey} {...axis} />
+					<PolarRadiusAxis {...axis} />
+					{tooltip}
+					<Legend content={() => legend(series)} />
+					{series.map((item) => (
+						<Radar
+							key={item.key}
+							dataKey={item.key}
+							name={item.label}
+							stroke={item.color}
+							fill={item.color}
+							fillOpacity={0.3}
+							isAnimationActive
+							animationDuration={300}
+						/>
+					))}
+				</RadarChart>
+			) : type === "bar" ? (
 				<BarChart {...common}>{children}</BarChart>
 			) : type === "line" ? (
 				<LineChart {...common}>{children}</LineChart>
@@ -265,7 +395,7 @@ export default function InteractiveChart({ data }) {
 	}
 
 	return (
-		<figure className="my-3 min-w-0 rounded-lg border border-[var(--code-border)] bg-[var(--surface)] p-3 text-[var(--text-primary)]">
+		<figure className="my-3 min-w-0 ui-radius-control border border-[var(--code-border)] bg-[var(--surface)] p-3 text-[var(--text-primary)]">
 			{title && <figcaption className="mb-2 text-center text-sm font-medium">{title}</figcaption>}
 			<div
 				role="group"
@@ -282,3 +412,5 @@ export default function InteractiveChart({ data }) {
 		</figure>
 	);
 }
+
+export { prepareChart };

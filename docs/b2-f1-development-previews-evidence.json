@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "developmentEnabled": false,
+  "readinessGate": "unchanged; unavailable",
+  "b2fSourceTreeAccepted": true,
+  "packagedAcceptance": "unverified; AppImage/deb not built or exercised",
+  "fullRegressionRun": {
+    "tests": 149,
+    "pass": 149,
+    "fail": 0,
+    "skipped": 0
+  },
+  "finalIsolatedRunAfterResourcePreflightRefinement": {
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "skipped": 0
+  },
+  "electronRenderer": "passed: gated actions, creation error/retry, Open, verified credential-free Copy, existing lifetime/Stop",
+  "b2cSecurityGroups": 5,
+  "b2ePolicyGroups": 4,
+  "resourceProfileGroups": 2,
+  "isolatedVite": {
+    "transport": "real B2-D native dispatcher + network owner + B1 + authenticated inherited pipes",
+    "browser": "installed Chrome /opt/google/chrome/chrome, disposable profile",
+    "http": 200,
+    "assets": true,
+    "computedCss": true,
+    "javascript": true,
+    "hmrWebSocket": true,
+    "hmrUpdateFrameAndChangedDom": true,
+    "survivesRunCompletion": true,
+    "laterAuthorizedRunInspection": true,
+    "stopClosesPreviewAndOwner": true,
+    "observedScopeMemoryCurrentBytes": 64368640,
+    "observedScopeMemoryPeakBytes": 67715072,
+    "measurement": "startup snapshot before browser load, not maximum over entire session"
+  },
+  "resourcePolicy": {
+    "mechanism": "disposable systemd user scope; effective cgroup v2 limits verified before owner creation",
+    "memoryMaxBytes": 1073741824,
+    "swapMaxBytes": 0,
+    "tasksMax": 128,
+    "cpuQuotaCores": 2,
+    "groupOOM": true,
+    "commandVirtualAddressSpaceBytes": 70368744177664,
+    "helperVirtualAddressSpaceBytes": 536870912,
+    "perProcessCpuSeconds": 60,
+    "fileDescriptors": 256,
+    "existingOwnerSlots": 2,
+    "existingCommandsPerOwner": 4,
+    "existingB1LifetimeMaxMs": 1800000,
+    "unsupportedHosts": "fail closed; no RSS-unbounded fallback",
+    "resourceAbuse": "1.5 GiB allocation failed inside 1 GiB scope; captured helpers no longer live; fd exhaustion verified"
+  },
+  "faults": [
+    "concurrent creation",
+    "injected EADDRINUSE cleanup and retry",
+    "invalid/expired/replayed credentials",
+    "cross-session/workspace and command-port rejection",
+    "port reassignment",
+    "WebSocket authorization",
+    "malformed HTTP and oversized headers",
+    "oversized request body",
+    "8 MiB slow-consumer stream",
+    "client disconnect",
+    "40 bounded connection attempts; 32-connection ceiling",
+    "gateway shutdown during paused response",
+    "actual worker/transport/namespace-owner SIGKILL",
+    "B1 expiry",
+    "permission/rule revocation",
+    "session termination/deletion",
+    "service shutdown",
+    "actual disposable application-parent SIGKILL",
+    "aggregate group OOM without live captured helpers"
+  ],
+  "build": "passed; existing large-chunk warning",
+  "syntaxAndJson": "passed; see report",
+  "skippedTests": [],
+  "intermediateFailures": [
+    "Unsupported MemoryOOMGroup systemd property; replaced with scoped kernel control after verifying numerical budgets",
+    "Original fixture edited before HMR connection readiness; explicit readiness wait added",
+    "Scope inspection raced correct release after foreground command; fixture now retains explicit B1 lease",
+    "Existing B1 stdout timing assertion failed under parallel load; final serial suite passed",
+    "Outer restricted socket test could not run; final socket/namespace tests ran outside outer restriction"
+  ],
+  "activationBlockers": [
+    "atomic host-owned public-address exclusion during interface changes",
+    "release-qualified address-policy review/security update process",
+    "complete pinned license/source-compliant resources",
+    "qualified Linux systemd/cgroup/Python/utility prerequisite matrix",
+    "actual AppImage/deb installation, security and lifecycle acceptance"
+  ],
+  "limitations": [
+    "Linux x86-64 development host only",
+    "renderer fixture and real backend/browser are separate acceptance layers",
+    "no sustained DoS qualification or exhaustive malformed-protocol fuzzing",
+    "scope budget excludes application and browser overhead"
+  ],
+  "logs": {
+    "full_regressions": "/tmp/b2f1-final-serial.log",
+    "final_isolated": "/tmp/b2f1-final-isolated.log",
+    "electron_renderer": "/tmp/b2f1-ui-final2.log",
+    "network_owner": "/tmp/b2f1-owner.log",
+    "policy": "/tmp/b2f1-policy.log",
+    "resource_profile": "/tmp/b2f1-resources.log",
+    "build": "/tmp/b2f1-build.log",
+    "vite_memory": "/tmp/b2f1-vite-budget.log",
+    "finalCleanupAndB2d": "/tmp/b2f1-cleanup-final.log",
+    "finalScratchAssertions": "/tmp/b2f1-scratch-final.log"
+  },
+  "finalCleanupAndB2d": {
+    "tests": 12,
+    "pass": 12,
+    "fail": 0,
+    "skipped": 0
+  },
+  "finalScratchAssertions": {
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "skipped": 0
+  },
+  "scratchCleanup": "Main owns a private scratch root, removed on worker exit/error/OOM. Worker removes it on inherited-control EOF. Final real fixtures assert no retained scratch roots, including parent SIGKILL."
+}

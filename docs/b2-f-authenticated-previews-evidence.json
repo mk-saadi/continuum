@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "developmentEnabled": false,
+  "b2fFullyAccepted": false,
+  "initialTrackedModifications": [
+    "main.js",
+    "src/main/backgroundCommands.js",
+    "src/main/configStore.js",
+    "src/main/foregroundCommand.js",
+    "src/main/lspExecutionContext.js",
+    "src/main/sandboxFilesystem.js",
+    "src/main/tools/agentTools.js"
+  ],
+  "combinedNodeSummary": "1..138\n# tests 138\n# suites 0\n# pass 137\n# fail 0\n# cancelled 0\n# skipped 1\n# todo 0\n# duration_ms 11790.810454\n",
+  "finalHttpBrowserSummary": "1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1288.746657\n",
+  "realOwnerGroups": 5,
+  "policyGroups": 4,
+  "isolatedBrowser": "Chrome reached real B1 guest marker via authenticated pipe-only gateway",
+  "viteBrowser": "real Chrome HMR accepted against controlled HOST transport, not isolated Vite",
+  "isolatedVite": "FAILED: existing RLIMIT_AS 512 MiB blocks Node code reservation/WebAssembly memory; optional B2F_VITE acceptance target skipped in combined run",
+  "ui": "existing card unchanged; live preview IPC/controls not implemented",
+  "packagedAcceptance": "not performed",
+  "build": "passed; existing chunk-size warning",
+  "readinessGate": "unchanged",
+  "resourceLimits": "existing owner resource limits unchanged",
+  "logs": {
+    "combined": "/tmp/b2f-final.log",
+    "focusedHttpBrowser": "/tmp/b2f-http-final.log",
+    "owner": "/tmp/b2f-owner.log",
+    "build": "/tmp/b2f-build.log"
+  },
+  "checks": [
+    "git diff --check",
+    "JavaScript syntax",
+    "Python AST parsing",
+    "JSON parsing"
+  ],
+  "remaining": [
+    "contained Vite runtime and full isolated HMR acceptance",
+    "gated existing-card integration",
+    "B2-E host-address race and distribution qualification",
+    "broader load/fault/abrupt-parent preview tests"
+  ]
+}

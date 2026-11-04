@@ -24,7 +24,7 @@ export default function ModelCapabilitiesModal({ entry, overrides, onClose, onSa
         <p className="mt-3 text-[11px] text-[var(--text-muted)]">Overrides do not add support to the model or engine. A compatible projector may still be required.{!entry.local && entry.model.apiType === 'anthropic' ? ' The Anthropic adapter supports image input, but not native audio/video input.' : ''}</p>
         {error && <p role="alert" className="mt-3 text-xs text-[var(--error)]">{error}</p>}
       </div>
-      <footer className="aero-footer flex items-center justify-between gap-2 px-5 py-3"><button type="button" disabled={busy} onClick={() => setDraft({})} className="aero-list-item rounded-lg px-2 py-2 text-xs text-[var(--text-secondary)]">Reset to automatic</button><button disabled={busy} className="aero-primary aero-fill px-3 py-2 text-xs font-semibold">{busy ? 'Saving…' : 'Save capabilities'}</button></footer>
+      <footer className="aero-footer flex items-center justify-between gap-2 px-5 py-3"><button type="button" disabled={busy} onClick={() => setDraft({})} className="aero-list-item ui-radius-control px-2 py-2 text-xs text-[var(--text-secondary)]">Reset to automatic</button><button disabled={busy} className="aero-primary aero-fill px-3 py-2 text-xs font-semibold">{busy ? 'Saving…' : 'Save capabilities'}</button></footer>
     </form>
   </dialog>;
 }

@@ -105,7 +105,7 @@ export default function LocalApiSettings() {
 					{busy ? "Saving…" : "Save port"}
 				</SettingsButton>
 			</form>
-			<div className={`${aero ? "aero-inset" : "rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]"} mt-3 space-y-2 p-3`}>
+			<div className={`${aero ? "aero-inset" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} mt-3 space-y-2 p-3`}>
 				<SettingsStatus active={Boolean(activePort)}>
 					{activePort ? "Current engine endpoint" : "Configured endpoint (engine stopped)"}
 				</SettingsStatus>

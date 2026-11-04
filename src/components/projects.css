@@ -32,7 +32,7 @@
 	gap: 6px;
 	min-height: 28px;
 	padding: 6px 10px;
-	border-radius: 8px;
+	border-radius: var(--ui-radius-control);
 	border: 1px solid var(--border);
 	cursor: pointer;
 	font-size: 11px;
@@ -46,7 +46,7 @@
 	background: var(--surface-hover);
 }
 .project-button.primary {
-	border-radius: 12px;
+	border-radius: var(--ui-radius-surface);
 	font-size: 12px;
 	font-weight: 600;
 	background: var(--accent);
@@ -78,7 +78,7 @@
 	border: 1px solid var(--border);
 	background: var(--input);
 	color: var(--text-primary);
-	border-radius: 9px;
+	border-radius: var(--ui-radius-control);
 	padding: 11px 12px;
 	font-size: 12px;
 }
@@ -213,7 +213,7 @@ textarea.project-input {
 	overflow: auto;
 	background: var(--input);
 	padding: 12px;
-	border-radius: 8px;
+	border-radius: var(--ui-radius-control);
 }
 .project-drop {
 	padding: 20px 12px;
@@ -259,7 +259,7 @@ textarea.project-input {
 }
 .project-nav button {
 	min-height: 36px;
-	border-radius: 7px;
+	border-radius: var(--ui-radius-control);
 	cursor: pointer;
 }
 .project-nav button:disabled {
@@ -369,7 +369,7 @@ textarea.project-input {
 	height: 36px;
 	flex-shrink: 0;
 	place-items: center;
-	border-radius: 12px;
+	border-radius: var(--ui-radius-surface);
 }
 
 
@@ -379,7 +379,7 @@ textarea.project-input {
 }
 .projects-page .project-path {
 	border: 1px solid color-mix(in srgb, #000000 34%, transparent);
-	border-radius: 7px;
+	border-radius: var(--ui-radius-control);
 	background:
 		linear-gradient(180deg, color-mix(in srgb, #000000 12%, transparent) 0%, transparent 60%),
 		color-mix(in srgb, var(--input) 52%, transparent);

@@ -90,3 +90,17 @@ test('successful engine:chat preserves explicit persistent command and UI stop t
   assert.equal(stopped.status, 'cancelled'); assert.equal(stopped.reason, 'user_stopped');
   await assert.rejects(fetch(url));
 });
+
+test('preview IPC uses the shared trusted-sender gate and production readiness cannot be bypassed', async () => {
+  dispose?.();
+  dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => true });
+  const event = { sender: { isDestroyed: () => false } };
+  const args = { sessionId: 'background-ipc', commandId: 'guessed', guestPort: 5173, permissionMode: 'full_access', readiness: true };
+  assert.deepEqual(await handlers.get('session:preview-status')(event, args), { available: false, status: 'unavailable' });
+  for (const channel of ['session:create-preview', 'session:open-preview', 'session:close-preview'])
+    await assert.rejects(handlers.get(channel)(event, args), /WORKSPACE_NETWORK_NOT_READY/);
+  dispose();
+  dispose = require('../src/main/ipcHandlers').registerIpcHandlers({ isTrustedSender: () => false });
+  for (const channel of ['session:preview-status', 'session:create-preview', 'session:open-preview', 'session:close-preview'])
+    await assert.rejects(handlers.get(channel)(event, args), /Unauthorized IPC sender/);
+});

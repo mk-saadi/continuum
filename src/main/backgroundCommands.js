@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const events = new EventEmitter();
 const records = new Map();
 const runs = new Map();
+const previewAuthorities = new WeakMap();
 const ACTIVE_LIMIT = 4, RUN_LIMIT = 2, HISTORY_LIMIT = 200, RUN_HISTORY_LIMIT = 32;
 const active = r => r.status === 'starting' || r.status === 'running';
 let closing = false;
@@ -87,12 +88,15 @@ function start(context, command, timeoutMs, operation, validate, persistent = fa
   const began = performance.now();
   r.promise = Promise.resolve().then(() => operation(controller.signal, update => {
     if (!active(r)) return;
-    Object.assign(r, update); save(r);
+    const { previewAuthority, ...publicUpdate } = update;
+    if (previewAuthority) previewAuthorities.set(r, previewAuthority);
+    Object.assign(r, publicUpdate); save(r);
   }, guardedValidate)).then(result => {
     Object.assign(r, result);
   }, error => {
     Object.assign(r, { status: controller.signal.aborted ? 'cancelled' : 'spawn_failed', success: false, exitCode: null, stderr: String(error.message).slice(0, 500) });
   }).finally(() => {
+    previewAuthorities.delete(r);
     clearInterval(revocation); owner.signal?.removeEventListener('abort', r.onAbort);
     if (active(r)) Object.assign(r, { status: 'spawn_failed', success: false, exitCode: null });
     r.reason ??= r.status === 'timed_out' ? 'lifetime_expired' : r.status === 'agent_deadline_exceeded' ? 'agent_deadline_exceeded' : r.status === 'completed' ? 'process_completed' : 'unexpected_process_exit';
@@ -159,6 +163,7 @@ async function closeRun(context, { normalCompletion = false } = {}) {
 }
 async function terminateSession(sessionId, reason = 'session_terminated') {
   await Promise.allSettled([...records.values()].filter(r => r.session_id === sessionId && active(r)).map(r => { cancel(r, reason); return r.promise; }));
+  await require('./networkExecution').service.invalidateSession(sessionId);
 }
 async function forgetSession(sessionId) {
   await terminateSession(sessionId, 'session_deleted');
@@ -178,3 +183,25 @@ async function stopForSession(id, sessionId, workspace) {
 }
 function workspaceBusy(workspace) { return [...records.values()].some(r => active(r) && r.workspace === workspace); }
 module.exports = { terminateSession, stopForSession, workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
+
+// Main-process-only capability resolution. Nothing here is registered as a
+// model operation. Trusted IPC may resolve it; never serialize the capability.
+function previewAuthority(commandId, context) {
+  const project = require('./toolPermissions').sessionProject(context?.sessionId);
+  if (!project?.root_path) throw new Error('Preview command authorization denied.');
+  const identity = require('./networkExecution').trustedIdentity(context, project.root_path);
+  const r = records.get(commandId);
+  const authority = r && previewAuthorities.get(r);
+  function validate() {
+    const current = require('./networkExecution').trustedIdentity(context, identity.workspace);
+    if (!r || records.get(commandId) !== r || !active(r) || r.controller?.signal.aborted ||
+        !r.survive_run_completion || r.session_id !== identity.sessionId || r.workspace !== identity.workspace ||
+        current.revision !== identity.revision || Date.now() >= Date.parse(r.expires_at) || !authority)
+      throw new Error('Preview command authorization denied.');
+    r.validate(); authority.validate();
+  }
+  validate();
+  return Object.freeze({ validate, connect: port => { validate(); return authority.connect(port); },
+    expiresAt: Date.parse(r.expires_at), signal: r.controller.signal });
+}
+module.exports.previewAuthority = previewAuthority;

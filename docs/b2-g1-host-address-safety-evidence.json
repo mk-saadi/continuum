@@ -1,0 +1,201 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "developmentEnabled": false,
+  "hostLocalExclusionVerified": false,
+  "outcome": "Current-backend counterexample and alternative architecture; no production fix claimed",
+  "initialGitStatus": [
+    " M main.js",
+    " M src/components/InteractiveChart.jsx",
+    " M src/components/chat/BackgroundCommandCard.jsx",
+    " M src/index.css",
+    " M src/main/backgroundCommands.js",
+    " M src/main/configStore.js",
+    " M src/main/executionCapabilities.js",
+    " M src/main/foregroundCommand.js",
+    " M src/main/ipcHandlers.js",
+    " M src/main/lspExecutionContext.js",
+    " M src/main/promptBuilder.js",
+    " M src/main/sandboxFilesystem.js",
+    " M src/main/tools/agentTools.js",
+    " M src/preload.js",
+    " M tests/backgroundCommandIpc.test.cjs",
+    " M tests/backgroundCommands.ui.cjs",
+    "?? docs/b2-a-rootless-networking-feasibility.md",
+    "?? docs/b2-c-network-owner-evidence.json",
+    "?? docs/b2-c-network-owner-report.md",
+    "?? docs/b2-d-production-network-integration-evidence.json",
+    "?? docs/b2-d-production-network-integration-report.md",
+    "?? docs/b2-e-network-activation-readiness-evidence.json",
+    "?? docs/b2-e-network-activation-readiness-report.md",
+    "?? docs/b2-f-authenticated-previews-evidence.json",
+    "?? docs/b2-f-authenticated-previews-report.md",
+    "?? docs/b2-f1-development-previews-evidence.json",
+    "?? docs/b2-f1-development-previews-report.md",
+    "?? docs/b2-networking-prerequisite-report.md",
+    "?? docs/investigations/b2-a/",
+    "?? src/main/developmentPreviews.js",
+    "?? src/main/experimental/",
+    "?? src/main/networkDependencies.js",
+    "?? src/main/networkExecution.js",
+    "?? src/main/networkExecutionWorker.py",
+    "?? src/main/networkLaunchProtocol.js",
+    "?? src/main/networkPreviewBridge.py",
+    "?? src/main/previewIpc.js",
+    "?? src/main/workspaceNetworkAddressPolicy.json",
+    "?? src/main/workspaceNetworkPolicy.js",
+    "?? tests/b2cNetworkOwner.test.py",
+    "?? tests/b2dNetworkExecution.test.cjs",
+    "?? tests/b2eDependencies.test.cjs",
+    "?? tests/b2ePolicy.test.py",
+    "?? tests/b2fGateway.test.cjs",
+    "?? tests/b2fPreviewIpc.test.cjs",
+    "?? tests/b2fPreviews.test.cjs",
+    "?? tests/b2fResources.test.py",
+    "?? tests/b2fViteBrowser.test.cjs",
+    "?? tests/chartTypes.render/",
+    "?? tests/helpers/previewWebSocket.cjs"
+  ],
+  "filesAdded": [
+    "tests/b2g1HostAddress.test.py",
+    "docs/b2-g1-host-address-safety-report.md",
+    "docs/b2-g1-host-address-safety-evidence.json"
+  ],
+  "productionFilesChangedByThisTask": [],
+  "helperSha256": "1c177694fe6bf299debfd8ff601a2ee3c4f7554d9983acdf1f854a6b34d53e70",
+  "results": {
+    "hostAddress": {
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    },
+    "node": {
+      "pass": 149,
+      "fail": 0,
+      "skip": 0
+    },
+    "owner": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "policy": {
+      "pass": 4,
+      "fail": 0,
+      "skip": 0
+    },
+    "resource": {
+      "pass": 2,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "hostAddressKernelEvidence": {
+    "churn": {
+      "cycles": 8,
+      "host_marker_each_assignment": true,
+      "local_route_without_address": "HOST"
+    },
+    "existing_tcp_observed": "ConnectionResetError",
+    "existing_udp": "same guest socket REMOTE -> HOST",
+    "initially_owned": "denied4 counter increased",
+    "local_delivery_hook": {
+      "denied_counter": 2,
+      "host_service_positive_control_after_guard_removal": "HOST",
+      "production_architecture_qualified": false
+    },
+    "monitor_failure": "closed; later launch denied",
+    "new_assignment": {
+      "after": "HOST",
+      "before": "REMOTE",
+      "real_netlink_queued": true,
+      "released_monitor": "host_network_changed",
+      "snapshot_counter_delta": 0
+    },
+    "preconnect_lookup": "uplink lookup -> assignment -> HOST"
+  },
+  "ownerKernelEvidence": {
+    "cross_namespace_entry": "peer host namespace handle inaccessible inside fresh PID/proc sandbox",
+    "cross_session_workspace": "denied before launch",
+    "dns": true,
+    "external_ipv6": "all denied, including ULA/link-local/gateway; counters increment",
+    "guest_local_http": 200,
+    "helper_hardening": "mount sandbox, no_new_privs, seccomp mode 2; no NET_ADMIN",
+    "helper_startup_failure": "injected crash; no ready owner or host fallback",
+    "host_loopback": "positive host control; separate guest loopback; alias nft rejection",
+    "hostile_filter_route_interface_child_userns": "EPERM",
+    "lifecycle": [
+      "repeated_start_stop",
+      "expiry",
+      "helper_crash",
+      "lost_exit_fd",
+      "owner_control_EOF",
+      "revocation",
+      "session_cancel",
+      "shutdown",
+      "output_limit",
+      "failed_start"
+    ],
+    "mapped_integer_hex_forms": "rejected by nft actual-destination counters",
+    "namespace_fds_and_owning_userns": "unavailable to guest",
+    "parent_termination": "owner control EOF and helper exit-FD HUP stop both children",
+    "policy_startup_failure": "no transport started; namespace torn down",
+    "private_host": {
+      "after": "nft rejection with counter increment",
+      "before": 200,
+      "positive_control": 200
+    },
+    "public_https": 200,
+    "raw_packet_bypass": "EPERM for AF_PACKET and raw IP",
+    "redirect_and_dns_change": "private second destination rejected; counters increment",
+    "special_ipv4_and_gateway": "rejected before egress; counters increment",
+    "w7": "exposed socket rejected; masked internal socket preserved"
+  },
+  "logs": {
+    "hostAddress": "/tmp/b2g1-host-address.log",
+    "node": "/tmp/b2g1-regressions.log",
+    "owner": "/tmp/b2g1-owner.log",
+    "policy": "/tmp/b2g1-policy.log",
+    "resource": "/tmp/b2g1-resources.log",
+    "build": "/tmp/b2g1-build.log"
+  },
+  "logSha256": {
+    "hostAddress": "bda1ca2fd68a8a3ec3fc9c17ccb45359db0d3b3f5cb78ad69f7dcca855db2b9f",
+    "node": "265decc72b83574b829cbf9403d9bb7ca8dfac5f5ba5c1d488875e10c3e8a513",
+    "owner": "c3628242ecf6664919f2b9d9ee142b713498a38b0de5e55c1d8dd23b2d2a14f6",
+    "policy": "0929a83a4666448ab970fc6561c604d1577f9743be0085ca68b401229feea620",
+    "resource": "02377d605ccaae3742954045481c530e5491368b47bd6c9188c3b94cef10dc4a",
+    "build": "85385a19a9838cf46a2d3e0002e9d8e623a65b0c40dbce221146937fbd056d4a"
+  },
+  "newSuiteOutput": "test_01_initially_owned_is_rejected_with_counter (__main__.inside.<locals>.HostAddressTests.test_01_initially_owned_is_rejected_with_counter) ... ok\ntest_02_new_assignment_exposes_host_before_real_monitor (__main__.inside.<locals>.HostAddressTests.test_02_new_assignment_exposes_host_before_real_monitor) ... ok\ntest_03_churn_and_route_replacement (__main__.inside.<locals>.HostAddressTests.test_03_churn_and_route_replacement) ... ok\ntest_04_assignment_between_check_and_connect (__main__.inside.<locals>.HostAddressTests.test_04_assignment_between_check_and_connect) ... ok\ntest_05_existing_udp_socket_reroutes_to_host (__main__.inside.<locals>.HostAddressTests.test_05_existing_udp_socket_reroutes_to_host) ... ok\ntest_06_local_delivery_boundary_positive_control (__main__.inside.<locals>.HostAddressTests.test_06_local_delivery_boundary_positive_control) ... ok\ntest_07_established_tcp_across_assignment (__main__.inside.<locals>.HostAddressTests.test_07_established_tcp_across_assignment) ... ok\ntest_08_real_monitor_descriptor_failure_closes_owner (__main__.inside.<locals>.HostAddressTests.test_08_real_monitor_descriptor_failure_closes_owner) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 7.523s\n\nOK\nB2G1_EVIDENCE {\"churn\": {\"cycles\": 8, \"host_marker_each_assignment\": true, \"local_route_without_address\": \"HOST\"}, \"existing_tcp_observed\": \"ConnectionResetError\", \"existing_udp\": \"same guest socket REMOTE -> HOST\", \"initially_owned\": \"denied4 counter increased\", \"local_delivery_hook\": {\"denied_counter\": 2, \"host_service_positive_control_after_guard_removal\": \"HOST\", \"production_architecture_qualified\": false}, \"monitor_failure\": \"closed; later launch denied\", \"new_assignment\": {\"after\": \"HOST\", \"before\": \"REMOTE\", \"real_netlink_queued\": true, \"released_monitor\": \"host_network_changed\", \"snapshot_counter_delta\": 0}, \"preconnect_lookup\": \"uplink lookup -> assignment -> HOST\"}\n",
+  "nodeSummary": "\n# tests 149\n# suites 0\n# pass 149\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 49879.773573\n",
+  "build": "passed; existing chunk-size warning",
+  "checks": {
+    "javascriptSyntaxFiles": 12,
+    "pythonAST": "passed",
+    "evidenceAndPolicyJSON": "passed",
+    "gitDiffCheck": "passed",
+    "newArtifactWhitespace": "passed"
+  },
+  "commands": [
+    "B2G1_HELPER=/tmp/continuum-b2-a-backend/slirp4netns python3 tests/b2g1HostAddress.test.py",
+    "B2C_HELPER=/tmp/continuum-b2-a-backend/slirp4netns PYTHONDONTWRITEBYTECODE=1 python3 tests/b2cNetworkOwner.test.py",
+    "B2D_HELPER=/tmp/continuum-b2-a-backend/slirp4netns B2F_HELPER=/tmp/continuum-b2-a-backend/slirp4netns B2F_VITE=1 B2F_BROWSER=1 B2F_BROWSER_EXECUTABLE=/opt/google/chrome/chrome node --test --test-concurrency=1 tests/b2dNetworkExecution.test.cjs tests/b2eDependencies.test.cjs tests/b2fGateway.test.cjs tests/b2fPreviewIpc.test.cjs tests/b2fPreviews.test.cjs tests/b2fViteBrowser.test.cjs tests/backgroundCommands.test.cjs tests/backgroundExecution.test.cjs tests/backgroundCommandIpc.test.cjs tests/sandboxFilesystem.test.cjs tests/sandboxGitRelay.test.cjs tests/permissionPolicy.test.cjs tests/permissionIsolationReliability.test.cjs tests/sandboxRuntimeSettings.test.cjs tests/w7SandboxSockets.test.cjs tests/casualToolAuthorization.test.cjs tests/w7CasualRecovery.test.cjs tests/toolApprovalPolicy.test.cjs tests/toolApprovalCharacterization.test.cjs",
+    "python3 tests/b2ePolicy.test.py",
+    "python3 tests/b2fResources.test.py",
+    "npm run build",
+    "git diff --check"
+  ],
+  "limitations": [
+    "Monitor scheduling deliberately held; real sockets/routing/netlink, not natural-window frequency measurement",
+    "Precisely synchronized SYN/handshake ownership race not tested",
+    "Broker/veth/NAT/hairpin/privileged deployment not implemented or qualified",
+    "No AppImage/deb acceptance; existing Electron renderer fixture not rerun",
+    "No high-rate network churn/load claim"
+  ],
+  "intermediateFindings": [
+    "Outer-restricted namespace probe denied netlink; approved out-of-sandbox disposable probe passed",
+    "New fixture UDP wildcard reply selected wrong source; corrected explicit fixture bind",
+    "Guest retry after fixture guard removal timed out; independent controlled host-service positive control used"
+  ]
+}

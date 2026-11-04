@@ -39,7 +39,7 @@ function CodeSection({ title, value }) {
   return (
     <section className="min-w-0 space-y-1.5" aria-label={title}>
       <h4 className="font-medium text-[var(--text-secondary)]">{title}</h4>
-      <div className="overflow-hidden rounded-md border border-[var(--code-border)] bg-[var(--code-bg)]">
+      <div className="overflow-hidden ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]">
         <SyntaxHighlighter language={value.language} style={codeTheme}
           customStyle={{ margin: 0, padding: '12px', background: 'transparent', fontSize: '12px', maxHeight: '320px', overflow: 'auto', fontFamily: 'var(--font-mono)' }}>
           {value.text}
@@ -75,7 +75,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
     return text.slice(0, 180).replace(/\s+/g, ' ') + (text.length > 180 ? '…' : '');
   };
   return (
-    <div aria-label="Tool executions" className="aero-chat-detail min-w-0 overflow-hidden rounded-lg text-xs">
+    <div aria-label="Tool executions" className="aero-chat-detail min-w-0 overflow-hidden ui-radius-control text-xs">
       <SavedToolRule rule={step.savedRule} />
       <button type="button" aria-expanded={expanded} aria-controls={detailsId}
         onClick={() => setUserExpanded(!expanded)}
@@ -86,7 +86,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
           {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>
-        {step.serverName && <span title={step.serverName} className="ml-auto max-w-[45%] truncate rounded border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span>}
+        {step.serverName && <span title={step.serverName} className="ml-auto max-w-[45%] truncate ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span>}
       </button>
       {!expanded && <div className="flex min-w-0 gap-3 px-3 pb-2 pl-9 text-[var(--text-muted)]">
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Arguments:</span> {preview(step.args)}</span>
@@ -95,7 +95,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
         {expanded && preparing && <section aria-label="Streaming arguments">
           <p className="mb-2 text-[var(--text-muted)]">Preparing {step.toolName}… · {(step.streamingArguments || '').length.toLocaleString()} characters</p>
-          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">{step.streamingArguments || 'Waiting for arguments…'}</pre>
+          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">{step.streamingArguments || 'Waiting for arguments…'}</pre>
         </section>}
         {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
           ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
@@ -108,7 +108,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
           <button
             type="button"
             onClick={() => setTranscriptOpen(true)}
-            className="cursor-pointer rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+            className="cursor-pointer ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
           >
             Show sub-agent activity
           </button>

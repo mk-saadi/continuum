@@ -1,0 +1,1127 @@
+{
+  "phase": "B2-G.6",
+  "date": "2026-11-04",
+  "timezone": "Asia/Dhaka",
+  "decision": {
+    "engineeringComplete": true,
+    "installedDebAccepted": true,
+    "productionEnabled": false,
+    "redistributionApproved": false,
+    "maintenanceOwnerAccepted": false,
+    "scope": "Exact NONRELEASE installed deb candidates and Ubuntu 24.04.5 guest configuration below; not a blanket distribution claim"
+  },
+  "initialWorkingTree": {
+    "status": " M main.js\n M src/components/InteractiveChart.jsx\n M src/components/chat/BackgroundCommandCard.jsx\n M src/components/main-app/MemorySettings.jsx\n M src/components/main-app/ModelSelectorModal.jsx\n M src/components/settings/TokenHistory.jsx\n M src/components/settings/usage/AttributionView.jsx\n M src/components/settings/usage/ModelDetailPanel.jsx\n M src/components/settings/usage/ModelSpendingTable.jsx\n M src/components/settings/usage/UsageCostsDashboard.jsx\n M src/components/settings/usage/usageDashboardFormat.mjs\n M src/index.css\n M src/main/backgroundCommands.js\n M src/main/configStore.js\n M src/main/executionCapabilities.js\n M src/main/foregroundCommand.js\n M src/main/ipcHandlers.js\n M src/main/lspExecutionContext.js\n M src/main/promptBuilder.js\n M src/main/sandboxFilesystem.js\n M src/main/spendingDashboard.js\n M src/main/tools/agentTools.js\n M src/preload.js\n M tests/backgroundCommandIpc.test.cjs\n M tests/backgroundCommands.ui.cjs\n M tests/cloudSpendingDashboard.ui.cjs\n M tests/sandboxFilesystem.test.cjs\n?? docs/b2-a-rootless-networking-feasibility.md\n?? docs/b2-c-network-owner-evidence.json\n?? docs/b2-c-network-owner-report.md\n?? docs/b2-d-production-network-integration-evidence.json\n?? docs/b2-d-production-network-integration-report.md\n?? docs/b2-e-network-activation-readiness-evidence.json\n?? docs/b2-e-network-activation-readiness-report.md\n?? docs/b2-f-authenticated-previews-evidence.json\n?? docs/b2-f-authenticated-previews-report.md\n?? docs/b2-f1-development-previews-evidence.json\n?? docs/b2-f1-development-previews-report.md\n?? docs/b2-g1-host-address-safety-evidence.json\n?? docs/b2-g1-host-address-safety-report.md\n?? docs/b2-g2-trusted-development-networking-evidence.json\n?? docs/b2-g2-trusted-development-networking-report.md\n?? docs/b2-g3-helper-provenance.json\n?? docs/b2-g3-production-networking-qualification-evidence.json\n?? docs/b2-g3-production-networking-qualification-report.md\n?? docs/b2-g4-helper-candidate.json\n?? docs/b2-g4-networking-release-completion-evidence.json\n?? docs/b2-g4-networking-release-completion-report.md\n?? docs/b2-g5-installed-runtime-release-signoff-evidence.json\n?? docs/b2-g5-installed-runtime-release-signoff-report.md\n?? docs/b2-g5-release-decision-checklist.md\n?? docs/b2-networking-prerequisite-report.md\n?? docs/investigations/b2-a/\n?? scripts/assemble-workspace-network.cjs\n?? scripts/audit-workspace-network.cjs\n?? scripts/collect-workspace-network-build.py\n?? scripts/qualify-workspace-network.cjs\n?? scripts/rebuild-workspace-network-helper.sh\n?? scripts/relink-workspace-network-helper.py\n?? scripts/workspace-network-staging.cjs\n?? src/components/WorkspaceNetworkSettings.jsx\n?? src/lib/modelDisplay.cjs\n?? src/lib/modelDisplay.mjs\n?? src/main/developmentPreviews.js\n?? src/main/experimental/\n?? src/main/networkDependencies.js\n?? src/main/networkExecution.js\n?? src/main/networkExecutionWorker.py\n?? src/main/networkLaunchProtocol.js\n?? src/main/networkPreviewBridge.py\n?? src/main/networkRuntimePrerequisites.js\n?? src/main/previewIpc.js\n?? src/main/workspaceNetworkAddressPolicy.json\n?? src/main/workspaceNetworkPolicy.js\n?? tests/b2cNetworkOwner.test.py\n?? tests/b2dNetworkExecution.test.cjs\n?? tests/b2eDependencies.test.cjs\n?? tests/b2ePolicy.test.py\n?? tests/b2fGateway.test.cjs\n?? tests/b2fPreviewIpc.test.cjs\n?? tests/b2fPreviews.test.cjs\n?? tests/b2fResources.test.py\n?? tests/b2fViteBrowser.test.cjs\n?? tests/b2g1HostAddress.test.py\n?? tests/b2g2Packaged.test.cjs\n?? tests/b2g2Settings.ui.cjs\n?? tests/b2g2Trust.test.cjs\n?? tests/b2g3Packaged.ui.cjs\n?? tests/b2g3Packaging.test.cjs\n?? tests/b2g3Runtime.test.cjs\n?? tests/b2g4Assembly.test.cjs\n?? tests/b2g4Packaged.ui.cjs\n?? tests/b2g5AppImage.ui.cjs\n?? tests/b2g5Lifecycle.ui.cjs\n?? tests/b2g5Qualification.test.cjs\n?? tests/b2g5QualificationBoundaries.ui.cjs\n?? tests/b2g5Workflow.ui.cjs\n?? tests/chartTypes.render/\n?? tests/helpers/b2g5NativeDialog.py\n?? tests/helpers/networkSafeStorage.cjs\n?? tests/helpers/previewWebSocket.cjs\n?? tests/modelDisplay.test.cjs\n",
+    "modifiedTracked": 27,
+    "untrackedEntries": 75,
+    "hashSnapshot": "/tmp/continuum-b2g6/initial-sha256.json"
+  },
+  "environment": {
+    "host": "Pop!_OS 24.04 x86-64",
+    "kernel": "6.17.9-76061709-generic",
+    "hostKvmAndTunPresent": true,
+    "sandboxKvmAndTunPresent": false,
+    "virtualizationExecutablesFound": [
+      "qemu-system-x86_64",
+      "qemu-img"
+    ],
+    "varLibMachines": "permission denied; contents unknown",
+    "guestInstalled": true,
+    "guestOs": "Ubuntu 24.04.5 LTS plus exact Pop!_OS bubblewrap package",
+    "guestKernel": "6.8.0-147-generic",
+    "guestUserSession": "systemd 255 running; delegated cpu/memory/pids; Xvfb/Openbox and real GNOME Secret Service",
+    "guest": {
+      "os": "Ubuntu 24.04.5 LTS amd64",
+      "kernel": "6.8.0-147-generic",
+      "machineId": "fac8fee1968c4a6f8ff61af47f8dc092",
+      "imageUrl": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+      "imageSha256": "04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94",
+      "qemu": "8.2.2; 4 vCPU, 6144 MiB, 32 GiB disposable overlay",
+      "user": "tester uid 1000; real SSH/PAM login; systemd user manager running; linger enabled",
+      "delegatedControllers": [
+        "cpu",
+        "memory",
+        "pids"
+      ],
+      "display": "Xvfb :99 with Openbox; GNOME Secret Service; GNOME session selection for encrypted Chromium storage",
+      "runtime": {
+        "python3": "3.12.3-0ubuntu2.1",
+        "bubblewrap": "0.11.0-2~1750183577~24.04~313c27a (Pop!_OS noble package)",
+        "utilLinux": "2.39.3-9ubuntu6.6",
+        "nftables": "1.0.9-1ubuntu0.1",
+        "iproute2": "6.1.0-1ubuntu6.4",
+        "systemd": "255.4-1ubuntu8.18",
+        "libpamSystemd": "255.4-1ubuntu8.18",
+        "chrome": "157.0.8103.38-1",
+        "node": "18.19.1",
+        "npm": "9.2.0",
+        "vite": "6.4.3",
+        "dependency": "is-number 7.0.0"
+      },
+      "guestOnlySysctl": {
+        "kernel.apparmor_restrict_unprivileged_userns": 0,
+        "file": "/etc/sysctl.d/99-b2g6-disposable-guest.conf",
+        "reason": "Enable required unprivileged user namespaces in this disposable Ubuntu guest; no host sysctl changed"
+      },
+      "network": "QEMU user-mode networking; only host 127.0.0.1:22266 forwarded to guest SSH; no host TAP/firewall configuration",
+      "shutdown": {
+        "guestGracefulPoweroff": true,
+        "qemuPid": 365831,
+        "qemuLive": false,
+        "sshForwardListeners": "",
+        "pidFileRemoved": true,
+        "guestDiskRetained": "/tmp/continuum-b2g6/authorized-provisioning/guest/disk.qcow2"
+      }
+    },
+    "initialAccessibleGuestImagesFound": [],
+    "hostSystemdUserStateAtDiscovery": "degraded"
+  },
+  "candidate": {
+    "path": "/tmp/continuum-b2g5/fixed-packages/Continuum-B2G5-NONRELEASE-1.0.0-amd64.deb",
+    "sha256": "5780b4081baa528c587d9d0d0f64d43399cca4b38d5c74c319cb310bb010af65",
+    "package": "continuum",
+    "version": "1.0.0",
+    "architecture": "amd64",
+    "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+    "reviewSha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+    "qualification": {
+      "kind": "B2G6-NONRELEASE-INSTALLED-DEB",
+      "productionQualified": false,
+      "sourceDebSha256": "5780b4081baa528c587d9d0d0f64d43399cca4b38d5c74c319cb310bb010af65",
+      "sourceAsarSha256": "fa266fd6508312e58cd48275a118ae2c11abac2b454e558d989ed26a4f51088e",
+      "guestMachineId": "fac8fee1968c4a6f8ff61af47f8dc092",
+      "root": "/home/tester/b2g6/qualification",
+      "profile": "/home/tester/b2g6/qualification/profile",
+      "childHome": "/home/tester/b2g6/qualification/home",
+      "installedResources": "/opt/Continuum/resources",
+      "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+      "reviewSha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+      "expiresAt": 1793831450719,
+      "qualificationAsarSha256": "e04a63401fdde308e628e4a1f2b70e618387bb869311abe896dcf9bcb7ea0001",
+      "artifact": "/tmp/continuum-b2g6/deb-qualification-accepted/Continuum-B2G6-NONRELEASE-QUALIFICATION-amd64.deb",
+      "debSha256": "375abebec1f902879eba1308f284c86335f22b9bab3d52c31e579195faea88f8"
+    }
+  },
+  "packageChecks": {
+    "resourceAudit": {
+      "root": "/tmp/continuum-b2g5/fixed-deb-extracted/opt/Continuum/resources/workspace-network",
+      "payloadIntegrity": true,
+      "reviewMaterialsIntegrity": true,
+      "productionQualified": false,
+      "checks": [
+        {
+          "file": "networkExecutionWorker.py",
+          "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "ok": true
+        },
+        {
+          "file": "networkPreviewBridge.py",
+          "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "ok": true
+        },
+        {
+          "file": "workspaceNetworkAddressPolicy.json",
+          "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "ok": true
+        },
+        {
+          "file": "experimental/network_owner.py",
+          "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "ok": true
+        },
+        {
+          "file": "x64/slirp4netns",
+          "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "ok": true
+        }
+      ],
+      "blockers": [
+        "Release review of exact-build corresponding sources, relink inputs and copyright notices is outstanding; materials have been assembled for review, not legally qualified.",
+        "No release/security maintainer has accepted helper vulnerability monitoring and repin ownership.",
+        "Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified."
+      ]
+    },
+    "hostPrerequisites": {
+      "versionsCompatible": true,
+      "runtimeQualified": false,
+      "checks": [
+        {
+          "file": "/usr/bin/python3",
+          "minimum": "3.11.0",
+          "version": "3.12.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/bwrap",
+          "minimum": "0.11.0",
+          "version": "0.11.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/unshare",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/nsenter",
+          "minimum": "2.39.3",
+          "version": "2.39.3",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/nft",
+          "minimum": "1.0.9",
+          "version": "1.0.9",
+          "ok": true
+        },
+        {
+          "file": "/usr/sbin/ip",
+          "minimum": "6.1.0",
+          "version": "6.1.0",
+          "ok": true
+        },
+        {
+          "file": "/usr/bin/systemd-run",
+          "minimum": "255.0.0",
+          "version": "255",
+          "ok": true
+        }
+      ]
+    },
+    "hostLibrariesMissing": [],
+    "dependencyCompatibility": "cached Pop!_OS noble metadata satisfies floors; Ubuntu noble bubblewrap 0.9.0 does not satisfy 0.11.0",
+    "guestAptTransaction": {
+      "normalDeb": "0 upgraded, 8 newly installed, 0 removed (includes Chrome and GUI dependencies); actual logs retained",
+      "qualificationDeb": "continuum explicitly reinstalled; no unrelated package removal",
+      "logs": [
+        "/tmp/continuum-b2g6/authorized-provisioning/guest/normal-deb-install.log",
+        "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-accepted-install.log"
+      ]
+    },
+    "installedPermissions": "root:root; helper 0755; resources normally 0775 and ASAR/receipt 0664, writable only by root/root group; qualifier checks physical original-fs metadata",
+    "installedResourceAudit": {
+      "manifest": {
+        "version": 1,
+        "sha256": {
+          "networkExecutionWorker.py": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "networkPreviewBridge.py": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "workspaceNetworkAddressPolicy.json": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "experimental/network_owner.py": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "x64/slirp4netns": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "review/helper-review.tar.gz": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225"
+        }
+      },
+      "checks": [
+        {
+          "file": "networkExecutionWorker.py",
+          "sha256": "2b1d8bae9c23799b869c0b39fbb591fe05b6298f69cb7e976a94199882612613",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o644",
+          "regular": true,
+          "symlink": false
+        },
+        {
+          "file": "networkPreviewBridge.py",
+          "sha256": "7af3dfccdd122da63d0abc998fa137e4ecc52d2193d6f754f0c748640f61b725",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o644",
+          "regular": true,
+          "symlink": false
+        },
+        {
+          "file": "workspaceNetworkAddressPolicy.json",
+          "sha256": "bdfe0bff67ba37850d09bcf37f2754fb5eafc59554a36b01e5676a7c68436e8b",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o644",
+          "regular": true,
+          "symlink": false
+        },
+        {
+          "file": "experimental/network_owner.py",
+          "sha256": "190962bf1ebf20a3706e687c8ed139d2cf2664deaf53e91167a176c9c5cca322",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o644",
+          "regular": true,
+          "symlink": false
+        },
+        {
+          "file": "x64/slirp4netns",
+          "sha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o755",
+          "regular": true,
+          "symlink": false
+        },
+        {
+          "file": "review/helper-review.tar.gz",
+          "sha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+          "matches": true,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o644",
+          "regular": true,
+          "symlink": false
+        }
+      ],
+      "allMatch": true,
+      "appAsarSha256": "e04a63401fdde308e628e4a1f2b70e618387bb869311abe896dcf9bcb7ea0001",
+      "receiptMatchesAsar": true,
+      "receipt": {
+        "kind": "B2G6-NONRELEASE-INSTALLED-DEB",
+        "productionQualified": false,
+        "sourceDebSha256": "5780b4081baa528c587d9d0d0f64d43399cca4b38d5c74c319cb310bb010af65",
+        "sourceAsarSha256": "fa266fd6508312e58cd48275a118ae2c11abac2b454e558d989ed26a4f51088e",
+        "guestMachineId": "fac8fee1968c4a6f8ff61af47f8dc092",
+        "root": "/home/tester/b2g6/qualification",
+        "profile": "/home/tester/b2g6/qualification/profile",
+        "childHome": "/home/tester/b2g6/qualification/home",
+        "installedResources": "/opt/Continuum/resources",
+        "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+        "reviewSha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+        "expiresAt": 1793831450719,
+        "qualificationAsarSha256": "e04a63401fdde308e628e4a1f2b70e618387bb869311abe896dcf9bcb7ea0001"
+      },
+      "cleanup": {
+        "leftoverProcesses": [],
+        "scopesAbsent": {
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r201b64b6c09b48329e997f968c681093.scope": true,
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rfa026d254e4941b998453e641598e5fd.scope": true,
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r4de1c0962b784af5bc4bbfc27b5ecfa0.scope": true,
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r2ebfef503dd743e7b9a0cf1527b418e9.scope": true,
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rb11d5c8067ae46c5b10b52461b697034.scope": true,
+          "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r37771aac202c44939a4d793244973334.scope": true
+        },
+        "oldPreviewClosed": true,
+        "vmShutdown": {
+          "guestGracefulPoweroff": true,
+          "qemuPid": 365831,
+          "qemuLive": false,
+          "sshForwardListeners": "",
+          "pidFileRemoved": true,
+          "guestDiskRetained": "/tmp/continuum-b2g6/authorized-provisioning/guest/disk.qcow2"
+        }
+      }
+    },
+    "guestLibrariesMissing": [],
+    "outsideAsar": "/opt/Continuum/resources/workspace-network",
+    "asarComparison": {
+      "changed": [
+        "main.js",
+        "src/main/workspaceNetworkPolicy.js"
+      ],
+      "added": [
+        "src/main/b2g6Qualification.js"
+      ],
+      "removed": []
+    }
+  },
+  "installedAcceptance": {
+    "normalGui": "passed twice under installed closed-gate deb; two normal shutdowns",
+    "packagedMainPreloadRenderer": "passed under actual installed NONRELEASE deb",
+    "chromiumSandbox": "passed under actual installed NONRELEASE deb",
+    "outsideAsarResolution": "passed under actual installed NONRELEASE deb",
+    "nativeConsentCancelAccept": "passed under actual installed NONRELEASE deb",
+    "protectedRestart": "passed under actual installed NONRELEASE deb",
+    "npmInstall": "passed under actual installed NONRELEASE deb",
+    "lifecycleScriptIsolation": "passed under actual installed NONRELEASE deb",
+    "vite": "passed under actual installed NONRELEASE deb",
+    "cgroupContainment": "passed under actual installed NONRELEASE deb",
+    "chromePreview": "passed under actual installed NONRELEASE deb",
+    "hmr": "passed under actual installed NONRELEASE deb",
+    "backgroundPersistence": "passed under actual installed NONRELEASE deb",
+    "stop": "passed under actual installed NONRELEASE deb",
+    "revocation": "passed under actual installed NONRELEASE deb",
+    "sessionDeletion": "passed under actual installed NONRELEASE deb",
+    "workerFailure": "passed under actual installed NONRELEASE deb",
+    "shutdownCleanup": "passed under actual installed NONRELEASE deb",
+    "normalProductionGate": "Isolated default; unavailable status and rejected activation; normal ASAR has no qualification module",
+    "qualificationBoundary": "actual wrong-profile launch unavailable; no production entitlement",
+    "screenshots": [
+      "/tmp/continuum-b2g6/accepted-evidence/installed-workflow.png",
+      "/tmp/continuum-b2g6/accepted-evidence/chrome-hmr.png"
+    ]
+  },
+  "reusedEvidence": {
+    "source": "docs/b2-g5-installed-runtime-release-signoff-evidence.json",
+    "level": "NONRELEASE AppImage only; not installed deb",
+    "workflow": "native consent/npm/Vite/Chrome/HMR/card controls",
+    "lifecyclePassed": 10,
+    "rerun": false,
+    "lifecycleNotRerunUnderDeb": [
+      "finite expiry",
+      "session termination",
+      "helper SIGKILL",
+      "owner SIGKILL",
+      "controlled OOM"
+    ],
+    "debLifecycleActuallyRun": [
+      "permission revocation",
+      "session deletion",
+      "worker SIGKILL",
+      "live switch to Isolated",
+      "active application shutdown/restart"
+    ],
+    "sourceSecurityRegressions": "G.5 historical source-tree W7/B1/B2/security coverage retained; no shipping implementation changed and no broad rerun"
+  },
+  "tests": {
+    "earlierHostRun": {
+      "passed": 11,
+      "failed": 0,
+      "skipped": 1,
+      "superseded": true
+    },
+    "sandboxRun": "4 file-level successes; not counted as individual case acceptance",
+    "productionBuild": {
+      "passed": true,
+      "warning": "existing large chunks",
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/final-production-build.log"
+    },
+    "syntax": {
+      "javascript": {
+        "src/main/networkExecution.js": true,
+        "src/main/workspaceNetworkPolicy.js": true,
+        "src/main/networkRuntimePrerequisites.js": true,
+        "scripts/workspace-network-staging.cjs": true,
+        "scripts/qualify-workspace-network.cjs": true,
+        "tests/b2g5Workflow.ui.cjs": true
+      },
+      "python": {
+        "src/main/networkExecutionWorker.py": true,
+        "src/main/networkPreviewBridge.py": true,
+        "src/main/experimental/network_owner.py": true,
+        "scripts/relink-workspace-network-helper.py": true
+      },
+      "json": {
+        "package.json": true,
+        "docs/b2-g4-helper-candidate.json": true,
+        "docs/b2-g5-installed-runtime-release-signoff-evidence.json": true,
+        "src/main/workspaceNetworkAddressPolicy.json": true
+      }
+    },
+    "gitDiffCheck": true,
+    "finalJsonParsed": true,
+    "preparatoryFocused": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log": "/tmp/continuum-b2g6/final-targeted-tests.log"
+    },
+    "finalNewUnit": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/accepted-qualification-tests.log"
+    },
+    "finalInstalledGuiScripts": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "scripts": [
+        "tests/b2g6Installed.ui.cjs",
+        "tests/b2g6QualificationBoundaries.ui.cjs",
+        "tests/b2g6Workflow.ui.cjs",
+        "tests/b2g6Lifecycle.ui.cjs"
+      ],
+      "normalLaunches": 2,
+      "lifecycleCases": {
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      "note": "Script totals, launches and lifecycle cases are nested evidence levels, not additive unit-test totals."
+    },
+    "finalValidation": {
+      "javascript": {
+        "scripts/qualify-installed-deb.cjs": true,
+        "tests/b2g6Installed.ui.cjs": true,
+        "tests/b2g6Workflow.ui.cjs": true,
+        "tests/b2g6Lifecycle.ui.cjs": true,
+        "tests/b2g6Qualification.test.cjs": true,
+        "tests/b2g6QualificationBoundaries.ui.cjs": true
+      },
+      "python": {
+        "src/main/networkExecutionWorker.py": true,
+        "src/main/networkPreviewBridge.py": true,
+        "src/main/experimental/network_owner.py": true,
+        "tests/helpers/b2g5NativeDialog.py": true
+      },
+      "json": {
+        "package.json": true,
+        "docs/b2-g4-helper-candidate.json": true,
+        "docs/b2-g5-installed-runtime-release-signoff-evidence.json": true,
+        "src/main/workspaceNetworkAddressPolicy.json": true,
+        "docs/b2-g6-installed-deb-acceptance-evidence.json": true
+      },
+      "generatedModuleSyntax": true,
+      "gitDiffCheck": true,
+      "jsonCount": 5
+    },
+    "intermediateFailedAttempts": 5,
+    "intermediateFailuresCountedAsAcceptance": false,
+    "newFilesTrailingWhitespace": []
+  },
+  "blockers": [
+    "Responsible reviewer approval of exact helper/source/notices/relink materials and source-delivery channel remains absent.",
+    "Explicit security maintenance ownership and response commitment remain unaccepted."
+  ],
+  "nextStep": {
+    "action": "Obtain exact-material redistribution/source-delivery review and accepted security ownership; then separately authorize evidence-backed production transition.",
+    "requiresFurtherHostProvisioning": false,
+    "productionActivationPerformed": false
+  },
+  "logsDirectory": "/tmp/continuum-b2g6",
+  "preservation": {
+    "changedExistingFiles": [
+      "docs/b2-g5-release-decision-checklist.md"
+    ],
+    "missingExistingFiles": [],
+    "expectedChangedExistingFiles": [
+      "docs/b2-g5-release-decision-checklist.md"
+    ],
+    "shippingSourceChanged": false
+  },
+  "logs": {
+    "/tmp/continuum-b2g6/deb-files.txt": "11433b83ee16d886d7e27976574ad0505374a05e275358469eefbdd7deb7538e",
+    "/tmp/continuum-b2g6/final-targeted-tests.log": "de4a654a273092fb2079737d9b9112ecc868b2034a83eb66186eb16b75691385",
+    "/tmp/continuum-b2g6/host-targeted-tests.log": "9ba51f2a9f06f53564dd1d863c33cd24b3300220f9986f6575b5ef4e639fe480",
+    "/tmp/continuum-b2g6/validation.json": "9c33adac7af67709eb7bd75af92d3cda2016c07dd914e4bae754861904b64456",
+    "/tmp/continuum-b2g6/initial-status.txt": "0ed491e096a8f1ddba533f04fdcc360ad5eba1c7cac46bef054668ff42785e24",
+    "/tmp/continuum-b2g6/qemu-install-simulation.txt": "9a41bb91c132d2e2d5c09c9b7ec63ffba574c03e855bcbcd289bde47c6fecc14",
+    "/tmp/continuum-b2g6/prerequisites.json": "88c48fa9c4673dc73ef1094796d54014e167c7376639eb65781f1ed72a73f1f6",
+    "/tmp/continuum-b2g6/resource-audit.json": "847d9b101d588f8b3b82f15c609c60dcc4819ec3fd04057b55803893e7ad0002",
+    "/tmp/continuum-b2g6/targeted-tests.log": "e6852873e25de3cf051dcfd371e9e3d51fb5007d18d30c729fc48db2c24cdd1c",
+    "/tmp/continuum-b2g6/production-build.log": "9b9426ad5d88f6d34aee53647243d5caea7ffaf40a30a32ce0625fec303cbc91",
+    "/tmp/continuum-b2g6/host-prerequisites.json": "2d6d32240ca938cc48365360803a9100aeebdf5f229b134a31e80607e365b74e",
+    "/tmp/continuum-b2g6/host-ldd.txt": "e2edb9c1b04bf9f9672fe6ce5987e65d0b02fe99f02db88dbe342d9a4f1828da"
+  },
+  "authorizedProvisioning": {
+    "userAuthorization": "Explicitly granted for qemu-system-x86, qemu-utils and necessary dependencies on 2026-11-04",
+    "transaction": {
+      "new": 15,
+      "upgraded": 0,
+      "removed": 0,
+      "notUpgraded": 252,
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/apt-simulation.txt"
+    },
+    "installationAttempt": {
+      "command": "sudo -n apt-get --no-remove --no-install-recommends install qemu-system-x86 qemu-utils",
+      "exitCode": 1,
+      "diagnostic": "sudo: a password is required",
+      "packagesChanged": false
+    },
+    "blocker": "resolved by local authenticated user installation",
+    "imagePreparation": "official image download complete; SHA-256 matches; guest booted and qualified with stated additional guest prerequisites",
+    "installationCompletedByUser": true,
+    "actualHostAptHistory": "/tmp/continuum-b2g6/authorized-provisioning/host-apt-history.log",
+    "actualHostTransaction": {
+      "new": 15,
+      "upgraded": 0,
+      "removed": 0
+    }
+  },
+  "normalInstalledGui": {
+    "passed": true,
+    "artifactSha256": "10a14d05c6ff4f94075cfb3eeb6ed6571be33ebcc08cbd675b5ce9ff84706564",
+    "evidenceLevel": "dpkg-installed NONRELEASE deb GUI; networking disabled",
+    "runs": [
+      {
+        "restart": 0,
+        "packaged": true,
+        "resources": "/opt/Continuum/resources",
+        "userData": "/tmp/continuum-g5-normal-iDcYxs/profile",
+        "home": "/tmp/continuum-g5-normal-iDcYxs/home",
+        "argv": [
+          "/opt/Continuum/continuum",
+          "--inspect=0",
+          "--remote-debugging-port=0",
+          "--user-data-dir=/tmp/continuum-g5-normal-iDcYxs/profile",
+          "--disable-gpu"
+        ],
+        "dependencies": {
+          "python": "/usr/bin/python3",
+          "helper": "/opt/Continuum/resources/workspace-network/x64/slirp4netns",
+          "worker": "/opt/Continuum/resources/workspace-network/networkExecutionWorker.py"
+        },
+        "mountInfo": [],
+        "helperMode": 493,
+        "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+        "status": {
+          "available": false,
+          "code": "WORKSPACE_NETWORK_NOT_READY",
+          "blockers": [
+            "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+            "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+          ],
+          "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+        },
+        "isolated": true,
+        "nativeActivationRejected": true
+      },
+      {
+        "restart": 1,
+        "packaged": true,
+        "resources": "/opt/Continuum/resources",
+        "userData": "/tmp/continuum-g5-normal-iDcYxs/profile",
+        "home": "/tmp/continuum-g5-normal-iDcYxs/home",
+        "argv": [
+          "/opt/Continuum/continuum",
+          "--inspect=0",
+          "--remote-debugging-port=0",
+          "--user-data-dir=/tmp/continuum-g5-normal-iDcYxs/profile",
+          "--disable-gpu"
+        ],
+        "dependencies": {
+          "python": "/usr/bin/python3",
+          "helper": "/opt/Continuum/resources/workspace-network/x64/slirp4netns",
+          "worker": "/opt/Continuum/resources/workspace-network/networkExecutionWorker.py"
+        },
+        "mountInfo": [],
+        "helperMode": 493,
+        "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+        "status": {
+          "available": false,
+          "code": "WORKSPACE_NETWORK_NOT_READY",
+          "blockers": [
+            "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+            "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+          ],
+          "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+        },
+        "isolated": true,
+        "nativeActivationRejected": true
+      }
+    ],
+    "normalShutdown": true
+  },
+  "qualificationBoundary": {
+    "passed": true,
+    "wrongProfileRejected": true,
+    "status": {
+      "available": false,
+      "productionQualified": false,
+      "code": "QUALIFICATION_UNAVAILABLE",
+      "blockers": [
+        "Guest/install/profile/home/lifetime boundary failed."
+      ],
+      "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Package installation still requires command authorization. This applies to all Workspace Write sessions."
+    },
+    "productionQualified": false
+  },
+  "installedWorkflow": {
+    "artifact": "/opt/Continuum/continuum",
+    "sha256": "10a14d05c6ff4f94075cfb3eeb6ed6571be33ebcc08cbd675b5ce9ff84706564",
+    "qualificationAsarSha256": "e04a63401fdde308e628e4a1f2b70e618387bb869311abe896dcf9bcb7ea0001",
+    "nativeCommandApprovals": "explicit trusted harness decisions through guardTool; no permission bypass",
+    "checks": {
+      "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+      "protectedRestart": true,
+      "workspaceUi": true,
+      "packagedDnsTls": true,
+      "packagedSecurity": {
+        "nftMutationDenied": true,
+        "externalIpv6RequestDenied": true,
+        "inheritedNamespaceHandlesAbsent": true
+      },
+      "npm": {
+        "passed": true,
+        "containment": {
+          "home": "/sandbox-home",
+          "cache": "/tmp/continuum-cache/npm"
+        }
+      },
+      "rawHostVitePortAbsent": true,
+      "survivedCompletion": true,
+      "backgroundCardCreate": true,
+      "credentialFreeDenied": true,
+      "backgroundCardOpen": true,
+      "browserHandoff": {
+        "nativeOpen": true,
+        "javascript": true,
+        "css": true,
+        "routingReload": true,
+        "websocketHmr": true,
+        "disposableChrome": true
+      },
+      "stop": true,
+      "isolatedRevert": true
+    },
+    "runtime": {
+      "packaged": true,
+      "resources": "/opt/Continuum/resources",
+      "profile": "/home/tester/b2g6/qualification/profile",
+      "storage": "gnome_libsecret",
+      "encryption": true,
+      "argv": [
+        "/opt/Continuum/continuum",
+        "--inspect=0",
+        "--remote-debugging-port=0",
+        "--user-data-dir=/home/tester/b2g6/qualification/profile",
+        "--disable-gpu"
+      ],
+      "rendererSandbox": [
+        {
+          "pid": 15206,
+          "status": [
+            "NSpid:\t15206\t4\t1",
+            "NoNewPrivs:\t1",
+            "Seccomp:\t2"
+          ]
+        }
+      ]
+    },
+    "setup": {
+      "sessionId": "g5-1793745228689",
+      "workspace": "/home/tester/b2g6/qualification/workspace"
+    },
+    "commandId": "cmd_4149f463-c663-4ffe-a2c5-11ce17e87ae8",
+    "cgroup": {
+      "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r201b64b6c09b48329e997f968c681093.scope",
+      "memory.max": "1073741824",
+      "memory.swap.max": "0",
+      "pids.max": "128",
+      "cpu.max": "200000 100000",
+      "memory.oom.group": "1"
+    },
+    "preview": "http://127.19.36.199:42679/",
+    "passed": true
+  },
+  "installedLifecycle": {
+    "artifact": "/opt/Continuum/continuum",
+    "sha256": "10a14d05c6ff4f94075cfb3eeb6ed6571be33ebcc08cbd675b5ce9ff84706564",
+    "qualificationAsarSha256": "e04a63401fdde308e628e4a1f2b70e618387bb869311abe896dcf9bcb7ea0001",
+    "nativeCommandApprovals": "explicit trusted harness decisions through guardTool; no permission bypass",
+    "checks": {
+      "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+      "protectedRestart": true,
+      "activeShutdownRestart": true,
+      "isolatedRevert": true
+    },
+    "runtime": {
+      "packaged": true,
+      "resources": "/opt/Continuum/resources",
+      "profile": "/home/tester/b2g6/qualification/profile",
+      "storage": "gnome_libsecret",
+      "encryption": true,
+      "argv": [
+        "/opt/Continuum/continuum",
+        "--inspect=0",
+        "--remote-debugging-port=0",
+        "--user-data-dir=/home/tester/b2g6/qualification/profile",
+        "--disable-gpu"
+      ],
+      "rendererSandbox": [
+        {
+          "pid": 16792,
+          "status": [
+            "NSpid:\t16792\t4\t1",
+            "NoNewPrivs:\t1",
+            "Seccomp:\t2"
+          ]
+        }
+      ]
+    },
+    "setup": {
+      "sessionId": "g5-1793745336000",
+      "workspace": "/home/tester/b2g6/qualification/workspace"
+    },
+    "faults": [
+      {
+        "reason": "permission",
+        "passed": true,
+        "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rfa026d254e4941b998453e641598e5fd.scope",
+        "capturedPids": [
+          "16609",
+          "16611",
+          "16613",
+          "16619",
+          "16620",
+          "16621",
+          "16622"
+        ],
+        "capturedScopePidsExited": true,
+        "scopeRemoved": true
+      },
+      {
+        "reason": "deletion",
+        "passed": true,
+        "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r4de1c0962b784af5bc4bbfc27b5ecfa0.scope",
+        "capturedPids": [
+          "16638",
+          "16640",
+          "16642",
+          "16648",
+          "16649",
+          "16650",
+          "16653"
+        ],
+        "capturedScopePidsExited": true,
+        "scopeRemoved": true
+      },
+      {
+        "reason": "worker",
+        "passed": true,
+        "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r2ebfef503dd743e7b9a0cf1527b418e9.scope",
+        "capturedPids": [
+          "16667",
+          "16669",
+          "16671",
+          "16677",
+          "16678",
+          "16679",
+          "16682"
+        ],
+        "capturedScopePidsExited": true,
+        "scopeRemoved": true
+      },
+      {
+        "reason": "isolated",
+        "passed": true,
+        "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rb11d5c8067ae46c5b10b52461b697034.scope",
+        "capturedPids": [
+          "16696",
+          "16698",
+          "16700",
+          "16706",
+          "16707",
+          "16708",
+          "16709"
+        ],
+        "capturedScopePidsExited": true,
+        "scopeRemoved": true
+      },
+      {
+        "reason": "shutdown",
+        "passed": true,
+        "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r37771aac202c44939a4d793244973334.scope",
+        "capturedPids": [
+          "16725",
+          "16727",
+          "16729",
+          "16735",
+          "16736",
+          "16737",
+          "16738"
+        ],
+        "capturedScopePidsExited": true,
+        "scopeRemoved": true
+      }
+    ]
+  },
+  "shippingGate": {
+    "shippingReadiness": {
+      "available": false,
+      "code": "WORKSPACE_NETWORK_NOT_READY",
+      "blockers": [
+        "Networking resources could not be read or verified.",
+        "Pinned networking resources, licenses/source obligations and supported Linux runtime prerequisites are not release-qualified.",
+        "Actual AppImage/deb networking, resource containment and lifecycle acceptance is incomplete."
+      ]
+    },
+    "normalAsarQualificationModules": [],
+    "shippingGeneratedModuleExists": false,
+    "productionFiles": [
+      "dist/**/*",
+      "assets/continuum-notification.png",
+      "main.js",
+      "src/main/**/*.js",
+      "src/preload.js",
+      "preload.js",
+      "src/lib/**/*.mjs",
+      "src/lib/**/*.cjs",
+      "src/lib/**/*.json"
+    ]
+  },
+  "cleanup": {
+    "leftoverProcesses": [],
+    "scopesAbsent": {
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r201b64b6c09b48329e997f968c681093.scope": true,
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rfa026d254e4941b998453e641598e5fd.scope": true,
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r4de1c0962b784af5bc4bbfc27b5ecfa0.scope": true,
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r2ebfef503dd743e7b9a0cf1527b418e9.scope": true,
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-rb11d5c8067ae46c5b10b52461b697034.scope": true,
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-r37771aac202c44939a4d793244973334.scope": true
+    },
+    "oldPreviewClosed": true,
+    "vmShutdown": {
+      "guestGracefulPoweroff": true,
+      "qemuPid": 365831,
+      "qemuLive": false,
+      "sshForwardListeners": "",
+      "pidFileRemoved": true,
+      "guestDiskRetained": "/tmp/continuum-b2g6/authorized-provisioning/guest/disk.qcow2"
+    }
+  },
+  "intermediateRejectedAttempts": [
+    {
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-initial-workflow.log",
+      "reason": "apt skipped same-version fixture replacement; readiness remained closed; no enabled acceptance"
+    },
+    {
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-workflow.log",
+      "reason": "qualification ownership check used Electron virtual ASAR stat; corrected fixture to original-fs"
+    },
+    {
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/guest/accepted-workflow.log",
+      "reason": "minimal generic desktop selected basic_text; stopped before consent; configured real GNOME Secret Service session"
+    },
+    {
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/guest/gnome-workflow.log",
+      "reason": "native consent and protected restart passed, but harness Node PATH parent contained profile and was correctly denied; selected ordinary system PATH"
+    },
+    {
+      "log": "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-lifecycle.log",
+      "reason": "fixture attempted duplicate project root; reuse existing project through projectManager API"
+    }
+  ],
+  "newRepositoryFiles": [
+    "scripts/qualify-installed-deb.cjs",
+    "tests/b2g6Installed.ui.cjs",
+    "tests/b2g6Workflow.ui.cjs",
+    "tests/b2g6Lifecycle.ui.cjs",
+    "tests/b2g6Qualification.test.cjs",
+    "tests/b2g6QualificationBoundaries.ui.cjs",
+    "docs/b2-g6-installed-deb-acceptance-report.md",
+    "docs/b2-g6-installed-deb-acceptance-evidence.json"
+  ],
+  "reviewHandoff": {
+    "redistributionApprover": null,
+    "maintenanceOwner": null,
+    "addressPolicyDeadline": "2026-12-03 UTC",
+    "relinkAddendum": "scripts/relink-workspace-network-helper.py",
+    "relinkAddendumSha256": "708e459724f7f57f1cc4072549f8325b07e18e17f0c541ee869a552ffd9114c7"
+  },
+  "evidenceFiles": {
+    "/tmp/continuum-b2g6/accepted-evidence/pre-acceptance-b2-g5-release-decision-checklist.md": {
+      "size": 4611,
+      "sha256": "c8412a022fe02e307714ba6911e440664875ee7425ce7d0591bcfd4b66868051"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/shipping-gate.json": {
+      "size": 739,
+      "sha256": "bcacd0e57a4d84a869ffb54af66c6d5d1b39bbe216ba6b0b0f718b347ef7a6c1"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/installed-resource-cleanup.json": {
+      "size": 4168,
+      "sha256": "27467b4d8079de47e908b7306d1577c0338d5a0058f95bbec0d37e256664c8b0"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/chrome-hmr.png": {
+      "size": 5531,
+      "sha256": "647fb3c300f14501b622fe2bc0fc945c379b071ef9c8c3d8cbd5c34afc09735e"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/pre-acceptance-b2-g6-installed-deb-acceptance-report.md": {
+      "size": 9641,
+      "sha256": "86ead273bed1573ff19b479de4e14e9e701186bd0dc31835587baf80be1ab3c3"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/workflow-evidence.json": {
+      "size": 2334,
+      "sha256": "6f27da2f0d1c12e9d3238b70220f93fc5e97dd28e35f1cc0b7355aafddd8a361"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/validation.json": {
+      "size": 775,
+      "sha256": "6a4c3d64447197b4c31c5e4f4f1d35cbfbfb9e4d6d18dd740b5304c8af2299bb"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/installed-workflow.png": {
+      "size": 145695,
+      "sha256": "c478942cbef06eecef4d4ca0aa1219bfa3c1816e6aef6b18c54549cc0dbbe038"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/lifecycle-evidence.json": {
+      "size": 3304,
+      "sha256": "b2accfa941f936e78e9320a9cc6efec12e72663498ad4e05947cae423949c1f5"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/pre-acceptance-b2-g6-installed-deb-acceptance-evidence.json": {
+      "size": 14974,
+      "sha256": "977ee58ae013c8975dab9f0a9e5750d22d48d1ad0417637cd65ebbabcb35cade"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/guest-poweroff.log": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/normal-installed-gui.json": {
+      "size": 3857,
+      "sha256": "821d0f317ae35df7fd2bb2a88a8d3cc56753202607ef6ad0d2ca4820b593a570"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/vm-shutdown.json": {
+      "size": 219,
+      "sha256": "83643863d9e9e126e36cf4546d580b29d8f353ac5a38630e7906f37cf00bb100"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/qualification-boundary.json": {
+      "size": 848,
+      "sha256": "0943269c9e4d24fa3ff3793742e8c8f68bf5622a97ee0ad50be96bb2d89c396c"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/finalize-evidence.py": {
+      "size": 8687,
+      "sha256": "5ff488b8ae7ef1a17dd0f6173bd756102eacd6fba5e60051866481af67613e01"
+    },
+    "/tmp/continuum-b2g6/accepted-evidence/asar-comparison.json": {
+      "size": 149,
+      "sha256": "797e60ba9baaf42314df864c04744ea1d9c6db57076c2f7b05229f6abeba7f05"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/qualification-final-build.log": {
+      "size": 1153,
+      "sha256": "fb29fb9fbb135bf42a245dc16077828430d34c1f1498c34aef6dd4fd7a8e9c8b"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/qualification-final-tests.log": {
+      "size": 604,
+      "sha256": "005d9d69ef361e711f13c3c4def4f86b51659907a4ac86486d6c1098fd55664b"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/final-production-build.log": {
+      "size": 1847,
+      "sha256": "491178da2f533595d5d88bf4675f078ed12f1fec9e2dd3b013b7454cb64ec2bb"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/accepted-qualification-tests.log": {
+      "size": 605,
+      "sha256": "ce9fab90762fc39cbf3d1a47f9c23d76d34ffd7322334fa292402e862f6cfa1c"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/qualification-tests.log": {
+      "size": 602,
+      "sha256": "d387df2a594312ed8e3c76dc0f2947785a3a50b7ba1f95ac0cf0ee21d3917fac"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/qualification-build.log": {
+      "size": 1141,
+      "sha256": "b48d49e9738289731e82adfd1dc3b121c08966fb49956304197b7fc5c74de001"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/image-download.log": {
+      "size": 11693,
+      "sha256": "b7e0e402e971e1427130802e0233da162b4eb9341deac8d7cdb28fa64e77ec76"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/install.log": {
+      "size": 29,
+      "sha256": "9b3a3b7a78f239c4473bb193476b1a860c91f1c2b4fab9c7639eceea414a60fb"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/apt-simulation.txt": {
+      "size": 3093,
+      "sha256": "9a41bb91c132d2e2d5c09c9b7ec63ffba574c03e855bcbcd289bde47c6fecc14"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/bubblewrap-download.log": {
+      "size": 148,
+      "sha256": "bd5aa3e8e5f94da9d8220ad5db0d1a50a599970b933bd7d6b4a82b000348820f"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/qualification-accepted-build.log": {
+      "size": 1159,
+      "sha256": "fab61122c26e0a9e1a64438fd3c3b8c9dae479cfdf6e9d13c2a51fc361ce70a5"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/host-apt-history.log": {
+      "size": 933,
+      "sha256": "8fe654a6a487b02af961f2a507e89f63171be8c7f4c1eefbc4721875075177d1"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/final-asar-comparison.json": {
+      "size": 149,
+      "sha256": "797e60ba9baaf42314df864c04744ea1d9c6db57076c2f7b05229f6abeba7f05"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/asar-comparison.json": {
+      "size": 149,
+      "sha256": "797e60ba9baaf42314df864c04744ea1d9c6db57076c2f7b05229f6abeba7f05"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/namespace-cgroup-probe.log": {
+      "size": 416,
+      "sha256": "1787b5705c9693f4c6cc69f03323063ae56adb72dc8203e0ec3807eefd48e1bc"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-workflow.log": {
+      "size": 1832,
+      "sha256": "2d107f42019bedcfc98b84ab8d989f6fbfe0a1546d7aaa74d2b60a9f8efeed20"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/normal-installed-gui.log": {
+      "size": 3272,
+      "sha256": "dd2f2f9c6fe196bd4942845f0f7c392b5f81c4533a35b658ee8e787af59d87ac"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/session-probe.log": {
+      "size": 304,
+      "sha256": "34fda0e178af61465d29851f2f21b796166adba9af7149500ac805f5a19a441e"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-deb-install.log": {
+      "size": 390,
+      "sha256": "165d14204f0ace87e077e6bf8bb48823889ad6e4891adf2fafcd94548af209cf"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-lifecycle.log": {
+      "size": 544,
+      "sha256": "6dbeb35e75727672399de3129200f8d233ceb7ac33425bbcaa060df3337a5a02"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-target-details.log": {
+      "size": 9704,
+      "sha256": "b98a05ec09aa15036f410ee8e05b954e6924b0c04b664bf57eac90ca1b53b526"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/accepted-lifecycle.log": {
+      "size": 2557,
+      "sha256": "8f219e7748cfdc062c3a72e0b5bfb4d63ec6a4ea9a4c60672afd9c01374c74b9"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/chrome-download.log": {
+      "size": 3398,
+      "sha256": "b420b5dc462fedb9d00a085b40085d2a5819fa909cb240d26bbc3a502fa4d14c"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/workflow-system-path.log": {
+      "size": 5377,
+      "sha256": "b19155bdda74d75ac5668ab04aa0c275da139d494f74525d5b38864b220a7ab2"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-final-install.log": {
+      "size": 2777,
+      "sha256": "2cf115e795599c7b244cc411a10bdb2f88a2e16fa96ef7b3f272b87c5338561b"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/gnome-workflow.log": {
+      "size": 829,
+      "sha256": "62087cfc59d5358c5f6f68510c0ac77996200ff40ed3faec80a20445a298fad5"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/accepted-workflow.log": {
+      "size": 1144,
+      "sha256": "b09b6b6ff40f2a792b2f5166e76f1941978fbfa87bb4bc02a724b4fddc6ec8c4"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/serial.log": {
+      "size": 85164,
+      "sha256": "c63634e5281003db21179b2fff1f64c0eb9e48934a0317caa9c9f70ab4eba6dc"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/installed-resource-audit.json": {
+      "size": 3288,
+      "sha256": "aa8fabc2e9d741dcadcbca6974d35aab326b616fb93a4865d70cce59fa345515"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/normal-deb-install.log": {
+      "size": 7201,
+      "sha256": "a6182b62f38ad2b9bd3f3786fdf2723dcfe589b5c67699478af79843a90ad50a"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-accepted-install.log": {
+      "size": 2526,
+      "sha256": "b1ffa89f3a4cf2cb18ba16ec93e14144e2801a9295dc9cbb919b7a392d738c50"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/qualification-initial-workflow.log": {
+      "size": 313,
+      "sha256": "b4cd1e33fcce18893d79acde6563de90f92141c91fb92a447d0ba34d3c9c7c8b"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/dependencies-install.log": {
+      "size": 189450,
+      "sha256": "7ab6bbf58bd99925e10e727ee32b6f6320c5c8e0adbb97d546e039664e982891"
+    },
+    "/tmp/continuum-b2g6/authorized-provisioning/guest/initial-probe.log": {
+      "size": 5197,
+      "sha256": "e7afb61dc7ff49ccd67fd333b7cbeda74b04384e7898679c4f9b61e0bb555af5"
+    }
+  },
+  "authoredSourceHashes": {
+    "scripts/qualify-installed-deb.cjs": "670941f23a47554699f8c3051565880786f6c7c6d5fdd86101e358d106675eac",
+    "tests/b2g6Installed.ui.cjs": "b49635b184180556ca2825d618324c044c8c21eb885f181ef77f8324ff3904e1",
+    "tests/b2g6Workflow.ui.cjs": "4adeeb7ff7a200bb9be6b347637848b405520b07e242c3f93fc418ad122ab679",
+    "tests/b2g6Lifecycle.ui.cjs": "ebbd171c40fd62b44b6a953a65f54290e12ae8373669a7301721badfff3a3b6c",
+    "tests/b2g6Qualification.test.cjs": "27124830f97aa3b3e05ba48f81402de18938a9298837ff83b7b4513d991aa4ab",
+    "tests/b2g6QualificationBoundaries.ui.cjs": "794f036e123683970c9a9a2fd8a1efa95bef3408fa9a00fcf5537a7a7d6cc23b"
+  },
+  "finalWorkingTreeStatus": " M main.js\n M src/components/InteractiveChart.jsx\n M src/components/chat/BackgroundCommandCard.jsx\n M src/components/main-app/MemorySettings.jsx\n M src/components/main-app/ModelSelectorModal.jsx\n M src/components/settings/TokenHistory.jsx\n M src/components/settings/usage/AttributionView.jsx\n M src/components/settings/usage/ModelDetailPanel.jsx\n M src/components/settings/usage/ModelSpendingTable.jsx\n M src/components/settings/usage/UsageCostsDashboard.jsx\n M src/components/settings/usage/usageDashboardFormat.mjs\n M src/index.css\n M src/main/backgroundCommands.js\n M src/main/configStore.js\n M src/main/executionCapabilities.js\n M src/main/foregroundCommand.js\n M src/main/ipcHandlers.js\n M src/main/lspExecutionContext.js\n M src/main/promptBuilder.js\n M src/main/sandboxFilesystem.js\n M src/main/spendingDashboard.js\n M src/main/tools/agentTools.js\n M src/preload.js\n M tests/backgroundCommandIpc.test.cjs\n M tests/backgroundCommands.ui.cjs\n M tests/cloudSpendingDashboard.ui.cjs\n M tests/sandboxFilesystem.test.cjs\n?? docs/b2-a-rootless-networking-feasibility.md\n?? docs/b2-c-network-owner-evidence.json\n?? docs/b2-c-network-owner-report.md\n?? docs/b2-d-production-network-integration-evidence.json\n?? docs/b2-d-production-network-integration-report.md\n?? docs/b2-e-network-activation-readiness-evidence.json\n?? docs/b2-e-network-activation-readiness-report.md\n?? docs/b2-f-authenticated-previews-evidence.json\n?? docs/b2-f-authenticated-previews-report.md\n?? docs/b2-f1-development-previews-evidence.json\n?? docs/b2-f1-development-previews-report.md\n?? docs/b2-g1-host-address-safety-evidence.json\n?? docs/b2-g1-host-address-safety-report.md\n?? docs/b2-g2-trusted-development-networking-evidence.json\n?? docs/b2-g2-trusted-development-networking-report.md\n?? docs/b2-g3-helper-provenance.json\n?? docs/b2-g3-production-networking-qualification-evidence.json\n?? docs/b2-g3-production-networking-qualification-report.md\n?? docs/b2-g4-helper-candidate.json\n?? docs/b2-g4-networking-release-completion-evidence.json\n?? docs/b2-g4-networking-release-completion-report.md\n?? docs/b2-g5-installed-runtime-release-signoff-evidence.json\n?? docs/b2-g5-installed-runtime-release-signoff-report.md\n?? docs/b2-g5-release-decision-checklist.md\n?? docs/b2-g6-installed-deb-acceptance-evidence.json\n?? docs/b2-g6-installed-deb-acceptance-report.md\n?? docs/b2-networking-prerequisite-report.md\n?? docs/investigations/b2-a/\n?? scripts/assemble-workspace-network.cjs\n?? scripts/audit-workspace-network.cjs\n?? scripts/collect-workspace-network-build.py\n?? scripts/qualify-installed-deb.cjs\n?? scripts/qualify-workspace-network.cjs\n?? scripts/rebuild-workspace-network-helper.sh\n?? scripts/relink-workspace-network-helper.py\n?? scripts/workspace-network-staging.cjs\n?? src/components/WorkspaceNetworkSettings.jsx\n?? src/lib/modelDisplay.cjs\n?? src/lib/modelDisplay.mjs\n?? src/main/developmentPreviews.js\n?? src/main/experimental/\n?? src/main/networkDependencies.js\n?? src/main/networkExecution.js\n?? src/main/networkExecutionWorker.py\n?? src/main/networkLaunchProtocol.js\n?? src/main/networkPreviewBridge.py\n?? src/main/networkRuntimePrerequisites.js\n?? src/main/previewIpc.js\n?? src/main/workspaceNetworkAddressPolicy.json\n?? src/main/workspaceNetworkPolicy.js\n?? tests/b2cNetworkOwner.test.py\n?? tests/b2dNetworkExecution.test.cjs\n?? tests/b2eDependencies.test.cjs\n?? tests/b2ePolicy.test.py\n?? tests/b2fGateway.test.cjs\n?? tests/b2fPreviewIpc.test.cjs\n?? tests/b2fPreviews.test.cjs\n?? tests/b2fResources.test.py\n?? tests/b2fViteBrowser.test.cjs\n?? tests/b2g1HostAddress.test.py\n?? tests/b2g2Packaged.test.cjs\n?? tests/b2g2Settings.ui.cjs\n?? tests/b2g2Trust.test.cjs\n?? tests/b2g3Packaged.ui.cjs\n?? tests/b2g3Packaging.test.cjs\n?? tests/b2g3Runtime.test.cjs\n?? tests/b2g4Assembly.test.cjs\n?? tests/b2g4Packaged.ui.cjs\n?? tests/b2g5AppImage.ui.cjs\n?? tests/b2g5Lifecycle.ui.cjs\n?? tests/b2g5Qualification.test.cjs\n?? tests/b2g5QualificationBoundaries.ui.cjs\n?? tests/b2g5Workflow.ui.cjs\n?? tests/b2g6Installed.ui.cjs\n?? tests/b2g6Lifecycle.ui.cjs\n?? tests/b2g6Qualification.test.cjs\n?? tests/b2g6QualificationBoundaries.ui.cjs\n?? tests/b2g6Workflow.ui.cjs\n?? tests/chartTypes.render/\n?? tests/helpers/b2g5NativeDialog.py\n?? tests/helpers/networkSafeStorage.cjs\n?? tests/helpers/previewWebSocket.cjs\n?? tests/modelDisplay.test.cjs\n",
+  "qualificationSafety": {
+    "normalSourceReadinessAvailable": false,
+    "normalAsarQualificationModules": [],
+    "productionQualified": false,
+    "generatedModuleOnlyInTemporaryPackage": true,
+    "expiry": 1793831450719,
+    "readinessPhysicalFilesystem": "original-fs",
+    "runtimeCommandApproval": "actual guardTool callback with explicit authorized harness approval",
+    "nativeConsent": "real PID-matched native warning; no receipt/choice injection"
+  }
+}

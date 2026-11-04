@@ -1,3 +1,4 @@
+import { modelDisplayName } from "../../lib/modelDisplay.mjs";
 import React, { useEffect, useState } from 'react';
 import TokenChart from './TokenChart';
 import { SelectField } from '../FormControls';
@@ -120,7 +121,7 @@ export default function TokenHistory({ section = 'all', includeCosts = true }) {
           {models.length > 0 ? (
             <SelectField label="Model" value={modelId} onChange={event => setModelId(event.target.value)}>
               <option value="">All models</option>
-              {models.map(model => <option key={`${model.provider ?? ''}:${model.modelId}`} value={model.modelId}>{model.modelId}{model.provider ? ` · ${model.provider}` : ''}</option>)}
+              {models.map(model => <option key={`${model.provider ?? ''}:${model.modelId}`} value={model.modelId}>{modelDisplayName(model.modelId)}{model.provider ? ` · ${model.provider}` : ''}</option>)}
             </SelectField>
           ) : null}
           <div className="flex items-end">
@@ -165,7 +166,7 @@ export default function TokenHistory({ section = 'all', includeCosts = true }) {
               <table className="w-full text-left text-[11px]">
                 <thead><tr className="border-b border-[var(--border)] text-[var(--text-muted)]"><th className="py-1 pr-4 font-medium">Model</th><th className="py-1 pr-4 font-medium">Provider</th><th className="py-1 pr-4 font-medium">Turns</th><th className="py-1 font-medium">Cost</th></tr></thead>
                 <tbody>{modelCosts.map(model => <tr key={`${model.provider ?? ''}:${model.modelId}`} className="border-b border-[var(--border)] last:border-0">
-                  <td className="py-1 pr-4 break-all">{model.modelId}</td>
+                  <td className="py-1 pr-4 break-all">{modelDisplayName(model.modelId)}</td>
                   <td className="py-1 pr-4">{model.provider ?? '—'}</td>
                   <td className="py-1 pr-4 tabular-nums">{model.turns ?? 0}</td>
                   <td className="py-1 tabular-nums">{typeof model.costTotal === 'number' ? formatUsd(model.costTotal) : '—'}{(model.costMeasuredTurns ?? 0) < (model.turns ?? 0) ? ' (partial)' : ''}</td>

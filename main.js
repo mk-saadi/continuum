@@ -1051,7 +1051,7 @@ app.on("before-quit", (event) => {
     require("./src/main/promptMeasurement").clearCache();
 	if (!mcpClosed) {
 		event.preventDefault();
-		Promise.allSettled([require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
+		Promise.allSettled([require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/developmentPreviews").service.shutdown(), require("./src/main/networkExecution").service.shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});

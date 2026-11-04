@@ -7,7 +7,7 @@ const MENU_HEIGHT = 38;
 const MENU_GAP = 10;
 
 const itemClass =
-	"flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs whitespace-nowrap text-[var(--text-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
+	"flex cursor-pointer items-center gap-1.5 ui-radius-control px-2.5 py-1.5 text-xs whitespace-nowrap text-[var(--text-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
 
 // Floating Copy / Ask-question menu for transcript text selections. Mounted
 // only inside the chat column and scoped to the transcript scroll container,
@@ -121,7 +121,7 @@ export default function TextSelectionMenu({ scopeRef, onAskQuestion }) {
 			aria-label="Text selection actions"
 			// Keep the transcript selection intact while the menu is clicked.
 			onMouseDown={(event) => event.preventDefault()}
-			className="fixed z-[70] flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
+			className="fixed z-[70] flex items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
 			style={{ left: menu.left, top: menu.top }}
 		>
 			<button

@@ -305,7 +305,7 @@ export default function CloudProviderSettings() {
 					title={row.name || (row.category === "media" ? "Media Provider" : "Text Provider")}
 					action={
 						<span
-							className={`rounded-full border px-2 py-0.5 text-[10px] ${row.configured ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}
+							className={`ui-radius-round border px-2 py-0.5 text-[10px] ${row.configured ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}
 						>
 							{row.configured ? (needsApiKey(row) ? "Key saved" : "Ready") : "Not configured"}
 						</span>

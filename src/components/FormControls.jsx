@@ -118,7 +118,7 @@ export const TextField = forwardRef(function TextField(
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none rounded-[inherit] placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none ui-radius-inherit placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 				/>
 			</div>
 		</FieldShell>
@@ -328,7 +328,7 @@ export const SelectField = forwardRef(function SelectField(
 									type="button"
 									role="option"
 									aria-selected={String(opt.value) === String(value)}
-									className={`aero-list-item rounded-lg flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
+									className={`aero-list-item ui-radius-control flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
 										String(opt.value) === String(value) ? "font-medium" : ""
 									}`}
 									onClick={() => {
@@ -607,7 +607,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 											type="button"
 											aria-label="Clear search"
 											onClick={() => setSearch("")}
-											className="grid size-5 shrink-0 cursor-pointer place-items-center rounded hover:bg-[var(--surface-hover)]"
+											className="grid size-5 shrink-0 cursor-pointer place-items-center ui-radius-control hover:bg-[var(--surface-hover)]"
 										>
 											<LuX
 												size={11}
@@ -634,7 +634,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 													pick(item.value);
 												}
 											}}
-											className={`aero-list-item rounded-lg group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
+											className={`aero-list-item ui-radius-control group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
 										>
 											<div className="flex min-w-0 items-center gap-2 pr-1">
 												{item.icon && (
@@ -660,7 +660,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 															event.stopPropagation();
 															onToggleStar(item.value);
 														}}
-														className={`grid size-6 cursor-pointer place-items-center rounded hover:bg-[var(--surface-hover)] ${isStarred ? "text-[var(--accent)]" : "text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
+														className={`grid size-6 cursor-pointer place-items-center ui-radius-control hover:bg-[var(--surface-hover)] ${isStarred ? "text-[var(--accent)]" : "text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
 													>
 														<LuStar
 															size={13}
@@ -719,7 +719,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 		<div className={`min-w-0 ${className}`}>
 			<label
 				htmlFor={id}
-				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] rounded-xl aero-control aero-fill ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] ui-radius-surface aero-control aero-fill ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
 			>
 				<input
 					{...inputProps}
@@ -776,7 +776,7 @@ export const TextAreaField = forwardRef(function TextAreaField(
 					ref={ref}
 					required={required}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className={`min-w-0 w-full rounded-[inherit] bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
+					className={`min-w-0 w-full ui-radius-inherit bg-transparent px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] ${inputClassName} placeholder:text-xs`}
 				/>
 			</div>
 		</FieldShell>

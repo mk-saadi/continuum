@@ -64,7 +64,7 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
 						id="usage-model-detail-title"
 						className="text-xs font-semibold"
 					>
-						{model.modelId ?? "Unknown model"}
+						{model.modelLabel ?? model.modelId ?? "Unknown model"}
 					</h3>
 					<p className="mt-1 text-[11px] text-[var(--text-muted)]">
 						{model.providerLabel} · {model.providerFamilyLabel}
@@ -166,7 +166,7 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
 							nested
 							data={state.timeline}
 							groupBy={state.filters?.groupBy}
-							title={`${model.modelId ?? "Model"} spending over time`}
+							title={`${model.modelLabel ?? model.modelId ?? "Model"} spending over time`}
 						/>
 					</div>
 					<div className="mt-3">

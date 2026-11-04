@@ -258,6 +258,8 @@ function registerIpcHandlers({
         "cloud:save": input => saveCloudProvider(input),
         "cloud:delete": id => deleteCloudProvider(id),
         "config:set-git-identity": identity => require('./configStore').saveConfig({ gitIdentity: require('./gitIdentity').validateIdentity(identity) }),
+        "config:network-status": () => ({ ...require('./workspaceNetworkPolicy').readiness(), disclosure: require('./workspaceNetworkPolicy').disclosure }),
+        "config:set-workspace-network": value => require('./configStore').setWorkspaceNetwork(value),
         "config:get": () => require('./configStore').getConfig(),
         "config:set-idle-timeout": minutes => {
             const config = require('./configStore').saveConfig({ engineIdleTimeoutMinutes: minutes });
@@ -1528,7 +1530,8 @@ function registerIpcHandlers({
 		"session:get-briefs": ({ sessionId }) => require('./contextInspection').getBriefsForDisplay(sessionId),
 		// Read-only durable task plan for the workspace sidebar. Null for a
 		// casual session or a task that has not created a plan yet.
-		"session:stop-background-command": async ({ sessionId, commandId }) => {
+		...require('./previewIpc').createHandlers(),
+        "session:stop-background-command": async ({ sessionId, commandId }) => {
             const project = require('./toolPermissions').sessionProject(sessionId);
             if (!project?.root_path) throw new Error('Workspace session required.');
             return require('./backgroundCommands').stopForSession(commandId, sessionId, await require('node:fs/promises').realpath(project.root_path));

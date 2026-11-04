@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "development_available": false,
+  "normal_policy": "isolated",
+  "activation_blockers": [
+    "Host-address exclusion remains asynchronous under host address changes",
+    "Pinned packaged resources and supported runtime dependencies not supplied",
+    "Maintained address-policy review/release process not release-qualified"
+  ],
+  "node_tests": {
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0,
+    "focused_b2d_groups": 5,
+    "log": "/tmp/continuum-b2d-final-tests.log"
+  },
+  "real_owner_tests": {
+    "passed_groups": 5,
+    "log": "/tmp/continuum-b2d-owner-security.log"
+  },
+  "actual_dispatcher_paths": [
+    "native grants and recovery",
+    "new authoritative launch construction",
+    "public IPv4 HTTPS and DNS",
+    "controlled private-host rejection",
+    "external IPv6 rejection",
+    "hostile filter modification rejected",
+    "persistent B1 guest server",
+    "fresh filesystem and tmp for each command",
+    "new run preserves persistent lease",
+    "Stop and expiry",
+    "mode and rule revocation",
+    "session termination/deletion",
+    "policy isolation revocation",
+    "service shutdown"
+  ],
+  "deterministic_tests": [
+    "forged context",
+    "forged/cloned/mutated filesystem plans",
+    "single-use permit replay and command substitution",
+    "late socket detection",
+    "backend failure without host fallback",
+    "simulated host/authority epoch invalidation"
+  ],
+  "host_address_kernel_race": "NOT resolved or tested by live host reconfiguration; production activation blocked",
+  "build": "passed; existing chunk-size warning",
+  "electron_ui": "not tested",
+  "packaged_app": "not tested",
+  "previews": "not implemented",
+  "commands": [
+    "B2D_HELPER=/tmp/continuum-b2-a-backend/slirp4netns node --test tests/b2dNetworkExecution.test.cjs tests/sandboxRuntimeSettings.test.cjs tests/permissionPolicy.test.cjs tests/sandboxFilesystem.test.cjs tests/backgroundCommands.test.cjs tests/backgroundCommandIpc.test.cjs tests/w7SandboxSockets.test.cjs tests/casualToolAuthorization.test.cjs tests/permissionIsolationReliability.test.cjs tests/toolApprovalPolicy.test.cjs tests/toolApprovalCharacterization.test.cjs",
+    "B2C_HELPER=/tmp/continuum-b2-a-backend/slirp4netns PYTHONDONTWRITEBYTECODE=1 python3 tests/b2cNetworkOwner.test.py",
+    "npm run build",
+    "git diff --check"
+  ]
+}

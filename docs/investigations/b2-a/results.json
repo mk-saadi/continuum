@@ -1,0 +1,79 @@
+{
+  "backend_sha256": "1c177694fe6bf299debfd8ff601a2ee3c4f7554d9983acdf1f854a6b34d53e70",
+  "helper_ready_seccomp_ipv6": true,
+  "helper_mount_sandbox_enabled": false,
+  "dns_in_fresh_filesystem_sandbox": {
+    "exit": 0,
+    "stdout": "True\n",
+    "stderr": ""
+  },
+  "https_in_fresh_filesystem_sandbox": {
+    "exit": 0,
+    "stdout": "200",
+    "stderr": ""
+  },
+  "subsequent_command_server": {
+    "exit": 0,
+    "stdout": "200",
+    "stderr": ""
+  },
+  "host_home_hidden_in_fresh_sandbox": {
+    "exit": 0,
+    "stdout": "hidden\n",
+    "stderr": ""
+  },
+  "loopback_v4_direct": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 39615 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_v4_gateway_alias": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to 10.0.2.2 port 39615 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_v4_mapped_ipv6": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to ::ffff:127.0.0.1 port 39615 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_dns_alias_non_dns_port": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to 10.0.2.3 port 43683 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_v6_direct": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to ::1 port 43007 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_v6_gateway_alias": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to fd00::2 port 43007 after 0 ms: Couldn't connect to server\n"
+  },
+  "loopback_v6_dns_alias": {
+    "exit": 7,
+    "stdout": "000",
+    "stderr": "curl: (7) Failed to connect to fd00::3 port 43007 after 0 ms: Couldn't connect to server\n"
+  },
+  "own_host_private_address_sentinel": {
+    "exit": 0,
+    "stdout": "200",
+    "stderr": ""
+  },
+  "own_host_private_address_mapped_ipv6": {
+    "exit": 0,
+    "stdout": "200",
+    "stderr": ""
+  },
+  "preview_collision_rejected": true,
+  "native_loopback_forward_verified": true,
+  "preview_survives_command_completion": true,
+  "preview_removed_unreachable": true,
+  "helper_remains_after_owner_exit_requires_cleanup": true,
+  "helper_exit_fd_reaped": true,
+  "preview_closed_on_helper_exit": true,
+  "host_sentinels_positive_controls_verified": true,
+  "owner_and_helper_reaped": true
+}

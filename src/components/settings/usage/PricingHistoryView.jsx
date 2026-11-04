@@ -57,7 +57,7 @@ export default function PricingHistoryView({ filters }) {
             Rate snapshots recorded with each turn. Historical charges keep the rate that priced them.
           </p>
         </div>
-        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
+        <span className="ui-radius-round border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
       </div>
       <SettingsMessage>{error}</SettingsMessage>
       {loading && !rows.length ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading pricing history…</p> : null}

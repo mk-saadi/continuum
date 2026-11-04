@@ -32,7 +32,7 @@ function StreamingText({ title, text, active = false, truncated = false }) {
 		if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
 	};
 	return (
-		<section aria-label={title} className="overflow-hidden rounded-xl border border-[var(--subtle-border)] bg-[var(--surface)]">
+		<section aria-label={title} className="overflow-hidden ui-radius-surface border border-[var(--subtle-border)] bg-[var(--surface)]">
 			<div className="flex min-h-11 items-center gap-2 border-b border-[var(--subtle-border)] px-3">
 				<h3 className="flex-1 text-xs font-semibold">{title}</h3>
 				{active && <span className="text-[11px] text-[var(--accent-bright)]">Live</span>}
@@ -53,9 +53,9 @@ function StreamingText({ title, text, active = false, truncated = false }) {
 function ActivityFeed({ events }) {
 	if (!events?.length) return null;
 	return (
-		<details className="group rounded-xl border border-[var(--subtle-border)] p-3" aria-label="Live activity">
+		<details className="group ui-radius-surface border border-[var(--subtle-border)] p-3" aria-label="Live activity">
 			<summary className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-medium"><FiChevronDown aria-hidden="true" />Activity history <span className="ml-auto text-[var(--text-muted)]">{events.length} events</span></summary>
-			<ol className="space-y-1 rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)] p-2">
+			<ol className="space-y-1 ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)] p-2">
 				{events.map((event, index) => (
 					<li
 						key={index}
@@ -113,7 +113,7 @@ function TurnCard({ turn, index }) {
 	const isTool = turn.role === "tool";
 	const body = turn.text?.text ?? "";
 	return (
-		<div className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface)]">
+		<div className="ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)]">
 			<button
 				type="button"
 				aria-expanded={expanded}
@@ -121,7 +121,7 @@ function TurnCard({ turn, index }) {
 				className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 			>
 				<span
-					className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+					className={`shrink-0 ui-radius-control px-1.5 py-0.5 font-mono text-[10px] ${
 						isTool
 							? "bg-[var(--surface-hover)] text-[var(--text-secondary)]"
 							: "bg-[var(--accent)]/15 text-[var(--accent-bright)]"
@@ -144,7 +144,7 @@ function TurnCard({ turn, index }) {
 					{(turn.toolCalls ?? []).map((call, callIndex) => (
 						<div
 							key={callIndex}
-							className="rounded-md bg-[var(--surface-hover)]/50 p-2"
+							className="ui-radius-control bg-[var(--surface-hover)]/50 p-2"
 						>
 							<p className="font-mono text-[11px] text-[var(--accent-bright)]">{call.name}</p>
 							<pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-[var(--text-secondary)]">
@@ -201,7 +201,7 @@ function ChildControls({ childSessionId, transcript }) {
 		}
 	};
 	const buttonClass =
-		"cursor-pointer rounded-md border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
+		"cursor-pointer ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
 	return (
 		<section aria-label="Sub-agent controls" className="flex flex-wrap items-center gap-2 text-[11px]">
 			{canInterrupt && (
@@ -318,7 +318,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 			onClick={(event) => {
 				if (event.target === dialogRef.current) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[860px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[860px] overflow-hidden ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
 		>
 			<div className="flex max-h-[85dvh] flex-col">
 				<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-3">
@@ -329,7 +329,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 					<h2 className="min-w-0 flex-1 truncate text-sm font-semibold">Sub-agent activity</h2>
 					{transcript?.found && (
 						<span
-							className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${STATUS_TONE[transcript.status] ?? STATUS_TONE.cancelled}`}
+							className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${STATUS_TONE[transcript.status] ?? STATUS_TONE.cancelled}`}
 						>
 							{transcript.status}{transcript.stopReason && transcript.stopReason !== "completed" ? ` · ${transcript.stopReason}` : ""}
 							{live ? " · live" : ""}
@@ -339,14 +339,14 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 						type="button"
 						aria-label="Close sub-agent activity"
 						onClick={onClose}
-						className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="flex size-11 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 					>
 						<FiX aria-hidden="true" />
 					</button>
 				</header>
 				<div className="min-h-0 flex-1 space-y-3 overflow-auto p-4 text-xs">
 					{(task || transcript?.task) && (
-						<details className="rounded-xl border border-[var(--subtle-border)] px-3 py-2" aria-label="Task given to the sub-agent">
+						<details className="ui-radius-surface border border-[var(--subtle-border)] px-3 py-2" aria-label="Task given to the sub-agent">
 							<summary className="flex min-h-8 cursor-pointer items-center gap-2 font-medium"><FiChevronDown aria-hidden="true" />Task<span className="min-w-0 flex-1 truncate font-normal text-[var(--text-muted)]">{task || transcript?.task}</span></summary>
 							<p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-secondary)]">{task || transcript?.task}</p>
 						</details>
@@ -382,7 +382,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 							</section>
 							<section aria-label="Execution budgets and usage" className="space-y-1 text-[11px] text-[var(--text-muted)] tabular-nums">
 								{subagentLimitNotice(transcript) && (
-									<p role="note" className="rounded-lg bg-amber-400/15 px-2 py-1.5 text-amber-500">
+									<p role="note" className="ui-radius-control bg-amber-400/15 px-2 py-1.5 text-amber-500">
 										{subagentLimitNotice(transcript)}
 									</p>
 								)}
@@ -392,7 +392,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 							{live && (
 								<section
 									aria-label="Current activity"
-									className="rounded-lg border border-[var(--subtle-border)] bg-[var(--surface-hover)]/40 p-3"
+									className="ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface-hover)]/40 p-3"
 								>
 									<div
 										role="status"
@@ -400,7 +400,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 									>
 										<span
 											aria-hidden="true"
-											className="size-2 rounded-full bg-current motion-safe:animate-pulse"
+											className="size-2 ui-radius-round bg-current motion-safe:animate-pulse"
 										/>
 										<span>{phase}</span>
 										{transcript.elapsedMs != null && (

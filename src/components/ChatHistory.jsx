@@ -23,7 +23,7 @@ import { LuX } from "react-icons/lu";
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
 const buttonStyle =
-	"aero-list-item flex items-center gap-2 rounded-lg px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
+	"aero-list-item flex items-center gap-2 ui-radius-control px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
 const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
@@ -218,10 +218,10 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
 			}
 			aria-current={activeId === session.id ? "true" : undefined}
-			className="aero-list-item group relative flex items-center rounded-lg py-1"
+			className="aero-list-item group relative flex items-center ui-radius-control py-1"
 		>
 			<button
-				className="min-w-0 flex-1 truncate rounded-lg py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
+				className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
 				disabled={locked}
 				aria-current={activeId === session.id ? "page" : undefined}
 				title={session.title || "Untitled chat"}
@@ -239,7 +239,7 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				{tokenFormatter.format(session.total_tokens || 0)} tokens
 			</span>
 			<button
-				className="aero-list-item absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 rounded-md px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
+				className="aero-list-item absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
 				aria-label={`Actions for ${session.title || "Untitled chat"}`}
 				aria-haspopup="menu"
 				aria-expanded={menu?.session.id === session.id}

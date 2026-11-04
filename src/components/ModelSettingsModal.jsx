@@ -331,7 +331,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{error && (
 						<p
 							role="alert"
-							className="whitespace-pre-line break-words rounded-xl border border-[var(--error)] bg-[var(--surface)] p-3 text-[11px] leading-relaxed text-[var(--error)]"
+							className="whitespace-pre-line break-words ui-radius-surface border border-[var(--error)] bg-[var(--surface)] p-3 text-[11px] leading-relaxed text-[var(--error)]"
 						>
 							{error}
 						</p>
@@ -339,7 +339,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					{vramWarning && (
 						<div
 							role="alert"
-							className="rounded-xl border border-[var(--accent)] bg-[var(--active-chat)] p-3 text-[11px] leading-relaxed text-[var(--text-primary)]"
+							className="ui-radius-surface border border-[var(--accent)] bg-[var(--active-chat)] p-3 text-[11px] leading-relaxed text-[var(--text-primary)]"
 						>
 							<p className="flex items-start gap-2">
 								<LuTriangleAlert

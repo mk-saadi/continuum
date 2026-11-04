@@ -12,6 +12,12 @@
 // SQLite so the renderer never receives the full usage history.
 
 const pricing = require('../lib/cloudPricing.cjs');
+const { modelDisplayName } = require('../lib/modelDisplay.cjs');
+
+function modelLabel(modelId, providerId) {
+  return modelDisplayName(modelId, { providerId, metadata: (provider, model) =>
+    require('./cloudProviders').getKnownModelMetadata(provider, model) });
+}
 
 const RANGES = new Set(['7d', '30d', '90d', 'all', 'custom']);
 const GROUPS = new Set(['day', 'week', 'month']);
@@ -485,7 +491,7 @@ function modelRows(sql, values, providers) {
       providerLabel: provider.providerLabel,
       providerFamily: provider.providerFamily,
       providerFamilyLabel: provider.providerFamilyLabel,
-      modelLabel: row.model_id ?? 'Unknown model',
+      modelLabel: modelLabel(row.model_id, row.provider_id),
     };
   }).sort((left, right) => {
     const leftCost = typeof left.combinedSpend === 'number' ? left.combinedSpend : -1;
@@ -531,7 +537,7 @@ function filterOptions(sql, values, providers) {
         modelId: row.model_id,
         providerId: row.provider_id,
         providerLabel: provider.providerLabel,
-        label: row.model_id,
+        label: modelLabel(row.model_id, row.provider_id),
         turns: row.turns,
       };
     }),
@@ -627,7 +633,7 @@ function getAttribution(input = {}, now = new Date()) {
     } else if (groupBy === 'provider') {
       label = provider.providerLabel;
     } else {
-      label = row.group_label || 'Unknown model';
+      label = modelLabel(row.model_id, row.provider_id);
     }
     return {
       ...aggregate,
@@ -639,7 +645,7 @@ function getAttribution(input = {}, now = new Date()) {
       providerFamily: provider.providerFamily,
       providerFamilyLabel: provider.providerFamilyLabel,
       modelId: row.model_id ?? null,
-      modelLabel: row.model_id ?? 'Unknown model',
+      modelLabel: modelLabel(row.model_id, row.provider_id),
     };
   }).sort((left, right) => {
     const leftCost = typeof left.combinedSpend === 'number' ? left.combinedSpend : -1;
@@ -676,7 +682,7 @@ function getRecords(input = {}, now = new Date()) {
         providerLabel: provider.providerLabel,
         providerFamily: provider.providerFamily,
         providerFamilyLabel: provider.providerFamilyLabel,
-        modelLabel: row.model_id ?? 'Unknown model',
+        modelLabel: modelLabel(row.model_id, row.provider_id),
         chatLabel: row.chat_title || (row.chat_id ? `Deleted or unnamed chat (${row.chat_id.slice(0, 8)}…)` : 'Unattributed'),
         workspaceLabel: row.project_name || (row.project_id ? `Deleted workspace (${row.project_id.slice(0, 8)}…)` : 'Unattributed'),
       };
@@ -718,7 +724,7 @@ function getPricingHistory(input = {}, now = new Date()) {
         providerFamily: provider.providerFamily,
         providerFamilyLabel: provider.providerFamilyLabel,
         modelId: row.model_id ?? null,
-        modelLabel: row.model_id ?? 'Unknown model',
+        modelLabel: modelLabel(row.model_id, row.provider_id),
         source,
         pricingKind: PRICING_KIND[source] ?? 'Pricing evidence',
         version: row.cost_version || breakdown?.version || null,

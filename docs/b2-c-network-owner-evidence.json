@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Dhaka",
+  "production_networking_enabled": false,
+  "focused_groups_passed": 5,
+  "focused_result": "passed",
+  "real_security_results": {
+    "cross_namespace_entry": "peer host namespace handle inaccessible inside fresh PID/proc sandbox",
+    "cross_session_workspace": "denied before launch",
+    "dns": true,
+    "external_ipv6": "all denied, including ULA/link-local/gateway; counters increment",
+    "guest_local_http": 200,
+    "helper_hardening": "mount sandbox, no_new_privs, seccomp mode 2; no NET_ADMIN",
+    "helper_startup_failure": "injected crash; no ready owner or host fallback",
+    "host_loopback": "positive host control; separate guest loopback; alias nft rejection",
+    "hostile_filter_route_interface_child_userns": "EPERM",
+    "lifecycle": [
+      "repeated_start_stop",
+      "expiry",
+      "helper_crash",
+      "lost_exit_fd",
+      "owner_control_EOF",
+      "revocation",
+      "session_cancel",
+      "shutdown",
+      "output_limit",
+      "failed_start"
+    ],
+    "mapped_integer_hex_forms": "rejected by nft actual-destination counters",
+    "namespace_fds_and_owning_userns": "unavailable to guest",
+    "parent_termination": "owner control EOF and helper exit-FD HUP stop both children",
+    "policy_startup_failure": "no transport started; namespace torn down",
+    "private_host": {
+      "after": "nft rejection with counter increment",
+      "before": 200,
+      "positive_control": 200
+    },
+    "public_https": 200,
+    "raw_packet_bypass": "EPERM for AF_PACKET and raw IP",
+    "redirect_and_dns_change": "private second destination rejected; counters increment",
+    "special_ipv4_and_gateway": "rejected before egress; counters increment",
+    "w7": "exposed socket rejected; masked internal socket preserved"
+  },
+  "existing_regressions": {
+    "passed": 50,
+    "failed": 0,
+    "skipped": 0
+  },
+  "production_build": "passed, existing large-chunk warning",
+  "electron_ui": "not tested",
+  "packaged_app": "not tested",
+  "external_ipv6": "rejected entirely; public IPv6 unsupported",
+  "forwarding_integration": "not implemented or tested in B2-C"
+}

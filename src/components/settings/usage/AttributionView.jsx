@@ -20,7 +20,7 @@ const GROUPS = [
 const PAGE_SIZE = 25;
 
 function recordCost(row) {
-  if (row.providerFamily === 'local') return 'Not applicable';
+  if (row.providerFamily === 'local') return '—';
   if (typeof row.cost_total !== 'number') return '—';
   return `${formatUsd(row.cost_total)}${row.cost_completeness === 'partial' ? ' (partial)' : ''}`;
 }

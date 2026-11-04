@@ -202,7 +202,7 @@ function CopyButton({ text, label = "Copy" }) {
 					setCopied(false);
 				}
 			}}
-			className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+			className="inline-flex shrink-0 cursor-pointer items-center gap-1 ui-radius-control px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
 		>
 			{copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
 			<span>{copied ? "Copied" : label}</span>
@@ -374,8 +374,8 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			data-expanded={expanded}
 			className={
 				timeline
-					? `aero-chat-tool min-w-0 overflow-hidden rounded-md text-[13px] ${containerTone}`
-					: `min-w-0 overflow-hidden rounded-lg border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
+					? `aero-chat-tool min-w-0 overflow-hidden ui-radius-control text-[13px] ${containerTone}`
+					: `min-w-0 overflow-hidden ui-radius-control border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
 			}
 		>
             <SavedToolRule rule={step.savedRule} />
@@ -385,7 +385,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				onClick={() => setUserExpanded(!expanded)}
 				className={
 					timeline
-						? "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						? "flex w-full min-w-0 cursor-pointer items-center gap-2 ui-radius-control px-2 py-1 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 						: "flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 				}
 			>
@@ -409,7 +409,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				</strong>
 				{showPill && (
 					<span
-						className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${PILL_STYLES[classification.tone] ?? PILL_STYLES.muted}`}
+						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${PILL_STYLES[classification.tone] ?? PILL_STYLES.muted}`}
 					>
 						{classification.label}
 					</span>
@@ -435,7 +435,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				{step.serverName && (
 					<span
 						title={step.serverName}
-						className="ml-auto hidden max-w-[30%] truncate rounded border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block"
+						className="ml-auto hidden max-w-[30%] truncate ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block"
 					>
 						{step.serverName}
 					</span>
@@ -464,7 +464,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 							{detail && (
 								<pre
 									aria-label="Error details"
-									className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] p-2.5 font-mono text-[11px] text-[var(--error)]"
+									className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)] p-2.5 font-mono text-[11px] text-[var(--error)]"
 								>
 									{detail}
 								</pre>
@@ -502,7 +502,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 									src={src}
 									alt="Tool-generated media"
 									loading="lazy"
-									className="max-h-64 max-w-full rounded-lg object-contain"
+									className="max-h-64 max-w-full ui-radius-control object-contain"
 								/>
 							))}
 						</div>
@@ -514,7 +514,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 								diff={diff}
 								editStats={editStats}
 							/>
-							<div className="overflow-auto rounded-md border border-[var(--subtle-border)] bg-[var(--code-bg)] font-mono text-[11px] leading-relaxed">
+							<div className="overflow-auto ui-radius-control border border-[var(--subtle-border)] bg-[var(--code-bg)] font-mono text-[11px] leading-relaxed">
 								<div className="max-h-64 overflow-auto p-3">
 									{diff.oldLines.map((line, index) => (
 										<div
@@ -552,7 +552,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					{kind === "media" && !imageOnly && step.result != null && (
 						<section aria-label="Tool result">
 							<h4 className="mb-1 font-medium text-[var(--text-secondary)]">Result</h4>
-							<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">
+							<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">
 								{formatBody(step.result?.file_path ?? step.result)}
 							</pre>
 						</section>
@@ -568,7 +568,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 									src={src}
 									alt="Tool-generated media"
 									loading="lazy"
-									className="max-h-64 max-w-full rounded-lg object-contain"
+									className="max-h-64 max-w-full ui-radius-control object-contain"
 								/>
 							))}
 						</div>
@@ -607,14 +607,14 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					)}
 					{kind === "write" && typeof step.args?.content === "string" && (
 						<Detail summary="Written content">
-							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)]">
+							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)]">
 								{formatBody(step.args.content)}
 							</pre>
 						</Detail>
 					)}
 					{step.args != null && (
 						<Detail summary="Full arguments">
-							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
+							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 								{formatBody(step.args)}
 							</pre>
 						</Detail>
@@ -626,7 +626,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					<button
 						type="button"
 						onClick={() => setTranscriptOpen(true)}
-						className="cursor-pointer rounded-md border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="cursor-pointer ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 					>
 						Show sub-agent activity
 					</button>
@@ -670,12 +670,12 @@ function CommandOutcome({ outcome, testSummary }) {
 				)}
 			</h4>
 			{outcome.stdout && (
-				<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)]">
+				<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)]">
 					{formatBody(outcome.stdout)}
 				</pre>
 			)}
 			{outcome.stderr && (
-				<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--error)]">
+				<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--error)]">
 					{formatBody(outcome.stderr)}
 				</pre>
 			)}
@@ -721,7 +721,7 @@ function ReadOutput({ step }) {
 					/>
 				)}
 			</h4>
-			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
+			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 				{formatBody(content ?? step.error)}
 			</pre>
 		</section>
@@ -789,7 +789,7 @@ function GenericResult({ step }) {
 	return (
 		<section aria-label="Tool result">
 			<h4 className="mb-1 font-medium text-[var(--text-secondary)]">Result</h4>
-			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
+			<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
 				{formatBody(result)}
 			</pre>
 		</section>

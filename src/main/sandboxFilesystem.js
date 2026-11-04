@@ -60,7 +60,7 @@ function effectiveMasks({ workspace, system = [], runtimes = [], maskedPaths = [
   return result;
 }
 function environment(host = process.env, { home = '/sandbox-home', pathValue = '/usr/local/bin:/usr/bin:/bin' } = {}) {
-  const env = { PATH: pathValue, LANG: 'C.UTF-8', HOME: home, TMPDIR: '/tmp' };
+  const env = { PATH: pathValue, LANG: 'C.UTF-8', HOME: home, TMPDIR: '/tmp', XDG_CACHE_HOME: '/tmp/continuum-cache', npm_config_cache: '/tmp/continuum-cache/npm', PIP_CACHE_DIR: '/tmp/continuum-cache/pip' };
   for (const [key, value] of Object.entries(host)) if (/^(?:LANG|LC_[A-Z_]+|TERM|TZ)$/.test(key)) env[key] = value;
   return env;
 }
@@ -189,4 +189,27 @@ function assertShellInvocation(plan, { file, argv, cwd, workspace }) {
     throw new Error('Execution blocked: Command must run inside the verified sandboxFilesystem shell profile.');
 }
 
-module.exports = { assertShellInvocation, buildSandboxMounts, resolveFilesystem, validateExtraPaths, environment, inside };
+// Separate, single-use protocol: sharing an application-owned isolated network
+// does not relax a single filesystem mount. Re-resolve for late sockets/masks.
+function networkShellInvocation(plan, { workspace, cwd, command, permit }) {
+  const facts = shellPlans.get(plan);
+  if (!facts || facts.workspace !== fs.realpathSync(workspace) || !inside(facts.workspace, fs.realpathSync(cwd)))
+    throw new Error('Execution blocked: Invalid network filesystem plan.');
+  const current = resolveFilesystem(facts.options);
+  if (JSON.stringify(current.mounts) !== JSON.stringify(facts.mounts) || JSON.stringify(plan.mounts) !== JSON.stringify(facts.mounts) ||
+      JSON.stringify(plan.env) !== JSON.stringify(facts.env)) throw new Error('Execution blocked: Stale or modified network filesystem plan.');
+  const protocol = require('./networkLaunchProtocol');
+  const authority = protocol.consume(permit, { workspace: facts.workspace, cwd, command });
+  if (typeof authority.resolver !== 'string' || !path.isAbsolute(authority.resolver) || inside(facts.workspace, fs.realpathSync(authority.resolver)) ||
+      fs.readFileSync(authority.resolver, 'utf8') !== 'nameserver 10.0.2.3\noptions timeout:1 attempts:1\n')
+    throw new Error('Execution blocked: Invalid managed network resolver.');
+  const mounts = [...facts.mounts];
+  mounts.splice(-2, 0, '--ro-bind', authority.resolver, '/etc/resolv.conf');
+  const argv = [...protocol.PREFIX, ...mounts, '--clearenv', ...Object.entries(facts.env).flatMap(([key, value]) => ['--setenv', key, value]),
+    '--chdir', cwd, '/usr/bin/python3', '-I', '-c', protocol.BOOTSTRAP, '/bin/sh', '-c', command];
+  // Freeze both the envelope and argv before transport serialization. The
+  // worker supplies its own pinned namespace handles, never caller PID paths.
+  return Object.freeze({ file: '/usr/bin/bwrap', argv: Object.freeze(argv), env: Object.freeze({ ...facts.env }) });
+}
+
+module.exports = { networkShellInvocation, assertShellInvocation, buildSandboxMounts, resolveFilesystem, validateExtraPaths, environment, inside };

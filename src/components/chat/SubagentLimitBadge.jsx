@@ -24,7 +24,7 @@ export default function SubagentLimitBadge({ childSessionId }) {
 	return (
 		<span
 			title={notice}
-			className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+			className="shrink-0 ui-radius-control bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
 		>
 			Limit hit — raise in Settings › Agents &amp; Skills › Custom hard limits
 		</span>

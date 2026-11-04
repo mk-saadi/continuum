@@ -1,0 +1,11 @@
+{
+  "network_distinct_from_host": true,
+  "subsequent_command_same_namespace": true,
+  "isolated_server_http_200": true,
+  "fixture_hidden_host_home": true,
+  "host_loopback_selected_preview_http_200": true,
+  "preview_wrong_token_403": true,
+  "server_survives_subsequent_command_completion": true,
+  "preview_closed_on_explicit_teardown": true,
+  "outbound_backend_tested": false
+}

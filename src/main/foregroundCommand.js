@@ -120,4 +120,4 @@ async function shutdownForegroundCommands() {
   for (const stop of active) stop('cancelled');
   while (active.size) await new Promise(resolve => setTimeout(resolve, 10));
 }
-module.exports = { runForeground, shutdownForegroundCommands, STREAM_LIMIT, GRACE_MS };
+module.exports = { capture, runForeground, shutdownForegroundCommands, STREAM_LIMIT, GRACE_MS };
