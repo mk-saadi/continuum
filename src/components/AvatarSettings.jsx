@@ -91,7 +91,7 @@ export default function AvatarSettings({ avatars, models }) {
 							onChange={(event) => upload(event)}
 							className={aero ? "peer sr-only" : "block w-full cursor-pointer text-[11px] text-[var(--text-secondary)] file:mr-2 file:cursor-pointer file:ui-radius-control file:border file:border-[var(--border)] file:bg-[var(--bg-secondary)] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[var(--text-primary)] hover:file:bg-[var(--surface-hover)]"}
 						/>
-						{aero && <label htmlFor={globalInputId} className={`aero-control aero-fill inline-flex items-center px-2.5 py-1.5 text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)] ${busyId !== null ? "pointer-events-none opacity-40" : ""}`}>Choose image…</label>}
+						{aero && <label htmlFor={globalInputId} className={`aero-control sk-button aero-fill sk-fill inline-flex items-center px-2.5 py-1.5 text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)] ${busyId !== null ? "pointer-events-none opacity-40" : ""}`}>Choose image…</label>}
 					</div>
 					<TextField
 						id="global-llm-name"
@@ -169,7 +169,7 @@ function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, dis
 	const aero = useContext(SettingsMaterialContext);
 	const inputId = useId();
 	return (
-		<li data-model-profile={model.modelPath || model.path || model.id} className={`${aero ? "aero-panel aero-fill" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} flex flex-wrap items-center gap-3 p-4`}>
+		<li data-model-profile={model.modelPath || model.path || model.id} className={`${aero ? "aero-panel sk-panel aero-fill sk-fill" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} flex flex-wrap items-center gap-3 p-4`}>
 			{avatarUrl ? (
 				<img
 					src={avatarUrl}
@@ -208,7 +208,7 @@ function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, dis
 			/>
 			<label
 				htmlFor={inputId}
-				className={`${aero ? "aero-control aero-fill inline-flex items-center px-2.5 py-1.5 text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)]" : fileButtonClass} ${disabled || busy ? "pointer-events-none opacity-40" : ""}`}
+				className={`${aero ? "aero-control sk-button aero-fill sk-fill inline-flex items-center px-2.5 py-1.5 text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--accent)]" : fileButtonClass} ${disabled || busy ? "pointer-events-none opacity-40" : ""}`}
 			>
 				{busy ? "Uploading…" : avatarUrl ? "Change" : "Upload"}
 			</label>
@@ -221,7 +221,7 @@ function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, dis
 				</SettingsButton>
 			)}
 			<div className="w-full min-w-0">
-				<ModelProfileSettings modelPath={model.modelPath || model.path || model.id} nested />
+				<ModelProfileSettings samplingControl="knob" modelPath={model.modelPath || model.path || model.id} nested />
 			</div>
 		</li>
 	);

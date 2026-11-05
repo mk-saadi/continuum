@@ -335,7 +335,7 @@ export default function RightSidebar({
 	};
 
 	const secondaryButton =
-		"aero-control aero-fill flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
+		"aero-control sk-button aero-fill sk-fill flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
 
 	const handleSavePrompt = async (e) => {
 		e.preventDefault();
@@ -369,13 +369,13 @@ export default function RightSidebar({
 	const memoryLoading = !effectiveState;
 	const memoryDisabled = () => disabled || memoryBusyKey !== null || !sessionId || memoryLoading;
 	const renderResetBlock = (compact = false) => (
-		<div className={compact ? "aero-panel p-3" : "mx-4 mt-3 aero-panel p-3"}>
+		<div className={compact ? "aero-panel sk-panel p-3" : "mx-4 mt-3 aero-panel sk-panel p-3"}>
 			<button
 				type="button"
 				disabled={disabled || selecting || saving}
 				onClick={resetOverrides}
 				aria-describedby="chat-reset-hint"
-				className="aero-control aero-fill w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
+				className="aero-control sk-button aero-fill sk-fill w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
 			>
 				{confirmReset ? "Click again to confirm reset" : "Reset chat overrides"}
 			</button>
@@ -390,7 +390,7 @@ export default function RightSidebar({
 	);
 
 	const renderAgentSelect = () => (
-		<div className="aero-panel p-3">
+		<div className="aero-panel sk-panel p-3">
 			<div className="mb-3 flex items-center gap-2">
 				<LuUsers
 					size={16}
@@ -455,7 +455,7 @@ export default function RightSidebar({
 
 	const renderPromptForm = () => (
 		<form
-			className="aero-panel p-3"
+			className="aero-panel sk-panel p-3"
 			onSubmit={handleSavePrompt}
 		>
 			<div className="mb-3 flex items-center gap-2">
@@ -511,7 +511,7 @@ export default function RightSidebar({
 				</span>
 				<button
 					type="submit"
-					className="aero-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
+					className="aero-primary sk-button sk-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
 					disabled={disabled || saving || selecting}
 				>
 					<LuSave
@@ -526,7 +526,7 @@ export default function RightSidebar({
 
 	const renderSampling = () => (
 		<>
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<div className="mb-3 flex items-center gap-2">
 					<LuSlidersHorizontal
 						size={16}
@@ -542,7 +542,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<ChatTuning
 					key={`${sessionId}:${modelId}:${tuningVersion}`}
 					disabled={!sessionId || disabled || selecting}
@@ -556,7 +556,7 @@ export default function RightSidebar({
 
 	const renderMemory = () => (
 		<>
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBrain
 						size={16}
@@ -582,7 +582,7 @@ export default function RightSidebar({
 			{memoryLoading ? (
 				<p
 					role="status"
-					className="aero-panel p-3 text-xs text-[var(--text-secondary)]"
+					className="aero-panel sk-panel p-3 text-xs text-[var(--text-secondary)]"
 				>
 					Loading memory settings…
 				</p>
@@ -593,7 +593,7 @@ export default function RightSidebar({
 					return (
 						<div
 							key={key}
-							className="aero-panel p-3"
+							className="aero-panel sk-panel p-3"
 						>
 							<CheckboxField
 								label={label}
@@ -611,7 +611,7 @@ export default function RightSidebar({
 									aria-label={`Use model default for ${label}`}
 									disabled={disabled || memoryBusyKey !== null || !isOverride}
 									onClick={() => saveMemorySetting({ [key]: null })}
-									className="aero-control aero-fill shrink-0 cursor-pointer px-2.5 py-1.5 text-[11px] font-medium"
+									className="aero-control sk-button aero-fill sk-fill shrink-0 cursor-pointer px-2.5 py-1.5 text-[11px] font-medium"
 								>
 									Use model default
 								</button>
@@ -657,7 +657,7 @@ export default function RightSidebar({
 		<>
 			{isWorkspace && <WorkspacePlanCard sessionId={sessionId} />}
 			{isWorkspace && <BackgroundCommandCard sessionId={sessionId} />}
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<div className="flex items-center gap-2">
 					<span
 						aria-hidden="true"
@@ -741,7 +741,7 @@ export default function RightSidebar({
 				/>
 			)}
 
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<h3 className="mb-2 text-xs font-semibold">Recent tool activity</h3>
 				{activity.recentTools.length === 0 ? (
 					<p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
@@ -749,7 +749,7 @@ export default function RightSidebar({
 						answered in the chat.
 					</p>
 				) : (
-					<ul className="aero-flat space-y-1.5 p-2">
+					<ul className="aero-flat sk-list space-y-1.5 p-2">
 						{activity.recentTools.map((call) => (
 							<li
 								key={call.id}
@@ -776,7 +776,7 @@ export default function RightSidebar({
 
 	const renderAgentsPanel = () => (
 		<>
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<div className="mb-2 flex items-center gap-2">
 					<LuBot
 						size={16}
@@ -793,7 +793,7 @@ export default function RightSidebar({
 				</p>
 			</div>
 
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<h3 className="mb-1 text-xs font-semibold">Available subagents</h3>
 				<p className="mb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Fixed capabilities the main model can call. There is no per-session enablement setting;
@@ -816,7 +816,7 @@ export default function RightSidebar({
 								</span>
 								<span
 									role="status"
-									className={`shrink-0 ui-radius-round border border-[var(--border)] px-2 py-0.5 mt-2! ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
+									className={`shrink-0 ui-radius-pill border border-[var(--border)] px-2 py-0.5 mt-2! ${available ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
 								>
 									{available ? "Available" : "Unavailable"}
 								</span>
@@ -826,7 +826,7 @@ export default function RightSidebar({
 				</ul>
 			</div>
 
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<h3 className="mb-1 text-xs font-semibold">Sub-agent model</h3>
 				<p className="mb-3! text-[11px] leading-relaxed text-[var(--text-muted)]">
 					Global setting — applies to every chat&apos;s future subagents, not just this session.
@@ -835,7 +835,7 @@ export default function RightSidebar({
 				<SubagentModelSelect disabled={disabled} />
 			</div>
 
-			<div className="aero-panel p-3">
+			<div className="aero-panel sk-panel p-3">
 				<h3 className="mb-2 text-xs font-semibold">
 					Running subagents{subagentRuns.length > 0 && ` · ${subagentRuns.length}`}
 				</h3>
@@ -844,7 +844,7 @@ export default function RightSidebar({
 						No subagents spawned in this chat yet.
 					</p>
 				) : (
-					<ul className="aero-flat space-y-1.5 p-2">
+					<ul className="aero-flat sk-list space-y-1.5 p-2">
 						{subagentRuns.slice(0, 10).map((run) => (
 							<li
 								key={run.id}
@@ -899,9 +899,9 @@ export default function RightSidebar({
 			<div
 				className={`sidebar-frame absolute inset-y-0 right-0 flex h-full w-80 flex-col overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none max-[900px]:shadow-xl ${open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}
 			>
-				<header className="aero-header flex shrink-0 items-center justify-between gap-3 px-4 py-4">
+				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
-						<span className="aero-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
+						<span className="aero-fill sk-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
 							{isWorkspace ? (
 								<LuActivity
 									size={18}
@@ -929,7 +929,7 @@ export default function RightSidebar({
 					<button
 						type="button"
 						aria-label="Close chat controls"
-						className="aero-orb aero-fill size-7 cursor-pointer shrink-0"
+						className="aero-orb sk-icon-button aero-fill sk-fill size-7 cursor-pointer shrink-0"
 						onClick={onClose}
 					>
 						<LuX
@@ -940,7 +940,7 @@ export default function RightSidebar({
 				</header>
 
 				<div
-					className="aero-panel mx-4 mt-4 p-3"
+					className="aero-panel sk-panel mx-4 mt-4 p-3"
 					aria-label="Response cost"
 				>
 					<div className="flex items-center justify-between gap-3">
@@ -982,7 +982,7 @@ export default function RightSidebar({
 				<div
 					role="tablist"
 					aria-label={isWorkspace ? "Workspace sections" : "Chat control sections"}
-					className="aero-tabbar mt-3 flex shrink-0 gap-1 px-3 pt-2"
+					className="aero-tabbar sk-toolbar sk-texture-brushed mt-3 flex shrink-0 gap-1 px-3 pt-2"
 				>
 					{sections.map(({ id, label, Icon }, index) => (
 						<button
@@ -1000,7 +1000,7 @@ export default function RightSidebar({
 							tabIndex={tab === id ? 0 : -1}
 							onClick={() => setTab(id)}
 							onKeyDown={(event) => handleTabKey(event, index)}
-							className="aero-tab flex min-w-0 flex-1 cursor-pointer items-center justify-center px-1 py-3"
+							className="aero-tab sk-tab flex min-w-0 flex-1 cursor-pointer items-center justify-center px-1 py-3"
 						>
 							<Icon
 								size={17}

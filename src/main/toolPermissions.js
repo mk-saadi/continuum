@@ -383,6 +383,7 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 		}
 		const sandbox = await require('./workspaceSandboxProfile').getWorkspaceSandboxProfile({ workspaceRoot: root, uncontained });
 		policy = decideToolApproval({ ...policyInput, ...commandFacts, sandbox, uncontained });
+        if (policy.decision === 'block') throw Object.assign(new Error(policy.reason), { code: 'SANDBOX_UNAVAILABLE' });
 		if (policy.decision === 'ask') await requestApproval('tool', name, { ...args, execution_scope: uncontained
 			? 'Uncontained opaque process: host filesystem, inherited environment and network access; may perform external actions.'
 			: 'Runs in a sandbox: it can read and write only inside this project, has no network access, and cannot see your home folder or app data.' }, approvalHandlerFn, signal, policy);
@@ -453,14 +454,14 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 				const record = checkpoint.manifest?.paths?.[snapshot.rel];
 				checkpointCoverage = { ...checkpoint.coverage, path: snapshot.rel,
 					captured: Boolean(checkpoint.checkpointId && record?.kind === 'file' && record.hash === snapshot.hash && record.size === snapshot.size) };
-			} catch { /* An uncovered deletion requires explicit consent. */ }
+			} catch { /* Keep recovery coverage truthful; workspace authority is independent. */ }
 			policy = decideToolApproval({ ...policyInput, checkpointCoverage });
 			const approved = policy.decision === 'ask' ? await requestApproval('tool', name,
 				{ operation: 'delete', path: snapshot.rel, size: snapshot.size, recovery: 'No complete checkpoint; deletion may be irreversible.' }, approvalHandlerFn, signal) : false;
 			// captureOperation creates unpinned checkpoints. Denial/abort leaves
 			// them eligible for normal retention cleanup, never a pinned orphan.
 			return { mode, approved, deleteFingerprint: snapshot.fingerprint,
-				deleteCapture: { checkpoint, covered: policy.decision === 'allow', fallbackApproved: approved } };
+				deleteCapture: { checkpoint, covered: checkpointCoverage.complete === true && checkpointCoverage.captured === true && !checkpointCoverage.skipped?.length && !checkpointCoverage.excluded?.length, workspaceAuthorized: true, fallbackApproved: approved } };
 		}
 		const approved = await requestApproval('tool', name,
 			{ operation: 'delete', path: snapshot.rel, size: snapshot.size }, approvalHandlerFn, signal);
@@ -468,6 +469,8 @@ async function evaluateTool({ name, args = {}, permissionMode, project, requestA
 	}
 
 	if (capability === CAPABILITIES.READ) {
+        if (native && mode === 'workspace_write' && root && ['list_directory', 'search_project_content', 'search_code'].includes(name))
+            await workspacePath(root, args.relative_path || args.path || '.');
 		// The capture is read-only, but its optional saved artifact must stay in
 		// the workspace (parity with the legacy screenshot containment check).
 		if (mode === 'workspace_write' && root && name === 'take_screenshot') {

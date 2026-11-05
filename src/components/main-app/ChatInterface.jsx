@@ -2006,7 +2006,7 @@ export function ChatInterface({
 						type="button"
 						aria-label="Jump to latest"
 						onClick={jumpToLatest}
-						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 ui-radius-round border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
+						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 ui-radius-pill sk-button border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
 					>
 						<FiArrowDown aria-hidden="true" />
 						Jump to latest
@@ -2453,7 +2453,7 @@ export function ChatInterface({
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
 					data-dragging={dragActive}
-					className="aero-chat-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]"
+					className="aero-chat-composer sk-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]"
 				>
 					{dragActive && (
 						<div
@@ -2494,7 +2494,7 @@ export function ChatInterface({
 								type="button"
 								onClick={generateReply}
 								disabled={loading || !chatAvailable || !selectedModel || !palace.api}
-								className="pointer-events-auto ui-radius-round text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-1.5 text-xs backdrop-blur-sm shadow-[0_4px_20px_var(--window-shadow)]"
+								className="pointer-events-auto ui-radius-pill sk-button sk-primary text-[var(--on-accent)] cursor-pointer transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-1.5 text-xs backdrop-blur-sm shadow-[0_4px_20px_var(--window-shadow)]"
 							>
 								Generate a reply (Ctrl + R)
 							</button>

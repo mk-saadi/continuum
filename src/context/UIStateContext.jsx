@@ -1,3 +1,4 @@
+import { applyTheme } from "../lib/themes.mjs";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 // Global UI chrome state — sidebar visibility, theme and modal visibility —
@@ -55,7 +56,7 @@ export function UIStateProvider({ children }) {
 		}
 	}, [rightOpen]);
 	useEffect(() => {
-		document.documentElement.setAttribute("data-theme", theme);
+		applyTheme(document.documentElement, theme);
 		try {
 			localStorage.setItem("theme", theme);
 		} catch {

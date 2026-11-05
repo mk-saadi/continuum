@@ -5,7 +5,7 @@ import { SettingsButton, SettingsMessage } from "../SettingsSection";
 
 function Metric({ label, value, hint }) {
 	return (
-		<div className="aero-inset p-2.5">
+		<div className="aero-inset sk-well p-2.5">
 			<dt className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
 			<dd className="mt-1 text-sm font-semibold tabular-nums">{value}</dd>
 			{hint ? <dd className="mt-0.5 text-[10px] text-[var(--text-muted)]">{hint}</dd> : null}
@@ -54,7 +54,7 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
 	const pricing = state?.pricing ?? [];
 	return (
 		<section
-			className="aero-panel p-3"
+			className="aero-panel sk-panel p-3"
 			aria-labelledby="usage-model-detail-title"
 			aria-live="polite"
 		>
@@ -87,7 +87,7 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
 				</p>
 			) : null}
 			{!loading && !detail && !error ? (
-				<p className="mt-3 aero-empty aero-fill p-4 text-[11px] text-[var(--text-muted)]">
+				<p className="mt-3 aero-empty sk-empty aero-fill sk-fill p-4 text-[11px] text-[var(--text-muted)]">
 					This model has no rows under the current filters. Clear a filter to inspect it again.
 				</p>
 			) : null}
@@ -172,11 +172,11 @@ export default function ModelDetailPanel({ model, filters, onClose }) {
 					<div className="mt-3">
 						<h4 className="text-xs font-semibold">Rate snapshots recorded for this model</h4>
 						{pricing.length === 0 ? (
-							<p className="mt-2 aero-empty aero-fill p-4 text-[11px] text-[var(--text-muted)]">
+							<p className="mt-2 aero-empty sk-empty aero-fill sk-fill p-4 text-[11px] text-[var(--text-muted)]">
 								No rate evidence recorded. Spend is unknown for this model, not $0.00.
 							</p>
 						) : (
-							<div className="aero-flat mt-2 overflow-x-auto p-2">
+							<div className="aero-flat sk-list mt-2 overflow-x-auto p-2">
 								<table className="w-full min-w-[560px] text-left text-[11px]">
 									<thead>
 										<tr className="border-b border-[var(--border)] text-[var(--text-muted)]">

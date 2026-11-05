@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-04",
+  "timezone": "Asia/Dhaka",
+  "productionApproved": false,
+  "localBuild": "source-only, non-distributable, separate profile; excludes overlapping Continuum source workspaces",
+  "regression": {
+    "passed": 196,
+    "failed": 0,
+    "skipped": 1,
+    "total": 197,
+    "testConcurrency": 4,
+    "skipReason": "Lost original production review archive; local reconstruction separately verified and tested"
+  },
+  "build": "passed; existing large-chunk warning",
+  "settingsRenderer": "passed; visible disabled choice cannot invoke IPC",
+  "freshLocalStatus": {
+    "available": true,
+    "build": "Local development \u00b7 NON-DISTRIBUTABLE",
+    "productionQualified": false,
+    "consentRequired": true,
+    "code": "LOCAL_DEVELOPMENT",
+    "blockers": [],
+    "message": "Internet-enabled sandboxed commands are available after confirmation. Network access may reach local and private services. Runtime containment is checked at command startup.",
+    "effectivePolicy": "isolated",
+    "protectedConsentAvailable": true,
+    "launchReady": false,
+    "operational": false,
+    "runtimeVerification": "Version/resource checks precede selection; owner startup verifies namespaces and effective cgroup limits.",
+    "disclosure": "Trusted Development permits terminal internet access and may reach host-local, private LAN, VPN and local development services, including authenticated endpoints using credentials available to the command. Dependency lifecycle scripts have this same network authority. Filesystem and process restrictions remain, but do not prevent network-side effects. External IPv6 is unsupported; host loopback aliases remain transport-restricted. Workspace Write commands run autonomously inside the sandbox. This applies to all Workspace Write sessions."
+  },
+  "qualifiedHost": {
+    "os": "Pop!_OS 24.04 LTS",
+    "kernel": "6.17.9-76061709-generic",
+    "secretStorage": "gnome_libsecret"
+  },
+  "trustedWorkflow": {
+    "passed": true,
+    "checks": {
+      "nativeConsent": "fresh Isolated, real native cancellation and acceptance passed",
+      "protectedRestart": true,
+      "workspaceUi": true,
+      "sourceWorkspaceDenied": true,
+      "localDnsTls": true,
+      "sandboxSecurity": {
+        "nftMutationDenied": true,
+        "externalIpv6RequestDenied": true,
+        "inheritedNamespaceHandlesAbsent": true
+      },
+      "npm": {
+        "passed": true,
+        "containment": {
+          "home": "/sandbox-home",
+          "cache": "/tmp/continuum-cache/npm"
+        }
+      },
+      "rawHostVitePortAbsent": true,
+      "survivedCompletion": true,
+      "backgroundCardCreate": true,
+      "credentialFreeDenied": true,
+      "backgroundCardOpen": true,
+      "browserHandoff": {
+        "nativeOpen": true,
+        "javascript": true,
+        "css": true,
+        "routingReload": true,
+        "websocketHmr": true,
+        "disposableChrome": true
+      },
+      "stop": true,
+      "isolatedRevert": true
+    },
+    "cgroup": {
+      "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/run-ree9816072fc444609aed22e21c2ad36c.scope",
+      "memory.max": "1073741824",
+      "memory.swap.max": "0",
+      "pids.max": "128",
+      "cpu.max": "200000 100000",
+      "memory.oom.group": "1"
+    },
+    "commandApprovals": 0
+  },
+  "genuineModelWorkflow": {
+    "passed": true,
+    "model": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+    "commands": 6,
+    "commandApprovals": 0,
+    "buildOutputs": [
+      "42",
+      "43"
+    ],
+    "checks": {
+      "noApprovalInterruptions": true,
+      "sourceCorrection": true,
+      "localDependency": true,
+      "progressEvents": 261,
+      "actualUiStop": true
+    },
+    "cancellationApprovals": 0,
+    "visualAndStopResumedAfterSelectorCorrection": true
+  },
+  "cleanup": {
+    "cgroupRemoved": true,
+    "primaryAppStillRunning": true,
+    "existingModelServerStillRunning": true,
+    "oldPreviewClosed": true
+  },
+  "detailedEvidence": ".continuum-local/accepted-evidence",
+  "resourceProof": "docs/workspace-write-local-resource-reconstruction.json"
+}

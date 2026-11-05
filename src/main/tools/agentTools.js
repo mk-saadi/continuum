@@ -1092,24 +1092,33 @@ async function runGit(root, args, signal, { write = false, uncontained = false, 
  uncontained = uncontained || gitExecutionScope.getStore()?.host === true;
 	root = await fs.realpath(root);
     signal?.throwIfAborted();
-    const repository = !uncontained ? require('../workspaceGit').assertRepository(root, `git ${args[0]}`) : null;
+    const repository = require('../workspaceGit').assertRepository(root, "git " + args[0]);
     gitExecutionScope.getStore()?.validateAuthorization?.();
 	const env = uncontained ? Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))) : require('../sandboxFilesystem').environment();
-	if (repository) Object.assign(env, { GIT_DIR: repository.gitdir, GIT_WORK_TREE: root });
+	Object.assign(env, { GIT_DIR: repository.gitdir, GIT_WORK_TREE: root });
 	Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' });
-	// SSH transport is unsupported by design (gh-CLI HTTPS only): never let a
-	// sandboxed git reach the ambient agent socket, even when one is configured.
-	delete env.SSH_AUTH_SOCK;
-	// A caller-supplied askpass path (a secret-free relay client, never a
-	// token) is the only credential channel ever admitted to the sandbox.
-	if (askpass !== undefined) {
-		if (typeof askpass !== 'string' || !askpass || askpass.includes('\0')) throw new Error('Invalid askpass helper.');
-		Object.assign(env, { GIT_ASKPASS: askpass });
+	// Full Access is normal host execution: keep the user's agent socket and
+	// config. The contained profile gets a narrow, explicit auth projection.
+	if (!uncontained) {
+		// SSH transport is unsupported by design (gh-CLI HTTPS only): never let a
+		// sandboxed git reach the ambient agent socket, even when one is configured.
+		delete env.SSH_AUTH_SOCK;
+		// A caller-supplied askpass path (a secret-free relay client, never a
+		// token) is the only credential channel ever admitted to the sandbox.
+		if (askpass !== undefined) {
+			if (typeof askpass !== 'string' || !askpass || askpass.includes('\0')) throw new Error('Invalid askpass helper.');
+			Object.assign(env, { GIT_ASKPASS: askpass });
+		}
+		Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' });
+	} else if (network) {
+		// Uncontained network operations (git_sync): preserve host SSH agent and Git config
+		if (process.env.SSH_AUTH_SOCK) env.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
 	}
-	if (!uncontained) Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' });
-	if (!uncontained) Object.assign(env, require('../gitIdentity').identityEnvironment(root, { required: args[0] === 'commit' }));
+	Object.assign(env, require('../gitIdentity').identityEnvironment(root, { required: args[0] === 'commit' }));
 	const gitArgs = ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'color.ui=false',
-		...(!uncontained ? ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false', '-c', 'submodule.recurse=false'] : []), ...args];
+		'-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false', '-c', 'submodule.recurse=false',
+		...(!uncontained && askpass !== undefined ? ['-c', 'credential.helper='] : []), ...args];
+
 	// A cwd is not containment: Git can run filters, diff drivers and helpers.
 	// Reads run with an allowlisted runtime filesystem and no network; only
 	// explicit write operations may receive a writable workspace mount.
@@ -1431,7 +1440,8 @@ async function prepareGitPush(root, args, signal) {
 }
 
 async function executeGitTool(root, name, args, signal, uncontained = false, approval = null, fullAccess = false, validateAuthorization = () => {}) {
- return gitExecutionScope.run({ host: fullAccess, validateAuthorization, recovery: approval?.gitRecovery, recoveryRequired: approval?.mode === 'workspace_write' }, async () => {
+ const isGitSync = name === 'git_sync';
+  return gitExecutionScope.run({ host: fullAccess || isGitSync, validateAuthorization, recovery: approval?.gitRecovery, recoveryRequired: approval?.mode === 'workspace_write' }, async () => {
     try {
         const result = await executeGitToolInScope(root, name, args, signal, uncontained || fullAccess, approval, fullAccess);
         if (approval?.gitRecovery?.checkpointId) {

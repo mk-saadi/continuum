@@ -280,7 +280,7 @@ test('independent child ceilings follow parent revocation without changing sibli
  children.deleteSession(a.id); children.deleteSession(b.id);
 });
 
-test('a mode change resolves a pending uncovered-deletion IPC approval without performing the action', { timeout: 5000 }, async t => {
+test('a mode change resolves a pending supervised deletion IPC approval without performing the action', { timeout: 5000 }, async t => {
  const recovery = require('../src/main/recoveryStore'), capture = recovery.captureOperation;
  recovery.captureOperation = async opts => {
   if (opts.required?.includes('pending-delete.txt')) throw new Error('fixture capture unavailable');
@@ -295,7 +295,7 @@ test('a mode change resolves a pending uncovered-deletion IPC approval without p
   if (index === 0) return response([call('activate-editing', 'manage_native_tools', { action: 'activate', groups: ['editing'] })]);
   return index > 1 ? response(null, 'Approval was revoked.') : response([call('pending-delete', 'delete_project_file', { path: 'pending-delete.txt' })]);
  };
- const run = invoke(owner, 'engine:chat', { requestId: 'approval-request', sessionId: id, modelId: 'model', permissionMode: 'workspace_write', messages: [{ role: 'user', content: 'Delete with approval.' }] });
+ const run = invoke(owner, 'engine:chat', { requestId: 'approval-request', sessionId: id, modelId: 'model', permissionMode: 'ask_approval', messages: [{ role: 'user', content: 'Delete with approval.' }] });
  const approval = await pendingApproval;
  await assert.rejects(invoke(sender(), 'engine:tool-approval-response', { requestId: 'approval-request', approvalId: approval.approvalId, action: 'allow' }), /no longer pending/);
  await invoke(owner, 'engine:set-permission-mode', { sessionId: id, permissionMode: 'read_only' });

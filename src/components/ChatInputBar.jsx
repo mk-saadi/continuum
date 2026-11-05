@@ -140,7 +140,7 @@ const ChatInputBar = memo(
 								aria-label="Attach files"
 								disabled={streaming || loading || attachDisabled}
 								onClick={onAttach}
-								className="aero-orb aero-fill size-8 shrink-0 cursor-pointer"
+								className="aero-orb sk-icon-button aero-fill sk-fill size-8 shrink-0 cursor-pointer"
 							>
 								<GrAttachment className="size-3.5" />
 							</button>
@@ -181,7 +181,7 @@ const ChatInputBar = memo(
 									aria-label="Steer running agent"
 									onClick={submit}
 									disabled={!canSteer}
-									className="aero-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
+									className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<IoSend className="size-3" />
 								</button>
@@ -190,7 +190,7 @@ const ChatInputBar = memo(
 									title="Stop"
 									aria-label="Stop"
 									onClick={onStop}
-									className="aero-control aero-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
+									className="aero-control sk-button aero-fill sk-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<FaStop className="size-3" />
 								</button>
@@ -202,7 +202,7 @@ const ChatInputBar = memo(
 								aria-label="Send"
 								onClick={submit}
 								disabled={!ready}
-								className="aero-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
+								className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 							>
 								<IoSend className="size-3" />
 							</button>

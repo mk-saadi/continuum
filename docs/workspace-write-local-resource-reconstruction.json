@@ -1,0 +1,283 @@
+{
+  "purpose": "Engineering integrity verification for local-only non-distributable development; no production/source-distribution approval",
+  "productionQualified": false,
+  "originalProductionPinsUnchanged": true,
+  "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+  "relinkedHelperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980",
+  "localReviewArchiveSha256": "0f7217354527fd430406bc13d23b6d23535d2ce058c1d3f110bac298bc3d9acf",
+  "localReviewArchiveSize": 123885473,
+  "originalReviewArchiveSha256": "676fcef46f406b7511c64f638114a45dd9f38951899e3461e0d7e2c53e0e5225",
+  "originalArchiveReproduced": false,
+  "differences": [
+    "new build logs",
+    "live signed Ubuntu mirror with original critical compiler/library versions",
+    "new package inventory and generated-tree/tar metadata",
+    "84 hashed reconstruction materials versus 91 in lost historical archive"
+  ],
+  "allOriginalLinkInputsMatched": [
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/crt1.o",
+      "expected": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479",
+      "actual": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/crti.o",
+      "expected": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3",
+      "actual": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/crtn.o",
+      "expected": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f",
+      "actual": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libc.a",
+      "expected": "7ceefe6c6ea90ba8323f3f24e225274eca2edc1f6b4c98bef90c9ec0dc53f294",
+      "actual": "7ceefe6c6ea90ba8323f3f24e225274eca2edc1f6b4c98bef90c9ec0dc53f294",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libglib-2.0.a",
+      "expected": "1465d87c94e1abe34cfe6a3839ff543cd23153b7754f5748e1fe1b13ea142e8e",
+      "actual": "1465d87c94e1abe34cfe6a3839ff543cd23153b7754f5748e1fe1b13ea142e8e",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+      "expected": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5",
+      "actual": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libseccomp.a",
+      "expected": "9a6eec39f7896965fb81a4751a2f8a3acd2d68d24bc7336783a2cc5d43707334",
+      "actual": "9a6eec39f7896965fb81a4751a2f8a3acd2d68d24bc7336783a2cc5d43707334",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+      "expected": "26cdcaf355ea1e931d99da73b5f2cc825f4189d5f7755d8b9d05c33746aad07d",
+      "actual": "26cdcaf355ea1e931d99da73b5f2cc825f4189d5f7755d8b9d05c33746aad07d",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+      "expected": "98ac1d1fbb060865f24d2968437a9ccc34349f933c549158f624cbddf1b3d890",
+      "actual": "98ac1d1fbb060865f24d2968437a9ccc34349f933c549158f624cbddf1b3d890",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+      "expected": "881a1422df348396646d3cbee3d8edf2cd8909f51295ff821ce16cb949029883",
+      "actual": "881a1422df348396646d3cbee3d8edf2cd8909f51295ff821ce16cb949029883",
+      "matches": true
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+      "expected": "ecb9dca0513f07d84e65bf5713dd2e069db87abdbcdc0363ad448568370a9cb3",
+      "actual": "ecb9dca0513f07d84e65bf5713dd2e069db87abdbcdc0363ad448568370a9cb3",
+      "matches": true
+    },
+    {
+      "path": "/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+      "expected": "b1fbc20c81804de9c2bf4796d197f42577443b01f422bd97ccfb92984555c8ef",
+      "actual": "b1fbc20c81804de9c2bf4796d197f42577443b01f422bd97ccfb92984555c8ef",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/libparson.a",
+      "expected": "47ca6fc3b6114d59b1e277650fe3c14ba664f88c99e93c8bb07c40b4d13dc454",
+      "actual": "47ca6fc3b6114d59b1e277650fe3c14ba664f88c99e93c8bb07c40b4d13dc454",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/slirp4netns-api.o",
+      "expected": "954278c23da7ed3fd259c472b0bf20aced17ccfff3e843ec0a0a5fabb6761b45",
+      "actual": "954278c23da7ed3fd259c472b0bf20aced17ccfff3e843ec0a0a5fabb6761b45",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/slirp4netns-main.o",
+      "expected": "7a8994714b7c4f3f8667b6acc4ee924b90faf0b6c2f0e97e8ac12140cda58777",
+      "actual": "7a8994714b7c4f3f8667b6acc4ee924b90faf0b6c2f0e97e8ac12140cda58777",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/slirp4netns-sandbox.o",
+      "expected": "1ef540bd39beeeb67aa390b2fd1f9dbf801aae7e13df973448781c93e548c505",
+      "actual": "1ef540bd39beeeb67aa390b2fd1f9dbf801aae7e13df973448781c93e548c505",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/slirp4netns-seccompfilter.o",
+      "expected": "c28fa9a2e3a0d4542116f0fc56820aa19fb541cb4d008a804db2b9b1de9471a6",
+      "actual": "c28fa9a2e3a0d4542116f0fc56820aa19fb541cb4d008a804db2b9b1de9471a6",
+      "matches": true
+    },
+    {
+      "path": "/build/slirp4netns/slirp4netns-slirp4netns.o",
+      "expected": "e3556023a511c344a2173305612ac4dc5f4491eb627a2a41b6ea6cfbb7a645b2",
+      "actual": "e3556023a511c344a2173305612ac4dc5f4491eb627a2a41b6ea6cfbb7a645b2",
+      "matches": true
+    }
+  ],
+  "distroSourceArchivePins": {
+    "gcc-11_11.4.0-1ubuntu1~22.04.3.debian.tar.xz": {
+      "size": 554748,
+      "sha256": "c56b15ffe85a584e88adca971c94fb68ef7bde016258cac942a81b4c74e4a6a3"
+    },
+    "gcc-11_11.4.0-1ubuntu1~22.04.3.dsc": {
+      "size": 22819,
+      "sha256": "5b42ce66a7ec64f94a73ff07c79a2db387e7104b7eb07113f15d2cb49b681917"
+    },
+    "gcc-11_11.4.0.orig.tar.gz": {
+      "size": 86949353,
+      "sha256": "b05e5fb310748c2836a60fccbfdf0f924f4dcaecb78d3b6f177e0d9270a0b8f8"
+    },
+    "glib2.0_2.72.4-0ubuntu2.10.debian.tar.xz": {
+      "size": 170208,
+      "sha256": "e81d6f72522eb2092ddec06760753d5fe7866eab553237a4c237b613e592df69"
+    },
+    "glib2.0_2.72.4-0ubuntu2.10.dsc": {
+      "size": 3674,
+      "sha256": "29ad099fa2f59d77424dfc8bccb474df79e4c79f2d603228aef02a679a292ca9"
+    },
+    "glib2.0_2.72.4.orig.tar.xz": {
+      "size": 4884256,
+      "sha256": "8848aba518ba2f4217d144307a1d6cb9afcc92b54e5c13ac1f8c4d4608e96f0e"
+    },
+    "glibc_2.35-0ubuntu3.15.debian.tar.xz": {
+      "size": 962196,
+      "sha256": "ea3f016b1987d995addb1c2b093a8f2679179d9bb3ebb9e2ea086469d56498c5"
+    },
+    "glibc_2.35-0ubuntu3.15.dsc": {
+      "size": 8888,
+      "sha256": "7b3e318ea5ac8b039a0fb5ef2e78b1812346bb753365d6d09622f698427cee56"
+    },
+    "glibc_2.35.orig.tar.xz": {
+      "size": 18165952,
+      "sha256": "5123732f6b67ccd319305efd399971d58592122bcc2a6518a1bd2510dd0cf52e"
+    },
+    "glibc_2.35.orig.tar.xz.asc": {
+      "size": 833,
+      "sha256": "853aaaf17d7366817e814057a467625ee7c0b26240e8b878db0f33c389c7bcb6"
+    },
+    "libcap2_2.44-1ubuntu0.22.04.3.debian.tar.xz": {
+      "size": 24880,
+      "sha256": "6a6435b74e9b2ec65eb1ee2b7958c37777fe005312feac37d84f4167521d135a"
+    },
+    "libcap2_2.44-1ubuntu0.22.04.3.dsc": {
+      "size": 2318,
+      "sha256": "67523116f07081f3a8066f737b9c84f92f5e854f13f38487c1ce485a43d85bd7"
+    },
+    "libcap2_2.44.orig.tar.xz": {
+      "size": 125568,
+      "sha256": "92188359cd5be86e8e5bd3f6483ac6ce582264f912398937ef763def2205c8e1"
+    },
+    "libseccomp_2.5.3-2ubuntu3~22.04.1.debian.tar.xz": {
+      "size": 24328,
+      "sha256": "cd582c847ced99c97f487b3f4a851bc1f2bed9065f90729d90dc8721b6dc483e"
+    },
+    "libseccomp_2.5.3-2ubuntu3~22.04.1.dsc": {
+      "size": 2860,
+      "sha256": "e7f514056a28794c6a7067cd0881b5bf03e918578df3418eea6752cbfa83fd13"
+    },
+    "libseccomp_2.5.3.orig.tar.gz": {
+      "size": 637572,
+      "sha256": "59065c8733364725e9721ba48c3a99bbc52af921daf48df4b1e012fbc7b10a76"
+    },
+    "libseccomp_2.5.3.orig.tar.gz.asc": {
+      "size": 833,
+      "sha256": "cc1cbe9d9eb6a67b78de107eb37b2bc8d7599e3c1d36699ae2528db489cb5d44"
+    }
+  },
+  "materialSHA256SUMS": [
+    "a41dd8f00097e2aab641145b5fae80b8b92e8131d15f34d19ba5de992786868c  Makefile",
+    "095261dbe7c8bec16588b6a33c5f9944086a4eebdce6e87a69c2edc656d3f8c9  REVIEW-REQUIRED.txt",
+    "e3d45ef2774d28447bea77f2510f4ea5f4314645fceae2d497752711d8416b7e  binary-SHA256SUMS",
+    "4748a9bfbc36770fcc4f2568c12a44dea25254d2f5d1a0079ee69cf9458def2e  build-trees.tar.gz",
+    "2d3c85e7cf29556c0a7ce9c6eee261ab633d108bcf9e9c9bde6bc5a3b0056032  collect-workspace-network-build.py",
+    "5fa6bf5b83f57f14020be375ac663df894027e2d672d6b7d82d7e8d8f7b49c8b  compiler.txt",
+    "3dfdc18bd2c27d7d752b59715ce2a3f0533a906cbb8de32d5d91af73cc1e4bb0  config.log",
+    "222a29e866c8754b9fe5915c083147574e3b3bbdca86e371eb219a5fe56ea6fa  config.status",
+    "47ca6fc3b6114d59b1e277650fe3c14ba664f88c99e93c8bb07c40b4d13dc454  link-inputs/build/slirp4netns/libparson.a",
+    "954278c23da7ed3fd259c472b0bf20aced17ccfff3e843ec0a0a5fabb6761b45  link-inputs/build/slirp4netns/slirp4netns-api.o",
+    "7a8994714b7c4f3f8667b6acc4ee924b90faf0b6c2f0e97e8ac12140cda58777  link-inputs/build/slirp4netns/slirp4netns-main.o",
+    "1ef540bd39beeeb67aa390b2fd1f9dbf801aae7e13df973448781c93e548c505  link-inputs/build/slirp4netns/slirp4netns-sandbox.o",
+    "c28fa9a2e3a0d4542116f0fc56820aa19fb541cb4d008a804db2b9b1de9471a6  link-inputs/build/slirp4netns/slirp4netns-seccompfilter.o",
+    "e3556023a511c344a2173305612ac4dc5f4491eb627a2a41b6ea6cfbb7a645b2  link-inputs/build/slirp4netns/slirp4netns-slirp4netns.o",
+    "26cdcaf355ea1e931d99da73b5f2cc825f4189d5f7755d8b9d05c33746aad07d  link-inputs/usr/lib/gcc/x86_64-linux-gnu/11/crtbeginT.o",
+    "98ac1d1fbb060865f24d2968437a9ccc34349f933c549158f624cbddf1b3d890  link-inputs/usr/lib/gcc/x86_64-linux-gnu/11/crtend.o",
+    "881a1422df348396646d3cbee3d8edf2cd8909f51295ff821ce16cb949029883  link-inputs/usr/lib/gcc/x86_64-linux-gnu/11/libgcc.a",
+    "ecb9dca0513f07d84e65bf5713dd2e069db87abdbcdc0363ad448568370a9cb3  link-inputs/usr/lib/gcc/x86_64-linux-gnu/11/libgcc_eh.a",
+    "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479  link-inputs/usr/lib/x86_64-linux-gnu/crt1.o",
+    "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3  link-inputs/usr/lib/x86_64-linux-gnu/crti.o",
+    "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f  link-inputs/usr/lib/x86_64-linux-gnu/crtn.o",
+    "7ceefe6c6ea90ba8323f3f24e225274eca2edc1f6b4c98bef90c9ec0dc53f294  link-inputs/usr/lib/x86_64-linux-gnu/libc.a",
+    "1465d87c94e1abe34cfe6a3839ff543cd23153b7754f5748e1fe1b13ea142e8e  link-inputs/usr/lib/x86_64-linux-gnu/libglib-2.0.a",
+    "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5  link-inputs/usr/lib/x86_64-linux-gnu/libpthread.a",
+    "9a6eec39f7896965fb81a4751a2f8a3acd2d68d24bc7336783a2cc5d43707334  link-inputs/usr/lib/x86_64-linux-gnu/libseccomp.a",
+    "b1fbc20c81804de9c2bf4796d197f42577443b01f422bd97ccfb92984555c8ef  link-inputs/usr/local/lib/x86_64-linux-gnu/libslirp.a",
+    "f94187daea6300e986cf2e9233384b54b6defa46899ee113e14fcea6debc3fd1  link-inventory.json",
+    "cf7cbaf2a0b05e067ad99e557dd81980d8522c1b269aa7f0606272b7ef3e25ca  linker.txt",
+    "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  notices/common-licenses/Apache-2.0",
+    "b7fd9b73ea99602016a326e0b62e6646060d18febdd065ceca8bb482208c3d88  notices/common-licenses/Artistic",
+    "5d588eb3b157d52112afea935c88a7ff9efddc1e2d95a42c25d3b96ad9055008  notices/common-licenses/BSD",
+    "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499  notices/common-licenses/CC0-1.0",
+    "4748f03ed2dbcc14cde6ebc30799899c403e356a7465dc30fcf2b80c45fc0059  notices/common-licenses/GFDL",
+    "56976e64523fa1e68db4e6f464f5b2cb89d7d08f54b1d012e317b8db286b3faf  notices/common-licenses/GFDL-1.2",
+    "4748f03ed2dbcc14cde6ebc30799899c403e356a7465dc30fcf2b80c45fc0059  notices/common-licenses/GFDL-1.3",
+    "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903  notices/common-licenses/GPL",
+    "d77d235e41d54594865151f4751e835c5a82322b0e87ace266567c3391a4b912  notices/common-licenses/GPL-1",
+    "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643  notices/common-licenses/GPL-2",
+    "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903  notices/common-licenses/GPL-3",
+    "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768  notices/common-licenses/LGPL",
+    "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c  notices/common-licenses/LGPL-2",
+    "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551  notices/common-licenses/LGPL-2.1",
+    "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768  notices/common-licenses/LGPL-3",
+    "f849fc26a7a99981611a3a370e83078deb617d12a45776d6c4cada4d338be469  notices/common-licenses/MPL-1.1",
+    "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85  notices/common-licenses/MPL-2.0",
+    "d3c95b56fa33e28b57860580f0baf4e4f4de2a268a2b80f1d031a5191bade265  notices/libc6-dev_amd64.copyright",
+    "a906104348c333a96d63c3573e6eb9c2cc3b410d045f3ad512dcafa4b3e4cff3  notices/libcap-dev.copyright",
+    "c2ff6bea4ff8eb81e93a10878e3a03db5015051b32272b363a6f23d3b86b11a2  notices/libgcc-11-dev_amd64.copyright",
+    "607a2dbcf41b82733bc93345da5470995a7f80515774fbabc4689158fae956c2  notices/libglib2.0-dev_amd64.copyright",
+    "6da0653a365b80ab31478dbfe9e7c358e80d58b6d2b52b4e16b4dbb42d7d9f5c  notices/libseccomp-dev_amd64.copyright",
+    "5e81ad3841c9073bee91f65c8c74fdc4b67d1f6742cd35fbd22039bb1e920818  notices/libslirp.COPYRIGHT",
+    "51f17bd7051622101fd3ce477ba3eca5e8f0705a523f3426dfbbddf9973a80bd  notices/libslirp.LICENSE",
+    "1654be3a1c88c6ae90f1c25ec880ef80076d05910199688dd9853f27d1e894cf  notices/parson.LICENSE",
+    "58db3cfabf8ec806bc060e54ab5466a31de4a3ae80fe4a8aa02fb6b1c053c93f  notices/slirp4netns.COPYING",
+    "594b7535376489c549acfc635308dfdd4fe5614a3ba29734c0d235314ac6473d  packages.tsv",
+    "e59b260fdbe756861deb73cecc4b6bee3ecfb52bcd08fe9a1b3bec61894160b1  pkg-config-static.txt",
+    "a9c6a5388c89eb6e92e79a38006163c0c21d6d1a296425dd7fccc9d6307c2c37  rebuild-workspace-network-helper.sh",
+    "708e459724f7f57f1cc4072549f8325b07e18e17f0c541ee869a552ffd9114c7  relink-workspace-network-helper.py",
+    "53bbb03e8b30daf47d24fcc5adadc038f2881446d3d25017d926678db66aeeaf  reproduction-build.log",
+    "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980  slirp4netns",
+    "70155ceeb7482adf7e87b92795f8d29c278b4abff45fea6cdf33348786a21286  slirp4netns.map",
+    "a7ac4c31440b085b6263ea8043878ef89f932fb37fd51846f129f549be8b760c  slirp4netns.unstripped",
+    "cd6cda3d9ea6f0253801e11cf5d3e466b72bbbf0e36ae06337adce6dc9a9b5d5  source-requests.txt",
+    "c56b15ffe85a584e88adca971c94fb68ef7bde016258cac942a81b4c74e4a6a3  sources/gcc-11_11.4.0-1ubuntu1~22.04.3.debian.tar.xz",
+    "5b42ce66a7ec64f94a73ff07c79a2db387e7104b7eb07113f15d2cb49b681917  sources/gcc-11_11.4.0-1ubuntu1~22.04.3.dsc",
+    "b05e5fb310748c2836a60fccbfdf0f924f4dcaecb78d3b6f177e0d9270a0b8f8  sources/gcc-11_11.4.0.orig.tar.gz",
+    "e81d6f72522eb2092ddec06760753d5fe7866eab553237a4c237b613e592df69  sources/glib2.0_2.72.4-0ubuntu2.10.debian.tar.xz",
+    "29ad099fa2f59d77424dfc8bccb474df79e4c79f2d603228aef02a679a292ca9  sources/glib2.0_2.72.4-0ubuntu2.10.dsc",
+    "8848aba518ba2f4217d144307a1d6cb9afcc92b54e5c13ac1f8c4d4608e96f0e  sources/glib2.0_2.72.4.orig.tar.xz",
+    "ea3f016b1987d995addb1c2b093a8f2679179d9bb3ebb9e2ea086469d56498c5  sources/glibc_2.35-0ubuntu3.15.debian.tar.xz",
+    "7b3e318ea5ac8b039a0fb5ef2e78b1812346bb753365d6d09622f698427cee56  sources/glibc_2.35-0ubuntu3.15.dsc",
+    "5123732f6b67ccd319305efd399971d58592122bcc2a6518a1bd2510dd0cf52e  sources/glibc_2.35.orig.tar.xz",
+    "853aaaf17d7366817e814057a467625ee7c0b26240e8b878db0f33c389c7bcb6  sources/glibc_2.35.orig.tar.xz.asc",
+    "6a6435b74e9b2ec65eb1ee2b7958c37777fe005312feac37d84f4167521d135a  sources/libcap2_2.44-1ubuntu0.22.04.3.debian.tar.xz",
+    "67523116f07081f3a8066f737b9c84f92f5e854f13f38487c1ce485a43d85bd7  sources/libcap2_2.44-1ubuntu0.22.04.3.dsc",
+    "92188359cd5be86e8e5bd3f6483ac6ce582264f912398937ef763def2205c8e1  sources/libcap2_2.44.orig.tar.xz",
+    "cd582c847ced99c97f487b3f4a851bc1f2bed9065f90729d90dc8721b6dc483e  sources/libseccomp_2.5.3-2ubuntu3~22.04.1.debian.tar.xz",
+    "e7f514056a28794c6a7067cd0881b5bf03e918578df3418eea6752cbfa83fd13  sources/libseccomp_2.5.3-2ubuntu3~22.04.1.dsc",
+    "59065c8733364725e9721ba48c3a99bbc52af921daf48df4b1e012fbc7b10a76  sources/libseccomp_2.5.3.orig.tar.gz",
+    "cc1cbe9d9eb6a67b78de107eb37b2bc8d7599e3c1d36699ae2528db489cb5d44  sources/libseccomp_2.5.3.orig.tar.gz.asc",
+    "d2567fa06a6357c7755d61c67293b2c0bf069b3f2173bde6b76cf768529a1938  sources/libslirp-source.tar.gz",
+    "26337b2ab119f7e64855e4617e91cf1fa7faeacd50329b4f262033e18e2b083b  sources/slirp4netns-source.tar.gz",
+    "17dc18b3322c35fdfcd75dd9026584d8eeca70a536d505a696acd4f20619e020  sources.list",
+    "28f4fde5da2d744611ecd5890cc5009ce6c268dfc21e392b1f8c7e4ef6aecb81  version.txt"
+  ]
+}

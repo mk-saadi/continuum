@@ -9,10 +9,10 @@ import { useCompressionEvents } from "../context/CompressionEventsContext.jsx";
 // Saved C9 summaries render Markdown with raw HTML, external images and links
 // disabled. Legacy checkpoint fields and tool output remain React-escaped text.
 
-const cardClass = "aero-panel p-3";
+const cardClass = "aero-panel sk-panel p-3";
 const headingClass = "text-xs font-semibold mb-2!";
 const bodyClass = "text-[11px] leading-relaxed text-[var(--text-muted)]";
-const pillClass = "aero-badge shrink-0 px-2 py-0.5 text-[10px] font-medium";
+const pillClass = "aero-badge sk-badge shrink-0 px-2 py-0.5 text-[10px] font-medium";
 const verifiedClass = "text-[var(--accent)]";
 const unverifiedClass = "text-[var(--text-muted)]";
 const errorClass = "text-[var(--error)]";
@@ -88,7 +88,7 @@ function CheckpointDetail({ record, evidence }) {
 					{record.stale ? " · stale; verify current context before acting" : ""}
 					{record.workingState.redacted ? " · secrets redacted" : ""}
 				</p>
-				<div className="aero-flat p-2 space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+				<div className="aero-flat sk-list p-2 space-y-2 text-xs leading-relaxed [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
 					<ReactMarkdown
 						skipHtml
 						components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}
@@ -211,7 +211,7 @@ function CheckpointDetail({ record, evidence }) {
 							key={index}
 							className="text-[11px] leading-relaxed"
 						>
-							<span className="mr-1.5 inline-block min-w-14 ui-radius-round border border-[var(--border)] px-1.5 py-px text-center text-[10px] font-medium text-[var(--text-secondary)]">
+							<span className="mr-1.5 inline-block min-w-14 ui-radius-pill border border-[var(--border)] px-1.5 py-px text-center text-[10px] font-medium text-[var(--text-secondary)]">
 								{req.status}
 							</span>
 							{req.briefId != null ? (
@@ -857,7 +857,7 @@ export default function ContextPanel({
 					<button
 						type="button"
 						onClick={() => void refreshUsage()}
-						className="shrink-0 aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
+						className="shrink-0 aero-control sk-button aero-fill sk-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 					>
 						Refresh
 					</button>
@@ -954,7 +954,7 @@ export default function ContextPanel({
 						type="button"
 						onClick={() => void refresh()}
 						disabled={loading}
-						className="shrink-0 aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
+						className="shrink-0 aero-control sk-button aero-fill sk-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 					>
 						Refresh
 					</button>
@@ -1068,7 +1068,7 @@ export default function ContextPanel({
 										})()
 									}
 									aria-pressed={selectedId === row.id}
-									className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
+									className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 								>
 									v{row.id} · {row.status}
 									{row.stale ? " · stale" : ""}
@@ -1346,7 +1346,7 @@ export default function ContextPanel({
 								onClick={() =>
 									void loadArchived(Math.max(0, archived.offset - archived.limit))
 								}
-								className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
+								className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 							>
 								Older
 							</button>
@@ -1364,7 +1364,7 @@ export default function ContextPanel({
 									archived.offset + archived.limit >= archived.total || archivedLoading
 								}
 								onClick={() => void loadArchived(archived.offset + archived.limit)}
-								className="aero-control aero-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
+								className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2.5 py-1 text-[11px] font-medium"
 							>
 								Newer
 							</button>

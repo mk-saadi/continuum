@@ -23,7 +23,7 @@ function validateExtraPaths(paths, { home = os.homedir(), maskedPaths = [] } = {
   });
 }
 // Pure: inputs contain already resolved paths. Mount ordering is security-critical.
-function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [], maskedSockets = [] }) {
+function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = true, maskedPaths = [], home, tmp, askpassDirectory, gitMetadata = [], maskedSockets = [], authMounts = [] }) {
   const argv = ['--tmpfs', '/', '--tmpfs', '/tmp', '--dir', '/sandbox-home'];
   // Scratch is invocation-local: never re-expose masked host storage.
   if (home) argv.push('--tmpfs', '/sandbox-home');
@@ -42,11 +42,23 @@ function buildSandboxMounts({ system, etc, runtimes = [], workspace, writable = 
   for (const p of gitMetadata) bind(p, p);
   // Hidden data is an empty read-only mount, not writable scratch space.
   for (const p of effectiveMasks({ workspace, system, runtimes, maskedPaths })) {
-    if (gitMetadata.some(root => inside(p, root)) || (askpassDirectory && inside(p, askpassDirectory)))
+    if (gitMetadata.some(root => inside(p, root)) || (askpassDirectory && inside(p, askpassDirectory)) ||
+        authMounts.some(mount => inside(p, mount.destination)))
       throw unavailable(p); // A later rebind would invalidate the exclusion.
     argv.push('--tmpfs', p, '--remount-ro', p);
   }
   if (askpassDirectory) bind(askpassDirectory, askpassDirectory);
+  // Host authentication capabilities are explicitly narrow: read-only config
+  // files plus the user's existing SSH agent socket. Parent directories do not
+  // exist in the empty sandbox root, so create only the path components needed.
+  const created = new Set();
+  for (const mount of authMounts) {
+    let parent = path.dirname(mount.destination);
+    const parents = [];
+    while (parent !== '/' && parent !== '.' && !created.has(parent)) { parents.unshift(parent); parent = path.dirname(parent); }
+    for (const p of parents) { argv.push('--dir', p); created.add(p); }
+    bind(mount.source, mount.destination, mount.writable === true);
+  }
   argv.push('--proc', '/proc', '--dev', '/dev', '--remount-ro', '/');
   return argv;
 }
@@ -91,7 +103,22 @@ function assertNoExposedHostSockets(roots, maskedSockets = [], excluded = []) {
     if (socket && !excluded.some(p => inside(p, socket)) && !maskedSockets.includes(socket) && roots.some(p => inside(p, socket))) throw new Error(`Sandbox socket path is not permitted: ${socket}`);
   }
 }
-function resolveFilesystemImpl({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false, maskWorkspaceSockets = false }) {
+function resolveAuthMounts(mounts, maskedPaths = []) {
+  if (!Array.isArray(mounts)) throw new Error('Authentication mounts must be an array.');
+  return mounts.map(mount => {
+    const source = mount?.source, destination = mount?.destination;
+    if (typeof source !== 'string' || typeof destination !== 'string' ||
+        !path.isAbsolute(source) || !path.isAbsolute(destination) || source.includes('\0') || destination.includes('\0'))
+      throw unavailable(String(source ?? destination));
+    const real = fs.realpathSync(source);
+    if (real === '/') throw unavailable(source);
+    if (maskedPaths.some(p => inside(p, real) || inside(real, p))) throw unavailable(source);
+    const stat = fs.lstatSync(real);
+    if (!stat.isFile() && !stat.isSocket()) throw unavailable(source);
+    return { source: real, destination, ...(mount.writable === true ? { writable: true } : {}) };
+  });
+}
+function resolveFilesystemImpl({ workspace, network = false, writable = true, home, tmp, askpassDirectory, config, userData, hostEnv = process.env, protectGitMetadata = false, maskWorkspaceSockets = false, authMounts = [] }) {
   if (!config || !userData) {
     const { app } = require('electron');
     config ??= require('./configStore').getConfig();
@@ -151,10 +178,11 @@ function resolveFilesystemImpl({ workspace, network = false, writable = true, ho
     bins.push(path.join(validated, 'bin'), parent);
   }
   assertNoExposedHostSockets([workspace, ...system.map(e => e.source), ...etc.map(e => e.source), ...runtimes.map(e => e.source), ...[askpassDirectory].filter(Boolean)], maskedSockets, excluded);
+  const auth = resolveAuthMounts(authMounts, maskedPaths);
   const gitMetadata = protectGitMetadata ? require('./gitMetadata').resolveGitMetadata(workspace, excluded) : [];
-  const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata, maskedSockets }),
+  const plan = { gitMetadata, mounts: buildSandboxMounts({ system, etc, runtimes, workspace, writable, maskedPaths, home, tmp, askpassDirectory, gitMetadata, maskedSockets, authMounts: auth }),
     env: environment(hostEnv, { home: home ? '/sandbox-home' : '/tmp', pathValue: [...new Set([...bins, '/usr/local/bin', '/usr/bin', '/bin'])].join(':') }) };
-  if (!network && writable && protectGitMetadata) shellPlans.set(plan, { options: { workspace, network, writable, home, tmp, askpassDirectory, config, userData, hostEnv, protectGitMetadata, maskWorkspaceSockets }, workspace, mounts: [...plan.mounts], env: { ...plan.env } });
+  if (!network && writable && protectGitMetadata) shellPlans.set(plan, { options: { workspace, network, writable, home, tmp, askpassDirectory, config, userData, hostEnv, protectGitMetadata, maskWorkspaceSockets, authMounts }, workspace, mounts: [...plan.mounts], env: { ...plan.env } });
   return plan;
 }
 function resolveFilesystem(options) {

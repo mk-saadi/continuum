@@ -5,8 +5,10 @@
 		<script>
 			// Apply the saved material before styles/React paint to avoid a glass flash.
 			try {
-				document.documentElement.dataset.appearance = localStorage.getItem("appearance") === "flat" ? "flat" : "aero";
+				const savedStyle = localStorage.getItem("appearance");
+				document.documentElement.dataset.appearance = ["aero", "flat", "skeu"].includes(savedStyle) ? savedStyle : "aero";
 			} catch { document.documentElement.dataset.appearance = "aero"; }
+				document.documentElement.dataset.style = document.documentElement.dataset.appearance;
 		</script>
 		<meta
 			name="viewport"
@@ -23,7 +25,7 @@
 		     Removed by src/main.jsx once React has mounted. -->
 		<style>
 			:root { --ui-radius-surface: 14px; --ui-radius-round: 9999px; }
-			html[data-appearance="flat"] { --ui-radius-surface: 6px; }
+			html:is([data-appearance="flat"], [data-appearance="skeu"]) { --ui-radius-surface: 6px; }
 			#boot-loader {
 				position: fixed;
 				inset: 0;

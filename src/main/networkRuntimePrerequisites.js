@@ -50,4 +50,4 @@ function assertVersions() {
   // effective cgroup verification; version success never opens readiness.
   return result;
 }
-module.exports = { inspectVersions, assertVersions };
+module.exports = { requirements, inspectVersions, assertVersions };

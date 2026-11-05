@@ -1,3 +1,5 @@
+import { nextRadioChoice } from "../../lib/radioChoices.mjs";
+import { themes, themeGroups } from "../../lib/themes.mjs";
 import CloudProviderSettings from "../CloudProviderSettings";
 import React, { useEffect, useRef, useState } from "react";
 import TokenHistory from "../settings/TokenHistory";
@@ -121,150 +123,7 @@ const tabs = [
 	},
 ];
 
-const themeGroups = [
-	{
-		heading: "Default",
-		themes: [
-			{
-				id: "light",
-				label: "Light",
-				description: "Clean white · neutral gray · blue",
-				swatches: ["#ffffff", "#f0f0f0", "#2563eb"],
-			},
-			{
-				id: "dark",
-				label: "Dark",
-				description: "Charcoal · neutral gray · blue",
-				swatches: ["#1a1a1a", "#292929", "#5b9bff"],
-			},
-		],
-	},
-	{
-		heading: "More looks",
-		themes: [
-			{
-				id: "ember",
-				label: "Ember Studio Light",
-				description: "Parchment · mineral gray · burnt copper",
-				swatches: ["#E9E8E0", "#F7F6F0", "#B85F3D"],
-			},
-			{
-				id: "ember-dark",
-				label: "Ember Studio Dark",
-				description: "Charcoal slate · smoky plum · warm amber",
-				swatches: ["#131725", "#3c3545", "#efa26f"],
-			},
-			{
-				id: "gruvbox",
-				label: "Gruvbox Light",
-				description: "Cream paper · red · olive green · mustard",
-				swatches: ["#f9f5d7", "#e8dc8e", "#b57614"],
-			},
-			{
-				id: "gruvbox-dark",
-				label: "Gruvbox Dark",
-				description: "Near-black · red · banana green · mustard",
-				swatches: ["#1d2021", "#43421a", "#fabd2f"],
-			},
-			{
-				id: "lilac",
-				label: "Lilac Lounge Light",
-				description: "Soft lavender · airy lilac · violet",
-				swatches: ["#faf7fe", "#eee0fb", "#956bd2"],
-			},
-			{
-				id: "lilac-dark",
-				label: "Lilac Lounge Dark",
-				description: "Deep plum · dusk purple · soft lilac",
-				swatches: ["#1d1925", "#463552", "#c5a1f3"],
-			},
-			{
-				id: "matcha",
-				label: "Matcha Notebook Light",
-				description: "Sage cream · fresh mint · forest green",
-				swatches: ["#f1f8f1", "#dff2e4", "#268c70"],
-			},
-			{
-				id: "matcha-dark",
-				label: "Matcha Notebook Dark",
-				description: "Deep forest · moss green · mint",
-				swatches: ["#14231f", "#32523e", "#8bdcb4"],
-			},
-			{
-				id: "midnight-light",
-				label: "Midnight Find Light",
-				description: "Indigo paper · dark indigo text · rose & amber",
-				swatches: ["#f6f6fb", "#d94b60", "#daa541"],
-			},
-			{
-				id: "midnight-find",
-				label: "Midnight Find",
-				description: "Deep indigo · lavender text · rose & yellow",
-				swatches: ["#15172a", "#eb5e73", "#f3df6e"],
-			},
-			{
-				id: "mochi",
-				label: "Mochi Light",
-				description: "Warm ivory · soft rose",
-				swatches: ["#F7F0F2", "#FFFAFB", "#D95F89"],
-			},
-			{
-				id: "mochi-dark",
-				label: "Mochi Dark",
-				description: "Deep plum · muted mauve · rose",
-				swatches: ["#211B23", "#2B222D", "#E982A3"],
-			},
-			{
-				id: "onyx",
-				label: "Onyx Light",
-				description: "Crisp paper · graphite ink · petrol",
-				swatches: ["#ffffff", "#0b0c0e", "#175a75"],
-			},
-			{
-				id: "onyx-dark",
-				label: "Onyx Dark",
-				description: "True black · graphite · ice blue",
-				swatches: ["#000000", "#0b0b0d", "#8ecdf7"],
-			},
-			{
-				id: "papaya",
-				label: "Papaya Punch Light",
-				description: "Warm cream · papaya orange · deep teal",
-				swatches: ["#fff7ef", "#c4470f", "#0f7a6c"],
-			},
-			{
-				id: "papaya-dark",
-				label: "Papaya Punch Dark",
-				description: "Deep teal night · mango · hot pink",
-				swatches: ["#0d1b19", "#ff8a3d", "#ff5c8a"],
-			},
-			{
-				id: "solarized",
-				label: "Solarized Light",
-				description: "Cream paper · slate text · blue",
-				swatches: ["#f7f0dc", "#c9e0e3", "#268bd2"],
-			},
-			{
-				id: "solarized-dark",
-				label: "Solarized Dark",
-				description: "Deep teal · slate text · blue",
-				swatches: ["#00212b", "#155060", "#268bd2"],
-			},
-			{
-				id: "tokyo",
-				label: "Tokyo Night Light",
-				description: "Fog gray · cool blue · cyan",
-				swatches: ["#e1e2e7", "#f7f8fb", "#2e7de9"],
-			},
-			{
-				id: "tokyo-dark",
-				label: "Tokyo Night Dark",
-				description: "Midnight navy · periwinkle · violet",
-				swatches: ["#1a1b26", "#2f3a63", "#7aa2f7"],
-			},
-		],
-	},
-];
+
 
 const panelClass = "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-sm sm:px-6";
 
@@ -318,6 +177,7 @@ function MemorySettings({
 	const dialog = useRef(null);
 	const mcpForm = useRef(null);
 	const tabButtons = useRef([]);
+	const themeChoiceRefs = useRef(new Map());
 	const changing = useRef(false);
 	const version = useRef(0);
 	const [tab, setTab] = useState(DEFAULT_SETTINGS_TAB);
@@ -412,7 +272,7 @@ function MemorySettings({
 		<dialog
 			ref={dialog}
 			aria-labelledby="memory-settings-title"
-			className="aero-dialog m-auto overflow-hidden p-0"
+			className="aero-dialog sk-window sk-dialog m-auto overflow-hidden p-0"
 			style={{
 				width: "min(920px, calc(100vw - 32px))",
 				maxWidth: "none",
@@ -425,7 +285,7 @@ function MemorySettings({
 			}}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="aero-header flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
+				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
 					<div>
 						<h2
 							id="memory-settings-title"
@@ -437,7 +297,7 @@ function MemorySettings({
 					</div>
 					<button
 						type="button"
-						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						onClick={onClose}
 						autoFocus
@@ -451,7 +311,7 @@ function MemorySettings({
 						role="tablist"
 						aria-label="Settings sections"
 						aria-orientation="vertical"
-						className="aero-navigation flex shrink-0 gap-1.5 overflow-x-auto px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:px-3 sm:py-5"
+						className="aero-navigation sk-sidebar flex shrink-0 gap-1.5 overflow-x-auto px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:px-3 sm:py-5"
 					>
 						{tabs.map(({ id, label, group, icon: Icon }, index) => (
 							<React.Fragment key={id}>
@@ -467,13 +327,14 @@ function MemorySettings({
 									}}
 									type="button"
 									role="tab"
+									aria-current={tab === id ? "page" : undefined}
 									id={`settings-tab-${id}`}
 									aria-controls={`settings-panel-${id}`}
 									aria-selected={tab === id}
 									tabIndex={tab === id ? 0 : -1}
 									onKeyDown={(event) => onTabKey(event, index)}
 									onClick={() => selectTab(id)}
-									className={`${tab === id ? "aero-control aero-fill" : "cursor-pointer ui-radius-surface border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
+									className={`sk-nav-item ${tab === id ? "aero-control sk-button aero-fill sk-fill" : "cursor-pointer ui-radius-surface border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
 								>
 									<span
 										aria-hidden="true"
@@ -491,7 +352,7 @@ function MemorySettings({
 					</nav>
 
 					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
-						<div className="aero-header shrink-0 px-5 py-4 sm:px-6">
+						<div className="aero-header aero-section-header sk-section-header shrink-0 px-5 py-4 sm:px-6">
 							<h3 className="text-sm font-semibold">{activeTab.label}</h3>
 							<p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
 								{activeTab.description}
@@ -511,7 +372,7 @@ function MemorySettings({
 										title="Color theme"
 										description="Choose a palette for the whole app. The original dark theme is preserved."
 									>
-										<div className="space-y-4">
+										<div className="space-y-4" role="radiogroup" aria-label="Color theme">
 											{themeGroups.map((group) => (
 												<fieldset key={group.heading}>
 													<legend className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
@@ -524,10 +385,21 @@ function MemorySettings({
 																<button
 																	key={option.id}
 																	type="button"
-																	aria-pressed={selected}
+																	role="radio"
+																	aria-checked={selected}
+																	data-selected={selected}
+																	tabIndex={selected ? 0 : -1}
+																	ref={node => { if (node) themeChoiceRefs.current.set(option.id, node); else themeChoiceRefs.current.delete(option.id); }}
+																	onKeyDown={event => {
+																		const index = nextRadioChoice(event.key, themes.findIndex(item => item.id === option.id), themes.length);
+																		if (index === null || !onChangeTheme) return;
+																		event.preventDefault();
+																		onChangeTheme(themes[index].id);
+																		themeChoiceRefs.current.get(themes[index].id)?.focus();
+																	}}
 																	disabled={!onChangeTheme}
 																	onClick={() => onChangeTheme?.(option.id)}
-																	className="aero-control aero-fill aero-theme-choice flex items-center gap-3 p-3 text-left cursor-pointer"
+																	className="aero-control sk-button aero-fill sk-fill aero-theme-choice sk-choice flex items-center gap-3 p-3 text-left cursor-pointer"
 																>
 																	<span
 																		aria-hidden="true"

@@ -38,3 +38,19 @@ Closed deb SHA-256: `5780b4081baa528c587d9d0d0f64d43399cca4b38d5c74c319cb310bb01
 Final new tests: 2/2 unit tests and 4/4 installed GUI/harness scripts, including 5/5 lifecycle cases; zero final failures/skips. Earlier setup failures are disclosed separately in the [evidence](b2-g6-installed-deb-acceptance-evidence.json). Production build and syntax/whitespace checks pass. Shipping readiness remains closed; normal ASAR contains no qualification module.
 
 **Remaining release blockers: exact-material redistribution/source-delivery approval and accepted security maintenance ownership.** Approver, acceptance date, distribution channel and response commitments remain unfilled. Production activation requires a separate evidence-backed release decision after those human requirements are satisfied. No production entitlement or human signature is supplied by these technical results.
+
+## Solo-maintainer promotion decision (still pending)
+
+One person may review and accept all the decisions below as Continuum's sole maintainer. No additional employee or external security team is required. Ownership alone does not fill any approval field.
+
+Before activation, record an explicit dated decision covering:
+
+1. **Exact materials and delivery:** accept the helper `dceac41d…10b980`, review archive `676fcef4…e5225`, recipient-facing corresponding source/notices/relink instructions (including G.5's addendum), and the actual public delivery URL/channel. Verify the full hashes above, not these abbreviations.
+2. **Maintenance commitment:** accept advisory monitoring for the helper and embedded libraries, triage/response and withdrawal commitments, rebuild/repin/retest responsibility, and address-policy review before December 3, 2026 UTC. Write the actual commitments and dates; none are inferred.
+3. **Production promotion:** review frozen AppImage/deb identities and qualification evidence and explicitly authorize production eligibility for those resources/platforms.
+
+After that recorded decision, the maintainer's reviewed production change must open the code-owned release gate in `workspaceNetworkPolicy.js` and release assembly in `assemble-workspace-network.cjs`, add audited outside-ASAR resources and the existing runtime dependency floors to normal Electron Builder configuration, and run packaged acceptance on the frozen output. Do not copy the local-development initializer into a production entry point. `npm run dist` currently remains closed and excludes `.continuum-local` and its launcher/profile.
+
+Missing historical artifacts are an additional engineering blocker to promotion. The integration work does not approve replacing either independent artifact pin or treating regenerated logs/tar metadata as the original review archive.
+
+The local integration recovered the exact selected helper and all 18 linker inputs. Its **new local-only** source/relink envelope is `0f7217354527fd430406bc13d23b6d23535d2ce058c1d3f110bac298bc3d9acf` (84 verified materials, including all original upstream/distro source pins). The historical `676fcef4…e5225` envelope was not reproduced. If the maintainer chooses the reconstruction for public delivery, explicitly review and approve that exact new envelope and change the production pin only in the separately authorized promotion change. The local whitelist is not that approval. See `workspace-write-local-resource-reconstruction.json`; all decision fields above remain pending.

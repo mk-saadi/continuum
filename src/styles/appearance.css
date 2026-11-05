@@ -2,6 +2,9 @@
    Keep geometry and semantic states; remove the Aero material/compositing. */
 html[data-appearance="flat"] {
 	--aero-glass: var(--surface);
+	--aero-panel-fill: var(--surface);
+	--aero-backdrop-dim: 55%;
+	--aero-status-error: var(--error-strong);
 	--aero-glass-raised: var(--surface-raised);
 	--aero-glass-strong: var(--surface-raised);
 	--aero-glass-subtle: var(--bg-secondary);
@@ -20,6 +23,9 @@ html[data-appearance="flat"] {
 	--aero-saturate-control: 100%;
 	--aero-saturate-float: 100%;
 	--aero-gloss-panel: none;
+	--aero-gloss-chrome: none;
+	--aero-gloss-fill: none;
+	--aero-fill-fill: var(--surface);
 	--aero-gloss-control: none;
 	--aero-gloss-control-hover: none;
 	--aero-gloss-accent: none;
@@ -36,6 +42,8 @@ html[data-appearance="flat"] {
 	--aero-bevel-orb: none;
 	--aero-shadow-float: none;
 	--aero-glow: 0 0 transparent;
+	--aero-accent-fill: var(--accent);
+	--aero-accent-fill-hover: var(--accent-hover);
 }
 html[data-appearance="flat"] :is([class*="aero-"], .project-heading-icon, .project-path),
 html[data-appearance="flat"] :is([class*="aero-"], .project-heading-icon, .project-path):is(:hover, :active, :focus-within, [aria-selected="true"], [aria-pressed="true"], [data-active="true"]) {

@@ -54,7 +54,7 @@ export default function Sidebar({
 					</summary>
 					<div className="max-h-48 min-h-0 overflow-y-auto px-2 pb-2">
 						<button
-							className="aero-list-item project-nav-link w-full cursor-pointer"
+							className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer"
 							onClick={onChat}
 						>
 							<FiMessageSquare />
@@ -67,7 +67,7 @@ export default function Sidebar({
 									.map((project) => (
 										<button
 											key={project.id}
-											className="aero-list-item project-nav-link w-full"
+											className="aero-list-item sk-list-row project-nav-link w-full"
 											onClick={() => onProject(project.id)}
 										>
 											<FiStar className="shrink-0" />
@@ -77,14 +77,14 @@ export default function Sidebar({
 							</section>
 						)}
 						<button
-							className="aero-list-item project-nav-link w-full"
+							className="aero-list-item sk-list-row project-nav-link w-full"
 							onClick={onProjects}
 						>
 							<FiGrid />
 							<span>All projects</span>
 						</button>
 						<button
-							className="aero-list-item project-nav-link w-full"
+							className="aero-list-item sk-list-row project-nav-link w-full"
 							onClick={onCreateProject}
 						>
 							<FiPlus />
@@ -106,7 +106,7 @@ export default function Sidebar({
 		>
 			<div className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 pt-3 pb-2">
 				<button
-					className="aero-list-item project-nav-link w-full cursor-pointer ui-radius-control"
+					className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
 					onClick={onChat}
 					aria-current={view === "chat" ? "page" : undefined}
 				>
@@ -114,7 +114,7 @@ export default function Sidebar({
 					<span>Back to Chat</span>
 				</button>
 				<button
-					className="aero-list-item project-nav-link w-full cursor-pointer ui-radius-control"
+					className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
 					onClick={onProjects}
 					aria-current={view === "projects" ? "page" : undefined}
 				>

@@ -1,6 +1,6 @@
 'use strict';
 
-// Installation/publication review remains independent of shell syntax.
+// Descriptive package classification only; command text never grants sandbox authority.
 function isPackageOperation(command) {
   const text = String(command).replace(/["']/g, '').toLowerCase();
   return /\b(?:npm|pnpm|yarn|bun)\s+(?:[^;&|]*?\s)?(?:install|add|i|ci|publish|unpublish|deprecate)\b/.test(text)

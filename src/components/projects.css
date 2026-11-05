@@ -375,7 +375,7 @@ textarea.project-input {
 
 /* Projects-only shapes; reusable material lives in styles/aero.css. */
 .projects-page .projects-heading h1 {
-	text-shadow: 0 1px 2px color-mix(in srgb, #000000 45%, transparent);
+	text-shadow: none;
 }
 .projects-page .project-path {
 	border: 1px solid color-mix(in srgb, #000000 34%, transparent);

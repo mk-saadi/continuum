@@ -84,8 +84,10 @@ test('Gate 1: actual local, Anthropic and OpenRouter transport bodies for fresh 
     const f = fixture(mode), p = payload(f, mode || 'read_only');
     const body = await capture(f, mode, p.tools, p.messages, provider);
     const row = measurement(body, f, mode || 'read_only', provider); results.initial.push(row);
-    assert.ok(row.estimatedInputTokens <= (mode ? 11000 : 2000));
-    if (mode) assert.ok(row.nativeSchemaCount > 2); else assert.equal(row.nativeSchemaCount, 2);
+    // Casual and workspace now both carry the always-advertised native web schemas
+    // plus the preview-URL guidance line.
+    assert.ok(row.estimatedInputTokens <= (mode ? 11200 : 2200), String(row.estimatedInputTokens));
+    if (mode) assert.ok(row.nativeSchemaCount > 5); else assert.equal(row.nativeSchemaCount, 5);
   }
   for (const variant of ['persona', 'custom-system', 'repository', 'task-brief']) {
     const mode = ['repository', 'task-brief'].includes(variant) ? 'full_access' : null;
@@ -151,7 +153,7 @@ test('Gate 3: bounded MCP search replaces model-facing directory without strandi
       for (const mode of [null, 'full_access']) {
         const f = fixture(mode), p = payload(f, mode || 'read_only');
         const body = await capture(f, mode, p.tools, p.messages); row.initial.push(measurement(body, f, mode || 'read_only', 'local', catalog));
-        if (mode) assert.ok(p.tools.length > 2); else assert.equal(p.tools.length, 2);
+        if (mode) assert.ok(p.tools.length > 5); else assert.equal(p.tools.length, 5);
       }
       if (serverCount) {
         const startActivation = performance.now(); await manager.manageServers('enable', [Object.keys(definitions).at(-1)], 'scaling'); row.activationLatencyMs = performance.now()-startActivation;
@@ -275,7 +277,7 @@ test('session/run lifecycle and model changes retain only currently authorized n
     activation.manage({action:'activate',groups:['files','editing']},a.id,available(a),'a');
     activation.manage({action:'activate',groups:['memory']},b.id,available(b),'b');
     const names=(f,mode='full_access',model='fixture')=>builder.getToolContext([],true,f.id,mode,model).tools.map(t=>t.function.name);
-    assert.ok(names(a).includes('write_project_file'));assert.ok(names(b).includes('read_project_file'));assert.deepEqual(names(c,'read_only'),['find_and_prepare_mcp_tools','manage_native_tools']);
+    assert.ok(names(a).includes('write_project_file'));assert.ok(names(b).includes('read_project_file'));assert.deepEqual(names(c,'read_only'),['extract_web_page_data','find_and_prepare_mcp_tools','get_single_web_page_content','manage_native_tools','web_search']);
     assert.ok(names(a,'full_access','changed-model').includes('read_project_file'));
     const context=require('../src/main/lspExecutionContext').createContext(a.id,'full_access','a');
     await require('../src/main/lspExecutionContext').setMode(a.id,'read_only');

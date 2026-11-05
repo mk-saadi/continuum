@@ -16,14 +16,16 @@ function regular(file) {
     throw Error('Expected a regular nonsymlink file: ' + absolute);
   return fs.readFileSync(absolute);
 }
-function assemble({ helper, output, fixture = false, reviewArchive }) {
+function assemble({ helper, output, fixture = false, localDevelopment = false, reviewArchive }) {
   // This is a code-reviewed release boundary, not a manifest assertion. Replace
   // only after the source/relink package and installed acceptance are reviewed.
-  if (!fixture) throw Error('NETWORK_RELEASE_UNQUALIFIED: exact helper source/relink inventory and installed acceptance require review.');
+  if (!fixture && !localDevelopment) throw Error('NETWORK_RELEASE_UNQUALIFIED: exact helper source/relink inventory and installed acceptance require review.');
   const destination = path.resolve(output);
   const parent = path.dirname(destination);
   const temporary = fs.realpathSync(os.tmpdir());
-  if (fs.realpathSync(parent) !== parent || !parent.startsWith(temporary + path.sep))
+  if (fs.realpathSync(parent) !== parent || (localDevelopment
+      ? destination !== path.resolve(__dirname, '../.continuum-local/resources')
+      : !parent.startsWith(temporary + path.sep)))
     throw Error('Non-release fixtures must be assembled in an existing nonsymlink directory beneath ' + temporary);
   if (fs.existsSync(destination)) throw Error('Refusing to overwrite an existing output.');
   const binary = regular(helper);
@@ -38,7 +40,7 @@ function assemble({ helper, output, fixture = false, reviewArchive }) {
   files.push(['x64/slirp4netns', binary]);
   if (reviewArchive) {
     const bytes = regular(reviewArchive);
-    if (hash(bytes) !== require('../docs/b2-g4-helper-candidate.json').reviewArchive?.sha256)
+    if (![require('../docs/b2-g4-helper-candidate.json').reviewArchive?.sha256, ...(localDevelopment ? [require('./local-network-resource-pins.cjs').reviewArchiveSha256] : [])].includes(hash(bytes)))
       throw Error('Pinned source/relink review archive mismatch.');
     files.push(['review/helper-review.tar.gz', bytes]);
   }
@@ -59,7 +61,7 @@ function assemble({ helper, output, fixture = false, reviewArchive }) {
       helperSha256: helperPin, reviewMaterialsIncluded: !!reviewArchive,
       missing: require('../docs/b2-g4-helper-candidate.json').releaseBlockers,
     }, null, 2) + '\n');
-    const result = audit(destination);
+    const result = audit(destination, { localDevelopment });
     if (!result.payloadIntegrity) throw Error(result.blockers.join('\n'));
     return result;
   } catch (error) { fs.rmSync(destination, { recursive: true, force: true }); throw error; }

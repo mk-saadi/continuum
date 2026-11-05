@@ -87,7 +87,7 @@ export default function MemoryTab({ palace }) {
 				) : memories.length === 0 ? (
 					<SettingsEmpty>No memories yet. Add a preference below.</SettingsEmpty>
 				) : (
-					<ul className="aero-flat divide-y divide-[var(--border)] p-3">
+					<ul className="aero-flat sk-list divide-y divide-[var(--border)] p-3">
 						{memories.map((memory) => (
 							<li
 								key={memory.id}
@@ -95,7 +95,7 @@ export default function MemoryTab({ palace }) {
 							>
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2">
-										<span className="ui-radius-round bg-[var(--bg-tertiary)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+										<span className="ui-radius-pill bg-[var(--bg-tertiary)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
 											{memory.category}
 										</span>
 										<span className="text-[10px] text-[var(--text-muted)]">
@@ -109,7 +109,7 @@ export default function MemoryTab({ palace }) {
 								</div>
 								<button
 									type="button"
-									className="aero-orb aero-fill aero-control--danger flex size-7 shrink-0 items-center justify-center"
+									className="aero-orb sk-icon-button aero-fill sk-fill aero-control--danger flex size-7 shrink-0 items-center justify-center"
 									disabled={busy}
 									aria-label={`Delete memory: ${memory.content}`}
 									title="Delete memory"

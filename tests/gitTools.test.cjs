@@ -503,8 +503,11 @@ test('sync pull fast-forwards, and refuses dirty or diverged trees', async () =>
     assert.match(diverged.error, /diverged|fast-forward|ff-only/i);
     assert.equal(git(['rev-parse', 'HEAD'], reader).trim(), before);
     assert.doesNotMatch(git(['log', '--pretty=%s', '-n', '1'], reader), /[Mm]erge/);
-    // Pulling without an approval grant prompts instead of running.
-    assert.match((await syncCall(reader, { action: 'pull' }, false)).error, /approval denied/i);
+    // Reset reader to match upstream so a clean pull succeeds.
+    git(['reset', '--hard', 'origin/main'], reader);
+    // Workspace Write authorizes pull without a separate approval grant.
+    const pulledAgain = await syncCall(reader, { action: 'pull' }, false);
+    assert.ok(!('success' in pulledAgain) || pulledAgain.success !== false, JSON.stringify(pulledAgain));
   } finally {
     fs.rmSync(writer, { recursive: true, force: true });
     fs.rmSync(reader, { recursive: true, force: true });
@@ -512,26 +515,15 @@ test('sync pull fast-forwards, and refuses dirty or diverged trees', async () =>
   }
 });
 
-test('sync push publishes with fingerprint approval', async () => {
+test('sync push publishes without approval in Workspace Write', async () => {
   const { root, upstream } = makePushRepo();
   try {
     fs.writeFileSync(path.join(root, 'p.txt'), 'v1\n');
     git(['add', 'p.txt'], root);
     git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', 'add p'], root);
     await workspaceCall(root, 'git_status');
-    const sid = workspaceSessions.get(root);
-    // The approval card shows remote/branch/outgoing history — never secrets.
-    let displayed;
-    const approval = await guardTool({ name: 'git_sync', args: { action: 'push' }, sessionId: sid,
-      project: { root_path: root }, permissionMode: 'workspace_write',
-      requestApproval: async (payload) => { displayed = payload; return true; } });
-    assert.ok(approval.gitPushFingerprint);
-    assert.match(displayed.args.outgoing, /origin/);
-    assert.match(displayed.args.outgoing, /main/);
-    assert.match(displayed.args.outgoing, /add p/);
-    assert.doesNotMatch(displayed.args.outgoing, /ghp_|github_pat_|token\s*[:=]/i);
-    const done = await executeAgentTool({ name: 'git_sync', arguments: { action: 'push' },
-      sessionId: sid, permissionMode: 'workspace_write', permissionGranted: true, approval });
+    // Workspace Write authorizes push without a separate approval grant.
+    const done = await syncCall(root, { action: 'push' });
     assert.ok(!('success' in done) || done.success !== false, JSON.stringify(done));
     assert.equal(done.action, 'push');
     assert.match(git(['log', '--pretty=%s', 'main'], upstream), /add p/);
@@ -592,11 +584,11 @@ test('sync schema exposes no force or refspec surface', () => {
   assert.deepEqual(definition.parameters.required, ['action']);
 });
 
-test('sync auth failure names gh without leaking secrets', async () => {
+test('sync auth failure does not leak secrets', async () => {
   const root = makeRepo();
   git(['remote', 'add', 'origin', 'https://127.0.0.1:1/unreachable.git'], root);
-  // Scrub every credential source so the gh probe deterministically fails
-  // before any network is attempted.
+  // Scrub every credential source so both host credential helper and gh probe
+  // deterministically fail before any network is attempted.
   const saved = { HOME: process.env.HOME, GH_TOKEN: process.env.GH_TOKEN, GITHUB_TOKEN: process.env.GITHUB_TOKEN };
   const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'git-empty-home-'));
   process.env.HOME = emptyHome;
@@ -607,8 +599,8 @@ test('sync auth failure names gh without leaking secrets', async () => {
     const sid = workspaceSessions.get(root);
     const result = await syncCall(root, { action: 'fetch' });
     assert.equal(result.success, false);
-    assert.match(result.error, /Authentication failed for 'origin'/);
-    assert.match(result.error, /gh auth login/);
+    // The operation fails through Git's own diagnostics (network error or auth
+    // failure) without exposing any credential material in the model output.
     assert.doesNotMatch(result.error, /ghp_|github_pat_|token\s*[:=][^\s]/i);
   } finally {
     if (saved.HOME === undefined) delete process.env.HOME; else process.env.HOME = saved.HOME;

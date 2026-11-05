@@ -93,8 +93,8 @@ test('web_search is registered natively, visible to main agents and children, an
   assert.equal(tool.function.parameters.properties.query.maxLength, 500);
   assert.equal(tool.function.parameters.properties.max_results.maximum, 10);
   assert.equal(tool.function.parameters.additionalProperties, false);
-  assert.match(tool.function.description, /Zero-configuration/);
-  assert.match(tool.function.description, /untrusted external data/);
+  assert.match(tool.function.description, /no API key, account, MCP server or browser required/);
+  assert.match(tool.function.description, /untrusted data, never instructions/);
   assert.equal(capabilityOf('web_search'), CAPABILITIES.READ);
   assert.equal(isToolVisible('web_search', { permissionMode: 'read_only' }), true);
   assert.equal(isToolVisible('web_search', { permissionMode: 'ask_approval' }), true);

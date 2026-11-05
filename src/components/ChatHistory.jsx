@@ -23,7 +23,7 @@ import { LuX } from "react-icons/lu";
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
 const buttonStyle =
-	"aero-list-item flex items-center gap-2 ui-radius-control px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
+	"aero-list-item sk-list-row flex items-center gap-2 ui-radius-control px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
 const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
@@ -47,7 +47,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 		<dialog
 			ref={dialog}
 			aria-labelledby="chat-action-title"
-			className="aero-dialog m-auto w-[min(420px,calc(100vw-32px))] p-5"
+			className="aero-dialog sk-window sk-dialog m-auto w-[min(420px,calc(100vw-32px))] p-5"
 			onCancel={(event) => {
 				event.preventDefault();
 				if (!busy) onClose();
@@ -69,7 +69,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					</h2>
 					<button
 						type="button"
-						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						disabled={busy}
 						onClick={onClose}
@@ -155,7 +155,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						disabled={busy || disabled}
 						onChange={(event) => setValue(event.target.value)}
 						placeholder={action.kind === "New Folder" ? "Folder name" : "Chat name"}
-						className="aero-well aero-fill w-full px-3 py-2 text-sm"
+						className="aero-well sk-well aero-fill sk-fill w-full px-3 py-2 text-sm"
 					/>
 				)}
 				{error && (
@@ -176,7 +176,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						Cancel
 					</button>
 					<button
-						className={`${action.kind === "Delete" ? "aero-control aero-control--danger" : "aero-primary"} aero-fill px-3 py-1.5 text-sm cursor-pointer`}
+						className={`${action.kind === "Delete" ? "aero-control sk-button aero-control--danger" : "aero-primary sk-button sk-primary"} aero-fill sk-fill px-3 py-1.5 text-sm cursor-pointer`}
 						disabled={busy || disabled || (action.kind !== "Delete" && !value.trim())}
 					>
 						{busy
@@ -218,7 +218,7 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
 			}
 			aria-current={activeId === session.id ? "true" : undefined}
-			className="aero-list-item group relative flex items-center ui-radius-control py-1"
+			className="aero-list-item sk-list-row group relative flex items-center ui-radius-control py-1"
 		>
 			<button
 				className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
@@ -239,7 +239,7 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				{tokenFormatter.format(session.total_tokens || 0)} tokens
 			</span>
 			<button
-				className="aero-list-item absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
+				className="aero-list-item sk-list-row absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
 				aria-label={`Actions for ${session.title || "Untitled chat"}`}
 				aria-haspopup="menu"
 				aria-expanded={menu?.session.id === session.id}
@@ -408,7 +408,7 @@ export default function ChatHistory({
 			<div className="shrink-0 space-y-3 px-3 pt-4 pb-2">
 				{mode === "workspace" ? (
 					<div
-						className="aero-panel p-3"
+						className="aero-panel sk-panel p-3"
 						aria-label="Workspace conversations"
 					>
 						<div className="mb-2 flex min-w-0 items-center gap-2">
@@ -427,7 +427,7 @@ export default function ChatHistory({
 							)}
 						</div>
 						<button
-							className="aero-primary aero-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
+							className="aero-primary sk-button sk-primary aero-fill sk-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
 							disabled={locked || !canCreateWorkspaceChat}
 							title={
 								canCreateWorkspaceChat
@@ -448,7 +448,7 @@ export default function ChatHistory({
 				) : (
 					<div className="flex items-center gap-1">
 						<button
-							className="aero-primary flex w-full flex-1 items-center justify-center py-1.5 text-sm"
+							className="aero-primary sk-button sk-primary flex w-full flex-1 items-center justify-center py-1.5 text-sm"
 							disabled={locked}
 							onClick={onNew}
 						>
@@ -457,7 +457,7 @@ export default function ChatHistory({
 					</div>
 				)}
 				<div className="flex items-center gap-2">
-					<label className="aero-well flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[var(--text-muted)]">
+					<label className="aero-well sk-well flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[var(--text-muted)]">
 						<FiSearch className="shrink-0 text-[var(--accent)]" />
 						<input
 							type="search"
@@ -476,7 +476,7 @@ export default function ChatHistory({
 						/>
 					</label>
 					<button
-						className="aero-control grid size-9 shrink-0 place-items-center"
+						className="aero-control sk-button grid size-9 shrink-0 place-items-center"
 						disabled={locked}
 						onClick={() => {
 							setAction({ kind: "New Folder" });
@@ -496,7 +496,7 @@ export default function ChatHistory({
 				{showRecents && !query && recentSessions.length > 0 && (
 					<section
 						aria-label="Recent chats"
-						className="aero-panel mt-3 p-2"
+						className="aero-panel sk-panel mt-3 p-2"
 					>
 						<div className="mb-1 flex items-center gap-2 px-1">
 							<FiClock
@@ -506,7 +506,7 @@ export default function ChatHistory({
 							/>
 							<h3 className="text-xs font-semibold">Recent</h3>
 						</div>
-						<div className="aero-flat mt-1 space-y-0.5 p-1">
+						<div className="aero-flat sk-list mt-1 space-y-0.5 p-1">
 							{recentSessions.map((session) => (
 								<SessionRow
 									{...{
@@ -531,7 +531,7 @@ export default function ChatHistory({
 						<section
 							key={group.folder_name}
 							aria-label={group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
-							className={`aero-panel mt-3 p-2 ${dropTarget === group.folder_name ? "ring-1 ring-[var(--accent)]" : ""}`}
+							className={`aero-panel sk-panel mt-3 p-2 ${dropTarget === group.folder_name ? "ring-1 ring-[var(--accent)]" : ""}`}
 							onDragOver={(event) => {
 								if (!locked && [...event.dataTransfer.types].includes(DRAG_TYPE)) {
 									event.preventDefault();
@@ -583,7 +583,7 @@ export default function ChatHistory({
 								<span>{group.sessions.length}</span>
 							</button>
 							{expanded && (
-								<div className="aero-flat mt-1 space-y-0.5 p-1">
+								<div className="aero-flat sk-list mt-1 space-y-0.5 p-1">
 									{!group.sessions.length && (
 										<p className="px-8 py-2 text-xs text-[var(--text-muted)]">
 											{query
@@ -635,7 +635,7 @@ export default function ChatHistory({
 						role="menu"
 						aria-label="Chat actions"
 						style={{ left: menu.left, top: menu.top }}
-						className="aero-popover absolute z-50 w-[184px] p-1"
+						className="aero-popover sk-menu absolute z-50 w-[184px] p-1"
 						onKeyDown={(event) => {
 							if (event.key === "Escape") {
 								event.preventDefault();
@@ -681,7 +681,7 @@ export default function ChatHistory({
 				createPortal(
 					<div
 						role={toast.error ? "alert" : "status"}
-						className="aero-popover fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 px-4 py-3 text-sm"
+						className="aero-popover sk-menu fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 px-4 py-3 text-sm"
 					>
 						{toast.text}
 					</div>,

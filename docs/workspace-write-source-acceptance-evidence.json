@@ -1,0 +1,22 @@
+{
+  "checks": {
+    "defaultOutboundNoConsent": true,
+    "dns": "2606:4700:10::6814:179a example.com",
+    "publicHttps": "200",
+    "isolation": {
+      "privateLandenied": true
+    },
+    "npm": true,
+    "devServer": true
+  },
+  "runtime": {
+    "packaged": false,
+    "build": "Local development · source · NON-DISTRIBUTABLE",
+    "resources": "/home/mk_saadi/projects/persona-projects/llm-electron/.continuum-local/resources"
+  },
+  "setup": {
+    "sessionId": "dev-acceptance-1793840071875",
+    "workspace": "/tmp/continuum-dev-acceptance-oHpsZn/workspace"
+  },
+  "passed": true
+}

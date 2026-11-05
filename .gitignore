@@ -17,6 +17,7 @@
 *.pem
 release
 /release
+/release-local
 
 # debug
 npm-debug.log*
@@ -49,3 +50,6 @@ next-env.d.ts
 .llm_workspace/
 # stray build output at repo root (vite outDir is dist/)
 index-*.js
+
+# Local-only networking resources and disposable app profile
+/.continuum-local/

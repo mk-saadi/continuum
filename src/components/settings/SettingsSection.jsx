@@ -15,7 +15,7 @@ export const settingsCard =
 // Native inputs/selects/textarea share the same frame as FormControls so a
 // hand-written field still matches a TextField/SelectField sitting next to it.
 export const settingsField =
-	"min-h-8 w-full ui-radius-surface border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+	"sk-field min-h-8 w-full ui-radius-surface border border-[var(--control-border)] bg-[var(--input)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--edit-border)] hover:bg-[var(--surface-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const settingsLabel = "mb-1 block text-xs font-semibold text-[var(--text-primary)]";
 
@@ -48,7 +48,7 @@ export function SettingsCard({
 	return (
 		<Element
 			aria-labelledby={title ? headingId : undefined}
-			className={`${aero ? "aero-panel p-3" : settingsCard} ${className}`}
+			className={`${aero ? "aero-panel sk-panel p-3" : settingsCard} ${className}`}
 			{...rest}
 		>
 			{hasHeader && (
@@ -90,11 +90,11 @@ export function SettingsCard({
 
 export function SettingsButton({ variant = "secondary", className = "", type = "button", ...props }) {
 	const aero = useContext(SettingsMaterialContext);
-	const material = variant === "primary" ? "aero-primary" : variant === "ghost" ? "aero-list-item" : "aero-control";
+	const material = variant === "primary" ? "aero-primary sk-button sk-primary" : variant === "ghost" ? "aero-list-item sk-list-row" : "aero-control sk-button";
 	return (
 		<button
 			type={type}
-			className={`${buttonBase} ${aero ? `${material} aero-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
+			className={`${buttonBase} ${aero ? `${material} aero-fill sk-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
 			{...props}
 		/>
 	);
@@ -106,7 +106,7 @@ export function SettingsIconButton({ label, icon: Icon, size = 16, className = "
 		<button
 			type="button"
 			aria-label={label}
-			className={`${aero ? "aero-orb aero-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
+			className={`${aero ? "aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
 			{...props}
 		>
 			{Icon ? <Icon size={size} aria-hidden="true" /> : null}
@@ -145,7 +145,7 @@ export function SettingsEmpty({ children, className = "" }) {
 	const aero = useContext(SettingsMaterialContext);
 	return (
 		<p
-			className={`${aero ? "aero-empty aero-fill" : "ui-radius-control border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
+			className={`${aero ? "aero-empty sk-empty aero-fill sk-fill" : "ui-radius-control border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
 		>
 			{children}
 		</p>
@@ -177,11 +177,11 @@ export function SettingsCheckRow({
 				id={id}
 				type="checkbox"
 				disabled={disabled}
-				className="peer sr-only"
+				className="sk-checkbox peer sr-only"
 			/>
 			<span
 				aria-hidden="true"
-				className={aero ? "aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center ui-radius-small border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
+				className={aero ? "aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center ui-radius-small border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
 			>
 				<LuCheck
 					size={12}

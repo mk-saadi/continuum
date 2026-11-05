@@ -1,0 +1,533 @@
+/* Adapted from docs/skeu.css. Layout stays with existing components;
+ * palette and corner geometry are mapped in skeu.css.
+ * Continuum skeuomorphic material kit.
+ * Opt in on the app AND portal roots: data-style="skeu".
+ * Map --sk-* palette inputs to your existing theme tokens. No global reset.
+ * See SKEU-IMPLEMENTATION.md for component contracts and integration.
+ */
+html[data-style="skeu"] {
+	--sk-bg: #1b2130;
+	--sk-surface: #252c3c;
+	--sk-field: #202738;
+	--sk-text: #edeef5;
+	--sk-muted: #a9b3c7;
+	--sk-accent: #eea477;
+	--sk-on-accent: #24190f;
+	--sk-danger: #f18d91;
+	--sk-success: #83c8a1;
+	--sk-warning: #e6bd74;
+	--sk-highlight: rgb(255 255 255 / 0.24);
+	--sk-lowlight: rgb(0 0 0 / 0.4);
+	--sk-shadow-color: rgb(0 0 0 / 0.28);
+	--sk-focus: var(--sk-accent);
+	--sk-radius: var(--ui-radius-surface);
+	--sk-control-radius: var(--ui-radius-control);
+	--sk-edge: color-mix(in srgb, var(--sk-surface), var(--sk-text) 22%);
+	--sk-top: color-mix(in srgb, var(--sk-surface), white 8%);
+	--sk-bottom: color-mix(in srgb, var(--sk-surface), black 13%);
+	--sk-accent-top: color-mix(in srgb, var(--sk-accent), white 36%);
+	--sk-accent-bottom: color-mix(in srgb, var(--sk-accent), black 13%);
+	--sk-raised:
+		inset 0 1px 0 var(--sk-highlight), inset 0 -1px 0 var(--sk-lowlight), 0 2px 3px var(--sk-shadow-color);
+	--sk-inset: inset 0 2px 4px var(--sk-shadow-color), 0 1px 0 var(--sk-highlight);
+	--sk-panel-shadow: inset 0 1px 0 var(--sk-highlight), 0 1px 2px var(--sk-shadow-color);
+	--sk-duration: 120ms;
+	color: var(--sk-text);
+	accent-color: var(--sk-accent);
+	scrollbar-color: var(--sk-edge) var(--sk-bg);
+	scrollbar-width: thin;
+}
+/* This is a mode attribute, independent of the theme's name. */
+html[data-style="skeu"][data-theme-mode="light"] {
+	--sk-bg: #ece9e2;
+	--sk-surface: #e1dfd8;
+	--sk-field: #f6f4ee;
+	--sk-text: #302e29;
+	--sk-muted: #656159;
+	--sk-accent: #b86836;
+	--sk-on-accent: #fffaf4;
+	--sk-danger: #ae343e;
+	--sk-success: #32744d;
+	--sk-warning: #805b13;
+	--sk-highlight: rgb(255 255 255 / 0.8);
+	--sk-lowlight: rgb(0 0 0 / 0.18);
+	--sk-shadow-color: rgb(40 32 20 / 0.18);
+}
+html[data-style="skeu"] :is(.sk-app) {
+	background: var(--sk-bg);
+}
+html[data-style="skeu"] :is(.sk-window, .sk-panel, .sk-card, .sk-menu, .sk-tooltip, .sk-toast) {
+	color: var(--sk-text);
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--sk-radius);
+	background: linear-gradient(var(--sk-top), var(--sk-bottom));
+	box-shadow: var(--sk-panel-shadow);
+}
+html[data-style="skeu"] :is(.sk-window) {
+	box-shadow:
+		inset 0 1px 0 var(--sk-highlight),
+		0 20px 60px var(--sk-shadow-color);
+}
+html[data-style="skeu"] :is(.sk-window-header, .sk-window-footer, .sk-toolbar, .sk-section-header) {
+	color: var(--sk-text);
+	background: linear-gradient(to bottom, var(--sk-top), var(--sk-surface) 48%, var(--sk-bottom));
+	border-block-end: 1px solid var(--sk-edge);
+	box-shadow: inset 0 1px 0 var(--sk-highlight);
+}
+html[data-style="skeu"] :is(.sk-window-footer) {
+	border-block-end: 0;
+	border-block-start: 1px solid var(--sk-edge);
+}
+html[data-style="skeu"] :is(.sk-sidebar) {
+	background: linear-gradient(var(--sk-surface), var(--sk-bottom));
+	border-inline-end: 1px solid var(--sk-edge);
+}
+/* Explicit opt-in for the broad satin highlight seen in the references. */
+html[data-style="skeu"] :is(.sk-satin) {
+	background: linear-gradient(to bottom, var(--sk-top), var(--sk-surface) 46px, var(--sk-bottom) 47px);
+}
+html[data-style="skeu"] :is(.sk-well, .sk-composer, .sk-path, .sk-list) {
+	background: var(--sk-field);
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--sk-control-radius);
+	box-shadow: var(--sk-inset);
+}
+html[data-style="skeu"] :is(.sk-muted, .sk-help, .sk-label) {
+	color: var(--sk-muted);
+}
+html[data-style="skeu"] :is(.sk-divider) {
+	border: 0;
+	border-block-start: 1px solid var(--sk-edge);
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--sk-highlight), transparent 60%);
+}
+html[data-style="skeu"] :is(.sk-button, .sk-icon-button, .sk-nav-item, .sk-tab, .sk-segment) {
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--sk-control-radius);
+	background: linear-gradient(
+		to bottom,
+		color-mix(in srgb, var(--sk-surface), white 18%),
+		var(--sk-top) 48%,
+		var(--sk-bottom) 50%,
+		var(--sk-surface)
+	);
+	color: var(--sk-text);
+	box-shadow: var(--sk-raised);
+	text-decoration: none;
+	cursor: pointer;
+	transition:
+		border-color var(--sk-duration),
+		background-color var(--sk-duration);
+}
+html[data-style="skeu"] :is(.sk-icon-button) {
+	border-radius: var(--ui-radius-round);
+}
+html[data-style="skeu"] :is(.sk-nav-item:not([aria-current="page"]), .sk-tab:not([aria-selected="true"])) {
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+}
+html[data-style="skeu"]
+	:is(
+		.sk-primary,
+		.sk-nav-item[aria-current="page"],
+		.sk-tab[aria-selected="true"],
+		.sk-segment[aria-pressed="true"],
+		.sk-button[aria-pressed="true"],
+		.sk-choice[aria-checked="true"]
+	) {
+	color: var(--sk-on-accent);
+	border-color: color-mix(in srgb, var(--sk-accent), white 28%);
+	background: linear-gradient(
+		var(--sk-accent-top),
+		var(--sk-accent) 48%,
+		var(--sk-accent-bottom) 50%,
+		var(--sk-accent)
+	);
+	box-shadow:
+		var(--sk-raised),
+		0 0 14px color-mix(in srgb, var(--sk-accent), transparent 86%);
+}
+html[data-style="skeu"] :is(.sk-danger) {
+	color: var(--sk-danger);
+}
+html[data-style="skeu"]
+	:is(.sk-button, .sk-icon-button, .sk-nav-item, .sk-tab, .sk-segment, .sk-choice):is(:hover):not(
+		:disabled
+	):not([aria-disabled="true"]) {
+	border-color: var(--sk-focus);
+	box-shadow:
+		var(--sk-raised),
+		0 0 0 1px color-mix(in srgb, var(--sk-focus), transparent 75%);
+}
+html[data-style="skeu"]
+	:is(.sk-button, .sk-icon-button, .sk-nav-item, .sk-tab, .sk-segment):is(:active):not(:disabled):not(
+		[aria-disabled="true"]
+	) {
+	box-shadow: var(--sk-inset);
+}
+html[data-style="skeu"]
+	:is(
+		.sk-button,
+		.sk-icon-button,
+		.sk-nav-item,
+		.sk-tab,
+		.sk-segment,
+		.sk-choice,
+		.sk-field,
+		.sk-checkbox,
+		.sk-radio,
+		.sk-switch,
+		.sk-range,
+		.sk-link,
+		.sk-card-link
+	):focus-visible {
+	outline: 2px solid var(--sk-focus);
+	outline-offset: 3px;
+}
+html[data-style="skeu"]
+	:is(
+		.sk-button,
+		.sk-icon-button,
+		.sk-segment,
+		.sk-choice,
+		.sk-field,
+		.sk-checkbox,
+		.sk-radio,
+		.sk-switch,
+		.sk-range
+	):is(:disabled, [aria-disabled="true"]) {
+	opacity: 0.5;
+	cursor: not-allowed;
+	box-shadow: none;
+}
+html[data-style="skeu"] :is(.sk-field) {
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--sk-control-radius);
+	background: var(--sk-field);
+	color: var(--sk-text);
+	box-shadow: var(--sk-inset);
+}
+html[data-style="skeu"] :is(.sk-field)::placeholder {
+	color: var(--sk-muted);
+	opacity: 1;
+}
+html[data-style="skeu"] :is(.sk-field[readonly]) {
+	background: var(--sk-surface);
+}
+html[data-style="skeu"] :is(.sk-field[aria-invalid="true"]) {
+	border-color: var(--sk-danger);
+}
+html[data-style="skeu"] :is(.sk-error) {
+	color: var(--sk-danger);
+}
+html[data-style="skeu"] :is(.sk-checkbox, .sk-radio, .sk-switch) {
+	appearance: none;
+	box-sizing: border-box;
+	display: inline-grid;
+	place-content: center;
+	vertical-align: middle;
+	margin: 0;
+	width: 16px;
+	height: 16px;
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--ui-radius-small);
+	background: var(--sk-field);
+	box-shadow: var(--sk-inset);
+	cursor: pointer;
+}
+html[data-style="skeu"] :is(.sk-checkbox:checked, .sk-radio:checked, .sk-switch:checked) {
+	background: linear-gradient(var(--sk-accent-top), var(--sk-accent-bottom));
+	border-color: var(--sk-accent);
+}
+html[data-style="skeu"] :is(.sk-checkbox:checked)::before {
+	content: "";
+	width: 8px;
+	height: 4px;
+	border-inline-start: 2px solid var(--sk-on-accent);
+	border-bottom: 2px solid var(--sk-on-accent);
+	transform: translateY(-1px) rotate(-45deg);
+}
+html[data-style="skeu"] :is(.sk-checkbox:indeterminate)::before {
+	content: "";
+	width: 9px;
+	height: 2px;
+	background: var(--sk-text);
+}
+html[data-style="skeu"] :is(.sk-radio) {
+	border-radius: var(--ui-radius-round);
+}
+html[data-style="skeu"] :is(.sk-radio:checked)::before {
+	content: "";
+	width: 7px;
+	height: 7px;
+	border-radius: var(--ui-radius-round);
+	background: var(--sk-on-accent);
+}
+/* sk-switch must be an input[type=checkbox], not a generic div. */
+html[data-style="skeu"] :is(.sk-switch) {
+	display: inline-block;
+	width: 36px;
+	height: 20px;
+	padding: 2px;
+	border-radius: var(--ui-radius-round);
+}
+html[data-style="skeu"] :is(.sk-switch)::before {
+	content: "";
+	display: block;
+	width: 14px;
+	height: 14px;
+	border-radius: var(--ui-radius-round);
+	background: linear-gradient(var(--sk-top), var(--sk-bottom));
+	border: 1px solid var(--sk-edge);
+	box-sizing: border-box;
+	box-shadow: var(--sk-raised);
+	transition: transform var(--sk-duration);
+}
+html[data-style="skeu"] :is(.sk-switch:checked)::before {
+	transform: translateX(16px);
+}
+html[data-style="skeu"] :is(.sk-switch:dir(rtl):checked)::before {
+	transform: translateX(-16px);
+}
+html[data-style="skeu"] :is(.sk-control-label) {
+	cursor: pointer;
+}
+html[data-style="skeu"] :is(.sk-segments) {
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--ui-radius-surface);
+	background: var(--sk-field);
+	box-shadow: var(--sk-inset);
+}
+html[data-style="skeu"] :is(.sk-choice) {
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--ui-radius-surface);
+	background: linear-gradient(var(--sk-top), var(--sk-bottom));
+	color: var(--sk-text);
+	box-shadow: var(--sk-raised);
+	cursor: pointer;
+}
+html[data-style="skeu"] :is(.sk-choice[aria-checked="true"]) .sk-muted {
+	color: inherit;
+}
+html[data-style="skeu"] :is(.sk-badge) {
+	border-radius: var(--ui-radius-control);
+	background: var(--sk-top);
+	color: var(--sk-muted);
+	box-shadow: inset 0 1px 0 var(--sk-highlight);
+}
+html[data-style="skeu"] :is(.sk-badge[data-status="success"]) {
+	color: var(--sk-success);
+}
+html[data-style="skeu"] :is(.sk-badge[data-status="warning"]) {
+	color: var(--sk-warning);
+}
+html[data-style="skeu"] :is(.sk-badge[data-status="error"]) {
+	color: var(--sk-danger);
+}
+html[data-style="skeu"] :is(.sk-list-row, .sk-table th, .sk-table td) {
+	border-block-end: 1px solid var(--sk-edge);
+}
+html[data-style="skeu"] :is(.sk-list-row:last-child) {
+	border-block-end: 0;
+}
+html[data-style="skeu"] :is(.sk-list-row:hover, .sk-menu-item:hover) {
+	background: color-mix(in srgb, var(--sk-accent), transparent 92%);
+}
+html[data-style="skeu"] :is(.sk-table) {
+	border-collapse: collapse;
+}
+html[data-style="skeu"] :is(.sk-table th) {
+	background: var(--sk-top);
+}
+html[data-style="skeu"] :is(.sk-menu) {
+	box-shadow:
+		var(--sk-raised),
+		0 8px 24px var(--sk-shadow-color);
+}
+html[data-style="skeu"] :is(.sk-menu-item) {
+	background: transparent;
+	border: 0;
+	border-radius: var(--ui-radius-control);
+	color: var(--sk-text);
+	cursor: pointer;
+}
+html[data-style="skeu"] :is(.sk-menu-item):focus-visible {
+	outline: 2px solid var(--sk-focus);
+	outline-offset: -2px;
+}
+html[data-style="skeu"] :is(.sk-tooltip, .sk-toast) {
+	box-shadow:
+		var(--sk-raised),
+		0 6px 18px var(--sk-shadow-color);
+}
+html[data-style="skeu"] :is(.sk-link) {
+	color: var(--sk-accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+html[data-style="skeu"] :is(.sk-path) {
+	color: var(--sk-muted);
+}
+html[data-style="skeu"] :is(.sk-range) {
+	accent-color: var(--sk-accent);
+}
+html[data-style="skeu"] :is(.sk-progress) {
+	appearance: none;
+	border: 1px solid var(--sk-edge);
+	border-radius: var(--ui-radius-control);
+	background: var(--sk-field);
+	box-shadow: var(--sk-inset);
+}
+html[data-style="skeu"] :is(.sk-progress)::-webkit-progress-bar {
+	background: var(--sk-field);
+}
+html[data-style="skeu"] :is(.sk-progress)::-webkit-progress-value {
+	background: linear-gradient(var(--sk-accent-top), var(--sk-accent-bottom));
+	border-radius: var(--ui-radius-control);
+}
+html[data-style="skeu"] :is(.sk-progress)::-moz-progress-bar {
+	background: linear-gradient(var(--sk-accent-top), var(--sk-accent-bottom));
+}
+html[data-style="skeu"] :is(.sk-scroll)::-webkit-scrollbar {
+	width: 9px;
+	height: 9px;
+}
+html[data-style="skeu"] :is(.sk-scroll)::-webkit-scrollbar-track {
+	background: var(--sk-bg);
+}
+html[data-style="skeu"] :is(.sk-scroll)::-webkit-scrollbar-thumb {
+	border: 2px solid var(--sk-bg);
+	border-radius: var(--ui-radius-control);
+	background: var(--sk-edge);
+}
+html[data-style="skeu"] :is(.sk-dialog)::backdrop {
+	background: rgb(0 0 0 / 0.6);
+}
+html[data-style="skeu"] :is(.sk-overlay) {
+	position: fixed;
+	inset: 0;
+	background: rgb(0 0 0 / 0.6);
+}
+/* Optional backdrop softening, never required for the material itself. */
+@supports (backdrop-filter: blur(3px)) {
+	html[data-style="skeu"] :is(.sk-overlay[data-blur="true"]) {
+		backdrop-filter: blur(3px);
+	}
+}
+html[data-style="skeu"] :is(.sk-drag-region) {
+	-webkit-app-region: drag;
+}
+html[data-style="skeu"] :is(.sk-no-drag, .sk-drag-region button, .sk-drag-region input, .sk-drag-region a) {
+	-webkit-app-region: no-drag;
+}
+@media (prefers-reduced-motion: reduce) {
+	html[data-style="skeu"] *,
+	html[data-style="skeu"] *::before,
+	html[data-style="skeu"] *::after {
+		transition: none !important;
+		animation: none !important;
+	}
+}
+@media (forced-colors: active) {
+	html[data-style="skeu"]
+		:is(
+			.sk-button,
+			.sk-icon-button,
+			.sk-nav-item,
+			.sk-tab,
+			.sk-segment,
+			.sk-choice,
+			.sk-field,
+			.sk-window,
+			.sk-panel,
+			.sk-card,
+			.sk-menu,
+			.sk-well
+		) {
+		background: Canvas;
+		color: CanvasText;
+		border-color: ButtonText;
+		box-shadow: none;
+	}
+	html[data-style="skeu"] :is(.sk-checkbox, .sk-radio, .sk-switch) {
+		appearance: auto;
+		width: auto;
+		height: auto;
+	}
+	html[data-style="skeu"] :is(.sk-checkbox, .sk-radio, .sk-switch)::before {
+		display: none;
+	}
+	html[data-style="skeu"]
+		:is([aria-selected="true"], [aria-checked="true"], [aria-current="page"], .sk-primary) {
+		outline: 2px solid Highlight;
+		outline-offset: -3px;
+	}
+}
+/* Optional surface texture overlays. Apply ONE of these hooks to a housing,
+ * panel, or toolbar, never to an input or a text-heavy reading surface.
+ * The pseudo-element overlays only paint: no layout, pointer, or text changes.
+ * Reserve ::before for this material, or move the hook to a dedicated wrapper.
+ */
+html[data-style="skeu"] {
+	--sk-texture-opacity: 0.035;
+	--sk-texture-light: #fff;
+	--sk-texture-dark: #000;
+	--sk-texture-grain-size: 128px;
+}
+html[data-style="skeu"][data-theme-mode="light"] {
+	--sk-texture-opacity: 0.025;
+}
+html[data-style="skeu"] :is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin) {
+	position: relative;
+	isolation: isolate;
+}
+html[data-style="skeu"] :is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin)::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: inherit;
+	pointer-events: none;
+	user-select: none;
+	opacity: var(--sk-texture-opacity);
+}
+/* Static embedded noise: no network fetch or asset dependency. SVG noise is
+ * achromatic; tune strength through opacity, not a theme-specific bitmap.
+ * If CSP disallows data: images, use the satin/brushed hooks or a local asset.
+ */
+html[data-style="skeu"] :is(.sk-texture-grain)::before {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23n)' d='M0 0h128v128H0z'/%3E%3C/svg%3E");
+	background-size: var(--sk-texture-grain-size) var(--sk-texture-grain-size);
+	background-repeat: repeat;
+}
+/* Fine directional finish for toolbars/hardware-like housings only. */
+html[data-style="skeu"] :is(.sk-texture-brushed)::before {
+	background-image: repeating-linear-gradient(
+		0deg,
+		var(--sk-texture-light) 0 1px,
+		transparent 1px 3px,
+		var(--sk-texture-dark) 3px 4px,
+		transparent 4px 7px
+	);
+}
+/* Fine horizontal satin finish for broad molded panels and card housings. */
+html[data-style="skeu"] :is(.sk-texture-satin)::before {
+	background-image:
+		repeating-linear-gradient(0deg, var(--sk-texture-light) 0 1px, transparent 1px 3px),
+		repeating-linear-gradient(0deg, transparent 0 2px, var(--sk-texture-dark) 2px 3px);
+}
+/* Global texture opt-out can be set on the scope or a descendant container. */
+html[data-style="skeu"][data-texture="off"]
+	:is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin)::before,
+html[data-style="skeu"]
+	[data-texture="off"]:is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin)::before,
+html[data-style="skeu"]
+	[data-texture="off"]
+	:is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin)::before {
+	display: none;
+}
+@media (forced-colors: active), print {
+	html[data-style="skeu"] :is(.sk-texture-grain, .sk-texture-brushed, .sk-texture-satin)::before {
+		display: none;
+	}
+}

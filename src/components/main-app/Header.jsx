@@ -63,10 +63,10 @@ export default function Header({
 
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
-		"aero-orb aero-fill size-7 cursor-pointer shrink-0";
+		"aero-orb sk-icon-button aero-fill sk-fill size-7 cursor-pointer shrink-0";
 
 	return (
-		<header className="aero-header relative flex h-9 shrink-0 items-center gap-3 px-3">
+		<header className="aero-header sk-window-header sk-texture-grain relative flex h-9 shrink-0 items-center gap-3 px-3">
 			<button
 				type="button"
 				className={button}
@@ -83,7 +83,7 @@ export default function Header({
 				<div className="flex min-w-0 items-center gap-1.5">
 					<button
 						type="button"
-						className="aero-orb aero-fill size-7 shrink-0 cursor-pointer"
+						className="aero-orb sk-icon-button aero-fill sk-fill size-7 shrink-0 cursor-pointer"
 						aria-label="Workspace Home"
 						title="Workspace Home"
 						onClick={workspace.onOpenHome}
@@ -100,7 +100,7 @@ export default function Header({
 							</span>
 							<button
 								type="button"
-								className="aero-control aero-fill flex min-h-7 min-w-0 max-w-44 cursor-pointer items-center gap-1.5 px-1.5 py-1 text-xs text-[var(--text-primary)] max-[700px]:max-w-24"
+								className="aero-control sk-button aero-fill sk-fill flex min-h-7 min-w-0 max-w-44 cursor-pointer items-center gap-1.5 px-1.5 py-1 text-xs text-[var(--text-primary)] max-[700px]:max-w-24"
 								aria-label="Open workspace"
 								title="Open workspace"
 								onClick={workspace.onOpenWorkspace}
@@ -120,7 +120,7 @@ export default function Header({
 				<button
 					type="button"
 					onClick={onOpenModels}
-					className="aero-control aero-fill pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 px-4 py-1 text-xs cursor-pointer"
+					className="aero-control sk-button aero-fill sk-fill pointer-events-auto group flex min-w-0 max-w-md items-center gap-2 px-4 py-1 text-xs cursor-pointer"
 					aria-label="Select or load model"
 					aria-haspopup="dialog"
 				>
@@ -179,10 +179,10 @@ export default function Header({
 						aria-valuemax={100}
 						aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
 						aria-valuetext={tooltip}
-						className="aero-track mt-1 h-1"
+						className="aero-track sk-track mt-1 h-1"
 					>
 						<div
-							className="aero-track__fill h-full transition-[width] motion-reduce:transition-none"
+							className="aero-track__fill sk-track-fill h-full transition-[width] motion-reduce:transition-none"
 							style={{ width: `${percent}%` }}
 						/>
 					</div>

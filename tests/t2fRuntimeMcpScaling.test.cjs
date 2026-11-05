@@ -96,7 +96,8 @@ test('Gate D: actual fresh requests stay constant for 0–100 servers / 0–10,0
         const session=fixture(mode),p=payload(session,mode||'read_only');
         for(const provider of ['local','anthropic','openrouter']) {
           const body=await capture(p,provider),measured=measure(body);
-          assert.ok(measured.estimatedInputTokens<=(mode?11000:2000));
+          // Casual now carries the three always-advertised native web schemas too.
+          assert.ok(measured.estimatedInputTokens<=(mode?11000:2200), String(measured.estimatedInputTokens));
           assert.ok(!JSON.stringify(body).includes('Calendar integration'));assert.ok(!JSON.stringify(body).includes('server-099'));
           assert.equal(measured.activatedSchemaCount,0);row.initial.push({chatMode:mode?'workspace':'casual',provider,...measured});
         }

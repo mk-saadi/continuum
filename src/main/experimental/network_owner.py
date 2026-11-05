@@ -82,8 +82,8 @@ def read_ready(fd):
         return os.read(fd, 4096)
 
 
-def rules(host_addresses, network_policy="public_only_fixture"):
-    if network_policy not in ("public_only_fixture", "trusted_development"):
+def rules(host_addresses, network_policy="standard_outbound"):
+    if network_policy not in ("public_only_fixture", "standard_outbound", "trusted_development"):
         raise NetworkError("NETWORK_POLICY_INVALID")
     if network_policy == "trusted_development":
         # Explicit trust: private/host IPv4 is permitted. No host-isolation claim.
@@ -97,6 +97,9 @@ def rules(host_addresses, network_policy="public_only_fixture"):
   meta nfproto ipv4 accept
  }
 }\n'''
+    # Standard outbound: ordinary public internet only. Host-side special-use
+    # IPv4 (loopback, private, carrier NAT, link-local, …) is rejected so that
+    # plain outbound access never silently grants private/host capabilities.
     addresses = sorted({str(ipaddress.IPv4Address(a)) for a in host_addresses})
     hosts = ', '.join(addresses) or '0.0.0.0'
     return f'''table inet continuum_b2c {{
@@ -125,8 +128,8 @@ class NetworkOwner:
     """
     _slots = threading.BoundedSemaphore(2)
 
-    def __init__(self, *, session, workspace, helper, validate, lifetime=30, scratch_parent=None, network_policy="public_only_fixture"):
-        if network_policy not in ("public_only_fixture", "trusted_development"):
+    def __init__(self, *, session, workspace, helper, validate, lifetime=30, scratch_parent=None, network_policy="standard_outbound"):
+        if network_policy not in ("public_only_fixture", "standard_outbound", "trusted_development"):
             raise NetworkError("NETWORK_POLICY_INVALID")
         self.network_policy = network_policy
         if not isinstance(session, str) or not session or not callable(validate):

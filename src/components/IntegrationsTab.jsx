@@ -1,3 +1,4 @@
+import useAppearance from "../hooks/useAppearance";
 import React, { useContext } from "react";
 import { FaAngleRight } from "react-icons/fa";
 import { LuX, LuTriangleAlert, LuCircleCheck, LuLoaderCircle, LuCircleMinus } from "react-icons/lu";
@@ -11,7 +12,7 @@ import {
 } from "./settings/SettingsSection";
 
 const errorBadge = {
-	color: "var(--error-strong)",
+	color: "var(--aero-status-error, var(--error-strong))",
 	backgroundColor: "color-mix(in srgb, var(--error) 12%, transparent)",
 };
 
@@ -40,6 +41,8 @@ export default function IntegrationsTab({
 	onConfigure,
 }) {
 	const aero = useContext(SettingsMaterialContext);
+	const [appearance] = useAppearance();
+	const isSkeu = appearance === "skeu";
 	const servers = Object.entries(config?.mcpServers ?? {});
 
 	return (
@@ -50,7 +53,7 @@ export default function IntegrationsTab({
 				<div
 					className={
 						aero
-							? "aero-empty p-6 text-center"
+							? "aero-empty sk-empty p-6 text-center"
 							: "ui-radius-surface border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center"
 					}
 				>
@@ -124,10 +127,14 @@ export default function IntegrationsTab({
 				return (
 					<article
 						key={name}
-						className={aero ? "aero-panel" : serverCard}
+						className={aero ? "aero-panel sk-panel" : serverCard}
 					>
 						<div className="flex items-start gap-3 p-3">
-							<button
+							{isSkeu ? (
+								<input type="checkbox" role="switch" className="sk-switch mt-0.5 shrink-0"
+									aria-label={`Enable server ${name}`} checked={enabled} disabled={busy}
+									onChange={event => onServerToggle(name, event.target.checked)} />
+							) : (<button
 								type="button"
 								role="switch"
 								aria-checked={enabled}
@@ -137,14 +144,14 @@ export default function IntegrationsTab({
 								onClick={() => onServerToggle(name, !enabled)}
 								className={
 									aero
-										? "aero-control aero-fill relative mt-0.5 h-5 w-9 shrink-0"
+										? "aero-control sk-button aero-fill sk-fill relative mt-0.5 h-5 w-9 shrink-0"
 										: `relative mt-0.5 h-5 w-9 shrink-0 cursor-pointer ui-radius-round transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${enabled ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)] ring-1 ring-inset ring-[var(--control-border)]"}`
 								}
 							>
 								<span
-									className={`${aero ? "aero-orb aero-fill" : "ui-radius-round bg-[var(--surface-raised)] shadow-sm"} absolute top-0.5 left-0.5 h-3 w-3 transition-transform ${enabled ? "translate-x-4" : ""}`}
+									className={`${aero ? "aero-orb sk-icon-button aero-fill sk-fill" : "ui-radius-round bg-[var(--surface-raised)] shadow-sm"} absolute top-0.5 left-0.5 h-3 w-3 transition-transform ${enabled ? "translate-x-4" : ""}`}
 								/>
-							</button>
+							</button>)}
 
 							<div className="min-w-0 flex-1">
 								<h4 className="break-words text-xs font-semibold">
@@ -153,7 +160,7 @@ export default function IntegrationsTab({
 								<span
 									role="status"
 									style={badgeStyle}
-									className="mt-1 inline-flex max-w-full items-center gap-1.5 ui-radius-round px-2 py-0.5 text-[10px] break-words"
+									className="sk-badge mt-1 inline-flex max-w-full items-center gap-1.5 ui-radius-pill px-2 py-0.5 text-[10px] break-words"
 								>
 									{badgeContent}
 								</span>

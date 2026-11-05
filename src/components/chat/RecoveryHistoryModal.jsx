@@ -254,7 +254,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 				type="button"
 				onClick={() => setSelectedId(entry.id)}
 				aria-pressed={selectedId === entry.id}
-				className="aero-list-item flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 text-left"
+				className="aero-list-item sk-list-row flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 text-left"
 				aria-current={selectedId === entry.id ? "true" : undefined}
 			>
 				<span
@@ -314,10 +314,10 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 			onClick={(event) => {
 				if (event.target === dialogRef.current && !busy) onClose();
 			}}
-			className="aero-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"
+			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="aero-header flex shrink-0 items-center gap-2 px-4 py-3">
+				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center gap-2 px-4 py-3">
 					<LuHistory
 						aria-hidden="true"
 						className="shrink-0 text-[var(--accent)]"
@@ -330,7 +330,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 					</h2>
 					<button
 						type="button"
-						className="aero-orb aero-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						disabled={busy}
 						onClick={() => {
@@ -361,7 +361,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 					<div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-3 md:grid-rows-1 md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]">
 						<aside
 							aria-label="Checkpoint history"
-							className="aero-flat min-h-0 space-y-3 overflow-y-auto p-3"
+							className="aero-flat sk-list min-h-0 space-y-3 overflow-y-auto p-3"
 						>
 							{!history ? (
 								<p className="text-[var(--text-muted)]">Loading recovery history…</p>
@@ -388,7 +388,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									</section>
 									{history.other.length > 0 && (
 										<details
-											className="aero-inset px-3 py-2"
+											className="aero-inset sk-well px-3 py-2"
 											aria-label="Other chats in this workspace"
 										>
 											<summary className="flex min-h-8 cursor-pointer items-center gap-2 font-medium">
@@ -422,7 +422,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 						{detail && (
 							<section
 								aria-label="Checkpoint details"
-								className="aero-panel aero-fill flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto p-3"
+								className="aero-panel sk-panel aero-fill sk-fill flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto p-3"
 							>
 								<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)] tabular-nums">
 									<span>
@@ -434,7 +434,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										type="button"
 										onClick={() => togglePin({ id: detail.id, pinned: detail.pinned })}
 										disabled={busy}
-										className="aero-control aero-fill px-1.5 py-0.5 font-medium"
+										className="aero-control sk-button aero-fill sk-fill px-1.5 py-0.5 font-medium"
 									>
 										{detail.pinned
 											? "Unpin (protected from cleanup)"
@@ -467,7 +467,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									{detail.hiddenPaths > 0 &&
 										` ${detail.hiddenPaths} generated or dependency paths hidden. Showing project files only.`}
 								</p>
-								<ul className="aero-flat min-h-48 flex-1 shrink-0 space-y-2 overflow-auto p-2">
+								<ul className="aero-flat sk-list min-h-48 flex-1 shrink-0 space-y-2 overflow-auto p-2">
 									{detail.paths.length === 0 && (
 										<li className="p-3 text-[var(--text-muted)]">
 											No project files in this checkpoint.
@@ -530,7 +530,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 									/>
 									<span
 										aria-hidden="true"
-										className="aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center"
+										className="aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center"
 									>
 										<LuCheck
 											size={12}
@@ -544,14 +544,14 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										type="button"
 										onClick={runPreview}
 										disabled={busy || running}
-										className="aero-control aero-fill px-2.5 py-1 text-[11px] font-medium"
+										className="aero-control sk-button aero-fill sk-fill px-2.5 py-1 text-[11px] font-medium"
 									>
 										Preview restore
 									</button>
 								</div>
 								{preview && (
 									<div
-										className="aero-inset space-y-1 p-2.5 text-[11px]"
+										className="aero-inset sk-well space-y-1 p-2.5 text-[11px]"
 										aria-label="Restore preview"
 									>
 										<p className="font-medium">
@@ -626,7 +626,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 													/>
 													<span
 														aria-hidden="true"
-														className="aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center"
+														className="aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center"
 													>
 														<LuCheck
 															size={12}
@@ -665,7 +665,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 										type="button"
 										onClick={() => setConfirming(true)}
 										disabled={restoreBlocked || invalidSelection}
-										className="aero-primary aero-fill px-3 py-1.5 text-[11px] font-semibold"
+										className="aero-primary sk-button sk-primary aero-fill sk-fill px-3 py-1.5 text-[11px] font-semibold"
 									>
 										Restore this checkpoint…
 									</button>
@@ -709,7 +709,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 												type="button"
 												onClick={() => setConfirming(false)}
 												disabled={busy}
-												className="aero-control aero-fill px-3 py-1.5 text-[11px] font-medium"
+												className="aero-control sk-button aero-fill sk-fill px-3 py-1.5 text-[11px] font-medium"
 											>
 												Cancel
 											</button>
@@ -717,7 +717,7 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 												type="button"
 												onClick={runRestore}
 												disabled={confirmBlocked}
-												className="aero-primary aero-fill px-3 py-1.5 text-[11px] font-semibold"
+												className="aero-primary sk-button sk-primary aero-fill sk-fill px-3 py-1.5 text-[11px] font-semibold"
 											>
 												{busy ? "Restoring…" : "Confirm restore"}
 											</button>

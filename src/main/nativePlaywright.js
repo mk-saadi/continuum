@@ -66,10 +66,17 @@ async function prepareNativePlaywright(name, definition) {
 function isTrustedNativePlaywright(name, definition) {
   if (name !== 'playwright-native' || !definition) return false;
   try {
+    // Stored configurations capture the pre-resolution launch: legacy installs
+    // (AppImage mounts) launch host Node against the bundled CLI, and every
+    // mount path differs. Compare what would actually launch after the same
+    // normalization connectServer applies; anything resolveNativePlaywright
+    // leaves alone (replacement commands, other CLIs, extra env or flags) is
+    // still compared raw and must match exactly.
+    const stored = definition.command === 'node' ? resolveNativePlaywright(name, definition) : definition;
     const expected = nativePlaywrightConfig(definition.cwd);
     const launch = value => ({ command: value.command, args: value.args,
       env: value.env, cwd: value.cwd, url: value.url, transport: value.transport });
-    return require('node:util').isDeepStrictEqual(launch(definition), launch(expected));
+    return require('node:util').isDeepStrictEqual(launch(stored), launch(expected));
   } catch { return false; }
 }
 

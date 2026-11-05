@@ -606,3 +606,81 @@ If you want, I can:
 * Explain the hybrid memory retrieval implementation plan
 
 * Describe the enforcement of casual and workspace memory boundary policies
+
+## 11. Competitor, onboarding, and local-model investigation findings (Nov 2026)
+
+This section records what we established in the recent research turns: competitor positioning, the real onboarding friction, how local-engine detection works, and the Hugging Face model-download question. These findings refine, but do not override, the decisions in section 9.
+
+### 11.1 Competitor landscape — verified findings
+
+Research was conducted against the public documentation of the apps we named, plus Hugging Face and LM Studio docs.
+
+| App | Form factor | Local-model mechanism | Bundles an engine? |
+| --- | --- | --- | --- |
+| opencode (SST) | Terminal CLI + desktop app (TUI-core) | External OpenAI-compatible endpoints (Ollama, LM Studio, llama.cpp server) via the AI SDK / Models.dev; BYOK for cloud | No |
+| Hermes Agent (Nous Research) | TUI + messaging gateway (Telegram, Discord, Slack, WhatsApp, Email) | Any provider (BYOK); self-improving learning loop (creates skills, persists knowledge, user modeling); cron jobs, parallel sub-agents, sandboxes (Docker/SSH/Modal) | No |
+| DeepSeek Harness (dsh) | Local web UI started by one command | `settings.yaml` pointing at a stock `llama-server`, Ollama, or LM-Kit endpoint; trajectory logging; 4 run modes; community `dsh-local-models` addon adds one-click GGUF loading | No |
+| pi | Terminal coding agent (badlogic) | "Integrates directly with the llama.cpp router. The router discovers GGUF files and loads models on demand. `/llama` manages the router" (pi.dev docs) | Unclear from official docs — likely app-managed rather than user-installed; not user-facing PATH setup |
+| LM Studio | Desktop model runner | Fully bundled engine + one-click weight downloads; its HF model library browses/downloads public models without requiring an HF login (token only for LM Studio Hub / gated content) | Yes (outlier; different product class) |
+| Lovable | Cloud prompt-to-app builder (React/TypeScript/Tailwind/Shadcn) | Supabase backend, hosting, GitHub sync, built-in AI connectors, credit-based pricing | N/A (cloud) |
+
+Confirmed consensus: no local agent in the field bundles llama.cpp or model weights. The field norm is BYOK keys plus an external or app-managed local runtime. Continuum not bundling is therefore consistent, not a defect. The differentiating question is management, not bundling: dsh needed a community addon to add one-click GGUF loading; pi built runtime management in; our app currently assists none of: install, weight download, server reachability, or selection.
+
+### 11.2 Positioning verdict
+
+Direct head-on competition with opencode/Hermes/dsh on coding-agent maturity is not recommended. The defensible niche is:
+
+> A local-first, permission-sandboxed, desktop GUI agent workspace: full agent power, no terminal, no cloud dependency, visible control, and file-level recovery.
+
+Verified advantages over the set: local-first storage (SQLite), per-tool permission modes with bubblewrap sandboxing, file-state checkpoint/recovery architecture, and a full desktop GUI (none of the rivals are a conventional desktop app). Verified gaps: no self-improving learning loop (Hermes), no persistent scheduled/autonomous jobs (Hermes, dsh — and this also fits our own section-8 non-negotiable of no post-close daemon), Linux-baseline-only distribution, and the highest onboarding friction in the field.
+
+Closing gaps, in order of leverage: (1) cross-platform packaging via CI, (2) frictionless local-model setup, (3) persistent scheduled jobs (only if compatible with the no-daemon constraint — e.g., while the app is running), (4) learning loop (later phase, most ambitious).
+
+### 11.3 Current onboarding process — traced from source
+
+Key finding: Continuum has no in-app onboarding process. There is no welcome screen, first-run wizard, or checklist; first-run state is never detected. A new user's first usable signal is a silently disabled send button (`disabled={!modelId || streaming || loading}` in `ChatInputBar`).
+
+The actual new-user pipeline:
+
+1. **Pre-install (manual, heavy):** Linux x86_64 only (validated baseline Ubuntu 22.04 / Debian 12; Windows/macOS packaging unvalidated). Developers: clone → `npm ci --ignore-scripts` → Electron install → native rebuild → `npm run dev`. End users: AppImage or `.deb` from the release folder; no public distribution channel documented.
+2. **Local inference (separate install):** user must install `llama-server` (llama.cpp) themselves, on the app-visible PATH, and download GGUF weights themselves. Nothing is bundled.
+3. **Cloud inference (optional):** Settings → Cloud Providers → endpoint + API key + model ID → test connection → select.
+4. **First launch:** boot splash (~650 ms), then the bare chat tab with a disabled send button. No guidance explains why or what to do next.
+5. **Local path:** model selector → point at a directory of GGUF files → scan → select → load. If `llama-server` is missing, the user sees a technical spawn error, not a guided fix.
+
+Proposed fixes, in order of leverage:
+
+1. First-run checklist panel (model / provider / sandbox / project status) shown when nothing is configured; turns the dead button into an actionable CTA.
+2. Empty-state guidance in the chat when no model is selected: one sentence, one button ("Set up a model").
+3. A documented quickstart model (small GGUF + one download command) so the local path works in minutes.
+4. Cross-platform packaging (structural; longer arc).
+
+### 11.4 llama.cpp detection — verified from `src/main/engineManager.js`
+
+The app does not ask the user to point at the llama.cpp binary. It resolves by bare name from the app's PATH:
+
+- `ENGINE_BINARY = "llama-server"`; spawned with `childProcess.spawn("llama-server", args, { shell: false })`.
+- The model directory selection in the UI is for GGUF files only, not for the engine binary.
+- `shell: false` means terminal-only PATH modifications (`.bashrc`, aliases) never reach the lookup; a standard install in `/usr/local/bin` or `/usr/bin` is detected automatically; minimal-PATH desktop-session launches may fail.
+- On `ENOENT`/`ENOTFOUND`/`EACCES`, `describeEngineSpawnError()` converts the errno into an actionable message listing every directory actually tried, the failure reason, and a note that shell-only PATH changes do not apply.
+- Escape hatch: `CONTINUUM_LLAMA_SERVER` env var (env-only; not exposed in the UI). The app validates it is an executable file and throws a clear error otherwise.
+
+Implication for packaging: a non-technical user who installs the packaged AppImage successfully can still hit the spawn error because llama.cpp is a hidden dependency. Follow-ups: document the install command in the quickstart, and add a local-runtime status probe in the model selector (green/red with the exact fix), surfacing the existing error text before the user attempts a load.
+
+### 11.5 Distribution via CI (GitHub Actions)
+
+Decision direction (from discussion): use GitHub Actions to build AppImage and `.deb` for Linux, `.exe` for Windows, and a macOS build, so non-technical users can install without tooling. This removes the technical onboarding barrier but not the cognitive one (model setup) — the two are complementary fixes. Note: packaging for Windows/macOS is currently unvalidated; builds may need per-OS CI setup work.
+
+### 11.6 Hugging Face model browsing — verified facts
+
+- HF accounts and Hub API tokens are free. Paid tiers (Pro/Team/Enterprise) only raise rate limits; there is no paywall on the Hub API.
+- The Hub API (`/api/models` browsing, resolver downloads) works fully anonymously — no account or token required. A free token adds: roughly doubled rate limits (anonymous ≈ 500 API / 3,000 resolver requests per 5-minute window vs ≈ 1,000 / 5,000 signed-in; HF notes limits vary with platform health), access to gated models (e.g., Meta Llama, which requires accepted license terms even for download), and private repos.
+- LM Studio's model library browses and downloads public models without an HF login; its token flow is tied to its own hub and gated content.
+- Rate limits are not a constraint for a model browser making a handful of listing calls per session.
+
+Recommendation (phased):
+
+1. **Phase 1 — anonymous model browser.** Search/list GGUF repos via `/api/models` (filter by GGUF tag, sort by downloads); stream downloads from the public resolver into the user's models directory. No account, no key, zero friction. This closes the "download weights yourself, blind" gap.
+2. **Phase 2 — optional HF token field in Settings.** Framed as "optional, for gated models (e.g., Llama) and higher rate limits", matching how LM Studio frames it.
+
+Decision: do not make an HF key a requirement; it would re-introduce the onboarding friction we are removing.

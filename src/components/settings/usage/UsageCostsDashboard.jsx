@@ -36,7 +36,7 @@ const TABS = [
 function MetricCard({ label, value, hint, warning = false, local = false }) {
 	return (
 		<div
-			className="aero-panel aero-metric p-3"
+			className="aero-panel sk-panel aero-metric p-3"
 			data-tone={warning ? "warn" : undefined}
 		>
 			<p className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
@@ -111,7 +111,7 @@ function TokenAnalytics({ summary, local }) {
 	];
 	return (
 		<section
-			className="aero-panel p-3"
+			className="aero-panel sk-panel p-3"
 			aria-labelledby="usage-token-title"
 		>
 			<h3
@@ -124,7 +124,7 @@ function TokenAnalytics({ summary, local }) {
 				Cloud tokens only. Partial coverage is prefixed with “≥”; unavailable evidence is “—”, never
 				zero.
 			</p>
-			<div className="aero-flat mt-3 overflow-x-auto p-2">
+			<div className="aero-flat sk-list mt-3 overflow-x-auto p-2">
 				<table className="w-full min-w-[460px] text-left text-xs">
 					<thead>
 						<tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
@@ -250,7 +250,7 @@ function Overview({ dashboard, onSelectModel }) {
 			/>
 			{topModels.length ? (
 				<section
-					className="aero-panel p-3"
+					className="aero-panel sk-panel p-3"
 					aria-labelledby="usage-top-models-title"
 				>
 					<h3
@@ -377,7 +377,7 @@ export default function UsageCostsDashboard() {
 	return (
 		<div className="space-y-3">
 			<section
-				className="aero-panel p-3"
+				className="aero-panel sk-panel p-3"
 				aria-labelledby="usage-filters-title"
 				hidden={tab === "tokens"}
 			>
@@ -531,7 +531,7 @@ export default function UsageCostsDashboard() {
 							setTab(TABS[next].id);
 							document.getElementById(`usage-costs-tab-${TABS[next].id}`)?.focus();
 						}}
-						className="aero-tab -mb-px px-3 py-2 text-xs font-medium cursor-pointer"
+						className="aero-tab sk-tab -mb-px px-3 py-2 text-xs font-medium cursor-pointer"
 					>
 						{item.label}
 					</button>
@@ -587,7 +587,7 @@ export default function UsageCostsDashboard() {
 								onClose={() => setSelectedModel(null)}
 							/>
 						) : (
-							<p className="aero-empty aero-fill p-4 text-[11px] text-[var(--text-muted)]">
+							<p className="aero-empty sk-empty aero-fill sk-fill p-4 text-[11px] text-[var(--text-muted)]">
 								Select a model row to inspect its timeline, token mix, coverage, and recorded
 								rate snapshots.
 							</p>
@@ -627,7 +627,7 @@ export default function UsageCostsDashboard() {
 			) : loading && tab !== "tokens" ? (
 				<p
 					role="status"
-					className="aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]"
+					className="aero-empty sk-empty aero-fill sk-fill p-6 text-center text-[11px] text-[var(--text-muted)]"
 				>
 					Loading spending dashboard…
 				</p>

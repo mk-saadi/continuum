@@ -48,12 +48,18 @@ test('schemas and strict argument validation preserve foreground bounds', async 
 });
 test('real dispatcher returns promptly, captures running output, finite success/nonzero and exactly-once events', async () => {
   const f = setup(); const started = performance.now();
-  const a = await f.dispatch('execute_command', { command: node("require('fs').writeSync(1,'START');setTimeout(()=>require('fs').writeSync(1,'DONE'),250)"), background: true });
+  const release = path.join(workspace, 'background-start-release');
+  const a = await f.dispatch('execute_command', { command: node(`const fs=require('fs');fs.writeSync(1,'START');const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(release)})){clearInterval(timer);fs.writeSync(1,'DONE');}},10);`), background: true });
   assert.match(a.command_id, /^cmd_/); assert.equal(a.exitCode, null); assert.ok(performance.now() - started < 200);
   assert.ok(['starting', 'running'].includes(a.status));
-  await delay(150);
-  const running = await f.dispatch('get_command_status', { command_id: a.command_id });
+  let running;
+  for (let i = 0; i < 200; i++) {
+    running = await f.dispatch('get_command_status', { command_id: a.command_id });
+    if (running.stdout?.includes('START')) break;
+    await delay(10);
+  }
   assert.equal(running.status, 'running'); assert.match(running.stdout, /START/); assert.equal(running.process_id, undefined);
+  fs.writeFileSync(release, 'finish');
   const b = await f.dispatch('execute_command', { command: 'printf failure >&2; exit 7', background: true });
   const [ra, rb] = await Promise.all([terminal(a.command_id, f.context), terminal(b.command_id, f.context)]);
   assert.equal(ra.status, 'completed'); assert.equal(ra.exitCode, 0); assert.match(ra.stdout, /DONE/);
@@ -360,18 +366,25 @@ test('persistent lifetime, revocation, deletion and shutdown preserve structured
 });
 test('detached persistent commands count toward global limits and retain bounded live output', async () => {
   const fixtures = [setup(), setup()];
-  const ids = [];
-  for (const f of fixtures) {
-    for (let i=0;i<2;i++) ids.push(await f.dispatch('execute_command', { command: node("require('fs').writeSync(1,'a'.repeat(100000));setInterval(()=>{},100)"), background: true, survive_run_completion: true }));
-    await manager.closeRun(f.context, { normalCompletion: true });
-  }
-  const later = setup();
-  assert.equal((await later.dispatch('execute_command', { command: 'true', background: true })).success, false);
-  await delay(100);
-  for (const f of fixtures) {
-    const rows = manager.list(f.context.sessionId, workspace);
-    assert.ok(rows.every(r => r.stdout.length < 16500 && r.output_truncated));
-    for (const r of rows) await manager.stopForSession(r.command_id, f.context.sessionId, workspace);
+  try {
+    for (const f of fixtures) {
+      for (let i=0;i<2;i++) await f.dispatch('execute_command', { command: node("require('fs').writeSync(1,'a'.repeat(100000));setInterval(()=>{},100)"), background: true, survive_run_completion: true });
+      await manager.closeRun(f.context, { normalCompletion: true });
+    }
+    const later = setup();
+    assert.equal((await later.dispatch('execute_command', { command: 'true', background: true })).success, false);
+    for (let i=0;i<200;i++) {
+      if (fixtures.every(f => manager.list(f.context.sessionId, workspace).every(r => r.output_truncated))) break;
+      await delay(10);
+    }
+    for (const f of fixtures) {
+      const rows = manager.list(f.context.sessionId, workspace);
+      assert.equal(rows.length, 2);
+      assert.ok(rows.every(r => r.stdout.length < 16500 && r.output_truncated));
+    }
+  } finally {
+    for (const f of fixtures) for (const r of manager.list(f.context.sessionId, workspace))
+      await manager.stopForSession(r.command_id, f.context.sessionId, workspace);
   }
 });
 test('governing deadline still overrides a detached persistent lifetime', async () => {

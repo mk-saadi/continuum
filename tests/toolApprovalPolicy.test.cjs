@@ -9,8 +9,9 @@ const rows = [
   ['run_tests', { command: 'npm test' }, ['ask', 'ask', 'block', 'allow']],
   ...['git_stage', 'git_unstage', 'git_create_branch', 'git_switch', 'git_commit'].map(tool => [tool, {}, ['allow', 'ask', 'block', 'allow']]),
   ...['list', 'show', 'push', 'drop', 'clear'].map(action => ['git_stash', { action }, [['list', 'show', 'push'].includes(action) ? 'allow' : 'ask', 'ask', 'block', 'allow']]),
-  ...['fetch', 'pull', 'push'].map(action => ['git_sync', { action }, [action === 'fetch' ? 'allow' : 'ask', 'ask', 'block', 'allow']]),
-  ...['delete_project_file', 'generate_image', 'approve_mcp_mutation'].map(tool => [tool, {}, ['ask', 'ask', 'block', 'allow']]),
+  ...['fetch', 'pull', 'push'].map(action => ['git_sync', { action }, ['allow', 'ask', 'block', 'allow']]),
+  ['delete_project_file', {}, ['allow', 'ask', 'block', 'allow']],
+  ...['generate_image', 'approve_mcp_mutation'].map(tool => [tool, {}, ['ask', 'ask', 'block', 'allow']]),
   ...['read_project_file', 'search_project_content', 'web_search', 'search_memory', 'spawn_sub_agent', 'delegate_task'].map(tool => [tool, {}, ['allow', 'allow', 'allow', 'allow']]),
   ...['write_project_file', 'write_file', 'apply_patch', 'edit_project_files', 'move_project_file', 'save_memory', 'update_plan'].map(tool => [tool, {}, ['allow', 'allow', 'block', 'allow']]),
   ['lsp_definition', {}, ['allow', 'block', 'block', 'allow']],
@@ -69,7 +70,10 @@ test('opaque Git and publication remain independent gates', () => {
     assert.equal(decideToolApproval({ tool, stage: 'opaque_git', approved: true }).decision, 'allow');
     assert.equal(decideToolApproval({ tool, stage: 'opaque_git', native: false }).decision, 'allow');
   }
-  assert.equal(decideToolApproval({ tool: 'git_sync', stage: 'git_publication' }).decision, 'ask');
+  // git_publication is allowed in Workspace Write (explicit user authorization for this
+  // workspace's history), but still requires review in other modes.
+  assert.equal(decideToolApproval({ tool: 'git_sync', stage: 'git_publication', mode: 'workspace_write', workspaceRoot: workspace }).decision, 'allow');
+  assert.equal(decideToolApproval({ tool: 'git_sync', stage: 'git_publication', mode: 'ask_approval' }).decision, 'ask');
 });
 
 test('MCP hard rules win; trusted read-only metadata may bypass only argument heuristics', () => {
@@ -77,7 +81,7 @@ test('MCP hard rules win; trusted read-only metadata may bypass only argument he
     ['read_records', {}, 'allow'], ['write_file', {}, 'allow'],
     ['read_records', { body: 'data' }, 'ask'], ['send_message', {}, 'ask'], ['publish', {}, 'ask'],
     ['read_records', { command: 'printf hello' }, 'ask'], ['delete_file', {}, 'ask'],
-    ['push_files', {}, 'ask'], ['unknown_operation', {}, 'ask'],
+    ['push_files', {}, 'allow'], ['unknown_operation', {}, 'ask'],
   ]) {
     const input = { tool, args, native: false, mode: 'workspace_write', workspaceRoot: workspace, serverName: 'github' };
     const result = decideToolApproval(input);
@@ -95,7 +99,8 @@ test('dispatch preserves precedence, explicit consent, workspace SQL exemption a
   const input = { stage: 'mcp_dispatch', mode: 'workspace_write', native: false, workspaceMcp: workspace };
   assert.match(decideToolApproval({ ...input, tool: 'delete_project_file' }).reason, /^File deletion/);
   assert.match(decideToolApproval({ ...input, tool: 'send_message' }).reason, /^Outbound/);
-  assert.match(decideToolApproval({ ...input, tool: 'push_files' }).reason, /^Git commit/);
+  // push_files is now allowed in Workspace Write (explicit user authorization for this workspace's Git).
+  assert.equal(decideToolApproval({ ...input, tool: 'push_files' }).decision, 'allow');
   assert.equal(decideToolApproval({ ...input, tool: 'write_file', mutationRequiresConfirmation: true }).decision, 'allow');
   for (const tool of ['delete_project_file', 'send_message', 'push_files'])
     assert.equal(decideToolApproval({ ...input, tool, approved: true }).decision, 'allow');

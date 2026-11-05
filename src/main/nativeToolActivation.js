@@ -47,7 +47,11 @@ function snapshot(sessionId) {
 function filter(tools, sessionId, modelId) {
   // Sessionless tooling/legacy integrations retain their existing contract.
   if (!sessionId || (!modelId && !runs.has(sessionId))) return tools;
-  const active = new Set(snapshot(sessionId).activatedToolGroups.flatMap(group => groups[group]));
+  const { ALWAYS_ON_GROUPS } = require('./compactNativeTools');
+  const active = new Set([
+    ...ALWAYS_ON_GROUPS.flatMap(group => groups[group] || []),
+    ...snapshot(sessionId).activatedToolGroups.flatMap(group => groups[group]),
+  ]);
   return tools.filter(item => ['manage_native_tools', 'find_and_prepare_mcp_tools', 'ask_user'].includes(item.function.name) || active.has(item.function.name));
 }
 function manage({ action, groups: requested = [], query }, sessionId, availableTools, runId, statusOf = () => 'unavailable') {
@@ -59,14 +63,16 @@ function manage({ action, groups: requested = [], query }, sessionId, availableT
     lsp: 'Code intelligence: definitions, references, symbols, hover and diagnostics', commands: 'Run tests and manage background commands',
     git_read: 'Inspect Git history, branches and blame', git_write: 'Stage, unstage, commit, branch, switch, sync and stash; original approvals apply',
     tasks: 'Retrieve and update session-owned task plans', subagents: 'Delegate research to read-only child agents',
-    web: 'Search and read web pages', memory: 'Personal memory and conversation evidence; settings apply',
+    web: 'Search and read web pages (always advertised)', memory: 'Personal memory and conversation evidence; settings apply',
     media: 'Screenshot and image generation', skills: 'Use project skills or propose a skill', mcp: 'Discover and prepare external integrations',
   };
+  const { ALWAYS_ON_GROUPS } = require('./compactNativeTools');
+  const isActive = group => ALWAYS_ON_GROUPS.includes(group) || snapshot(sessionId).activatedToolGroups.includes(group);
   const catalog = Object.entries(groups).map(([group, names]) => ({ group, description: descriptions[group],
     tools: names.filter(name => available.has(name)),
     status: names.some(name => available.has(name)) ? 'available' : names.some(name => statusOf(name) === 'unauthorized') ? 'unauthorized' : 'unavailable',
     inactiveTools: names.filter(name => !available.has(name)).map(name => ({ name, status: statusOf(name) })),
-    active: snapshot(sessionId).activatedToolGroups.includes(group),
+    active: isActive(group),
   }));
   if (action === 'activate') {
     const state = runs.get(sessionId);
@@ -76,7 +82,7 @@ function manage({ action, groups: requested = [], query }, sessionId, availableT
     }
     for (const group of requested) if (!state.groups.has(group)) { state.groups.add(group); state.count++; }
   }
-  for (const entry of catalog) entry.active = snapshot(sessionId).activatedToolGroups.includes(entry.group);
+  for (const entry of catalog) entry.active = isActive(entry.group);
   return { success: true, ...snapshot(sessionId), groups: action === 'list' ? catalog.filter(entry => !query || query.toLowerCase().split(/\s+/).some(word => JSON.stringify(entry).toLowerCase().includes(word))) : catalog.filter(entry => requested.includes(entry.group)), instructions: [requested.includes('subagents') ? require('./promptBuilder').subAgentProtocol : '', requested.includes('mcp') ? 'Search MCP capabilities by purpose. Inspect one server if its tools are unknown, then activate only required tool_names using manage_mcp_servers. For browser automation search for browser navigation. Use browser_snapshot to read accessibility state when navigation returns a snapshot file. If a server is disabled, use an authorized enable action before inspect. Prefer bundled playwright-native for browser automation without extension setup. If a tool reports missing runtime or browser extension connection, do not repeat it until setup changes; use another permitted capability or report the exact setup step. In Workspace Write, configured MCP server management and tool calls are authorized without per-call confirmation; Git commits, pushes, and delete_project_file calls still require approval. Report setup errors honestly. When asked to create an MCP server, build under mcp-plugins/, install dependencies, read and merge the central configuration without overwriting unrelated entries, use absolute script paths and explicit cwd, then enable it through manage_mcp_servers. Config: ' + require('./mcpManager').configPath : ''].filter(Boolean).join('\n'), message: 'Only listed tools are available under current permissions. Activation never grants execution approval. Continue in this run.' };
 }
 function compact(value) {

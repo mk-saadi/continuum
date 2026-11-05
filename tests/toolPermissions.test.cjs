@@ -57,19 +57,15 @@ test('workspace guards traversal, sibling-prefix paths, symlinks and dangling sy
     await fs.symlink(temp, path.join(root, '.llm_workspace', 'screenshots'));
     await assert.rejects(guardTool({ name: 'take_screenshot', permissionMode: 'workspace_write', project: { root_path: root } }), /Symlink escapes/);
     await fs.rm(path.join(root, '.llm_workspace', 'screenshots'));
-    // Package installation still requests approval in the contained sandbox.
+    // Command text never broadens authority: all commands get the same sandbox.
     for (const command of ['npm publish', 'apt install foo', 'npm install -g foo', 'pip install -g foo']) {
-      let requested = false;
-      await assert.rejects(guardTool({
-        name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root },
-        requestApproval: async () => { requested = true; return false; },
-      }), /approval denied/);
-      assert.equal(requested, true, command);
       const granted = await guardTool({
         name: 'execute_command', args: { command }, permissionMode: 'workspace_write', project: { root_path: root },
-        requestApproval: async () => true,
+        requestApproval: async () => assert.fail('Redundant sandbox approval'),
       });
-      assert.equal(granted.approved, true, command);
+      assert.equal(granted.approved, false);
+      assert.equal(granted.executionProfile, 'bwrap_workspace');
+      assert.equal(granted.commandUncontained, false);
     }
     await guardTool({ name: 'execute_command', args: { command: 'echo ok' }, permissionMode: 'workspace_write', project: { root_path: root }, requestApproval: () => true });
     for (const command of ['git init', 'git add .', 'git commit -m test', 'git status', 'git diff', 'git branch'])
@@ -219,4 +215,43 @@ test('approval IDs are one-use and cancellation settles pending requests', async
   controller.abort();
   assert.equal(await cancelled, false);
   assert.equal(controller.toolApprovals.size, 0);
+});
+test('source-tree overlap no longer rejects Workspace Write visibility or execution', async () => {
+  const Module = require('node:module');
+  const path = require('node:path');
+  const load = Module._load;
+  let assertWorkspaceCalls = 0;
+  // Simulate an active local-development runtime: assertWorkspace would throw
+  // LOCAL_RUNTIME_WORKSPACE_OVERLAP for any overlapping workspace.
+  Module._load = function (name, ...args) {
+    if (name === './localDevelopmentNetwork') {
+      return {
+        active: () => true,
+        assertWorkspace: () => { assertWorkspaceCalls += 1; throw Object.assign(new Error('blocked by overlap'), { code: 'LOCAL_RUNTIME_WORKSPACE_OVERLAP' }); },
+      };
+    }
+    return load.call(this, name, ...args);
+  };
+  const tpPath = require.resolve('../src/main/toolPermissions');
+  delete require.cache[tpPath];
+  try {
+    const { isToolVisible, guardTool } = require('../src/main/toolPermissions');
+    const repoRoot = path.resolve(__dirname, '..'); // the Continuum source tree itself
+    // Visibility must not hide the tool merely because the workspace overlaps
+    // the running application source tree.
+    assert.equal(isToolVisible('write_project_file', { permissionMode: 'workspace_write', project: { root_path: repoRoot } }), true);
+    assert.equal(isToolVisible('execute_command', { permissionMode: 'workspace_write', project: { root_path: repoRoot } }), true);
+    // Execution must agree with visibility: no LOCAL_RUNTIME_WORKSPACE_OVERLAP.
+    const grant = await guardTool({
+      name: 'write_project_file', args: { relative_path: 'overlap-probe.txt', content: 'x' },
+      permissionMode: 'workspace_write', project: { root_path: repoRoot },
+      requestApproval: () => { throw new Error('must not prompt for overlap'); },
+    });
+    assert.equal(grant.approved, false);
+    assert.equal(grant.mode, 'workspace_write');
+    assert.equal(assertWorkspaceCalls, 0, 'assertWorkspace must no longer be consulted for visibility or execution');
+  } finally {
+    Module._load = load;
+    delete require.cache[require.resolve('../src/main/toolPermissions')];
+  }
 });

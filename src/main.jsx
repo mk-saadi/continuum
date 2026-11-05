@@ -1,4 +1,5 @@
 import React from "react";
+import { applyTheme } from "./lib/themes.mjs";
 import { initializeAppearance } from "./lib/appearance.mjs";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
@@ -10,8 +11,12 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { ToastProvider } from "react-toast-master";
 import "react-toast-master/dist/style.css";
+import "./styles/skeu-kit.css";
+import "./styles/skeu.css";
 
 initializeAppearance();
+try { applyTheme(document.documentElement, localStorage.getItem("theme") || "dark"); }
+catch { applyTheme(document.documentElement, "dark"); }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>

@@ -162,7 +162,9 @@ Keep this order: install locked dependencies, explicitly install Electron, then 
 npm run dev
 ```
 
-This starts Vite and launches Electron after port 5173 is available. Configure model directories and load a local model, or add a cloud provider, before starting inference.
+This starts Vite and launches Electron after port 5173 is available. It uses your existing primary application profile (the `Continuum` userData directory); no separate development profile is created. Configure model directories and load a local model, or add a cloud provider, before starting inference.
+
+Workspace Write's **Trusted Development** networking is available in a source development launch. It starts **Isolated**; to enable real package downloads, authenticated previews, and internet-enabled sandboxed commands, open Settings → Engine & API, select Trusted Development, and accept the native warning. The source-local build does not enable it automatically.
 
 ### Building & Packaging
 
@@ -170,11 +172,15 @@ This starts Vite and launches Electron after port 5173 is available. Configure m
 # Build the renderer
 npm run build
 
-# Build and package with electron-builder
+# Production package (the networking release gate remains closed)
 npm run dist
+
+# LOCAL, NON-DISTRIBUTABLE developer AppImage with verified local networking
+npm run local:network:prepare -- /absolute/pinned/slirp4netns /absolute/helper-review.tar.gz
+npm run dist:local
 ```
 
-Linux targets are AppImage and Debian packages under `release/`. These commands do not establish validation on every OS or distribution.
+`npm run dist` writes production artifacts under `release/` and does not include local networking resources. `npm run dist:local` writes a developer AppImage under `release-local/` that stages the independently verified local resources, keeps the same `Continuum` product name (so it reuses the primary profile), is identified in the application as LOCAL DEVELOPMENT / NON-DISTRIBUTABLE, and still requires explicit native networking consent. The normal production target must not be made locally eligible. Linux targets are AppImage and Debian packages under `release/`; these commands do not establish validation on every OS or distribution.
 
 ## Development Status
 

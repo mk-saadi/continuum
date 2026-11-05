@@ -42,4 +42,28 @@ function classifyEffect(name, args = {}) {
 function requiresOutboundApproval(name, args = {}) {
   return !['read', 'known-mutation'].includes(classifyEffect(name, args));
 }
-module.exports = { requiresGitApproval, requiresOutboundApproval, classifyEffect };
+
+// Browser operations that only read a page: navigate/reload (no site state is
+// written), read the accessibility/DOM snapshot, screenshots, console, page and
+// network diagnostics, waiting/finding, and visibility/value assertions. This is
+// an exact-name allowlist, so it can never widen to a lookalike tool, and it is
+// consulted only after the caller proved the launch configuration is the exact
+// bundled Playwright (isTrustedNativePlaywright). Everything else a browser
+// server exposes (clicks, typing, uploads, downloads, page JavaScript, cookie
+// or storage changes, tab/record/close control) keeps the existing permission
+// modes' approval gates. Deliberately not derived from MCP annotations: the
+// bundled server types navigation as an action (destructiveHint), which is the
+// prompt bug this list exists to fix without trusting side-effecting tools.
+const READ_ONLY_BROWSER_OPERATIONS = Object.freeze(new Set([
+  'browser_navigate', 'browser_navigate_back', 'browser_navigate_forward', 'browser_reload',
+  'browser_snapshot', 'browser_take_screenshot',
+  'browser_console_messages', 'browser_network_requests',
+  'browser_wait_for', 'browser_find',
+  'browser_verify_element_visible', 'browser_verify_list_visible',
+  'browser_verify_text_visible', 'browser_verify_value',
+]));
+
+function isReadOnlyBrowserOperation(name) {
+  return typeof name === 'string' && READ_ONLY_BROWSER_OPERATIONS.has(name);
+}
+module.exports = { requiresGitApproval, requiresOutboundApproval, classifyEffect, isReadOnlyBrowserOperation, READ_ONLY_BROWSER_OPERATIONS };

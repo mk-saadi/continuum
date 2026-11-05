@@ -171,12 +171,12 @@ export function ReasoningSelector({ sessionId, modelId, activeChatProvider, disa
 					step="256"
 					value={customValue}
 					onChange={(event) => setCustomValue(event.target.value)}
-					className="aero-well aero-fill min-w-0 flex-1 px-2 py-1 text-xs"
+					className="aero-well sk-well aero-fill sk-fill min-w-0 flex-1 px-2 py-1 text-xs"
 				/>
 				<button
 					type="submit"
 					disabled={!customValid || saving}
-					className="aero-primary cursor-pointer px-3 py-1 text-xs"
+					className="aero-primary sk-button sk-primary cursor-pointer px-3 py-1 text-xs"
 				>
 					Set
 				</button>
@@ -295,7 +295,7 @@ export function AgentSettingsPopover({
 				title="Agent Run Settings"
 				aria-expanded={isOpen}
 				aria-haspopup="dialog"
-				className="aero-control aero-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
+				className="aero-control sk-button aero-fill sk-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
 			>
 				<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
 				<span className="font-medium">Settings</span>
@@ -315,7 +315,7 @@ export function AgentSettingsPopover({
 							left: coords.left,
 							transform: "translate(-100%, -100%)",
 						}}
-						className="aero-popover absolute z-[9999] w-72 p-3 text-xs text-[var(--text-primary)] space-y-3"
+						className="aero-popover sk-menu absolute z-[9999] w-72 p-3 text-xs text-[var(--text-primary)] space-y-3"
 					>
 						<div className="font-semibold text-[var(--text-secondary)] border-b border-[var(--subtle-border)] pb-2">
 							Run Settings

@@ -25,7 +25,6 @@ const { agentTools, executeAgentTool } = require("./tools/agentTools");
 const { app, ipcMain, dialog, shell, nativeImage } = require("electron");
 const { validateLocalPath } = require('./localMedia');
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 const {
 	getCoreMemories,
 	searchPermanentMemories,
@@ -102,10 +101,7 @@ function defaultTrustedSender(event) {
 	const url = new URL(event.senderFrame.url);
 	url.search = "";
 	url.hash = "";
-	const expected =
-		process.env.NODE_ENV === "development"
-			? "http://localhost:5173/"
-			: pathToFileURL(path.join(app.getAppPath(), "dist", "index.html")).href;
+	const expected = require("./continuumPreview").rendererOrigin();
 	return url.href === expected;
 }
 
@@ -258,7 +254,7 @@ function registerIpcHandlers({
         "cloud:save": input => saveCloudProvider(input),
         "cloud:delete": id => deleteCloudProvider(id),
         "config:set-git-identity": identity => require('./configStore').saveConfig({ gitIdentity: require('./gitIdentity').validateIdentity(identity) }),
-        "config:network-status": () => ({ ...require('./workspaceNetworkPolicy').readiness(), disclosure: require('./workspaceNetworkPolicy').disclosure }),
+        "config:network-status": () => require('./configStore').getWorkspaceNetworkStatus(),
         "config:set-workspace-network": value => require('./configStore').setWorkspaceNetwork(value),
         "config:get": () => require('./configStore').getConfig(),
         "config:set-idle-timeout": minutes => {

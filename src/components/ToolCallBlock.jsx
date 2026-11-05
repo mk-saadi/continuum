@@ -75,7 +75,7 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
     return text.slice(0, 180).replace(/\s+/g, ' ') + (text.length > 180 ? '…' : '');
   };
   return (
-    <div aria-label="Tool executions" className="aero-chat-detail min-w-0 overflow-hidden ui-radius-control text-xs">
+    <div aria-label="Tool executions" className="aero-chat-detail sk-list min-w-0 overflow-hidden ui-radius-control text-xs">
       <SavedToolRule rule={step.savedRule} />
       <button type="button" aria-expanded={expanded} aria-controls={detailsId}
         onClick={() => setUserExpanded(!expanded)}

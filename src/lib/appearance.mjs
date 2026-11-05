@@ -1,16 +1,19 @@
 export const APPEARANCE_STORAGE_KEY = "appearance";
+export const APPEARANCES = ["aero", "flat", "skeu"];
+const normalizeAppearance = value => APPEARANCES.includes(value) ? value : "aero";
 const CHANGED_EVENT = "appearance-changed";
 function readSavedAppearance() {
-	try { return localStorage.getItem(APPEARANCE_STORAGE_KEY) === "flat" ? "flat" : "aero"; }
+	try { return normalizeAppearance(localStorage.getItem(APPEARANCE_STORAGE_KEY)); }
 	catch { return "aero"; }
 }
 let appearance = readSavedAppearance();
 
 export function initializeAppearance() {
 	document.documentElement.dataset.appearance = appearance;
+	document.documentElement.dataset.style = appearance;
 }
 export function setAppearance(value) {
-	appearance = value === "flat" ? "flat" : "aero";
+	appearance = normalizeAppearance(value);
 	initializeAppearance();
 	try { localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance); }
 	catch { /* The current window still changes when storage is unavailable. */ }

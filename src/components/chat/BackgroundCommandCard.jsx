@@ -67,7 +67,7 @@ export default function BackgroundCommandCard({ sessionId }) {
   }, [sessionId]);
   if (!records.length) return null;
   const running = records.filter(r => ['starting', 'running'].includes(r.status)).length;
-  return <section className="aero-panel p-3" aria-label="Background commands">
+  return <section className="aero-panel sk-panel p-3" aria-label="Background commands">
     <h3 className="text-xs font-semibold">Background commands · {running} running</h3>
     {error && <p role="alert">{error}</p>}
     {records.slice(-12).reverse().map(r => <details key={r.command_id} className="mt-2 text-[11px] break-words">

@@ -193,7 +193,7 @@ export default function CloudProviderSettings() {
 				<div
 					role="tablist"
 					aria-label="Cloud provider categories"
-					className="aero-inset flex w-fit gap-1 p-1"
+					className="aero-inset sk-well flex w-fit gap-1 p-1"
 				>
 					{[
 						["text", "Text Models (LLMs)"],
@@ -209,7 +209,7 @@ export default function CloudProviderSettings() {
 								setMessage("");
 								setError("");
 							}}
-							className="aero-control aero-fill px-3 py-1.5 text-xs font-semibold cursor-pointer"
+							className="aero-control sk-button aero-fill sk-fill px-3 py-1.5 text-xs font-semibold cursor-pointer"
 						>
 							{label}
 						</button>
@@ -305,7 +305,7 @@ export default function CloudProviderSettings() {
 					title={row.name || (row.category === "media" ? "Media Provider" : "Text Provider")}
 					action={
 						<span
-							className={`ui-radius-round border px-2 py-0.5 text-[10px] ${row.configured ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}
+							className={`ui-radius-pill border px-2 py-0.5 text-[10px] ${row.configured ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}
 						>
 							{row.configured ? (needsApiKey(row) ? "Key saved" : "Ready") : "Not configured"}
 						</span>
@@ -468,7 +468,7 @@ export default function CloudProviderSettings() {
 						</div>
 					)}
 					{row.category === "text" && (
-						<fieldset className="aero-inset p-3">
+						<fieldset className="aero-inset sk-well p-3">
 							<legend className="px-1 text-[11px] text-[var(--text-muted)]">
 								Cost rates (optional, USD per million tokens)
 							</legend>

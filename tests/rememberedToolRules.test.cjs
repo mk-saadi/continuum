@@ -56,28 +56,18 @@ function approval(f, choice = 'project', mutate) {
     return p.requestToolApproval({ ...payload, ...f, requestId: 'request', controller, sender });
   };
 }
-const authorize = (f, name = 'execute_command', args = { command: 'npm ci' }, requestApproval) => p.guardTool({ ...f, name, args, requestApproval });
+const authorize = (f, name = 'read_records', args = { body: { filter: 'local' } }, requestApproval) => p.guardTool({ ...f, name, args, requestApproval, ...(name === 'read_records' ? { native: false, serverName: 'fixture' } : {}) });
 test.after(() => { sandboxModule.getWorkspaceSandboxProfile = originalSandbox; db.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
 
 test('rememberability matrix: only local installs, provider images and heuristic MCP in Workspace Write', () => {
-  assert.equal(decide(shell).rememberable, true);
-  for (const mode of ['ask_approval', 'read_only', 'full_access']) {
-    const result = decide({ ...shell, mode, remembered: saved(shell) });
-    assert.equal(result.savedRule, undefined);
-    if (result.decision === 'ask') assert.equal(result.rememberable, false);
-  }
-  for (const override of [
-    { uncontained: true }, { systemAffecting: true }, { containment: { blocked: true, reason: 'outside' } },
-    { sandbox: { ...sandbox, bwrapAvailable: false } }, { sandbox: { ...sandbox, filesystemProfile: null } }, { sandbox: { ...sandbox, netUnshared: false } },
-    ...['sudo npm ci', 'npm install -g x', 'npm publish', 'npm ci; true', 'npm ci && true', 'npm ci | cat', 'npm ci\n', 'npm ci $(id)', 'npm ci > out', 'npm ci < in', 'npm ci `id`', 'npm ci (x)', 'npm install ../x', 'npm install ..', 'npm install *'].map(command => ({ args: { command } })),
-  ]) {
-    const result = decide({ ...shell, ...override, remembered: saved(shell) });
-    assert.equal(result.savedRule, undefined, JSON.stringify(override));
-    if (result.decision === 'ask') assert.equal(result.rememberable, false, JSON.stringify(override));
-  }
+  assert.equal(decide(shell).decision, 'allow');
+  assert.equal(decide(shell).rememberable, undefined);
+  for (const command of ['npm ci', 'sudo npm ci', 'npm install -g x', 'npm publish', 'npm ci && true', 'npm ci $(id)'])
+    assert.equal(decide({ ...shell, args: { command } }).decision, 'allow');
+  for (const sandbox of [{ bwrapAvailable: false }, { bwrapAvailable: true, netUnshared: false }])
+    assert.equal(decide({ ...shell, sandbox }).decision, 'block');
   for (const input of [
     { tool: 'git_sync', args: { action: 'push' } }, { tool: 'git_switch', gitWorktreeDirty: true },
-    { tool: 'delete_project_file', args: { path: 'x' }, checkpointCoverage: { complete: false } },
     { tool: 'approve_mcp_mutation' },
     ...['send_message', 'publish', 'push_files', 'unknown', 'delete_file'].map(tool => ({ tool, native: false, serverName: 'server' })),
     { tool: 'read_records', native: false, args: { code: '1' } },
@@ -90,7 +80,7 @@ test('rememberability matrix: only local installs, provider images and heuristic
     assert.equal(result.decision, 'ask', input.tool); assert.equal(result.rememberable, false, input.tool);
   }
   const image = { tool: 'generate_image', mode: 'workspace_write', workspaceRoot: '/workspace', imageProviderKey: 'provider-a' };
-  for (const eligible of [shell, image, { tool: 'read_records', native: false, serverName: 'server', args: { body: {} }, mode: 'workspace_write', workspaceRoot: '/workspace' }]) {
+  for (const eligible of [image, { tool: 'read_records', native: false, serverName: 'server', args: { body: {} }, mode: 'workspace_write', workspaceRoot: '/workspace' }]) {
     for (const mode of ['ask_approval', 'read_only', 'full_access']) {
       const result = decide({ ...eligible, mode, remembered: saved(eligible) });
       assert.equal(result.savedRule, undefined);
@@ -108,23 +98,24 @@ test('rememberability matrix: only local installs, provider images and heuristic
   assert.equal(decide({ ...mcp, args: { body: {}, options: { code: 'id' } }, remembered: saved(mcp) }).rememberable, false);
 });
 
-test('shell match is exact after whitespace normalization and includes tool and cwd', () => {
-  const remembered = saved(shell);
-  assert.equal(decide({ ...shell, args: { command: '  npm\t ci  ' }, remembered }).decision, 'allow');
-  for (const override of [{ args: { command: 'npm install' } }, { resolvedCwd: '/workspace/sub' }, { tool: 'run_tests' }, { args: { command: 'npm ci;' } }])
-    assert.equal(decide({ ...shell, ...override, remembered }).decision, 'ask');
+test('sandbox authority ignores legacy saved command rules and command spelling', () => {
+  for (const command of ['npm ci', 'npm install', 'npm publish', 'bash -c "true"']) {
+    const result = decide({ ...shell, args: { command }, remembered: [{ rule_key: '*', label: 'forged' }] });
+    assert.equal(result.decision, 'allow');
+    assert.equal(result.savedRule, undefined);
+  }
 });
 
 test('chat rules stay in their chat; project rules stay in their project and survive DB reopen', async () => {
   const a = fixture(), b = fixture(a.project), c = fixture();
-  await authorize(a, undefined, undefined, approval(a, 'chat', event => { assert.equal(event.rememberable, true); assert.equal(event.rememberLabel, 'npm ci'); assert.equal(event.rememberKey, undefined); }));
+  await authorize(a, undefined, undefined, approval(a, 'chat', event => { assert.equal(event.rememberable, true); assert.equal(event.rememberLabel, 'fixture: read_records'); assert.equal(event.rememberKey, undefined); }));
   assert.equal((await authorize(a)).savedRule.scope, 'chat');
   await assert.rejects(authorize(b), { code: 'APPROVAL_DENIED' });
   await assert.rejects(authorize(c), { code: 'APPROVAL_DENIED' });
   await authorize(b, undefined, undefined, approval(b));
   assert.equal((await authorize(b)).savedRule.scope, 'project');
   assert.equal((await authorize({ ...a, sessionId: b.sessionId })).savedRule.scope, 'project');
-  const row = rules.list(a.project.id).find(r => r.tool === 'execute_command');
+  const row = rules.list(a.project.id).find(r => r.tool === 'read_records');
   assert.ok(row.use_count >= 2); assert.ok(row.last_used_at);
   db.closeDatabase(); db.initDatabase(directory);
   assert.equal(rules.list(a.project.id)[0].id, row.id);
@@ -142,7 +133,7 @@ test('rule save/remove invalidates pending approvals and old single-use argument
   assert.notEqual(contexts.revision(f.sessionId), old);
   const execution = require('../src/main/nativeExecutionPolicy');
   assert.throws(() => execution.consume(grant, { name: 'execute_command', args: { command: 'printf ok' }, ...f, ...grant, policyRevision: contexts.revision(f.sessionId) }), /current, specific/);
-  const decision = await authorize(f);
+  const decision = await authorize(f, 'execute_command', { command: 'npm ci' });
   const options = { name: 'execute_command', args: { command: 'npm ci' }, ...f, ...decision };
   execution.consume(decision, options);
   assert.throws(() => execution.consume(decision, options), /current, specific/);
@@ -161,9 +152,9 @@ test('approval choices cannot remember hard rules or use a renderer-supplied pat
   const finish = controller.toolApprovals.get(event.approvalId);
   assert.throws(() => finish('project'), /cannot be remembered/);
   finish('deny'); assert.equal(await promise, false);
-  await authorize(f, undefined, undefined, approval(f, 'project', event => { event.rememberKey = '*'; event.args.command = 'sudo anything'; }));
-  assert.equal(rules.list(f.project.id)[0].rule_key, JSON.stringify(['shell', 'execute_command', 'npm ci', f.project.root_path]));
-  await assert.rejects(authorize(f, 'execute_command', { command: 'npm install' }), { code: 'APPROVAL_DENIED' });
+  await authorize(f, undefined, undefined, approval(f, 'project', event => { event.rememberKey = '*'; event.args.body = { code: 'sudo anything' }; }));
+  assert.equal(rules.list(f.project.id)[0].rule_key, JSON.stringify(['mcp', 'fixture', 'read_records']));
+  await assert.rejects(authorize(f, 'read_records', { body: { code: 'id' } }), { code: 'APPROVAL_DENIED' });
 });
 
 test('migration is idempotent, DB enforces cap 200, and delete-all bumps revision', () => {
@@ -181,7 +172,7 @@ test('saved approval still fails containment and missing sandbox checks', async 
   await authorize(f, undefined, undefined, approval(f));
   await assert.rejects(authorize(f, 'execute_command', { command: 'npm ci', cwd: '..' }), /Execution blocked/);
   sandboxModule.getWorkspaceSandboxProfile = async () => ({ ...sandbox, bwrapAvailable: false });
-  try { await assert.rejects(authorize(f), { code: 'APPROVAL_DENIED' }); }
+  try { await assert.rejects(authorize(f, 'execute_command', { command: 'npm ci' }), { code: 'SANDBOX_UNAVAILABLE' }); }
   finally { sandboxModule.getWorkspaceSandboxProfile = async () => sandbox; }
 });
 
@@ -205,10 +196,10 @@ test('remembered MCP dispatch consumes a specific grant and still enforces hard 
   manager.servers.delete('fixture'); await manager.close();
 });
 
-test('remembered shell grant still runs bwrap and never retries on host after spawn failure', async () => {
+test('autonomous shell grant still runs bwrap and never retries on host after spawn failure', async () => {
   const f = fixture();
   await authorize(f, undefined, undefined, approval(f));
-  const grant = await authorize(f);
+  const grant = await authorize(f, 'execute_command', { command: 'npm ci' });
   const runner = require('../src/main/foregroundCommand');
   const original = runner.runForeground;
   const launches = [];
@@ -220,7 +211,7 @@ test('remembered shell grant still runs bwrap and never retries on host after sp
   } finally { runner.runForeground = original; }
 });
 
-test('real IPC binds save choice to sender and pending policy; tool event persists rule id and removal IPC revokes it', async () => {
+test('real agent IPC executes Workspace Write commands without prompts and persists tool progress cards', async () => {
   const f = fixture();
   const manager = require('../src/main/mcpManager');
   const originals = { init: manager.init, reload: manager.reload, getTools: manager.getTools };
@@ -259,18 +250,14 @@ test('real IPC binds save choice to sender and pending policy; tool event persis
     await handlers.get('engine:chat')({ sender: owner }, { requestId: 'rules-card', sessionId: f.sessionId, modelId: 'model', permissionMode: 'workspace_write',
       messages: [{ role: 'user', content: 'Install local packages twice.' }] });
     await Promise.all(checks);
-    assert.equal(prompts, 2);
+    assert.equal(prompts, 0);
     const listed = await handlers.get('tool-rules:list')({ sender: owner }, { projectId: f.project.id });
-    assert.equal(listed.length, 1);
-    assert.equal(listed[0].rule_key, JSON.stringify(['shell', 'execute_command', 'npm ci', f.project.root_path]));
-    const step = cards.flatMap(card => card.executionSteps).find(step => step.id === 'saved-install' && step.savedRule);
-    assert.equal(step?.savedRule.id, listed[0].id);
+    assert.equal(listed.length, 0);
+    const steps = cards.flatMap(card => card.executionSteps || []);
+    for (const id of ['first-install', 'saved-install', 'hard-rule'])
+      assert.ok(steps.some(step => step.id === id), `Missing progress card ${id}`);
     const messages = db.db.prepare('SELECT execution_steps FROM messages WHERE session_id = ? AND execution_steps IS NOT NULL').all(f.sessionId);
-    assert.ok(messages.some(message => JSON.parse(message.execution_steps).some(step => step.id === 'saved-install' && step.savedRule?.id === listed[0].id)));
-    const revision = contexts.revision(f.sessionId);
-    await handlers.get('tool-rules:delete')({ sender: owner }, { projectId: f.project.id, id: listed[0].id });
-    assert.notEqual(contexts.revision(f.sessionId), revision);
-    assert.equal(rules.list(f.project.id).length, 0);
+    assert.ok(messages.some(message => JSON.parse(message.execution_steps).some(step => step.id === 'saved-install')));
     assert.equal(handlers.has('tool-rules:create'), false);
   } finally { dispose(); Object.assign(manager, originals); runner.runForeground = originalRun; }
 });

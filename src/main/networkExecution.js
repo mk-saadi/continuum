@@ -11,7 +11,8 @@ const error = (code, detail = code) => Object.assign(new Error(detail), { code }
 // Bridge construction is explicit and trusted; no executable/path options are
 // read from model arguments or saved settings. Default release stays gated.
 function pythonBackend(resources) {
-  return async ({ sessionId, workspace }) => {
+  return async (identity, networkPolicy) => {
+    const { sessionId, workspace } = identity;
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'continuum-network-worker-'));
     const cleanupScratch = () => fs.rmSync(scratch, { recursive: true, force: true });
     const worker = spawn('/usr/bin/systemd-run', ['--user', '--scope', '--quiet',
@@ -68,7 +69,8 @@ function pythonBackend(resources) {
       }
       if (buffer.length > 65536) { fail('NETWORK_PROTOCOL_LIMIT'); worker.kill('SIGTERM'); }
     });
-    send({ op: 'start', session: sessionId, workspace, helper: resources.helper, scratch });
+    send({ op: 'start', session: sessionId, workspace, helper: resources.helper, scratch,
+      network_policy: networkPolicy === 'trusted_development' ? 'trusted_development' : 'standard_outbound' });
     let timer;
     const metadata = await Promise.race([ready, new Promise((_, reject) => { timer = setTimeout(() => { worker.kill('SIGTERM'); reject(error('NETWORK_STARTUP_TIMEOUT')); }, 10000); })]).finally(() => clearTimeout(timer));
     return {
@@ -153,14 +155,25 @@ function createService({ authorize, backend, readiness = policy.readiness, valid
     if (closing) throw error('NETWORK_SHUTTING_DOWN');
     const available = readiness();
     if (!available.available) throw error(available.code || 'WORKSPACE_NETWORK_NOT_READY', available.blockers?.join(' ') || available.code);
+    const networkPolicy = policy.normalize(require('./configStore').getConfig().workspaceNetwork).policy;
+    if (networkPolicy === 'isolated') throw error('NETWORK_POLICY_REVOKED');
     const identity = authorize(context, workspace);
     const key = JSON.stringify([identity.sessionId, identity.workspace, identity.revision]);
     let entry = owners.get(key);
     if (!entry) {
       if (owners.size >= 2) throw error('NETWORK_OWNER_LIMIT');
-      entry = { key, ...identity, refs: 0, revoked: false };
+      entry = { key, ...identity, refs: 0, revoked: false, networkPolicy };
       owners.set(key, entry);
-      entry.promise = Promise.resolve().then(() => backend(identity));
+      entry.promise = Promise.resolve().then(() => backend(identity, networkPolicy));
+    }
+    // An owner runs the ruleset it was created with. A selected-tier change
+    // (elevation granted or revoked, Isolated chosen) must never leave a live
+    // owner filtering traffic under stale authority.
+    if (entry.networkPolicy !== networkPolicy) {
+      entry.revoked = true; owners.delete(key);
+      const stale = entry; entry = { key, ...identity, refs: 0, revoked: false, networkPolicy };
+      owners.set(key, entry);
+      entry.promise = Promise.resolve().then(async () => { await stale.promise.then(o => o.close(), () => {}); return backend(identity, networkPolicy); });
     }
     if (entry.refs >= 4) throw error('NETWORK_COMMAND_LIMIT');
     entry.refs++;
@@ -172,7 +185,7 @@ function createService({ authorize, backend, readiness = policy.readiness, valid
     try {
       const owner = await entry.promise;
       const validate = () => {
-        validatePolicy();
+        validatePolicy(entry.networkPolicy);
         validateAuthorization();
         const current = authorize(context, workspace);
         if (entry.revoked || !owner.alive() || current.revision !== identity.revision || current.workspace !== identity.workspace)
@@ -223,6 +236,7 @@ function trustedIdentity(context, workspace) {
   if (revision == null) throw error('NETWORK_AUTHORIZATION_DENIED');
   return { sessionId: context.sessionId, workspace: root, revision };
 }
-const service = createService({ authorize: trustedIdentity, backend: identity => pythonBackend(require('./networkDependencies').resolveBundled())(identity),
-  validatePolicy: () => { if (policy.normalize(require('./configStore').getConfig().workspaceNetwork).policy !== 'trusted_development') throw error('NETWORK_POLICY_REVOKED'); } });
+const service = createService({ authorize: trustedIdentity,
+  backend: (identity, networkPolicy) => pythonBackend(require('./networkDependencies').resolveBundled())(identity, networkPolicy),
+  validatePolicy: ownerPolicy => { if (policy.normalize(require('./configStore').getConfig().workspaceNetwork).policy !== ownerPolicy) throw error('NETWORK_POLICY_REVOKED'); } });
 module.exports = { service, createService, pythonBackend, trustedIdentity };

@@ -1,5 +1,8 @@
 # Aero Glass Design System
 
+> Current material hierarchy and validation: [Aero material refinement](aero-material-refinement.md).
+> It supersedes the panel blur, repeated panel gloss, and earlier lighting recipes below.
+
 Status: **active** — reference implementation shipped on the Projects dashboard
 Last updated: **2026-11-01**
 Applies to: every page, panel, control, form, popover, toast, and modal in Continuum

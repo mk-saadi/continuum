@@ -1,9 +1,10 @@
 import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import "../styles/knob.css";
 import { fixedPortalPosition } from "../lib/portalCoordinates.mjs";
 import { LuCheck, LuChevronDown, LuSearch, LuStar, LuX } from "react-icons/lu";
 
-const fieldFrame = "aero-well flex min-h-8 items-center text-[var(--text-primary)]";
+const fieldFrame = "aero-well sk-well flex min-h-8 items-center text-[var(--text-primary)]";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -173,6 +174,7 @@ export const SelectField = forwardRef(function SelectField(
 					.map((child) => ({
 						value: child.props.value,
 						label: child.props.children,
+                        disabled: child.props.disabled,
 					}));
 
 	const selectedOption = options.find((opt) => String(opt.value) === String(value));
@@ -235,6 +237,7 @@ export const SelectField = forwardRef(function SelectField(
 								<option
 									key={opt.value}
 									value={opt.value}
+                                    disabled={opt.disabled}
 								>
 									{opt.label}
 								</option>
@@ -294,7 +297,7 @@ export const SelectField = forwardRef(function SelectField(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="aero-popover fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
+							className="aero-popover sk-menu fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -327,8 +330,10 @@ export const SelectField = forwardRef(function SelectField(
 									key={opt.value}
 									type="button"
 									role="option"
+                                    disabled={opt.disabled}
+                                    aria-disabled={opt.disabled || undefined}
 									aria-selected={String(opt.value) === String(value)}
-									className={`aero-list-item ui-radius-control flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
+									className={`aero-list-item sk-list-row ui-radius-control flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
 										String(opt.value) === String(value) ? "font-medium" : ""
 									}`}
 									onClick={() => {
@@ -558,7 +563,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="aero-popover fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
+							className="aero-popover sk-menu fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -578,7 +583,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 							}}
 						>
 							<div className="shrink-0 border-b border-[var(--border)] p-1.5">
-								<div className="aero-well aero-fill flex items-center gap-2 px-2">
+								<div className="aero-well sk-well aero-fill sk-fill flex items-center gap-2 px-2">
 									<LuSearch
 										size={13}
 										className="shrink-0 text-[var(--text-muted)]"
@@ -634,7 +639,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 													pick(item.value);
 												}
 											}}
-											className={`aero-list-item ui-radius-control group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
+											className={`aero-list-item sk-list-row ui-radius-control group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
 										>
 											<div className="flex min-w-0 items-center gap-2 pr-1">
 												{item.icon && (
@@ -719,7 +724,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 		<div className={`min-w-0 ${className}`}>
 			<label
 				htmlFor={id}
-				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] ui-radius-surface aero-control aero-fill ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] ui-radius-surface aero-control sk-button aero-fill sk-fill aero-choice sk-check-row ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
 			>
 				<input
 					{...inputProps}
@@ -728,11 +733,11 @@ export const CheckboxField = forwardRef(function CheckboxField(
 					type="checkbox"
 					disabled={disabled}
 					aria-describedby={hint ? `${id}-hint` : undefined}
-					className="peer sr-only"
+					className="sk-checkbox peer sr-only"
 				/>
 				<span
 					aria-hidden="true"
-					className="aero-checkbox mt-0.5 grid size-4 shrink-0 place-items-center"
+					className="aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center"
 				>
 					<LuCheck
 						size={12}
@@ -769,7 +774,7 @@ export const TextAreaField = forwardRef(function TextAreaField(
 			required={required}
 			className={className}
 		>
-			<div className="aero-well flex text-[var(--text-primary)]">
+			<div className="aero-well sk-well flex text-[var(--text-primary)]">
 				<textarea
 					{...inputProps}
 					id={id}
@@ -832,17 +837,17 @@ export const SliderField = forwardRef(function SliderField(
 				{/* Visual track */}
 				<div
 					aria-hidden="true"
-					className="aero-track pointer-events-none absolute inset-x-0 h-1.5"
+					className="aero-track sk-track pointer-events-none absolute inset-x-0 h-1.5"
 				>
 					<div
-						className="aero-track__fill h-full"
+						className="aero-track__fill sk-track-fill h-full"
 						style={{ width: `${percentage}%` }}
 					/>
 				</div>
 
 				<div
 					aria-hidden="true"
-					className={`aero-orb aero-fill pointer-events-none absolute -translate-x-1/2 ${isActive ? "size-5" : "size-3"}`}
+					className={`aero-orb sk-icon-button aero-fill sk-fill pointer-events-none absolute -translate-x-1/2 ${isActive ? "size-5" : "size-3"}`}
 					style={{ left: `calc(${percentage}% + ${8 - percentage * 0.16}px)` }}
 				/>
 
@@ -909,6 +914,84 @@ export const SliderField = forwardRef(function SliderField(
 	);
 });
 
+/** Rotary range input. `size` changes only the dial diameter, in CSS pixels.
+ * Drag up/right to increase, down/left to decrease; native range keyboard controls remain available.
+ * onChange previews immediately; onCommit runs once when an edited gesture ends.
+ */
+export const KnobField = forwardRef(function KnobField(
+	{ label, valueLabel, hint, id: suppliedId, className, inputClassName = "", size = 72,
+	  onCommit, min = 0, max = 100, step = 1, ...inputProps }, forwardedRef,
+) {
+	const generatedId = useId();
+	const id = suppliedId || generatedId;
+	const drag = useRef(null);
+	const changed = useRef(false);
+	const [localValue, setLocalValue] = useState(inputProps.defaultValue ?? min);
+	const low = Number(min), high = Number(max);
+	const value = Number(inputProps.value ?? localValue);
+	const fraction = high > low ? Math.max(0, Math.min(1, (value - low) / (high - low))) : 0;
+	const diameter = Number.isFinite(Number(size)) ? Math.max(32, Number(size)) : 72;
+	function commit(event) {
+		if (!changed.current) return;
+		changed.current = false;
+		onCommit?.(event);
+	}
+	function finish(event) {
+		drag.current = null;
+		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+		commit(event);
+	}
+	return <FieldShell id={id} label={label} hint={hint} className={className} required={inputProps.required}>
+		<div className="knob-field" data-disabled={inputProps.disabled || undefined}>
+			<div className="knob-field__dial" style={{ width: diameter, height: diameter }}>
+				<svg className="knob-field__scale" viewBox="0 0 100 100" aria-hidden="true">
+					{Array.from({ length: 21 }, (_, i) => <line key={i} x1="50" y1="4" x2="50" y2={i % 5 === 0 ? "9" : "6"} transform={`rotate(${-135 + i * 13.5} 50 50)`} />)}
+					<path className="knob-field__track" d="M 18.18 81.82 A 45 45 0 1 1 81.82 81.82" pathLength="100" />
+					<path className="knob-field__progress" d="M 18.18 81.82 A 45 45 0 1 1 81.82 81.82" pathLength="100" strokeDasharray={`${fraction * 100} 100`} />
+				</svg>
+				<div className="knob-field__body" aria-hidden="true">
+					<div className="knob-field__rotor" style={{ transform: `rotate(${-135 + fraction * 270}deg)` }}><span /></div>
+				</div>
+				<input {...inputProps} id={id} type="range" min={min} max={max} step={step}
+					ref={node => { if (typeof forwardedRef === 'function') forwardedRef(node); else if (forwardedRef) forwardedRef.current = node; }}
+					aria-describedby={[inputProps['aria-describedby'], hint && `${id}-hint`].filter(Boolean).join(' ') || undefined}
+					className={`knob-field__input ${inputClassName}`}
+					onChange={event => { changed.current = true; setLocalValue(Number(event.target.value)); inputProps.onChange?.(event); }}
+					onPointerDown={event => {
+						inputProps.onPointerDown?.(event);
+						if (inputProps.readOnly || high <= low) { event.preventDefault(); return; }
+						if (event.defaultPrevented || event.button !== 0 || inputProps.disabled) return;
+						event.preventDefault(); event.currentTarget.focus();
+						event.currentTarget.setPointerCapture(event.pointerId);
+						drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, value };
+					}}
+					onPointerMove={event => {
+						inputProps.onPointerMove?.(event);
+						const start = drag.current;
+						if (!start || start.id !== event.pointerId) return;
+						const quantum = step === 'any' ? 0 : Number(step);
+						let next = start.value + (start.y - event.clientY + event.clientX - start.x) / 160 * (high - low);
+						if (quantum > 0) next = low + Math.round((next - low) / quantum) * quantum;
+						next = Number(Math.max(low, Math.min(high, next)).toFixed(10));
+						const input = event.currentTarget;
+						if (Number(input.value) === next) return;
+						// Bypass React's value tracker so its normal onChange receives the native input event.
+						Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, next);
+						input.dispatchEvent(new Event('input', { bubbles: true }));
+					}}
+					onPointerUp={event => { inputProps.onPointerUp?.(event); finish(event); }}
+					onPointerCancel={event => { inputProps.onPointerCancel?.(event); finish(event); }}
+					onLostPointerCapture={event => { inputProps.onLostPointerCapture?.(event); drag.current = null; commit(event); }}
+					onKeyDown={event => { inputProps.onKeyDown?.(event); if (inputProps.readOnly) event.preventDefault(); }}
+					onKeyUp={event => { inputProps.onKeyUp?.(event); commit(event); }}
+					onBlur={event => { drag.current = null; inputProps.onBlur?.(event); commit(event); }}
+				/>
+			</div>
+			{valueLabel !== undefined && <span className="knob-field__value" aria-hidden="true">{valueLabel}</span>}
+		</div>
+	</FieldShell>;
+});
+
 export const PillToggle = forwardRef(function PillToggle(
 	{ active, onToggle, icon, label, activeLabel, disabled, title, className = "", ...props },
 	ref,
@@ -924,7 +1007,7 @@ export const PillToggle = forwardRef(function PillToggle(
 			disabled={disabled}
 			title={title}
 			onClick={() => onToggle?.(!active)}
-			className={`aero-control flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
+			className={`aero-control sk-button flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
 		>
 			{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
 			<span>{active ? activeLabel || label : label}</span>

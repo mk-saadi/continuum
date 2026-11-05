@@ -8,12 +8,20 @@ const DEFAULT_NAMES = Object.freeze([
   'get_command_status', 'stop_background_command', 'update_plan', 'get_project_plans',
   'git_status', 'git_diff', 'get_recent_chat_history', 'find_and_prepare_mcp_tools',
 ]);
+// Advertisement profile only: the native web tools are research primitives, so
+// every profile exposes them from the first request instead of hiding them
+// behind manage_native_tools activation. Permission policy is unchanged.
+const ALWAYS_ON_GROUPS = Object.freeze(['web']);
 function configuredProfile() {
   return process.env.CONTINUUM_NATIVE_TOOL_PROFILE === 'compact' ? 'compact' : 'full';
 }
 function select(authorized, activatedGroups, groups, nativeNames) {
-  const exposed = new Set([...DEFAULT_NAMES, ...activatedGroups.flatMap(group => groups[group] || [])]);
+  const exposed = new Set([
+    ...DEFAULT_NAMES,
+    ...ALWAYS_ON_GROUPS.flatMap(group => groups[group] || []),
+    ...activatedGroups.flatMap(group => groups[group] || []),
+  ]);
   // External MCP schemas are governed exclusively by MCP's existing selection.
   return authorized.filter(tool => !nativeNames.has(tool.function.name) || exposed.has(tool.function.name));
 }
-module.exports = { DEFAULT_NAMES, configuredProfile, select };
+module.exports = { DEFAULT_NAMES, ALWAYS_ON_GROUPS, configuredProfile, select };

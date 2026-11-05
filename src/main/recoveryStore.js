@@ -39,7 +39,7 @@ const RECOVERY_SCAN_MAX_BYTES = 1024 * 1024 * 1024;
 // regenerable dependency/build output. Applied at every depth, recorded in
 // coverage.excluded (never silent). Explicitly listed tool paths bypass this
 // (an agent asked to write dist/bundle.js still gets it captured).
-const RECOVERY_SCOPE_EXCLUDES = new Set(['.git', '.llm_workspace', 'node_modules', 'dist', 'build']);
+const RECOVERY_SCOPE_EXCLUDES = new Set(['.git', '.llm_workspace', '.continuum-local', 'node_modules', 'dist', 'build']);
 // A file modified within this window at capture time may still be changing;
 // flag it volatile rather than pretending the bytes are settled.
 const RECOVERY_VOLATILE_MS = 2000;

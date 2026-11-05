@@ -59,7 +59,7 @@ export default function TabBar() {
 	return (
 		<nav
 			aria-label="Chat tabs"
-			className="aero-tabbar flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
+			className="aero-tabbar sk-toolbar sk-texture-brushed flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
 			onDragOver={(event) => {
 				if (dragIdRef.current == null) return;
 				event.preventDefault();
@@ -108,7 +108,7 @@ export default function TabBar() {
 							/* setData is required by some browsers; failures still drag. */
 						}
 					}}
-					className="aero-tab group flex max-w-48 min-w-32 cursor-grab items-center gap-2 px-2 py-1 text-xs select-none active:cursor-grabbing"
+					className="aero-tab sk-tab group flex max-w-48 min-w-32 cursor-grab items-center gap-2 px-2 py-1 text-xs select-none active:cursor-grabbing"
 					onAuxClick={(event) => {
 						if (event.button === 1) {
 							event.preventDefault();
@@ -158,7 +158,7 @@ export default function TabBar() {
 						type="button"
 						onClick={() => closeTab(tab.id)}
 						aria-label={`Close ${tab.title}`}
-						className="aero-chrome-button p-1 cursor-pointer"
+						className="aero-chrome-button sk-icon-button p-1 cursor-pointer"
 					>
 						<LuX />
 					</button>
@@ -176,7 +176,7 @@ export default function TabBar() {
 				onClick={() => openTab(activeTab?.modelId || "")}
 				aria-label="New chat tab"
 				title="New chat tab"
-				className="aero-orb aero-fill mb-0.5 size-7 shrink-0 cursor-pointer"
+				className="aero-orb sk-icon-button aero-fill sk-fill mb-0.5 size-7 shrink-0 cursor-pointer"
 			>
 				✦
 			</button>

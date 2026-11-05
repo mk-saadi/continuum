@@ -2,9 +2,21 @@
 
 ## Objective and visual reference
 
-Implement a cohesive desktop skeuomorphic material system inspired by the supplied Continuum screenshots. The user explicitly likes the existing dimensional design. Preserve its raised satin panels, glossy accent buttons, recessed fields, fine bevels, circular icon controls, and restrained warm highlights. This task supersedes the earlier proposal to increase Aero transparency.
+Use `/home/mk_saadi/projects/test-projects/aero-skeu/aero-skeu-exp` as the physical-material reference. Its `src/components/Settings.css` Skeu block and the original Skeu rules in `src/components/Projects.css` define the target: substantial molded controls, hard lower contact edges, deep recessed wells, stacked card edges, and visible fine surface finishes. The previous Continuum pass was too flat and restricted textures too much.
 
-The screenshot palette is one theme, not the style definition. Preserve all 22 light/dark palettes. Keep the current layout, copy, information density, routing, and application behavior. Do not introduce leather, wood, stitched textures, folder-shaped cards, oversized shadows, or a blue-only palette. The separate experimental project's physical folder aesthetic is not the target.
+**Preserve Continuum's theme colors exactly.** Do not copy the reference's olive surfaces, gold accent, cream ink, hardcoded palette overrides, or font/layout system. All 22 palettes, their token definitions, accent identity, and foregrounds remain owned by Continuum. Transfer only neutral lighting, relief geometry, and texture construction, using existing semantic palette inputs.
+
+Keep Continuum's layout, density, routing, content, and behavior. The reference's folder tabs and different toolbar layout are not required to reproduce the material treatment. Use the shared style-dependent corner tokens; housings remain compact rectangles and real icon controls can remain circular.
+
+## Reference construction to transfer
+
+- **Raised controls:** illuminated upper rim, 2px inner lower bevel, a hard 3px contact foot, then a small 5–8px ambient shadow. A soft shadow alone is insufficient.
+- **Recessed fields:** a 3px/6px inner top shadow and fine lower illuminated rim. Keep text surfaces opaque and untextured.
+- **Panels:** directional neutral lighting, upper/left bevels, lower contact edge, and a compact shadow. They must visibly sit above the canvas.
+- **Project cards:** several tight lower edge steps, inspired by the reference's physical jackets, without adding folder silhouettes or changing card spacing.
+- **Housing/canvas/chrome:** fine static diagonal machining at about 110°, repeated every 4px. Settings sidebar, section header, and housing need this finish too—not only a barely visible noisy header overlay.
+- **Broad panels/cards:** fine horizontal finish, approximately 1px every 3px. Avoid the previous crossed diagonal hatch on every project card.
+- **Color:** neutral white/black highlights and shadows over Continuum's existing surfaces. Never import reference palette constants or rewrite `src/index.css` theme definitions.
 
 ## Deliverables and scope
 
@@ -28,10 +40,10 @@ The screenshot palette is one theme, not the style definition. Preserve all 22 l
 
 Use one implied light source above the interface. Top edges catch light; lower edges darken. Keep shadows small enough to retain the existing compact desktop character.
 
-- App canvas: mostly flat, theme-colored, visually behind panels.
+- App canvas: theme-colored and visually behind panels, with a fine static machined finish.
 - Window shells: raised opaque housing with a fine edge and a larger ambient shadow.
 - Headers/toolbars: satin gradient and top highlight, separated by a fine rule.
-- Panels/cards: shallow bevel and restrained gradient. Use `.sk-satin` selectively for the broad top reflection visible in the screenshots. Do not put a hard midpoint shine on every surface.
+- Panels/cards: a definite lower contact edge, upper bevel, restrained directional gradient, and fine horizontal finish. Use `.sk-satin` selectively for the broad top reflection visible in the screenshots. Do not put a hard midpoint shine on every surface.
 - Inputs/composer/path labels: recessed wells with an inner top shadow and lower rim.
 - Buttons: raised molded controls with a fine upper highlight, lower edge, and localized shadow.
 - Primary/selected controls: glossy theme accent, readable foreground, restrained accent halo.
@@ -187,20 +199,20 @@ The supplied stylesheet is an integration kit, not a claim that the main applica
 
 ## Surface textures: required implementation guidance
 
-Include a restrained surface-texture pass as part of the skeu treatment. The supplied `/docs/skeu.css` now contains three optional texture hooks. These are subtle finishes for the existing molded/satin materials, not a replacement for gradients, bevels, or shadows. Do not interpret them as evidence that grain is visible in the source screenshots; they extend the requested skeu direction.
+Include a visible but fine surface-texture pass as part of the skeu treatment. The supplied `/docs/skeu.css` now contains three optional texture hooks. These are subtle finishes for the existing molded/satin materials, not a replacement for gradients, bevels, or shadows. Do not interpret them as evidence that grain is visible in the source screenshots; they extend the requested skeu direction.
 
 | Hook | Finish | Recommended placement |
 | --- | --- | --- |
 | `.sk-texture-grain` | Static, embedded achromatic SVG noise | App housing, modal header, occasional larger panel |
 | `.sk-texture-brushed` | Very faint directional CSS lines | Toolbar or hardware-like control housing, sparingly |
-| `.sk-texture-satin` | Fine crossed CSS line texture | Quiet broad panel surfaces where noise assets are unsuitable |
+| `.sk-texture-satin` | Fine horizontal CSS line texture | Quiet broad panel surfaces where noise assets are unsuitable |
 
 ### Placement and integration
 
 - Use one texture hook per element. Do not stack grain, satin, and brushed finishes.
-- Start with grain on the modal header and shell chrome. Use satin selectively on project cards or section housings. Reserve brushed texture for a small number of toolbars.
+- Use fine diagonal background machining on canvas, housing, sidebar, and chrome. Use a horizontal finish on broad panels and project cards. Grain remains a supplementary header finish; it is not the only evidence of texture. Avoid the old crossed diagonal card hatch.
 - Keep inputs, dropdown content, path wells, chat transcripts, code blocks, helper copy containers, and dense lists untextured. Prefer an outer housing rather than a parent that also covers those reading surfaces.
-- Never texture a parent and its child surfaces simultaneously. Constrain the texture to the chrome/header when a large panel contains multiple reading wells.
+- Never stack texture overlays over parent and child content. Housing and panel finishes may instead be painted in their own CSS backgrounds: opaque child surfaces occlude the parent finish, so texture does not accumulate over child text or fields. Keep overlay hooks on a single exposed face.
 - Hooks preserve the existing surface background. They use a rounded, static `::before` overlay, local isolation, and a negative stack level so content stays above the texture. The overlay ignores pointer events.
 - Inspect existing pseudo-elements before applying hooks. If `::before` is occupied, put the texture on a dedicated surface wrapper; do not overwrite an icon, selection marker, or focus effect.
 - Hooks establish relative positioning and a stacking context. Inspect positioned descendants, badges, menus, and existing z-index relationships after applying them. Keep popups in the existing portal system.
@@ -208,7 +220,7 @@ Include a restrained surface-texture pass as part of the skeu treatment. The sup
 
 ### Theme tuning
 
-- Dark fallback opacity is `--sk-texture-opacity: .035`; light fallback is `.025`. Start here, then inspect real rendered results. Keep adjustments roughly within `.015` to `.05`; texture should be barely perceptible at normal viewing size.
+- Dark fallback opacity is `--sk-texture-opacity: .035`; light fallback is `.025`. These values apply to noise overlays, not to direct background finishes. Reference-like direct finishes use neutral line alpha around `.008`–`.02`, depending on mode. Texture should be visible at normal size when compared on/off, while remaining subordinate to text. A finish that only becomes visible at extreme zoom is too weak.
 - Map or override `--sk-texture-light` and `--sk-texture-dark` if directional lines look too harsh for a palette. Their default white/black colors are neutral highlights/shadows, not a replacement palette.
 - `--sk-texture-grain-size` controls the grain tile size (default `128px`). Avoid enlarging it enough to reveal the tile pattern.
 - Set `data-texture="off"` on the style scope or a container for an explicit texture opt-out. This removes textures while preserving skeu gradients and bevels. An additional user preference is optional; do not create one unless it fits the existing preference UI.

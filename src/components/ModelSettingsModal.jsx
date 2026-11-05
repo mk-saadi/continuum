@@ -39,8 +39,8 @@ const integerFields = [
 	],
 ];
 
-const cardClass = "aero-fill min-w-0 p-3";
-const secondaryButton = "aero-control aero-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
+const cardClass = "aero-fill sk-fill min-w-0 p-3";
+const secondaryButton = "aero-control sk-button aero-fill sk-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
 
 function SectionHeading({ Icon, title, description }) {
     return (
@@ -206,15 +206,15 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="aero-dialog fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip p-0"
+			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip p-0"
 		>
 			<form
 				onSubmit={submit}
 				className="flex max-h-[85dvh] flex-col"
 			>
-				<header className="aero-header flex shrink-0 items-center justify-between gap-3 px-4 py-4">
+				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
-                        <span className="aero-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
+                        <span className="aero-fill sk-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
                             <LuSlidersHorizontal size={18} aria-hidden="true" />
                         </span>
                         <div className="min-w-0">
@@ -236,7 +236,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 						aria-label="Close settings"
 						onClick={onClose}
 						disabled={busy}
-						className="aero-orb aero-fill size-7 cursor-pointer shrink-0"
+						className="aero-orb sk-icon-button aero-fill sk-fill size-7 cursor-pointer shrink-0"
 					>
 						<LuX
 							size={17}
@@ -647,7 +647,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 
 				{config && memory && (
 					<Tooltip content={memoryTitle}>
-						<div className="aero-footer flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3 text-[11px]">
+						<div className="aero-footer sk-window-footer flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3 text-[11px]">
 							<span className="inline-flex items-center gap-1.5">
 								<LuCpu
 									size={13}
@@ -676,7 +676,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					</Tooltip>
 				)}
 
-				<footer className="aero-footer flex shrink-0 flex-wrap items-center justify-end gap-2 px-4 py-3">
+				<footer className="aero-footer sk-window-footer flex shrink-0 flex-wrap items-center justify-end gap-2 px-4 py-3">
 					<div className="mr-auto">
 						<CheckboxField
 							label="Remember settings for this model"
@@ -696,7 +696,7 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 					<button
 						type="submit"
 						disabled={busy || !config}
-						className="aero-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
+						className="aero-primary sk-button sk-primary inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold"
 					>
 						{busy ? (
 							<LuSparkles

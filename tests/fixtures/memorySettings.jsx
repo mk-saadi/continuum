@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { applyTheme } from '../../src/lib/themes.mjs';
 import MemorySettings from '../../src/components/main-app/MemorySettings';
 
 let config = { mcpServers: { terminal: { disabled: false, command: 'node', args: ['server.js'], disabledTools: [] }, broken: { disabled: false, command: '/missing' } } };
@@ -47,8 +48,10 @@ window.mcpAPI = {
   setAllToolsEnabled: async (name, enabled) => { config.mcpServers[name].disabledTools = enabled ? [] : ['run_command', 'run_script']; return publish(); },
 };
 function Fixture() {
+  const [theme, setTheme] = useState("dark");
+  window.setFixtureTheme = value => { applyTheme(document.documentElement, value); setTheme(value); };
   const [mcpStatus, setStatus] = useState(status);
   React.useEffect(() => window.mcpAPI.onChanged(setStatus), []);
-  return <MemorySettings models={[{ id: 'model', modelPath: '/models/test.gguf', name: 'Test model' }]} avatars={{ settings: { showAvatars: true, modelAvatars: {} }, update: async () => {} }} terminalLog={{ lines: [], clear() {} }} theme="dark" onChangeTheme={() => {}} onClose={() => {}} palace={{ enabled: true, toggle() {}, mcpStatus, limit: 8192, setLimit() {}, refresh: async () => {}, api: { getAllActiveMemories: async () => [] } }} />;
+  return <MemorySettings models={[{ id: 'model', modelPath: '/models/test.gguf', name: 'Test model' }]} avatars={{ settings: { showAvatars: true, modelAvatars: {} }, update: async () => {} }} terminalLog={{ lines: [], clear() {} }} theme={theme} onChangeTheme={value => { applyTheme(document.documentElement, value); setTheme(value); }} onClose={() => {}} palace={{ enabled: true, toggle() {}, mcpStatus, limit: 8192, setLimit() {}, refresh: async () => {}, api: { getAllActiveMemories: async () => [] } }} />;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

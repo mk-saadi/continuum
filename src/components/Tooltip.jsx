@@ -167,7 +167,7 @@ export default function Tooltip({
 						ref={nodeRef}
 						id={tooltipId}
 						role="tooltip"
-						className="aero-tooltip pointer-events-none fixed z-[9999] max-w-xs break-words px-2 py-1 text-xs leading-snug text-[var(--text-primary)] transition-opacity motion-reduce:transition-none"
+						className="aero-tooltip sk-tooltip pointer-events-none fixed z-[9999] max-w-xs break-words px-2 py-1 text-xs leading-snug text-[var(--text-primary)] transition-opacity motion-reduce:transition-none"
 						style={{
 							top: pos?.top ?? 0,
 							left: pos?.left ?? 0,

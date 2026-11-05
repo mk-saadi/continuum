@@ -41,6 +41,21 @@ test('appearance persists, restores, syncs windows, and survives unavailable sto
     assert.equal(unavailable.getAppearance(), 'flat');
     unavailable.setAppearance('invalid');
     assert.equal(root.dataset.appearance, 'aero');
+    globalThis.localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+    store.setAppearance('skeu');
+    assert.equal(root.dataset.style, 'skeu', 'Skeu scope includes body portals');
+    assert.equal(saved.get('appearance'), 'skeu');
+    const skeuRestart = await import('../src/lib/appearance.mjs?skeu-restart');
+    assert.equal(skeuRestart.getAppearance(), 'skeu', 'Skeu survives restart');
+    let synced = 0;
+    const stopSkeu = skeuRestart.subscribeAppearance(() => synced++);
+    saved.set('appearance', 'flat');
+    const sync = new Event('storage');
+    Object.defineProperty(sync, 'key', { value: 'appearance' });
+    window.dispatchEvent(sync);
+    assert.equal(root.dataset.style, 'flat', 'cross-window changes remove the Skeu scope');
+    assert.equal(synced, 1);
+    stopSkeu();
   } finally {
     for (const [key, descriptor] of Object.entries(original)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

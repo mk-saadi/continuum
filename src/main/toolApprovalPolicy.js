@@ -3,7 +3,7 @@
 // Pure approval policy. No I/O, Electron, session state or approval lifecycle.
 // The caller supplies authoritative facts gathered at the existing enforcement
 // points; stages preserve the order of validation, snapshotting and dispatch.
-const { requiresGitApproval, requiresOutboundApproval, classifyEffect } = require('./mcpPermissionPolicy');
+const { requiresOutboundApproval, classifyEffect, isReadOnlyBrowserOperation } = require('./mcpPermissionPolicy');
 const { requiresConfirmation } = require('./safetyGuards');
 const { isCommand, isOpaqueGit } = require('./nativeExecutionKinds');
 
@@ -202,7 +202,6 @@ function capabilityDecision({ capability, mode, hasWorkspace, native }) {
 // may be bypassed for an explicitly trusted read-only tool.
 function workspaceMcpApproval(input) {
   const { tool, args = {}, serverName, annotations = {}, serverTrusted = false } = input;
-  if (requiresGitApproval(tool, args, serverName)) return 'Git commit or push requires explicit approval.';
   const metadataKey = key => /^(?:payload|body|request|requests|steps|actions)$/i.test(key);
   const hardArgs = value => Object.fromEntries(Object.entries(value).filter(([key]) => !metadataKey(key)));
   const hardEffect = classifyEffect(tool, hardArgs(args));
@@ -217,7 +216,7 @@ function workspaceMcpApproval(input) {
     const value = envelopes.pop();
     if (!value || typeof value !== 'object') continue;
     if (++inspected > 1000) return 'Structured payload is too complex for automatic approval.';
-    if (requiresGitApproval(tool, value, serverName) || !['read', 'known-mutation'].includes(classifyEffect(tool, hardArgs(value))))
+    if (!['read', 'known-mutation'].includes(classifyEffect(tool, hardArgs(value))))
       return 'Nested executable or consequential action requires explicit user approval.';
     for (const child of Object.values(value)) if (child && typeof child === 'object') envelopes.push(child);
   }
@@ -260,7 +259,12 @@ function rawDecision(input) {
   const block = reason => ({ decision: 'block', reason });
 
   if (native && input.trustedMcpActivation === true) return allow('immediate');
-  if (native === false && input.trustedNativePlaywright === true) return allow('immediate');
+  // Exact bundled Playwright is normal development tooling: page reads are
+  // always safe, and Workspace Write (an explicit user-selected authorization
+  // mode) also authorizes interaction. Ask/Read Only keep their existing gates.
+  if (native === false && input.trustedNativePlaywright === true) {
+    if (isReadOnlyBrowserOperation(tool) || mode === 'workspace_write') return allow('immediate');
+  }
 
   // Availability and user enablement are enforced by McpManager before dispatch.
   if (native === false && !workspaceRoot && !input.workspaceMcp && mode !== 'workspace_write') return allow('immediate');
@@ -278,8 +282,6 @@ function rawDecision(input) {
     }
     if (mode !== 'full_access' && !(mode === 'workspace_write' && input.workspaceMcp) && requiresOutboundApproval(tool, args) && !approved)
       return ask('Outbound or consequential mutation requires explicit user approval.');
-    if (input.workspaceMcp && requiresGitApproval(tool, args, serverName) && !approved)
-      return ask('Git commit or push requires explicit approval.');
     if (mode !== 'full_access' && !input.workspaceMcp &&
         !(input.permissionGranted && mode === 'ask_approval') && input.mutationRequiresConfirmation)
       return ask('Mutation payload requires a scoped approval challenge.', 'mutation_challenge');
@@ -293,7 +295,8 @@ function rawDecision(input) {
     return native !== false && isOpaqueGit(tool) && !approved
       ? ask('Workspace Git mutation may execute repository-configured programs.') : allow();
   }
-  if (stage === 'git_publication') return ask('Review outgoing Git history before publication.');
+  if (stage === 'git_publication') return mode === 'workspace_write' ? allow()
+    : ask('Review outgoing Git history before publication.');
   if (stage === 'containment') {
     if (!containment?.blocked) return allow();
     return mode === 'ask_approval' && containment.reason.startsWith('Execution blocked:')
@@ -309,11 +312,11 @@ function rawDecision(input) {
   if (native && isCommand(tool) && mode === 'workspace_write' && workspaceRoot) {
     if (input.containment?.blocked) return block(input.containment.reason);
     const sandbox = input.sandbox;
+    if (!sandbox) return ask('Command requires authoritative sandbox facts.', 'command');
     if (sandbox?.bwrapAvailable !== true || sandbox.netUnshared !== true || sandbox.profile !== 'bwrap_workspace' || sandbox.filesystemProfile !== 'sandboxFilesystem' || input.uncontained)
       return ask('Workspace sandbox is unavailable; execution requires review.', 'command');
-    if (input.packageOperation) return ask('Package installation or publication requires review.', 'command');
-    if (input.packageOperation !== false || input.containment?.contained !== true)
-      return ask('Command containment requires review.', 'command');
+    if (input.containment?.contained !== true)
+      return block('Command containment could not be verified. Workspace Write cannot execute on the host.');
     return allow('command');
   }
   if (native && isCommand(tool)) return mode === 'read_only'
@@ -335,15 +338,18 @@ function rawDecision(input) {
   }
   if (!native && mode !== 'read_only' && requiresOutboundApproval(tool, args)) return ask('Connected tool may perform outbound or consequential actions.', 'immediate');
   if (mode === 'workspace_write' && workspaceRoot && ((native && ['manage_mcp_servers', 'find_and_prepare_mcp_tools'].includes(tool)) || !native)) {
-    return !native && (tool === 'delete_project_file' || requiresGitApproval(tool, args, serverName))
-      ? ask('Connected tool deletes a project file or publishes Git history.', 'immediate') : allow('immediate');
+    return !native && tool === 'delete_project_file'
+      ? ask('Connected tool deletes a project file.', 'immediate') : allow('immediate');
   }
-  if (native && tool === 'git_sync' && mode === 'workspace_write' && workspaceRoot && args.action === 'fetch') return allow('git_sync');
-  if (native && tool === 'git_sync' && mode !== 'read_only') return ask('Git remote preparation may execute transport helpers.', 'git_sync');
+  // Workspace Write is an explicit authorization for normal development Git,
+  // including fetching, pulling and publishing this workspace's history.
+  if (native && tool === 'git_sync' && mode === 'workspace_write' && workspaceRoot) return allow('git_sync');
+  if (native && tool === 'git_sync' && mode !== 'read_only') return ask('Git remote operation requires review.', 'git_sync');
   if (native && tool === 'git_commit' && mode === 'workspace_write' && workspaceRoot) return allow('git_commit');
   if (tool === 'git_commit' && mode !== 'read_only') return ask('Review the staged changes before committing.', 'git_commit');
   const result = decideToolApproval({ ...input, stage: 'base', capability, native });
   if (result.decision !== 'block' && capability === CAPABILITIES.FILE_DELETE) {
+    if (mode === 'workspace_write' && workspaceRoot) return allow('delete');
     const coverage = input.checkpointCoverage;
     if (mode === 'workspace_write' && coverage?.complete === true && coverage.path === args.path && coverage.captured === true &&
         !coverage.skipped?.length && !coverage.excluded?.length) return allow('delete');
@@ -391,7 +397,7 @@ function rememberDetails(input) {
       if (!value || typeof value !== 'object') continue;
       if (++inspected > 1000) return null;
       const hard = Object.fromEntries(Object.entries(value).filter(([key]) => !/^(?:payload|body|request|requests|steps|actions)$/i.test(key)));
-      if (requiresGitApproval(tool, hard, input.serverName) || !['read', 'known-mutation'].includes(classifyEffect(tool, hard))) return null;
+      if (!['read', 'known-mutation'].includes(classifyEffect(tool, hard))) return null;
       for (const child of Object.values(value)) if (child && typeof child === 'object') pending.push(child);
     }
     if (requiresConfirmation(JSON.stringify(args))) return null;

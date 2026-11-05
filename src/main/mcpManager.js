@@ -476,7 +476,7 @@ class McpManager extends EventEmitter {
       const trusted = require('./nativePlaywright').isTrustedNativePlaywright(server.name, server.definition);
       const capabilities = server.tools.filter(t => !server.disabledTools.has(t.name)).slice(0, 6)
         .map(t => compact(`${t.name}: ${t.description || ''}`)).join('; ');
-      const purpose = trusted ? 'Browser automation: navigation, page/DOM inspection and page screenshots.'
+      const purpose = trusted ? 'Browser automation: navigation, page/DOM inspection and page screenshots. Use it for live browser inspection; native web_search, get_single_web_page_content and extract_web_page_data remain the default for internet research.'
         : compact(server.definition.description) || capabilities || 'Capabilities unknown until activation.';
       const status = this.isVisibleInSession(server, sessionId) ? server.status :
         (['error', 'disconnected', 'connecting'].includes(server.status) ? server.status : 'inactive');

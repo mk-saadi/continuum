@@ -46,9 +46,11 @@ test.after(() => {
 for (const mode of [null, 'read_only', 'ask_approval', 'workspace_write', 'full_access']) test(`production fresh request profile ${mode || 'casual'} (estimated guard, not exact tokenizer proof)`, () => {
   const f = fixture(mode), body = payload(f, mode || 'read_only');
   const count = estimate(body);
-  assert.ok(count <= (mode ? 11000 : 2000), String(count));
+  // Casual includes the three always-advertised native web schemas in addition
+  // to discovery and activation, so its guard is 2200 rather than 2000.
+  assert.ok(count <= (mode ? 11000 : 2200), String(count));
   if (mode) { assert.ok(body.tools.some(t => t.function.name === 'read_project_file')); assert.ok(!body.tools.some(t => t.function.name === 'manage_native_tools')); }
-  else assert.deepEqual(body.tools.map(t => t.function.name).sort(), ['find_and_prepare_mcp_tools', 'manage_native_tools']);
+  else assert.deepEqual(body.tools.map(t => t.function.name).sort(), ['extract_web_page_data', 'find_and_prepare_mcp_tools', 'get_single_web_page_content', 'manage_native_tools', 'web_search']);
   assert.ok(body.messages.some(m => m.content === 'hello'));
   const nativeToolSchemaTokens = estimate(body.tools);
   evidence.push({ chatMode: mode ? 'workspace' : 'casual', permissionMode: mode || 'read_only', provider: 'local', model: 'fixture', measurementMethod: 'serialized-json-characters/4', measurementConfidence: 'estimated', initialRequestInputTokens: count, nativeToolSchemaTokens, systemInstructionTokens: estimate(body.messages.filter(m => m.role === 'system')), projectContextTokens: estimate(builder.buildProjectContext(f.id)), taskStateTokens: estimate(body.messages.filter(m => /^\[WORKSPACE TASK BRIEF\]|^\[TASK CHECKPOINT\]/.test(m.content))), dynamicToolActivationCount: 0, activatedToolGroups: [], postActivationRequestInputTokens: null, toolCount: body.tools.length });
@@ -144,8 +146,8 @@ test('Casual custom persona is preserved once within the estimated initial budge
   require('../src/main/agentManager').applyAgent(f.id, agent.id, 'fixture');
   const body = payload(f);
   assert.equal(JSON.stringify(body.messages).split(agent.system_prompt).length - 1, 1);
-  assert.ok(estimate(body) <= 2000);
-  assert.deepEqual(body.tools.map(t => t.function.name), ['find_and_prepare_mcp_tools', 'manage_native_tools']);
+  assert.ok(estimate(body) <= 2200);
+  assert.deepEqual(body.tools.map(t => t.function.name), ['extract_web_page_data', 'find_and_prepare_mcp_tools', 'get_single_web_page_content', 'manage_native_tools', 'web_search']);
 });
 test('native and MCP activation coexist, preserve inactive discovery and session scope', async () => {
   const { McpManager } = require('../src/main/mcpManager');

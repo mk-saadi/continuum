@@ -49,7 +49,7 @@ export default function PricingHistoryView({ filters }) {
 
   const rows = state.rows ?? [];
   return (
-    <section className="aero-panel p-3" aria-labelledby="usage-pricing-title">
+    <section className="aero-panel sk-panel p-3" aria-labelledby="usage-pricing-title">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 id="usage-pricing-title" className="text-xs font-semibold">Pricing history</h3>
@@ -57,17 +57,17 @@ export default function PricingHistoryView({ filters }) {
             Rate snapshots recorded with each turn. Historical charges keep the rate that priced them.
           </p>
         </div>
-        <span className="ui-radius-round border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
+        <span className="ui-radius-pill border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">Read-only evidence</span>
       </div>
       <SettingsMessage>{error}</SettingsMessage>
       {loading && !rows.length ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading pricing history…</p> : null}
       {!loading && !rows.length && !error ? (
-        <p className="mt-3 aero-empty aero-fill p-6 text-center text-[11px] text-[var(--text-muted)]">
+        <p className="mt-3 aero-empty sk-empty aero-fill sk-fill p-6 text-center text-[11px] text-[var(--text-muted)]">
           No pricing evidence has been recorded for this selection. That is unknown, not a zero rate.
         </p>
       ) : null}
       {rows.length ? (
-        <div className="aero-flat mt-3 overflow-x-auto p-2">
+        <div className="aero-flat sk-list mt-3 overflow-x-auto p-2">
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">

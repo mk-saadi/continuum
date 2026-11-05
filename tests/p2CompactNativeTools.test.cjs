@@ -37,16 +37,17 @@ test.after(() => {
   if (oldProfile === undefined) delete process.env.CONTINUUM_NATIVE_TOOL_PROFILE; else process.env.CONTINUUM_NATIVE_TOOL_PROFILE=oldProfile;
   database.closeDatabase(); Module._load=load; fs.rmSync(directory,{recursive:true,force:true});
 });
-test('16-tool default preserves exact schemas and stable run profile, full fallback and Casual', () => {
-  const f=fixture(); assert.equal(names(f).length,16);
+test('19-tool default preserves exact schemas and stable run profile, full fallback and Casual', () => {
+  // 16 profile defaults + the three always-advertised native web tools.
+  const f=fixture(); assert.equal(names(f).length,19);
   for (const t of tools(f)) {
     const original=available(f).find(v=>v.function.name===t.function.name); assert.deepEqual(t,original);
     schema.compile(t.function.parameters);
   }
-  process.env.CONTINUUM_NATIVE_TOOL_PROFILE='full'; assert.equal(names(f).length,16);
+  process.env.CONTINUUM_NATIVE_TOOL_PROFILE='full'; assert.equal(names(f).length,19);
   const full=fixture(); assert.ok(names(full).length>40); assert.ok(!names(full).includes('manage_native_tools'));
   process.env.CONTINUUM_NATIVE_TOOL_PROFILE='compact';
-  assert.deepEqual(names(fixture(null)),['find_and_prepare_mcp_tools','manage_native_tools']);
+  assert.deepEqual(names(fixture(null)),['extract_web_page_data','find_and_prepare_mcp_tools','get_single_web_page_content','manage_native_tools','web_search']);
 });
 test('search discovers without exact names; activation is idempotent, owner scoped and finite', () => {
   const f=fixture(); const listed=manage(f,{action:'list',query:'definition'});

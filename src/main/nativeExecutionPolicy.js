@@ -14,7 +14,7 @@ function scope({ name, args, sessionId, project, mode, policyRevision, execution
     name === 'git_stash' ? gitRecovery ?? null : null]);
 }
 function issue(decision, options) {
-  grants.set(decision, { scope: scope({ ...options, ...decision }), expires: Date.now() + 120000 });
+  grants.set(decision, { networkRevision: isCommand(options.name) && decision.mode === 'workspace_write' ? require('./configStore').networkRevision?.() : undefined, scope: scope({ ...options, ...decision }), expires: Date.now() + 120000 });
   return decision;
 }
 function consume(decision, options) {
@@ -23,6 +23,8 @@ function consume(decision, options) {
   if (!grant || grant.expires < Date.now() || grant.scope !== scope(options)) {
     throw Object.assign(new Error('Execution blocked: A current, specific native execution approval is required.'), { code: 'APPROVAL_REQUIRED' });
   }
+  if (grant.networkRevision !== undefined && grant.networkRevision !== require('./configStore').networkRevision?.())
+    throw Object.assign(new Error('Networking authorization changed; retry under the current policy.'), { code: 'PERMISSION_REVOKED' });
   if (isCommand(options.name) && decision?.approved === false &&
       (decision.executionProfile !== 'bwrap_workspace' || decision.commandUncontained !== false ||
        options.mode !== 'workspace_write' || !options.project?.root_path))

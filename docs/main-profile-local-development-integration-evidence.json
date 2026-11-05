@@ -1,0 +1,98 @@
+{
+  "date": "2026-11-05",
+  "timezone": "Asia/Dhaka",
+  "productionApproved": false,
+  "localBuild": "source and LOCAL developer AppImage, primary profile, non-distributable",
+  "profileResolution": {
+    "name": "Continuum",
+    "userData": "/home/mk_saadi/.config/Continuum",
+    "packaged": false,
+    "overriddenByLauncher": false
+  },
+  "primaryProfileInspection": {
+    "mode": "read-only",
+    "configUnchangedSha256": "3f01abc5ce264667d4c822eb29f83dc2c10e2d4f0f0e741517ca3ec5b4755216",
+    "sessions": 240,
+    "projects": 16,
+    "messages": 4619,
+    "backgroundCommands": 25,
+    "workspaceNetworkPolicy": "isolated"
+  },
+  "sourceLocalLiveFlow": {
+    "profile": "disposable XDG (primary profile held by the running production AppImage)",
+    "packaged": false,
+    "userDataEndsWith": "/.config/Continuum",
+    "secretStorage": "gnome_libsecret",
+    "encryption": true,
+    "noSandboxArg": false,
+    "initial": { "available": true, "buildKind": "source", "effectivePolicy": "isolated", "protectedConsentAvailable": true, "consentRequired": true },
+    "cancel": "isolated",
+    "accept": "trusted_development",
+    "launchReady": true,
+    "receiptPersisted": true,
+    "revert": "isolated"
+  },
+  "localDeveloperAppImage": {
+    "artifact": "release-local/Continuum-1.0.0.AppImage",
+    "size": 421965331,
+    "packagedMain": "src/main/localDevelopmentEntry.js",
+    "productName": "Continuum",
+    "resourcesStaged": "resources/workspace-network",
+    "runtime": {
+      "packaged": true,
+      "resourcesPrefix": "/tmp/.mount_",
+      "userData": "disposable --user-data-dir override",
+      "secretStorage": "gnome_libsecret",
+      "encryption": true,
+      "noSandboxArg": false
+    },
+    "initial": { "available": true, "buildKind": "packaged-local", "build": "Local development · developer AppImage · NON-DISTRIBUTABLE", "effectivePolicy": "isolated", "resourcesAvailable": true, "consentRequired": true },
+    "cancel": "isolated",
+    "accept": "trusted_development",
+    "launchReady": true,
+    "revert": "isolated"
+  },
+  "singleInstance": {
+    "observed": true,
+    "message": "Another Continuum instance already owns /home/mk_saadi/.config/Continuum. Focusing the existing window and exiting this launch.",
+    "holder": "release/Continuum-1.0.0.AppImage (production, PID 56012)"
+  },
+  "productionProtection": {
+    "packagingTarget": "npm run dist (unchanged)",
+    "filesExcludeLocal": true,
+    "extraResources": false,
+    "packagedMain": "main.js",
+    "eligibilityForPackagedMainJs": "rejected",
+    "runningProductionAppImageHasWorkspaceNetwork": false,
+    "runningProductionAppImageHasLocalEntry": false,
+    "productionArchivePinChanged": false,
+    "productionApprovalMarkedComplete": false
+  },
+  "packagingDefectsFixed": [
+    "src/main/**/*.py and src/main/**/*.json payloads were missing from the packaged ASAR; added to build.files for resource verification",
+    "Electron ASAR shim reports an unstable synthetic inode; local cache key no longer includes ino"
+  ],
+  "previewIntegration": {
+    "rendererOnly": true,
+    "modelPreviewTool": false,
+    "backgroundCardExposed": true,
+    "securityBypassAdded": false,
+    "issue": "profile separation, now removed"
+  },
+  "regression": {
+    "focused": { "tests": 189, "passed": 173, "failed": 2, "skipped": 14 },
+    "preExistingFailures": ["reasoning-loop termination after a tool never triggers an automatic restart", "policy migration and activation stay fail closed, with no dependency/workspace PATH execution"],
+    "pythonPolicy": "OK",
+    "pythonResources": "OK",
+    "b2cOwner": "5 skipped (approved B2C_HELPER required)",
+    "b2g1HostAddress": "B2G1_HELPER required",
+    "isolationBatch": { "tests": 45, "passed": 45, "failed": 0 },
+    "fullSuite": "not completed; >33 min and pre-existing environment failures"
+  },
+  "build": "renderer build passed; dist:local exit 0",
+  "notRun": [
+    "main-profile live launch and live consent toggle (single-instance lock held by the running production AppImage)",
+    "fresh production AppImage launch (would overwrite the in-use release/ artifact)",
+    "repeat of the heavyweight genuine-model npm/Vite/Chrome/HMR acceptance (covered by W7 evidence)"
+  ]
+}

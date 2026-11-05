@@ -127,12 +127,12 @@ export default function ProjectWorkspace({
 	const visibleChats = chats.slice((currentPage - 1) * 10, currentPage * 10);
 	return (
 		<main
-			className="aero-stage projects-page project-workspace"
+			className="aero-stage sk-app projects-page project-workspace"
 			aria-label="Project workspace"
 		>
 			<div className="projects-content">
 				<button
-					className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mb-6"
+					className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mb-6"
 					onClick={onBack}
 				>
 					<FiArrowLeft /> All Projects
@@ -145,7 +145,7 @@ export default function ProjectWorkspace({
 						{error}{" "}
 						{!project && (
 							<button
-								className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+								className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 								onClick={() => setVersion((value) => value + 1)}
 							>
 								Retry
@@ -172,7 +172,7 @@ export default function ProjectWorkspace({
 									</div>
 								</div>
 								<button
-									className="aero-control inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+									className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 									aria-pressed={!!project.is_pinned}
 									disabled={busy}
 									onClick={() =>
@@ -192,7 +192,7 @@ export default function ProjectWorkspace({
 							</header>
 							<div className="project-hub">
 								<div className="project-stack">
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<div className="flex justify-between items-center gap-4 mb-2">
 											<h2>
 												<LuTarget aria-hidden="true" />
@@ -200,7 +200,7 @@ export default function ProjectWorkspace({
 											</h2>
 											{!editing && (
 												<button
-													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={busy}
 													onClick={() => setEditing(true)}
 												>
@@ -236,7 +236,7 @@ export default function ProjectWorkspace({
 												<div className="project-actions">
 													<button
 														type="button"
-														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={busy}
 														onClick={() => {
 															setName(project.name);
@@ -247,7 +247,7 @@ export default function ProjectWorkspace({
 														Cancel
 													</button>
 													<button
-														className="aero-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
+														className="aero-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
 														disabled={busy || !name.trim()}
 													>
 														Save Goal
@@ -255,7 +255,7 @@ export default function ProjectWorkspace({
 												</div>
 											</form>
 										) : (
-											<div className="aero-inset project-markdown p-3">
+											<div className="aero-inset sk-well project-markdown p-3">
 												<ReactMarkdown remarkPlugins={[remarkGfm]}>
 													{normalizeLatexArrows(
 														project.description ||
@@ -265,13 +265,13 @@ export default function ProjectWorkspace({
 											</div>
 										)}
 									</section>
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<h2>
 											<LuMessageSquare aria-hidden="true" />
 											Start a new chat
 										</h2>
 										<div
-											className="aero-well aero-fill project-composer"
+											className="aero-well sk-well aero-fill sk-fill project-composer"
 											onDragOver={(event) => event.preventDefault()}
 											onDrop={(event) => {
 												event.preventDefault();
@@ -320,17 +320,17 @@ export default function ProjectWorkspace({
 											</p>
 										)}
 									</section>
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<h2>
 											<LuMessageSquare aria-hidden="true" />
 											Recent chats{" "}
 											<span className="projects-muted">({chats.length})</span>
 										</h2>
-										<div className="aero-flat px-2 pt-2">
+										<div className="aero-flat sk-list px-2 pt-2">
 											{chats.length ? (
 												visibleChats.map((chat) => (
 													<button
-														className="aero-list-item project-chat disabled:opacity-40"
+														className="aero-list-item sk-list-row project-chat disabled:opacity-40"
 														disabled={chatDisabled || busy}
 														key={chat.id}
 														onClick={() => onLoadChat(chat.id)}
@@ -361,7 +361,7 @@ export default function ProjectWorkspace({
 														{chats.length} chats
 													</span>
 													<button
-														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={currentPage === 1}
 														onClick={() => setChatPage(currentPage - 1)}
 													>
@@ -371,7 +371,7 @@ export default function ProjectWorkspace({
 														Page {currentPage} of {pageCount}
 													</span>
 													<button
-														className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={currentPage === pageCount}
 														onClick={() => setChatPage(currentPage + 1)}
 													>
@@ -387,7 +387,7 @@ export default function ProjectWorkspace({
 									aria-label="Project controls"
 								>
 									<details
-										className="aero-panel project-panel group"
+										className="aero-panel sk-panel project-panel group"
 										open
 									>
 										<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 transition-colors hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
@@ -419,7 +419,7 @@ export default function ProjectWorkspace({
 											/>
 											<div className="project-actions">
 												<button
-													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={
 														busy ||
 														instructions === (project.custom_instructions || "")
@@ -430,14 +430,14 @@ export default function ProjectWorkspace({
 											</div>
 										</form>
 									</details>
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<h2>
 											<LuFiles aria-hidden="true" />
 											Context files{" "}
 											<span className="projects-muted">({project.files.length})</span>
 										</h2>
 										<div
-											className="aero-empty aero-fill project-drop"
+											className="aero-empty sk-empty aero-fill sk-fill project-drop"
 											data-dragging={dragging}
 											onDragOver={(event) => {
 												event.preventDefault();
@@ -456,7 +456,7 @@ export default function ProjectWorkspace({
 											<FiUpload className="mx-auto mb-2" />
 											<p className="projects-muted">Drop reference files here</p>
 											<button
-												className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-3"
+												className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-3"
 												disabled={busy}
 												onClick={() => input.current.click()}
 											>
@@ -487,7 +487,7 @@ export default function ProjectWorkspace({
 												<FiFileText />
 												<span title={file.file_path}>{file.file_name}</span>
 												<button
-													className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													aria-label={`Remove ${file.file_name}`}
 													disabled={busy}
 													onClick={() =>
@@ -514,12 +514,12 @@ export default function ProjectWorkspace({
 											onUpdated(updated);
 										}}
 									/>
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<h2 className="flex items-center gap-2">
 											<FiFolder /> Root Directory
 										</h2>
 										<span
-											className="project-path"
+											className="project-path sk-path"
 											title={project.root_path || ""}
 										>
 											{project.root_path || "No folder connected"}
@@ -529,14 +529,14 @@ export default function ProjectWorkspace({
 											workspace context.
 										</p>
 										<button
-											className="aero-control aero-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-4"
+											className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-4"
 											disabled={busy}
 											onClick={changeFolder}
 										>
 											{project.root_path ? "Change Folder" : "Connect Folder"}
 										</button>
 									</section>
-									<section className="aero-panel project-panel">
+									<section className="aero-panel sk-panel project-panel">
 										<h2>
 											<LuShield aria-hidden="true" />
 											Default permission mode

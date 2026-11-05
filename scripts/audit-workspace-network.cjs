@@ -7,7 +7,7 @@ const { createHash } = require('node:crypto');
 const payloads = ['networkExecutionWorker.py', 'networkPreviewBridge.py',
   'workspaceNetworkAddressPolicy.json', 'experimental/network_owner.py', 'x64/slirp4netns'];
 const pin = 'dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980';
-function audit(resources) {
+function audit(resources, { localDevelopment = false } = {}) {
   const root = path.join(path.resolve(resources), 'workspace-network');
   const blockers = [], checks = [];
   function read(relative) {
@@ -43,14 +43,15 @@ function audit(resources) {
   try {
     const relative = 'review/helper-review.tar.gz';
     const digest = createHash('sha256').update(read(relative)).digest('hex');
-    if (digest !== manifest?.sha256?.[relative] || digest !== provenance.reviewArchive?.sha256)
+    if (digest !== manifest?.sha256?.[relative] || ![provenance.reviewArchive?.sha256, ...(localDevelopment ? [require('./local-network-resource-pins.cjs').reviewArchiveSha256] : [])].includes(digest))
       throw Error('source/relink archive digest mismatch');
     reviewMaterialsIntegrity = true;
   } catch (error) { blockers.push('Incomplete or modified release review material: ' + error.message); }
+  const integrityBlockers = [...blockers];
   blockers.push(...provenance.releaseBlockers);
-  blockers.push('Installed AppImage/deb trusted workflow and supported runtime matrix remain unqualified.');
+  blockers.push('Public release source-distribution and maintenance approval is pending; historical packaged engineering acceptance does not authorize production activation.');
   return { root, payloadIntegrity: checks.every(check => check.ok) && manifestValid,
-    reviewMaterialsIntegrity, productionQualified: false, checks, blockers };
+    reviewMaterialsIntegrity, productionQualified: false, checks, integrityBlockers, blockers };
 }
 if (require.main === module) {
   if (process.argv.length !== 3) { console.error('Usage: node scripts/audit-workspace-network.cjs <application-resources-directory>'); process.exitCode = 2; }

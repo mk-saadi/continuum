@@ -145,7 +145,7 @@ export function WorkspacePlanCard({ sessionId }) {
 			aria-labelledby={headingId}
 			data-plan-session={sessionId ?? ""}
 			data-plan-revision={plan?.revision ?? ""}
-			className="aero-panel p-3"
+			className="aero-panel sk-panel p-3"
 		>
 			<div className="flex items-center justify-between gap-2">
 				<h3 id={headingId} className="text-xs font-semibold">
@@ -165,7 +165,7 @@ export function WorkspacePlanCard({ sessionId }) {
 						onClick={load}
 						aria-label="Refresh task plan"
 						title="Refresh task plan"
-						className="aero-control aero-fill cursor-pointer px-2 py-1 text-[11px]"
+						className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2 py-1 text-[11px]"
 					>
 						↻
 					</button>
@@ -184,7 +184,7 @@ export function WorkspacePlanCard({ sessionId }) {
 					<button
 						type="button"
 						onClick={load}
-						className="aero-control aero-fill mt-1 cursor-pointer px-2 py-0.5 text-[10px]"
+						className="aero-control sk-button aero-fill sk-fill mt-1 cursor-pointer px-2 py-0.5 text-[10px]"
 					>
 						Retry
 					</button>
@@ -217,10 +217,10 @@ export function WorkspacePlanCard({ sessionId }) {
 							aria-valuemin={0}
 							aria-valuemax={total}
 							aria-valuenow={completed}
-							className="aero-track mt-1.5 h-1"
+							className="aero-track sk-track mt-1.5 h-1"
 						>
 							<div
-								className="aero-track__fill h-full transition-[width] duration-300 motion-reduce:transition-none"
+								className="aero-track__fill sk-track-fill h-full transition-[width] duration-300 motion-reduce:transition-none"
 								style={{ width: `${Math.round((completed / total) * 100)}%` }}
 							/>
 						</div>
@@ -235,7 +235,7 @@ export function WorkspacePlanCard({ sessionId }) {
 							No steps recorded.
 						</p>
 					) : (
-						<ul className="aero-flat mt-2 space-y-2 p-2">
+						<ul className="aero-flat sk-list mt-2 space-y-2 p-2">
 							{steps.map((step) => (
 								<PlanStep key={step.id} step={step} />
 							))}

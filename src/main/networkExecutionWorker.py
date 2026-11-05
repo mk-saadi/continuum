@@ -204,9 +204,14 @@ try:
     start = json.loads(control.readline(65536))
     if start.get('op') != 'start':
         raise module.NetworkError('NETWORK_START_REQUIRED')
+    # The tier is decided in the app main process, not by command or renderer
+    # input. Anything outside the two shipped tiers fails closed.
+    policy = start.get('network_policy')
+    if policy not in ('standard_outbound', 'trusted_development'):
+        raise module.NetworkError('NETWORK_POLICY_INVALID')
     scratch = start['scratch']
     owner = module.NetworkOwner(session=start['session'], workspace=start['workspace'],
-                                helper=start['helper'], validate=lambda: None, lifetime=1830, scratch_parent=scratch, network_policy="trusted_development").start()
+                                helper=start['helper'], validate=lambda: None, lifetime=1830, scratch_parent=scratch, network_policy=policy).start()
     emit({'event': 'ready', 'resolver': str(owner.resolver)})
     while not owner.closed:
         with selectors.DefaultSelector() as selector:

@@ -1,10 +1,12 @@
 /* Shared geometry contract. New appearances override these tokens on html.
-   Keep circles/pills structural; all other corners use one of three sizes. */
+   Keep circles structural; pills follow the selected style. Other corners use
+   one of three sizes. */
 :root {
 	--ui-radius-small: 4px;
 	--ui-radius-control: 9px;
 	--ui-radius-surface: 14px;
 	--ui-radius-round: 9999px;
+	--ui-radius-pill: var(--ui-radius-round);
 }
 
 html[data-appearance="flat"] {
@@ -13,10 +15,20 @@ html[data-appearance="flat"] {
 	--ui-radius-surface: 6px;
 }
 
+/* Skeu housing has tighter corners. Full circles remain structural for
+   status dots and physical icon buttons, never for cards or form fields. */
+html[data-appearance="skeu"] {
+	--ui-radius-small: 2px;
+	--ui-radius-control: 3px;
+	--ui-radius-surface: 6px;
+	--ui-radius-pill: var(--ui-radius-control);
+}
+
 /* Tailwind utilities support file:, responsive, and descendant variants too. */
 @utility ui-radius-small { border-radius: var(--ui-radius-small); }
 @utility ui-radius-control { border-radius: var(--ui-radius-control); }
 @utility ui-radius-surface { border-radius: var(--ui-radius-surface); }
+@utility ui-radius-pill { border-radius: var(--ui-radius-pill); }
 @utility ui-radius-round { border-radius: var(--ui-radius-round); }
 @utility ui-radius-inherit { border-radius: inherit; }
 @utility ui-radius-top {

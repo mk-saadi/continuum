@@ -1,0 +1,50 @@
+{
+  "artifact": "/home/mk_saadi/projects/persona-projects/llm-electron/release-local/Continuum-1.0.0.AppImage",
+  "sha256": "789d213647788d2d5a3e108c1cd83615facea54eb48495d10c16606531adc55a",
+  "checks": {
+    "productionIdentityAndResources": true,
+    "defaultOutboundNoConsent": true,
+    "dns": "2606:4700:10::6814:179a example.com",
+    "publicHttps": "200",
+    "isolation": {
+      "nftMutationDenied": true,
+      "externalIpv6Denied": true,
+      "namespaceHandlesAbsent": true,
+      "hostHomeInaccessible": true,
+      "hostLoopbackDenied": true,
+      "privateLandenied": true
+    },
+    "npm": {
+      "passed": true,
+      "containment": {
+        "home": "/sandbox-home",
+        "cache": "/tmp/continuum-cache/npm"
+      }
+    },
+    "projectBuild": true,
+    "devServer": true,
+    "workspaceUi": true,
+    "authenticatedPreview": true,
+    "cancellationAndNoPrompts": true,
+    "isolatedOptOut": true
+  },
+  "runtime": {
+    "packaged": true,
+    "resources": "/tmp/.mount_ContinVrLkzM/resources",
+    "userData": "/tmp/continuum-prod-acceptance-czYcbD/profile",
+    "mount": true,
+    "dependencies": {
+      "python": "/usr/bin/python3",
+      "helper": "/tmp/.mount_ContinVrLkzM/resources/workspace-network/x64/slirp4netns",
+      "worker": "/tmp/.mount_ContinVrLkzM/resources/workspace-network/networkExecutionWorker.py"
+    },
+    "helperSha256": "dceac41dfbec04cfbcc68af73cae2353f1509adc45fe1a2441360f466110b980"
+  },
+  "setup": {
+    "sessionId": "acceptance-1793841277546",
+    "workspace": "/tmp/continuum-prod-acceptance-czYcbD/workspace"
+  },
+  "commandId": "cmd_d61ed150-a65f-46e5-b2d3-c7b97b4e7f44",
+  "preview": "http://127.56.27.193:33713/",
+  "passed": true
+}

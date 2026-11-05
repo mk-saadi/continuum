@@ -109,6 +109,10 @@ test('real guard and MCP dispatch retain frozen decisions except intentional Wor
   }
   for (const id of Object.keys(expected.dispatch))
     if (!id.startsWith('workspace_write:')) expected.dispatch[id] = { decision: 'allow' };
+  // Intentional autonomous sandbox command change; other rows stay frozen.
+  for (const id of ['shell:install', 'shell:system']) {
+    expected.workspace_write[id] = { ...expected.workspace_write.execute_command };
+  }
   assert.deepEqual(actual, expected);
 });
 

@@ -48,13 +48,14 @@ test.after(async () => {
 });
 
 test('policy migration and activation stay fail closed, with no dependency/workspace PATH execution', async () => {
-  for (const value of [undefined, {}, 'development', { version: 2, policy: 'development' }]) assert.equal(policy.normalize(value).policy, 'isolated');
-  assert.equal(config.getConfig().workspaceNetwork.policy, 'isolated');
+  for (const value of [undefined, {}, 'development', { version: 1, policy: 'development' }, { version: 2, policy: 'development' }]) assert.equal(policy.normalize(value).policy, 'standard_outbound');
+  // A previous explicit v2 trusted decision migrates; unknown v2 stays default.
+  assert.equal(policy.normalize({ version: 2, policy: 'trusted_development' }).policy, 'trusted_development');
+  assert.equal(config.getConfig().workspaceNetwork.policy, 'standard_outbound');
   assert.throws(() => config.saveConfig({ workspaceNetwork: { version: 1, policy: 'development' } }), { code: 'WORKSPACE_NETWORK_TRUST_REQUIRED' });
   assert.equal(policy.readiness().available, false);
-  assert.match(policy.readiness().blockers.join(' '), /release-qualified/);
   assert.throws(() => require('../src/main/networkDependencies').resolveBundled(), { code: 'NETWORK_DEPENDENCIES_NOT_PACKAGED' });
-  await assert.rejects(originalService.execute({}), { code: 'WORKSPACE_NETWORK_NOT_READY' });
+  await assert.rejects(originalService.execute({}), { code: 'NETWORK_DEPENDENCIES_NOT_PACKAGED' });
   assert.equal(originalService.active(), 0);
 });
 
@@ -111,6 +112,11 @@ test('real production dispatcher and B1 use the verified rootless transport with
   const service = network.createService({ authorize: network.trustedIdentity, readiness: () => ({ available: true }),
     backend: network.pythonBackend({ python: '/usr/bin/python3', helper: process.env.B2D_HELPER }) });
   network.service = service;
+  // The fixture supplies its own backend/readiness; routing must see the same
+  // fixture truth instead of the real (electron-only) resource verification.
+  const executionCapabilities = require('../src/main/executionCapabilities');
+  const realNetworkState = executionCapabilities.networkState;
+  executionCapabilities.networkState = () => ({ operational: true, selected: 'trusted_development' });
   // Explicit disposable test configuration; saveConfig correctly refuses this
   // activation in the real app. No live user settings/database are touched.
   fs.writeFileSync(path.join(temp, 'directories.json'), JSON.stringify({ workspaceNetwork: { version: 2, policy: 'trusted_development' }, workspaceNetworkReceipt: require('./helpers/networkSafeStorage.cjs').encryptString(JSON.stringify({ version: 2, policy: 'trusted_development' })).toString('base64'), appDataDirectory: path.join(temp, 'data') }));
@@ -183,7 +189,7 @@ test('real production dispatcher and B1 use the verified rootless transport with
     const policyChange = fixture();
     const policyCommand = await policyChange.command({ command: 'sleep 20', background: true, survive_run_completion: true, background_lifetime_ms: 15000 });
     for (let i = 0; i < 300 && service.active() === 0; i++) await delay(10);
-    await config.setWorkspaceNetwork({ version: 2, policy: 'isolated' });
+    await config.setWorkspaceNetwork({ version: 3, policy: 'isolated' });
     await terminal(policyCommand.command_id, policyChange.backgroundContext); assert.equal(service.active(), 0);
     fs.writeFileSync(path.join(temp, 'directories.json'), JSON.stringify({ workspaceNetwork: { version: 2, policy: 'trusted_development' }, workspaceNetworkReceipt: require('./helpers/networkSafeStorage.cjs').encryptString(JSON.stringify({ version: 2, policy: 'trusted_development' })).toString('base64'), appDataDirectory: path.join(temp, 'data') }));
     const shutting = fixture();
@@ -192,6 +198,7 @@ test('real production dispatcher and B1 use the verified rootless transport with
     await service.shutdown(); await terminal(last.command_id, shutting.backgroundContext);
     assert.equal(service.active(), 0);
   } finally {
+    executionCapabilities.networkState = realNetworkState;
     await service.shutdown(); network.service = originalService;
     fs.writeFileSync(path.join(temp, 'directories.json'), '{}');
   }

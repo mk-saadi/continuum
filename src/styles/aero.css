@@ -15,7 +15,7 @@
 	border: 1px solid var(--aero-line);
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--ui-radius-control);
-	background: var(--aero-gloss-panel), var(--aero-glass);
+	background: var(--aero-gloss-fill), var(--aero-fill-fill);
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 var(--aero-shade);
@@ -49,14 +49,14 @@ html[data-bg-image="true"] .aero-stage {
 	background-image: none;
 }
 
-/* L3 — glass panel. */
+/* L3 — quiet content panel. Glass is reserved for the enclosing chrome. */
 .aero-panel {
 	border: 1px solid var(--aero-line);
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--ui-radius-surface);
 	background: var(--aero-panel-gloss, var(--aero-gloss-panel)), var(--aero-panel-fill, var(--aero-glass));
-	-webkit-backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
-	backdrop-filter: blur(var(--aero-blur-panel)) saturate(var(--aero-saturate));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow: var(--aero-bevel-panel);
 }
 
@@ -69,7 +69,7 @@ html[data-bg-image="true"] .aero-stage {
 }
 .aero-panel--interactive:hover {
 	border-color: color-mix(in srgb, var(--accent) 48%, var(--aero-line));
-	transform: translateY(-2px);
+	transform: none;
 	box-shadow:
 		var(--aero-bevel-panel-hover),
 		0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
@@ -105,7 +105,7 @@ html[data-bg-image="true"] .aero-stage {
 .aero-control[data-selected="true"] {
 	border-color: color-mix(in srgb, #ffffff 30%, transparent);
 	border-bottom-color: var(--aero-line-bottom-strong);
-	background: var(--aero-gloss-accent), var(--accent);
+	background: var(--aero-gloss-accent), var(--aero-accent-fill);
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 32%, transparent),
@@ -113,11 +113,12 @@ html[data-bg-image="true"] .aero-stage {
 		var(--aero-glow);
 	color: var(--on-accent);
 }
-.aero-control[aria-pressed="true"]:active,
-.aero-control[aria-selected="true"]:active,
-.aero-control[data-selected="true"]:active {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):hover {
+	background: var(--aero-gloss-accent-hover), var(--aero-accent-fill-hover);
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):active {
 	transform: translateY(1px);
-	background: var(--aero-gloss-pressed), var(--accent-hover);
+	background: var(--aero-gloss-pressed), var(--aero-accent-fill-hover);
 	box-shadow: var(--aero-bevel-pressed), var(--aero-glow);
 }
 
@@ -126,7 +127,7 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px solid color-mix(in srgb, #ffffff 40%, transparent);
 	border-bottom-color: var(--aero-line-bottom-strong);
 	border-radius: var(--ui-radius-surface);
-	background: var(--aero-gloss-accent), var(--accent);
+	background: var(--aero-gloss-accent), var(--aero-accent-fill);
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 35%, transparent),
@@ -139,11 +140,11 @@ html[data-bg-image="true"] .aero-stage {
 		background-color var(--aero-dur-control) var(--aero-ease);
 }
 .aero-primary:hover {
-	background: var(--aero-gloss-accent-hover), var(--accent-hover);
+	background: var(--aero-gloss-accent-hover), var(--aero-accent-fill-hover);
 }
 .aero-primary:active {
 	transform: translateY(1px);
-	background: var(--aero-gloss-pressed), var(--accent-hover);
+	background: var(--aero-gloss-pressed), var(--aero-accent-fill-hover);
 	box-shadow:
 		inset 0 3px 6px color-mix(in srgb, #000000 52%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #ffffff 10%, transparent);
@@ -212,7 +213,7 @@ html[data-bg-image="true"] .aero-stage {
 	color: var(--on-accent);
 	border-color: color-mix(in srgb, #ffffff 46%, transparent);
 	border-bottom-color: var(--aero-line-bottom-strong);
-	background: var(--aero-gloss-orb-selected), var(--accent);
+	background: var(--aero-gloss-orb-selected), var(--aero-accent-fill);
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
 		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
@@ -237,7 +238,7 @@ html[data-bg-image="true"] .aero-stage {
 .aero-badge--accent {
 	border-color: color-mix(in srgb, #ffffff 30%, transparent);
 	border-bottom-color: var(--aero-line-bottom-strong);
-	background: var(--aero-gloss-accent), var(--accent);
+	background: var(--aero-gloss-accent), var(--aero-accent-fill);
 	color: var(--on-accent);
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
@@ -250,14 +251,14 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px solid var(--aero-line);
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--ui-radius-surface);
-	background: var(--aero-gloss-panel), var(--aero-glass-strong);
+	background: var(--aero-gloss-chrome), var(--aero-glass-strong);
 	-webkit-backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
 	backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
 	box-shadow: var(--aero-shadow-float);
 	color: var(--text-primary);
 }
 .aero-dialog::backdrop {
-	background: color-mix(in srgb, #000000 55%, transparent);
+	background: color-mix(in srgb, #000000 var(--aero-backdrop-dim), transparent);
 }
 
 /* L4 — popover, menu, dropdown, toast. */
@@ -265,9 +266,9 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px solid var(--aero-line);
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--ui-radius-surface);
-	background: var(--aero-gloss-panel), var(--aero-glass-strong);
-	-webkit-backdrop-filter: blur(20px) saturate(var(--aero-saturate-float));
-	backdrop-filter: blur(20px) saturate(var(--aero-saturate-float));
+	background: var(--aero-gloss-chrome), var(--aero-glass-strong);
+	-webkit-backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
+	backdrop-filter: blur(var(--aero-blur-float)) saturate(var(--aero-saturate-float));
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-strong),
 		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
@@ -281,8 +282,8 @@ html[data-bg-image="true"] .aero-stage {
 	border-bottom-color: var(--aero-line-bottom);
 	border-radius: var(--ui-radius-control);
 	background: var(--aero-glass-strong);
-	-webkit-backdrop-filter: blur(12px) saturate(140%);
-	backdrop-filter: blur(12px) saturate(140%);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow:
 		inset 0 1px 0 var(--aero-line-soft),
 		0 6px 16px -6px var(--aero-shade-strong);
@@ -323,7 +324,7 @@ html[data-bg-image="true"] .aero-stage {
 	overflow: hidden;
 }
 .aero-track__fill {
-	background: var(--aero-gloss-accent), var(--accent);
+	background: var(--aero-gloss-accent), var(--aero-accent-fill);
 	box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent);
 }
 
@@ -332,8 +333,8 @@ html[data-bg-image="true"] .aero-stage {
 	border: 1px dashed color-mix(in srgb, var(--aero-line) 55%, var(--border));
 	border-radius: var(--ui-radius-surface);
 	background: var(--aero-glass-subtle);
-	-webkit-backdrop-filter: blur(12px) saturate(140%);
-	backdrop-filter: blur(12px) saturate(140%);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	box-shadow:
 		inset 0 1px 0 color-mix(in srgb, #ffffff 26%, transparent),
 		0 10px 24px -14px color-mix(in srgb, #000000 55%, transparent);
@@ -403,6 +404,68 @@ html[data-bg-image="true"] .aero-stage {
 .aero-tab:disabled,
 .aero-tab[aria-disabled="true"] {
 	pointer-events: none;
+}
+
+/* Chrome gets the reflection; a modal supplies one shared blur behind all
+   of its header/navigation/footer fills. No extra compositing for its children. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-tabbar, .aero-footer, .aero-navigation, .aero-titlebar) {
+	background: var(--aero-gloss-chrome), var(--aero-chrome-fill);
+	border-color: var(--aero-line);
+	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	text-shadow: none;
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-tabbar, .aero-titlebar) {
+	-webkit-backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
+	backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-dialog :is(.aero-header, .aero-tabbar) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+/* Section titles and checkbox containers are content, not chrome/buttons.
+   Keep the old classes too so Aero-off retains its existing treatment. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-section-header, .aero-choice) {
+	background: var(--aero-gloss-fill), var(--aero-fill-fill);
+	border-color: var(--aero-line);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	transform: none;
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:checked) {
+	border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:hover:not(:has(input:disabled)) {
+	border-color: var(--edit-border);
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:focus-visible) {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+/* Recessed editors stay stable through hover; focus is localized at the rim. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-well, .aero-chat-composer) {
+	border-color: var(--control-border);
+	background: var(--aero-gloss-well), var(--aero-well-fill);
+	box-shadow: var(--aero-bevel-well);
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-well, .aero-chat-composer):focus-within {
+	border-color: var(--accent);
+	box-shadow: var(--aero-bevel-well), 0 0 0 1px var(--accent), var(--aero-glow);
+}
+/* Override the legacy global modal outline suppression only in Aero mode. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) dialog :focus-visible {
+	outline: 2px solid var(--accent) !important;
+	outline-offset: -2px;
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) dialog input:focus-visible + .aero-checkbox {
+	outline: 2px solid var(--accent) !important;
+	outline-offset: 2px;
+}
+/* Disabled controls never acquire a hover/pressed material. */
+:is(.aero-control, .aero-primary, .aero-orb):is(:disabled, [aria-disabled="true"]):is(:hover, :active) {
+	background: var(--aero-gloss-control), var(--aero-glass-raised);
+	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+	transform: none;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -547,7 +610,7 @@ html[data-bg-animated="true"]
 }
 input:checked + .aero-checkbox {
 	border-color: var(--aero-line-bottom-strong);
-	background: var(--aero-gloss-accent), var(--accent);
+	background: var(--aero-gloss-accent), var(--aero-accent-fill);
 	color: var(--on-accent);
 }
 input:focus-visible + .aero-checkbox {
@@ -794,19 +857,6 @@ input:disabled + .aero-checkbox {
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }
 
-/* Dense sidebar chrome needs separation from its opaque frame. Keep the
-   material translucent, but do not let the frame tint dominate the cards. */
-html:not([data-appearance="flat"]) .sidebar-frame {
-	--aero-panel-fill: color-mix(in srgb, var(--surface) 94%, transparent);
-	--aero-panel-gloss: linear-gradient(
-		180deg,
-		color-mix(in srgb, #ffffff 12%, transparent) 0%,
-		color-mix(in srgb, #ffffff 3%, transparent) 38%,
-		transparent 40%,
-		color-mix(in srgb, #000000 2%, transparent) 100%
-	);
-}
-
 /* Reading-first chat materials: opaque fills, shallow edges, no blur. */
 .aero-chat-user {
 	border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--user-bubble));
@@ -870,12 +920,12 @@ html:not([data-appearance="flat"]) .sidebar-frame {
 .aero-metric[data-tone="warn"] {
 	border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
 }
-.aero-theme-choice:not([aria-pressed="true"]) {
+.aero-theme-choice:not([aria-checked="true"]) {
 	border-color: var(--border);
 	background: var(--surface);
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }
-.aero-theme-choice:not([aria-pressed="true"]):hover {
+.aero-theme-choice:not([aria-checked="true"]):hover {
 	border-color: var(--accent);
 	background: var(--surface-hover);
 }
@@ -891,8 +941,8 @@ html[data-bg-image="true"]::before {
 }
 @media (forced-colors: active) {
 	.aero-metric,
-	.aero-theme-choice:not([aria-pressed="true"]),
-	.aero-theme-choice:not([aria-pressed="true"]):hover {
+	.aero-theme-choice:not([aria-checked="true"]),
+	.aero-theme-choice:not([aria-checked="true"]):hover {
 		border-color: ButtonBorder;
 		background: Canvas;
 		color: CanvasText;
@@ -900,5 +950,34 @@ html[data-bg-image="true"]::before {
 	}
 	html[data-bg-image="true"]::before {
 		background: Canvas;
+	}
+}
+
+/* Chrome participates in the same performance and accessibility fallbacks. */
+@media (prefers-reduced-transparency: reduce) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
+		background: var(--surface);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
+html[data-bg-animated="true"]:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar) {
+	background-color: var(--surface);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
+		background: var(--surface);
+	}
+}
+@media (forced-colors: active) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation, .aero-section-header, .aero-choice, .aero-well, .aero-chat-composer) {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 	}
 }

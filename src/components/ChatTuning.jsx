@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { NumberField, SliderField } from "./FormControls";
+import { KnobField, NumberField } from "./FormControls";
 
 const controls = [
 	{ key: "temperature", label: "Temperature", type: "range", min: 0, max: 2, step: 0.05 },
@@ -109,8 +109,10 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 
 					if (control.type === "range") {
 						return (
-							<SliderField
+							<KnobField
 								key={control.key}
+								className="flex flex-col items-center"
+								size={64}
 								{...commonProps}
 								valueLabel={state.params[control.key]}
 								onCommit={(event) => save({ [control.key]: Number(event.target.value) })}
@@ -140,7 +142,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 					</p>
 					<button
 						type="button"
-						className="aero-control aero-fill w-full cursor-pointer px-3 py-2 text-xs font-medium"
+						className="aero-control sk-button aero-fill sk-fill w-full cursor-pointer px-3 py-2 text-xs font-medium"
 						disabled={disabled || !Object.keys(state.overrides).length || status === "Saving…"}
 						onClick={() => save(null)}
 					>

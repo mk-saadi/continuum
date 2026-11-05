@@ -14,6 +14,12 @@ const { pathToFileURL } = require("url");
 const { initDatabase, syncSystemDate, closeDatabase } = require("./src/main/db.js");
 const { registerIpcHandlers } = require("./src/main/ipcHandlers.js");
 
+// Establish the code-owned local-development entitlement (if any) before any
+// readiness query. This never enables consent: Trusted Development still
+// requires explicit native confirmation in Settings, and every eligible launch
+// uses the primary application profile.
+require("./src/main/localDevelopmentNetwork").initialize();
+
 const {
 	buildLlamaServerArgs,
 	buildLlamaServerEnv,
@@ -69,6 +75,11 @@ const hasSingleInstanceLock =
 		? app.requestSingleInstanceLock()
 		: true;
 if (!hasSingleInstanceLock) {
+	// The primary profile can only be written by one Electron process at a time.
+	// Do not start a second writer: explain clearly, then exit.
+	let profile = "the primary profile";
+	try { profile = app.getPath("userData"); } catch { /* path not resolvable yet */ }
+	console.error(`[continuum] Another Continuum instance already owns ${profile}. Focusing the existing window and exiting this launch.`);
 	app.quit();
 } else if (typeof app.on === "function") {
 	app.on("second-instance", () => {

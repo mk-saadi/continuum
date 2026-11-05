@@ -9,6 +9,11 @@ export default defineConfig({
 	server: {
 		port: 5173,
 		strictPort: true,
+		watch: {
+			// Local networking resources contain a private Linux rootfs with
+			// cyclic /var/run links; it must never be traversed by Vite's watcher.
+			ignored: ["**/.continuum-local/**"],
+		},
 	},
 	build: {
 		outDir: "dist",

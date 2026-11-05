@@ -329,7 +329,7 @@ function AppContent() {
 		[updateTab, activeTabId],
 	);
 	return (
-		<div className="flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
+		<div className="sk-app sk-app-window flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
 			<Titlebar />
 			<TabBar />
 			<GlobalModals
