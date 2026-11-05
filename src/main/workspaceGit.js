@@ -60,7 +60,7 @@ function section(mode, root) {
   if (mode !== 'workspace_write' || !root) return '';
   const repo = repository(root);
   if (repo.state !== 'detected') return ` Git: ${repo.state === 'absent' ? 'not detected' : repo.state}; unavailable. Files/tests/recovery available; no automatic init.`;
-  return ' Git: project root; Workspace Git tools; inspect/stage/unstage/commit/clean branch automatic; hooks disabled; stash needs coverage; remote fetch policy, pull/push review; destructive history approval.';
+  return ' Git: project root; Workspace Git tools (git_status, git_diff, git_log, git_show, git_branch, git_blame, git_stage, git_unstage, git_commit, git_create_branch, git_switch, git_sync, git_stash); hooks disabled; stash needs coverage; remote fetch policy, pull/push review; destructive history approval.';
 }
 const writes = new Map();
 function enter(root, operation, git) {

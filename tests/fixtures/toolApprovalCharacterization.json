@@ -463,27 +463,22 @@
       "promptActions": []
     },
     "git_sync:pull": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        "pull"
-      ]
+      "promptActions": []
     },
     "git_sync:push": {
-      "decision": "ask",
-      "prompts": 2,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [
         "gitPushFingerprint"
       ],
-      "promptActions": [
-        "prepare_push",
-        "push"
-      ]
+      "promptActions": []
     },
     "git_sync:invalid": {
       "decision": "block",
@@ -651,14 +646,12 @@
       ]
     },
     "mcp:push_files:{}": {
-      "decision": "ask",
-      "prompts": 1,
+      "decision": "allow",
+      "prompts": 0,
       "mode": "workspace_write",
-      "approved": true,
+      "approved": false,
       "fingerprints": [],
-      "promptActions": [
-        null
-      ]
+      "promptActions": []
     },
     "mcp:get_data:{\"action\":\"custom\"}": {
       "decision": "ask",
@@ -681,14 +674,9 @@
       ]
     },
     "mcp:query:{\"query\":\"UPDATE records SET value=1\"}": {
-      "decision": "ask",
-      "prompts": 1,
-      "mode": "workspace_write",
-      "approved": true,
-      "fingerprints": [],
-      "promptActions": [
-        null
-      ]
+      "decision": "block",
+      "message": "Execution blocked: Outbound or consequential mutation requires explicit user approval.",
+      "prompts": 0
     },
     "mcp:query:{\"query\":\"SELECT * FROM records\"}": {
       "decision": "allow",

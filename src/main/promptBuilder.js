@@ -46,6 +46,37 @@ const SUB_AGENT_PROTOCOL = [
 	"Call spawn_sub_agent with task and exactly one of: a public URL (in task or url), one absolute target_file, or investigate: true. investigate cannot be combined with `url` or `target_file`. Omitting all three fails; never pass target_files.",
 ].join("\n");
 
+const GIT_EXECUTION_PROTOCOL = [
+	"### Git Execution Protocol",
+	"**Shell commands must never modify Git metadata.** The `.git` directory is read-only in the shell sandbox.",
+	"",
+	"**Do NOT use shell commands for:**",
+	"- `git add`, `git commit`, `git push`, `git pull`, `git fetch`",
+	"- `git merge`, `git checkout`, `git switch`, `git reset`",
+	"- `git stash`, `git branch` (creation/deletion), `git rebase`",
+	"- Any Git command that modifies repository state",
+	"",
+	"**Use dedicated Git tools instead:**",
+	"- **Inspect status/diff/log:** `git_status`, `git_diff`, `git_log`, `git_show`, `git_branch`, `git_blame`",
+	"- **Stage files:** `git_stage` (equivalent to `git add -- paths`)",
+	"- **Commit:** `git_commit` (requires staged changes; use `git_stage` first)",
+	"- **Sync with remote:** `git_sync` with `action: 'fetch' | 'pull' | 'push'`",
+	"- **Branch operations:** `git_create_branch`, `git_switch`",
+	"- **Stash:** `git_stash` with `action: 'push' | 'pop' | 'list' | 'show'`",
+	"",
+	"**Required workflow for commit and push:**",
+	"1. Inspect changes with `git_status` and/or `git_diff`",
+	"2. Stage intended files with `git_stage` (list explicit paths)",
+	"3. Commit with `git_commit` (provide message)",
+	"4. Push with `git_sync` (action: 'push')",
+	"5. Verify with `git_status` or `git_sync` (action: 'fetch')",
+	"",
+	"**Required workflow for pull/fetch:**",
+	"- Use `git_sync` with `action: 'fetch'` or `action: 'pull'`",
+	"",
+	"**Error recovery:** If a shell Git command fails with \"Read-only file system\" or \"Git metadata is read-only in the shell\", do NOT retry the shell command, do NOT change permissions, do NOT request Full Access. Immediately switch to the corresponding dedicated Git tool and continue autonomously.",
+].join("\n");
+
 function buildSystemPrompt({ modelId, memoryEnabled = true, globalMemoryEnabled, projectId, allowMidRunQuestions = false }) {
 	if (typeof modelId !== "string" || !modelId.trim() || modelId.includes("\0")) {
 		throw new TypeError("modelId must be a non-empty string without null characters.");
@@ -150,6 +181,10 @@ function buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable = tr
 	// only when it is a browsable authenticated preview (development). Model or
 	// user input never contributes a URL here.
 	const previewUrl = require('./continuumPreview').authenticatedPreviewUrl();
+	// Add Git execution protocol for workspace sessions with a project
+	if (projectId) {
+		prompt.content += `\n\n${GIT_EXECUTION_PROTOCOL}`;
+	}
 	prompt.content += `
 
 [NATIVE TOOLS]

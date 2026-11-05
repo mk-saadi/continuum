@@ -416,10 +416,10 @@ const agentTools = [
 define("list_directory", "List entries in a directory (up to 200 entries).", {
 		relative_path: string("Absolute or project-relative directory; defaults to root"),
 	}),
-	define("git_status", "Show the git working-tree status for the project: current branch plus staged, unstaged, and untracked files. Read-only; requires a project workspace that is a git repository.", {}),
+	define("git_status", "Show the git working-tree status for the project: current branch plus staged, unstaged, and untracked files. Use this instead of shell `git status`. Read-only; requires a project workspace that is a git repository.", {}),
 	define(
 		"git_diff",
-		"Show uncommitted project changes as a unified diff (truncated at 20,000 characters). Set staged for staged changes only, ref to diff the worktree against a commit, stat_only for the file summary, or relative_path to limit to one file.",
+		"Show uncommitted project changes as a unified diff (truncated at 20,000 characters). Use this instead of shell `git diff`. Set staged for staged changes only, ref to diff the worktree against a commit, stat_only for the file summary, or relative_path to limit to one file. Read-only.",
 		{
 			staged: { type: "boolean", description: "Diff staged changes (git diff --cached) instead of the worktree" },
 			ref: string("Optional single commit, branch, or tag to diff against (for example HEAD)"),
@@ -429,7 +429,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_log",
-		"Show recent project commit history, newest first (at most 50 entries). Read-only; requires a git repository.",
+		"Show recent project commit history, newest first (at most 50 entries). Use this instead of shell `git log`. Read-only; requires a git repository.",
 		{
 			limit: { type: "number", default: 10, minimum: 1, maximum: 50, description: "Number of commits to return (1-50)" },
 			ref: string("Optional single commit, branch, or tag to start from (defaults to HEAD)"),
@@ -438,7 +438,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_show",
-		"Show one project commit: metadata plus its diff (truncated at 20,000 characters). Use stat_only for the file summary. Read-only.",
+		"Show one project commit: metadata plus its diff (truncated at 20,000 characters). Use this instead of shell `git show`. Use stat_only for the file summary. Read-only.",
 		{
 			ref: string("Commit hash, branch, or tag to show (for example HEAD or a full hash)"),
 			relative_path: string("Optional project-relative file path to limit the diff"),
@@ -446,10 +446,10 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 		},
 		["ref"],
 	),
-	define("git_branch", "List project branches with their latest commits and tracking info (git branch -vv --all). Read-only.", {}),
+	define("git_branch", "List project branches with their latest commits and tracking info (git branch -vv --all). Use this instead of shell `git branch`. Read-only.", {}),
 	define(
 		"git_stage",
-		"Stage explicit project files for the next commit (git add -- paths). Only the listed paths are staged, never everything; use git_status to review first. Paths stay inside the project.",
+		"Stage explicit project files for the next commit (equivalent to `git add -- paths`). Use this instead of shell `git add`. Only the listed paths are staged, never everything; use git_status to review first. Paths stay inside the project. Required before git_commit.",
 		{
 			paths: {
 				type: "array",
@@ -463,7 +463,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_unstage",
-		"Unstage explicit project files without touching worktree content (git restore --staged -- paths). Only the listed paths are unstaged, never everything; the working-tree changes are kept. Paths stay inside the project.",
+		"Unstage explicit project files without touching worktree content (equivalent to `git restore --staged -- paths`). Use this instead of shell `git restore --staged` or `git reset`. Only the listed paths are unstaged, never everything; the working-tree changes are kept. Paths stay inside the project.",
 		{
 			paths: {
 				type: "array",
@@ -477,13 +477,13 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_commit",
-		"Commit already-staged project changes with an explicit message. Stages nothing by itself: stage paths with git_stage first, then commit. Workspace Write commits without a prompt and records the message and staged diff; Ask for Approval reviews the staged changes. The commit stays bound to the staged snapshot.",
+		"Commit already-staged project changes with an explicit message. Use this instead of shell `git commit`. Stages nothing by itself: you MUST stage paths with git_stage first, then call git_commit. Workspace Write commits without a prompt and records the message and staged diff; Ask for Approval reviews the staged changes. The commit stays bound to the staged snapshot.",
 		{ message: string("Non-empty commit message (at most 2000 characters)") },
 		["message"],
 	),
 	define(
 		"git_create_branch",
-		"Create a project branch from a ref (defaults to HEAD) and switch to it unless switch is false. Switching refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
+		"Create a project branch from a ref (defaults to HEAD) and switch to it unless switch is false. Use this instead of shell `git checkout -b` or `git switch -c`. Switching refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
 		{
 			name: string("New branch name: 1-100 characters of letters, digits, ., _, -, / only"),
 			start_point: string("Optional single commit, branch, or tag to start from (defaults to HEAD)"),
@@ -493,7 +493,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_switch",
-		"Switch the project worktree to an existing local branch. Refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
+		"Switch the project worktree to an existing local branch. Use this instead of shell `git checkout` or `git switch`. Refuses when the worktree has staged or unstaged changes; commit or stash first. Branch names only, never detaches.",
 		{
 			ref: string("Existing local branch name to switch to"),
 		},
@@ -501,7 +501,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_sync",
-		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Pulls never merge or rebase; pushes never force-push. Workspace Write fetches without a prompt and asks once before pulling. Ask for Approval reviews every remote operation; Full Access bypasses prompts. Push first approves remote preparation, then reviews outgoing history before publication.",
+		"Sync the project with a configured remote: fetch new history, fast-forward-pull the current branch, or push it. Use this instead of shell `git fetch`, `git pull`, or `git push`. Pulls never merge or rebase; pushes never force-push. Workspace Write fetches without a prompt and asks once before pulling. Ask for Approval reviews every remote operation; Full Access bypasses prompts. Push first approves remote preparation, then reviews outgoing history before publication. Authenticated operations use host Git credentials (SSH agent, credential helpers, gh CLI) automatically.",
 		{
 			action: { type: "string", enum: ["fetch", "pull", "push"], description: "fetch reads remote history, pull fast-forwards the current branch, push publishes it" },
 			remote: string("Configured remote name (defaults to origin); never a URL"),
@@ -511,7 +511,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_stash",
-		"Push tracked worktree changes onto the stash, pop the latest (or indexed) entry back, list entries, or show an entry diff. Workspace Write captures tracked files before push/pop and blocks incomplete coverage. Push stores tracked changes only, never untracked files; pop surfaces conflicts as errors and never auto-resolves them.",
+		"Push tracked worktree changes onto the stash, pop the latest (or indexed) entry back, list entries, or show an entry diff. Use this instead of shell `git stash`. Workspace Write captures tracked files before push/pop and blocks incomplete coverage. Push stores tracked changes only, never untracked files; pop surfaces conflicts as errors and never auto-resolves them.",
 		{
 			action: { type: "string", enum: ["push", "pop", "list", "show"], description: "push stores tracked changes, pop restores an entry and drops it, list shows entries, show inspects the indexed entry" },
 			message: string("Optional push-only message (at most 500 characters)"),
@@ -521,7 +521,7 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 	),
 	define(
 		"git_blame",
-		"Show line-by-line authorship for a project file (commit, author, date per line), optionally restricted to a line range. Read-only; paths never escape the project.",
+		"Show line-by-line authorship for a project file (commit, author, date per line), optionally restricted to a line range. Use this instead of shell `git blame`. Read-only; paths never escape the project.",
 		{
 			relative_path: string("Project-relative file path"),
 			ref: string("Optional single commit, branch, or tag to blame at (defaults to the worktree)"),

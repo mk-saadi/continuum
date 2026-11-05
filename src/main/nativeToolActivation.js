@@ -61,7 +61,7 @@ function manage({ action, groups: requested = [], query }, sessionId, availableT
   const descriptions = {
     files: 'List, search and read source files', editing: 'Exact replacement, atomic batch edits, patch, move and delete files',
     lsp: 'Code intelligence: definitions, references, symbols, hover and diagnostics', commands: 'Run tests and manage background commands',
-    git_read: 'Inspect Git history, branches and blame', git_write: 'Stage, unstage, commit, branch, switch, sync and stash; original approvals apply',
+    git_read: 'Inspect Git history, branches and blame (read-only alternatives to shell git commands)', git_write: 'Stage, unstage, commit, branch, switch, sync and stash (use instead of shell git add/commit/push/etc); original approvals apply',
     tasks: 'Retrieve and update session-owned task plans', subagents: 'Delegate research to read-only child agents',
     web: 'Search and read web pages (always advertised)', memory: 'Personal memory and conversation evidence; settings apply',
     media: 'Screenshot and image generation', skills: 'Use project skills or propose a skill', mcp: 'Discover and prepare external integrations',
