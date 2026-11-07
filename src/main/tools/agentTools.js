@@ -7,6 +7,7 @@ const { exec, execFile } = require("node:child_process");
 const { db } = require("../db");
 const { approvedMutations } = require("../safetyGuards");
 const { spawnSubagentTool, executeSpawnSubagent } = require('./subagent');
+const { withValidationGuidance } = require("../../lib/toolValidation.cjs");
 const recoveryStore = require("../recoveryStore");
 
 const IGNORED = new Set(["node_modules", ".git", "dist", "build"]);
@@ -174,7 +175,7 @@ const agentTools = [
 	define(
 		"update_plan",
 		[
-			'Create, update, or read the durable task plan for this Workspace task.',
+			'Durable workspace plan. create once; get to inspect; update must include non-empty steps, remove_step_ids, or objective. expected_revision alone makes no change and fails EMPTY_UPDATE.',
 			'',
 			'Action "create" (call ONCE, before starting the work). Exact arguments:',
 			'{"action":"create","objective":"<one-line goal>","steps":[{"description":"<first step>"},{"description":"<second step>","status":"in_progress"}]}',
@@ -186,7 +187,7 @@ const agentTools = [
 			'{"action":"update","steps":[{"id":7,"status":"completed"},{"description":"A newly added step"}],"remove_step_ids":[3]}',
 			'- To change an existing step, pass its "id" plus only the fields to change (any of "description", "status", "note").',
 			'- To add a step, omit "id" and include "description". To delete steps, list their ids in "remove_step_ids".',
-			'- Provide at least one of "steps", "remove_step_ids", or "objective"; an empty update fails with EMPTY_UPDATE.',
+			'- Provide non-empty "steps", non-empty "remove_step_ids", or "objective"; an empty update fails with EMPTY_UPDATE. {"action":"update","expected_revision":1} requests no changes and is invalid. Use {"action":"get"} to inspect the plan.',
 			'- An update returns only changed_steps, removed_step_ids, the new revision, and whole-plan progress — unchanged steps are not echoed. Call action "get" when you need the complete plan.',
 			'',
 			'Action "get" returns the current plan and its step ids. Call it when resuming, after a restart or context compaction, or whenever you are unsure of the plan or its ids — never re-create the plan and never guess ids.',
@@ -305,14 +306,15 @@ const agentTools = [
 	define(
 		"read_project_file",
 		[
-			"Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line.",
+			"Read a file: always include exactly one of relative_path or attachment_id, even on paginated/hashed reads. Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line.",
+			'Always include exactly one source identifier. Workspace example: {"relative_path":"future-plans.md","start_line":1,"end_line":120}. Line ranges and content hashes never replace relative_path.',
 			"Use attachment_id instead of relative_path for session-owned user attachments in any mode; read-only. Media needs compatible models.",
 			"For ordinary file reads, omit optional hash arguments. Never provide both hash parameters. When a revision check is required, use one exact hash from a prior trusted tool result; never invent a hash. After a stale-hash error, refresh the file without a hash before retrying.",
 		].join(" "),
 		{
 			attachment_id: string("User attachment reference; omit paths/hashes."),
 			relative_path: string(
-				"Workspace file path.",
+				"Required unless attachment_id is supplied. Workspace file path; include it on every paginated or hashed read.",
 			),
 			start_line: {
 				type: "integer",
@@ -388,7 +390,7 @@ const agentTools = [
 		{
 			edits: {
 				type: "array",
-				description: "1–20 edits; each requires relative_path, old_str, new_str. Split larger batches.",
+				description: 'JSON array of 1–20 objects, never a string containing JSON. Example: [{"relative_path":"notes.md","old_str":"old text","new_str":"new text"}]. Split larger batches.',
 				items: {
 					type: "object",
 					properties: {
@@ -531,6 +533,18 @@ define("list_directory", "List entries in a directory (up to 200 entries).", {
 		["relative_path"],
 	),
 ];
+
+// The two read sources are alternatives, not individually optional. Keep the
+// runtime check authoritative for providers that do not enforce schema unions.
+// llama.cpp b12032's Qwen XML tool handling loses parameters with a root
+// oneOf. Nest the unchanged union under allOf so root properties remain visible
+// to that handler. This is equivalent JSON Schema; strict validation is retained.
+agentTools.find(tool => tool.function.name === 'read_project_file').function.parameters.allOf = [{ oneOf: [
+    // Declare branch properties for Ajv strictRequired. The parent still owns
+    // all field constraints; oneOf still rejects both sources and neither.
+    { properties: { relative_path: { type: 'string' } }, required: ['relative_path'] },
+    { properties: { attachment_id: { type: 'string' } }, required: ['attachment_id'] },
+] }];
 
 function requireText(value, name, empty = false) {
 	if (typeof value !== "string" || value.includes("\0") || (!empty && !value.trim()))
@@ -2812,7 +2826,8 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
                         () => ({ modelPath: engine.modelId, port: engine.port }));
                 } catch { mediaPolicy = { enabled: { image: false } }; }
             }
-            return reader.read(args, sessionId, executionContext, mediaPolicy);
+            const snapshot = attachment.version_id ? await require('../attachmentStore').verified(require('../attachmentStore').version(attachment.version_id)) : null;
+            return reader.read(args, sessionId, executionContext, mediaPolicy, snapshot);
         }
         const commandExecution = require('../nativeExecutionPolicy').isCommand(name);
         if (require('../nativeExecutionPolicy').isProtected(name)) require('../nativeExecutionPolicy').consume(guardDecision, {
@@ -2881,7 +2896,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 		// PLAN_WRITE capability and by workspacePlan itself.
 		if (name === "update_plan") {
 			signal?.throwIfAborted();
-			return require("../workspacePlan").updatePlan(sessionId, args);
+			return withValidationGuidance(require("../workspacePlan").updatePlan(sessionId, args), name);
 		}
 		// Read-only same-project plan discovery. Like update_plan it needs no
 		// filesystem access, so it resolves before the root checks; project
@@ -3332,7 +3347,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
         }
 		if (["STALE_FILE", "PERMISSION_DENIED", "PERMISSION_REVOKED", "APPROVAL_DENIED",
 			"INVALID_LINE_RANGE", "LINE_RANGE_OUT_OF_BOUNDS", "LINE_RANGE_UNSUPPORTED",
-			"LINE_TOO_LONG", "FILE_CHANGED_DURING_READ", "INVALID_CONTENT_HASH_MODE", "INVALID_CONTENT_HASH", "INVALID_READ_SOURCE", "ENOENT"].includes(error?.code)) result.code = error.code;
+			"LINE_TOO_LONG", "FILE_CHANGED_DURING_READ", "INVALID_CONTENT_HASH_MODE", "INVALID_CONTENT_HASH", "INVALID_READ_SOURCE", "SUBAGENT_TARGET_REQUIRED", "ENOENT"].includes(error?.code)) result.code = error.code;
 		if (name === 'read_project_file' && error?.code?.startsWith('ATTACHMENT_')) result.code = error.code;
 		if (error?.currentContentHash !== undefined) {
             if (["str_replace_editor","edit_project_files","apply_patch"].includes(name)) result.changed_since_read = true;
@@ -3349,7 +3364,7 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
 						: error?.name === "AbortError" || error?.code === "ABORT_ERR" ? "cancelled"
 							: "error");
 		}
-		return result;
+		return withValidationGuidance(result, name);
 	} finally { releaseWorkspaceWrite?.(); }
 }
 

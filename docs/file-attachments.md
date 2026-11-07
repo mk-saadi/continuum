@@ -1,61 +1,111 @@
-# File attachments
+# File attachments — Phases 1 and 2
 
-The composer accepts PNG, JPEG, GIF, WebP, TXT, and Markdown. Select multiple files with the paperclip, remove individual previews with ×, and send with or without typed text. The current limits are 10 files per message, 20 MB per file, and 50 MB combined.
+Source implementation and isolated verification: 2026-11-07. No primary user profile was used. No installed package was replaced.
 
-## File handling and IPC
+## Storage behavior
 
-`window.api.processUploads(files)` accepts an array of browser `File` objects. The isolated preload uses Electron's `webUtils.getPathForFile` to resolve disk paths, then invokes `file:process-uploads` with an array of absolute paths. The existing trusted-sender check applies to this handler.
+- Native disk selection and drag-and-drop default to **Referenced file**. Continuum records identity, MIME/name, source path, canonical path, size, SHA-256 fingerprint, device/inode and modification/change timestamps. It does not create a full managed copy.
+- The composer and attachment details display storage behavior. **Keep a copy** creates an original-quality managed snapshot and changes that conversation grant to the managed version. A fork still referencing the original version can explicitly **Use saved copy** if that source later disappears.
+- Pathless pasted files stay **Managed copy**, including original encoded image bytes. Supported pathless documents can also be stored as byte envelopes. Plain clipboard text still enters the message normally.
+- Managed files live under configured `appDataDirectory/attachments`, normally `<Electron userData>/App_Data/attachments`, with timestamp–UUID names. Removing/omitting an attachment never deletes a referenced original.
+- Limits remain 10 files, 20 MiB each and 50 MiB per selection/message. There is no content deduplication, general orphan cleanup or garbage collection. A failed selection rolls back only its own draft records and newly created managed files.
 
-The main-process `processUploads` implementation in `src/main/fileUploads.js` copies files into `app.getPath('userData')/attachments` using timestamp + UUID + original filename. It returns:
+Relevant source: `src/preload.js`, `src/components/main-app/ChatInterface.jsx`, `src/components/chat/AttachmentControls.jsx`, `src/main/attachmentStore.js`, `src/main/fileUploads.js`.
 
-```js
-[{ file_path: '/.../attachments/1720000000000-uuid-photo.png', mime_type: 'image/png' }]
-```
+## Authorization and identity
 
-MIME types are inferred from the supported file extensions. Files are copied, not moved. A failed copy batch removes copies already made in that batch. The renderer caches completed copies for retries until the selection changes or the message is saved.
+`webUtils.getPathForFile` runs in the isolated preload on the actual Chromium-backed File, before any byte conversion. A JS-created File has no native path. A main-issued, per-webContents bridge capability stays inside that isolated preload; stage IPC requires it and the existing trusted-main-frame sender check. Web content cannot authorize disk reads with a `path`, `nativePath`, MIME label or filename. Relinking paths come exclusively from a main-process native file dialog.
 
-## Persistence and prompts
+Electron documents this native-backed File distinction: https://www.electronjs.org/docs/latest/api/web-utils . Selection/drop that the OS/Chromium exposes only as a pathless File is deliberately managed, rather than guessing a disk location.
 
-`saveMessage(sessionId, role, content, attachments = [])` inserts the message and all attachment rows in the same immediate SQLite transaction:
+The database separates:
 
-```sql
-INSERT INTO messages(session_id, role, content, estimated_tokens, archived)
-VALUES (?, ?, ?, ?, 0);
+- `attachment_assets`: stable logical attachment identity, independent of storage.
+- `attachment_versions`: source version, storage kind, path, fingerprint/identity metadata, extracted text and optional durable-copy location.
+- `attachment_drafts`: opaque conversation-scoped selection grants, before message persistence.
+- `message_attachments`: existing conversation ownership rows, with additive `asset_id`, `version_id` and `omitted` fields. Existing numeric IDs and opaque `attachment_read_refs` remain valid.
 
-INSERT INTO message_attachments(message_id, file_path, mime_type)
-VALUES (?, ?, ?);
-```
+Tool reads still resolve an opaque attachment reference through the owning user message and conversation. Delegated reads still require the trusted parent/child execution context and recheck authorization after asynchronous work. A supplied path or asset/version ID alone is never a tool read grant. Recovery does not alter another conversation's grant; forks share the original asset/version until explicitly changed.
 
-Both `loadSession` and `getActiveMessages` include an `attachments` array on each message. Prompt construction validates that attachment paths refer to managed copies, reads image files as base64, and emits:
+Relevant source: `src/main/attachmentStore.js`, `src/main/attachmentReader.js`, `src/main/tools/agentTools.js`, `src/main/sessionManager.js`, `src/main/db.js`.
 
-```js
-{
-  role: 'user',
-  content: [
-    { type: 'text', text: 'Describe this image' },
-    { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } },
-  ],
-}
-```
+## Missing, modified or replaced files
 
-TXT/Markdown file contents are appended to the text part with filename delimiters. Text-only turns continue using string content. Regeneration reuses the edited message's existing attachments without inserting another user message. Later attachment rows are removed with the truncated messages by the existing cascade triggers.
+Selection hashing and interactive request preloading use asynchronous file I/O and WebCrypto SHA-256, avoiding a synchronous large-file hash in the interface path. Capture uses a bounded file descriptor read, final-component `O_NOFOLLOW` where supported, canonical-path checks, and before/after descriptor/path identity checks. Symlink sources are rejected with instructions to select their actual target. Replacing the file, changing a symlinked parent, or changing metadata/content requires acknowledgement; identical bytes at a new inode are not silently trusted.
 
-The React submission flow in `src/App.jsx` is:
+Before constructing a submission, the main process verifies referenced versions and captures request-owned buffers. Prompt construction, PDF/XLSX extraction and RAG consume those exact bytes. Changing a source afterward cannot change that prepared request's media or text. Engine dispatch revalidates and rebuilds versioned attachments from authoritative conversation records rather than trusting an earlier renderer projection. Tool reads verify current sources separately, instead of reusing a model-turn snapshot.
 
-```js
-const attachments = await window.api.processUploads(selectedFiles);
-const requestMessages = await palace.prepareMessages(text, false, attachments);
-// prepareMessages -> session:prepare-messages -> transactional saveMessage
-// Then stream requestMessages through the existing runMemoryChat flow.
-```
+Missing/changed historical attachments produce an actionable blocked-send error and an **Attachments needing attention** panel. Available actions are:
 
-Selected image previews use blob URLs, revoked on removal/unmount. The content security policy allows blob/data images. Loaded messages show their attachment filenames. Image interpretation requires a vision-capable model/server. Existing context-token estimates and idle summaries remain text-message based; uploaded copies are retained on disk when attachment rows are deleted.
+- **Locate file**: native dialog; requires the same recorded fingerprint.
+- **Accept changed version**: explicitly approves the current referenced path's bytes as a new version.
+- **Choose new version**: native dialog explicitly approves different content/location in the same format.
+- **Keep a copy / Use saved copy**: captures verified original bytes or explicitly selects a matching stored snapshot.
+- **Omit attachment**: revokes its tool access and adds an explicit omission marker to model context; **Restore attachment** still requires subsequent source verification.
 
-## Validation
+Stop an active run before changing its attachment grants. Recovery invalidates prepared-context measurement caches; automatic compaction policy/mechanics are unchanged.
+
+Interactive builders preload snapshots asynchronously. Internal synchronous builder compatibility remains available and performs the same fingerprint/identity checks; it is not a streaming arbitrarily large-file reader. Active-turn snapshots and previews use memory bounded by the existing per-file/per-message limits; long histories containing many attachments can still consume substantial memory.
+
+## Documents and derived content
+
+New PDF/XLSX extracted text is kept in the source-version record, never beside a referenced original. It retains the existing 100,000-character inline/tool extraction cap. Spreadsheet extraction keeps worksheets, cells and cached formula results. Scanned PDFs still require user-provided OCR; there is no automatic OCR or tiling.
+
+RAG indexes for new attachments use `attachment-version:<version-id>` plus the actual content hash and embedding model, rather than an unversioned mutable source path. Retrieval verifies the selected source version first. PDF RAG parses the immutable captured bytes, retaining its existing full-document indexing behavior. Accepting/relinking creates a new version and extraction/index identity; stale derivatives from old versions are never silently substituted. Old index rows remain for Phase 3 cleanup. XLSX retrieval uses its versioned extracted text.
+
+Relevant source: `src/main/attachmentDocuments.js`, `src/main/ragManager.js`, `src/main/taskBriefs.js`.
+
+## Images and structured media: Phase 1 preserved
+
+Original encoded image bytes are retained; previews never replace them. Static PNG/JPEG keep their resolution and bytes for delivery unless EXIF orientation needs to be applied. Local llama.cpp WebP delivery and EXIF normalization create lossless in-memory PNG derivatives, preserving alpha and spatial resolution. Transformations are identified by an adjacent `Image delivery` text part. No derivative image is persisted. Original metadata is retained in stored originals, and unchanged JPEG submissions can carry original EXIF metadata to the selected backend.
+
+GIF/SVG/AVIF/BMP are not advertised for new image attachments. Animated PNG/WebP and corrupt or mismatched image formats fail clearly. Legacy reduced JPEGs stay readable, but lost resolution cannot be recovered.
+
+The shared sanitizer preserves text/image/audio/video arrays and rejects malformed, unsupported or already-stringified encoded media. Local audio/video retain `input_audio`/`input_video`; cloud OpenAI-compatible adapters preserve audio and map video to `video_url`. Anthropic receives base64 image blocks and rejects audio/video through its existing policy. Capability checks remain provider/model-specific and are rechecked at dispatch. Correct serialization is not proof of interpretation, mixed-media acceptance or codec support. No universal resolution/duration limit is invented; backend rejection feedback explains what to check. Backend-side resizing is still possible.
+
+References for the established transport formats and decoder behavior:
+
+- https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-v1chatcompletions-openai-compatible-chat-completions-api
+- https://openrouter.ai/docs/guides/overview/multimodal/videos
+- https://openrouter.ai/docs/guides/overview/multimodal/audio
+- https://platform.claude.com/docs/en/build-with-claude/vision
+
+Relevant source: `src/main/imageAttachments.js`, `src/lib/mediaContent.mjs`, `src/lib/memoryChat.mjs`, `src/main/modelCapabilities.js`, `src/main/cloudProviders.js`, `src/main/promptBuilder.js`.
+
+## Preview access
+
+Composer/transcript previews and file opening use conversation-owned attachment IDs or opaque draft grants, not arbitrary local paths. Preview bytes are fingerprint-verified, then ownership/version are checked again before returning them. Reference sources and managed attachments cannot bypass these checks through `media:`/legacy `local:` URLs.
+
+The general Markdown/tool-media protocol now allows only known project roots and app-owned generated-media/avatar/background roots, and excludes registered attachment paths, canonical targets and saved copies. Previously embedded arbitrary external local paths need an authorized attachment or an allowed public-media location. This tighter boundary is deliberate; it is separate from general project-file tool permissions.
+
+Relevant source: `src/components/chat/AttachmentPreview.jsx`, `src/main/localMedia.js`.
+
+## Compatibility and migration
+
+Initialization registers existing copies as **managed legacy** versions without reading/moving/deleting originals or inferring original source locations. Existing ownership row IDs, conversations, fork relationships and opaque references are preserved. Legacy fingerprints and versioned extraction are established lazily on the first verified read. Because old records had no fingerprint, changes made before that first baseline cannot be detected or reversed. A missing legacy copy with no baseline requires explicit **Choose new version**, rather than pretending a located replacement was verified as identical.
+
+Task briefs retain their existing snapshots. Asset identity and stored path aliases let old snapshots resolve current authorized grants after relinking or an app-data move. App-data migration relocates managed version/copy paths while preserving aliases; external referenced paths are not guessed or rewritten. Legacy path repair is restricted to legacy managed copies. Conversation/message deletion revokes grants and opaque read references; files/version records are retained for Phase 3. No user original is deleted.
+
+## Verification
+
+All checks use disposable files and isolated `/tmp` profiles. No private attachment or live external provider was used.
+
+- `attachmentReferences.test.cjs`: 12 cases covering native bridge authorization, no-copy references, ownership, changed/replaced/missing/inaccessible sources, native relink, explicit replacement/omission, durable copies and fork fallback, changes during read, immutable request bytes, stale renderer rejection, document/RAG versioning, PDF/XLSX extraction, delegation/revocation, legacy registration/restart, brief aliases, app-data path relocation, failed-batch rollback and mixed-media outgoing local/cloud capture. Access denial is injected deterministically because tests can run as root.
+- `attachmentReferences.ui.cjs`: isolated production preload/context bridge and real `ChatInterface`; Chromium native-backed file selection/drop, pathless paste, storage badges, changed-version acceptance, relink, Keep a copy, source deletion, original outgoing PNG capture and historical-source omission. Native file paths come from Chromium's file input; native relink-dialog results use disposable selections injected by the test.
+- `attachmentComposer.ui.cjs`: all 15 Phase 1 renderer cases still pass: five image fixtures across selection/drop/paste, browser preview inspection, original storage and outgoing request capture. Dense PNG stays 4096×2048; transparent PNG/WebP stay 37×23 with alpha 64/255; EXIF JPEG stays 40×24 in storage and is delivered as oriented 24×40 PNG; legacy JPEG stays 1024×512.
+- Ten focused integration files pass, including Phase 1 delivery, R3 ownership (25 cases), attachment IPC, document extraction, RAG, history/query bounds and data/legacy migration. Ten focused unit files pass for media structure, policy, image validation/quality, model capabilities, context accounting and preview protocol handling.
+- The production preload also passes its separate OS-sandbox integration check with `NoNewPrivs=1`, seccomp mode 2 and `--enable-sandbox`, including native file reference, pathless managed JPEG and SQLite reopening.
+- Production Vite build passes with its chunk-size warning. Electron/libvips emits non-fatal GLib warnings in this environment. No running llama-server was found; live interpretation/codec/frame-sampling behavior was not tested. No packaged app was installed or launched.
+
+Reproduction:
 
 ```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test tests/attachmentReferences.test.cjs tests/attachmentDelivery.test.cjs tests/attachments.test.cjs tests/r3Reliability.test.cjs tests/sessionHistory.test.cjs tests/sessionHistoryPerf.test.cjs tests/dataMigration.test.cjs tests/legacyDataMigration.test.cjs tests/rag.test.cjs tests/attachmentDocuments.test.cjs
+node --test tests/mediaContent.test.mjs tests/imageValidation.test.mjs tests/imageUtils.test.mjs tests/modelCapabilities.test.cjs tests/capabilityOverrides.test.cjs tests/attachmentPolicy.test.mjs tests/toolResultFormatter.test.mjs tests/memoryChat.test.mjs tests/contextBudget.test.cjs tests/mediaProtocol.test.cjs
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/attachmentReferences.ui.cjs
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron --no-sandbox tests/attachmentComposer.ui.cjs
+env -u ELECTRON_RUN_AS_NODE xvfb-run -a node_modules/electron/dist/electron tests/preloadSandbox.integration.cjs
 npm run build
-ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron tests/attachments.test.cjs
-ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron tests/sessionHistory.test.cjs
-node --test tests/memoryChat.test.mjs tests/memoryNormalization.test.cjs
 ```
+
+Chromium tests require process permissions unavailable in the restricted execution sandbox. Their application data and fixtures remain isolated and are removed by the tests.

@@ -9,6 +9,16 @@ Continuum is a local-first desktop AI assistant combining local GGUF models, clo
 Conversations, memories, settings, and usage records are stored locally in SQLite. Local inference runs on your machine; cloud requests send their contents to the selected provider. External tools, web access, and model-asset downloads can also use the network.
 
 
+## Keyboard navigation
+
+- `Ctrl+[` / `Ctrl+]`: toggle the left / right sidebar.
+- `Ctrl+.`: open settings.
+- `Ctrl+M`: open the model picker.
+- `Ctrl+Shift+P`: open the command spotlight.
+- Existing tab navigation and in-chat find shortcuts remain available.
+
+The spotlight searches commands and opens searchable submenus for conversations, saved messages, workspaces, themes, UI styles, local models, and MCP servers. Use arrow keys and Enter to select; Escape goes back one level or closes the spotlight. Backspace on an empty submenu search also goes back. Model loading opens the existing settings/validation dialog. MCP menus stay open for multiple changes and display failures without changing the displayed server state. Global message searches run in bounded pages; use **Search more messages** to continue. Results from another conversation branch require opening that chat and selecting its branch.
+
 ## 🖼️ A Desktop Experience, Your Way
 
 Continuum brings personality back to desktop AI with an expressive, customizable interface inspired by classic Aero Glass design.
@@ -163,6 +173,10 @@ npm run dev
 ```
 
 This starts Vite and launches Electron after port 5173 is available. It uses your existing primary application profile (the `Continuum` userData directory); no separate development profile is created. Configure model directories and load a local model, or add a cloud provider, before starting inference.
+
+Native-tool advertisement uses the same selector in development and packaged builds. The default remains `full` pending real-model compact acceptance. Use `npm run dev:compact` or `npm run start:compact` to opt into discovery-based advertisement; `npm run dev:full` and `npm run start:full` explicitly select full. For a packaged Linux app, launch with `CONTINUUM_NATIVE_TOOL_PROFILE=compact ./Continuum-1.0.0.AppImage`; replace `compact` with `full` for the fallback. Fully quit the running app first so the new process receives the environment. The profile changes advertisement only; permissions and approvals still apply.
+
+Run `npm run bench:compact` for the fixed-fixture prompt-size budget (serialized bytes and labeled estimates). See [compact validation and remaining acceptance gates](docs/compact-native-validation.md) for model-tokenizer measurements and ASAR smoke instructions. This benchmark does not measure arbitrary user conversations or prove real-model tool discovery.
 
 Workspace Write's **Trusted Development** networking is available in a source development launch. It starts **Isolated**; to enable real package downloads, authenticated previews, and internet-enabled sandboxed commands, open Settings → Engine & API, select Trusted Development, and accept the native warning. The source-local build does not enable it automatically.
 

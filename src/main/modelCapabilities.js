@@ -64,7 +64,8 @@ function createMediaGuardedFetch(fetchImpl, getOverrides = () => ({})) {
 	return async (url, options = {}) => {
 		const endpoint = new URL(url);
 		if (endpoint.pathname === "/v1/chat/completions" && typeof options.body === "string") {
-			const required = requiredModalities(JSON.parse(options.body).messages);
+			const payload = JSON.parse(options.body);
+			const required = requiredModalities(payload.messages);
 			if (required.length) {
 				const overrides = await getOverrides(endpoint);
 				let detected;
@@ -76,6 +77,8 @@ function createMediaGuardedFetch(fetchImpl, getOverrides = () => ({})) {
 				}
 				assertCapabilities({ ...detected, ...overrides }, required);
 			}
+			payload.messages = await require('./imageAttachments').prepareMediaMessages(payload.messages, { local: true });
+			options = { ...options, body: JSON.stringify(payload) };
 		}
 		return fetchImpl(url, options);
 	};

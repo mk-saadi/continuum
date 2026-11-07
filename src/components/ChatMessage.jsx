@@ -1,6 +1,10 @@
+import PromptProcessingGate from "./chat/PromptProcessingGate.jsx";
+import { finalAssistantResponse } from "../lib/assistantResponse.mjs";
+import { formatDuration } from "../lib/durationFormat.mjs";
 import React, { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRowUiState } from "../hooks/useRowUiState.js";
 import ThoughtBlock from "./ThoughtBlock";
+import CasualActivity from "./chat/CasualActivity.jsx";
 import ToolCallBlock from "./ToolCallBlock";
 import ToolEventCard from "./chat/ToolEventCard.jsx";
 import LinkPopover from "./chat/LinkPopover.jsx";
@@ -11,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
+import { hasMultipleRequests } from "../lib/requestAccounting.mjs";
 import { progressTextOffset, toolDisplayName } from "../lib/executionEvents.mjs";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
@@ -34,6 +39,15 @@ const VIDEO_MIME_TYPES = {
 	mkv: "video/x-matroska",
 	avi: "video/x-msvideo",
 	ts: "video/mp2t",
+	m2ts: "video/mp2t",
+	mts: "video/mp2t",
+	mpeg: "video/mpeg",
+	mpg: "video/mpeg",
+	m4v: "video/mp4",
+	ogv: "video/ogg",
+	ogg: "video/ogg",
+	"3gp": "video/3gpp",
+	"3g2": "video/3gpp2",
 };
 
 function videoMimeType(source) {
@@ -45,7 +59,16 @@ function videoMimeType(source) {
 	}
 }
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-import { FiCheck, FiChevronDown, FiClock, FiCopy, FiDollarSign, FiFileText, FiTool, FiZap } from "react-icons/fi";
+import {
+	FiCheck,
+	FiChevronDown,
+	FiClock,
+	FiCopy,
+	FiDollarSign,
+	FiFileText,
+	FiTool,
+	FiZap,
+} from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
 import { PiWarning } from "react-icons/pi";
 import { RiRobot2Line } from "react-icons/ri";
@@ -147,6 +170,10 @@ function ChartCodeBlock({ code }) {
 	}
 }
 
+function setDefaultVideoVolume(element) {
+	if (element) element.volume = 0.1;
+}
+
 function MarkdownMedia({ src, alt = "", children }) {
 	const source = mediaSource(src);
 	const [failedSource, setFailedSource] = useState(null);
@@ -156,7 +183,8 @@ function MarkdownMedia({ src, alt = "", children }) {
 				role="status"
 				className="text-[var(--text-muted)]"
 			>
-				{alt || "Media unavailable"}
+				{alt || "Media"} — Unable to load media. The file may be inaccessible or its format/codec
+				unsupported.
 			</span>
 		);
 	}
@@ -164,6 +192,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 	if (isLocalVideoSource(source)) {
 		return (
 			<video
+				ref={setDefaultVideoVolume}
 				src={source}
 				type={videoMimeType(source)}
 				controls
@@ -179,6 +208,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 	if (!source && children) {
 		return (
 			<video
+				ref={setDefaultVideoVolume}
 				controls
 				preload="metadata"
 				aria-label={alt || "Video"}
@@ -203,112 +233,117 @@ const components = makeComponents(false);
 
 function makeComponents(isStreaming) {
 	return {
-	img: ({ src, alt }) => (
-		<MarkdownMedia
-			src={src}
-			alt={alt}
-		/>
-	),
-	video: ({ src, title, children }) => (
-		<MarkdownMedia
-			src={src}
-			alt={title}
-			video
-		>
-			{children}
-		</MarkdownMedia>
-	),
-	source: ({ src, type }) => {
-		const source = mediaSource(src);
-		return (
-			<source
-				src={source || undefined}
-				type={type || videoMimeType(source)}
+		img: ({ src, alt }) => (
+			<MarkdownMedia
+				src={src}
+				alt={alt}
 			/>
-		);
-	},
-	pre: ({ children }) => <>{children}</>,
-	p: textBlock("p"),
-	li: textBlock("li"),
-	h1: textBlock("h1"),
-	h2: textBlock("h2"),
-	h3: textBlock("h3"),
-	td: textBlock("td"),
-	th: textBlock("th"),
-	table: ({ node, ...props }) => (
-		<div className="assistant-table-scroll">
-			<table
-				{...props}
-				className="assistant-table"
-			/>
-		</div>
-	),
-	code({ className, children, node, ...props }) {
-		const code = String(children);
-		const language = /language-([^\s]+)/.exec(className || "")?.[1];
-		if (language === "json:chart" || language === "chart") return <ChartCodeBlock code={code} />;
-		const m = /language-json:(cards|flow)/.exec(className ?? "");
-		if (m) {
-			return (
-				<RichBlock
-					kind={m[1]}
-					raw={code.trim()}
-					streaming={isStreaming}
-					fallback={
-						<CodeBlock
-							code={code}
-							language={language}
-						/>
-					}
-				/>
-			);
-		}
-		if (language || code.endsWith("\n"))
-			return (
-				<CodeBlock
-					code={code}
-					language={language}
-				/>
-			);
-		return (
-			<code
-				{...props}
-				className={`${className || ""} ui-radius-control bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
+		),
+		video: ({ src, title, children }) => (
+			<MarkdownMedia
+				src={src}
+				alt={title}
+				video
 			>
-				{withColorSwatches(children)}
-			</code>
-		);
-	},
-	a: ({ node, href, ...props }) => {
-		// Local filesystem path -> open with the system's default app
-		if (href && /^\/[^\s]+/.test(href)) {
+				{children}
+			</MarkdownMedia>
+		),
+		source: ({ src, type }) => {
+			const source = mediaSource(src);
+			return (
+				<source
+					src={source || undefined}
+					type={type || videoMimeType(source)}
+				/>
+			);
+		},
+		pre: ({ children }) => <>{children}</>,
+		p: textBlock("p"),
+		li: textBlock("li"),
+		h1: textBlock("h1"),
+		h2: textBlock("h2"),
+		h3: textBlock("h3"),
+		td: textBlock("td"),
+		th: textBlock("th"),
+		table: ({ node, ...props }) => (
+			<div className="assistant-table-scroll">
+				<table
+					{...props}
+					className="assistant-table"
+				/>
+			</div>
+		),
+		code({ className, children, node, ...props }) {
+			const code = String(children);
+			const language = /language-([^\s]+)/.exec(className || "")?.[1];
+			if (language === "json:chart" || language === "chart") return <ChartCodeBlock code={code} />;
+			const m = /language-json:(cards|flow)/.exec(className ?? "");
+			if (m) {
+				return (
+					<RichBlock
+						kind={m[1]}
+						raw={code.trim()}
+						streaming={isStreaming}
+						fallback={
+							<CodeBlock
+								code={code}
+								language={language}
+							/>
+						}
+					/>
+				);
+			}
+			if (language || code.endsWith("\n"))
+				return (
+					<CodeBlock
+						code={code}
+						language={language}
+					/>
+				);
+			return (
+				<code
+					{...props}
+					className={`${className || ""} ui-radius-control bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
+				>
+					{withColorSwatches(children)}
+				</code>
+			);
+		},
+		a: ({ node, href, ...props }) => {
+			// Local filesystem path -> open with the system's default app
+			if (href && /^\/[^\s]+/.test(href)) {
+				return (
+					<a
+						{...props}
+						href={href}
+						className="text-[var(--link)] underline cursor-pointer"
+						onClick={(e) => {
+							e.preventDefault();
+							window.api?.openPath?.(href);
+						}}
+					/>
+				);
+			}
+			// Web URLs require an explicit action before opening the browser.
+			if (href && /^https?:\/\//i.test(href)) {
+				return (
+					<LinkPopover
+						{...props}
+						href={href}
+					/>
+				);
+			}
+			// Keep other supported schemes on the existing external-link path.
 			return (
 				<a
 					{...props}
 					href={href}
-					className="text-[var(--link)] underline cursor-pointer"
-					onClick={(e) => {
-						e.preventDefault();
-						window.api?.openPath?.(href);
-					}}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="text-[var(--link)] underline"
 				/>
 			);
-		}
-		// Web URLs require an explicit action before opening the browser.
-		if (href && /^https?:\/\//i.test(href)) {
-			return <LinkPopover {...props} href={href} />;
-		}
-		// Keep other supported schemes on the existing external-link path.
-		return (
-			<a
-				{...props}
-				href={href}
-				target="_blank"
-				rel="noopener noreferrer"
-				className="text-[var(--link)] underline"
-			/>
-		);
-	},
+		},
 	};
 }
 
@@ -345,12 +380,8 @@ const ChatMessage = React.memo(
 		projectId,
 		pendingQuestions = {},
 		onAnswerQuestion,
-		disabled = false,
-		onSelectVariant,
-		onSelectReplyVariant,
 		showHeader = true,
-		// Casual Chat renders conversation-first with compact, non-interactive
-		// tool summaries; Workspace renders the full timeline separately and
+		// Casual Chat groups execution details behind one disclosure; Workspace renders the full timeline separately and
 		// passes hideSteps. Interactive questions/skill approvals live above
 		// the composer (PendingInteractions), so non-interactive transcripts
 		// show static outcome records at the step's position instead.
@@ -371,102 +402,131 @@ const ChatMessage = React.memo(
 		const toolCalls = activeVariant.tool_calls ?? activeVariant.toolCalls;
 		const steps = hideSteps ? [] : activeVariant.executionSteps;
 		const textOffset = progressTextOffset(activeVariant.executionSteps);
-		const responseText = (activeVariant.content || "").slice(textOffset);
+		const remainingText = (activeVariant.content || "").slice(textOffset);
+		const responseText = mode === "casual" ? finalAssistantResponse(message) : remainingText;
+		const renderStep = (step, idx) => {
+			if (step.type === "text")
+				return (
+					<ProgressText
+						key={step.id ?? idx}
+						text={step.content}
+					/>
+				);
+			if (step.type === "thought") {
+				return (
+					<ThoughtBlock
+						key={step.id ?? idx}
+						content={step.content}
+						durationMs={step.durationMs}
+					/>
+				);
+			}
+			if (step.type === "tool_call") {
+				if (step.toolName === "ask_user") {
+					if (!interactive)
+						return (
+							<AskUserRecord
+								key={step.id ?? idx}
+								step={step}
+								request={pendingQuestions[step.id]}
+								live={!!pendingQuestions[step.id] || !!message.streaming}
+							/>
+						);
+					return (
+						<AskUserCard
+							key={step.id ?? idx}
+							step={step}
+							request={pendingQuestions[step.id]}
+							onAnswer={onAnswerQuestion}
+						/>
+					);
+				}
+				if (step.toolName === "propose_skill") {
+					if (!interactive)
+						return (
+							<SkillProposalRecord
+								key={step.id ?? idx}
+								step={step}
+							/>
+						);
+					return (
+						<SkillProposalCard
+							key={step.id ?? idx}
+							step={step}
+							projectId={projectId}
+						/>
+					);
+				}
+				if (step.toolName === "delegate_task")
+					return (
+						<SubAgentBadge
+							key={step.id ?? idx}
+							step={step}
+						/>
+					);
+				// Casual Chat keeps tool activity to a compact,
+				// expandable summary instead of full argument/result
+				// dumps. Workspace renders the full timeline
+				// separately (hideSteps) so this path is casual-only.
+				if (!interactive && mode === "casual")
+					return (
+						<ToolEventCard
+							key={step.id ?? idx}
+							step={step}
+							compact
+						/>
+					);
+				return (
+					<ToolCallBlock
+						key={step.id ?? idx}
+						step={step}
+					/>
+				);
+			}
+			return null;
+		};
+		const casualActivity = mode === "casual" && !hideSteps;
 		return (
 			<div className="min-w-0 w-full whitespace-normal">
 				{showHeader && message.role !== "assistant" && <MessageContextStatus message={message} />}
 				{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
-				{steps?.length > 0 && (
-					<div
+				<PromptProcessingGate message={message} buffer={streamBuffer}>
+				{casualActivity ? (
+					<CasualActivity
 						key={`${message.id ?? "message"}:${index}`}
-						className="message-execution-timeline mb-3 space-y-2"
-					>
-						{steps.map((step, idx) => {
-							if (step.type === "text") return <ProgressText key={step.id ?? idx} text={step.content} />;
-							if (step.type === "thought") {
-								return (
-									<ThoughtBlock
-										key={step.id ?? idx}
-										content={step.content}
-										durationMs={step.durationMs}
-									/>
-								);
-							}
-							if (step.type === "tool_call") {
-								if (step.toolName === "ask_user") {
-									if (!interactive)
-										return (
-											<AskUserRecord
-												key={step.id ?? idx}
-												step={step}
-												request={pendingQuestions[step.id]}
-												live={!!pendingQuestions[step.id] || !!message.streaming}
-											/>
-										);
-									return (
-										<AskUserCard
-											key={step.id ?? idx}
-											step={step}
-											request={pendingQuestions[step.id]}
-											onAnswer={onAnswerQuestion}
-										/>
-									);
-								}
-								if (step.toolName === "propose_skill") {
-									if (!interactive)
-										return (
-											<SkillProposalRecord
-												key={step.id ?? idx}
-												step={step}
-											/>
-										);
-									return (
-										<SkillProposalCard
-											key={step.id ?? idx}
-											step={step}
-											projectId={projectId}
-										/>
-									);
-								}
-								if (step.toolName === "delegate_task")
-									return (
-										<SubAgentBadge
-											key={step.id ?? idx}
-											step={step}
-										/>
-									);
-								// Casual Chat keeps tool activity to a compact,
-								// expandable summary instead of full argument/result
-								// dumps. Workspace renders the full timeline
-								// separately (hideSteps) so this path is casual-only.
-								if (!interactive && mode === "casual")
-									return (
-										<ToolEventCard
-											key={step.id ?? idx}
-											step={step}
-											compact
-										/>
-									);
-								return (
-									<ToolCallBlock
-										key={step.id ?? idx}
-										step={step}
-									/>
-								);
-							}
-							return null;
-						})}
-					</div>
+						stateKey={`${message.id ?? "message"}:${index}`}
+						steps={steps}
+						toolCalls={toolCalls}
+						thinking={thinking}
+						thinkingDuration={thinkingDuration}
+						streaming={!!message.streaming}
+						interrupted={activeVariant.status === "interrupted"}
+						renderStep={renderStep}
+						liveText={message.streaming
+							? (streamBuffer ? <StreamingText buffer={streamBuffer} offset={textOffset} onFrame={onStreamFrame} /> : <ProgressText text={remainingText} />)
+							: (!responseText && remainingText ? <ProgressText text={remainingText} /> : null)}
+					/>
+				) : (
+					steps?.length > 0 && (
+						<div
+							key={`${message.id ?? "message"}:${index}`}
+							className="message-execution-timeline mb-3 space-y-2"
+						>
+							{steps.map(renderStep)}
+						</div>
+					)
 				)}
-				{!steps && toolCalls?.length > 0 && <ToolCallBadge toolCalls={toolCalls} />}
-				{!steps && thinking && (
+				{!casualActivity && !steps && toolCalls?.length > 0 && (
+					<ToolCallBadge toolCalls={toolCalls} />
+				)}
+				{!casualActivity && !steps && thinking && (
 					<ThinkingAccordion
 						text={thinking}
 						duration={thinkingDuration}
 						stateKey={message.id ?? null}
 					/>
 				)}
-				<div className="assistant-markdown max-w-none text-inherit">
+				{(!casualActivity || !!responseText) && <div className="assistant-markdown max-w-none text-inherit">
 					{message.streaming ? (
 						streamBuffer ? (
 							<StreamingText
@@ -475,26 +535,12 @@ const ChatMessage = React.memo(
 								onFrame={onStreamFrame}
 							/>
 						) : (
-							<span className="whitespace-pre-wrap break-words">
-								{responseText}
-							</span>
+							<span className="whitespace-pre-wrap break-words">{responseText}</span>
 						)
 					) : (
-						<ReactMarkdown
-							remarkPlugins={[remarkGfm]}
-							rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
-							urlTransform={mediaUrlTransform}
-							components={makeComponents(!!message.streaming)}
-						>
-							{normalizeLatexArrows(
-								responseText ||
-									(message.streaming || steps?.length || toolCalls?.length || thinking
-										? ""
-										: "..."),
-							)}
-						</ReactMarkdown>
+						<MarkdownContent text={responseText || (steps?.length || toolCalls?.length || thinking ? "" : "...")} />
 					)}
-				</div>
+				</div>}
 				{activeVariant.status === "interrupted" && (
 					<div
 						role="status"
@@ -540,6 +586,7 @@ const ChatMessage = React.memo(
 						pendingQuestions={pendingQuestions}
 					/>
 				)}
+				</PromptProcessingGate>
 			</div>
 		);
 	},
@@ -550,9 +597,6 @@ const ChatMessage = React.memo(
 		previous.projectId === next.projectId &&
 		previous.pendingQuestions === next.pendingQuestions &&
 		previous.onAnswerQuestion === next.onAnswerQuestion &&
-		previous.disabled === next.disabled &&
-		previous.onSelectVariant === next.onSelectVariant &&
-		previous.onSelectReplyVariant === next.onSelectReplyVariant &&
 		previous.showHeader === next.showHeader &&
 		previous.mode === next.mode &&
 		previous.interactive === next.interactive &&
@@ -853,11 +897,15 @@ function costTooltip(cost) {
 		return "Cloud cost: not applicable\nThis turn ran on a local model, so there is no cloud provider charge. It is not a $0.00 API cost — no API was billed.";
 	}
 	const lines = [];
-	lines.push(cost.providerReported != null
-		? `Provider-reported charge: ${formatUsd(cost.providerReported)}`
-		: `Estimated cloud cost: ${formatUsd(cost.total)}`);
-	if (cost.completeness === "partial") lines.push("Partial: at least one token counter or rate was unreported.");
-	if (cost.completeness === "unavailable") lines.push("No price evidence and no provider-reported charge for this turn.");
+	lines.push(
+		cost.providerReported != null
+			? `Provider-reported charge: ${formatUsd(cost.providerReported)}`
+			: `Estimated cloud cost: ${formatUsd(cost.total)}`,
+	);
+	if (cost.completeness === "partial")
+		lines.push("Partial: at least one token counter or rate was unreported.");
+	if (cost.completeness === "unavailable")
+		lines.push("No price evidence and no provider-reported charge for this turn.");
 	if (cost.savings != null) lines.push(`Cache savings vs. no cache: ${formatSignedUsd(cost.savings)}`);
 	if (cost.source) lines.push(`Price source: ${cost.source}`);
 	if (cost.currency) lines.push(`Currency: ${cost.currency}`);
@@ -874,7 +922,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 		time: stats.duration ?? stats.time,
 	};
 
-	const isMultiPass = stats.scope !== "final";
+	const isMultiPass = hasMultipleRequests(stats);
 	const promptFormatted = stats.promptTokens != null ? stats.promptTokens.toLocaleString() : "—";
 	const genFormatted = stats.completionTokens != null ? stats.completionTokens.toLocaleString() : "—";
 	const totalFormatted = stats.totalTokens != null ? stats.totalTokens.toLocaleString() : "—";
@@ -889,15 +937,16 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 			: "";
 	// Reasoning is a measured subset of generated output when the provider
 	// reports it; the configured budget is never shown as consumed.
-	const reasoningLine = stats.reasoningTokens != null
-		? `\n• Reasoning (measured): ${stats.reasoningTokens.toLocaleString()}${stats.visibleCompletionTokens != null ? `\n• Visible answer: ${stats.visibleCompletionTokens.toLocaleString()}` : ""}`
-		: "";
+	const reasoningLine =
+		stats.reasoningTokens != null
+			? `\n• Reasoning (measured): ${stats.reasoningTokens.toLocaleString()}${stats.visibleCompletionTokens != null ? `\n• Visible answer: ${stats.visibleCompletionTokens.toLocaleString()}` : ""}`
+			: "";
 	const tokenTooltip = isMultiPass
-		? `Cumulative Workload (All Tool Turns):\n• Prompt Context re-processed: ${promptFormatted}\n• Output Tokens Generated: ${genFormatted}\n• Total Compute Workload: ${totalFormatted}${reasoningLine}${lastLine}${peakLine}`
-		: `Single Turn Usage:\n• Prompt Context: ${promptFormatted}\n• Response Generated: ${genFormatted}${reasoningLine}`;
+		? `Cumulative usage across ${stats.promptRequests ?? stats.raw?.length} model requests (not prepared context size):\n• Prompt tokens (including cache reads): ${promptFormatted}\n• Output tokens: ${genFormatted}\n• Total tokens: ${totalFormatted}${reasoningLine}${lastLine}${peakLine}`
+		: `Recorded request usage (prepared context is measured separately):\n• Prompt tokens: ${promptFormatted}\n• Output tokens: ${genFormatted}${reasoningLine}`;
 
 	const speedTooltip = isMultiPass
-		? "Average generation speed across all tool execution rounds"
+		? "Average generation speed across model requests"
 		: "Generation speed for this response";
 
 	return (
@@ -935,17 +984,18 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 
 			{/* Duration */}
 			<Tooltip
-				content={isMultiPass ? "Total time spent across all tool loops" : "Response generation time"}
+				content={
+					isMultiPass ? "Total response time across model requests" : "Response generation time"
+				}
 				placement="top"
 				delay={350}
 			>
 				<span className="inline-flex cursor-help items-center gap-1">
-					<FiClock aria-hidden="true" /> {stats.time == null ? "—" : stats.time.toFixed(1)}s
+					<FiClock aria-hidden="true" /> {formatDuration(stats.time)}
 				</span>
 			</Tooltip>
 
-			{/* Cloud cost chip. A local turn has no cloud charge at all, which is
-			    a different statement from a measured $0.00 — it is labelled n/a. */}
+			{/* Local turns omit the cloud cost chip entirely. */}
 			{costChipText(stats.cost) != null && (
 				<Tooltip
 					content={<span className="whitespace-pre-line">{costTooltip(stats.cost)}</span>}
@@ -962,24 +1012,26 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 			{mode !== "casual" &&
 				(isMultiPass ? (
 					<Tooltip
-						content="The model executed intermediate tool rounds. This token count reflects total GPU compute across all turns, not your active chat memory size."
+						content="More than one model request was recorded. Usage sums prompt and output tokens across requests, including cached input; it is separate from prepared context size."
 						placement="top"
 						delay={350}
 					>
 						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help">
 							<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-							Multi-turn tool loop
+							Multiple model requests
 						</span>
 					</Tooltip>
 				) : (
 					<Tooltip
-						content="Direct response without internal tool calls"
+						content="No multiple-request usage recorded. Prepared context is measured separately from response usage."
 						placement="top"
 						delay={350}
 					>
 						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)] cursor-help">
 							<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
-							Single turn
+							{stats.promptRequests === 1 || stats.raw?.length === 1
+								? "Single request"
+								: "Request count unavailable"}
 						</span>
 					</Tooltip>
 				))}
@@ -988,10 +1040,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 }
 
 export function SubAgentBadge({ step }) {
-	const [expanded, setExpanded] = useRowUiState(
-		step?.id != null ? `subagent:${step.id}` : null,
-		false,
-	);
+	const [expanded, setExpanded] = useRowUiState(step?.id != null ? `subagent:${step.id}` : null, false);
 	let args = step.args ?? step.function?.arguments ?? {};
 	if (typeof args === "string") {
 		try {
@@ -1105,10 +1154,7 @@ export function ToolCallBadge({ toolCalls }) {
 
 export function ThinkingAccordion({ text, duration, stateKey = null }) {
 	// Expansion survives the row leaving the mounted virtual range (Phase 8).
-	const [expanded, setExpanded] = useRowUiState(
-		stateKey != null ? `thinking:${stateKey}` : null,
-		false,
-	);
+	const [expanded, setExpanded] = useRowUiState(stateKey != null ? `thinking:${stateKey}` : null, false);
 	return (
 		<details
 			open={expanded}
@@ -1131,9 +1177,17 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 	);
 }
 
-export function ProgressText({ text }) {
-  return <div className="assistant-markdown max-w-none text-inherit select-text">
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
-      urlTransform={mediaUrlTransform} components={makeComponents(false)}>{normalizeLatexArrows(text)}</ReactMarkdown>
-  </div>;
-}
+// Keep parsing and media DOM independent of message metadata and parent renders.
+const MarkdownContent = React.memo(function MarkdownContent({ text }) {
+	return <ReactMarkdown remarkPlugins={[remarkGfm]}
+		rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
+		urlTransform={mediaUrlTransform} components={components}>
+		{normalizeLatexArrows(text)}
+	</ReactMarkdown>;
+});
+
+export const ProgressText = React.memo(function ProgressText({ text }) {
+	return <div className="assistant-markdown max-w-none text-inherit select-text">
+		<MarkdownContent text={text} />
+	</div>;
+});

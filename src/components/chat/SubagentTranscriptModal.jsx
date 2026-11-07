@@ -6,10 +6,10 @@ import { RiRobot2Line } from "react-icons/ri";
 import { subagentLimitNotice, subagentUsageLines, subagentResultTitle } from "../../lib/subagentDisplay.mjs";
 
 const STATUS_TONE = {
-	partial: "bg-amber-400/15 text-amber-500",
-	running: "bg-amber-400/15 text-amber-500",
-	waiting: "bg-amber-400/15 text-amber-500",
-	created: "bg-amber-400/15 text-amber-500",
+	partial: "bg-[var(--warning)]/10 text-[var(--warning)]",
+	running: "bg-[var(--warning)]/10 text-[var(--warning)]",
+	waiting: "bg-[var(--warning)]/10 text-[var(--warning)]",
+	created: "bg-[var(--warning)]/10 text-[var(--warning)]",
 	completed: "bg-[var(--accent)]/15 text-[var(--accent-bright)]",
 	failed: "bg-[var(--error)]/10 text-[var(--error)]",
 	interrupted: "bg-[var(--surface-hover)] text-[var(--text-muted)]",
@@ -32,7 +32,7 @@ function StreamingText({ title, text, active = false, truncated = false }) {
 		if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
 	};
 	return (
-		<section aria-label={title} className="overflow-hidden ui-radius-surface border border-[var(--subtle-border)] bg-[var(--surface)]">
+		<section aria-label={title} className="aero-fill sk-fill overflow-hidden ui-radius-surface border border-[var(--subtle-border)]">
 			<div className="flex min-h-11 items-center gap-2 border-b border-[var(--subtle-border)] px-3">
 				<h3 className="flex-1 text-xs font-semibold">{title}</h3>
 				{active && <span className="text-[11px] text-[var(--accent-bright)]">Live</span>}
@@ -53,25 +53,25 @@ function StreamingText({ title, text, active = false, truncated = false }) {
 function ActivityFeed({ events }) {
 	if (!events?.length) return null;
 	return (
-		<details className="group ui-radius-surface border border-[var(--subtle-border)] p-3" aria-label="Live activity">
-			<summary className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-medium"><FiChevronDown aria-hidden="true" />Activity history <span className="ml-auto text-[var(--text-muted)]">{events.length} events</span></summary>
-			<ol className="space-y-1 ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface)] p-2">
+		<details className="group ui-radius-surface border border-[var(--subtle-border)] px-4 py-2" aria-label="Live activity">
+			<summary className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-medium"><FiChevronDown aria-hidden="true" className="transition-transform group-open:rotate-180" />Activity history <span className="ml-auto text-[var(--text-muted)]">{events.length} events</span></summary>
+			<ol className="mt-2 max-h-64 space-y-3 overflow-auto border-t border-[var(--subtle-border)] py-3">
 				{events.map((event, index) => (
 					<li
 						key={index}
-						className="flex min-w-0 items-baseline gap-2 text-[11px]"
+						className="flex min-w-0 flex-wrap items-baseline gap-2 text-xs"
 					>
 						<span className="shrink-0 tabular-nums text-[var(--text-muted)]">
 							{new Date(event.t).toLocaleTimeString()}
 						</span>
 						<span
-							className="min-w-0 flex-1 truncate text-[var(--text-secondary)]"
+							className="min-w-0 flex-1 break-words text-[var(--text-secondary)]"
 							title={activityText(event)}
 						>
 							{activityText(event)}
 						</span>
 						{(event.text || event.arguments) && (
-							<details className="max-w-[60%] shrink-0">
+							<details className="w-full pl-2">
 								<summary className="cursor-pointer text-[var(--text-muted)]">Details</summary>
 								<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words">
 									{event.text || event.arguments}
@@ -201,7 +201,7 @@ function ChildControls({ childSessionId, transcript }) {
 		}
 	};
 	const buttonClass =
-		"cursor-pointer ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
+		"aero-control sk-button aero-fill sk-fill inline-flex min-h-9 cursor-pointer items-center justify-center px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
 	return (
 		<section aria-label="Sub-agent controls" className="flex flex-wrap items-center gap-2 text-[11px]">
 			{canInterrupt && (
@@ -318,20 +318,20 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 			onClick={(event) => {
 				if (event.target === dialogRef.current) onClose();
 			}}
-			className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[860px] overflow-hidden ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-black/60"
+			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto max-h-[88dvh] w-[calc(100%-24px)] max-w-[780px] overflow-hidden p-0 text-[var(--text-primary)]"
 		>
-			<div className="flex max-h-[85dvh] flex-col">
-				<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-3">
+			<div className="flex max-h-[88dvh] flex-col">
+				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 flex-wrap items-center gap-3 px-5 py-4">
 					<RiRobot2Line
 						aria-hidden="true"
-						className="shrink-0 text-[var(--accent)]"
+						className="size-5 shrink-0 text-[var(--accent)]"
 					/>
-					<h2 className="min-w-0 flex-1 truncate text-sm font-semibold">Sub-agent activity</h2>
+					<div className="min-w-0 flex-1"><h2 className="text-base font-semibold">Sub-agent activity</h2><p className="mt-0.5 text-xs text-[var(--text-muted)]">Follow progress and review the result.</p></div>
 					{transcript?.found && (
 						<span
-							className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${STATUS_TONE[transcript.status] ?? STATUS_TONE.cancelled}`}
+							className={`shrink-0 ui-radius-control px-2 py-1 text-[11px] font-medium capitalize ${STATUS_TONE[transcript.status] ?? STATUS_TONE.cancelled}`}
 						>
-							{transcript.status}{transcript.stopReason && transcript.stopReason !== "completed" ? ` · ${transcript.stopReason}` : ""}
+							{transcript.status}
 							{live ? " · live" : ""}
 						</span>
 					)}
@@ -339,17 +339,17 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 						type="button"
 						aria-label="Close sub-agent activity"
 						onClick={onClose}
-						className="flex size-11 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="aero-orb sk-icon-button aero-fill sk-fill flex size-9 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 					>
 						<FiX aria-hidden="true" />
 					</button>
 				</header>
-				<div className="min-h-0 flex-1 space-y-3 overflow-auto p-4 text-xs">
+				<div className="min-h-0 flex-1 space-y-4 overflow-auto overscroll-contain p-5 text-xs">
 					{(task || transcript?.task) && (
-						<details className="ui-radius-surface border border-[var(--subtle-border)] px-3 py-2" aria-label="Task given to the sub-agent">
-							<summary className="flex min-h-8 cursor-pointer items-center gap-2 font-medium"><FiChevronDown aria-hidden="true" />Task<span className="min-w-0 flex-1 truncate font-normal text-[var(--text-muted)]">{task || transcript?.task}</span></summary>
-							<p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-secondary)]">{task || transcript?.task}</p>
-						</details>
+						<section className="border-b border-[var(--subtle-border)] pb-4" aria-label="Task given to the sub-agent">
+							<h3 className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Assigned task</h3>
+							<p className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-secondary)]">{task || transcript?.task}</p>
+						</section>
 					)}
 					{error && (
 						<p
@@ -375,19 +375,13 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 									<span title={transcript.model}>Model: {transcript.model.split(/[\\/]/).at(-1)}</span>
 								)}
 								{transcript.kind && <span>Kind: {transcript.kind}</span>}
-								<span>Executions: {transcript.turnCount}</span>
+								<span>Turns: {transcript.turnCount}</span>
 								{transcript.durationMs != null && (
 									<span>Duration: {(transcript.durationMs / 1000).toFixed(1)}s</span>
 								)}
 							</section>
-							<section aria-label="Execution budgets and usage" className="space-y-1 text-[11px] text-[var(--text-muted)] tabular-nums">
-								{subagentLimitNotice(transcript) && (
-									<p role="note" className="ui-radius-control bg-amber-400/15 px-2 py-1.5 text-amber-500">
-										{subagentLimitNotice(transcript)}
-									</p>
-								)}
-								{subagentUsageLines(transcript).map(line => <p key={line}>{line}</p>)}
-							</section>
+							{subagentLimitNotice(transcript) && <p role="note" className="ui-radius-control border border-[var(--warning)]/25 bg-[var(--warning)]/10 px-3 py-2 text-xs leading-relaxed text-[var(--warning)]">{subagentLimitNotice(transcript)}</p>}
+
 							<ChildControls childSessionId={childSessionId} transcript={transcript} />
 							{live && (
 								<section
@@ -412,22 +406,27 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 
 								</section>
 							)}
-							{(previews.thinking || transcript.activity?.some(event => event.type === "thought")) && (
-								<StreamingText title="Thinking" text={progress?.type === "thinking" ? progress.text : previews.thinking || transcript.activity.filter(event => event.type === "thought").map(event => event.text).join("\n\n")} active={live && progress?.type === "thinking"} />
-							)}
 							{(previews.output || transcript.result) && (
 								<StreamingText title={live ? "Output" : subagentResultTitle(transcript.status)} text={transcript.result?.text || previews.output} active={live && progress?.type === "responding"} truncated={transcript.result?.truncated} />
 							)}
+							{(previews.thinking || transcript.activity?.some(event => event.type === "thought")) && (
+								<StreamingText title="Thinking" text={progress?.type === "thinking" ? progress.text : previews.thinking || transcript.activity.filter(event => event.type === "thought").map(event => event.text).join("\n\n")} active={live && progress?.type === "thinking"} />
+							)}
 							<ActivityFeed events={transcript.activity} />
-                            {transcript.toolsUsed?.length > 0 && <section aria-label="Tools used" className="text-[var(--text-muted)]">
-                                Tools used: {transcript.toolsUsed.map(tool => `${tool.name} (${tool.calls})`).join(", ")}
-                            </section>}
-                            {transcript.totalTokens != null && <p className="text-[var(--text-muted)]">Total tokens: {transcript.totalTokens.toLocaleString()}</p>}
+							<details aria-label="Execution budgets and usage" className="group ui-radius-surface border border-[var(--subtle-border)] px-4 py-2">
+								<summary className="flex min-h-8 cursor-pointer items-center gap-2 font-medium"><FiChevronDown aria-hidden="true" className="transition-transform group-open:rotate-180" />Usage and tools</summary>
+								<div className="mt-2 space-y-2 border-t border-[var(--subtle-border)] py-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+									{transcript.stopReason && transcript.stopReason !== "completed" && <p>Stopped: {transcript.stopReason.replaceAll("_", " ")}</p>}
+									{subagentUsageLines(transcript).map(line => <p key={line}>{line}</p>)}
+									{transcript.toolsUsed?.length > 0 && <p>Tools used: {transcript.toolsUsed.map(tool => `${tool.name} (${tool.calls})`).join(", ")}</p>}
+									{transcript.totalTokens != null && <p>Total tokens: {transcript.totalTokens.toLocaleString()}</p>}
+								</div>
+							</details>
 							<details
 								aria-label="Child turns"
-								className="space-y-2"
+								className="group space-y-2 ui-radius-surface border border-[var(--subtle-border)] px-4 py-2"
 							>
-								<summary className="flex min-h-11 cursor-pointer items-center gap-2 font-medium"><FiChevronDown aria-hidden="true" />Conversation details <span className="ml-auto text-[var(--text-muted)]">{transcript.turns.length} entries</span></summary>
+								<summary className="flex min-h-11 cursor-pointer items-center gap-2 font-medium"><FiChevronDown aria-hidden="true" className="transition-transform group-open:rotate-180" />Conversation details <span className="ml-auto text-[var(--text-muted)]">{transcript.turns.length} entries</span></summary>
 								{transcript.turns.length === 0 && !transcript.activity?.length && (
 									<p className="text-[var(--text-muted)]">
 										{live

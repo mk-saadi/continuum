@@ -474,6 +474,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
             const policy = attachmentPolicy(applyOverrides(metadata?.capabilities, overrides), { apiType: provider.apiType, service: metadata?.providerName, overrides });
             assertCapabilities(policy.enabled, required);
         }
+		original.messages = await require('./imageAttachments').prepareMediaMessages(original.messages);
 		const anthropic = provider.apiType === "anthropic";
 		const body = prepareCloudPayload(original, target, provider, stream);
         options.signal?.throwIfAborted();
@@ -503,7 +504,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 			// Do not echo remote bodies, credentials or conversation text into logs.
 			await response.body?.cancel();
 			throw new Error(
-				`${provider.name} request failed (HTTP ${response.status}). ${response.status === 401 || response.status === 403 ? "Check your API key and model access." : response.status === 429 ? "Check your quota or retry later." : "Check the model ID and provider availability."}`,
+				`${provider.name} request failed (HTTP ${response.status}). ${response.status === 401 || response.status === 403 ? "Check your API key and model access." : response.status === 429 ? "Check your quota or retry later." : required.length && [400, 413, 415, 422].includes(response.status) ? "The provider rejected the structured attachment request. Check this model's media formats, image dimensions, file size/duration and mixed-media support; use a compatible model or a separately exported file. Stored originals are unchanged." : "Check the model ID and provider availability."}`,
 			);
 		}
 		// OpenAI-compatible SSE (including Gemini/DeepSeek) is accumulated and

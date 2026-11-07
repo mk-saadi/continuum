@@ -10,12 +10,12 @@ import RememberedToolApprovals from "./RememberedToolApprovals";
 const limits = [
 	{
 		key: "maxConsecutiveToolFailures",
-		label: "Max Consecutive Tool Failures",
+		label: "Consecutive failures",
 		min: 3,
 		max: 10,
 		fallback: 5,
 	},
-	{ key: "maxTotalToolFailures", label: "Max Total Tool Failures", min: 5, max: 25, fallback: 10 },
+	{ key: "maxTotalToolFailures", label: "Total failures", min: 5, max: 25, fallback: 10 },
 ];
 
 export default function GeneralSettingsTab() {
@@ -59,8 +59,8 @@ export default function GeneralSettingsTab() {
             <RememberedToolApprovals />
 			<SettingsCard
 				icon={LuBot}
-				title="Sub-agent model"
-				description='Model used by spawned sub-agents. "Follow the chat model" (default) runs children on whatever the current chat uses; choosing something else gives sub-agents their own model without changing this chat. Whichever model is chosen, sub-agents stay read-only.'
+				title="Sub-agents"
+				description="Use the chat model or choose a separate model for delegated tasks. Sub-agents are always read-only."
 			>
 				<div className="space-y-3">
 					<SubagentModelSelect disabled={saving} />
@@ -69,8 +69,8 @@ export default function GeneralSettingsTab() {
 			</SettingsCard>
 			<SettingsCard
 				icon={LuShieldCheck}
-				title="Execution guardrails"
-				description="Stop an agent run when tool failures reach either limit."
+				title="Stop after tool failures"
+				description="End a run when either limit is reached."
 			>
 				<div className="space-y-3">
 					{limits.map(({ key, label, min, max, fallback }) => (

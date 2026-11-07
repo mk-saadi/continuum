@@ -316,8 +316,8 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 	const failed = classification.key === "failed";
 	const blocked = classification.key === "blocked";
 	const cancelled = classification.key === "cancelled";
-	// Routine successes stay compact; failures and approval blocks open by default.
-	const expanded = userExpanded ?? defaultExpanded ?? (failed || blocked || running);
+	// Completed and failed calls stay compact; active work and approval blocks open by default.
+	const expanded = userExpanded ?? defaultExpanded ?? (blocked || running);
 	const outcome = commandOutcome(step);
 	const testSummary = outcome ? parseTestSummary(`${outcome.stdout ?? ""}\n${outcome.stderr ?? ""}`) : null;
 	const showTest =
@@ -375,7 +375,9 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			className={
 				timeline
 					? `aero-chat-tool min-w-0 overflow-hidden ui-radius-control text-[13px] ${containerTone}`
-					: `min-w-0 overflow-hidden ui-radius-control border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
+					: compact
+						? `min-w-0 overflow-hidden ui-radius-control border border-transparent text-xs ${expanded ? "bg-[var(--surface)]" : "bg-transparent"}`
+						: `min-w-0 overflow-hidden ui-radius-control border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
 			}
 		>
             <SavedToolRule rule={step.savedRule} />
@@ -409,7 +411,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				</strong>
 				{showPill && (
 					<span
-						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${PILL_STYLES[classification.tone] ?? PILL_STYLES.muted}`}
+						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${compact && !expanded ? "bg-transparent text-[var(--text-muted)]" : PILL_STYLES[classification.tone] ?? PILL_STYLES.muted}`}
 					>
 						{classification.label}
 					</span>
@@ -435,7 +437,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				{step.serverName && (
 					<span
 						title={step.serverName}
-						className="ml-auto hidden max-w-[30%] truncate ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block"
+						className={`ml-auto hidden max-w-[30%] truncate ui-radius-control border border-[var(--subtle-border)] ${compact && !expanded ? "bg-transparent" : "bg-[var(--input)]"} px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block`}
 					>
 						{step.serverName}
 					</span>
@@ -449,6 +451,18 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 							: "space-y-3 border-t border-[var(--subtle-border)] p-3"
 					}
 				>
+			{isSubagent && typeof step.childSessionId === "string" && step.childSessionId && (
+				<div className="flex flex-wrap items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setTranscriptOpen(true)}
+						className="aero-control sk-button aero-fill sk-fill cursor-pointer ui-radius-control px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+					>
+						Show sub-agent activity
+					</button>
+					<SubagentLimitBadge childSessionId={step.childSessionId} />
+				</div>
+			)}
 					{(failed || blocked || cancelled) && err && (
 						<div
 							role={failed || blocked ? "alert" : "status"}
@@ -621,18 +635,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					)}
 				</div>
 			)}
-			{isSubagent && typeof step.childSessionId === "string" && step.childSessionId && (
-				<div className="flex flex-wrap items-center gap-2 px-3 pb-2">
-					<button
-						type="button"
-						onClick={() => setTranscriptOpen(true)}
-						className="cursor-pointer ui-radius-control border border-[var(--subtle-border)] bg-[var(--surface-hover)]/50 px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-					>
-						Show sub-agent activity
-					</button>
-					<SubagentLimitBadge childSessionId={step.childSessionId} />
-				</div>
-			)}
+
 			{transcriptOpen && typeof step.childSessionId === "string" && step.childSessionId && (
 				<SubagentTranscriptModal
 					childSessionId={step.childSessionId}

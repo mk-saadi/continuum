@@ -1,0 +1,8 @@
+{
+  "fixture": "compact-prompt-budget-v1",
+  "method": "Normalized serialized JSON bytes, not model tokens. 10% allowed growth applies only to this fixed fixture.",
+  "normalizedBytes": {
+    "full": 45019,
+    "compact": 25209
+  }
+}

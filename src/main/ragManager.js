@@ -8,7 +8,7 @@ const { app } = require("electron");
 const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
 const EMBEDDING_MODEL_KEY = `transformers:${EMBEDDING_MODEL}:quantized:mean:normalized`;
 let extractor = null;
-const DOCUMENT_MIMES = ["application/pdf", "text/plain", "text/markdown", "text/csv"];
+const DOCUMENT_MIMES = ["application/pdf", "text/plain", "text/markdown", "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
 
 function chunkText(text, size = 500, overlap = 50) {
 	if (!Number.isInteger(size) || size < 1 || !Number.isInteger(overlap) || overlap < 0 || overlap >= size)
@@ -98,28 +98,30 @@ async function createEmbedder({ signal } = {}) {
 }
 
 async function indexDocuments(attachments, { embedder, signal, onProgress = () => {} } = {}) {
-	const files = validateAttachments(attachments).filter((file) => DOCUMENT_MIMES.includes(file.mime_type));
+	const files = validateAttachments(attachments).filter((file) => !file.omitted && DOCUMENT_MIMES.includes(file.mime_type));
 	if (!files.length) return [];
 	embedder ??= await createEmbedder({ signal });
 	const indexed = [];
 	for (const file of files) {
 		signal?.throwIfAborted();
-		const fileName = attachmentName(file.file_path);
-		const bytes = await fs.readFile(file.file_path);
+		const fileName = file.name || attachmentName(file.file_path);
+		const snapshot = file.version_id ? await require('./attachmentStore').requestSnapshot(file) : null;
+        const bytes = snapshot?.bytes ?? await fs.readFile(file.file_path);
+        const indexPath = file.version_id ? 'attachment-version:' + file.version_id : file.file_path;
 		signal?.throwIfAborted();
 		const hash = createHash("sha256").update(bytes).digest("hex");
 		const cached = db
 			.prepare(
 				"SELECT COUNT(*) AS n FROM document_chunks WHERE file_path = ? AND content_hash = ? AND embedding_model = ?",
 			)
-			.get(file.file_path, hash, embedder.modelKey);
+			.get(indexPath, hash, embedder.modelKey);
 		if (cached.n) {
-			indexed.push(file.file_path);
+			indexed.push(indexPath);
 			continue;
 		}
 		// Cache checks are not indexing work: do not replay old upload banners.
 		onProgress({ fileName, completed: 0, total: 0, stage: "Parsing" });
-		const chunks = chunkText(await parseDocument(file.file_path, bytes));
+		const chunks = chunkText(file.mime_type === 'application/pdf' ? await parseDocument(file.file_path,bytes) : snapshot?.extracted_text ?? await parseDocument(file.file_path, bytes));
 		if (!chunks.length)
 			throw new Error(
 				`${fileName} contains no extractable text. Scanned PDFs require OCR before uploading.`,
@@ -138,7 +140,7 @@ async function indexDocuments(attachments, { embedder, signal, onProgress = () =
 		// Publish only a complete index. Failed/cancelled requests preserve the old index.
 		db.transaction(() => {
 			db.prepare("DELETE FROM document_chunks WHERE file_path = ? AND embedding_model = ?").run(
-				file.file_path,
+				indexPath,
 				embedder.modelKey,
 			);
 			const insert = db.prepare(`INSERT INTO document_chunks
@@ -147,7 +149,7 @@ async function indexDocuments(attachments, { embedder, signal, onProgress = () =
 			chunks.forEach((text, i) =>
 				insert.run(
 					fileName,
-					file.file_path,
+					indexPath,
 					hash,
 					embedder.modelKey,
 					i,
@@ -157,7 +159,7 @@ async function indexDocuments(attachments, { embedder, signal, onProgress = () =
 			);
 		}).immediate();
 		onProgress({ fileName, completed: chunks.length, total: chunks.length, stage: "Indexed" });
-		indexed.push(file.file_path);
+		indexed.push(indexPath);
 	}
 	return indexed;
 }
@@ -191,8 +193,8 @@ async function retrieveContext(sessionId, question, options = {}) {
 	if (typeof sessionId !== "string" || !sessionId.trim()) throw new Error("Invalid document chat session.");
 	const attachments = db
 		.prepare(
-			`SELECT DISTINCT a.file_path, a.mime_type FROM message_attachments a
-    JOIN messages m ON m.id = a.message_id WHERE m.session_id = ?`,
+			`SELECT a.* FROM message_attachments a
+    JOIN messages m ON m.id = a.message_id WHERE m.session_id = ? AND a.omitted = 0`,
 		)
 		.all(sessionId)
 		.filter((file) => DOCUMENT_MIMES.includes(file.mime_type));

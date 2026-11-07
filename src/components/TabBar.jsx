@@ -5,8 +5,9 @@ import { PiWarning } from "react-icons/pi";
 import { LuX } from "react-icons/lu";
 import { getTabTypeIcon } from "../lib/tabIcons.mjs";
 import Tooltip from "./Tooltip.jsx";
+import { getTabTitle } from "../lib/tabTitle.mjs";
 
-export default function TabBar() {
+export default function TabBar({ projects = [] }) {
 	const { tabs, activeTabId, activateTab, closeTab, closeAllTabs, cycleTab, openTab, activeTab, moveTab } =
 		useTabs();
 	const tabButtons = useRef(new Map());
@@ -41,6 +42,7 @@ export default function TabBar() {
 	useEffect(() => {
 		const handleKeyDown = (event) => {
 			if (event.defaultPrevented) return;
+			if (event.target.closest?.('dialog[open], [role="dialog"], [aria-modal="true"]')) return;
 			const shortcut = getTabShortcut(event);
 			if (!shortcut) return;
 
@@ -84,7 +86,9 @@ export default function TabBar() {
 				setDropIndex(null);
 			}}
 		>
-			{tabs.map((tab, index) => (
+			{tabs.map((tab, index) => {
+				const title = getTabTitle(tab, projects);
+				return (
 				<React.Fragment key={tab.id}>
 					{dropIndex === index && (
 						<div
@@ -117,7 +121,7 @@ export default function TabBar() {
 					}}
 				>
 					<Tooltip
-						content={tab.title}
+						content={title}
 						placement="bottom"
 					>
 						<button
@@ -151,20 +155,21 @@ export default function TabBar() {
 									/>
 								);
 							})()}
-							<span className="truncate">{tab.title}</span>
+							<span className="truncate">{title}</span>
 						</button>
 					</Tooltip>
 					<button
 						type="button"
 						onClick={() => closeTab(tab.id)}
-						aria-label={`Close ${tab.title}`}
+						aria-label={`Close ${title}`}
 						className="aero-chrome-button sk-icon-button p-1 cursor-pointer"
 					>
 						<LuX />
 					</button>
 				</div>
 				</React.Fragment>
-			))}
+			);
+			})}
 			{dropIndex === tabs.length && tabs.length > 0 && (
 				<div
 					aria-hidden="true"

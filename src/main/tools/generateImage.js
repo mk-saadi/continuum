@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { nodeHttpFetch } = require('../nodeHttpFetch');
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 
@@ -16,7 +17,7 @@ function imageExtension(contentType, bytes) {
   throw new Error('Image provider returned an unsupported image format.');
 }
 
-async function generateImage({ prompt, signal, expectedProviderKey, fetchImpl = fetch } = {}) {
+async function generateImage({ prompt, signal, expectedProviderKey, fetchImpl = nodeHttpFetch } = {}) {
   if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 10000 || prompt.includes('\0')) {
     throw new Error('Image prompt must be between 1 and 10,000 characters.');
   }

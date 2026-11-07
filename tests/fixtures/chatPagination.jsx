@@ -44,6 +44,8 @@ function createApi() {
 
 function Fixture({ initialSessionId, messages, tabSaved }) {
   const [sessionId, setSessionId] = useState(initialSessionId);
+  const [navigationTarget, setNavigationTarget] = useState(null);
+  window.navigateToMessage = messageId => setNavigationTarget({ messageId, nonce: crypto.randomUUID() });
   if (!store.has(initialSessionId)) store.set(initialSessionId, { id: initialSessionId, messages });
   window.__setSessionId = setSessionId;
 
@@ -95,6 +97,7 @@ function Fixture({ initialSessionId, messages, tabSaved }) {
   return (
     <ChatInterface
       tabActive
+      navigationTarget={navigationTarget}
       view="chat"
       projects={[]}
       activeProjectId={null}

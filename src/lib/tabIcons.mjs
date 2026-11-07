@@ -1,4 +1,4 @@
-import { LuMessageCircle, LuFolder } from 'react-icons/lu';
+import { LuMessageCircle, LuFolder, LuCalendar } from 'react-icons/lu';
 
 /**
  * Returns the appropriate icon component and accessibility label for a tab
@@ -8,6 +8,10 @@ import { LuMessageCircle, LuFolder } from 'react-icons/lu';
  * @returns {{ Icon: React.ComponentType, label: string }}
  */
 export const getTabTypeIcon = (tab) => {
+  if (tab.view === 'tasks') return { Icon: LuCalendar, label: 'Tasks' };
+  if (tab.view === 'projects' || tab.view === 'project') {
+    return { Icon: LuFolder, label: 'Project' };
+  }
   if (tab.projectId) {
     return { Icon: LuFolder, label: 'Project' };
   }

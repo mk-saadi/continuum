@@ -46,6 +46,15 @@ const workspaceProject = projects.createProject({ name: 'Wording', root_path: di
 const workspaceContent = (mode) => content(mode, workspaceProject.id);
 
 async function main() {
+  await test('concise Git protocol retains mutation boundaries and recovery workflow', () => {
+    const prompt = workspaceContent('auto');
+    assert.match(prompt, /Shell commands must never modify Git metadata/);
+    assert.match(prompt, /stage explicit paths, commit, push with git_sync, then verify status/);
+    assert.match(prompt, /Original approvals apply/);
+    assert.match(prompt, /do not retry, change permissions or request Full Access/);
+    for (const name of ['git_stage', 'git_unstage', 'git_commit', 'git_create_branch', 'git_switch', 'git_sync', 'git_stash']) assert.ok(prompt.includes(name));
+    assert.doesNotMatch(content('auto'), /### Git Execution Protocol/);
+  });
   await test('specialized delegation protocol accompanies directly available workspace tools', () => {
     const prompt = workspaceContent('auto');
     assert.match(prompt, /use advertised web tools/);

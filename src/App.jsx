@@ -1,6 +1,8 @@
+import CommandSpotlight from "./components/CommandSpotlight.jsx";
 import NotificationSoundLifecycle from './components/NotificationSoundLifecycle.jsx';
 import ProjectsView from "./components/ProjectsView";
 import ProjectWorkspace from "./components/ProjectWorkspace";
+import TasksView from "./components/scheduled-tasks/TasksView.jsx";
 import ProjectModal from "./components/ProjectModal";
 import Header from "./components/main-app/Header.jsx";
 import MemorySettings from "./components/main-app/MemorySettings.jsx";
@@ -330,8 +332,9 @@ function AppContent() {
 	);
 	return (
 		<div className="sk-app sk-app-window flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
+			<CommandSpotlight projects={projects} models={models} engines={engines} onLoadedModel={onLoadedModel} />
 			<Titlebar />
-			<TabBar />
+			<TabBar projects={projects} />
 			<GlobalModals
 				models={models}
 				selectedModel={selectedModel}
@@ -426,6 +429,7 @@ const TabPane = memo(function TabPane({
 	);
 	const view = tab.view || "chat";
 	const onChat = () => update({ view: "chat" });
+	const onTasks = () => update({ view: "tasks" });
 	const onProject = (id) => update({ projectId: id, view: "project" });
 	// Chat vs Workspace Chat for the Header, keyed on tab.projectId.
 	const workspaceHeader = workspaceHeaderFor(tab, projects, update);
@@ -469,6 +473,7 @@ const TabPane = memo(function TabPane({
 				</div>
 			)}
 			<ChatInterface
+				navigationTarget={tab.navigationTarget}
 				tabActive={active}
 				view={view}
 				projects={projects}
@@ -477,8 +482,16 @@ const TabPane = memo(function TabPane({
 				onProject={onProject}
 				onCreateProject={onCreateProject}
 				onChat={onChat}
+				onTasks={onTasks}
 				renderWorkspace={({ groups, loadChat, startProjectChat, busy, canStartChat, chatComposer }) =>
-					view === "projects" ? (
+					view === "tasks" ? (
+						<TasksView
+							models={models}
+							projects={projects}
+							onOpenRun={loadChat}
+							chatBusy={busy}
+						/>
+					) : view === "projects" ? (
 						<ProjectsView
 							projects={projects}
 							loading={projectsLoading}

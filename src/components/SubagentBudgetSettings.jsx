@@ -29,9 +29,9 @@ const FALLBACK_LIMITS = {
 	requestInactivityMs: { min: 1000, max: 3600000 },
 };
 const FIELDS = [
-	["maxToolCalls", "Tool calls per child", "e.g. 400"],
-	["maxTurns", "Model requests per child", "e.g. 200"],
-	["maxAggregateToolCalls", "Tool calls per parent run", "e.g. 2000"],
+	["maxToolCalls", "Tool calls per sub-agent", "e.g. 400"],
+	["maxTurns", "Model requests per sub-agent", "e.g. 200"],
+	["maxAggregateToolCalls", "Shared tool calls (all sub-agents)", "e.g. 2000"],
 	["maxInputTokens", "Max input tokens", "e.g. 200000"],
 	["maxOutputTokens", "Max output tokens", "e.g. 16000"],
 	["maxRuntimeMs", "Execution deadline (ms)", "e.g. 3600000"],
@@ -111,31 +111,22 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 
 	const bounds = (key) => policy?.limits?.[key] ?? FALLBACK_LIMITS[key];
 	const custom = settings?.mode === "custom";
-	const unboundedHint = policy?.inputRule ? ` Input budget rule: ${policy.inputRule}.` : "";
 
 	return (
 		<>
 			<SelectField
-				label="Sub-agent execution budgets"
+				label="Execution limits"
 				value={settings?.mode ?? "auto"}
 				disabled={disabled || saving || settings === undefined}
 				onChange={(event) => commit({ mode: event.target.value })}
 			>
 				<option value="auto">Automatic (recommended)</option>
-				<option value="custom">Custom hard limits</option>
+				<option value="custom">Custom limits</option>
 			</SelectField>
-			<p className="mt-2 text-xs text-[var(--text-muted)]">
-				Automatic bounds each child across its entire lifetime
-				{policy
-					? ` (investigation up to ${policy.maxTurns.investigation} total model requests × ${policy.perRequestCeiling.investigation} output tokens; up to ${policy.maxToolCalls.investigation} tool calls; input ${policy.inputRule})`
-					: ""}
-				. The parent run shares {policy ? policy.maxAggregateToolCalls : "a bounded"} calls across its
-				children. The last investigation request is reserved for tool-free reporting; compaction and
-				retries also consume requests. Custom overrides each limit independently; blank fields use
-				Automatic, and "No limit" removes the numeric ceiling for that field. Unbounded still respects
-				permissions, the model context window, cancellation, concurrency and provider limits. Changing
-				settings affects new children. Inspect child activity for effective limits and measured,
-				estimated, or reserved usage.
+			<p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+				{custom ? 'Set your own limits. Leave a field blank for Automatic, or select “No limit”.'
+					: 'Limits adjust to the task and model. Recommended for most work.'}
+				<span className="mt-1 block">Changes apply to new sub-agents.</span>
 			</p>
 			{custom && (
 				<div className="mt-3 grid grid-cols-2 gap-3">
@@ -168,26 +159,37 @@ export default function SubagentBudgetSettings({ disabled = false }) {
 					})}
 				</div>
 			)}
-			{custom && (
-				<p className="mt-2 text-xs text-[var(--text-muted)]">
-					Input counts every token sent across all requests (history re-sent each turn counts
-					again); output counts every generated token, including reasoning. Retries and final
-					reporting count as requests. Missing output usage reserves the request allowance.
-					Exhausted children return an explicit stop reason and available evidence; the last request
-					is reserved for tool-free reporting.{unboundedHint}
-				</p>
-			)}
-			{custom && (
-				<p className="mt-2 text-xs text-[var(--text-muted)]">
-					Time limits are in milliseconds and are independent of the token budgets. The execution
-					deadline covers the whole child run (requests, tools, retries, compaction); the
-					model-request timeout bounds one request end to end; the stream inactivity timeout fires
-					only when a streamed response stops producing data. Blank fields use Automatic, which has
-					no deadline and no request timeout, so long-horizon work is never cut off. A timed-out
-					child stops at the next safe boundary, keeps any findings already gathered, and is
-					reported as timed out — never as a success.
-				</p>
-			)}
+			<details className="mt-4 border-t border-[var(--subtle-border)] pt-3 text-xs text-[var(--text-muted)]">
+				<summary className="w-fit cursor-pointer font-medium text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]">How limits work</summary>
+				<div className="mt-3 space-y-4 leading-relaxed">
+					<section>
+						<h4 className="font-medium text-[var(--text-primary)]">Automatic limits</h4>
+						{policy ? <ul className="mt-1 list-disc space-y-1 pl-4">
+							<li>Investigation: up to {policy.maxTurns.investigation} model requests, with {policy.perRequestCeiling.investigation} output tokens per request.</li>
+							<li>Up to {policy.maxToolCalls.investigation} tool calls per sub-agent; {policy.maxAggregateToolCalls} shared across the parent run.</li>
+							<li className="break-words">Input token allowance: {policy.inputRule}.</li>
+						</ul> : <p className="mt-1">Automatic sets task-based limits for each sub-agent and its parent run.</p>}
+					</section>
+					<section>
+						<h4 className="font-medium text-[var(--text-primary)]">What counts toward a limit?</h4>
+						<ul className="mt-1 list-disc space-y-1 pl-4">
+							<li>Limits cover the sub-agent’s entire run. Retries, compaction, and final reporting also use model requests.</li>
+							<li>Input includes history sent again on later requests. Output includes reasoning; unavailable usage reserves the request allowance.</li>
+							<li>The last investigation request is reserved for reporting without tools. A stopped sub-agent returns its reason and available findings.</li>
+						</ul>
+					</section>
+					<section>
+						<h4 className="font-medium text-[var(--text-primary)]">Custom and time limits</h4>
+						<ul className="mt-1 list-disc space-y-1 pl-4">
+							<li>Each field is independent: blank uses Automatic; “No limit” removes only that field’s numeric ceiling.</li>
+							<li>Times are in milliseconds (1,000 ms = 1 second). The execution deadline covers the whole run; request timeout covers one request; inactivity timeout detects a stalled stream.</li>
+							<li>Automatic has no execution deadline or request timeout. Timed-out sub-agents stop at a safe boundary and keep their findings.</li>
+							<li>Permissions, context windows, cancellation, concurrency, and provider limits always apply.</li>
+						</ul>
+					</section>
+					<p>See sub-agent activity for effective limits and measured, estimated, or reserved usage.</p>
+				</div>
+			</details>
 			{error && (
 				<p
 					role="alert"

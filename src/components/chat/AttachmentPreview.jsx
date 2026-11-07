@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiCode, FiFile, FiFileText, FiFilm, FiImage } from "react-icons/fi";
-import { mediaSource } from "../../lib/markdownMedia.mjs";
+import { AttachmentControls } from "./AttachmentControls.jsx";
 
 function displayName(filePath) {
 	return String(filePath ?? "")
@@ -13,7 +13,7 @@ function kindOf(attachment) {
 	const mime = String(attachment?.mime_type ?? "").toLowerCase();
 	const path = String(attachment?.file_path ?? "").toLowerCase();
 	if (mime.startsWith("image/")) return "image";
-	if (mime.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|ts)$/.test(path)) return "video";
+	if (mime.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|m2ts|mts|mpeg|mpg|m4v|ogv|3gp|3g2|wmv|flv|vob)$/.test(path)) return "video";
 	if (mime === "application/pdf" || path.endsWith(".pdf")) return "pdf";
 	if (/text\/|json|csv|tab-separated|markdown|html|css|xml|javascript/.test(mime)) return "doc";
 	if (/\.(txt|md|csv|tsv|json|js|mjs|cjs|jsx|ts|tsx|py|html|css|xml|yaml|yml|toml|ini|sh|sql|log|c|h|cpp|java|go|rs|rb|php)$/.test(path))
@@ -31,12 +31,21 @@ const KIND_ICON = {
 function AttachmentCard({ attachment }) {
 	const [failed, setFailed] = useState(false);
 	const kind = kindOf(attachment);
-	const name = displayName(attachment?.file_path) || "Attachment";
-	const src = mediaSource(attachment?.file_path ?? "");
-	const open = () => window.api?.openPath?.(attachment?.file_path);
+	const name = attachment.name || displayName(attachment?.file_path) || "Attachment";
+	const [src,setSrc]=useState(''), [problem,setProblem]=useState('');
+    useEffect(()=>{
+        let active=true; setFailed(false); setSrc('');
+        if(attachment.version_id && !attachment.omitted) window.api?.previewAttachment?.({sessionId:attachment.session_id,attachment:{id:attachment.id}}).then(result=>{if(active)setSrc(result.dataUrl || '');}).catch(error=>{if(active){setFailed(true);setProblem(error.message);}});
+        return ()=>{active=false;};
+    },[attachment.version_id,attachment.omitted]);
+    const open = async () => {
+        try { await window.api?.openAttachment?.({sessionId:attachment.session_id,attachment:{id:attachment.id}}); }
+        catch(error) { setProblem(error.message); }
+    };
 
 	return (
-		<button
+		<div className="w-44 shrink-0">
+        <button
 			type="button"
 			title={`${name}\n${attachment?.file_path ?? ""}\nClick to open`}
 			aria-label={`Open attachment ${name}`}
@@ -91,6 +100,9 @@ function AttachmentCard({ attachment }) {
 				{kind === "image" ? "Image" : kind === "video" ? "Video" : kind === "pdf" ? "PDF" : "File"}
 			</span>
 		</button>
+        <AttachmentControls attachment={attachment} />
+        {problem && <p role="status" className="text-[11px] text-[var(--error)]">{problem}</p>}
+        </div>
 	);
 }
 

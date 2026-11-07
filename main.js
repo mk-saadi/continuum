@@ -1,10 +1,10 @@
 const { localEngineFetch } = require("./src/main/localEngineFetch");
-const { app, BrowserWindow, ipcMain, protocol, net: electronNet, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, protocol, shell, powerMonitor } = require("electron");
 const { registerLocalMediaProtocol, serveMediaRequest } = require("./src/main/localMedia");
 protocol.registerSchemesAsPrivileged([
 	{ scheme: "local", privileges: { standard: true, secure: true, stream: true } },
-	// File-style URLs use an empty host: media:///absolute/path.
-	{ scheme: "media", privileges: { secure: true, stream: true } },
+	// A standard origin is required for reliable Chromium media range requests.
+	{ scheme: "media", privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
 ]);
 const path = require("path");
 const fs = require("fs");
@@ -13,6 +13,7 @@ const net = require("net");
 const { pathToFileURL } = require("url");
 const { initDatabase, syncSystemDate, closeDatabase } = require("./src/main/db.js");
 const { registerIpcHandlers } = require("./src/main/ipcHandlers.js");
+const { waitForTurnLeasesToClear, DEFAULT_TIMEOUT_MS } = require("./src/main/modelSwitchCoordinator");
 
 // Establish the code-owned local-development entitlement (if any) before any
 // readiness query. This never enables consent: Trusted Development still
@@ -53,6 +54,14 @@ const engines = new Map();
 // The last engine the UI acted on; used as the default for accessors that take
 // no explicit model id (sub-agent default, capability probe, status queries).
 let activeModelPath = null;
+// Aborted on real application shutdown so a pending model load never spawns a
+// new engine while the app is quitting. Close-window on macOS does not set it.
+let appShuttingDown = false;
+// Created after the database and IPC composition root are ready. Kept at
+// module scope so signal-based shutdown can mark in-flight scheduled runs as
+// interrupted before the process exits.
+let scheduledTaskScheduler = null;
+const MODEL_SWITCH_LEASE_WAIT_MS = DEFAULT_TIMEOUT_MS;
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -106,6 +115,8 @@ if (process.type === "browser") {
 	const terminate = (code) => {
 		if (terminating) return;
 		terminating = true;
+		appShuttingDown = true;
+		try { scheduledTaskScheduler?.markInterruptedSync?.('app-shutdown'); } catch { /* best-effort */ }
 		for (const entry of engines.values()) entry.idleService?.dispose();
 		stopAllSync();
 		process.exit(code);
@@ -258,6 +269,17 @@ function createWindow() {
 function getEngine(modelPath = null) {
 	if (modelPath) return engines.get(modelPath) ?? null;
 	return activeModelPath ? engines.get(activeModelPath) ?? null : null;
+}
+
+// A model load/switch must not race an active agent turn. Waits for every
+// engine in the pool to release its turn lease, bounded by
+// MODEL_SWITCH_LEASE_WAIT_MS and cancelled by application shutdown.
+async function waitForModelSwitchClear() {
+	return waitForTurnLeasesToClear({
+		engines: () => engines.values(),
+		timeoutMs: MODEL_SWITCH_LEASE_WAIT_MS,
+		isCancelled: () => appShuttingDown,
+	});
 }
 
 function getEngineStatus(modelPath = null) {
@@ -488,6 +510,20 @@ async function launchProcess(command, model = null, config = null) {
 	let engineCommand = null;
 	let entry = null;
 	try {
+		// Never spawn a replacement engine while an agent turn still depends on
+		// a model in the pool. `launching` is already set, so concurrent loads
+		// are rejected rather than queued here.
+		const lease = await waitForModelSwitchClear();
+		if (!lease.ok) {
+			return {
+				success: false,
+				deferred: true,
+				reason: "turn-in-progress",
+				error: lease.reason === "cancelled"
+					? "Model load cancelled."
+					: "A model is currently in use by an active agent turn. The load was not started; try again when the turn finishes.",
+			};
+		}
 		const { apiServerPort } = getAppSettings();
 		// The configured port belongs to the first engine. A later load falls
 		// back to an automatic port so it never collides with an engine that
@@ -531,14 +567,7 @@ async function launchProcess(command, model = null, config = null) {
 		require('./src/main/promptMeasurement').clearCache();
 
 		let idleUnloaded = false;
-		const processIdleService = createIdleService({
-			onIdle: () => {
-				if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
-				idleUnloaded = true;
-				void stopEngine(modelPath, 'idle-timeout', 'engine-idle-policy', false);
-			},
-		});
-		entry.idleService = processIdleService;
+		let processIdleService = null;
 		const lifecycle = require('./src/main/engineLifecycle').createEngineLifecycle({
 			generation: runtimeIdentity,
 			modelPath,
@@ -546,6 +575,15 @@ async function launchProcess(command, model = null, config = null) {
 			activeRequests: () => transportRequestCounts.get(processIdleService) ?? 0,
 		});
 		entry.lifecycle = lifecycle;
+		processIdleService = createIdleService({
+			onIdle: () => {
+				if (engines.get(modelPath) !== entry || entry.childProcess !== proc) return;
+				idleUnloaded = true;
+				void stopEngine(modelPath, 'idle-timeout', 'engine-idle-policy', false);
+			},
+			hasActiveTurnLease: () => lifecycle.hasActiveTurnLease,
+		});
+		entry.idleService = processIdleService;
 		localRequestOwners.set(port, {
 			generation: runtimeIdentity,
 			get unavailable() { return lifecycle.terminated || lifecycle.stopping; },
@@ -753,7 +791,23 @@ async function preflightGpuFit({ model, config, safetyMarginMiB = DEFAULT_SAFETY
 async function stopAndWaitForEngine(modelPath, reason) {
 	const entry = engines.get(modelPath);
 	if (!entry || !entry.childProcess) return;
-	const proc = entry.childProcess;
+	// Never replace an engine that an agent turn still depends on. This closes
+	// the race where a new turn starts between the pool-wide wait in
+	// launchProcess and the stop below.
+	const lease = await waitForTurnLeasesToClear({
+		engines: () => [engines.get(modelPath)].filter(Boolean),
+		timeoutMs: MODEL_SWITCH_LEASE_WAIT_MS,
+		isCancelled: () => appShuttingDown,
+	});
+	if (!lease.ok) {
+		throw new Error(lease.reason === "cancelled"
+			? "Model load cancelled."
+			: "This model is still in use by an active agent turn. Wait for it to finish and try again.");
+	}
+	// The engine may have exited on its own while we waited.
+	const current = engines.get(modelPath);
+	if (!current || !current.childProcess) return;
+	const proc = current.childProcess;
 	await new Promise((resolve, reject) => {
 		let settled = false;
 		const cleanup = () => {
@@ -775,7 +829,9 @@ async function stopAndWaitForEngine(modelPath, reason) {
 		proc.once("close", closed);
 		stopEngine(modelPath, reason, "model-loader", true).then(
 			(result) => {
-				if (!result.success && result.error !== "No running process")
+				if (result.deferred)
+					finish(new Error("This model is still in use by an active agent turn. Wait for it to finish and try again."));
+				else if (!result.success && result.error !== "No running process")
 					finish(new Error(result.error));
 			},
 			(error) => finish(error),
@@ -810,8 +866,22 @@ async function launchModel(modelId, input) {
 			if (assessment) return { success: false, requiresConfirmation: true, assessment };
 		}
 		// Loading a model that is already loaded replaces its engine (settings
-		// reload). Other models in the pool are left running.
-		if (engines.has(modelId)) await stopAndWaitForEngine(modelId, "settings-reload");
+		// reload). Wait for the whole pool to be turn-free *before* stopping the
+		// old engine, so a failed wait cannot leave the model unloaded.
+		if (engines.has(modelId)) {
+			const lease = await waitForModelSwitchClear();
+			if (!lease.ok) {
+				return {
+					success: false,
+					deferred: true,
+					reason: "turn-in-progress",
+					error: lease.reason === "cancelled"
+						? "Model load cancelled."
+						: "A model is currently in use by an active agent turn. The load was not started; try again when the turn finishes.",
+				};
+			}
+			await stopAndWaitForEngine(modelId, "settings-reload");
+		}
 		const result = await launchProcess(null, model, config);
 		if (result.success) {
 			try {
@@ -844,8 +914,13 @@ async function stopEngine(modelPath, reason = "user-unload", component = "model-
 	if (!entry || !entry.childProcess) {
 		return { success: false, error: "No running process" };
 	}
+	// An automatic unload/switch must not tear down a model that an active agent
+	// turn still depends on. Keep the idle service alive so the model can be
+	// unloaded normally once the turn releases its lease.
+	if (entry.lifecycle && !entry.lifecycle.requestStop(reason, component, userAction)) {
+		return { success: true, deferred: true, reason: "turn-in-progress" };
+	}
 	entry.idleService?.dispose();
-	if (entry.lifecycle && !entry.lifecycle.requestStop(reason, component, userAction)) return { success: true };
 	entry.startupHandler?.cancel();
 	const proc = entry.childProcess;
 	const pid = entry.childPid;
@@ -930,12 +1005,23 @@ if (hasSingleInstanceLock)
 	try { require('./src/main/gitIdentity').initializeHostGitIdentity(); }
 	catch (error) { console.error('Global Git identity could not be read:', error.message); }
 	if (process.platform === "win32") app.setAppUserModelId("com.continuum.assistant");
-	protocol.handle("media", (request) => serveMediaRequest(request, electronNet.fetch));
+	protocol.handle("media", (request) => serveMediaRequest(request));
 	require("./src/main/legacyDataMigration").migrateLegacyUserData();
 	registerLocalMediaProtocol(protocol);
 	mcpManager.init().catch((error) => console.error("MCP initialization failed:", error));
 	const db = initDatabase();
 	syncSystemDate(db);
+	// The scheduler is created before IPC registration so the composition root
+	// can subscribe to its events, but it is started only after the chat turn
+	// handler exists. A scheduled run therefore reuses the exact same agent
+	// pipeline as an interactive turn.
+	scheduledTaskScheduler = require("./src/main/scheduledTasks").createScheduler({
+		launchModel,
+		getEngineConfig,
+		getEngines: () => engines.values(),
+		getEngineLifecycle: (modelId) => getEngine(modelId)?.lifecycle ?? null,
+		isAppShuttingDown: () => appShuttingDown,
+	});
 	// Build the recovery blob reference index in the background. Until it is
 	// built the storage panel falls back to a conservative reading of the
 	// recovery store; the build itself never blocks the main thread.
@@ -955,6 +1041,8 @@ if (hasSingleInstanceLock)
 			engines.has(modelId) ? (scannedModels.get(modelId) ?? null) : null,
 		getEngineConfig,
 		getEngineForPort,
+		getEngineLifecycle: (modelId) => getEngine(modelId)?.lifecycle ?? null,
+		getScheduledTasks: () => scheduledTaskScheduler,
 		isTrustedSender: (event) => {
 			if (!mainWindow || mainWindow.isDestroyed()) return false;
 			if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame)
@@ -1028,6 +1116,26 @@ if (hasSingleInstanceLock)
 	});
 	createWindow();
 
+	// Start only after the renderer and the engine:chat handler exist. The
+	// startup tick runs immediately and then repeats every 30 seconds; a
+	// resume event forces another tick so sleep is treated exactly like a
+	// closed laptop. The scheduler never needs a live window.
+	scheduledTaskScheduler.start().catch(error =>
+		console.error("Scheduled-task scheduler failed to start:", error));
+	powerMonitor.on("suspend", () => {
+		try { scheduledTaskScheduler?.handleSuspend?.(); } catch (error) {
+			console.error("Scheduled-task suspend handling failed:", error);
+		}
+	});
+	powerMonitor.on("resume", () => {
+		try {
+			void scheduledTaskScheduler?.handleResume?.().catch(error =>
+				console.error("Scheduled-task resume tick failed:", error));
+		} catch (error) {
+			console.error("Scheduled-task resume handling failed:", error);
+		}
+	});
+
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
 			createWindow();
@@ -1054,6 +1162,7 @@ app.on("window-all-closed", () => {
 
 let mcpClosed = false;
 app.on("before-quit", (event) => {
+	appShuttingDown = true;
 	if (require("./src/main/dataAccess").isMigrating()) {
 		event.preventDefault();
 		return;
@@ -1062,7 +1171,7 @@ app.on("before-quit", (event) => {
     require("./src/main/promptMeasurement").clearCache();
 	if (!mcpClosed) {
 		event.preventDefault();
-		Promise.allSettled([require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/developmentPreviews").service.shutdown(), require("./src/main/networkExecution").service.shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
+		Promise.allSettled([scheduledTaskScheduler?.stop?.({ reason: 'app-shutdown' }) ?? Promise.resolve(), require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/developmentPreviews").service.shutdown(), require("./src/main/networkExecution").service.shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});

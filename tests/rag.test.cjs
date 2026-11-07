@@ -16,6 +16,7 @@ Module.register(`data:text/javascript,${encodeURIComponent(`
 global.embeddingTest = { loads: 0, calls: [], failLoad: true };
 const handlers = new Map();
 Module._load = function(name, ...args) {
+  if (name === './localEngineFetch') return {localEngineFetch:(...input)=>global.fetch(...input)};
   if (name === 'electron') return { app: { isReady: () => true, getPath: () => root }, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: name => handlers.delete(name) } };
   return originalLoad.call(this, name, ...args);
 };
@@ -132,7 +133,8 @@ function pdf(text) {
     };
     try {
       await assert.rejects(handlers.get('rag:index')({ trusted: false, sender }, { requestId: 'bad', attachments: [files[1]] }), /Unauthorized/);
-      await handlers.get('rag:index')({ trusted: true, sender }, { requestId: 'index', attachments: [files[1]] });
+      const [authorizedDocument] = await require('../src/main/attachmentStore').stage([{nativePath:files[1].file_path}],{sessionId:'b'});
+      await handlers.get('rag:index')({ trusted: true, sender }, { requestId: 'index', sessionId:'b', attachments: [authorizedDocument] });
       assert.ok(events.some(event => event.requestId === 'index' && event.type === 'indexing' && event.stage === 'Indexed'));
       const result = await handlers.get('engine:chat')({ trusted: true, sender }, {
         requestId: 'chat', sessionId: 'b', modelId: 'chat', messages: [{ role: 'system', content: 'Rules' }, { role: 'user', content: 'beta?' }],

@@ -1,6 +1,6 @@
 import toolBatchPolicy from './toolBatchPolicy.cjs';
 export const { MAX_TOOL_CALLS_PER_RESPONSE } = toolBatchPolicy;
-import { sanitizeImagePart } from './imageValidation.mjs';
+import { sanitizeMediaContent, hasAudioVideo } from './mediaContent.mjs';
 export const MAX_TOOL_ARGUMENT_CHARS = 500000;
 export const TOOL_ARGUMENT_SIZE_ERROR = 'Tool argument exceeded maximum allowed size. Please use smaller, surgical edits or append chunks.';
 
@@ -40,6 +40,11 @@ export { mergeSystemMessages };
 
 // Strip application metadata and normalize both native and OpenAI tool calls.
 export function sanitizeChatMessages(messages, decodeImage, options = {}) {
+  // Merge only textual system instructions; do not let array coercion hide
+  // an unsupported system-role media attachment before validation.
+  for (const message of messages) {
+    if (['system', 'developer'].includes(message.role)) sanitizeMediaContent(message.content, message.role, decodeImage);
+  }
   messages = mergeSystemMessages(messages);
   const reservedIds = new Set(messages.flatMap(message =>
     (message.tool_calls ?? message.toolCalls ?? []).map(call => call.id).filter(Boolean)));
@@ -53,18 +58,15 @@ export function sanitizeChatMessages(messages, decodeImage, options = {}) {
       message = { ...message, content: typeof active === 'string' ? active : active.content };
     }
     const { role } = message;
+    if (role === 'tool' && hasAudioVideo(message.content)) {
+      throw new Error('Audio/video tool results cannot be delivered safely. Attach the original media as a user attachment with a compatible model.');
+    }
     if (role === 'tool') {
       const call = message.tool_call_id ? pending.find(call => call.id === message.tool_call_id) : pending[0];
       message = { ...message, content: formatToolResult(message.content, call?.function?.name,
         { ...options, nativeTool: message[NATIVE_RESULT] }).content };
     }
-    const imageParts = ['user', 'tool'].includes(role) && Array.isArray(message.content) && message.content.length > 0 &&
-      message.content.every(part => (part?.type === 'text' && typeof part.text === 'string') ||
-        part?.type === 'image_url');
-    const content = imageParts ? message.content.map(part => part.type === 'text'
-      ? { type: 'text', text: part.text }
-      : sanitizeImagePart(part, decodeImage)) : message.content == null ? null
-      : typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    const content = sanitizeMediaContent(message.content, role, decodeImage);
     if (role === 'tool') {
       // Missing IDs follow assistant call order; explicit IDs may arrive out of order.
       const index = message.tool_call_id
@@ -479,7 +481,7 @@ export async function runMemoryChat({
   takeSteeringInstructions = null, markSteeringDelivered = null, markSteeringUndelivered = null,
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
-  onAdvertisedTools = () => {},
+  onAdvertisedTools = () => {}, refreshMemoryContext = null,
   workspaceCompaction = null, rebuildWorkspacePrefix = null, getSessionPlanState = null, getExecutionEnvironment = null,
   getTaskState = null, onTaskIncomplete = () => {}, preflightIndependentRead = null,
 }) {
@@ -526,7 +528,7 @@ export async function runMemoryChat({
   let text = '', thinkingText = '', thinkingDuration = 0;
   let textBoundary = 0;
   // Seal visible prose when execution resumes, retaining the full response for
-  // history/copy while recording its actual position for presentation.
+  // history while recording its actual position for presentation and final-only copy.
   const sealProgressText = () => {
     if (text.length <= textBoundary) return;
     executionSteps.push({ id: `text_${executionSteps.length}`, type: 'text',
@@ -713,6 +715,10 @@ export async function runMemoryChat({
         localModel, contextSize: activeReasoningContext });
     }
     if (finalResponseOnly) tools = [];
+    if (refreshMemoryContext) {
+      const position = history.findIndex(message => message.memoryContext);
+      if (position >= 0) history[position] = await refreshMemoryContext(history);
+    }
     let requestPayload = {
       model: modelId, messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(history, decodeImage, { workspaceRoot })) : sanitizeChatMessages(history, decodeImage, { workspaceRoot }), tools,
       tool_choice: finalResponseOnly ? 'none' : 'auto',
@@ -832,7 +838,8 @@ export async function runMemoryChat({
         if (!response.ok) {
           console.error(`Model request failed: HTTP ${response.status}`, redactToolMedia(responseBody));
           console.error('Model request payload:', JSON.stringify(redactToolMedia(requestPayload), null, 2));
-          const error = new Error(`Model request failed: HTTP ${response.status}`);
+          const media = requestPayload.messages.some(message => Array.isArray(message.content) && message.content.some(part => ['image_url', 'input_audio', 'input_video'].includes(part.type)));
+          const error = new Error(`Model request failed: HTTP ${response.status}${media && [400, 413, 415, 422].includes(response.status) ? '. The backend rejected the structured media request. Check the selected model/projector, supported formats, image dimensions, file size/duration and mixed-media support. Use a compatible model or export a supported file; stored originals are unchanged.' : ''}`);
           error.status = response.status;
           error.responseBody = responseBody;
           throw error;
@@ -1117,6 +1124,7 @@ export async function runMemoryChat({
       history.push({ role: 'tool', tool_call_id: entry.call.id,
         [NATIVE_RESULT]: entry.step.serverName === 'native' ? entry.call.function.name : undefined,
         content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded });
+      if (!entry.validationBlocked) projectToolLoopGuard?.record?.(entry.call.function.name, entry.step.args, output);
       toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
       if (projectId && failedToolReason) {
         if (failedToolReason(output, entry.call.function.name)) batchFailures++;
@@ -1180,7 +1188,8 @@ export async function runMemoryChat({
         if (!allowedNames.has(call.function.name)) throw new Error('Unknown tool.');
         const loopNotice = projectId && projectToolLoopGuard?.inspect(call.function.name, step.args);
         if (loopNotice) {
-          batchLoopDetected = true;
+          entry.validationBlocked = loopNotice.startsWith('[VALIDATION RETRY BLOCKED]');
+          if (!entry.validationBlocked) batchLoopDetected = true;
           loopNotices.push(loopNotice);
           throw new Error(loopNotice);
         }

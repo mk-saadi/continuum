@@ -5,11 +5,11 @@ import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { FiChevronDown } from "react-icons/fi";
 import { GiStarSwirl } from "react-icons/gi";
 
-export default function ThoughtBlock({ content = "", durationMs }) {
+export default function ThoughtBlock({ content = "", durationMs, compact = false }) {
 	const [expanded, setExpanded] = useState(false);
 	const seconds = Number.isFinite(durationMs) ? Math.max(0, durationMs) / 1000 : null;
 	return (
-		<details onToggle={(event) => setExpanded(event.currentTarget.open)} className="group/thinking min-w-0 mb-3 text-xs text-[var(--text-muted)] bg-white/5 py-1.5 px-3 ui-radius-control">
+		<details onToggle={(event) => setExpanded(event.currentTarget.open)} className={`group/thinking min-w-0 mb-3 text-xs text-[var(--text-muted)] ${compact && !expanded ? "bg-transparent" : "bg-white/5"} py-1.5 px-3 ui-radius-control`}>
 			<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 ui-radius-small focus-visible:outline-2 focus-visible:outline-[var(--accent)] hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 				<FiChevronDown
 					aria-hidden="true"

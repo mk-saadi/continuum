@@ -981,3 +981,19 @@ html[data-bg-animated="true"]:not([data-appearance="flat"]):not([data-appearance
 		backdrop-filter: none;
 	}
 }
+
+/* Keep chat composer geometry and border color stable during focus. */
+html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer,
+html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer:focus-within {
+	border-width: 1px;
+	border-color: color-mix(in srgb, var(--border) 50%, transparent);
+}
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer,
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer:focus-within {
+	border-color: color-mix(in srgb, var(--control-border) 50%, transparent);
+}
+html[data-style="skeu"] :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .sk-composer,
+html[data-style="skeu"] :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .sk-composer:is(:hover, :focus-within) {
+	border-width: 1px;
+	border-color: color-mix(in srgb, var(--sk-edge) 50%, transparent);
+}

@@ -67,14 +67,19 @@ function atCompactionPressure(budget) {
 }
 function approximateTokens(payload) {
   let images = 0;
+  let otherMedia = 0;
   const text = JSON.stringify(payload, (key, value) => {
     if (key === 'image_url' && value) { images++; return '[image tokens unknown]'; }
+    if (['input_audio', 'input_video', 'audio_url', 'video_url'].includes(key) && value) { otherMedia++; return '[media tokens unknown]'; }
     return value;
   });
   // Fallback only: full serialized request, conservative text/role allowance.
-  // Image patch counts and model templates are unknown. Reactive recovery is
+  // Image patches and audio/video token counts are unknown. Encoded bytes are
+  // never ordinary text tokens. This reuses the existing estimated media
+  // allowance; it does not establish the backend's duration/context capacity.
+  // Model templates are unknown. Reactive recovery is
   // still required; this number is deliberately never labeled exact.
-  return Math.ceil(Buffer.byteLength(text, 'utf8') / 3) + (payload.messages?.length ?? 0) * 32 + images * 4096;
+  return Math.ceil(Buffer.byteLength(text, 'utf8') / 3) + (payload.messages?.length ?? 0) * 32 + (images + otherMedia) * 4096;
 }
 // Templates may reformat JSON, so check schema keys/string values rather than
 // byte-for-byte JSON. Missing schema material invalidates the exact-count claim;
@@ -127,7 +132,7 @@ function createPromptMeasurer(fetchImpl) {
     } catch { signal?.throwIfAborted(); }
     if (!Number.isSafeInteger(limit) || limit <= 0) limit = 8192;
     let tokens, method = 'approximate-full-request', note = null;
-    const multimodal = payload.messages.some(message => Array.isArray(message.content) && message.content.some(part => part?.type === 'image_url'));
+    const multimodal = payload.messages.some(message => Array.isArray(message.content) && message.content.some(part => ['image_url', 'input_audio', 'input_video', 'audio_url', 'video_url'].includes(part?.type)));
     // Reuse only after verifying the same server model/template/context through
     // props. Cache is bounded; unavailable props and images are never cached.
     const identity = typeof props?.model_path === 'string' && typeof props?.chat_template === 'string' && JSON.stringify([props.model_path, props.chat_template, props.default_generation_settings?.n_ctx]);
@@ -176,7 +181,7 @@ function createPromptMeasurer(fetchImpl) {
       ? message.content.filter(part => part?.type === 'image_url').length : 0), 0);
     return { tokens, method, measurementStatus: method === 'server-template-tokenizer' ? 'verified' : note === 'tokenizer-operation-unsupported' ? 'unsupported' : note === 'tokenizer-measurement-failed' ? 'temporarily-unavailable' : 'estimated', limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,
       budgetContract, imageCount, imageAllowanceTokens: imageCount * 4096,
-      ...(multimodal ? { note: 'image-tokens-estimated' } : note ? { note } : {}) };
+      ...(multimodal ? { note: payload.messages.some(message => Array.isArray(message.content) && message.content.some(part => ['input_audio', 'input_video', 'audio_url', 'video_url'].includes(part?.type))) ? 'media-tokens-estimated' : 'image-tokens-estimated' } : note ? { note } : {}) };
   }
   return (url, payload, options = {}, knownLimit) => {
     // Coalesce only callers sharing cancellation ownership.

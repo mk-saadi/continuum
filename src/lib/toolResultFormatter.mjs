@@ -174,6 +174,24 @@ export function rejectsToolImages(status, body) {
 }
 
 export function redactToolMedia(value) {
+  // Request diagnostics must not log audio/video bytes now that those parts
+  // survive the wire sanitizer. Keep them out of ordinary display text too.
+  const omit = item => {
+    if (typeof item === 'string') {
+      if (/^data:(audio|video)\//i.test(item)) return '[Encoded media omitted]';
+      if (/^\s*[\[{]/.test(item) && /"(?:input_audio|input_video|audio_url|video_url)"/.test(item)) {
+        try { return JSON.stringify(omit(JSON.parse(item))); } catch { /* Ordinary text. */ }
+      }
+      return item;
+    }
+    if (Array.isArray(item)) return item.map(omit);
+    if (!item || typeof item !== 'object') return item;
+    if (['input_audio', 'input_video', 'audio_url', 'video_url'].includes(item.type))
+      return { type: item.type, note: '[Encoded media omitted]' };
+    return Object.fromEntries(Object.entries(item).map(([key, child]) => [key,
+      ['input_audio', 'input_video', 'audio_url', 'video_url'].includes(key) ? '[Encoded media omitted]' : omit(child)]));
+  };
+  value = omit(value);
   const formatted = formatToolResult(value);
   return formatted.mediaDetected ? formatted.displayResult : value;
 }

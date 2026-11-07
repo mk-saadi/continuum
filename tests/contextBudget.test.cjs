@@ -87,6 +87,20 @@ test('multimodal requests retain images and use the documented approximate allow
   assert.deepEqual(b.calls[0].messages[0].content[1], image);
 });
 
+test('audio/video bytes stay structured and never enter text tokenization or byte-based text estimates', async () => {
+  const { approximateTokens } = require('../src/main/contextBudget');
+  for (const type of ['input_audio', 'input_video']) {
+    const body = size => ({ ...payload, messages: [{ role: 'user', content: [{ type,
+      [type]: { data: 'A'.repeat(size), format: type === 'input_audio' ? 'wav' : 'video/mp4' } }] }] });
+    assert.equal(approximateTokens(body(400)), approximateTokens(body(4000000)));
+    const b = backend();
+    await send(b, body(4000000));
+    assert.ok(!b.probes.includes('/tokenize'));
+    assert.ok(!b.probes.includes('/apply-template'));
+    assert.equal(b.calls[0].messages[0].content[0][type].data.length, 4000000);
+  }
+});
+
 test('a template that omits parameter schemas cannot claim exact measurement after MCP growth', async () => {
   let sends = 0;
   const guarded = createContextGuardedFetch(async (url, options) => {

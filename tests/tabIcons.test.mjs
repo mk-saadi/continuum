@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getTabTypeIcon } from '../src/lib/tabIcons.mjs';
-import { LuMessageCircle, LuFolder } from 'react-icons/lu';
+import { LuMessageCircle, LuFolder, LuCalendar } from 'react-icons/lu';
+
+test('page icons follow navigation regardless of the previous chat project', () => {
+  assert.equal(getTabTypeIcon({ view: 'tasks', projectId: 'p1' }).Icon, LuCalendar);
+  assert.equal(getTabTypeIcon({ view: 'projects' }).Icon, LuFolder);
+  assert.equal(getTabTypeIcon({ view: 'project' }).Icon, LuFolder);
+});
 
 test('casual tab (projectId: null) returns the casual chat icon', () => {
   const { Icon, label } = getTabTypeIcon({ projectId: null });

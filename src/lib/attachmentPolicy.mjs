@@ -33,7 +33,7 @@ export const DOCUMENT_EXTENSIONS = [
 	".php",
 ];
 export const MEDIA_EXTENSIONS = {
-	image: [".png", ".jpg", ".jpeg", ".gif", ".webp"],
+	image: [".png", ".jpg", ".jpeg", ".webp"],
 	audio: [".wav", ".mp3"],
 	video: [".mp4", ".webm", ".mov", ".mpeg", ".mpg"],
 };
@@ -64,16 +64,17 @@ export function attachmentPolicy(
 	];
 	const labels = ["text files", "PDF (extracted text)", "Excel (.xlsx)"];
 	for (const kind of Object.keys(enabled))
-		if (enabled[kind]) labels.unshift(kind === "image" ? "images" : kind);
+		if (enabled[kind]) labels.unshift(kind === "image" ? "static PNG/JPEG/WebP images" : kind);
 	return {
 		enabled,
 		extensions,
 		accept: extensions.join(","),
-		tooltip: `Attach ${labels.join(", ")}. Media availability follows model detection and your saved overrides.`,
+		tooltip: `Attach ${labels.join(", ")}. Originals are preserved. Delivery applies EXIF orientation and converts local WebP to PNG without resizing. Media availability follows model detection and your saved overrides; the backend may resize images or reject its format, size, duration, or mixed-media limits.`,
 	};
 }
 export function assertAttachmentNames(names, policy) {
 	for (const name of names) {
+		if (/\.gif$/i.test(name)) throw new Error(`Cannot attach ${name}: GIF is unsupported. Export the desired frame as a static PNG, JPEG, or WebP image; animation is not sent.`);
 		const kind = attachmentKind(name);
 		if (!kind || (kind !== "document" && !policy.enabled[kind]))
 			throw new Error(

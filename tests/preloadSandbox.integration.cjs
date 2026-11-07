@@ -19,8 +19,8 @@ const shape = {
   electronAPI: ['getEngineStatus'],
   memoryPalace: ['getOrCreateSession', 'saveMessage', 'loadSession', 'onCompressionComplete'],
   mcpAPI: ['getStatus', 'getTools', 'setToolEnabled', 'onChanged'],
-  chatAPI: ['run', 'cancel', 'cancelSession', 'onEvent', 'onStreamStatus', 'onStreamChunk', 'getChildTranscript'],
-  api: ['getConfig', 'createProject', 'importProjectFiles', 'processUploads', 'launchEngine', 'saveSkill'],
+  chatAPI: ['run', 'cancel', 'cancelSession', 'onEvent', 'onStreamStatus', 'onStreamChunk'],
+  api: ['getConfig', 'createProject', 'importProjectFiles', 'processUploads', 'stageAttachments', 'previewAttachment', 'recoverAttachment', 'getChildTranscript', 'launchEngine', 'saveSkill'],
 };
 const events = [
   ['terminalAPI', 'onOutput', 'terminal:output'], ['terminalAPI', 'onStatus', 'terminal:status'],
@@ -37,6 +37,7 @@ app.whenReady().then(async () => {
   try {
     assert.ok(!process.argv.includes('--no-sandbox'));
     database.initDatabase();
+    require('../src/main/capabilityOverrides').saveOverrides({type:'local',modelId:'/test-model.gguf'},{image:true});
     window = new BrowserWindow({ show: false, webPreferences: {
       preload: path.join(root, 'src/preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false,
     } });
@@ -106,11 +107,14 @@ app.whenReady().then(async () => {
     const imported = await evaluate(`window.api.importProjectFiles(${JSON.stringify(project.id)},Array.from(document.querySelector('#file').files))`);
     assert.equal(imported[0].file_path, file);
     assert.equal(imported[0].content, 'sandbox project import');
-    const uploads = await evaluate("window.api.processUploads(Array.from(document.querySelector('#file').files))");
+    const uploads = await evaluate(`window.api.stageAttachments(Array.from(document.querySelector('#file').files),{sessionId:'sandbox-session',modelId:'/test-model.gguf'})`);
+    assert.equal(uploads[0].storage_kind,'referenced');
+    assert.equal(uploads[0].file_path,file);
     assert.equal(fs.readFileSync(uploads[0].file_path, 'utf8'), 'sandbox project import');
     const { JPEG_BASE64 } = await import('./fixtures/visionImages.mjs');
-    const optimized = await evaluate(`window.api.processUploads([{name:'image.jpg',dataUrl:${JSON.stringify('data:image/jpeg;base64,' + JPEG_BASE64)}}])`);
+    const optimized = await evaluate(`window.api.stageAttachments([{name:'image.jpg',dataUrl:${JSON.stringify('data:image/jpeg;base64,' + JPEG_BASE64)}}],{sessionId:'sandbox-session',modelId:'/test-model.gguf'})`);
     assert.equal(optimized[0].mime_type, 'image/jpeg');
+    assert.equal(optimized[0].storage_kind,'managed');
     assert.ok(fs.readFileSync(optimized[0].file_path).equals(Buffer.from(JPEG_BASE64, 'base64')));
     await evaluate(`document.querySelector('#media').src=${JSON.stringify('data:image/jpeg;base64,' + JPEG_BASE64)};new Promise((resolve,reject)=>{const image=document.querySelector('#media');image.onload=()=>resolve(true);image.onerror=reject})`);
     await evaluate('window.memoryPalace.getOrCreateSession("sandbox-session","test-model")');
@@ -120,6 +124,9 @@ app.whenReady().then(async () => {
     database.initDatabase();
     const session = await evaluate('window.memoryPalace.loadSession("sandbox-session")');
     assert.ok(session.messages.some(message => message.content === 'sandbox persisted'));
+    const search = await evaluate('window.memoryPalace.searchMessages({query:"sandbox persisted"})');
+    assert.ok(search.matches.some(match => match.id === saved.id && match.session_id === 'sandbox-session'));
+    await assert.rejects(evaluate('window.memoryPalace.searchMessages({query:42})'), /query/);
     console.log('PASS production sandboxed preload; nine API shapes; 12 event/cleanup contracts; controls; real project/file/upload IPC; JPEG rendering; SQLite reopen', JSON.stringify(sandbox));
   } finally {
     dispose?.(); database.closeDatabase(); window?.destroy();

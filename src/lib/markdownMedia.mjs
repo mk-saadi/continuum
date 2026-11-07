@@ -19,16 +19,17 @@ export function mediaSource(value) {
     if (!decoded) {
       try { source = decodeURIComponent(source); } catch { /* A literal percent in a raw path. */ }
     }
-    return 'media://' + source.split('/').map(segment => encodeURIComponent(segment)).join('/');
+    return 'media://files' + source.split('/').map(segment => encodeURIComponent(segment)).join('/');
   }
   // Online video is intentionally unsupported: playback is local-files-only.
-  if (/^(https:\/\/|media:\/\/\/|local:\/\/media\/)/i.test(source)) return source;
+  if (/^media:\/\/\//i.test(source)) return source.replace(/^media:\/\/\//i, 'media://files/');
+  if (/^(https:\/\/|media:\/\/files\/|local:\/\/media\/)/i.test(source)) return source;
   // Inline base64 is limited to images; video must be a file on disk.
   if (/^data:image\/(?:png|jpeg|gif|webp|avif|bmp);base64,/i.test(source)) return source;
   return '';
 }
 
-const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|mkv|avi|ts)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|mkv|avi|ts|m2ts|mts|mpeg|mpg|m4v|ogv|ogg|3gp|3g2|wmv|flv|vob)$/i;
 
 export function isVideoSource(source) {
   try { return VIDEO_EXTENSIONS.test(decodeURIComponent(new URL(source).pathname)); }
@@ -37,7 +38,7 @@ export function isVideoSource(source) {
 
 // Video playback is restricted to local files served through the app's own protocols.
 export function isLocalVideoSource(source) {
-  return typeof source === 'string' && /^(media:\/\/\/|local:\/\/media\/)/i.test(source) && isVideoSource(source);
+  return typeof source === 'string' && /^(media:\/\/(?:files\/|\/)|local:\/\/media\/)/i.test(source) && isVideoSource(source);
 }
 
 export function mediaUrlTransform(url, key, node) {

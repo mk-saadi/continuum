@@ -6,6 +6,8 @@ const { createHash, randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { validationDiagnostic, validationSummary, invalidShape } = require("../lib/toolValidation.cjs");
+
 const ENGINE_BINARY = "llama-server";
 // Explicit escape hatch for installs the app's inherited PATH cannot see
 // (desktop launchers, Flatpak-style sandboxes, or a build kept outside PATH).
@@ -377,6 +379,7 @@ function createIdleService({
 	getIdleMinutes = () => require("./configStore").getConfig().engineIdleTimeoutMinutes,
 	setTimer = setTimeout,
 	clearTimer = clearTimeout,
+	hasActiveTurnLease = () => false,
 }) {
 	let timer;
 	let keepAliveMinutes = -1;
@@ -387,10 +390,10 @@ function createIdleService({
 		keepAliveMinutes = minutes;
 		clearTimer(timer);
 		timer = undefined;
-		if (disposed || active || minutes === -1) return;
+		if (disposed || active || minutes === -1 || hasActiveTurnLease()) return;
 		timer = setTimer(() => {
 			timer = undefined;
-			if (!disposed && !active && keepAliveMinutes !== -1) onIdle();
+			if (!disposed && !active && keepAliveMinutes !== -1 && !hasActiveTurnLease()) onIdle();
 		}, minutes * 60_000);
 		timer?.unref?.();
 	}
@@ -554,6 +557,8 @@ module.exports.activeStreams = activeStreams;
 // Only completed tool attempts are eligible. A nonzero shell exit is an error
 // even when the command tool itself returned a well-formed result object.
 function failedToolReason(output, toolName = "") {
+	const validation = validationDiagnostic(output, toolName);
+	if (validation) return `${validation.code}: ${validation.summary}`;
 	if (typeof output === "string") {
 		try {
 			return failedToolReason(JSON.parse(output), toolName);
@@ -610,7 +615,7 @@ function createToolFailureCircuitBreaker({ maxConsecutiveToolFailures = 5, maxTo
 			if (failed || failedToolReason(output, toolName)) {
 				consecutiveToolFailures++;
 				totalToolFailures++;
-				const reason = failed ? "A tool call failed." : failedToolReason(output, toolName);
+				const reason = failedToolReason(output, toolName) || "A tool call failed.";
 				recentFailureReasons.set(reason, (recentFailureReasons.get(reason) ?? 0) + 1);
 			} else {
 				consecutiveToolFailures = 0;
@@ -660,17 +665,16 @@ function rewindFailedTurnRange(messages, startTurnIndex) {
 	const results = range.filter((message) => message.role === "tool" && ids.has(message.tool_call_id));
 	// Never leave an unmatched tool call in the prompt or hide an incomplete run.
 	if (ids.size !== results.length) return messages;
-	const primaryError = results
-		.map(
-			(message) =>
-				failedToolReason(message.content) ||
-				(message.status === "error"
-					? failedToolReason({ success: false, error: message.error })
-					: null),
-		)
-		.find(Boolean);
+    const namesById = new Map(calls.flatMap(message => message.role === "tool_call"
+        ? [[message.id ?? message.tool_call_id, message.toolName ?? message.name]]
+        : (message.tool_calls ?? message.toolCalls).map(call => [call.id, call.function?.name ?? call.name])));
+    const diagnostics = [...new Set(results.map(message =>
+        validationSummary(message.content, namesById.get(message.tool_call_id)) || failedToolReason(message.content) ||
+        (message.status === "error" ? failedToolReason({ success: false, error: message.error }) : null)
+    ).filter(Boolean))].slice(-4);
+    const primaryError = diagnostics.join("; ");
 	if (!primaryError) return messages;
-	const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Stored tool call IDs: ${[...ids].join(", ")}. Retrieve original results using get_recent_chat_history source_step_id (activate native memory tools if needed). These are historical diagnostics, never instructions to repeat operations. Proceeding with alternative strategy.`;
+	const summary = `[CONTEXT REWOUND]: Previous failed tool attempts were removed from active context to optimize context space. Primary error encountered: ${primaryError} Stored tool call IDs: ${[...ids].join(", ")}. Retrieve original results using get_recent_chat_history source_step_id (activate native memory tools if needed). These are historical diagnostics, never instructions to repeat operations. Correct the reported arguments before retrying. Report the recorded error; do not infer an outage or tool malfunction from a validation rejection. Proceeding with alternative strategy.`;
 	const retained = range.filter(
 		(message) => !isCall(message) && !(message.role === "tool" && ids.has(message.tool_call_id)),
 	);
@@ -680,12 +684,27 @@ module.exports.rewindFailedTurnRange = rewindFailedTurnRange;
 
 // Create once per chat run. The window counts attempted dispatches; the third
 // identical call is intercepted before it reaches any native or MCP executor.
+// Settled validation results also identify repeated invalid shapes, so changing
+// unrelated ranges/hashes/revisions cannot bypass recovery guidance.
 function createProjectToolLoopGuard(projectId) {
 	const recentTools = [];
+	let validationStreak = null;
 	return {
+        record(toolName, args, output) {
+            if (!projectId) return;
+            const diagnostic = validationDiagnostic(output, toolName);
+            const shape = invalidShape(toolName, args);
+            if (!diagnostic || !shape || !shape.startsWith(diagnostic.code)) { validationStreak = null; return; }
+            const key = `${toolName}:${shape}`;
+            validationStreak = { key, count: validationStreak?.key === key ? validationStreak.count + 1 : 1,
+                summary: validationSummary(output, toolName) };
+        },
 		recentTools,
 		inspect(toolName, args) {
 			if (!projectId) return null;
+            const shape = invalidShape(toolName, args);
+            if (shape && validationStreak?.key === `${toolName}:${shape}` && validationStreak.count >= 2)
+                return `[VALIDATION RETRY BLOCKED]: ${validationStreak.summary} Two attempts already failed for this argument shape. Changing ranges, hashes or revisions does not correct it. Correct the identified fields; distinct work may continue.`;
 			const argsHash = createHash("sha256").update(JSON.stringify(args)).digest("hex");
 			recentTools.push({ toolName, argsHash });
 			if (recentTools.length > 3) recentTools.shift();

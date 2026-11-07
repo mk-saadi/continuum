@@ -116,6 +116,8 @@ function registerIpcHandlers({
 	getLocalModelMetadata = () => null,
 	getEngineConfig,
 	getEngineForPort = () => null,
+	getEngineLifecycle = () => null,
+	getScheduledTasks = () => null,
 } = {}) {
 	if (typeof isTrustedSender !== "function") {
 		throw new TypeError("isTrustedSender must be a function.");
@@ -159,6 +161,24 @@ function registerIpcHandlers({
 		return entry;
 	};
 	const subscribers = new Set();
+	// Scheduled-task events are advisory state updates (task/run changed). A
+	// renderer opts in explicitly; disposal removes both the native listener
+	// and the subscriber set so a closed window cannot keep receiving events.
+	const scheduledSubscribers = new Set();
+	const scheduledTaskEvents = getScheduledTasks?.()?.events ?? null;
+	const forwardScheduledTaskEvent = event => {
+		for (const sender of [...scheduledSubscribers]) {
+			if (sender.isDestroyed()) { scheduledSubscribers.delete(sender); continue; }
+			try { sender.send('scheduled-task:event', event); }
+			catch { scheduledSubscribers.delete(sender); }
+		}
+	};
+	scheduledTaskEvents?.on?.('event', forwardScheduledTaskEvent);
+	const scheduledTasks = () => {
+		const instance = getScheduledTasks?.();
+		if (!instance) throw new Error('Scheduled tasks are not available.');
+		return instance;
+	};
 	const context = () => ({ ...mcpManager.getStatus(), ...getToolContext(mcpManager.getTools(null)) });
 	const broadcast = () => {
 		for (const sender of subscribers) {
@@ -215,6 +235,30 @@ function registerIpcHandlers({
         "project:add_file": ({ project_id, ...file }) => projects.addProjectFile(project_id, file),
         "project:remove_file": ({ id }) => projects.removeProjectFile(id),
         "project:set_pinned": ({ id, is_pinned }) => projects.setProjectPinned(id, is_pinned),
+        // Scheduled tasks are fully main-process owned. Every payload is
+        // validated again in scheduledTasks before touching SQLite; these
+        // handlers only shuttle data and never trust a renderer-supplied id
+        // for anything except lookup.
+        "scheduled-task:list": input => scheduledTasks().listTasks(input ?? {}),
+        "scheduled-task:get": ({ id } = {}) => {
+            const task = scheduledTasks().getTask(id);
+            if (!task) throw new Error('Scheduled task not found.');
+            return task;
+        },
+        "scheduled-task:history": input => scheduledTasks().listRuns(input ?? {}),
+        "scheduled-task:create": input => scheduledTasks().createTask(input),
+        "scheduled-task:update": ({ id, ...patch } = {}) => scheduledTasks().updateTask(id, patch),
+        "scheduled-task:pause": ({ id } = {}) => scheduledTasks().pauseTask(id),
+        "scheduled-task:resume": ({ id } = {}) => scheduledTasks().resumeTask(id),
+        "scheduled-task:delete": ({ id } = {}) => scheduledTasks().deleteTask(id),
+        "scheduled-task:run-now": ({ id } = {}) => scheduledTasks().runNow(id),
+        "scheduled-task:cancel": input => scheduledTasks().cancelRun(input ?? {}),
+        "scheduled-task:subscribe": (_input, _notify, sender) => {
+            if (!sender || sender.isDestroyed()) throw new Error('Invalid scheduled-task subscriber.');
+            scheduledSubscribers.add(sender);
+            sender.once('destroyed', () => scheduledSubscribers.delete(sender));
+            return { subscribed: true };
+        },
         "skills:list": () => skills.listSkills(),
         "skills:save": input => skills.saveSkill(input),
         "skills:delete": ({ id }) => skills.removeSkill(id),
@@ -331,7 +375,7 @@ function registerIpcHandlers({
 				: { params: saveGlobalSamplingParams(params) },
 		"rag:get-settings": () => getRagSettings(),
 		"rag:save-settings": (settings) => saveRagSettings(settings),
-		"rag:index": async ({ requestId, attachments }, notify, sender) => {
+		"rag:index": async ({ requestId, attachments, sessionId }, notify, sender) => {
 			if (typeof requestId !== "string" || !requestId || !Array.isArray(attachments))
 				throw new Error("Invalid indexing request.");
 			if (requests.get(sender)?.size)
@@ -342,7 +386,7 @@ function registerIpcHandlers({
 			sender.once("destroyed", abort);
 			try {
                 notify({ type: "indexing", progress: null });
-				return await indexDocuments(attachments, {
+				return await indexDocuments(attachments.map(file=>file.version_id ? require("./attachmentStore").authorize(file,sessionId) : file), {
 					signal: controller.signal,
 					onProgress: (progress) => notify({ type: "indexing", ...progress }),
 				});
@@ -535,6 +579,8 @@ function registerIpcHandlers({
 		},
 		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender, emitActivity = () => {}) => {
             if (sessionId) require('./sessionDeletion').assertAvailable(sessionId);
+            if (sessionId && require('./db').db.prepare(`SELECT 1 FROM message_attachments a JOIN messages m ON m.id=a.message_id WHERE m.session_id=? AND a.version_id IS NOT NULL LIMIT 1`).get(sessionId))
+                messages = rebuildChatMessages({sessionId,modelId,userText:require('./sessionManager').getActiveMessages(sessionId).filter(m=>m.role==='user').at(-1)?.content || ''});
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
@@ -621,7 +667,12 @@ function registerIpcHandlers({
 				persistence?.update({ content: materializeContent(), executionSteps, stats: currentStats, status });
 			};
             const finishEngineRequest = cloud ? undefined : beginEngineRequest?.(modelId);
+			let turnLease = null;
 			try {
+                // A local turn holds the model for its whole duration — every
+                // generation and every tool call. Cloud turns never touch the
+                // local engine, so they do not take a lease.
+                if (!cloud) turnLease = getEngineLifecycle?.(modelId)?.acquireTurnLease?.() ?? null;
                 require('./nativeToolActivation').begin(sessionId, runId);
                 mcpManager.beginRun?.(sessionId, runId);
                 notify({ type: "indexing", progress: null });
@@ -699,6 +750,8 @@ function registerIpcHandlers({
                 const taskPermissionRevision = require('./lspExecutionContext').revision(sessionId);
                 const initialPlanRevision = usageProjectId ? getWorkspacePlan(sessionId)?.revision : null;
 				const text = await runMemoryChat({
+                    refreshMemoryContext: history => buildSessionSystemPrompt({ sessionId, modelId, delegationAvailable,
+                        userText: require('./memoryRetrieval').activityQuery(currentUserText, history) }),
                     getTaskState: usageProjectId ? () => {
                         if (!require('./db').db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId)) throw new Error('Task session deleted.');
                         const plan = getWorkspacePlan(sessionId);
@@ -750,25 +803,11 @@ function registerIpcHandlers({
                                 messageId: persistence?.messageId, startTurnIndex, endTurnIndex, summary });
                         },
                         casualMode: usageProjectId == null,
-                        onToolLimit: ({ currentCount, nextTool }) => permissionMode === 'full_access' ? Promise.resolve(true) : new Promise(resolve => {
-                            let settled = false;
-                            const finish = allowed => {
-                                if (settled) return;
-								settled = true;
-								if (!allowed) stoppedByLimit = true;
-                                clearTimeout(timeout);
-                                controller.signal.removeEventListener('abort', stop);
-                                delete controller.resolveToolLimit;
-                                if (!sender.isDestroyed()) sender.send('engine:tool-limit-reached', { requestId, sessionId, resolved: true });
-                                resolve(allowed);
-                            };
-                            const stop = () => finish(false);
-                            const timeout = setTimeout(() => { soundLimitTimedOut = true; stop(); }, 120_000);
-                            controller.resolveToolLimit = finish;
-                            controller.signal.addEventListener('abort', stop, { once: true });
-                            if (controller.signal.aborted || sender.isDestroyed()) { stop(); return; }
-                            sender.send('engine:tool-limit-reached', { requestId, sessionId, currentCount, nextTool });
-                        }),
+                        // Casual tool-call batches extend automatically. The
+                        // call-count limit is a pacing prompt, not a permission
+                        // grant; each tool still passes its normal permission
+                        // and approval checks before execution.
+                        onToolLimit: () => Promise.resolve(true),
                         onPaused: state => new Promise(resolve => {
                             const pauseId = require('node:crypto').randomUUID();
                             const finish = resume => {
@@ -1246,6 +1285,9 @@ function registerIpcHandlers({
                 throw error;
 			} finally {
                 try {
+                // Release the model lease on every exit path — success, error,
+                // abort, or an exception during teardown below.
+                if (turnLease) { turnLease.release(); turnLease = null; }
 				if (persistTimer !== null) clearTimeout(persistTimer);
                 finishEngineRequest?.();
                 notify({ type: "indexing", progress: null });
@@ -1332,6 +1374,41 @@ function registerIpcHandlers({
 		},
 		"engine:get-load-config": ({ modelId }) => getLoadConfig(modelId),
 		"engine:launch": ({ modelId, config }) => launchEngine(modelId, config),
+        "attachment:bridge": (_input, _notify, sender) => require('./attachmentStore').bridge(sender),
+        "attachment:stage": async (input, _notify, sender) => {
+            const store=require('./attachmentStore'); store.assertBridge(sender,input.bridgeToken);
+            const policy=await require('./attachmentAccess').getAttachmentPolicy(input,getEngineConfig);
+            const {assertAttachmentNames}=await import('../lib/attachmentPolicy.mjs');
+            if(!Array.isArray(input.files)) throw new Error('Invalid attachment selection.');
+            assertAttachmentNames(input.files.map(file=>file.nativePath || file.name),policy);
+            return store.stage(input.files,input);
+        },
+        "attachment:open": async ({sessionId,attachment}) => {
+            const store=require('./attachmentStore'); store.checkSession(sessionId); const row=store.authorize(attachment,sessionId);
+            if(row.omitted) throw new Error('This attachment was explicitly omitted. Restore it in attachment details.');
+            await store.verified(store.version(row.version_id));
+            return shell.openPath(row.file_path);
+        },
+        "attachment:inspect": ({sessionId,attachment}) => require('./attachmentStore').inspect(attachment,sessionId),
+        "attachment:preview": ({sessionId,attachment}) => require('./attachmentStore').preview(attachment,sessionId),
+        "attachment:recover": async ({sessionId,attachment,action}) => {
+            const store=require('./attachmentStore'); store.checkSession(sessionId); store.authorize(attachment,sessionId);
+            let selectedPath;
+            if(action==='locate' || action==='replace') {
+                // Never accept a relink path from web content. The main dialog grants it.
+                const selection=await dialog.showOpenDialog({title:'Locate the original attachment',properties:['openFile']});
+                if(selection.canceled || !selection.filePaths.length) return null;
+                selectedPath=selection.filePaths[0];
+            }
+            return store.recover(attachment,sessionId,action,selectedPath);
+        },
+        "attachment:issues": async ({sessionId}) => {
+            require('./attachmentStore').checkSession(sessionId);
+            const rows=require('./db').db.prepare(`SELECT a.* FROM message_attachments a JOIN messages m ON m.id=a.message_id WHERE m.session_id=? AND a.version_id IS NOT NULL`).all(sessionId);
+            const issues=[];
+            for(const row of rows) { const status=await require('./attachmentStore').inspect(row,sessionId); if(status.status!=='ready' && status.status!=='omitted') issues.push(status); }
+            return issues;
+        },
 		"file:attachment-policy": input => require('./attachmentAccess').getAttachmentPolicy(input, getEngineConfig),
         "file:process-uploads": async input => {
             if (Array.isArray(input)) {
@@ -1342,10 +1419,14 @@ function registerIpcHandlers({
             const { assertAttachmentNames } = await import('../lib/attachmentPolicy.mjs');
             if (!Array.isArray(input.files)) throw new Error('Invalid uploads.');
             assertAttachmentNames(input.files.map(file => typeof file === 'string' ? file : file.name), policy);
+            if(input.files.some(file=>typeof file==='string' || file?.nativePath || file?.file_path))
+                throw new Error('Disk paths are not attachment authorization. Use the native file selection bridge.');
             return processUploads(input.files);
         },
 		"workspace:compaction-activity-list": ({ sessionId }) => require('./workspaceCompactionActivity').list(sessionId),
         "session:get-all": () => getAllSessions(),
+        "session:spotlight-search": ({ query, cursor } = {}) => require('./messageSearch').searchMessages(
+            require('./db').db, query, { cursor, limit: 5, deadline: Date.now() + 50 }),
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),
 		"session:load-display": async ({ sessionId }) => {
@@ -1594,9 +1675,18 @@ function registerIpcHandlers({
 	};
 
 	const registered = [];
+    for(const channel of ['session:prepare-messages','engine:chat','engine:branch-and-execute','session:regenerate-last']) {
+        const original=handlers[channel];
+        handlers[channel]=(...args)=>require('./attachmentStore').withSnapshots(args[0]?.sessionId,args[0]?.attachments,()=>original(...args));
+    }
+
+	const unregisterChatTurnHandler = require('./agentTurnRunner').registerChatTurnHandler(handlers["engine:chat"]);
 	const dispose = () => {
+		unregisterChatTurnHandler();
 		mcpManager.off("changed", broadcast);
 		subscribers.clear();
+		scheduledTaskEvents?.off?.('event', forwardScheduledTaskEvent);
+		scheduledSubscribers.clear();
 		for (const active of requests.values()) for (const controller of active.values()) controller.abort(require('./workspaceGenerationRuntime').reason('ipc-disposed'));
 		for (const channel of registered.splice(0)) ipcMain.removeHandler(channel);
 	};
@@ -1605,6 +1695,9 @@ function registerIpcHandlers({
 			ipcMain.handle(channel, async (event, payload) => {
 				if (!isTrustedSender(event)) throw new Error("Unauthorized IPC sender.");
 				if (channel === 'config:migrate-app-data') return handler(payload);
+                if (['session:prepare-messages','session:save-message','rag:index'].includes(channel) && payload?.attachments?.some(file=>!file?.version_id))
+                    throw new Error('Attachment paths are not authorization. Select the file through the native attachment bridge.');
+                if(channel==='rag:index') require('./attachmentStore').checkSession(payload?.sessionId);
                 return require('./dataAccess').withDataAccess(async () => {
                 if (channel.startsWith("mcp:") && !subscribers.has(event.sender)) {
                     subscribers.add(event.sender);
@@ -1640,8 +1733,10 @@ function registerIpcHandlers({
 				}
 				// Steering handlers read/write only main-process state but need the
 				// sender identity to prove run ownership. No stream dispatcher is
-				// involved: status updates are compact direct events.
-				if (channel.startsWith("steering:") || channel === "engine:set-permission-mode" || channel === "session:delete") return handler(payload, () => {}, event.sender);
+				// involved: status updates are compact direct events. The scheduled
+				// task subscriber needs the sender to address future events.
+				if (channel.startsWith("attachment:") || channel.startsWith("steering:") || channel === "engine:set-permission-mode" || channel === "session:delete" ||
+					channel === "scheduled-task:subscribe") return handler(payload, () => {}, event.sender);
 				return handler(payload);
                 });
 			});

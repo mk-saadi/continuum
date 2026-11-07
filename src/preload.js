@@ -2,6 +2,30 @@
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// The main-issued capability stays in the isolated preload. Web content cannot
+// mint disk grants by supplying a string path or a JS-created File with .path.
+let attachmentBridge;
+async function stageAttachments(files, target = {}) {
+  attachmentBridge ??= ipcRenderer.invoke('attachment:bridge');
+  const sources = [];
+  for (const file of Array.from(files)) {
+    let nativePath = '';
+    try { nativePath = webUtils.getPathForFile(file); } catch { /* Byte envelopes have no native backing. */ }
+    if (nativePath) { sources.push({ nativePath }); continue; }
+    if (typeof file?.dataUrl === 'string') { sources.push({name:file.name,dataUrl:file.dataUrl}); continue; }
+    if (!(file instanceof File)) throw new Error('Choose or paste a real file. Paths are not attachment authorization.');
+    const dataUrl = await new Promise((resolve,reject)=>{
+      const reader = new FileReader(); reader.onload=()=>resolve(reader.result);
+      reader.onerror=()=>reject(new Error('Could not read pasted image. Paste it again.')); reader.readAsDataURL(file);
+    });
+    const ext = {'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[file.type];
+    sources.push({name:file.name?.includes('.')?file.name:ext?'pasted-image'+ext:file.name,dataUrl});
+  }
+  return ipcRenderer.invoke('attachment:stage', {sessionId:target.sessionId,modelId:target.modelId,
+    activeChatProvider:target.activeChatProvider,keepCopy:target.keepCopy===true,
+    bridgeToken:await attachmentBridge,files:sources});
+}
+
 // One native listener across every mounted tab; session-scoped fan-out.
 const compactionSubscribers = new Map();
 const dispatchCompactionActivity = (_event, record) => {
@@ -22,6 +46,26 @@ function subscribeCompactionActivity(sessionId, callback) {
     callbacks.delete(listener);
     if (!callbacks.size) compactionSubscribers.delete(sessionId);
     if (!compactionSubscribers.size) ipcRenderer.removeListener('workspace:compaction-activity', dispatchCompactionActivity);
+  };
+}
+
+// Scheduled-task state events are opt-in. Main validates the subscribing
+// sender and sends only compact task/run snapshots; a broken consumer cannot
+// starve another listener.
+function subscribeScheduledTaskEvents(callback) {
+  if (typeof callback !== 'function') throw new TypeError('A callback is required.');
+  const listener = (_event, value) => {
+    try { callback(value); } catch { /* a closed pane must not starve siblings */ }
+  };
+  ipcRenderer.on('scheduled-task:event', listener);
+  // The handler is idempotent. Failure only means this build predates the
+  // scheduler; event listeners above remain harmless.
+  ipcRenderer.invoke('scheduled-task:subscribe').catch(() => {});
+  let subscribed = true;
+  return () => {
+    if (!subscribed) return;
+    subscribed = false;
+    ipcRenderer.removeListener('scheduled-task:event', listener);
   };
 }
 
@@ -149,6 +193,12 @@ contextBridge.exposeInMainWorld('api', {
   launchEngine: (modelId, config) => ipcRenderer.invoke('engine:launch', { modelId, config }),
   unloadEngine: (modelId) => ipcRenderer.invoke('engine:unload', { modelId }),
   getAttachmentPolicy: target => ipcRenderer.invoke('file:attachment-policy', target),
+  stageAttachments,
+  openAttachment: input => ipcRenderer.invoke('attachment:open', input),
+  inspectAttachment: input => ipcRenderer.invoke('attachment:inspect', input),
+  previewAttachment: input => ipcRenderer.invoke('attachment:preview', input),
+  recoverAttachment: input => ipcRenderer.invoke('attachment:recover', input),
+  attachmentIssues: sessionId => ipcRenderer.invoke('attachment:issues', {sessionId}),
   processUploads: (files, target) => {
     const paths = Array.from(files, (file) => {
       if (typeof file?.dataUrl === 'string') return { name: file.name, dataUrl: file.dataUrl };
@@ -157,6 +207,22 @@ contextBridge.exposeInMainWorld('api', {
       return filePath;
     });
     return ipcRenderer.invoke('file:process-uploads', target ? { ...target, files: paths } : paths);
+  },
+  // Phase 3 background scheduling. These bindings only expose data and
+  // commands; recurrence, permission and model policy are enforced in main.
+  // Events are opt-in via onEvent (see subscribeScheduledTaskEvents).
+  scheduledTasks: {
+    list: options => ipcRenderer.invoke('scheduled-task:list', options ?? {}),
+    get: id => ipcRenderer.invoke('scheduled-task:get', { id }),
+    history: options => ipcRenderer.invoke('scheduled-task:history', options ?? {}),
+    create: task => ipcRenderer.invoke('scheduled-task:create', task),
+    update: (id, patch) => ipcRenderer.invoke('scheduled-task:update', { ...patch, id }),
+    pause: id => ipcRenderer.invoke('scheduled-task:pause', { id }),
+    resume: id => ipcRenderer.invoke('scheduled-task:resume', { id }),
+    delete: id => ipcRenderer.invoke('scheduled-task:delete', { id }),
+    runNow: id => ipcRenderer.invoke('scheduled-task:run-now', { id }),
+    cancel: options => ipcRenderer.invoke('scheduled-task:cancel', options ?? {}),
+    onEvent: subscribeScheduledTaskEvents,
   },
 });
 
@@ -168,6 +234,7 @@ contextBridge.exposeInMainWorld('memoryPalace', {
   setActiveVariant: (sessionId, messageId, index) => ipcRenderer.invoke('session:set-active-variant', { sessionId, messageId, index }),
   selectMessageBranch: (sessionId, messageId) => ipcRenderer.invoke('session:select-message-branch', { sessionId, messageId }),
   getAllSessions: () => ipcRenderer.invoke('session:get-all'),
+  searchMessages: input => ipcRenderer.invoke('session:spotlight-search', input),
   createFolder: (folderName) => ipcRenderer.invoke('session:create-folder', { folderName }),
   loadSession: (sessionId) => ipcRenderer.invoke('session:load', { sessionId }),
   renameSession: (sessionId, title) => ipcRenderer.invoke('session:rename', { sessionId, title }),

@@ -1,0 +1,164 @@
+{
+  "method": "GGUF vocab-only llama.cpp tokenizer; embedded template rendered by Python Jinja2, thinking enabled; retrospective not original server serialization",
+  "templateSha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+  "records": {
+    "fixture-before": {
+      "templateTokens": 11753,
+      "serializedBytes": 46832,
+      "renderedBytes": 49305,
+      "tools": 46
+    },
+    "fixture-after": {
+      "templateTokens": 11458,
+      "serializedBytes": 45851,
+      "renderedBytes": 48353,
+      "tools": 46
+    },
+    "fixture-compact": {
+      "templateTokens": 6320,
+      "serializedBytes": 26041,
+      "renderedBytes": 27621,
+      "tools": 19
+    },
+    "reconstructed-full": {
+      "templateTokens": 11864,
+      "serializedBytes": 47863,
+      "renderedBytes": 50182,
+      "tools": 46,
+      "withoutTools": {
+        "templateTokens": 2411,
+        "serializedBytes": 11839,
+        "renderedBytes": 11630,
+        "tools": 0
+      },
+      "messageBytes": [
+        {
+          "role": "system",
+          "bytes": 11328
+        },
+        {
+          "role": "user",
+          "bytes": 5
+        }
+      ]
+    },
+    "reconstructed-before": {
+      "templateTokens": 12159,
+      "serializedBytes": 48844,
+      "renderedBytes": 51134,
+      "tools": 46
+    },
+    "reconstructed-compact": {
+      "templateTokens": 6622,
+      "serializedBytes": 27593,
+      "renderedBytes": 28971,
+      "tools": 18
+    }
+  },
+  "reconstructionComponents": {
+    "projectContextBytes": 106,
+    "memoryAndClarificationsBytes": 1504,
+    "personaBytes": 1250,
+    "memoryEnabled": true,
+    "allowMidRunQuestions": true,
+    "sourceMessages": [
+      {
+        "role": "system",
+        "bytes": 1701,
+        "kind": "base"
+      },
+      {
+        "role": "system",
+        "bytes": 533,
+        "kind": "brief"
+      },
+      {
+        "role": "system",
+        "bytes": 8110,
+        "kind": "session"
+      },
+      {
+        "role": "system",
+        "bytes": 90,
+        "kind": "planState"
+      },
+      {
+        "role": "system",
+        "bytes": 570,
+        "kind": "executionEnvironment"
+      },
+      {
+        "role": "user",
+        "bytes": 5,
+        "kind": "conversation"
+      }
+    ]
+  },
+  "fixtureByteBreakdown": {
+    "before": {
+      "core": 1553,
+      "workspace": 7105,
+      "safetyPermissions": 757,
+      "toolDescriptions": 19286,
+      "toolSchemas": 16984,
+      "plans": 0,
+      "briefs": 534,
+      "worklogs": 0,
+      "checkpoint": 0,
+      "recentConversation": 5,
+      "serialization": 608
+    },
+    "after": {
+      "core": 1553,
+      "workspace": 6124,
+      "safetyPermissions": 757,
+      "toolDescriptions": 19286,
+      "toolSchemas": 16984,
+      "plans": 0,
+      "briefs": 534,
+      "worklogs": 0,
+      "checkpoint": 0,
+      "recentConversation": 5,
+      "serialization": 608
+    },
+    "compact": {
+      "core": 1553,
+      "workspace": 6282,
+      "safetyPermissions": 757,
+      "toolDescriptions": 8571,
+      "toolSchemas": 7731,
+      "plans": 0,
+      "briefs": 534,
+      "worklogs": 0,
+      "checkpoint": 0,
+      "recentConversation": 5,
+      "serialization": 608
+    }
+  },
+  "provenance": {
+    "llamaLibrary": {
+      "sha256": "d9306c8226e11b2e36163a49dc9352f36eb55d1225915606b91b6ea16c5f634d"
+    },
+    "commonLibrary": {
+      "sha256": "e1f917333ac9cc242a0045f9ca0dfbe18d6e38261384a950b4534544666e4019"
+    },
+    "model": {
+      "basename": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+      "bytes": 12120016960,
+      "wholeFileHash": "not measured"
+    }
+  },
+  "originalUsage": {
+    "sessionId": "21bc2b0e-0118-4676-bd20-561fe9f7fa95",
+    "assistantMessageId": 5115,
+    "requests": 1,
+    "promptTokens": 12061,
+    "completionTokens": 152,
+    "totalTokens": 12213,
+    "cachedTokens": 0,
+    "finishReason": "stop",
+    "toolCalls": 0,
+    "historicalProfile": "not persisted",
+    "preparedMeasurement": "not persisted"
+  }
+}

@@ -24,6 +24,7 @@ app.whenReady().then(async () => {
     await window.loadFile(path.join(directory, 'index.html'));
     await window.webContents.executeJavaScript(`(async()=>{
       const wait=()=>new Promise(r=>setTimeout(r,80));
+      const expandTool=()=>{const toggle=document.querySelector('button[aria-expanded="false"]');if(toggle)toggle.click();};
       const activityButton=()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Show sub-agent activity'));
       for(const legacy of [false,true]) {
         window.renderCard(legacy,'running');await wait();activityButton().click();await wait();
@@ -34,7 +35,9 @@ app.whenReady().then(async () => {
         }
         document.querySelector('[aria-label="Close sub-agent activity"]').click();await wait();
         window.renderCard(legacy,'complete');await wait();
-        const button=activityButton();if(!button||button.closest('[hidden]'))throw Error('Completed button hidden');
+        const collapsed=activityButton();if(collapsed&&!collapsed.closest('[hidden]'))throw Error('Activity button outside collapsed tool details');
+        expandTool();await wait();
+        const button=activityButton();if(!button||button.closest('[hidden]'))throw Error('Expanded tool lacks activity button');
         button.click();await wait();if(!document.querySelector('dialog')?.open)throw Error('Cannot reopen modal');
         document.querySelector('[aria-label="Close sub-agent activity"]').click();await wait();
       }

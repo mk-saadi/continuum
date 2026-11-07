@@ -433,6 +433,62 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_messages_session
     ON messages(session_id, created_at);
+
+  -- Background scheduled tasks. Definitions are the durable source of truth;
+  -- recurrence, model policy and catch-up policy are JSON so v1 can grow
+  -- without a table rebuild. next_run_at is a UTC epoch millisecond value and
+  -- is nullable because a fired one-time task has no next occurrence.
+  CREATE TABLE IF NOT EXISTS scheduled_tasks (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    schedule_json TEXT NOT NULL,
+    timezone TEXT NOT NULL,
+    model_json TEXT NOT NULL,
+    fallback_json TEXT,
+    missed_policy_json TEXT NOT NULL,
+    permission_mode TEXT NOT NULL DEFAULT 'read_only',
+    budget_json TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    next_run_at INTEGER,
+    last_run_at INTEGER,
+    last_status TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next
+    ON scheduled_tasks(enabled, next_run_at);
+
+  -- One row per attempted occurrence. task_id deliberately has no foreign key
+  -- cascade: deleting a task must never erase its execution history. The
+  -- unique (task_id, scheduled_for) key is the idempotency guard for an
+  -- occurrence; a manual run reserves a unique synthetic slot.
+  CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+    id TEXT PRIMARY KEY NOT NULL,
+    task_id TEXT NOT NULL,
+    session_id TEXT,
+    scheduled_for INTEGER NOT NULL,
+    trigger TEXT NOT NULL DEFAULT 'schedule',
+    status TEXT NOT NULL,
+    claimed_at INTEGER,
+    started_at INTEGER,
+    finished_at INTEGER,
+    failure_reason TEXT,
+    model_json TEXT,
+    fallback_used INTEGER NOT NULL DEFAULT 0 CHECK (fallback_used IN (0, 1)),
+    usage_json TEXT,
+    deferred_until INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(task_id, scheduled_for)
+  );
+  CREATE INDEX IF NOT EXISTS idx_scheduled_runs_task
+    ON scheduled_task_runs(task_id, scheduled_for DESC);
+  CREATE INDEX IF NOT EXISTS idx_scheduled_runs_status
+    ON scheduled_task_runs(status, scheduled_for);
+  CREATE INDEX IF NOT EXISTS idx_scheduled_runs_session
+    ON scheduled_task_runs(session_id);
 `;
 
 /** Initialize after app.whenReady(); returns the shared database connection. */
@@ -509,6 +565,30 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
       require('./sessionCosts').install(connection);
       connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_parent_time ON subagent_runs(parent_session_id, completed_at)');
       connection.exec('CREATE INDEX IF NOT EXISTS idx_subagent_runs_completed_at ON subagent_runs(completed_at)');
+      // Scheduled-task tables are new, but keep this migration additive so a
+      // database created by an earlier draft of the feature still opens.
+      const scheduledTaskColumns = new Set(connection.pragma('table_info(scheduled_tasks)').map(column => column.name));
+      for (const [name, type] of Object.entries({
+        schedule_json: 'TEXT', timezone: 'TEXT', model_json: 'TEXT', fallback_json: 'TEXT',
+        missed_policy_json: 'TEXT', permission_mode: "TEXT NOT NULL DEFAULT 'read_only'", budget_json: 'TEXT',
+        enabled: 'INTEGER NOT NULL DEFAULT 1', next_run_at: 'INTEGER', last_run_at: 'INTEGER',
+        last_status: 'TEXT', created_at: 'INTEGER', updated_at: 'INTEGER',
+      })) {
+        if (!scheduledTaskColumns.has(name)) connection.exec(`ALTER TABLE scheduled_tasks ADD COLUMN ${name} ${type}`);
+      }
+      const scheduledRunColumns = new Set(connection.pragma('table_info(scheduled_task_runs)').map(column => column.name));
+      for (const [name, type] of Object.entries({
+        trigger: "TEXT NOT NULL DEFAULT 'schedule'", status: 'TEXT', claimed_at: 'INTEGER',
+        started_at: 'INTEGER', finished_at: 'INTEGER', failure_reason: 'TEXT', model_json: 'TEXT',
+        fallback_used: 'INTEGER NOT NULL DEFAULT 0', usage_json: 'TEXT', deferred_until: 'INTEGER',
+        created_at: 'INTEGER', updated_at: 'INTEGER', session_id: 'TEXT',
+      })) {
+        if (!scheduledRunColumns.has(name)) connection.exec(`ALTER TABLE scheduled_task_runs ADD COLUMN ${name} ${type}`);
+      }
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next ON scheduled_tasks(enabled, next_run_at)');
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_runs_task ON scheduled_task_runs(task_id, scheduled_for DESC)');
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_runs_status ON scheduled_task_runs(status, scheduled_for)');
+      connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_runs_session ON scheduled_task_runs(session_id)');
       if (!connection.pragma('table_info(projects)').some(column => column.name === 'permission_mode')) {
         connection.exec("ALTER TABLE projects ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'workspace_write' CHECK (permission_mode IN ('read_only', 'workspace_write', 'ask_approval', 'full_access'))");
       }
@@ -656,6 +736,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
     })();
     require('./legacyDataMigration').repairLegacyAttachmentPaths(connection, directory);
     require('./workspaceCompactionActivity').install(connection);
+    require('./attachmentStore').install(connection);
     database = connection;
     require('./backgroundCommands').restore(connection);
     return database;
@@ -747,8 +828,8 @@ function branchUserMessage({ messageId, newContent }) {
       (session_id, parent_id, role, content, variant_index, estimated_tokens)
       VALUES (?, ?, 'user', ?, ?, ?)`).run(target.session_id, target.parent_id, newContent, variantIndex, Math.ceil(newContent.length / 4));
     const userMessageId = Number(result.lastInsertRowid);
-    db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
-      SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ?`)
+    db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens, asset_id, version_id, omitted)
+      SELECT ?, file_path, mime_type, estimated_tokens, asset_id, version_id, omitted FROM message_attachments WHERE message_id = ?`)
       .run(userMessageId, messageId);
     db.prepare('UPDATE sessions SET active_leaf_id = ?, last_active_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(userMessageId, target.session_id);

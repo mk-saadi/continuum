@@ -1,3 +1,4 @@
+import { reconcileMessageSnapshot } from "../../lib/messageSnapshot.mjs";
 import { useCompactionActivity } from '../../hooks/useCompactionActivity.js';
 import RightSidebar from "../RightSidebar";
 import { getSidebarMode } from "../../lib/sidebarControls.mjs";
@@ -11,7 +12,8 @@ import { attachmentPolicy, assertAttachmentNames } from "../../lib/attachmentPol
 import { BsRobot } from "react-icons/bs";
 import { FiArrowDown, FiChevronDown, FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
-import { optimizeImage } from "../../utils/imageUtils.mjs";
+import { composerFileName } from "../../utils/composerAttachments.mjs";
+import { AttachmentControls, AttachmentIssues } from "../chat/AttachmentControls.jsx";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { combineQuotedMessage, extractScopedSelectionText } from "../../lib/textSelection.mjs";
 import { applyFindMarks, clearFindMarks, markIndexForMessage, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
@@ -43,9 +45,14 @@ import {
 	resolveChatPermissionMode,
 } from "../../lib/permissionModes.mjs";
 
-function SelectedFilePreview({ file, onRemove, disabled }) {
+function SelectedFilePreview({ file, onRemove, onChange, disabled }) {
 	const [previewUrl, setPreviewUrl] = useState(null);
 	useEffect(() => {
+        if(file.version_id) {
+            let active=true;
+            window.api.previewAttachment({sessionId:file.session_id,attachment:file}).then(result=>{if(active)setPreviewUrl(result.dataUrl);}).catch(()=>{if(active)setPreviewUrl(null);});
+            return ()=>{active=false;};
+        }
 		if (file.dataUrl) {
 			setPreviewUrl(file.dataUrl);
 			return;
@@ -72,11 +79,12 @@ function SelectedFilePreview({ file, onRemove, disabled }) {
 			>
 				{file.name}
 			</span>
+            {file.version_id && <AttachmentControls attachment={file} onChange={result=>result?onChange?.(result):onRemove(false)} disabled={disabled} />}
 			<button
 				type="button"
 				aria-label={`Remove ${file.name}`}
 				disabled={disabled}
-				onClick={onRemove}
+				onClick={()=>onRemove(true)}
 				className="absolute right-1 top-1 flex size-5 cursor-pointer items-center justify-center ui-radius-round bg-[var(--input)] text-[var(--text-primary)] shadow disabled:opacity-50"
 			>
 				<LuX />
@@ -119,6 +127,7 @@ export function ChatInterface({
 	onProject,
 	onCreateProject,
 	onChat = () => {},
+	onTasks = null,
 	renderWorkspace,
 	selectedModel,
 	baseUrl,
@@ -137,6 +146,7 @@ export function ChatInterface({
 	tabSaved = false,
 	onTabSaved,
 	tabActive = false,
+	navigationTarget,
 }) {
 	const [permissionBySession, setPermissionBySession] = useState({});
 	const [toolApprovals, setToolApprovals] = useState([]);
@@ -183,7 +193,7 @@ export function ChatInterface({
 		activeChatProvider.model,
 		engineRunning,
 	]);
-	const attachmentTarget = { modelId: selectedModel, activeChatProvider };
+	const attachmentTarget = { modelId: selectedModel, activeChatProvider, sessionId: palace.sessionId };
 
 	const currentModel = models.find((model) => model.id === selectedModel);
 	const currentModelPath = currentModel?.modelPath || currentModel?.path || selectedModel;
@@ -231,6 +241,7 @@ export function ChatInterface({
 		setPromptQueue((previous) => [...previous, { id: Date.now(), text }]);
 	}, []);
 	const isUserScrolledUp = useRef(false);
+	const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 	const composerRef = useRef(null);
 	// Keep the composer ready to type: when this tab becomes active, when a
 	// new chat starts (session change), or when returning to the chat view,
@@ -259,10 +270,8 @@ export function ChatInterface({
 	}, [palace.sessionId]);
 	const [indexing, setIndexing] = useState(null);
 	const fileInputRef = useRef(null);
-	const uploadCache = useRef(new Map());
 	const clearFiles = useCallback(() => {
 		setSelectedFiles([]);
-		uploadCache.current.clear();
 	}, []);
 	const [streaming, setStreaming] = useState(false);
     const [liveResponseCost, setLiveResponseCost] = useState(null);
@@ -525,7 +534,7 @@ export function ChatInterface({
 				// `null` means the row no longer exists; the tab is about to be
 				// dropped by the tab-state validation, so show nothing rather
 				// than treating it as a load failure.
-				setMessages(session ? displayMessages(session) : []);
+				setMessages(previous => reconcileMessageSnapshot(previous, session ? displayMessages(session) : []));
 				loadedSessionRef.current = sessionId;
 			})
 			.catch((error) => {
@@ -588,6 +597,15 @@ export function ChatInterface({
 		onTabUpdate?.({ permissionMode: mode });
 	};
 	const [historyError, setHistoryError] = useState("");
+    useEffect(()=>{
+        const changed=event=>{
+            if(event.detail?.sessionId!==palace.sessionId)return;
+            setHistoryError('');
+            if(palace.api?.loadSession) loadDisplaySession(palace.sessionId).then(session=>{if(session)setMessages(previous => reconcileMessageSnapshot(previous, displayMessages(session)));}).catch(error=>setHistoryError(error.message));
+        };
+        window.addEventListener('attachments-changed',changed);
+        return ()=>window.removeEventListener('attachments-changed',changed);
+    },[palace.sessionId]);
 	// Casual-chat summarization notice: a slim inline line near the composer,
 	// set only when a sent prompt's reply save hits the compression lock.
 	// Workspace chats keep the full-width error section instead.
@@ -603,6 +621,12 @@ export function ChatInterface({
 	useEffect(() => {
 		refreshHistory().catch((err) => setHistoryError(err.message));
 	}, [refreshHistory]);
+	// Scheduled runs create chats in the background, outside this pane. Refresh
+	// when opening a project so its recent chats include those new sessions.
+	useEffect(() => {
+		if (tabActive && view === "project")
+			refreshHistory().catch((err) => setHistoryError(err.message));
+	}, [tabActive, view, activeProjectId, refreshHistory]);
 	useEffect(() => palace.api?.onSessionDeleted?.(({ sessionId }) => {
         setGroups(current => current.map(group => ({ ...group, sessions: group.sessions.filter(session => session.id !== sessionId) })));
     }), [palace.api]);
@@ -716,7 +740,7 @@ export function ChatInterface({
 				projectId: session.project_id ?? null,
 				permissionMode: nextPermissionMode,
 			});
-			setMessages(displayMessages(session));
+			setMessages(previous => reconcileMessageSnapshot(previous, displayMessages(session)));
 			onChat();
 			clearFiles();
 			setEditing(null);
@@ -743,7 +767,6 @@ export function ChatInterface({
                 setPermissionBySession((current) => ({ ...current, [id]: initialPermissionMode }));
             }
             // Reprocess attachments against the new session before sending.
-            uploadCache.current.clear();
 			// Persist the submitted prompt as a draft until generation accepts it.
 			try {
 				localStorage.setItem(`chat_draft_${id}`, text);
@@ -794,7 +817,7 @@ export function ChatInterface({
 				setPromptQueue([]);
 				palace.setSessionId(sessionId);
 				onTabSaved?.(sessionId);
-				setMessages(displayMessages(session));
+				setMessages(previous => reconcileMessageSnapshot(previous, displayMessages(session)));
 				clearFiles();
 				setEditing(null);
 				palace.setDraftTokens(0);
@@ -957,6 +980,7 @@ export function ChatInterface({
 				closeFindRef.current?.();
 				return;
 			}
+			if (event.target.closest?.('dialog[open], [role="dialog"], [aria-modal="true"]')) return;
 			if (!(event.ctrlKey || event.metaKey)) return;
 			if (event.key.toLowerCase() !== "f" && event.code !== "KeyF") return;
 			event.preventDefault();
@@ -975,6 +999,23 @@ export function ChatInterface({
 		window.addEventListener("keydown", onFindKey, { capture: true });
 		return () => window.removeEventListener("keydown", onFindKey, { capture: true });
 	}, [findOpen]);
+	const spotlightNavigationRef = useRef(null);
+	useEffect(() => {
+		if (!tabActive || !navigationTarget || loadedSessionRef.current !== palace.sessionId) return;
+		if (spotlightNavigationRef.current?.nonce === navigationTarget.nonce) return;
+		if (!messages.some(message => message.id === navigationTarget.messageId)) return;
+		isUserScrolledUp.current = true;
+		transcript.showTarget(navigationTarget.messageId);
+		virtual.resetToStart();
+		spotlightNavigationRef.current = { nonce: navigationTarget.nonce, pending: true };
+	}, [navigationTarget, tabActive, messages, palace.sessionId, transcript.showTarget, virtual.resetToStart]);
+	useLayoutEffect(() => {
+		if (!navigationTarget || spotlightNavigationRef.current?.nonce !== navigationTarget.nonce || !spotlightNavigationRef.current?.pending) return;
+		if (!transcript.containsMessage(navigationTarget.messageId)) return;
+		if (virtual.scrollToKey(navigationTarget.messageId, { align: 'center' })) {
+			spotlightNavigationRef.current.pending = false;
+		}
+	}, [navigationTarget, transcript.visibleMessages, virtual.first, virtual.last, virtual.scrollToKey]);
 	// Track which transcript row holds focus so virtualization never unmounts the
 	// row the user is typing in or tabbing through (Phase 8).
 	useEffect(() => {
@@ -1121,6 +1162,9 @@ export function ChatInterface({
 	// Leave a search-navigation window for the newest messages.
 	const jumpToLatest = useCallback(() => {
 		pendingJumpBottomRef.current = true;
+		isUserScrolledUp.current = false;
+		setShowScrollToBottom(false);
+		messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "auto" });
 		transcript.followLatest();
 		virtual.resetToEnd();
 	}, [transcript.followLatest, virtual.resetToEnd]);
@@ -1154,6 +1198,7 @@ export function ChatInterface({
 		const { scrollTop, scrollHeight, clientHeight } = node;
 		const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
 		isUserScrolledUp.current = distanceToBottom > 50;
+		setShowScrollToBottom(distanceToBottom > 300);
 		// Approaching the top reveals the next page of older messages. Capture the
 		// visible anchor first so prepended rows never shift the reader's view.
 		// Duplicate triggers within one expansion are ignored inside loadOlder.
@@ -1173,6 +1218,7 @@ export function ChatInterface({
 	};
 	useLayoutEffect(() => {
 		isUserScrolledUp.current = false;
+		setShowScrollToBottom(false);
 		// Row UI state (expanded blocks) is session-scoped; never carry one
 		// conversation's toggles into another (Phase 8).
 		clearRowUiState();
@@ -1194,40 +1240,13 @@ export function ChatInterface({
 		pendingJumpBottomRef.current = false;
 		isUserScrolledUp.current = false;
 		node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
-	}, [transcript.visibleMessages]);
-	const MIME_FALLBACK_EXT = {
-		"image/png": ".png",
-		"image/jpeg": ".jpg",
-		"image/gif": ".gif",
-		"image/webp": ".webp",
-		"application/pdf": ".pdf",
-		"text/plain": ".txt",
-		"text/markdown": ".md",
-		"text/csv": ".csv",
-	};
-	const isImageFile = (file) =>
-		/\.(png|jpe?g|gif|webp)$/i.test(file.name || "") || /^image\/(png|jpe?g|gif|webp)$/i.test(file.type || "");
-	// Pasted/dropped clipboard images often arrive unnamed ("image.png" or no
-	// name at all). Derive a name from the MIME type so policy checks,
-	// previews, and uploads treat them like chosen files.
-	const normalizeIncomingFiles = (files) =>
-		files.map((file, index) => {
-			if (file?.name?.includes?.(".")) return file;
-			const ext = MIME_FALLBACK_EXT[file?.type] ?? "";
-			if (!ext) return file;
-			const name = `pasted-image-${Date.now()}-${index}${ext}`;
-			try {
-				return new File([file], name, { type: file.type, lastModified: file.lastModified ?? Date.now() });
-			} catch {
-				return file;
-			}
-		});
+	}, [transcript.visibleMessages, virtual.last]);
 	const addAttachments = async (files) => {
 		if (busyRef.current) {
 			setHistoryError("Wait for the current send to finish before attaching files.");
 			return;
 		}
-		files = normalizeIncomingFiles(files.filter(Boolean));
+		files = files.filter(Boolean);
 		if (!files.length) return;
 		const next = [...selectedFiles, ...files];
 		if (
@@ -1244,7 +1263,7 @@ export function ChatInterface({
 				? await window.api.getAttachmentPolicy(attachmentTarget)
 				: uploadPolicy;
 			assertAttachmentNames(
-				files.map((file) => file.name),
+				files.map((file) => composerFileName(file)),
 				policy,
 			);
 			setUploadPolicy(policy);
@@ -1261,32 +1280,16 @@ export function ChatInterface({
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			const optimized = [];
-			// Decode sequentially to avoid holding several large bitmaps at once.
-			for (const file of files) {
-				if (!isImageFile(file)) {
-					optimized.push(file);
-					continue;
-				}
-				const dataUrl = await optimizeImage(file);
-				const base64 = dataUrl.split(",")[1];
-				optimized.push({
-					name: file.name.replace(/\.[^.]+$/, ".jpg"),
-					type: "image/jpeg",
-					dataUrl,
-					lastModified: file.lastModified,
-					size:
-						(base64.length * 3) / 4 - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0),
-				});
-			}
-			const documents = optimized.filter((file) => /\.(pdf|txt|md|csv)$/i.test(file.name));
+			// Original encoded bytes are the attachment; previews never replace them.
+			if(!window.api?.stageAttachments) throw new Error('Attachment references require the updated desktop application.');
+            const originals = await window.api.stageAttachments(files,attachmentTarget);
+			const documents = originals.filter((file) => /\.(pdf|txt|md|csv)$/i.test(file.name));
 			if (documents.length) {
-				const uploaded = await window.api.processUploads(documents, attachmentTarget);
-				await indexDesktopDocuments(uploaded, { signal: controller.signal, onProgress: setIndexing });
-				documents.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
+				const uploaded = documents;
+				await indexDesktopDocuments(uploaded, { sessionId:palace.sessionId, signal: controller.signal, onProgress: setIndexing });
 			}
 			controller.signal.throwIfAborted();
-			setSelectedFiles((current) => [...current, ...optimized]);
+			setSelectedFiles((current) => [...current, ...originals]);
 		} catch (error) {
 			if (error.name !== "AbortError") setHistoryError(error.message);
 		} finally {
@@ -1391,17 +1394,9 @@ export function ChatInterface({
 				if (edit) setEditing(null);
 				let attachments = [];
 				if (!queued && !edit && !retry && selectedFiles.length) {
-					if (!window.api?.processUploads)
+					if (!window.api?.stageAttachments)
 						throw new Error("File uploads are available in the desktop app.");
-					const pending = selectedFiles.filter((file) => !uploadCache.current.has(file));
-					if (pending.length) {
-						const uploaded = await window.api.processUploads(pending, {
-							modelId: selectedModel,
-							activeChatProvider,
-						});
-						pending.forEach((file, index) => uploadCache.current.set(file, uploaded[index]));
-					}
-					attachments = selectedFiles.map((file) => uploadCache.current.get(file));
+                    attachments = selectedFiles;
 				}
 				controller.signal.throwIfAborted();
 				const requestMessages = edit
@@ -1431,7 +1426,7 @@ export function ChatInterface({
 					setQuotedSelection("");
 				}
 				const saved = await loadDisplaySession(palace.sessionId);
-				setMessages([...(saved ? displayMessages(saved) : []), assistantMsg]);
+				setMessages(previous => [...reconcileMessageSnapshot(previous, saved ? displayMessages(saved) : []), assistantMsg]);
 				await refreshHistory();
 				const result = await runDesktopChat({
 					activeChatProvider,
@@ -1562,7 +1557,7 @@ export function ChatInterface({
 				if (edit) {
 					try {
 						const session = await loadDisplaySession(palace.sessionId);
-						if (session) setMessages(displayMessages(session));
+						if (session) setMessages(previous => reconcileMessageSnapshot(previous, displayMessages(session)));
 					} catch (error) {
 						setHistoryError(error.message);
 					}
@@ -1801,6 +1796,7 @@ export function ChatInterface({
 	}, [hasUnrepliedMessage, loading, sendMessage]);
 	useEffect(() => {
 		const handleGenerateShortcut = (event) => {
+			if (event.target.closest?.('dialog[open], [role="dialog"], [aria-modal="true"]')) return;
 			if (view === "chat" && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
 				event.preventDefault();
 				if (!event.repeat) generateReply();
@@ -1901,6 +1897,8 @@ export function ChatInterface({
 						onProject={onProject}
 						onCreateProject={onCreateProject}
 						onChat={onChat}
+						onTasks={onTasks}
+						tasksActive={view === "tasks"}
 						isWorkspace={isWorkspaceChat}
 						chatProjectId={chatProjectId}
 						onNewWorkspaceChat={() => newWorkspaceChat(chatProjectId)}
@@ -1965,13 +1963,13 @@ export function ChatInterface({
                     modelId: selectedModel, activeChatProvider,
                     onAttach: () => fileInputRef.current?.click(),
                     onPasteFiles: addAttachments,
-                    attachDisabled: !window.api?.processUploads,
+                    attachDisabled: !window.api?.stageAttachments,
                     attachmentTooltip: uploadPolicy.tooltip,
                     hasAttachments: selectedFiles.length > 0,
                     attachments: <><p role="status" className="text-[11px] text-[var(--error)]">{historyError}</p>{selectedFiles.length > 0 && <div className="flex gap-2 overflow-auto py-2" aria-label="Selected attachments">
-                        {selectedFiles.map((file, index) => <SelectedFilePreview key={`${file.name}-${index}`} file={file}
-                            disabled={streaming || loading} onRemove={() => {
-                                uploadCache.current.delete(file);
+                        {selectedFiles.map((file, index) => <SelectedFilePreview key={`${file.name}-${index}`} file={file} onChange={result=>setSelectedFiles(files=>files.map((f,i)=>i===index?result:f))}
+                            disabled={streaming || loading} onRemove={(revoke=true) => {
+                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
                                 setSelectedFiles((files) => files.filter((_, i) => i !== index));
                             }} />)}
                     </div>}</>,
@@ -1982,6 +1980,7 @@ export function ChatInterface({
 				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
 			>
 				{/* bg-[var(--bg-secondary)]!  */}
+                <AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
 				{historyError && (
 					<p
 						role="alert"
@@ -2001,17 +2000,7 @@ export function ChatInterface({
 						onClose={closeFind}
 					/>
 				)}
-				{transcript.hasNewer && (
-					<button
-						type="button"
-						aria-label="Jump to latest"
-						onClick={jumpToLatest}
-						className="absolute bottom-4 right-4 z-[55] flex cursor-pointer items-center gap-1.5 ui-radius-pill sk-button border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-[0_4px_20px_var(--window-shadow)] transition-colors hover:text-[var(--text-primary)]"
-					>
-						<FiArrowDown aria-hidden="true" />
-						Jump to latest
-					</button>
-				)}
+
 				<div
 					className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-auto px-4 py-6 max-[450px]:px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[var(--scrollbar-track)] [&::-webkit-scrollbar-thumb]:ui-radius-small [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]"
 					ref={messagesRef}
@@ -2194,10 +2183,6 @@ export function ChatInterface({
 														msg.role === "user"
 															? "aero-chat-user ui-radius-surface ui-radius-tail px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
 															: "w-full text-sm leading-[1.7] [overflow-wrap:anywhere]"
-													} ${
-														msg.streaming
-															? "after:content-['▊'] after:animate-pulse after:[animation-duration:1s] after:text-[var(--accent)] motion-reduce:after:animate-none"
-															: ""
 													}`}
 												>
 													{msg.role === "assistant" ? (
@@ -2283,6 +2268,19 @@ export function ChatInterface({
 						)}
 					</div>
 				</div>
+				{(showScrollToBottom || transcript.hasNewer) && (
+					<div className="pointer-events-none relative z-[55] mx-auto h-0 w-[calc(100%-2rem)] max-w-[980px] shrink-0 max-[450px]:w-[calc(100%-1.5rem)]">
+						<button
+							type="button"
+							aria-label="Scroll to bottom"
+							title="Scroll to bottom"
+							onClick={jumpToLatest}
+							className="aero-orb sk-icon-button aero-fill sk-fill pointer-events-auto absolute bottom-3 right-3 flex size-9 cursor-pointer items-center justify-center text-[var(--text-secondary)] shadow-lg hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						>
+							<FiArrowDown aria-hidden="true" className="size-4" />
+						</button>
+					</div>
+				)}
 				{/* Pending questions and skill approvals stay anchored above the
 				composer, independent of conversation scroll. The transcript
 				below keeps only the resolved outcome at the step's position. */}
@@ -2309,9 +2307,10 @@ export function ChatInterface({
 							<SelectedFilePreview
 								key={`${file.name}-${file.lastModified}-${index}`}
 								file={file}
+                                onChange={result=>setSelectedFiles(files=>files.map((f,i)=>i===index?result:f))}
 								disabled={streaming || loading}
-								onRemove={() => {
-									uploadCache.current.delete(file);
+								onRemove={(revoke=true) => {
+                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
 									setSelectedFiles((files) => files.filter((_, i) => i !== index));
 								}}
 							/>
@@ -2453,7 +2452,7 @@ export function ChatInterface({
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
 					data-dragging={dragActive}
-					className="aero-chat-composer sk-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]"
+					className={`aero-chat-composer sk-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px] focus-within:ring-2! focus-within:ring-[var(--accent)]/50!`}
 				>
 					{dragActive && (
 						<div
@@ -2570,7 +2569,7 @@ export function ChatInterface({
 						hasAttachments={selectedFiles.length > 0}
 						streaming={streaming}
 						loading={loading}
-						attachDisabled={!window.api?.processUploads}
+						attachDisabled={!window.api?.stageAttachments}
 						attachmentTooltip={`${uploadPolicy.tooltip} You can also paste (Ctrl+V) or drag & drop files onto the composer.`}
 						sendTitle={chatAvailable ? "Send" : "Select a cloud model or load a local model"}
 						activeChatProvider={activeChatProvider}

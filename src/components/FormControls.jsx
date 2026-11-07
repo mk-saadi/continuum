@@ -136,6 +136,16 @@ export const NumberField = forwardRef(function NumberField(props, ref) {
 	);
 });
 
+// React.Children does not descend into fragments. Conditional option groups
+// must be flattened before building the custom dropdown and selected label.
+function flattenSelectOptions(children) {
+	return React.Children.toArray(children).flatMap((child) => {
+		if (!React.isValidElement(child)) return [];
+		if (child.type === React.Fragment) return flattenSelectOptions(child.props.children);
+		return child.type === "option" ? [child] : [];
+	});
+}
+
 export const SelectField = forwardRef(function SelectField(
 	{
 		label,
@@ -169,8 +179,7 @@ export const SelectField = forwardRef(function SelectField(
 	const options =
 		items.length > 0
 			? items
-			: React.Children.toArray(children)
-					.filter((child) => React.isValidElement(child) && child.type === "option")
+			: flattenSelectOptions(children)
 					.map((child) => ({
 						value: child.props.value,
 						label: child.props.children,

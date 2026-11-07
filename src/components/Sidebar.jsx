@@ -1,5 +1,5 @@
 import React from "react";
-import { FiGrid, FiMessageSquare, FiPlus, FiStar } from "react-icons/fi";
+import { FiCalendar, FiGrid, FiMessageSquare, FiPlus, FiStar } from "react-icons/fi";
 import ChatHistory from "./ChatHistory";
 import { mapSessionGroups, sessionsForProject, sessionsWithoutProject } from "../lib/sidebarHistory.mjs";
 import "./projects.css";
@@ -12,6 +12,8 @@ export default function Sidebar({
 	onProject,
 	onCreateProject,
 	onChat,
+	onTasks = null,
+	tasksActive = false,
 	isWorkspace = false,
 	chatProjectId = null,
 	onNewWorkspaceChat = null,
@@ -41,6 +43,8 @@ export default function Sidebar({
 						embedded
 						mode="casual"
 						showRecents
+						onTasks={onTasks}
+						tasksActive={tasksActive}
 						groups={globalGroups}
 						activeId={view === "chat" ? history.activeId : null}
 					/>
@@ -113,6 +117,16 @@ export default function Sidebar({
 					<FiMessageSquare />
 					<span>Back to Chat</span>
 				</button>
+				{onTasks && (
+					<button
+						className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
+						onClick={onTasks}
+						aria-current={tasksActive ? "page" : undefined}
+					>
+						<FiCalendar />
+						<span>Tasks</span>
+					</button>
+				)}
 				<button
 					className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
 					onClick={onProjects}

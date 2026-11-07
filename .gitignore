@@ -53,3 +53,6 @@ index-*.js
 
 # Local-only networking resources and disposable app profile
 /.continuum-local/
+
+# Local design workspace
+/design/

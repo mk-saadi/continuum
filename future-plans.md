@@ -4,17 +4,41 @@ I've separated existing capabilities, work in progress, and future proposals so 
 
 # Continuum — Master Improvement Backlog
 
-Reported completed
+Status snapshot — November 6, 2026
 
-Phases 1.1, 1.2, 1.3A, 1.3B
+Completed, reported: Phases 1.1–1.7 (full agentic roadmap; implementation reports in docs/), persistent memory optimization (fixed November 2026), and task scheduling (four phases: turn-level model lease, safe model switching with a reusable agent runner, scheduler backend, Tasks UI). Also completed: Git authentication through the host environment, Workspace Write standard outbound networking, the separate Trusted Development networking path, and improved native browser/web tooling.
 
-In progress
+Outstanding before production — Priority 1:
 
-Phase 1.3C
+* Automatic context compaction — production-critical and unresolved; deliberately postponed, must be resolved before production.
 
-Planned
+* Background command suspension and agent resumption — verify the full lifecycle: completion events carry stdout, stderr, exit code, and task ID; the correct session resumes exactly once; cancellation and shutdown are handled; concurrent completions do not cross wires.
 
-Phases 1.4–1.7 and future improvements
+* Real scheduler verification with local models — one-time task completes, recurring schedules advance, tasks survive restart, pausing prevents automatic execution, manual runs work while paused, history persists, overdue tasks execute sequentially without duplicates, approval-required work blocks safely.
+
+* Scheduler/model lifecycle edge cases — a scheduled task never unloads a model during an active turn, no switching/lease races, VRAM contention waits and retries instead of skipping, explicit fallback is honored, no silent model substitution, and the configured task permission level reaches tool authorization on every execution.
+
+Outstanding before production — Priority 2:
+
+* Workspace and security edge cases — permission revocation with a dev server running, nested subprocess containment, concurrent tool calls, fresh Isolated-mode startup, reproducible recovery artifacts, production builds rejecting ineligible Trusted Development configurations.
+
+* Primary-profile and packaged-app acceptance — AppImage configuration, packaged prompts and UI rendering, real browser execution in the packaged app, rechecking earlier integration failures.
+
+* Test suite cleanup — separate genuine regressions from stale expectations; prefer targeted suites over broad reruns.
+
+* Licensing audit — dependencies, bundled runtime, redistribution obligations — before public distribution.
+
+* Cross-platform support — Windows and macOS sandbox support is future engineering work; the Linux security model does not transfer automatically.
+
+Proposed, not committed:
+
+* Restore the floating-assistant experience (small floating window, global shortcut, optional always-on-top).
+
+* First-run onboarding (local vs cloud models, BYOK guidance, model directories).
+
+* Hugging Face model hub (search, GGUF filtering, download with progress, registration in the model selector).
+
+* Broader workflow automation (local-first alternative to n8n) — deferred until the scheduler is verified and stable.
 
 ## 1. Core agentic workspace roadmap
 
@@ -26,11 +50,11 @@ This is the roadmap we agreed to complete first.
 | 1.2   | Persisted task plans with `update_plan`                     | Completed, reported |
 | 1.3A  | Long-horizon subagent budgets                               | Completed, reported |
 | 1.3B  | Subagent timeouts, cancellation, termination                | Completed, reported |
-| 1.3C  | Durable continuation and renewable budgets                  | In progress         |
-| 1.4   | Child-context compaction and recovery hardening             | Planned             |
-| 1.5   | Completion reporting, streaming reliability, child controls | Planned             |
-| 1.6   | Permission-aware safe file deletion                         | Planned             |
-| 1.7   | Native web search integrated with web fetch                 | Planned             |
+| 1.3C  | Durable continuation and renewable budgets                  | Completed, reported |
+| 1.4   | Child-context compaction and recovery hardening             | Completed, reported |
+| 1.5   | Completion reporting, streaming reliability, child controls | Completed, reported |
+| 1.6   | Permission-aware safe file deletion                         | Completed, reported |
+| 1.7   | Native web search integrated with web fetch                 | Completed, reported |
 
 ### Additional requirements we identified
 
@@ -55,7 +79,7 @@ Important: The subagent audit confirmed that mid-run compaction already works in
 
 ## 2. Persistent memory optimization
 
-High priority after 1.7
+Completed (November 2026) — the persistent memory issues were fixed. The design notes below are retained as background.
 
 This is one of the most substantial improvements we've discussed.
 

@@ -58,7 +58,8 @@ function inspectFile(filePath) {
 	if (typeof filePath !== "string" || !path.isAbsolute(filePath) || filePath.includes("\0")) {
 		throw new TypeError("An absolute file path is required.");
 	}
-	const mime = MIME_TYPES[path.extname(filePath).toLowerCase()];
+	let mime = MIME_TYPES[path.extname(filePath).toLowerCase()];
+	if (path.extname(filePath).toLowerCase() === ".ts" && require("./transportStream").isTransportStreamFile(filePath)) mime = "video/mp2t";
 	if (!mime)
 		throw new Error(
 			"Supported formats: images, WAV/MP3 audio, MP4/WebM/MOV/MPEG video, PDF, XLSX, and text files. Media availability depends on the selected model.",
@@ -69,12 +70,18 @@ function inspectFile(filePath) {
 	return { file_path: filePath, mime_type: mime, size: stat.size };
 }
 
-function validateAttachments(attachments) {
+function validateAttachments(attachments, { sessionId } = {}) {
 	if (!Array.isArray(attachments) || attachments.length > MAX_FILES) {
 		throw new TypeError(`Choose at most ${MAX_FILES} attachments.`);
 	}
 	let total = 0;
 	return attachments.map((attachment) => {
+		if (attachment?.version_id) {
+			const file = require('./attachmentStore').authorize(attachment, sessionId ?? attachment.session_id);
+			total += file.size || 0;
+			if (total > MAX_BATCH_BYTES) throw new Error("Attachments must total 50 MB or less.");
+			return file;
+		}
 		const file = inspectFile(attachment?.file_path);
 		// Prompts may read only managed copies, never renderer-supplied arbitrary paths.
 		const directory = fs.realpathSync(attachmentsDirectory());
@@ -96,21 +103,16 @@ async function processUploads(filePaths) {
 	}
 	const sources = filePaths.map((source) => {
 		if (typeof source === "string") return inspectFile(source);
-		const dataUrl = source?.dataUrl;
-		if (
-			typeof dataUrl !== "string" ||
-			dataUrl.length > Math.ceil(MAX_FILE_BYTES / 3) * 4 + 23 ||
-			!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(dataUrl)
-		) {
-			throw new Error("Invalid optimized JPEG attachment.");
-		}
-		const bytes = Buffer.from(dataUrl.slice("data:image/jpeg;base64,".length), "base64");
-		if (bytes.length > MAX_FILE_BYTES || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
-			throw new Error("Invalid optimized JPEG attachment.");
-		}
-		const name =
-			typeof source.name === "string" ? path.basename(source.name).replace(/\.[^.]*$/, "") : "image";
-		return { file_path: `${name || "image"}.jpg`, mime_type: "image/jpeg", size: bytes.length, bytes };
+		const match = typeof source?.dataUrl === "string" && /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(source.dataUrl);
+		if (!match || source.dataUrl.length > Math.ceil(MAX_FILE_BYTES / 3) * 4 + 32)
+			throw new Error("Invalid image attachment. Use original PNG, JPEG, or WebP bytes.");
+		const bytes = Buffer.from(match[2], "base64");
+		if (!bytes.length || bytes.length > MAX_FILE_BYTES || bytes.toString('base64') !== match[2])
+			throw new Error("Invalid or oversized image attachment (20 MB maximum).");
+		const name = typeof source.name === "string" ? path.basename(source.name) : "image" + require('./imageAttachments').EXTENSIONS[match[1]];
+		if (MIME_TYPES[path.extname(name).toLowerCase()] !== match[1])
+			throw new Error("Image filename/MIME mismatch. Use the original image extension.");
+		return { file_path: name, mime_type: match[1], size: bytes.length, bytes };
 	});
 	if (sources.reduce((sum, file) => sum + file.size, 0) > MAX_BATCH_BYTES) {
 		throw new Error("Attachments must total 50 MB or less.");
@@ -127,6 +129,8 @@ async function processUploads(filePaths) {
 			if (source.bytes) await fs.promises.writeFile(filePath, source.bytes, { flag: "wx" });
 			else await fs.promises.copyFile(source.file_path, filePath, fs.constants.COPYFILE_EXCL);
 			saved.push({ file_path: filePath, mime_type: source.mime_type });
+			if (source.mime_type.startsWith('image/'))
+				await require('./imageAttachments').inspectImage(await fs.promises.readFile(filePath), source.mime_type);
             await require("./attachmentDocuments").extractAttachmentDocument(filePath);
 		}
 		return validateAttachments(saved);
@@ -140,4 +144,4 @@ function attachmentName(filePath) {
 	return path.basename(filePath).replace(/^\d+-[0-9a-f-]{36}-/i, "");
 }
 
-module.exports = { processUploads, validateAttachments, attachmentName, inspectFile, MAX_FILE_BYTES };
+module.exports = { processUploads, validateAttachments, attachmentName, inspectFile, MAX_FILE_BYTES, MIME_TYPES };

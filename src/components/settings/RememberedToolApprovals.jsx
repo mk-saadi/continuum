@@ -11,8 +11,8 @@ export default function RememberedToolApprovals() {
     try { await window.chatAPI.deleteToolRule(null, id); await refresh(); }
     catch (cause) { setError(cause.message); }
   }
-  return <SettingsCard icon={LuShieldCheck} title="Remembered Tool Approvals"
-    description="Persistent terminal authorizations for Casual Chat. Read Only restrictions still apply. Enabled external integrations are managed in MCP settings.">
+  return <SettingsCard icon={LuShieldCheck} title="Saved tool approvals"
+    description="Saved terminal approvals for casual chat. Read-only rules still apply. Manage external tools in MCP Integrations.">
     {rules.length ? rules.map(rule => <div key={rule.id} className="flex items-center justify-between gap-3 py-2">
       <div><p>{rule.tool}</p><p className="text-xs text-[var(--text-secondary)]">Casual Chat · Persistent</p></div>
       <button type="button" className="ui-radius-control border px-3 py-1.5" onClick={() => revoke(rule.id)}>Revoke</button>

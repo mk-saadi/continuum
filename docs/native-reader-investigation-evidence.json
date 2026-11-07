@@ -1,0 +1,459 @@
+{
+  "date": "2026-11-07",
+  "sandboxDiagnostic": {
+    "version": 1,
+    "limits": {
+      "requests": 40,
+      "totalMs": 180000,
+      "requestMs": 15000,
+      "maxTokens": 512
+    },
+    "method": "Fixture-only wire, server-rendered prompt, optional raw completion, Continuum parser; no tool execution",
+    "requests": [
+      {
+        "route": "/health",
+        "error": "TypeError: fetch failed"
+      }
+    ],
+    "comparisons": [],
+    "complete": false,
+    "fullSchema": {
+      "type": "function",
+      "function": {
+        "name": "read_project_file",
+        "description": "Read a file: always include exactly one of relative_path or attachment_id, even on paginated/hashed reads. Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line. Always include exactly one source identifier. Workspace example: {\"relative_path\":",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "attachment_id": {
+              "type": "string",
+              "description": "User attachment reference; omit paths/hashes."
+            },
+            "relative_path": {
+              "type": "string",
+              "description": "Required unless attachment_id is supplied. Workspace file path; include it on every paginated or hashed read."
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based first line."
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based inclusive last line."
+            },
+            "char_start": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Unicode code-point offset; start_line=end_line."
+            },
+            "if_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Matching prior hash skips content."
+            },
+            "expected_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Prior hash; reject a different revision."
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "relative_path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "relative_path"
+              ]
+            },
+            {
+              "properties": {
+                "attachment_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attachment_id"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "fullToolsSha256": "29e7d0a5becb9fe82d9b8a5c3e8e1c4bc075c94466d91f9e2e49481b79e4b429",
+    "compactSchema": {
+      "type": "function",
+      "function": {
+        "name": "read_project_file",
+        "description": "Read a file: always include exactly one of relative_path or attachment_id, even on paginated/hashed reads. Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line. Always include exactly one source identifier. Workspace example: {\"relative_path\":",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "attachment_id": {
+              "type": "string",
+              "description": "User attachment reference; omit paths/hashes."
+            },
+            "relative_path": {
+              "type": "string",
+              "description": "Required unless attachment_id is supplied. Workspace file path; include it on every paginated or hashed read."
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based first line."
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based inclusive last line."
+            },
+            "char_start": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Unicode code-point offset; start_line=end_line."
+            },
+            "if_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Matching prior hash skips content."
+            },
+            "expected_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Prior hash; reject a different revision."
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "relative_path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "relative_path"
+              ]
+            },
+            {
+              "properties": {
+                "attachment_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attachment_id"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "compactToolsSha256": "cd49b2b54b016a2791e0a659f585abd0cd022352fbaf9cb4b65c7f37c798dce6",
+    "error": "TypeError: fetch failed"
+  },
+  "hostDiagnostic": {
+    "version": 1,
+    "limits": {
+      "requests": 40,
+      "totalMs": 180000,
+      "requestMs": 15000,
+      "maxTokens": 512
+    },
+    "method": "Fixture-only wire, server-rendered prompt, optional raw completion, Continuum parser; no tool execution",
+    "requests": [
+      {
+        "route": "/health",
+        "error": "TypeError: fetch failed"
+      }
+    ],
+    "comparisons": [],
+    "complete": false,
+    "fullSchema": {
+      "type": "function",
+      "function": {
+        "name": "read_project_file",
+        "description": "Read a file: always include exactly one of relative_path or attachment_id, even on paginated/hashed reads. Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line. Always include exactly one source identifier. Workspace example: {\"relative_path\":",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "attachment_id": {
+              "type": "string",
+              "description": "User attachment reference; omit paths/hashes."
+            },
+            "relative_path": {
+              "type": "string",
+              "description": "Required unless attachment_id is supplied. Workspace file path; include it on every paginated or hashed read."
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based first line."
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based inclusive last line."
+            },
+            "char_start": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Unicode code-point offset; start_line=end_line."
+            },
+            "if_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Matching prior hash skips content."
+            },
+            "expected_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Prior hash; reject a different revision."
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "relative_path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "relative_path"
+              ]
+            },
+            {
+              "properties": {
+                "attachment_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attachment_id"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "fullToolsSha256": "29e7d0a5becb9fe82d9b8a5c3e8e1c4bc075c94466d91f9e2e49481b79e4b429",
+    "compactSchema": {
+      "type": "function",
+      "function": {
+        "name": "read_project_file",
+        "description": "Read a file: always include exactly one of relative_path or attachment_id, even on paginated/hashed reads. Read text pages (200 lines; max 400/20,000 chars), images or PDF text. Lines are inclusive, 1-based; continue via next_start_line. Always include exactly one source identifier. Workspace example: {\"relative_path\":",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "attachment_id": {
+              "type": "string",
+              "description": "User attachment reference; omit paths/hashes."
+            },
+            "relative_path": {
+              "type": "string",
+              "description": "Required unless attachment_id is supplied. Workspace file path; include it on every paginated or hashed read."
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based first line."
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based inclusive last line."
+            },
+            "char_start": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Unicode code-point offset; start_line=end_line."
+            },
+            "if_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Matching prior hash skips content."
+            },
+            "expected_content_hash": {
+              "type": "string",
+              "pattern": "^(?:sha256:)?[a-fA-F0-9]{64}$",
+              "description": "Prior hash; reject a different revision."
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "relative_path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "relative_path"
+              ]
+            },
+            {
+              "properties": {
+                "attachment_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attachment_id"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "compactToolsSha256": "cd49b2b54b016a2791e0a659f585abd0cd022352fbaf9cb4b65c7f37c798dce6",
+    "error": "TypeError: fetch failed"
+  },
+  "benchmark": {
+    "fixture": "compact-prompt-budget-v1",
+    "method": "Normalized production local-request JSON UTF-8 bytes; estimates use production bytes/3 + per-message overhead, NOT exact model tokens",
+    "conditions": {
+      "user": "hello",
+      "permission": "workspace_write",
+      "mcpMode": "manual",
+      "externalSchemas": 0,
+      "browserSchemas": 0,
+      "persona": "empty",
+      "memories": 0,
+      "history": "one user turn",
+      "projectFiles": "one sample.txt, contents not injected",
+      "repositoryInstructions": 0,
+      "richBlocks": "off",
+      "date": "2026-11-06",
+      "timezoneOffsetMinutes": 0
+    },
+    "runtime": {
+      "node": "24.21.0",
+      "electron": "44.7.0",
+      "nodeEnv": "production",
+      "packagedAsar": false
+    },
+    "budgetCheck": {
+      "checked": true,
+      "passed": true,
+      "maxGrowthRatio": 1.1,
+      "failures": []
+    },
+    "records": [
+      {
+        "profile": "full",
+        "normalizedBytes": 45007,
+        "toolCount": 45,
+        "requestSha256": "31a557d53feb1ae1de23b61c4fe2a77cfb0f112153250ca4a3aab1c9a9edbc56",
+        "schemasSha256": "29e7d0a5becb9fe82d9b8a5c3e8e1c4bc075c94466d91f9e2e49481b79e4b429",
+        "estimatedTokens": 15067
+      },
+      {
+        "profile": "compact",
+        "normalizedBytes": 25197,
+        "toolCount": 18,
+        "requestSha256": "e6a00ce8b10cd28956b31e8289ba94c079f6db85896b18abab370cda0874ff7e",
+        "schemasSha256": "cd49b2b54b016a2791e0a659f585abd0cd022352fbaf9cb4b65c7f37c798dce6",
+        "estimatedTokens": 8463
+      }
+    ]
+  },
+  "asar": {
+    "method": "Current source in temporary ASAR, Electron RUN_AS_NODE, NODE_ENV=production; dependencies outside ASAR; no GUI or inference",
+    "budget": {
+      "fixture": "compact-prompt-budget-v1",
+      "method": "Normalized production local-request JSON UTF-8 bytes; estimates use production bytes/3 + per-message overhead, NOT exact model tokens",
+      "conditions": {
+        "user": "hello",
+        "permission": "workspace_write",
+        "mcpMode": "manual",
+        "externalSchemas": 0,
+        "browserSchemas": 0,
+        "persona": "empty",
+        "memories": 0,
+        "history": "one user turn",
+        "projectFiles": "one sample.txt, contents not injected",
+        "repositoryInstructions": 0,
+        "richBlocks": "off",
+        "date": "2026-11-06",
+        "timezoneOffsetMinutes": 0
+      },
+      "runtime": {
+        "node": "24.21.0",
+        "electron": "44.7.0",
+        "nodeEnv": "production",
+        "packagedAsar": true
+      },
+      "budgetCheck": {
+        "checked": true,
+        "passed": true,
+        "maxGrowthRatio": 1.1,
+        "failures": []
+      },
+      "records": [
+        {
+          "profile": "full",
+          "normalizedBytes": 45007,
+          "toolCount": 45,
+          "requestSha256": "31a557d53feb1ae1de23b61c4fe2a77cfb0f112153250ca4a3aab1c9a9edbc56",
+          "schemasSha256": "29e7d0a5becb9fe82d9b8a5c3e8e1c4bc075c94466d91f9e2e49481b79e4b429",
+          "estimatedTokens": 15067
+        },
+        {
+          "profile": "compact",
+          "normalizedBytes": 25197,
+          "toolCount": 18,
+          "requestSha256": "e6a00ce8b10cd28956b31e8289ba94c079f6db85896b18abab370cda0874ff7e",
+          "schemasSha256": "cd49b2b54b016a2791e0a659f585abd0cd022352fbaf9cb4b65c7f37c798dce6",
+          "estimatedTokens": 8463
+        }
+      ]
+    },
+    "suiteExit": 0,
+    "suiteOutput": "",
+    "suiteEvidence": {
+      "completedTests": [
+        "production default is held at full pending real-model acceptance; explicit selection is shared by launch paths",
+        "all authorized schemas compile strictly; read union preserves exactly-one and field constraints",
+        "activation is isolated between sessions, stale owners, termination and new runs",
+        "19-tool default preserves exact schemas and stable run profile, full fallback and Casual",
+        "search discovers without exact names; activation is idempotent, owner scoped and finite",
+        "discovery via guarded handler; read-only denies activation and forged writes",
+        "activated editing retains traversal/symlink boundaries and live permission downgrade",
+        "discovered Git schemas execute in a disposable repository; activation cannot bypass approval",
+        "real surgical JSX/CSS, batch editing, write, history and plan routes retain results",
+        "activated interfaces survive real C9 checkpoint rebuild; permission downgrade hides mutations",
+        "MCP external schemas stay external; Manual mode suppresses native preparation",
+        "disabled external and native Playwright schemas never reach prepared requests",
+        "all 51 legacy contracts have a direct or discoverable path; memory-off remains enforced",
+        "production loop pairs tool results and measures common coding and discovery overhead"
+      ]
+    }
+  },
+  "sourceTests": {
+    "runtime": "Electron 44.7.0 / Node 24.21.0, NODE_ENV=production",
+    "passedFiles": [
+      "nativeReaderWire.test.mjs",
+      "nativeReaderContract.test.cjs",
+      "p2CompactNativeTools.test.cjs",
+      "selectiveFileReading.test.cjs",
+      "toolValidationReliability.test.mjs",
+      "memoryChat.test.mjs",
+      "nativePermissions.test.cjs",
+      "compactPromptBudget.test.cjs"
+    ],
+    "failedFiles": 0
+  },
+  "liveInferenceRequestsCompleted": 0,
+  "productionDefault": "full",
+  "rootCause": "Unresolved: runtime unavailable; server tool-call representation alone cannot separate generation from server parsing."
+}

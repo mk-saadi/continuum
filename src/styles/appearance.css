@@ -81,3 +81,41 @@ html[data-appearance="flat"] .aero-tab:not([data-active="true"]):hover { backgro
 html[data-appearance="flat"] .aero-well:is(:focus-within, :focus) { border-color: var(--accent); }
 html[data-appearance="flat"] .aero-well:is([aria-invalid="true"], :has([aria-invalid="true"])) { border-color: var(--error); }
 html[data-appearance="flat"] .projects-heading h1 { text-shadow: none; }
+
+/* Native radio faces can stay white in dark palettes. Draw the appearance
+   picker indicators using the card's foreground, including selected cards. */
+html:not([data-appearance="skeu"]) .appearance-radio {
+	appearance: none;
+	width: 14px;
+	height: 14px;
+	border: 1.5px solid currentColor;
+	border-radius: 50%;
+	background: transparent;
+	color: inherit;
+	display: inline-grid;
+	place-content: center;
+	cursor: pointer;
+}
+html:not([data-appearance="skeu"]) .appearance-radio::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	transform: scale(0);
+}
+html:not([data-appearance="skeu"]) .appearance-radio:checked::before {
+	transform: scale(1);
+}
+html:not([data-appearance="skeu"]) .appearance-radio:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 3px;
+}
+@media (forced-colors: active) {
+	html:not([data-appearance="skeu"]) .appearance-radio {
+		appearance: auto;
+	}
+	html:not([data-appearance="skeu"]) .appearance-radio::before {
+		content: none;
+	}
+}

@@ -84,7 +84,7 @@ app.whenReady().then(async () => {
       const makeMessages = (count) => Array.from({ length: count }, (_, index) => ({
         id: index + 1,
         role: index % 2 === 0 ? 'user' : 'assistant',
-        content: 'Message ' + (index + 1) + ' ' + 'details '.repeat(20),
+        content: 'Message ' + (index + 1) + ' ' + 'details '.repeat(10 + (index % 7) * 6),
       }));
       const scrollToTop = async () => {
         const node = scroller();
@@ -163,13 +163,33 @@ app.whenReady().then(async () => {
         'the previously visible message must stay at the same screen position (delta ' + Math.round(anchored.getBoundingClientRect().top - anchorTop) + 'px)',
       );
 
+      // Pagination triggers before reaching zero. Keep the same visible row and
+      // its viewport offset across repeated threshold crossings and late layout.
+      for (let page = 0; page < 3; page++) {
+        await tick(100);
+        node.scrollTop = 160;
+        node.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await tick(400);
+        node.scrollTop = 100;
+        const id = topVisibleId();
+        const row = document.querySelector('[data-message-id="' + id + '"]');
+        const top = row.getBoundingClientRect().top;
+        const before = windowCount();
+        node.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await until(() => windowCount() > before, 'threshold crossing did not fetch older page');
+        await tick(400);
+        const after = document.querySelector('[data-message-id="' + id + '"]');
+        check(after && Math.abs(after.getBoundingClientRect().top - top) <= 2,
+          'threshold prepend shifted reading position on page ' + page + ': ' + (after ? after.getBoundingClientRect().top - top : 'anchor unmounted'));
+      }
+
       // --- 3. Repeated scrolling reaches the oldest message and then stops ----
       for (let i = 0; i < 16 && windowCount() < 100; i += 1) await scrollToTop();
       check(windowCount() === 100, 'repeated scrolling must eventually reveal every message');
       check(windowFirstId() === 1, 'full reveal must reach the oldest message');
       await scrollToTop();
       await tick(60);
-      check(ids().includes('1'), 'the oldest message must become mountable at the top');
+      check(ids().includes('1'), 'the oldest message must become mountable at the top: scroll=' + node.scrollTop + ', ids=' + ids().join(','));
       assertBounded('fully revealed');
       assertChronological('fully revealed');
       for (let i = 0; i < 3; i += 1) await scrollToTop();

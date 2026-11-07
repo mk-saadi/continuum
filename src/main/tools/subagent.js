@@ -26,7 +26,7 @@ const spawnSubagentTool = {
         constraint: { type: 'string', description: 'Optional length and omission rules, such as no raw HTML or boilerplate.' },
         expected_output: { type: 'string', description: 'Concise findings with file/line or URL evidence first, followed by uncertainties and unfinished work.' },
         url: { type: 'string', description: 'Public HTTP or HTTPS URL for one-page web research (one per call). The worker fetches exactly this page; for discovery, use investigate: true or call web_search in the main context first.' },
-        target_file: { type: 'string', description: 'Absolute path to a single local file to analyze.' },
+        target_file: { type: 'string', description: 'Absolute path to a single local file to analyze. Required for single-file analysis; a path mentioned only in task does not select the file.' },
         investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
       },
       required: ['task'],
@@ -122,9 +122,9 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
   // read-only allowlist includes the native web_search tool). Fail with
   // guidance the caller can act on instead of a bare parameter complaint.
   if (!sourceUrl) {
-    throw new Error('Provide a url or target_file parameter (or set investigate: true). '
+    throw Object.assign(new Error('Provide a url or target_file parameter (or set investigate: true). '
       + 'A url call fetches exactly one page; to let the worker discover public sources itself, '
-      + 'set investigate: true, or call web_search in the main context and pass the chosen URL.');
+      + 'set investigate: true, or call web_search in the main context and pass the chosen URL. For local analysis put the absolute path in target_file, not just task.'), { code: 'SUBAGENT_TARGET_REQUIRED' });
   }
 
   const instruction = [task, expected_output && `Expected output: ${expected_output}`,

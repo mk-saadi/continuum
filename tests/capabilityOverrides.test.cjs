@@ -39,7 +39,8 @@ test('explicit media overrides pass unknown runtime detection and can block supp
     if (url.endsWith('/props')) return {ok:false,status:404};
     sent++; return {ok:true};
   }, () => overrides);
-  const request = {body:JSON.stringify({messages:[{content:[{type:'image_url'},{type:'input_video'},{type:'input_audio'}]}]})};
+  const { PNG_BASE64 } = await import('./fixtures/visionImages.mjs');
+  const request = {body:JSON.stringify({messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:image/png;base64,${PNG_BASE64}`}},{type:'input_video',input_video:{data:'AAAA',format:'video/mp4'}},{type:'input_audio',input_audio:{data:'BBBB',format:'wav'}}]}]})};
   await guarded('http://127.0.0.1:8080/v1/chat/completions',request);
   assert.equal(sent,1);
   overrides.image = false;

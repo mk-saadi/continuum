@@ -13,17 +13,8 @@ const executionBudget = require('./executionBudget');
 const { combineSignals, isDeadlineError, isRequestTimeoutError } = require('./executionDeadline');
 const { COMPLETION, classifyCompletion, stopReasonFor } = require('./completion');
 
-// Electron's RUN_AS_NODE environment can break native (undici) fetch with
-// ERR_INVALID_IP_ADDRESS, so sub-agent web GETs go through the shared Node HTTP
-// transport. The override stays GET-only: sub-agent page fetching never needs
-// anything else, and other modules must not inherit this restriction.
-global.fetch = function fetch(url, options = {}) {
-  if (options?.method && String(options.method).toUpperCase() !== 'GET') {
-    return Promise.reject(new TypeError('Sub-agent fetch only supports GET requests.'));
-  }
-  return nodeHttpFetch(url, options);
-};
-
+// Keep the Electron-compatible page transport local to this module. Replacing
+// global.fetch here also intercepts unrelated image, MCP and cloud POSTs.
 const SUB_AGENT_SYSTEM_PROMPT = 'You are a focused sub-agent analyzer. Complete the requested task directly and output your final structured markdown answer immediately. Think briefly, then answer — long deliberation consumes the response budget. Do not add conversational fluff or ask follow-up questions.';
 const MAX_SUMMARY_TOKENS = 3072;
 const MAX_SUMMARY_CHARACTERS = 6000;
@@ -477,7 +468,7 @@ async function runFileAnalysisExecution({ session, task_description, target_file
  * readable-but-empty page, or empty model answer. Returns { output, usage }.
  * `session` is the owning child session recorded by the runtime.
  */
-async function runWebExtractionExecution({ session, url, query, engine, signal, pageFetchImpl = fetch, fetchImpl, budgetScope, deadline = null, timers }) {
+async function runWebExtractionExecution({ session, url, query, engine, signal, pageFetchImpl = nodeHttpFetch, fetchImpl, budgetScope, deadline = null, timers }) {
   if (typeof query !== 'string' || !query.trim() || query.length > 5000 || query.includes('\0')) {
     throw new Error('query must be a non-empty question of at most 5,000 characters.');
   }

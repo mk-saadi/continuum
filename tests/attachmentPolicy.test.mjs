@@ -17,3 +17,11 @@ test('local and OpenRouter input permissions include only supported modalities',
  assert.throws(()=>assertAttachmentNames(['recording.mp3'],attachmentPolicy(caps,{apiType:'anthropic'})),/unsupported/);
  assert.throws(()=>assertAttachmentNames(['photo.jpg'],attachmentPolicy({image:false},{local:true})),/unsupported/);
 });
+test('only deliverable static image formats are advertised', () => {
+ const policy=attachmentPolicy({image:true},{local:true});
+ assertAttachmentNames(['static.png','photo.jpeg','static.webp'],policy);
+ for(const name of ['animated.gif','image.avif','image.svg','image.bmp']) {
+   assert.ok(!policy.accept.includes(name.slice(name.lastIndexOf('.'))));
+   assert.throws(()=>assertAttachmentNames([name],policy),/unsupported/);
+ }
+});

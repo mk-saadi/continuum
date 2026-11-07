@@ -856,3 +856,25 @@ test('progress prose keeps its position between thoughts and tools without dupli
   assert.deepEqual(splitStages(steps).map(stage => stage.text ? 'text' : stage.events.length ? 'tools' : 'thought'), ['thought', 'text', 'tools', 'thought']);
   assert.equal(progressTextOffset([{ type: 'tool_call' }]), 0);
 });
+
+test('refreshes a single memory block at request boundaries after tool activity', async () => {
+  const requests = [];
+  await runMemoryChat({ ...base,
+    messages: [{ role: 'system', memoryContext: true, content: 'initial memory block' }, { role: 'user', content: 'Finish the task' }],
+    refreshMemoryContext: history => ({ role: 'system', memoryContext: true,
+      content: history.some(m => m.tool_calls?.some(c => c.function.name === 'git_status'))
+        ? 'Selected fact: Git author mk-saadi' : 'No relevant facts' }),
+    chatTools: [{ type: 'function', function: { name: 'git_status', description: 'status', parameters: { type: 'object' } } }],
+    executeTool: async () => 'clean',
+    fetchImpl: async (_url, request) => {
+      requests.push(JSON.parse(request.body));
+      return requests.length === 1
+        ? stream([chunk({ tool_calls: [{ index: 0, id: 'git1', function: { name: 'git_status', arguments: '{}' } }] }), chunk({}, 'tool_calls')])
+        : stream([chunk({ content: 'Done. [TASK COMPLETE]' }), chunk({}, 'stop')]);
+    },
+  });
+  assert.equal(requests.length, 2);
+  assert.doesNotMatch(JSON.stringify(requests[0].messages), /mk-saadi/);
+  assert.equal(JSON.stringify(requests[1].messages).split('Git author mk-saadi').length - 1, 1);
+  assert.doesNotMatch(JSON.stringify(requests[1].messages), /No relevant facts|initial memory block/);
+});

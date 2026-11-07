@@ -8,7 +8,7 @@ export const TAB_STORAGE_KEY = 'continuum_open_tabs';
 // A corrupt or hostile payload must not be able to grow without bound or
 // resurrect duplicate tabs that would collide in the status/session routing.
 const MAX_PERSISTED_TABS = 50;
-const TAB_VIEWS = ['chat', 'project', 'projects'];
+const TAB_VIEWS = ['chat', 'project', 'projects', 'tasks'];
 
 export function cycleActiveTabState(state, direction) {
   const { tabs, activeTabId } = state;

@@ -13,7 +13,7 @@
 	"scripts": {
 		"postinstall": "electron-builder install-app-deps",
 		"test": "node --test tests/",
-		"dev": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=compact concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+		"dev": "cross-env concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
 		"dev:vite": "vite",
 		"dev:electron": "cross-env NODE_ENV=development electron .",
 		"build": "vite build",
@@ -23,7 +23,13 @@
 		"dist:local": "npm run build && electron-builder --config electron-builder.local.cjs",
 		"local:network:prepare": "node scripts/prepare-local-network.cjs",
 		"dev:trusted": "npm run dev",
-		"start:local": "cross-env NODE_ENV=production electron ."
+		"start:local": "cross-env NODE_ENV=production electron .",
+		"dev:compact": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=compact npm run dev",
+		"dev:full": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=full npm run dev",
+		"start:compact": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=compact npm start",
+		"start:full": "cross-env CONTINUUM_NATIVE_TOOL_PROFILE=full npm start",
+		"bench:compact": "node scripts/audits/compactPromptBudget.cjs",
+		"bench:compact:asar": "node scripts/audits/compactPackagedCheck.cjs"
 	},
 	"keywords": [
 		"electron",

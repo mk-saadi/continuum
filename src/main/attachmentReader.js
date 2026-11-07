@@ -16,11 +16,13 @@ function rowForFile(filePath, messageId) {
   // Model context builders have an authoritative message ID. Never infer a
   // grant merely from the presence of a file in managed storage.
   if (!Number.isInteger(messageId)) return null;
-  return require('./db').db.prepare('SELECT * FROM message_attachments WHERE message_id = ? AND file_path = ? ORDER BY id LIMIT 1').get(messageId, filePath);
+  return require('./attachmentStore').rowForFile({file_path:filePath},messageId);
 }
 function describe(file, messageId) {
-  const row = rowForFile(file.file_path, messageId);
-  const metadata = { name: attachmentName(file.file_path), media_type: file.mime_type };
+  const row = require("./db").isInitialized() ? require("./attachmentStore").rowForFile(file, messageId) : null;
+  const current = row?.version_id ? require('./attachmentStore').view(row) : file;
+  const metadata = { name: current.name || attachmentName(file.file_path), media_type: file.mime_type,
+    ...(current.version_id ? {source_version:current.version_id,fingerprint:current.fingerprint,storage:current.storage_kind} : {}) };
   if (!row) return { ...metadata, access: 'No persisted attachment reference is available.' };
   return { ...metadata, attachment_id: reference(row), tool: 'read_project_file', argument: 'attachment_id' };
 }
@@ -42,30 +44,38 @@ function resolve(attachmentId, sessionId, context) {
     JOIN message_attachments a ON a.id = r.attachment_id
     JOIN messages m ON m.id = a.message_id JOIN sessions s ON s.id = m.session_id
     WHERE r.reference = ? AND m.session_id = ? AND m.role = 'user'`).get(attachmentId, authorizedSession);
-  if (!row)
+  if (!row || row.omitted)
     throw fail('ATTACHMENT_UNAVAILABLE', 'Attachment is not attached to this conversation, or its reference has been revoked.');
   try { validateAttachments([row]); }
   catch { throw fail('ATTACHMENT_UNAVAILABLE', 'Attachment is missing, unsupported, oversized, or no longer a valid managed file.'); }
-  return row;
+  return require("./attachmentStore").view(row);
 }
-function read({ attachment_id, start_line, end_line, ...other }, sessionId, context, mediaPolicy) {
+function read({ attachment_id, start_line, end_line, ...other }, sessionId, context, mediaPolicy, captured) {
   if (Object.keys(other).some(key => other[key] !== undefined)) throw fail('ATTACHMENT_INVALID_REQUEST', 'Attachment reads accept attachment_id and optional text line bounds only; omit paths and revision arguments.');
   const row = resolve(attachment_id, sessionId, context);
   let fd;
   try {
     // O_NOFOLLOW and the managed-directory check prevent a replaced symlink
     // from turning a valid reference into an arbitrary filesystem read.
+    let bytes, snapshot;
+    if (row.version_id) {
+      if(captured && captured.version.id!==row.version_id) throw fail('ATTACHMENT_CHANGED','The attachment version changed during reading. Retry.');
+      snapshot = captured || require('./attachmentStore').freshSnapshot(row);
+      bytes = snapshot.bytes;
+    } else {
     fd = fs.openSync(row.file_path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || stat.size > MAX_FILE_BYTES) throw fail('ATTACHMENT_LIMIT', 'Attachment must be a regular file of at most 20 MB.');
-    const bytes = Buffer.alloc(stat.size);
+    bytes = Buffer.alloc(stat.size);
     let offset = 0;
     while (offset < bytes.length) { const n = fs.readSync(fd, bytes, offset, bytes.length - offset, offset); if (!n) break; offset += n; }
     const after = fs.fstatSync(fd);
     if (offset !== bytes.length || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs) throw fail('ATTACHMENT_CHANGED', 'Attachment changed during inspection; retry using the current attachment reference.');
     resolve(attachment_id, sessionId, context);
+    }
+    resolve(attachment_id, sessionId, context);
     const base = { success: true, attachment_id, name: attachmentName(row.file_path), media_type: row.mime_type, size_bytes: bytes.length, access: 'read-only user attachment' };
-    const document = require('./attachmentDocuments').extractedDocumentText(row.file_path);
+    const document = snapshot ? snapshot.extracted_text : require('./attachmentDocuments').extractedDocumentText(row.file_path);
     if (row.mime_type.startsWith('text/') || row.mime_type === 'application/json' || document !== null) {
       let text = document;
       if (text === null) {

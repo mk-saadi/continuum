@@ -40,10 +40,23 @@ function relocateReferences(connection, oldPath, newPath, configuredPath = oldPa
     return root ? path.join(newPath, path.relative(root, value)) : value;
   };
   connection.transaction(() => {
+    const versioned = connection.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='attachment_versions'").get();
+    if(versioned) {
+      const update=connection.prepare('UPDATE attachment_versions SET file_path=?,real_path=?,snapshot_path=? WHERE id=?');
+      for(const row of connection.prepare('SELECT * FROM attachment_versions').all()) {
+        connection.prepare('INSERT OR IGNORE INTO attachment_path_aliases(asset_id,file_path) VALUES (?,?)').run(row.asset_id,row.file_path);
+        update.run(row.storage_kind==='managed'?relocate(row.file_path):row.file_path,
+          row.storage_kind==='managed'?relocate(row.real_path):row.real_path,relocate(row.snapshot_path),row.id);
+      }
+    }
     for (const table of ['message_attachments', 'document_chunks']) {
       const update = connection.prepare(`UPDATE ${table} SET file_path = ? WHERE id = ?`);
-      for (const row of connection.prepare(`SELECT id, file_path FROM ${table}`).all())
-        update.run(relocate(row.file_path), row.id);
+      for (const row of connection.prepare(`SELECT * FROM ${table}`).all()) {
+        if(versioned && table==='message_attachments' && row.version_id) {
+          const version=connection.prepare('SELECT file_path FROM attachment_versions WHERE id=?').get(row.version_id);
+          update.run(version.file_path,row.id);
+        } else update.run(relocate(row.file_path), row.id);
+      }
     }
   })();
 }

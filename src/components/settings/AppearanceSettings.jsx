@@ -21,7 +21,7 @@ export default function AppearanceSettings() {
 						<label key={value} data-selected={appearance === value}
 							className="aero-control sk-button flex cursor-pointer items-start gap-2 px-2.5 py-2 text-xs">
 							<input type="radio" name={name} value={value} checked={appearance === value}
-								onChange={() => setAppearance(value)} className="sk-radio mt-0.5 shrink-0 accent-[var(--accent)]" />
+								onChange={() => setAppearance(value)} className="appearance-radio sk-radio mt-0.5 shrink-0 accent-[var(--accent)]" />
 							<span><span className="block font-semibold">{label}</span>
 								<span className="mt-1 block text-[10px] leading-relaxed">{hint}</span></span>
 						</label>

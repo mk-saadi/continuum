@@ -142,7 +142,8 @@ test('5. batched attachments preserve associations, order, and shapes', async ()
   assert.deepEqual(byId.get(a3).siblings, [a3]);
   for (const message of loaded.messages) {
     const direct = db.prepare('SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id').all(message.id);
-    assert.deepEqual(message.attachments, direct, 'batched rows match per-message reads');
+    assert.deepEqual(message.attachments.map(row=>Object.fromEntries(Object.keys(direct[0] || {}).map(key=>[key,row[key]]))), direct, 'batched rows preserve stored fields');
+    for(const row of message.attachments) assert.equal(row.session_id,sid,'attachment UI resolves through its owning conversation');
   }
 });
 
@@ -172,7 +173,7 @@ test('6c. large session issues one attachment and one siblings query', async () 
   resetStmtCounts();
   const loaded = sessions.loadSession('hist-big-1');
   assert.equal(loaded.messages.length, 200);
-  assert.equal(countStatements('all:SELECT * FROM message_attachments'), 1, 'no per-message attachment query at 200 messages');
+  assert.equal(countStatements('all:SELECT a.*,v.storage_kind'), 1, 'no per-message attachment query at 200 messages');
   assert.equal(countStatements('all:SELECT id, role, parent_id FROM messages'), 1, 'no per-message siblings query at 200 messages');
   const total = Object.values(stmtCounts).reduce((a, b) => a + b, 0);
   assert.ok(total < 250, `load stays bounded (got ${total}, was 602)`);

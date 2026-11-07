@@ -1,4 +1,5 @@
 'use strict';
+const { validationSummary } = require('../lib/toolValidation.cjs');
 
 // Per-turn work digest (Phase 1: pure builder, no I/O, no database, no LLM).
 //
@@ -195,7 +196,7 @@ function entryErrorText(step, result) {
   const direct = typeof step.error === 'string' && step.error ? step.error : null;
   const fromResult =
     result && typeof result === 'object' && typeof result.error === 'string' && result.error ? result.error : null;
-  const text = direct ?? fromResult;
+  const text = validationSummary(result, step.toolName) ?? direct ?? fromResult;
   return text ? capText(redactSecrets(text), EXCERPT_CAP) : null;
 }
 

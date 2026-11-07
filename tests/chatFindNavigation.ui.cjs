@@ -254,7 +254,7 @@ app.whenReady().then(async () => {
       await openFind();
       await typeQuery('hit');
       await until(() => counter() === '1/3', 'latest scenario did not find three results');
-      const jump = () => document.querySelector('button[aria-label="Jump to latest"]');
+      const jump = () => document.querySelector('button[aria-label="Scroll to bottom"]');
       await until(() => jump(), 'a target window below the newest messages must offer a way back');
       jump().click();
       await until(() => windowCount() === 15 && windowFirstId() === 106, 'Jump to latest must restore the newest window');
@@ -273,6 +273,17 @@ app.whenReady().then(async () => {
       check(window.__canonical.length === 120, 'canonical history must never be truncated by search navigation');
       check(window.sessionMessageCount('sess-latest') === 120, 'the persisted store must be unchanged by search navigation');
 
+      // Spotlight selects a saved message by identity, beyond the suffix window.
+      document.querySelector('button[aria-label="Close find"]')?.click();
+      window.renderScenario({ key: 'spotlight', sessionId: 'sess-spotlight', messages: messageIdCount(120, []) });
+      await until(() => windowCount() === 15, 'spotlight initial suffix');
+      window.navigateToMessage(5);
+      await until(() => document.querySelector('[data-message-id="5"]'), 'spotlight must mount an older saved message');
+      await tick(100);
+      const target = document.querySelector('[data-message-id="5"]').getBoundingClientRect();
+      const viewport = scroller().getBoundingClientRect();
+      check(target.bottom > viewport.top && target.top < viewport.bottom, 'spotlight result must be visible');
+      check(windowCount() < 40, 'spotlight must keep the target window bounded');
       return true;
     })()`);
     assert.equal(result, true);

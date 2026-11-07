@@ -38,7 +38,8 @@ test('local requests verify image capabilities each time and block before infere
     return { ok: true, json: async () => ({ modalities: { vision } }) };
   });
   const url = 'http://127.0.0.1:8080/v1/chat/completions';
-  const media = { body: JSON.stringify({ messages: [{ role: 'user', content: [{ type: 'image_url' }] }] }) };
+  const { PNG_BASE64 } = await import('./fixtures/visionImages.mjs');
+  const media = { body: JSON.stringify({ messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/png;base64,${PNG_BASE64}` } }] }] }) };
   await assert.rejects(guarded(url, media), /does not support image/);
   assert.equal(calls.length, 1);
   vision = true;

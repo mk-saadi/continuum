@@ -320,7 +320,12 @@ test('selected-model media policy reports text-only limitations and rechecks rev
     access.getAttachmentPolicy = async () => { database.db.prepare('DELETE FROM message_attachments WHERE id = ?').run(fixture.row.id); return { enabled: { image: true } }; };
     assert.equal((await call({ attachment_id: fixture.ref }, { engine })).code, 'ATTACHMENT_UNAVAILABLE');
   } finally { access.getAttachmentPolicy = original; }
-  const gif = await attach('legacy.gif', Buffer.from('GIF89a'));
+  // Simulate a pre-upgrade stored GIF; new ingestion deliberately rejects it.
+  const legacyPath = path.join(require('../src/main/configStore').getConfig().appDataDirectory, 'attachments', 'legacy.gif');
+  fs.writeFileSync(legacyPath, Buffer.from('GIF89a'));
+  sessions.saveMessage('r3', 'user', 'Legacy GIF', [{file_path:legacyPath,mime_type:'image/gif'}]);
+  const legacyRow = database.db.prepare('SELECT * FROM message_attachments WHERE file_path = ?').get(legacyPath);
+  const gif = {ref:reader.reference(legacyRow)};
   const limited = await call({ attachment_id: gif.ref });
   assert.equal(limited.inspection, 'metadata'); assert.match(limited.note, /existing tool-image validator/);
 });

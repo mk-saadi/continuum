@@ -1,3 +1,4 @@
+import { finalAssistantResponse } from "../lib/assistantResponse.mjs";
 import React, { useState } from "react";
 import {
 	FiCheck,
@@ -25,13 +26,9 @@ export default function MessageActions({
 }) {
 	const [copied, setCopied] = useState(false);
 	const saved = Number.isSafeInteger(message.id) && message.id > 0;
-	const activeContent = message.variants?.[message.active_variant_index ?? 0]?.content;
-	const textToCopy =
-		typeof message.content === "string" && message.content
-			? message.content
-			: typeof activeContent === "string"
-				? activeContent
-				: "";
+	const textToCopy = message.role === "assistant"
+		? finalAssistantResponse(message)
+		: typeof message.content === "string" ? message.content : "";
 	const replyVersions =
 		message.role === "assistant" && message.variants?.length > 1 && onSelectReplyVariant;
 	const promptVersions = message.role === "user" && message.siblings?.length > 1 && onSelectPromptVersion;
@@ -144,6 +141,7 @@ export default function MessageActions({
 					type="button"
 					className={buttonClass}
 					aria-label="Copy message"
+					disabled={!textToCopy}
 					onBlur={() => setCopied(false)}
 					onClick={async () => {
 						try {

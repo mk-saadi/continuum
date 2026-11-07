@@ -65,7 +65,7 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
   if ((messageTools || messageThinking.text !== null || messageThinking.duration !== null) && role !== 'assistant') throw new TypeError('Only assistant messages may have tool or thinking metadata.');
   if (messageStats && role !== 'assistant') throw new TypeError('Only assistant messages may have generation stats.');
   const estimatedTokens = estimateTokens(content);
-  const files = validateAttachments(attachments);
+  const files = validateAttachments(attachments, { sessionId });
   if (files.length && role !== 'user') throw new TypeError('Only user messages may have attachments.');
 
   return db.transaction(() => {
@@ -114,10 +114,10 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
     db.prepare('UPDATE messages SET variants = ? WHERE id = ?').run(JSON.stringify(variants), savedId);
 
     const insertAttachment = db.prepare(`
-      INSERT INTO message_attachments(message_id, file_path, mime_type) VALUES (?, ?, ?)
+      INSERT INTO message_attachments(message_id, file_path, mime_type, asset_id, version_id, omitted) VALUES (?, ?, ?, ?, ?, ?)
     `);
     for (const attachment of files) {
-      insertAttachment.run(savedId, attachment.file_path, attachment.mime_type);
+      insertAttachment.run(savedId, attachment.file_path, attachment.mime_type, attachment.asset_id ?? null, attachment.version_id ?? null, attachment.omitted || 0);
     }
 
     // Preserve Workspace user requirements verbatim, independently of the
@@ -434,9 +434,10 @@ function attachmentsByMessage(messageIds) {
     const chunk = messageIds.slice(start, start + 500);
     if (!chunk.length) continue;
     const rows = db.prepare(
-      `SELECT * FROM message_attachments WHERE message_id IN (${chunk.map(() => '?').join(',')}) ORDER BY id`,
+      `SELECT a.*,v.storage_kind,v.name,v.size,v.sha256 AS fingerprint,v.snapshot_path FROM message_attachments a
+        LEFT JOIN attachment_versions v ON v.id=a.version_id WHERE a.message_id IN (${chunk.map(() => '?').join(',')}) ORDER BY a.id`,
     ).all(...chunk);
-    for (const row of rows) byMessage.get(row.message_id)?.push(row);
+    for (const row of rows) byMessage.get(row.message_id)?.push({...row,has_copy:!!row.snapshot_path || row.storage_kind==='managed'});
   }
   return byMessage;
 }
@@ -464,7 +465,7 @@ function withAttachments(messages) {
       ...(execution_steps == null ? { toolCalls: parseToolCalls(tool_calls),
       thinkingText: typeof thinking_text === 'string' ? thinking_text : null,
       thinkingDuration: typeof thinking_duration === 'number' && Number.isFinite(thinking_duration) && thinking_duration >= 0 ? thinking_duration : null } : {}),
-      attachments: attachments.get(message.id) ?? [],
+      attachments: (attachments.get(message.id) ?? []).map(file=>({...file,session_id:message.session_id})),
     };
   });
 }
@@ -637,8 +638,8 @@ function branchChat(sourceSessionId, targetMessageId) {
     const insert = db.prepare(`INSERT INTO messages
       (session_id, parent_id, role, content, variant_index, estimated_tokens, stats, tool_calls, thinking_text, thinking_duration, model_name, model_id, agent_name, archived, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);
-    const copyAttachments = db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens)
-      SELECT ?, file_path, mime_type, estimated_tokens FROM message_attachments WHERE message_id = ? ORDER BY id`);
+    const copyAttachments = db.prepare(`INSERT INTO message_attachments(message_id, file_path, mime_type, estimated_tokens, asset_id, version_id, omitted)
+      SELECT ?, file_path, mime_type, estimated_tokens, asset_id, version_id, omitted FROM message_attachments WHERE message_id = ? ORDER BY id`);
     let parentId = null;
     const messageIdMap = new Map();
     for (const message of messages) {

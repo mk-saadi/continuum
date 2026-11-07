@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   TAB_STORAGE_KEY,
   closeAllTabsState,
@@ -49,6 +49,9 @@ export function TabProvider({ children }) {
   // close handlers, which need the live tab list before the next render.
   const [restored, setRestored] = useState(false);
   const stateRef = useRef(state);
+  // The unload backstop must see the latest rendered selection, including
+  // during child layout effects before passive persistence could run.
+  stateRef.current = state;
   // The last tab-state payload known to be on disk. Seeded with the state we
   // just restored/created so mounting never rewrites unchanged storage, and
   // advanced only after a write actually succeeds (a failed write is retried).
@@ -119,8 +122,8 @@ export function TabProvider({ children }) {
   // approval routing) serializes identically and is skipped rather than
   // rewriting the whole tab list. Coalescing falls out of React batching:
   // several mutations in one tick commit once and persist once, the latest.
-  useEffect(() => {
-    stateRef.current = state;
+  useLayoutEffect(() => {
+    // Persist before paint so reload/close cannot race a pending passive effect.
     // Mount adopts the state serialized during initialization; every later
     // change is serialized once to compare against what is already on disk.
     if (state === persistedStateRef.current) return;

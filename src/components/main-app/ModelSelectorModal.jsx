@@ -671,7 +671,9 @@ export default function ModelSelectorModal({
 													: []),
 												...modelList.map((modelId) => ({
 													value: modelId,
-													label: modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name }),
+													label: modelDisplayName(modelId, {
+														name: metadataFor(row.id, modelId)?.name,
+													}),
 												})),
 											];
 											const capabilityModelId =
@@ -911,7 +913,15 @@ export default function ModelSelectorModal({
 																						aria-hidden="true"
 																					/>
 																					<span className="truncate">
-																						{modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name })}
+																						{modelDisplayName(
+																							modelId,
+																							{
+																								name: metadataFor(
+																									row.id,
+																									modelId,
+																								)?.name,
+																							},
+																						)}
 																					</span>
 																				</button>
 																				<button
@@ -1018,6 +1028,7 @@ export default function ModelSelectorModal({
 					)}
 				</div>
 				<footer className="aero-fill sk-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+					<span>{metadataStatus && <span className="block">{metadataStatus}</span>}</span>
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
 							className={`size-1.5 shrink-0 ui-radius-round ${engines.length ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
@@ -1064,7 +1075,6 @@ export default function ModelSelectorModal({
 						))}
 					</div>
 					<span>
-						{metadataStatus && <span className="block">{metadataStatus}</span>}
 						Icons: image · audio · video · reasoning · tools. Hover for support status; muted
 						means unsupported or unknown.
 					</span>

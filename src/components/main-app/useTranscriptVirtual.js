@@ -29,7 +29,7 @@ import {
 //      stable before paint; this hook only records the new heights.
 
 const MESSAGE_ID_ATTR = "data-message-id";
-const HEIGHT_EPSILON = 0.5;
+const HEIGHT_EPSILON = 0.01;
 // Ceiling on retained per-row measurements. Comfortably above any realistic
 // revealed window while still bounding long sessions.
 const MAX_CACHED_MEASUREMENTS = 1500;
@@ -53,6 +53,7 @@ function captureAnchor(node) {
 			return {
 				id: element.getAttribute(MESSAGE_ID_ATTR),
 				contentTop: node.scrollTop + (rect.top - containerTop) - paddingTop,
+				viewportTop: rect.top - containerTop,
 				scrollTop: node.scrollTop,
 				scrollHeight: node.scrollHeight,
 			};
@@ -76,11 +77,11 @@ function restoreAnchor(node, anchor, keys, prefix) {
 	if (anchor.id != null) {
 		const index = keys.indexOf(String(anchor.id));
 		if (index !== -1) {
-			node.scrollTop += prefix[index] - anchor.contentTop;
+			node.scrollTop = anchor.scrollTop + prefix[index] - anchor.contentTop;
 			return;
 		}
 	}
-	node.scrollTop += node.scrollHeight - anchor.scrollHeight;
+	node.scrollTop = anchor.scrollTop + node.scrollHeight - anchor.scrollHeight;
 }
 
 export function useTranscriptVirtual({
@@ -140,12 +141,12 @@ export function useTranscriptVirtual({
 	// --- measurement cache ---------------------------------------------------
 	const recordHeight = useCallback(
 		(key, height) => {
-			const rounded = Math.round(height);
-			if (!Number.isFinite(rounded)) return false;
+			const measuredHeight = height;
+			if (!Number.isFinite(measuredHeight)) return false;
 			const cache = heightsRef.current;
 			const previous = cache.get(key);
-			if (previous != null && Math.abs(previous - rounded) <= HEIGHT_EPSILON) return false;
-			cache.set(key, rounded);
+			if (previous != null && Math.abs(previous - measuredHeight) <= HEIGHT_EPSILON) return false;
+			cache.set(key, measuredHeight);
 			trimCache();
 			return true;
 		},
@@ -165,11 +166,11 @@ export function useTranscriptVirtual({
 			if (key == null) continue;
 			const box = entry.borderBoxSize && entry.borderBoxSize[0];
 			const height = box ? box.blockSize : entry.contentRect.height;
-			const rounded = Math.round(height);
-			if (!Number.isFinite(rounded)) continue;
+			const measuredHeight = height;
+			if (!Number.isFinite(measuredHeight)) continue;
 			const previous = heightsRef.current.get(key);
-			if (previous != null && Math.abs(previous - rounded) <= HEIGHT_EPSILON) continue;
-			if (recordHeight(key, rounded)) changed = true;
+			if (previous != null && Math.abs(previous - measuredHeight) <= HEIGHT_EPSILON) continue;
+			if (recordHeight(key, measuredHeight)) changed = true;
 		}
 		if (changed) setHeightsVersion((version) => version + 1);
 	};
@@ -228,28 +229,33 @@ export function useTranscriptVirtual({
 	prefixRef.current = prefixData;
 	gapRef.current = gap;
 
+	const heldAnchor = holdAnchorRef.current;
+	const heldIndex = heldAnchor?.id != null ? keys.indexOf(String(heldAnchor.id)) : -1;
+	const layoutScrollTop = heldIndex >= 0
+		? heldAnchor.scrollTop + prefixData.prefix[heldIndex] - heldAnchor.contentTop
+		: scrollTopState === null ? Infinity : scrollTopState;
+
 	const layout = useMemo(
 		() =>
 			computeVirtualLayout({
 				prefix: prefixData.prefix,
 				count: keys.length,
 				gap,
-				scrollTop: scrollTopState === null ? Infinity : scrollTopState,
+				scrollTop: layoutScrollTop,
 				viewportHeight: viewport.height,
 				overscan: overscanPx,
 			}),
-		[prefixData, keys.length, gap, scrollTopState, viewport.height, overscanPx],
+		[prefixData, keys.length, gap, layoutScrollTop, viewport.height, overscanPx],
 	);
 	layoutRef.current = layout;
 
 	const pinnedIndices = useMemo(() => {
-		if (!pinnedIds || pinnedIds.size === 0) return null;
-		const found = [];
+		const found = heldIndex >= 0 ? [heldIndex] : [];
 		for (let index = 0; index < keys.length; index += 1) {
-			if (pinnedIds.has(keys[index])) found.push(index);
+			if (pinnedIds?.has(keys[index])) found.push(index);
 		}
 		return found.length ? found : null;
-	}, [pinnedIds, keys]);
+	}, [pinnedIds, keys, heldIndex]);
 
 	const range = useMemo(
 		() => expandRangeForPins(layout, pinnedIndices, MAX_PIN_EXPANSION),
@@ -322,7 +328,7 @@ export function useTranscriptVirtual({
 					const element = observedRef.current.get(keys[index]);
 					if (!element) continue;
 					const rect = element.getBoundingClientRect();
-					const real = Math.round(rect.height);
+					const real = rect.height;
 					if (!Number.isFinite(real)) continue;
 					const estimated =
 						index < previous.sizes.length ? previous.sizes[index] : previous.estimate;
@@ -336,14 +342,26 @@ export function useTranscriptVirtual({
 
 		if (node && holdAnchorRef.current) {
 			const anchor = holdAnchorRef.current;
-			holdAnchorRef.current = null;
-			restoreAnchor(node, anchor, keys, prefixData.prefix);
-			// Re-derive the mounted range from the corrected scroll position so
-			// the anchor row stays mounted in the same commit, without a frame
-			// where the wrong slice is painted.
+			// The held row is pinned into the new range. Measure that range
+			// before paint and restore the actual DOM offset, rather than
+			// releasing the anchor against estimated spacer geometry.
+			let measured = false;
+			for (const [key, element] of observedRef.current) {
+				if (recordHeight(key, element.getBoundingClientRect().height)) measured = true;
+			}
+			const element = observedRef.current.get(String(anchor.id));
+			if (element) {
+				node.scrollTop += element.getBoundingClientRect().top - node.getBoundingClientRect().top - anchor.viewportTop;
+				if (!measured) holdAnchorRef.current = null;
+			} else {
+				restoreAnchor(node, anchor, keys, prefixData.prefix);
+				// A distant/deleted anchor may exceed the bounded pin range.
+				// Apply the prefix fallback once rather than retaining a stale hold.
+				holdAnchorRef.current = null;
+			}
+			if (measured) setHeightsVersion(version => version + 1);
 			if (scrollTopState !== node.scrollTop) setScrollTopState(node.scrollTop);
 		}
-		holdAnchorRef.current = null;
 		skipCompensationRef.current = false;
 
 		prevGeometryRef.current = {

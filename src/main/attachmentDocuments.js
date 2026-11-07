@@ -2,12 +2,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const MAX_TEXT = 100000;
-async function extractAttachmentDocument(filePath) {
-	const extension = path.extname(filePath).toLowerCase();
+async function extractDocumentBytes(bytes, mime) {
+	const extension = mime === 'application/pdf' ? '.pdf' : mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ? '.xlsx' : '';
 	let text;
 	if (extension === ".pdf") {
 		const { PDFParse } = require("pdf-parse");
-		const parser = new PDFParse({ data: new Uint8Array(await fs.promises.readFile(filePath)) });
+		const parser = new PDFParse({ data: new Uint8Array(bytes) });
 		try {
 			text = (await parser.getText({ pageJoiner: "\n" })).text;
 		} finally {
@@ -16,7 +16,7 @@ async function extractAttachmentDocument(filePath) {
 	} else if (extension === ".xlsx") {
 		const Excel = require("exceljs");
 		const workbook = new Excel.Workbook();
-		await workbook.xlsx.readFile(filePath);
+		await workbook.xlsx.load(bytes);
 		const lines = [];
 		let size = 0;
 		for (const sheet of workbook.worksheets) {
@@ -52,6 +52,12 @@ async function extractAttachmentDocument(filePath) {
 		);
 	if (text.length > MAX_TEXT)
 		text = text.slice(0, MAX_TEXT) + "\n[Document text truncated to 100,000 characters.]";
+	return text;
+}
+async function extractAttachmentDocument(filePath) {
+	const mime = path.extname(filePath).toLowerCase() === '.pdf' ? 'application/pdf' : path.extname(filePath).toLowerCase() === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '';
+	if (!mime) return;
+	const text = await extractDocumentBytes(await fs.promises.readFile(filePath), mime);
 	await fs.promises.writeFile(filePath + ".extracted.txt", text, { flag: "wx" });
 }
 function extractedDocumentText(filePath) {
@@ -61,4 +67,4 @@ function extractedDocumentText(filePath) {
 		throw new Error("Invalid extracted attachment path.");
 	return fs.readFileSync(sidecar, "utf8").slice(0, MAX_TEXT + 100);
 }
-module.exports = { extractAttachmentDocument, extractedDocumentText };
+module.exports = { extractAttachmentDocument, extractedDocumentText, extractDocumentBytes };

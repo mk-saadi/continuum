@@ -84,22 +84,23 @@ function parseAttachmentsJson(value) {
 
 function snapshotBriefAttachments(files) {
 	if (!files || !files.length) return [];
-	return files.map(({ file_path, mime_type }) => {
-		let size = null;
+	return files.map((file) => {
+        const {file_path,mime_type} = file;
+		let size = file.size ?? null;
 		try {
-			size = fs.statSync(file_path).size;
+			if(size===null) size = fs.statSync(file_path).size;
 		} catch {
 			size = null;
 		}
-		return { file_path, mime_type, file_name: attachmentName(file_path), size };
+		return { file_path, mime_type, file_name: file.name || attachmentName(file_path), size, ...(file.asset_id ? {asset_id:file.asset_id,version_id:file.version_id} : {}) };
 	});
 }
 
 function attachmentsForMessage(messageId) {
 	const rows = db
-		.prepare("SELECT file_path, mime_type FROM message_attachments WHERE message_id = ? ORDER BY id")
+		.prepare("SELECT * FROM message_attachments WHERE message_id = ? ORDER BY id")
 		.all(messageId);
-	return snapshotBriefAttachments(rows);
+	return snapshotBriefAttachments(rows.map(row=>require('./attachmentStore').view(row)));
 }
 
 function insertBrief({ sessionId, messageId, kind, contentText, attachments, supersedesId }) {
@@ -415,6 +416,16 @@ function estimateBriefTokens(briefs) {
 function formatBriefAttachment(attachment, briefId, messageId) {
 	const name = attachment.file_name ?? (attachment.file_path ? attachmentName(attachment.file_path) : "attachment");
 	const filePath = attachment.file_path;
+    const grant = require('./attachmentStore').rowForFile(attachment,messageId);
+    if (grant?.version_id) {
+        const file=require('./attachmentStore').view(grant);
+        if(file.omitted) return `[Attachment explicitly omitted by user: ${name}]`;
+        const snapshot=require('./attachmentStore').readSnapshot(file);
+        const access=`Attachment access: ${JSON.stringify(require('./attachmentReader').describe(file,messageId))}`;
+        const raw=snapshot.extracted_text ?? ((file.mime_type.startsWith('text/') || file.mime_type==='application/json') ? snapshot.bytes.toString('utf8').slice(0,100000) : null);
+        const fence='`'.repeat(Math.max(3,...Array.from((raw || '').matchAll(/`+/g),match=>match[0].length+1)));
+        return `[Attached File: ${name}]\n${access}\n${raw === null ? 'Inspect with read_project_file using attachment_id. Media interpretation requires compatible model support.' : fence+'\n'+raw+'\n'+fence}\n[End of Attached File]`;
+    }
 	let stat = null;
 	try {
 		stat = filePath ? fs.statSync(filePath) : null;

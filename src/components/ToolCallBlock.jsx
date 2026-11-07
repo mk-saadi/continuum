@@ -93,18 +93,8 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Result:</span> {lspLabel ? lspSummary : preview(step.result ?? step.error)}</span>
       </div>}
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-[var(--subtle-border)] p-3">
-        {expanded && preparing && <section aria-label="Streaming arguments">
-          <p className="mb-2 text-[var(--text-muted)]">Preparing {step.toolName}… · {(step.streamingArguments || '').length.toLocaleString()} characters</p>
-          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">{step.streamingArguments || 'Waiting for arguments…'}</pre>
-        </section>}
-        {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
-          ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
-          : <CodeSection title="Result" value={result} />}</>}
-
-        {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}
-      </div>
       {showTranscript && (
-        <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setTranscriptOpen(true)}
@@ -115,6 +105,17 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
           <SubagentLimitBadge childSessionId={step.childSessionId} />
         </div>
       )}
+        {expanded && preparing && <section aria-label="Streaming arguments">
+          <p className="mb-2 text-[var(--text-muted)]">Preparing {step.toolName}… · {(step.streamingArguments || '').length.toLocaleString()} characters</p>
+          <pre ref={streamRef} className="max-h-80 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[var(--code-text)]">{step.streamingArguments || 'Waiting for arguments…'}</pre>
+        </section>}
+        {expanded && !preparing && <><CodeSection title="Arguments" value={args} />{listing
+          ? <FileBrowserWidget items={listing.items} notice={listing.notice} />
+          : <CodeSection title="Result" value={result} />}</>}
+
+        {step.error && <p className="break-words text-[var(--error)]">{step.error}</p>}
+      </div>
+
       {transcriptOpen && showTranscript && (
         <SubagentTranscriptModal
           childSessionId={step.childSessionId}

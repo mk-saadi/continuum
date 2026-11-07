@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
 	FiActivity,
+	FiCalendar,
 	FiCheck,
 	FiChevronDown,
 	FiChevronRight,
@@ -267,6 +268,8 @@ export default function ChatHistory({
 	onNewWorkspaceChat = null,
 	canCreateWorkspaceChat = false,
 	showRecents = false,
+	onTasks = null,
+	tasksActive = false,
 }) {
 	const [search, setSearch] = useState("");
 	const [collapsed, setCollapsed] = useState(new Set());
@@ -455,6 +458,21 @@ export default function ChatHistory({
 							✦ New chat
 						</button>
 					</div>
+				)}
+				{/* Application-level Tasks entry. It sits directly under the chat
+				    home entry and above the workspace/project section, and it is
+				    available from any conversation. */}
+				{mode !== "workspace" && onTasks && (
+					<nav aria-label="Application">
+						<button
+							className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
+							onClick={onTasks}
+							aria-current={tasksActive ? "page" : undefined}
+						>
+							<FiCalendar aria-hidden="true" />
+							<span>Tasks</span>
+						</button>
+					</nav>
 				)}
 				<div className="flex items-center gap-2">
 					<label className="aero-well sk-well flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[var(--text-muted)]">

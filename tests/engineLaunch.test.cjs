@@ -81,6 +81,28 @@ vm.runInContext('mainWindow = testWindow;', context);
   assert.equal(pooled.engines.map(entry => entry.modelPath).sort().join('|'), '/tmp/model with spaces.gguf|/tmp/second.gguf');
   assert.equal(pooled.running, true);
 
+  // A model load must wait for an active turn on a pooled model, and must not
+  // create an overlapping engine while it waits.
+  const firstEntry = context.enginesForTest.get('/tmp/model with spaces.gguf');
+  const firstLease = firstEntry.lifecycle.acquireTurnLease();
+  let thirdLoadSettled = false;
+  const thirdLoad = context.launchForTest(null, { modelPath: '/tmp/third.gguf' }, {}).then(result => {
+    thirdLoadSettled = true;
+    return result;
+  });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(thirdLoadSettled, false, 'the load must wait for the active turn');
+  assert.equal(context.enginesForTest.size, 2, 'no overlapping engine may be created while waiting');
+  firstLease.release();
+  const third = await thirdLoad;
+  assert.equal(third.success, true);
+  assert.equal(context.enginesForTest.size, 3, 'the load proceeds once the turn releases the model');
+  const thirdChild = children.at(-1);
+  assert.equal((await handlers.get('engine:unload')({}, { modelId: '/tmp/third.gguf' })).success, true);
+  thirdChild.emit('exit', 0, 'SIGTERM');
+  thirdChild.emit('close', 0, 'SIGTERM');
+  assert.equal(context.enginesForTest.size, 2);
+
   // The same model cannot be loaded twice.
   const duplicate = await context.launchForTest(null, { modelPath: '/tmp/second.gguf' }, {});
   assert.equal(duplicate.success, false);

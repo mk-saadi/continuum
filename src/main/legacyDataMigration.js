@@ -99,7 +99,9 @@ function repairLegacyAttachmentPaths(connection, dataDirectory, userData = app.g
     let repaired = 0;
     connection.transaction(() => {
         const update = connection.prepare('UPDATE message_attachments SET file_path = ? WHERE id = ? AND file_path = ?');
-        for (const row of connection.prepare('SELECT id, file_path FROM message_attachments').all()) {
+        const versioned=connection.pragma('table_info(message_attachments)').some(column=>column.name==='version_id');
+        const candidates=versioned ? `SELECT a.id,a.file_path FROM message_attachments a LEFT JOIN attachment_versions v ON v.id=a.version_id WHERE a.version_id IS NULL OR (v.storage_kind='managed' AND v.legacy=1)` : 'SELECT id, file_path FROM message_attachments';
+        for (const row of connection.prepare(candidates).all()) {
             if (typeof row.file_path !== 'string' || !path.isAbsolute(row.file_path) || !legacyDirectories.includes(path.dirname(row.file_path))) continue;
             const target = path.join(targetDirectory, path.basename(row.file_path));
             try {

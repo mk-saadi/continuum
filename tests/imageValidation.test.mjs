@@ -20,18 +20,17 @@ test('rejects empty, malformed, truncated, mismatched and unsupported images', (
     png + 'garbage', png.slice(0, -8), png.replace('png', 'jpeg'), png.replace('png', 'gif'),
     png.replace('base64,', 'base64,@'), `data:image/png;base64,${PNG_BASE64.slice(0, -1)}!`, 'https://example.com/image.png']) {
     assert.equal(validateImageDataUrl(url), null, String(url));
-    const [message] = sanitizeChatMessages([{ role: 'user', content: [part(url)] }]);
-    assert.deepEqual(message.content, [{ type: 'text', text: INVALID_IMAGE_NOTICE }]);
+    assert.throws(() => sanitizeChatMessages([{ role: 'user', content: [part(url)] }]), /Cannot prepare attachment input/);
   }
 });
 
-test('real decoder failure replaces the image without altering surrounding text', () => {
+test('tool decoder failure replaces the image without altering surrounding text', () => {
   let decoded = 0;
-  const messages = sanitizeChatMessages([{ role: 'user', content: [{ type: 'text', text: 'Inspect this.' }, part(png)] }], (bytes, mime) => {
+  const messages = sanitizeChatMessages([{ role: 'assistant', tool_calls: [{id:'image',function:{name:'take_screenshot',arguments:'{}'}}] }, { role: 'tool', tool_call_id:'image', content: [{ type: 'text', text: 'Inspect this.' }, part(png)] }], (bytes, mime) => {
     decoded++; assert.ok(bytes instanceof Uint8Array); assert.equal(mime, 'image/png'); return false;
   });
   assert.equal(decoded, 1);
-  assert.deepEqual(messages[0].content, [{ type: 'text', text: 'Inspect this.' }, { type: 'text', text: INVALID_IMAGE_NOTICE }]);
+  assert.deepEqual(messages[1].content, [{ type: 'text', text: 'Inspect this.' }, { type: 'text', text: INVALID_IMAGE_NOTICE }]);
   assert.equal(validateImageDataUrl(png, () => { throw new Error('Decode failed'); }), null);
 });
 
@@ -48,7 +47,7 @@ test('malformed MCP/raw images are omitted and mixed results retain placeholders
   assert.equal(result.content.filter(block => block.type === 'image_url').length, 1);
 });
 
-test('final wire payload omits corrupt image buffers in both user and tool roles', async () => {
+test('final wire payload retains user originals for transport validation and omits corrupt tool images', async () => {
   let payload;
   const messages = [{ role: 'system', content: 'Help.' }, { role: 'user', content: [part(png)] },
     { role: 'assistant', tool_calls: [{ id: 'image', function: { name: 'take_screenshot', arguments: '{}' } }] },
@@ -56,9 +55,8 @@ test('final wire payload omits corrupt image buffers in both user and tool roles
   await runMemoryChat({ baseUrl: 'http://local', modelId: 'model', messages, decodeImage: () => false,
     fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: 'Image unavailable.' }, finish_reason: 'stop' }] }); },
   });
-  assert.ok(!JSON.stringify(payload.messages).includes(PNG_BASE64));
-  assert.ok(!JSON.stringify(payload.messages).includes('image_url'));
-  assert.ok(payload.messages[1].content.some(part => part.text === INVALID_IMAGE_NOTICE));
+  assert.ok(payload.messages[1].content.some(block => block.image_url?.url === png));
+  assert.ok(!JSON.stringify(payload.messages[3]).includes(PNG_BASE64));
   assert.ok(payload.messages[3].content.some(part => part.text === INVALID_IMAGE_NOTICE));
   assert.equal(payload.messages[3].tool_call_id, 'image');
 });

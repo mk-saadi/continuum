@@ -93,7 +93,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   }
 }
 
-export async function indexDesktopDocuments(attachments, { signal, onProgress = () => {} } = {}) {
+export async function indexDesktopDocuments(attachments, { sessionId, signal, onProgress = () => {} } = {}) {
   onProgress(null);
   signal?.throwIfAborted();
   const requestId = crypto.randomUUID();
@@ -103,7 +103,7 @@ export async function indexDesktopDocuments(attachments, { signal, onProgress = 
   const abort = () => { window.chatAPI.cancel(requestId).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await window.api.indexDocuments({ requestId, attachments });
+    const result = await window.api.indexDocuments({ requestId, attachments, sessionId });
     signal?.throwIfAborted();
     return result;
   } catch (error) { signal?.throwIfAborted(); throw error; }

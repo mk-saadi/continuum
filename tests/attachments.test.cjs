@@ -9,6 +9,7 @@ const userData = path.join(directory, 'profile');
 const handlers = new Map();
 const originalLoad = Module._load;
 Module._load = function (name, ...args) {
+  if (name === './modelCapabilities' && args[0]?.filename.endsWith('/attachmentAccess.js')) return {queryCapabilities: async () => ({image:true})};
   if (name === 'electron') return {
     app: { isReady: () => true, getPath: () => userData },
     ipcMain: { handle: (channel, handler) => handlers.set(channel, handler), removeHandler: (channel) => handlers.delete(channel) },
@@ -23,14 +24,16 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
 (async () => {
  try {
   initDatabase();
+  require('../src/main/capabilityOverrides').saveOverrides({type:'local',modelId:'/fixture-model.gguf'},{image:true});
   const image = path.join(directory, 'image.PNG');
   const text = path.join(directory, 'notes.txt');
   const markdown = path.join(directory, 'plan.md');
   const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
   fs.writeFileSync(image, bytes); fs.writeFileSync(text, 'Attachment text'); fs.writeFileSync(markdown, '# Project plan');
-  const dispose = registerIpcHandlers({isTrustedSender: (event) => event.trusted === true});
+  const dispose = registerIpcHandlers({getEngineConfig: () => ({modelPath:'/fixture-model.gguf',port:8080}), isTrustedSender: (event) => event.trusted === true});
   await assert.rejects(handlers.get('file:process-uploads')({trusted: false}, [image]), /Unauthorized/);
-  const attachments = await handlers.get('file:process-uploads')({trusted: true}, [image, text, markdown, image]);
+  await assert.rejects(handlers.get('file:process-uploads')({trusted: true}, [image, text, markdown, image]), /paths are not attachment authorization/);
+  const attachments = await processUploads([image, text, markdown, image]);
   assert.equal(attachments.length, 4);
   assert.equal(new Set(attachments.map(a => a.file_path)).size, 4);
   assert.equal(attachments[0].mime_type, 'image/png');
@@ -38,15 +41,16 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.deepEqual(fs.readFileSync(attachments[0].file_path), bytes);
   assert.deepEqual(fs.readFileSync(image), bytes);
 
-  // The renderer sends compressed bytes rather than the original disk path.
-  const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0xff, 0xd9]);
+  // Legacy JPEG byte envelopes remain compatible; new envelopes retain source formats.
+  const { JPEG_BASE64 } = await import('./fixtures/visionImages.mjs');
+  const jpegBytes = Buffer.from(JPEG_BASE64, 'base64');
   const dataUrl = `data:image/jpeg;base64,${jpegBytes.toString('base64')}`;
-  const optimized = await handlers.get('file:process-uploads')({trusted: true}, [{name: 'optimized.jpg', dataUrl}, text]);
+  const optimized = [...await handlers.get('file:process-uploads')({trusted: true}, [{name: 'optimized.jpg', dataUrl}]), ...await processUploads([text])];
   assert.equal(optimized[0].mime_type, 'image/jpeg');
   assert.deepEqual(fs.readFileSync(optimized[0].file_path), jpegBytes);
   assert.equal(optimized[1].mime_type, 'text/plain');
-  await assert.rejects(processUploads([{name: 'bad.jpg', dataUrl: 'data:image/jpeg;base64,aGVsbG8='}]), /Invalid optimized JPEG/);
-  await assert.rejects(processUploads([{name: 'bad.png', dataUrl: 'data:image/png;base64,AAAA'}]), /Invalid optimized JPEG/);
+  await assert.rejects(processUploads([{name: 'bad.jpg', dataUrl: 'data:image/jpeg;base64,aGVsbG8='}]), /Invalid image attachment|could not be safely decoded/);
+  await assert.rejects(processUploads([{name: 'bad.png', dataUrl: 'data:image/png;base64,AAAA'}]), /could not be safely decoded/);
 
   const prompt = prepareChatMessages({sessionId: 'vision', modelId: 'model', userText: '', attachments});
   const parts = prompt.at(-1).content;
@@ -76,13 +80,14 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
   assert.throws(() => sessions.saveMessage('text', 'user', 'bad', [{...attachments[0], mime_type: 'text/plain'}]), /Invalid managed/);
   assert.equal(sessions.loadSession('text').messages.length, 1);
 
+  const beforeFailedInsert = db.prepare('SELECT COUNT(*) AS n FROM message_attachments').get().n;
   db.prepare("CREATE TRIGGER fail_attachment BEFORE INSERT ON message_attachments WHEN NEW.mime_type = 'text/plain' BEGIN SELECT RAISE(ABORT, 'test attachment failure'); END;").run();
   assert.throws(() => sessions.saveMessage('text', 'user', 'roll back', attachments), /test attachment failure/);
   assert.equal(sessions.loadSession('text').messages.length, 1);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM message_attachments').get().n, 5);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM message_attachments').get().n, beforeFailedInsert);
   db.prepare('DROP TRIGGER fail_attachment').run();
 
-  // Byte threshold, source formats, raw Unicode, fences, and non-text path fallback.
+  // Current text projection, Unicode and fences (unrelated to image conversion).
   for (const [name, raw, inline] of [
     ['data.json', '{"hello":"世界"}', true],
     ['script.js', 'console.log("hello");', true],
@@ -90,9 +95,8 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
     ['table.csv', 'name,value\nhello,1', true],
     ['fences.md', '```js\nhello\n```', true],
     ['below.txt', 'a'.repeat(50 * 1024 - 1), true],
-    ['limit.txt', 'a'.repeat(50 * 1024), false],
-    ['unicode.txt', 'é'.repeat(26 * 1024), false],
-    ['document.pdf', '%PDF-binary-placeholder', false],
+    ['limit.txt', 'a'.repeat(50 * 1024), true],
+    ['unicode.txt', 'é'.repeat(26 * 1024), true],
   ]) {
     const source = path.join(directory, name);
     fs.writeFileSync(source, raw);
@@ -109,11 +113,15 @@ const { registerIpcHandlers } = require('../src/main/ipcHandlers');
     if (name === 'fences.md') assert.ok(result.includes('\n````\n' + raw + '\n````\n'));
   }
 
+  const invalidPdf = path.join(directory, 'invalid.pdf');
+  fs.writeFileSync(invalidPdf, '%PDF-binary-placeholder');
+  await assert.rejects(processUploads([invalidPdf]));
+
   // A missing historical image rolls back the whole new turn, preserving the draft for retry.
   fs.unlinkSync(attachments[0].file_path);
   assert.throws(() => prepareChatMessages({sessionId: 'vision', modelId: 'model', userText: 'should roll back'}), /ENOENT/);
   assert.equal(sessions.loadSession('vision').messages.length, 1);
-  await assert.rejects(processUploads([path.join(directory, 'no.exe')]), /Supported attachments/);
+  await assert.rejects(processUploads([path.join(directory, 'no.exe')]), /Supported formats/);
   await assert.rejects(processUploads(Array(11).fill(text)), /at most 10/);
   const before = fs.readdirSync(path.join(userData, 'App_Data', 'attachments')).sort();
   const copy = fs.promises.copyFile;

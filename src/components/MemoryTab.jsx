@@ -12,7 +12,7 @@ import {
 
 export default function MemoryTab({ palace }) {
 	const [memories, setMemories] = useState([]);
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [category, setCategory] = useState("preference");
@@ -74,7 +74,7 @@ export default function MemoryTab({ palace }) {
 			<SettingsCard
 				icon={LuBrain}
 				title="Saved memories"
-				description="Facts and preferences injected into future requests when memory is on."
+				description="Facts and preferences retrieved locally when relevant. Essential memories take priority within the shared 10-memory, 2,048-token budget (estimated conservatively from UTF-8 bytes); oversized facts are skipped."
 			>
 				<SettingsMessage>{error}</SettingsMessage>
 				{loading ? (
@@ -150,7 +150,7 @@ export default function MemoryTab({ palace }) {
 					disabled={busy}
 				/>
 				<SettingsCheckRow
-					label="Include in every request when memory is on"
+					label="Essential: prioritize in every request within the memory budget"
 					checked={alwaysInject}
 					onChange={(event) => setAlwaysInject(event.target.checked)}
 					disabled={busy}

@@ -13,6 +13,8 @@ const DEFAULT_NAMES = Object.freeze([
 // behind manage_native_tools activation. Permission policy is unchanged.
 const ALWAYS_ON_GROUPS = Object.freeze(['web']);
 function configuredProfile() {
+  // Shared by development and packaged builds. Keep full as the default until
+  // real-model compact acceptance passes; the environment is an explicit opt-in.
   return process.env.CONTINUUM_NATIVE_TOOL_PROFILE === 'compact' ? 'compact' : 'full';
 }
 function select(authorized, activatedGroups, groups, nativeNames) {
