@@ -200,7 +200,22 @@ async function saveVersion({assetId=randomUUID(), filePath, mime, name, kind, da
 async function managedBytes(name, bytes) {
   await fsp.mkdir(directory(),{recursive:true});
   const filePath=path.join(directory(),`${Date.now()}-${randomUUID()}-${path.basename(name)}`);
-  await fsp.writeFile(filePath,bytes,{flag:'wx'});
+  const handle=await fsp.open(filePath,'wx');
+  const cleanup=require('./attachmentCleanup');
+  let complete=false;
+  try {
+    cleanup.receipt(filePath,hash(Buffer.alloc(0)),await handle.stat());
+    await handle.writeFile(bytes);
+    cleanup.refreshReceipt(filePath,await handle.stat(),await digest(bytes));
+    complete=true;
+  } finally {
+    if(!complete) {
+      // A failed partial write still belongs to this creation descriptor. A
+      // replaced pathname fails the identity check and remains retained.
+      try { cleanup.refreshReceipt(filePath,await handle.stat(),''); } catch {}
+    }
+    await handle.close();
+  }
   return filePath;
 }
 async function stage(files,{sessionId,keepCopy=false}={}) {
@@ -232,6 +247,7 @@ async function stage(files,{sessionId,keepCopy=false}={}) {
     checkSession(sessionId);
     const token=randomBytes(32).toString('hex');
     db().prepare('INSERT INTO attachment_drafts(token,session_id,version_id) VALUES (?,?,?)').run(token,sessionId,v.id); createdTokens.push(token);
+    db().prepare('INSERT INTO attachment_draft_lifetimes(token,epoch) VALUES (?,?)').run(token,require('./attachmentCleanup').epoch);
     result.push(view({version_id:v.id,draft_token:token,session_id:sessionId}));
   }
   return result;
@@ -245,7 +261,7 @@ async function stage(files,{sessionId,keepCopy=false}={}) {
         db().prepare('DELETE FROM attachment_assets WHERE id=?').run(v.asset_id);
       }
     })();
-    await Promise.all(createdPaths.map(file=>fsp.unlink(file).catch(()=>{})));
+    // Creation receipts survive failures for checked, retryable cleanup.
     throw cause;
   }
 }
@@ -325,3 +341,11 @@ async function requestSnapshot(file) {
 }
 function freshSnapshot(file) { return snapshots.exit(()=>readSnapshot(file)); }
 module.exports={checkSession,requestSnapshot,freshSnapshot,install,bridge,assertBridge,stage,version,view,ownedRow,authorize,readSnapshot,verified,withSnapshots,inspect,preview,recover,rowForFile,capture,directory};
+
+for (const name of ['stage','verified','withSnapshots','inspect','preview','recover','requestSnapshot']) {
+  const original=module.exports[name];
+  module.exports[name]=async (...args)=>{
+    try { return await require('./attachmentCleanup').hold(()=>original(...args)); }
+    catch(error) { if(name==='stage') await require('./attachmentCleanup').run({limit:64}); throw error; }
+  };
+}

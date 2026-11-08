@@ -13,7 +13,7 @@ import { BsRobot } from "react-icons/bs";
 import { FiArrowDown, FiChevronDown, FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { composerFileName } from "../../utils/composerAttachments.mjs";
-import { AttachmentControls, AttachmentIssues } from "../chat/AttachmentControls.jsx";
+import { AttachmentControls, AttachmentIssues, AttachmentStorageStatus } from "../chat/AttachmentControls.jsx";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { combineQuotedMessage, extractScopedSelectionText } from "../../lib/textSelection.mjs";
 import { applyFindMarks, clearFindMarks, markIndexForMessage, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
@@ -260,6 +260,18 @@ export function ChatInterface({
 		return () => cancelAnimationFrame(frame);
 	}, [tabActive, view, palace.sessionId]);
 	const [selectedFiles, setSelectedFiles] = useState([]);
+    const previousSelections = useRef([]);
+    useEffect(()=>{
+      for(const file of previousSelections.current) {
+        if(file.draft_token && !selectedFiles.some(f=>f.draft_token===file.draft_token))
+          window.api.recoverAttachment({sessionId:file.session_id,attachment:file,action:'omit'}).catch(()=>{});
+      }
+      previousSelections.current=selectedFiles;
+    },[selectedFiles]);
+    useEffect(()=>()=>{
+      for(const file of previousSelections.current) if(file.draft_token)
+        window.api.recoverAttachment({sessionId:file.session_id,attachment:file,action:'omit'}).catch(()=>{});
+    },[]);
 	const [dragActive, setDragActive] = useState(false);
 	const dragDepth = useRef(0);
 	const [quotedSelection, setQuotedSelection] = useState("");
@@ -1980,7 +1992,7 @@ export function ChatInterface({
 				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
 			>
 				{/* bg-[var(--bg-secondary)]!  */}
-                <AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
+                <AttachmentStorageStatus /><AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
 				{historyError && (
 					<p
 						role="alert"

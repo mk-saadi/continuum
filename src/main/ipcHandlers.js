@@ -193,6 +193,7 @@ function registerIpcHandlers({
 		return filePaths[0];
 	};
 	require('./localEngineFetch').setLocalCapabilityProvider?.((port) => getEngineForPort?.(port) ?? null);
+    const attachmentDraftOwners = new WeakMap();
     const handlers = {
         "models:capability-overrides": () => require('./capabilityOverrides').readOverrides(),
         "models:save-capability-overrides": ({ target, overrides }) => require('./capabilityOverrides').saveOverrides(target, overrides),
@@ -1374,6 +1375,9 @@ function registerIpcHandlers({
 		},
 		"engine:get-load-config": ({ modelId }) => getLoadConfig(modelId),
 		"engine:launch": ({ modelId, config }) => launchEngine(modelId, config),
+        "attachment:cleanup-status": () => require('./attachmentCleanup').status(),
+        "attachment:cleanup-preview": () => require('./attachmentCleanup').run({dryRun:true}),
+        "attachment:cleanup": () => require('./attachmentCleanup').run(),
         "attachment:bridge": (_input, _notify, sender) => require('./attachmentStore').bridge(sender),
         "attachment:stage": async (input, _notify, sender) => {
             const store=require('./attachmentStore'); store.assertBridge(sender,input.bridgeToken);
@@ -1381,7 +1385,23 @@ function registerIpcHandlers({
             const {assertAttachmentNames}=await import('../lib/attachmentPolicy.mjs');
             if(!Array.isArray(input.files)) throw new Error('Invalid attachment selection.');
             assertAttachmentNames(input.files.map(file=>file.nativePath || file.name),policy);
-            return store.stage(input.files,input);
+            const staged=await store.stage(input.files,input);
+            let tokens=attachmentDraftOwners.get(sender);
+            if(!tokens) {
+                tokens=new Set();attachmentDraftOwners.set(sender,tokens);
+                sender.once('destroyed',()=>{
+                    try {
+                        const {db}=require('./db');
+                        for(const token of tokens) db.prepare('DELETE FROM attachment_drafts WHERE token=?').run(token);
+                    } catch { /* Restart classification recovers closed-database cases. */ }
+                    tokens.clear();
+                });
+            }
+            for(const file of staged) {
+                if(sender.isDestroyed?.()) require('./db').db.prepare('DELETE FROM attachment_drafts WHERE token=?').run(file.draft_token);
+                else tokens.add(file.draft_token);
+            }
+            return staged;
         },
         "attachment:open": async ({sessionId,attachment}) => {
             const store=require('./attachmentStore'); store.checkSession(sessionId); const row=store.authorize(attachment,sessionId);

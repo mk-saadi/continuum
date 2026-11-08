@@ -57,10 +57,16 @@ app.whenReady().then(async()=>{
     await selected();const paste=current('ui-paste');assert.equal(paste.storage_kind,'managed');assert.deepEqual(fs.readFileSync(paste.file_path),pasted.bytes);
     console.log('Pathless paste → managed original PNG, alpha intact.');
     assert.equal(await run(`window.api.stageAttachments([{nativePath:${JSON.stringify(source)}}],{sessionId:'ui-paste'}).then(()=>false,error=>/real file|authorization/.test(error.message))`),true,'renderer cannot claim an arbitrary native path');
+    await run(`document.querySelector('[aria-label="Selected attachments"] button[aria-label^="Remove "]').click()`);
+    await wait(`window.api.previewAttachmentCleanup().then(status=>status.pendingFiles>0 && status.activeOperations===0)`,'removed selection eligible');
+    const dry=await run('window.api.previewAttachmentCleanup()');assert.ok(dry.pendingFiles>0);assert.ok(fs.existsSync(paste.file_path),'dry run preserves bytes');
+    await run('window.api.runAttachmentCleanup()');assert.equal(fs.existsSync(paste.file_path),false);
+    assert.equal(drafts('ui-paste').length,0,'renderer removal revokes draft');
+    console.log('Renderer removal, count-only dry run and production cleanup IPC verified.');
     await reset('ui-recover');await select(source);await selected();
     const asset=current('ui-recover').asset_id;
     fs.writeFileSync(source,pasted.bytes);
-    await click('Details');await wait(`document.querySelector('[aria-label="Attachment details"]').textContent.includes('source has changed')`,'changed source feedback');
+    await click('Details');await click('Storage cleanup status');await wait(`document.querySelector('[aria-label="Attachment details"]').textContent.includes('bytes reclaimed')`,'count-only cleanup status');await wait(`document.querySelector('[aria-label="Attachment details"]').textContent.includes('source has changed')`,'changed source feedback');
     await click('Accept changed version');await wait(`document.querySelector('[aria-label="Selected attachments"] img').naturalWidth===37`,'accepted version preview');
     assert.equal(current('ui-recover').asset_id,asset);
     const moved=path.join(directory,'moved.png');fs.renameSync(source,moved);chosen=[moved];

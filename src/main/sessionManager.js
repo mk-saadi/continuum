@@ -392,6 +392,7 @@ function deleteSession(sessionId) {
   return db.transaction(() => {
     requireMutableSession(sessionId);
     require('./recoveryStore').deleteChatCheckpoints(sessionId);
+    db.prepare('DELETE FROM attachment_drafts WHERE session_id=?').run(sessionId);
     db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
     return { deleted: true };
   }).immediate();

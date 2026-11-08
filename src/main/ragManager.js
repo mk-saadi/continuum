@@ -221,3 +221,9 @@ module.exports = {
 	findRelevantChunks,
 	retrieveContext,
 };
+
+const cleanupIndexDocuments = module.exports.indexDocuments;
+module.exports.indexDocuments = (...args) => require('./attachmentCleanup').hold(() => cleanupIndexDocuments(...args));
+
+const cleanupRetrieveContext = module.exports.retrieveContext;
+module.exports.retrieveContext = (...args) => require('./attachmentCleanup').hold(() => cleanupRetrieveContext(...args));

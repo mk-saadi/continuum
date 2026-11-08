@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 export function AttachmentControls({ attachment, sessionId = attachment.session_id, onChange, disabled = false, expanded = false }) {
-  const [open,setOpen]=useState(expanded), [current,setCurrent]=useState(attachment), [busy,setBusy]=useState(false), [problem,setProblem]=useState('');
+  const [open,setOpen]=useState(expanded), [current,setCurrent]=useState(attachment), [busy,setBusy]=useState(false), [problem,setProblem]=useState(''), [storage,setStorage]=useState(null);
   useEffect(()=>setCurrent(attachment),[attachment]);
   const refresh=async()=>{
     try { setCurrent(await window.api.inspectAttachment({sessionId,attachment:current})); }
@@ -23,6 +23,8 @@ export function AttachmentControls({ attachment, sessionId = attachment.session_
     {current.storage_kind==='referenced' && <button type="button" disabled={disabled||busy} className="ml-2 underline" onClick={()=>act('copy')}>Keep a copy</button>}
     <button type="button" className="ml-2 underline" onClick={()=>setOpen(value=>!value)}>{open?'Hide details':'Details'}</button>
     {open && <div className="mt-1 max-w-md space-y-1 break-words" aria-label="Attachment details">
+      <button type="button" onClick={async()=>{try {setStorage(await window.api.previewAttachmentCleanup());}catch(error){setProblem(error.message);}}}>Storage cleanup status</button>
+      {storage && <p role="status">{storage.reclaimedBytes} bytes reclaimed; {storage.pendingFiles} pending files; {storage.retryableFailures} retryable failures; {storage.unresolvedLegacyItems} unresolved legacy items.</p>}
       <p>{current.name || 'Attachment'}</p>
       <p>{current.file_path}</p>
       <p>{current.fingerprint ? `SHA-256 ${current.fingerprint}` : 'Legacy copy; fingerprint is recorded on first verified read.'}</p>
@@ -54,4 +56,15 @@ export function AttachmentIssues({sessionId, refreshKey}) {
     <p>Attachments need attention before sending. Resolve each source or explicitly omit it.</p>
     {issues.map(file=><AttachmentControls key={file.id} attachment={file} sessionId={sessionId} expanded />)}
   </div>;
+}
+
+export function AttachmentStorageStatus() {
+  const [storage,setStorage]=useState(null),[problem,setProblem]=useState('');
+  const refresh=async()=>{try {setStorage(await window.api.previewAttachmentCleanup());setProblem('');}catch{setProblem('Storage status is unavailable.');}};
+  return <details className="text-[11px] text-[var(--text-muted)]" onToggle={event=>{if(event.currentTarget.open)refresh();}}>
+    <summary>Attachment storage</summary>
+    {storage && <p role="status">{storage.reclaimedBytes} bytes reclaimed; {storage.pendingFiles} pending files; {storage.retryableFailures} retryable failures; {storage.unresolvedLegacyItems} unresolved legacy items.</p>}
+    <button type="button" onClick={refresh}>Preview cleanup counts</button>
+    {problem && <p role="status">{problem}</p>}
+  </details>;
 }

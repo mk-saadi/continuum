@@ -58,7 +58,18 @@ async function extractAttachmentDocument(filePath) {
 	const mime = path.extname(filePath).toLowerCase() === '.pdf' ? 'application/pdf' : path.extname(filePath).toLowerCase() === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '';
 	if (!mime) return;
 	const text = await extractDocumentBytes(await fs.promises.readFile(filePath), mime);
-	await fs.promises.writeFile(filePath + ".extracted.txt", text, { flag: "wx" });
+    const sidecar=filePath+'.extracted.txt';
+    const handle=await fs.promises.open(sidecar,'wx');
+    try {
+      await handle.writeFile(text);
+      // Only extend an existing creation receipt. A legacy sidecar name alone
+      // never establishes app ownership of either file.
+      try {
+        const {db}=require('./db');
+        if(db.prepare('SELECT 1 FROM attachment_cleanup_files WHERE file_path=?').get(filePath))
+          require('./attachmentCleanup').receipt(sidecar,require('node:crypto').createHash('sha256').update(text).digest('hex'),await handle.stat());
+      } catch { /* Standalone/legacy extraction has no ownership ledger: retain as unresolved. */ }
+    } finally { await handle.close(); }
 }
 function extractedDocumentText(filePath) {
 	const sidecar = filePath + ".extracted.txt";

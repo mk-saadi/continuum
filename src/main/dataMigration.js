@@ -49,6 +49,21 @@ function relocateReferences(connection, oldPath, newPath, configuredPath = oldPa
           row.storage_kind==='managed'?relocate(row.real_path):row.real_path,relocate(row.snapshot_path),row.id);
       }
     }
+    if(connection.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='attachment_cleanup_files'").get()) {
+      const disk=require('node:fs');
+      for(const row of connection.prepare('SELECT * FROM attachment_cleanup_files').all()) {
+        const next=relocate(row.file_path);
+        if(next===row.file_path) continue;
+        // The migration manifest has verified the copy. Rebind only existing
+        // creation receipts, never adopt legacy files discovered in the tree.
+        if(!disk.existsSync(next)) continue;
+        const root=path.dirname(next), stat=disk.lstatSync(next), parent=disk.statSync(root);
+        if(stat.isSymbolicLink() || disk.realpathSync(next)!==next) throw new Error('Unsafe migrated attachment receipt');
+        if(createHash('sha256').update(disk.readFileSync(next)).digest('hex')!==row.fingerprint) continue;
+        connection.prepare('UPDATE attachment_cleanup_files SET file_path=?,root_path=?,root_identity=?,identity=? WHERE file_path=?')
+          .run(next,root,JSON.stringify([parent.dev,parent.ino]),JSON.stringify([stat.dev,stat.ino,stat.size,stat.mtimeMs,stat.ctimeMs]),row.file_path);
+      }
+    }
     for (const table of ['message_attachments', 'document_chunks']) {
       const update = connection.prepare(`UPDATE ${table} SET file_path = ? WHERE id = ?`);
       for (const row of connection.prepare(`SELECT * FROM ${table}`).all()) {

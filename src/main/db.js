@@ -737,6 +737,7 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
     require('./legacyDataMigration').repairLegacyAttachmentPaths(connection, directory);
     require('./workspaceCompactionActivity').install(connection);
     require('./attachmentStore').install(connection);
+    require('./attachmentCleanup').install(connection);
     database = connection;
     require('./backgroundCommands').restore(connection);
     return database;
