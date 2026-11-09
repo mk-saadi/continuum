@@ -167,16 +167,26 @@ function stopBeforeRequest(state, payload, measuredInput, measuredWindow) {
   if (ceiling < policy.MIN_COMPLETION_RESERVE) throw new ExecutionBudgetError('context_exhausted');
   return { ...payload, max_tokens: Math.floor(ceiling) };
 }
+const budgetPersistence = new WeakMap();
+function setBudgetPersistence(state, persist) { budgetPersistence.set(state, persist); }
+function persistBudget(state) { budgetPersistence.get(state)?.(); }
 function reserveRequest(state, payload, measured) {
   const input = measured?.method === 'server-template-tokenizer' ? measured.tokens : undefined;
   const bounded = stopBeforeRequest(state, payload, input, measured?.limit);
   const reservedInput = input ?? policy.estimatePromptTokens(bounded.messages, bounded.tools);
+  const previousLedger = { ...state.ledger };
   state.ledger.turns++;
   state.ledger.inputEstimated += reservedInput;
   state.ledger.outputReserved += bounded.max_tokens;
   state.ledger.outputUnknownTurns++;
   state.ledger.reasoningUnknownTurns = (state.ledger.reasoningUnknownTurns ?? 0) + 1;
   state.ledger.cachedInputUnknownTurns = (state.ledger.cachedInputUnknownTurns ?? 0) + 1;
+  // Reserve durably before dispatch; a crash cannot replenish spent allowance.
+  try { persistBudget(state); } catch (error) {
+    for (const key of Object.keys(state.ledger)) delete state.ledger[key];
+    Object.assign(state.ledger, previousLedger);
+    throw error;
+  }
   return { payload: bounded, input: reservedInput, output: bounded.max_tokens, settled: false };
 }
 function settleRequest(state, reservation, usage) {
@@ -232,6 +242,7 @@ function settleRequest(state, reservation, usage) {
   }
   if (output !== null && output > reservation.output) state.overrun = 'provider_budget_violation';
   else if (policy.remaining(state.budgets.inputBudget, totals(state).inputTokens) < 0) state.overrun = 'input_budget';
+  persistBudget(state);
 }
 const responseReservations = new WeakMap();
 function requestTracker(state) {
@@ -281,8 +292,14 @@ function dispatchTool(state, session, name = 'tool') {
   if (reason) { state.blockedCalls++; return reason; }
   // Synchronous compare/increment immediately before dispatch: atomic in the
   // main-process event loop even when multiple child promises are interleaved.
+  const previousCalls = state.toolsUsed.get(name);
   state.toolCalls++; state.scope.toolCalls++;
   state.toolsUsed.set(name, (state.toolsUsed.get(name) ?? 0) + 1);
+  try { persistBudget(state); } catch (error) {
+    state.toolCalls--; state.scope.toolCalls--;
+    if (previousCalls === undefined) state.toolsUsed.delete(name); else state.toolsUsed.set(name, previousCalls);
+    throw error;
+  }
   if (state.budgets.maxToolCalls !== null && state.toolCalls === Math.ceil(state.budgets.maxToolCalls * .8)) {
     pushActivity(session, { type: 'note', text: `Approaching tool budget: ${state.toolCalls}/${state.budgets.maxToolCalls}.` });
   }
@@ -334,7 +351,7 @@ function reasonOf(error) {
   return 'runtime_error';
 }
 module.exports = { ExecutionBudgetError, createParentRunBudget, getExecutionBudget, totals,
-  stopBeforeRequest, budgetedFetch, settleResponse, dispatchTool, exhaustion, outcome, reasonOf, resultError,
+  setBudgetPersistence, stopBeforeRequest, budgetedFetch, settleResponse, dispatchTool, exhaustion, outcome, reasonOf, resultError,
   renewBudget, RENEWABLE_FIELDS,
   // Unbounded-aware limit helpers, re-exported so the agent loop and child
   // context recovery share one definition of "limit reached"/"remaining".

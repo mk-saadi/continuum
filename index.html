@@ -3,6 +3,7 @@
 	<head>
 		<meta charset="UTF-8" />
 		<script>
+			if (new URLSearchParams(location.search).get('desktopMascot') === '1') document.documentElement.classList.add('desktop-mascot-document');
 			// Apply the saved material before styles/React paint to avoid a glass flash.
 			try {
 				const savedStyle = localStorage.getItem("appearance");
@@ -16,7 +17,7 @@
 		/>
 	<meta
 		http-equiv="Content-Security-Policy"
-		content="default-src 'self'; img-src 'self' blob: data: local: media:; media-src 'self' blob: data: local: media:; font-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:* http://localhost:* ws://localhost:*"
+		content="default-src 'self'; img-src 'self' blob: data: local: media:; media-src 'self' blob: data: local: media:; font-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: http://127.0.0.1:* http://localhost:* ws://localhost:*"
 	/>
 		<title>Continuum</title>
 		<!-- Boot splash. Styled inline (below) and inlined in the HTML so it
@@ -24,6 +25,8 @@
 		     transparent, so without this the first paint would be blank.
 		     Removed by src/main.jsx once React has mounted. -->
 		<style>
+            html.desktop-mascot-document, .desktop-mascot-document body, .desktop-mascot-document #root { background: transparent !important; }
+            .desktop-mascot-document #boot-loader { display: none !important; }
 			:root { --ui-radius-surface: 14px; --ui-radius-round: 9999px; }
 			html:is([data-appearance="flat"], [data-appearance="skeu"]) { --ui-radius-surface: 6px; }
 			#boot-loader {

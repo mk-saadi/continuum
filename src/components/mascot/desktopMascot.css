@@ -1,0 +1,30 @@
+html.desktop-mascot-document,
+.desktop-mascot-document body,
+.desktop-mascot-document #root {
+    background: transparent !important;
+    margin: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+.desktop-mascot-document #boot-loader { display: none !important; }
+.desktop-mascot { color: #e9edf5; font-family: Inter, system-ui, sans-serif; }
+.desktop-mascot button { -webkit-app-region: no-drag; }
+.desktop-mascot-art { position: absolute; padding: 0; border: 0; background: transparent; user-select: none; touch-action: none; }
+.desktop-mascot-art:focus-visible { outline: 1px solid #b8ccff; border-radius: 16px; }
+.desktop-mascot-compose { position: absolute; display: grid; place-items: center; background: #121b2eef; color: #e9edf5; border: 1px solid #ffffff12; border-radius: 14px; cursor: pointer; }
+.desktop-mascot-panel { position: absolute; overflow: auto; padding: 9px; box-sizing: border-box; border-radius: 13px; background: #111a2af5; border: 1px solid #ffffff20; box-shadow: 0 5px 12px #0003; font-size: 10px; line-height: 1.5; }
+.desktop-mascot-panel header { display: flex; align-items: center; gap: 5px; color: #aab8cc; margin-bottom: 6px; }
+.desktop-mascot-panel header span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.desktop-mascot-panel button { cursor: pointer; border: 0; background: transparent; color: #d3e0f7; padding: 3px; border-radius: 5px; }
+.desktop-mascot-panel button:hover { background: #ffffff18; }
+.desktop-mascot-panel button:focus-visible, .desktop-mascot-compose:focus-visible { outline: 1px solid #c4d6ff; }
+.desktop-mascot-panel button:disabled { opacity: .4; cursor: default; }
+.desktop-mascot-reply { font-size: 10px; line-height: 1.55; max-height: 78px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.desktop-mascot-panel textarea { display: block; box-sizing: border-box; width: 100%; min-height: 48px; max-height: 70px; resize: none; background: #ffffff08; border: 1px solid #ffffff18; border-radius: 7px; color: #f1f5ff; padding: 7px; font-family: inherit; font-size: 11px; line-height: 1.5; outline-color: #a9c4ff; }
+.desktop-mascot-panel footer { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.desktop-mascot-panel footer span { flex: 1; min-width: 0; color: #9caec5; font-size: 9px; }
+.desktop-mascot-panel footer button { background: #385987; padding: 5px 8px; }
+.desktop-mascot-attention { display: block; width: 100%; text-align: left; color: #ffcf83 !important; }
+.desktop-mascot-stop { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; }
+.desktop-mascot-status { position: absolute; width: 90px; font-size: 10px; background: #121b2eef; color: #c8d5ec; border: 0; border-radius: 8px; padding: 4px; }

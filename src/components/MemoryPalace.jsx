@@ -174,15 +174,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
 
   useCompressionEvents(sessionId, (result) => {
     if (!result.compressed) return;
-    const d = result.diagnostics;
-    if (d?.commitOutcome === 'committed-and-verified') {
-      // Dispatch telemetry owns the active protocol tail; this measurement
-      // remains the projection for the next user message.
-      measure();
-      refresh();
-      return;
-    }
-    setToast(`Summarized ${result.archivedCount} earlier messages to free memory`);
+    setToast('Compaction summary saved; original history is preserved');
     refresh();
     measure();
   });
@@ -233,11 +225,6 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const schedule = useCallback(() => {
-    if (!api || !modelId || isCloud || !engineReady || deletedSessions.current.has(sessionId) || configuredLimit === null) return;
-    api.scheduleIdleCompression(sessionId, modelId, configuredLimit).catch((err) => setError(err.message));
-  }, [api, modelId, sessionId, configuredLimit, isCloud, engineReady]);
-
   const prepareMessages = useCallback(async (text, regenerate = false, attachments = []) => {
     if (!api) throw new Error('Memory Palace is available in the desktop app.');
     if (!modelId) throw new Error('Select a model first.');
@@ -256,9 +243,8 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     await refresh();
     // Turn completed: persisted telemetry is now in usage; refresh measurement.
     measure();
-    schedule();
     return saved;
-  }, [api, sessionId, refresh, measure, schedule]);
+  }, [api, sessionId, refresh, measure]);
 
   const toggle = useCallback(async () => {
     try {
@@ -308,7 +294,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
   // for the same reason — an unstable closure would invalidate the whole object
   // on every render even when nothing changed.
   return useMemo(() => ({
-    api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage, toolTokens, pluginTokens, mcpStatus,
+    api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, prepareMessages, finishMessage, toolTokens, pluginTokens, mcpStatus,
     setDraftTokens,
     measure, measured: measuredValue, budgetContract, measureError,
     noteLivePhase, clearLiveTelemetry, liveTelemetry,
@@ -319,7 +305,7 @@ export function useMemoryPalace(modelId, activeModelConfig, initialSessionId, on
     totalTokens: fallbackTokens,
     toggle,
   }), [
-    api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, schedule, prepareMessages, finishMessage,
+    api, sessionId, setSessionId, enabled, limit, usage, error, toast, refresh, prepareMessages, finishMessage,
     toolTokens, pluginTokens, mcpStatus, setDraftTokens, measure, measuredValue, budgetContract, measureError, noteLivePhase,
     clearLiveTelemetry, liveTelemetry, turnTelemetry, preparedContextTokens, occupancy.live, contextTokens, contextMethod, contextConfidence, fallbackTokens, toggle,
   ]);

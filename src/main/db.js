@@ -115,6 +115,21 @@ const SCHEMA = `
   CREATE TRIGGER IF NOT EXISTS sessions_no_resurrection BEFORE INSERT ON sessions
     WHEN EXISTS (SELECT 1 FROM deleted_sessions WHERE id = NEW.id)
     BEGIN SELECT RAISE(ABORT, 'Conversation was permanently deleted.'); END;
+  CREATE TABLE IF NOT EXISTS conversation_compactions (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    state_json TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS compaction_generations (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    estimated_input_tokens INTEGER NOT NULL,
+    reserved_output_tokens INTEGER NOT NULL,
+    usage_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS token_usage (
     turn_id TEXT PRIMARY KEY,
     chat_id TEXT,
@@ -834,11 +849,6 @@ function branchUserMessage({ messageId, newContent }) {
       .run(userMessageId, messageId);
     db.prepare('UPDATE sessions SET active_leaf_id = ?, last_active_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(userMessageId, target.session_id);
-    // Preserve the correction verbatim alongside the message branch. The
-    // prior brief row is retained; the new revision row supersedes it. This
-    // runs in the same transaction so message + brief commit atomically.
-    // Casual sessions return null and store nothing.
-    require('./taskBriefs').captureRevisionBrief(target.session_id, userMessageId, newContent, messageId);
     return { userMessageId, sessionId: target.session_id };
   }).immediate();
 }

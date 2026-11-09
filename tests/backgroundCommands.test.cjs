@@ -260,7 +260,7 @@ test('notification context survives recovery and rejected transport is not deliv
   let recovered = false;
   await assert.rejects(runMemoryChat({ baseUrl: 'http://fixture.invalid', modelId: 'fixture', messages: [{ role: 'system', content: 'Original' }],
     takeCommandCompletions: () => manager.take(f.context), markCommandCompletions: (ids, ok) => manager.acknowledge(f.context, ids, ok),
-    recoverContext: async () => ({ messages: [{ role: 'system', content: 'Recovered compact prefix' }] }),
+    compactContext: async boundary => boundary.force ? { compressed: true, payload: { ...boundary.payload, messages: [{role:'system',content:'Recovered compact prefix'}, ...boundary.payload.messages.filter(m=>m.role!=='system')] } } : { compressed:false }, // synthetic boundary for notification transport behavior
     fetchImpl: async (_url, request) => {
       const rebuilt = await request.contextRecovery({ contextWindowLimit: 4096 });
       assert.ok(rebuilt.messages.some(m => String(m.content).includes(r.command_id)));

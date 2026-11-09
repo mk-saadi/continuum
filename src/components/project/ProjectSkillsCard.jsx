@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { FiZap } from 'react-icons/fi';
 import { CheckboxField } from '../FormControls';
 
 export default function ProjectSkillsCard({ project, onUpdated }) {
@@ -29,7 +30,7 @@ export default function ProjectSkillsCard({ project, onUpdated }) {
     });
   }
   return <section className="aero-panel sk-panel project-panel"><h2>Project Skills <span className="projects-muted">({active.filter(skill => enabled.has(skill.id)).length})</span></h2>
-    {active.filter(skill => enabled.has(skill.id)).map(skill => <p key={skill.id} className="text-sm">{skill.title}</p>)}
+    {active.filter(skill => enabled.has(skill.id)).map(skill => <div key={skill.id} className="workspace-skill"><FiZap aria-hidden="true" /><div><p>{skill.title}</p>{skill.description && <p className="projects-muted" title={skill.description}>{skill.description}</p>}</div></div>)}
     {!active.some(skill => enabled.has(skill.id)) && <p className="projects-muted">No active skills selected.</p>}
     <button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer mt-4" onClick={() => setOpen(true)}>Manage Project Skills</button>
     {error && <p role="alert" className="project-error">{error}</p>}

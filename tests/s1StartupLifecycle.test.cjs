@@ -17,7 +17,6 @@ Module._load = function(name, ...args) {
 const storage = require('../src/main/db'); storage.initDatabase(directory);
 const sessions = require('../src/main/sessionManager');
 const measurement = require('../src/main/promptMeasurement');
-const compression = require('../src/main/compressionEngine');
 const modelId = 'fixture';
 let dispose;
 test.after(async () => { dispose?.(); await compression.shutdownCompression(); storage.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });
@@ -66,32 +65,4 @@ test('deletion during measurement prevents cache publication or resurrection', a
   sessions.deleteSession('delete-race'); gate.resolve();
   await assert.rejects(pending, { code: 'stale-measurement' });
   await assert.rejects(measurement.measurePreparedContext(options), { code: 'deleted-conversation' });
-});
-test('idle stale measurements defer quietly without retries; later stable boundary works', async t => {
-  seed('idle-race'); t.mock.timers.enable({ apis: ['setTimeout'] });
-  let calls = 0, completed = 0, errors = 0;
-  const original = console.error; console.error = () => errors++;
-  try {
-    compression.scheduleIdleCompression('idle-race', modelId, 32768, async () => { throw new Error('Must not summarize'); }, () => completed++, null,
-      { resolveMeasurement: async () => { calls++; throw Object.assign(new Error('changed'), { code: 'stale-measurement' }); } });
-    t.mock.timers.tick(10000); await drain();
-    t.mock.timers.tick(100000); await drain();
-    assert.equal(calls, 1); assert.equal(completed, 0); assert.equal(errors, 0);
-    compression.scheduleIdleCompression('idle-race', modelId, 32768, async () => '', () => completed++, null,
-      { resolveMeasurement: async () => { calls++; return null; } });
-    t.mock.timers.tick(10000); await drain(); assert.equal(calls, 2);
-  } finally { console.error = original; t.mock.timers.reset(); await compression.cancelSessionCompression('idle-race'); }
-});
-test('Workspace idle has no owning request and never measures or generates; cancellation stops Casual timer', async t => {
-  const project = require('../src/main/projectManager').createProject({ name: 'S1' });
-  sessions.getOrCreateSession('workspace', modelId, project.id); seed('casual-cancel');
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  let measured = 0, reason;
-  compression.scheduleIdleCompression('workspace', modelId, 32768, async () => { throw new Error('Unsafe generation'); }, result => { reason = result.reason; }, null,
-    { resolveMeasurement: async () => { measured++; return null; } });
-  compression.scheduleIdleCompression('casual-cancel', modelId, 32768, async () => '', () => {}, null, { resolveMeasurement: async () => { measured++; return null; } });
-  await compression.cancelSessionCompression('casual-cancel');
-  t.mock.timers.tick(10000); await drain();
-  assert.equal(reason, 'owning-request-required'); assert.equal(measured, 0);
-  t.mock.timers.reset();
 });

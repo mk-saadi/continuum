@@ -1,10 +1,11 @@
+import { UIStateProvider } from "../../src/context/UIStateContext.jsx";
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProjectsView from '../../src/components/ProjectsView';
 import ProjectWorkspace from '../../src/components/ProjectWorkspace';
 import ProjectModal from '../../src/components/ProjectModal';
 import Sidebar from '../../src/components/Sidebar';
-const records = [{ id: 'p1', name: 'Website', description: '**Launch** the site', custom_instructions: 'Keep it simple', root_path: '/work/site', is_pinned: 1, created_at: '2026-09-29 10:00:00', files: [] }];
+const records = [{ id: 'p1', name: 'Website', description: '**Launch** the site', custom_instructions: 'Keep it simple', root_path: '/work/projects/a-very-long-project-directory/with-many-nested-folders/single-workspace-layout', is_pinned: 1, created_at: '2026-09-29 10:00:00', files: [] }];
 if (window.location.search.includes('materialStress')) {
   records.push(...Array.from({ length: 59 }, (_, index) => ({ ...records[0], id: `stress-${index}`, name: `Project ${index + 2}`, root_path: `/work/project-${index + 2}`, is_pinned: 0 })));
 }
@@ -33,4 +34,4 @@ function Fixture() {
     {modal && <ProjectModal onClose={() => setModal(false)} onCreate={async fields => { window.createdProject = fields; const record = { ...fields, id: 'new', files: [] }; records.push(record); setProjects([...records]); setModal(false); open('new'); }} />}
   </div>;
 }
-createRoot(document.getElementById('root')).render(<Fixture />);
+createRoot(document.getElementById('root')).render(<UIStateProvider><Fixture /></UIStateProvider>);

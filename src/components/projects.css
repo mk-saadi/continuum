@@ -436,3 +436,48 @@ html[data-bg-animated="true"] .projects-page .project-heading-icon {
 		backdrop-filter: none;
 	}
 }
+
+/* Compact workspace layout, using the existing theme materials. */
+.project-workspace .projects-content { max-width: 1280px; }
+.project-workspace .workspace-back { margin-bottom: 14px; }
+.project-workspace .projects-heading { margin-bottom: 16px; }
+.project-workspace .project-hub { grid-template-columns: minmax(0, 1fr) 300px; }
+.workspace-goal { display: block; max-width: 65ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--text-secondary); font-size: 13px; margin-top: 5px; cursor: pointer; }
+.workspace-goal:hover { text-decoration: underline; }
+.project-workspace .projects-muted, .project-workspace .project-path { color: var(--text-secondary); font-size: 12px; }
+.workspace-chat-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.workspace-chat-heading h2 { margin-bottom: 0; }
+.workspace-chat-search { width: min(100%, 260px); }
+.project-workspace .project-chat { font-size: 12px; padding: 12px 4px; }
+.project-workspace .project-chat > span { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.workspace-model-action { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.workspace-files .project-drop[hidden] { display: none; }
+.project-workspace details:not([open]) > summary { margin-bottom: 0; }
+.workspace-settings summary { display: flex; align-items: center; gap: 8px; }
+.workspace-folder-summary { display: block; max-width: 100%; color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 8px; }
+
+.workspace-settings-content { padding-top: 12px; }
+.workspace-skill { display: flex; align-items: flex-start; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.workspace-skill > svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
+.workspace-skill > div { min-width: 0; }
+.workspace-skill p { font-size: 12px; overflow-wrap: anywhere; }
+.workspace-skill .projects-muted { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px; }
+@media (max-width: 1000px) { .project-workspace .project-hub { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .project-workspace .project-chat { flex-wrap: wrap; } .project-workspace .project-chat time { width: 100%; padding-left: 24px; } .workspace-goal { max-width: 65vw; } }
+.project-workspace p[id$="-hint"] { font-size: 12px; color: var(--text-secondary); }
+.project-workspace .project-panel form { display: grid; gap: 12px; }
+.workspace-settings summary > svg:last-child { margin-left: auto; transition: transform 150ms; }
+.workspace-settings[open] summary > svg:last-child { transform: rotate(90deg); }
+.workspace-goal:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.workspace-settings-label { display: block; flex: 1; min-width: 0; overflow: hidden; }
+.workspace-settings summary { width: 100%; min-width: 0; }
+.workspace-settings-content { min-width: 0; }
+.workspace-context-toggle { display: inline-flex; align-items: center; justify-content: center; padding: 6px; cursor: pointer; color: var(--text-secondary); background: transparent; border: 0; box-shadow: none; }
+.workspace-context-toggle:hover { color: var(--text-primary); }
+.workspace-context-toggle svg { transition: transform 150ms; }
+.workspace-context-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.workspace-context-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--ui-radius-control); }
+
+.workspace-pin { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; min-height: 28px; padding: 0; }
+.workspace-pin > svg { width: 14px; height: 14px; flex-shrink: 0; }

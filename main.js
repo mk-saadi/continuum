@@ -225,6 +225,8 @@ function configureExternalLinks(win) {
 	win.webContents.on("will-redirect", handleNavigation);
 }
 
+let desktopMascot;
+
 function createWindow() {
 	mainWindow = new BrowserWindow({
 		width: 1200,
@@ -238,12 +240,18 @@ function createWindow() {
 		skipTaskbar: false,
 		webPreferences: {
 			preload: path.join(__dirname, "src", "preload.js"),
+			backgroundThrottling: false,
 			contextIsolation: true,
 			nodeIntegration: false,
 			sandbox: true,
 		},
 	});
 
+	desktopMascot = require('./src/main/desktopMascot').createDesktopMascot({
+        mainWindow, isDev, root: __dirname,
+        getSettings: require('./src/main/configManager').getAppSettings,
+        saveSettings: require('./src/main/configManager').saveAppSettings,
+    });
 	configureExternalLinks(mainWindow);
 
 	mainWindow.webContents.on("did-finish-load", () => {
@@ -261,6 +269,8 @@ function createWindow() {
 	}
 
 	mainWindow.on("closed", () => {
+		desktopMascot?.dispose();
+		desktopMascot = null;
 		mainWindow = null;
 	});
 }
@@ -1059,59 +1069,14 @@ if (hasSingleInstanceLock)
 				return false;
 			}
 		},
-		llmCheckpointCallback: async (checkpointInput, modelId, generation = {}) => {
-			const entry = getEngine(modelId);
-			if (!entry?.childProcess) throw new Error("Start the local model server before compressing context.");
-			// W2 consumes the complete response envelope, including finish metadata.
-			// The legacy compaction callback below remains isolated from candidates.
-			if (generation.candidateRequest) {
-                return require('./src/main/workspaceGenerationRuntime').generateLocalCandidate(localEngineFetch,
-                    `http://127.0.0.1:${entry.port}/v1/chat/completions`, generation.candidateRequest, generation);
-			}
-			const response = await localEngineFetch(
-				`http://127.0.0.1:${entry.port}/v1/chat/completions`,
-				{
-					method: "POST",
-					signal: generation.signal,
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						model: modelId,
-						...(generation.maxTokens ? { max_tokens: generation.maxTokens } : {}),
-						stream: false,
-						messages: [
-							{
-								role: "system",
-								content:
-									require("./src/main/compactionCore").WORKSPACE_CHECKPOINT_PROMPT,
-							},
-							{
-								role: "user",
-								content: JSON.stringify(checkpointInput),
-							},
-						],
-					}),
-				},
-			);
-			if (!response.ok) throw new Error(`Checkpoint drafting failed with HTTP ${response.status}.`);
-			const result = await response.json();
-			const text = result.choices?.[0]?.message?.content;
-			if (typeof text !== "string" || !text.trim()) throw new Error("Checkpoint drafting returned no content.");
-			// Transport-level JSON extraction only; structure and evidence are
-			// validated by the compression engine before persistence.
-			const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
-			const candidate = (fenced ? fenced[1] : text).trim();
-			return JSON.parse(candidate);
-		},
-		llmSummarizeCallback: async (oldSummary, messageBatch, modelId, recovery = {}) => {
+        generateCompactionSummary: async (request, modelId, generation = {}) => {
             const entry = getEngine(modelId);
-            const launchProcess = entry?.childProcess, identity = entry?.runtimeIdentity, port = entry?.port;
-            if (!launchProcess) throw Object.assign(new Error("Start the local model server before recovering Casual context."), { code: 'casual-model-unavailable' });
-            return require('./src/main/casualSummary').summarizeCasual({ oldSummary, messageBatch, modelId,
-                localModel: scannedModels.get(modelId) ?? null,
-                url: `http://127.0.0.1:${port}/v1/chat/completions`, fetchImpl: localEngineFetch, signal: recovery.signal,
-                isCurrent: () => { const current = engines.get(modelId); return current?.childProcess === launchProcess && current.runtimeIdentity === identity && current.port === port; } });
+            if (!entry?.childProcess) throw new Error('Start the local model before compacting context.');
+            const response = await localEngineFetch(`http://127.0.0.1:${entry.port}/v1/chat/completions`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: generation.signal,
+                contextWindowLimit: entry.activeModelConfig?.contextLength, body: JSON.stringify({ ...request, stream: false }) });
+            if (!response.ok) throw Object.assign(new Error('Summary generation failed'), { code: 'provider-error' });
+            return require('./src/main/subagents/providers/streamCompletion').readCompletion(response);
         },
 	});
 	createWindow();
@@ -1171,7 +1136,7 @@ app.on("before-quit", (event) => {
     require("./src/main/promptMeasurement").clearCache();
 	if (!mcpClosed) {
 		event.preventDefault();
-		Promise.allSettled([scheduledTaskScheduler?.stop?.({ reason: 'app-shutdown' }) ?? Promise.resolve(), require("./src/main/compressionEngine").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/developmentPreviews").service.shutdown(), require("./src/main/networkExecution").service.shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
+		Promise.allSettled([scheduledTaskScheduler?.stop?.({ reason: 'app-shutdown' }) ?? Promise.resolve(), require("./src/main/mainChatCompaction").shutdownCompression(), require("./src/main/backgroundCommands").shutdown(), require("./src/main/developmentPreviews").service.shutdown(), require("./src/main/networkExecution").service.shutdown(), require("./src/main/foregroundCommand").shutdownForegroundCommands(), mcpManager.close(), require("./src/main/lspManager").manager.close()]).finally(() => {
 			mcpClosed = true;
 			app.quit();
 		});

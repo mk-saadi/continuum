@@ -42,6 +42,9 @@ async function chatCompletion({ engine, payload, signal, allowTools = false, onP
       const context = require('../../contextBudget');
       if (context.isContextOverflow({ status: 400, responseBody: body })) {
         const error = new context.ContextBudgetError('provider context overflow');
+        let detail; try { detail = JSON.parse(body); } catch {}
+        const reported = (detail?.error ?? detail)?.n_ctx;
+        if (Number.isSafeInteger(reported) && reported > 0) error.contextWindowLimit = reported;
         error.confirmedOverflow = true; throw error;
       }
     } });
@@ -52,6 +55,7 @@ async function chatCompletion({ engine, payload, signal, allowTools = false, onP
     signal,
     body: JSON.stringify({
       ...payload,
+      messages: payload.messages.map(({ compactionContinuation, compactionHistory, executionOnly, ...message }) => message),
       stream: typeof onProgress === 'function',
       ...(toolsAllowed
         ? { tool_choice: payload.tool_choice ?? 'auto' }

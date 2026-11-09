@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-08T15:37:11.360Z",
+  "sourceRevision": "Current working tree; see report for recorded baseline",
+  "scope": "Synthetic source-level audit; observed defects are asserted; no production history or real inference.",
+  "results": [
+    {
+      "id": "cloud-workspace-measurement-contract",
+      "reproduced": true,
+      "observed": {
+        "method": "provider-serialized-full-request-estimate",
+        "summaryGate": "compaction-summary-tokenizer-unavailable"
+      }
+    },
+    {
+      "id": "cloud-workspace-production-candidate",
+      "reproduced": true,
+      "observed": {
+        "ok": false,
+        "code": "compaction-summary-tokenizer-unavailable",
+        "modelRequests": 0,
+        "fallbackReason": "compaction-summary-tokenizer-unavailable"
+      }
+    },
+    {
+      "id": "main-cloud-overflow-no-recovery",
+      "reproduced": true,
+      "observed": {
+        "cloudRequests": 1,
+        "recoveryCallbacks": 0,
+        "result": "generic HTTP 400 error"
+      }
+    },
+    {
+      "id": "child-persistence-failure-accepted",
+      "reproduced": true,
+      "observed": {
+        "versionInMemory": 1,
+        "versionOnDisk": 0,
+        "activeMessagesInMemory": 2,
+        "activeMessagesOnDisk": 12
+      }
+    },
+    {
+      "id": "forced-small-reduction-refused",
+      "reproduced": true,
+      "observed": {
+        "reason": "no-material-reduction",
+        "savedTokens": 400,
+        "minimumRequired": 800,
+        "prospectiveFits": true
+      }
+    },
+    {
+      "id": "child-unchanged-rejected-candidate-regenerated",
+      "reproduced": true,
+      "observed": {
+        "identicalPreparations": 2,
+        "summaryAttempts": 2,
+        "checkpointAttempts": 2,
+        "committedVersions": 0
+      }
+    },
+    {
+      "id": "child-oversized-auxiliary-request",
+      "reproduced": true,
+      "observed": {
+        "refusal": "context_exhausted",
+        "rejectedRequestKind": "summary",
+        "simulatedSummaryInputTokens": 14754,
+        "capacityTokens": 8192,
+        "auxiliaryInferenceRequests": 0,
+        "committedVersion": 0,
+        "note": "Synthetic exact tokenizer; escaping-heavy history; no live model."
+      }
+    },
+    {
+      "id": "child-no-raw-history-retrieval-tool",
+      "reproduced": true,
+      "observed": {
+        "historyToolAvailable": false,
+        "toolCount": 17
+      }
+    }
+  ]
+}

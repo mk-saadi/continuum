@@ -28,13 +28,13 @@ const { db, initDatabase, closeDatabase } = require('../src/main/db');
 initDatabase();
 const sessions = require('../src/main/sessionManager');
 const profiles = require('../src/main/profileSettings');
-const compression = require('../src/main/compressionEngine');
+const compaction = require('../src/main/mainChatCompaction');
 const { prepareChatMessages } = require('../src/main/promptBuilder');
 let summaries = 0;
 const dispose = require('../src/main/ipcHandlers').registerIpcHandlers({
   isTrustedSender: () => true,
   getEngineConfig: () => ({ modelPath: 'model', port: 9999, activeModelConfig: { contextLength: contextLimit } }),
-  llmSummarizeCallback: async (_old, batch) => { summaries++; assert.ok(batch.length); return 'Earlier conversation retained in this summary.'; },
+  generateCompactionSummary: async request => { summaries++; assert.ok(JSON.parse(request.messages[1].content).conversation.length); return { choices: [{ finish_reason: 'stop', message: { content: 'Earlier conversation retained in this summary.' } }] }; },
 });
 const sender = Object.assign(new EventEmitter(), { send: () => {}, isDestroyed: () => false });
 const event = { sender };
@@ -50,15 +50,15 @@ function run(id) {
 test.beforeEach(() => { contextLimit = 32768; profiles.saveProfileSettings(null, { systemPrompt: '' }); });
 test.after(() => { dispose(); closeDatabase(); Module._load = load; os.homedir = home; fs.rmSync(directory, { recursive: true, force: true }); });
 
-test('real main IPC forces compaction below normal threshold, applies archives, rebuilds and succeeds', async () => {
+test('real main IPC forces one compaction after overflow, keeps originals, rebuilds and succeeds', async () => {
   seed('success'); assert.equal(sessions.getContextUsage('success', 'model').totalTokens, 500);
   summaries = 0;
   transport = backend({ context: contextLimit, tokens: text => Math.ceil(text.length / 4), infer: (_payload, count) => count === 1 ? rejectedContext() : Response.json({ choices: [{ message: { content: 'Done [TASK COMPLETE]' }, finish_reason: 'stop' }] }) });
   const result = await run('success');
   assert.equal(result.text, 'Done [TASK COMPLETE]'); assert.equal(transport.calls.length, 2); assert.equal(summaries, 1);
-  assert.equal(db.prepare("SELECT count(*) n FROM messages WHERE session_id='success' AND archived=1").get().n, 10);
+  assert.equal(db.prepare("SELECT count(*) n FROM messages WHERE session_id='success' AND archived=1").get().n, 0);
   assert.equal(sessions.loadSession('success').messages.length, 21);
-  assert.ok(transport.calls[1].messages[0].content.includes('[EARLIER CONVERSATION SUMMARY]'));
+  assert.ok(transport.calls[1].messages[0].content.includes('[COMPACTION SUMMARY]'));
   assert.ok(!transport.calls[1].messages.some(m => m.content === '0'.padEnd(100, 'x')));
 });
 test('mandatory overflow fails without dispatch or accumulation of blank interrupted replies', async () => {
@@ -72,43 +72,17 @@ test('mandatory overflow fails without dispatch or accumulation of blank interru
   assert.equal(sessions.loadSession('mandatory').messages.length, 21);
   profiles.saveProfileSettings(null, { systemPrompt: '' });
 });
-test('scheduled compression is explicitly run; pending background compaction is awaited before forced work', async () => {
-  seed('scheduled');
-  compression.scheduleIdleCompression('scheduled', 'model', 8192, async () => assert.fail('Idle timer should be cancelled by recovery'));
-  const forced = await compression.recoverContextOverflow({ sessionId: 'scheduled', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: async () => 'summary' });
-  assert.equal(forced.compressed, true);
-  seed('pending', 5600);
-  let enter, release;
-  const began = new Promise(resolve => { enter = resolve; });
-  const gate = new Promise(resolve => { release = resolve; });
-  const background = compression.checkAndCompressContext({ sessionId: 'pending', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: async () => { enter(); return gate; } });
-  await began;
-  let forcedCalls = 0;
-  const pending = compression.recoverContextOverflow({ sessionId: 'pending', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: async () => { forcedCalls++; return 'forced summary'; } });
-  await new Promise(resolve => setImmediate(resolve)); assert.equal(forcedCalls, 0);
-  release('background summary'); await background; const result = await pending;
-  assert.equal(result.compressed, true); assert.equal(forcedCalls, 1);
-  assert.equal(sessions.getSessionSummary('pending'), 'forced summary', 'C5 can validate and replace an existing summary even without older rows');
-});
-test('cancelling while waiting for background compression never invokes forced summarization', async () => {
-  seed('cancel', 5600); let enter, release;
-  const began = new Promise(resolve => enter = resolve), gate = new Promise(resolve => release = resolve);
-  const background = compression.checkAndCompressContext({ sessionId: 'cancel', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: async () => { enter(); return gate; } });
-  await began; const controller = new AbortController();
-  const waiting = compression.recoverContextOverflow({ sessionId: 'cancel', modelId: 'model', contextWindowLimit: 32768, signal: controller.signal, llmSummarizeCallback: () => assert.fail('Must not start recovery') });
-  controller.abort(); await assert.rejects(waiting, { name: 'AbortError' }); release('summary'); await background;
-});
-test('short protected-only sessions preserve every original even with forced recovery', async () => {
-  seed('protected', 16000, 2);
-  const before = sessions.loadSession('protected').messages;
-  const result = await compression.recoverContextOverflow({ sessionId: 'protected', modelId: 'model', contextWindowLimit: 32768, llmSummarizeCallback: () => assert.fail('No eligible history') });
-  assert.equal(result.compressed, false); assert.deepEqual(sessions.loadSession('protected').messages, before);
+test('second confirmed overflow stops after the single recovery retry', async () => {
+  seed('second-overflow'); summaries = 0;
+  transport = backend({ context: contextLimit, tokens: text => Math.ceil(text.length / 4), infer: () => rejectedContext() });
+  await assert.rejects(run('second-overflow'), /single recovery retry/);
+  assert.equal(transport.calls.length, 2); assert.equal(summaries, 1);
 });
 
 test('regeneration recovery excludes the replaced assistant and preserves its original variant', async () => {
   seed('regenerate', 100, 19);
   const target = sessions.getActiveMessages('regenerate').at(-1);
-  transport = backend({ context: contextLimit, infer: (_payload, count) => count === 1 ? rejectedContext() : Response.json({ choices: [{ message: { content: 'Regenerated [TASK COMPLETE]' }, finish_reason: 'stop' }] }) });
+  transport = backend({ context: contextLimit, tokens: text => Math.ceil(text.length / 4), infer: (_payload, count) => count === 1 ? rejectedContext() : Response.json({ choices: [{ message: { content: 'Regenerated [TASK COMPLETE]' }, finish_reason: 'stop' }] }) });
   const result = await registered.get('session:regenerate-last')(event, { requestId: 'regenerate', sessionId: 'regenerate', modelId: 'model', activeChatProvider: { type: 'local' } });
   assert.equal(result.message.id, target.id);
   assert.ok(!transport.calls[1].messages.some(message => message.content === target.content));
@@ -117,58 +91,19 @@ test('regeneration recovery excludes the replaced assistant and preserves its or
   assert.ok(saved.at(-1).variants.some(variant => variant.content === target.content));
 });
 
-test('forced compaction includes expanded older attachment text and preserves its managed file', async () => {
+test('older attachments enter the summary request and keep their original managed file', async () => {
   const file = path.join(directory, 'SKILL (1).md');
   fs.writeFileSync(file, 'ATTACHED_REVIEW_RULES\n' + 'x'.repeat(12000));
   const files = await require('../src/main/fileUploads').processUploads([file]);
   sessions.getOrCreateSession('attachment-source', 'model');
   const original = sessions.saveMessage('attachment-source', 'user', 'review', files);
   for (let i = 0; i < 11; i++) sessions.saveMessage('attachment-source', i % 2 ? 'user' : 'assistant', 'short turn');
-  assert.ok(sessions.getContextUsage('attachment-source', 'model').totalTokens < 6144);
-  const result = await compression.recoverContextOverflow({ sessionId: 'attachment-source', modelId: 'model', contextWindowLimit: 32768,
-    llmSummarizeCallback: async (_prior, batch) => { assert.match(batch[0].content, /ATTACHED_REVIEW_RULES/); return 'Earlier attached review rules retained in summary.'; } });
+  const payload = { model: 'model', messages: require('../src/main/promptBuilder').rebuildChatMessages({ sessionId: 'attachment-source', modelId: 'model' }), tools: [], max_tokens: 256 };
+  const result = await compaction.compactAtBoundary({ sessionId: 'attachment-source', modelId: 'model', payload, owner: {}, force: true,
+    measure: async p => ({ tokens: require('../src/main/contextBudget').approximateTokens(p), limit: 32768, reserve: p.max_tokens, method: 'fixture-estimate' }),
+    generate: async request => { assert.match(request.messages[1].content, /ATTACHED_REVIEW_RULES/); return { choices: [{ finish_reason: 'stop', message: { content: 'Earlier attached review rules retained.' } }] }; } });
   assert.equal(result.compressed, true);
   assert.equal(sessions.loadSession('attachment-source').messages.find(m => m.id === original.id).content, 'review');
   assert.ok(fs.existsSync(files[0].file_path));
   assert.equal(fs.readFileSync(files[0].file_path, 'utf8'), fs.readFileSync(file, 'utf8'));
-});
-
-test('forced recovery can replace an oversized previous summary instead of treating it as immutable overhead', async () => {
-  seed('summary-floor');
-  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run('summary-floor', 'S'.repeat(122000));
-  let calls = 0;
-  const result = await compression.recoverContextOverflow({ sessionId: 'summary-floor', modelId: 'model', contextWindowLimit: 32768,
-    llmSummarizeCallback: async old => { calls++; assert.equal(old.length, 122000); return 'Original objective and unresolved requirements retained.'; } });
-  assert.equal(result.compressed, true);
-  assert.equal(calls, 1);
-  assert.equal(sessions.getSessionSummary('summary-floor'), 'Original objective and unresolved requirements retained.');
-});
-
-test('summary persistence failure rolls back archives and permits a later recovery without replay', async () => {
-  seed('disk-failure');
-  const before = sessions.loadSession('disk-failure').messages;
-  db.prepare("CREATE TEMP TRIGGER reject_summary BEFORE INSERT ON session_summaries WHEN NEW.session_id = 'disk-failure' BEGIN SELECT RAISE(ABORT, 'simulated summary persistence failure'); END").run();
-  const recover = () => compression.recoverContextOverflow({ sessionId: 'disk-failure', modelId: 'model', contextWindowLimit: 32768,
-    llmSummarizeCallback: async () => 'Objective and requirements retained.' });
-  try {
-    await assert.rejects(recover(), /simulated summary persistence failure/);
-    assert.deepEqual(sessions.loadSession('disk-failure').messages, before);
-    assert.equal(sessions.getSessionSummary('disk-failure'), null);
-    assert.equal(sessions.loadSession('disk-failure').is_compressing, 0);
-  } finally { db.prepare('DROP TRIGGER reject_summary').run(); }
-  assert.equal((await recover()).compressed, true);
-  assert.equal(sessions.loadSession('disk-failure').messages.length, before.length);
-});
-
-test('an unchanged replacement summary stays single while newly selected history is archived', async () => {
-  seed('unchanged-summary');
-  const summary = 'Original objective and requirements retained.';
-  db.prepare('INSERT INTO session_summaries(session_id, summary_text) VALUES (?, ?)').run('unchanged-summary', summary);
-  const result = await compression.recoverContextOverflow({ sessionId: 'unchanged-summary', modelId: 'model', contextWindowLimit: 32768,
-    llmSummarizeCallback: async old => { assert.equal(old, summary); return old; } });
-  assert.equal(result.compressed, true);
-  assert.equal(sessions.getSessionSummary('unchanged-summary'), summary);
-  const prompt = prepareChatMessages({ sessionId: 'unchanged-summary', modelId: 'model', userText: '', regenerate: true });
-  assert.equal(prompt.filter(m => String(m.content).includes('[EARLIER CONVERSATION SUMMARY]')).length, 1);
-  assert.equal(db.prepare("SELECT count(*) n FROM session_summaries WHERE session_id='unchanged-summary'").get().n, 1);
 });

@@ -2,7 +2,8 @@ import React from "react";
 import { applyTheme } from "./lib/themes.mjs";
 import { initializeAppearance } from "./lib/appearance.mjs";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+const desktopMascot = new URLSearchParams(window.location.search).get('desktopMascot') === '1';
+const Root = React.lazy(() => desktopMascot ? import('./components/mascot/DesktopMascot.jsx') : import('./App.jsx'));
 import "./index.css";
 import "./styles/aero.css";
 import "./styles/appearance.css";
@@ -21,7 +22,7 @@ catch { applyTheme(document.documentElement, "dark"); }
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>
 		<ToastProvider>
-			<App />
+			<React.Suspense fallback={null}><Root /></React.Suspense>
 		</ToastProvider>
 	</React.StrictMode>,
 );

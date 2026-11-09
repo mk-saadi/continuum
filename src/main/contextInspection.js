@@ -413,8 +413,8 @@ function getBriefsForDisplay(sessionId) {
 
 function getSummaryForDisplay(sessionId) {
   if (!findSessionForDisplay(sessionId)) return { text: null };
-  const text = require('./sessionManager').getSessionSummary(sessionId);
-  return { text: text ?? null };
+  const text = require('./mainChatCompaction').stateFor(sessionId)?.summary;
+  return { text: text ?? null, status: require('./workspaceCompactionActivity').list(sessionId).at(-1)?.status ?? (text ? 'completed' : null) };
 }
 
 // --- Archived conversation history ---

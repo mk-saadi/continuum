@@ -324,6 +324,24 @@ async function recover(file,sessionId,action,selectedPath) {
   require('./promptMeasurement').invalidateMeasuredContext(sessionId);
   return view({...row,version_id:v.id});
 }
+// Draft grants are conversation-scoped. A project composer can stage files
+// before its chat exists, so the new conversation adopts the same opaque token
+// and version instead of relying on bytes the renderer no longer holds.
+function retargetDrafts(files, fromSessionId, toSessionId) {
+  checkSession(fromSessionId);
+  checkSession(toSessionId);
+  if (!Array.isArray(files) || !files.length || files.length > 10)
+    throw new Error('Choose at least one and at most 10 attachments.');
+  return db().transaction(() => files.map(file => {
+    if (!file?.draft_token)
+      throw error('ATTACHMENT_UNAUTHORIZED', file?.name || 'file', 'Only staged attachments can move to a new conversation.');
+    const draft = db().prepare('SELECT * FROM attachment_drafts WHERE token=? AND session_id=?').get(file.draft_token, fromSessionId);
+    if (!draft || draft.version_id !== file.version_id)
+      throw error('ATTACHMENT_UNAUTHORIZED', file?.name || 'draft', 'Invalid attachment draft grant.');
+    db().prepare('UPDATE attachment_drafts SET session_id=? WHERE token=?').run(toSessionId, draft.token);
+    return view({ version_id: draft.version_id, draft_token: draft.token, session_id: toSessionId });
+  }))();
+}
 function rowForFile(file, messageId) {
   if(!Number.isInteger(messageId)) return null;
   if(file.id) {
@@ -340,7 +358,7 @@ async function requestSnapshot(file) {
   return verified(version(file.version_id));
 }
 function freshSnapshot(file) { return snapshots.exit(()=>readSnapshot(file)); }
-module.exports={checkSession,requestSnapshot,freshSnapshot,install,bridge,assertBridge,stage,version,view,ownedRow,authorize,readSnapshot,verified,withSnapshots,inspect,preview,recover,rowForFile,capture,directory};
+module.exports={checkSession,requestSnapshot,freshSnapshot,install,bridge,assertBridge,stage,version,view,ownedRow,authorize,readSnapshot,verified,withSnapshots,inspect,preview,recover,retargetDrafts,rowForFile,capture,directory};
 
 for (const name of ['stage','verified','withSnapshots','inspect','preview','recover','requestSnapshot']) {
   const original=module.exports[name];

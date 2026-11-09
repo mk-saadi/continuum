@@ -35,7 +35,6 @@ const plan = require('../src/main/workspacePlan');
 const { prepareChatMessages, rebuildChatMessages, getToolContext } = require('../src/main/promptBuilder');
 const { executeAgentTool, agentTools } = require('../src/main/tools/agentTools');
 const { capabilityOf, isToolVisible, CAPABILITIES } = require('../src/main/toolPermissions');
-const compression = require('../src/main/compressionEngine');
 
 const project = projects.createProject({ name: 'Plan Project', root_path: workspace });
 const MODEL = 'model';
@@ -280,7 +279,7 @@ test('new steps append and removals compact positions without renumbering ids', 
   assert.ok(!after.steps.some((step) => step.id === two.id));
 });
 
-test('the plan is injected as a bounded suffix and survives compaction unchanged', async () => {
+test('the current plan precedes conversation context and survives compaction unchanged', async () => {
   const id = workspaceSession();
   const created = plan.updatePlan(id, {
     action: 'create',
@@ -300,7 +299,7 @@ test('the plan is injected as a bounded suffix and survives compaction unchanged
   const prompt = rebuildChatMessages({ sessionId: id, modelId: MODEL });
   const planBlocks = prompt.filter((message) => message.workspacePlan === true);
   assert.equal(planBlocks.length, 1);
-  assert.equal(prompt[prompt.length - 1].workspacePlan, true);
+  assert.ok(prompt.indexOf(planBlocks[0]) < prompt.findIndex(message => message.role === 'user'));
   assert.match(planBlocks[0].content, /\[completed\]/);
   assert.match(planBlocks[0].content, /\[in_progress\]/);
   assert.match(planBlocks[0].content, /\[blocked\]/);
@@ -310,7 +309,8 @@ test('the plan is injected as a bounded suffix and survives compaction unchanged
   // The plan block is a pure suffix: removing it leaves an exact prefix.
   const full = serializePrompt(prompt);
   const withoutPlan = serializePrompt(prompt.filter((message) => message.workspacePlan !== true));
-  assert.ok(full.startsWith(withoutPlan));
+  assert.ok(full.includes(planBlocks[0].content));
+  assert.ok(!withoutPlan.includes(planBlocks[0].content));
   assert.ok(full.length > withoutPlan.length);
 
   // The plan contributes to the context estimate but is not counted as messages.

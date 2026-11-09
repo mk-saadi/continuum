@@ -12,7 +12,7 @@
 	"main": "main.js",
 	"scripts": {
 		"postinstall": "electron-builder install-app-deps",
-		"test": "node --test tests/",
+		"test": "node --test tests/*.test.cjs tests/*.test.mjs",
 		"dev": "cross-env concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
 		"dev:vite": "vite",
 		"dev:electron": "cross-env NODE_ENV=development electron .",
@@ -66,6 +66,7 @@
 			"src/main/**/*.py",
 			"src/main/**/*.json",
 			"src/preload.js",
+			"src/mascotPreload.js",
 			"preload.js",
 			"src/lib/**/*.mjs",
 			"src/lib/**/*.cjs",

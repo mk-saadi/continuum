@@ -29,6 +29,7 @@ async function chatCompletion({ engine, payload, signal, fetchImpl = localEngine
     contextRecovery: recoverContext ?? (async () => null),
     body: JSON.stringify({
       ...payload,
+      messages: payload.messages.map(({ compactionContinuation, compactionHistory, executionOnly, ...message }) => message),
       stream: typeof onProgress === 'function',
       ...(toolsAllowed
         ? { tool_choice: payload.tool_choice ?? 'auto' }

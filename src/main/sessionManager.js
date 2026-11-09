@@ -120,14 +120,6 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
       insertAttachment.run(savedId, attachment.file_path, attachment.mime_type, attachment.asset_id ?? null, attachment.version_id ?? null, attachment.omitted || 0);
     }
 
-    // Preserve Workspace user requirements verbatim, independently of the
-    // rolling summary. First brief is `original`, later ones `instruction`.
-    // Casual sessions store nothing. Same-transaction insert keeps message +
-    // brief atomic; a capture failure rolls back the message save.
-    if (role === 'user' && messageId === null) {
-      require('./taskBriefs').captureBriefForUserMessage(sessionId, savedId, content, files);
-    }
-
     db.prepare(`
       UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?
     `).run(sessionId);
@@ -142,7 +134,7 @@ function saveMessage(sessionId, role, content, attachments = [], stats = null, t
 
 function getActiveMessages(sessionId) {
   requireIdentifier(sessionId, 'sessionId');
-  return withAttachments(activePath(sessionId).filter(row => !row.archived && !row.is_summarized));
+  return withAttachments(activePath(sessionId));
 }
 
 function activePath(sessionId) {
@@ -209,22 +201,11 @@ function getContextUsage(sessionId, currentModelId) {
     const projectId = db.prepare('SELECT project_id FROM sessions WHERE id = ?').get(sessionId)?.project_id;
     const coreTokens = (memoryEnabled ? getRecentPermanentMemories(currentModelId, { projectId, limit: 5 }) : [])
       .reduce((total, memory) => total + estimateTokens(memory.content), 0);
-    const summary = getSessionSummary(sessionId);
-    const active = activePath(sessionId).filter(row => !row.archived && !row.is_summarized);
-    const messageTokens = active.reduce((total, row) => total + row.estimated_tokens, 0);
-    const messageCount = active.length;
-    // Work-log contribution, estimated exactly the way the prompt builder
-    // injects it (same section text, same chars/4 heuristic, default caps).
-    // Workspace sessions with recorded turns only; everything else stays 0
-    // so casual chats and digest-free sessions are byte-identical to before.
-    // Approximate by construction; failures degrade to 0, never to an error.
-    let workLogTokens = 0;
-    try {
-      const section = require('./workLog').buildWorkLogSection(sessionId, {});
-      if (section) workLogTokens = estimateTokens(section.content);
-    } catch {
-      workLogTokens = 0;
-    }
+    const context = require('./mainChatCompaction').context(sessionId);
+    const summary = context.summary;
+    const messageTokens = context.messages.reduce((sum, row) => sum + estimateTokens(typeof row.content === 'string' ? row.content : JSON.stringify(row.content)), 0);
+    const messageCount = context.messages.length;
+    const workLogTokens = 0;
     // Durable plan contribution, estimated exactly like the prompt builder
     // injects it (same bounded section text). Casual sessions and plan-free
     // tasks stay 0, leaving the estimate byte-identical to before.
@@ -255,6 +236,8 @@ module.exports = {
   getOrCreateSession,
   saveMessage,
   getActiveMessages,
+  activePath,
+  withAttachments,
   getSessionSummary,
   getContextUsage,
   getLastTurnTelemetry,
@@ -401,7 +384,6 @@ function deleteSession(sessionId) {
 function editMessage(messageId, newContent) {
   const { sessionId } = require('./db').branchUserMessage({ messageId, newContent });
   db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-  db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
   return loadSession(sessionId).messages;
 }
 
@@ -609,7 +591,6 @@ function deleteMessage(sessionId, messageId) {
     for (const id of descendants.reverse()) remove.run(id);
     // Summaries may still contain the deleted turn; rebuild context from retained rows.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
     return loadSession(sessionId).messages;
   }).immediate();
@@ -718,7 +699,6 @@ function setActiveVariant(sessionId, messageId, index) {
     db.prepare('UPDATE messages SET execution_steps = ?, display_name = ?, status = ? WHERE id = ?').run(steps === null ? null : JSON.stringify(steps), variant.displayName ?? null, variant.status ?? 'completed', messageId);
     // A summary may contain the previously selected reply. Rebuild context from original turns.
     db.prepare('DELETE FROM session_summaries WHERE session_id = ?').run(sessionId);
-    db.prepare('UPDATE messages SET archived = 0, is_summarized = 0 WHERE session_id = ?').run(sessionId);
     db.prepare('UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
     return withAttachments([db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)])[0];
   }).immediate();

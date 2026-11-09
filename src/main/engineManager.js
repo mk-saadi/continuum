@@ -526,20 +526,13 @@ function buildBranchContext(userMessageId, modelId) {
 	const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
 	const effective = require("./profileSettings").getSessionSettings(sessionId, modelId).effective;
 	const richLevel = require("./profileSettings").resolveRichLevel(sessionId, modelId);
-	// Same applicability rule as cloning: only briefs anchored to this branch's
-	// ancestor messages apply. Later instructions from beyond the branch point
-	// are excluded even though they share the session. The session checkpoint
-	// (if any) is included with live staleness derivation.
-	const brief = require("./taskBriefs").buildTaskBriefSection(sessionId, { messageIds: pathIds });
-	const checkpoint = require("./taskCheckpoints").buildCheckpointSection(sessionId);
+
 	return {
 		sessionId,
 		messages: prependBaseSystemPrompt(
 			[
-				...(brief ? [brief] : []),
-				...(checkpoint ? [checkpoint] : []),
 				buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? "" }),
-				...require("./taskBriefs").selectHistoryMessages(sessionId, path, { messageIds: pathIds }).map(messageForModel),
+				...path.map(messageForModel),
 			],
 			effective.memoryEnabled,
 			null,

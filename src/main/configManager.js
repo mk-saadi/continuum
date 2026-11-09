@@ -1,5 +1,7 @@
 "use strict";
 
+const { normalizeMascotSettings } = require('../lib/mascotSettings.cjs');
+
 const DEFAULT_LOAD_CONFIG = Object.freeze({
 	contextLength: 8192,
 	gpuOffload: "auto",
@@ -188,6 +190,7 @@ function normalizeAppSettings(input = {}) {
 	if (!Number.isInteger(recoveryStorageCapMB) || recoveryStorageCapMB < 64 || recoveryStorageCapMB > 8192)
 		throw new Error("Recovery storage cap must be an integer from 64 to 8192 MB.");
 	return {
+		mascot: normalizeMascotSettings(input.mascot),
 		apiServerPort,
 		mcpMode,
 		maxConsecutiveToolFailures,
@@ -205,7 +208,7 @@ function getAppSettings() {
 	const { db } = require("./db");
 	const rows = db
 		.prepare(
-			"SELECT key, value_json FROM app_settings WHERE key IN ('apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'notificationSounds', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
+			"SELECT key, value_json FROM app_settings WHERE key IN ('mascot', 'apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'notificationSounds', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
 		)
 		.all();
 	return normalizeAppSettings(Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value_json)])));
@@ -218,6 +221,7 @@ function saveAppSettings(input) {
 		"INSERT INTO app_settings(key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json",
 	);
 	db.transaction(() => {
+		save.run("mascot", JSON.stringify(settings.mascot));
 		save.run("apiServerPort", JSON.stringify(settings.apiServerPort));
 		save.run("mcpMode", JSON.stringify(settings.mcpMode));
 		save.run("maxConsecutiveToolFailures", JSON.stringify(settings.maxConsecutiveToolFailures));

@@ -58,27 +58,12 @@ function transport({ malformed = false, summaryError = false, checkpointError = 
   const fetchImpl = async (url, options = {}) => {
     if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
     const p = JSON.parse(options.body); requests.push(p); onRequest?.(p);
-    if (p.messages[0].content.startsWith('Summarize')) {
+    if (p.messages[0].content.startsWith(require('../src/main/conversationCompaction').PROMPT)) {
       if (summaryError) return new Response('', { status: 500 });
-      if (emptySummary) return response('   ');
+      if (emptySummary || malformed) return response('   ');
+      if (checkpointError && requests.length > 1) return new Response('', { status: 500 });
       const data = JSON.parse(p.messages[1].content);
-      return response(`${data.oldSummary ?? ''} EARLY_VALUE=17; src/c0.js was read. Pending: compare remaining paths.`);
-    }
-    if (p.messages[0].content.startsWith('You are compressing a Workspace')) {
-      if (checkpointError) return new Response('', { status: 500 });
-      const input = JSON.parse(p.messages[1].content);
-      if (unverifiedCheckpoint) return response(JSON.stringify({ objective: 'Investigate read-only',
-        decisions: [{ text: 'Claimed verified without a source', verified: true, sources: [] }],
-        completedWork: [{ text: 'Claimed work without evidence', sources: [] }],
-        nextActions: [], unknowns: [], blockers: [], risks: [] }));
-      const evidence = input.evidence.find(e => e.outcome === 'success');
-      return response(malformed ? 'not JSON' : JSON.stringify({ objective: 'Investigate read-only; preserve constraints',
-        decisions: [{ text: `EARLY_VALUE=17 from ${evidence?.paths[0] ?? 'source'}`, verified: false,
-          sources: evidence ? [{ messageId: evidence.messageId, stepId: evidence.stepId }] : [] }],
-        completedWork: evidence ? [{ text: `Read ${evidence.paths[0]}`,
-          sources: [{ messageId: evidence.messageId, stepId: evidence.stepId }] }] : [],
-        outstandingRequirements: [], filesChanged: [], commands: [], tests: [],
-        nextActions: ['Compare remaining paths'], unknowns: ['No edits performed'], blockers: [], risks: [] }));
+      return response(`${data.previousSummary ?? ''} EARLY_VALUE=17; src/c0.js was read. Constraint: read-only. Pending: compare remaining paths.`);
     }
     return main ? main(p, requests) : response('Final answer EARLY_VALUE=17.');
   };
@@ -96,13 +81,13 @@ function seedMessages({ count = 8, size = 2200 } = {}) {
 }
 
 // A bare adapter over a detached session object (no runtime registration).
-async function fixture({ count = 8, size = 2200, transportOptions, signal, childEngine = engine } = {}) {
+async function fixture({ count = 8, size = 2200, transportOptions, signal, childEngine = engine, configurationIdentity } = {}) {
   const messages = seedMessages({ count, size });
   const session = { id: `child-${randomUUID()}`, context: messages,
     inputSummary: { task: messages[1].content }, activity: [] };
   const state = await budget.getExecutionBudget(session, { kind: 'investigation', engine: childEngine });
   const t = transport(transportOptions);
-  const adapter = createChildContextAdapter({ session, messages, engine: childEngine, state, signal,
+  const adapter = createChildContextAdapter({ session, messages, engine: childEngine, state, signal, configurationIdentity,
     fetchImpl: t.fetchImpl, commit: () => { session.context = messages.slice(); } });
   const payload = { model: childEngine.modelId, messages, tools: [], tool_choice: 'auto', max_tokens: 512 };
   return { session, state, messages, adapter, payload, ...t };
@@ -282,14 +267,10 @@ test('recovered siblings of one parent invocation share one reconstructed aggreg
 
 // ---- Compaction failure safety (Step 4) -------------------------------------
 
-test('cancellation during checkpoint generation leaves raw/active history and version untouched', async () => {
+test('cancellation during summary generation leaves raw/active history and version untouched', async () => {
   const controller = new AbortController();
-  let summarized = false;
-  const f = await fixture({ signal: controller.signal, transportOptions: { onRequest: p => {
-    if (p.messages[0].content.startsWith('Summarize')) summarized = true;
-    else if (summarized && p.messages[0].content.startsWith('You are compressing')) {
-      controller.abort(new DOMException('cancel', 'AbortError'));
-    }
+  const f = await fixture({ signal: controller.signal, transportOptions: { onRequest: () => {
+    controller.abort(new DOMException('cancel', 'AbortError'));
   } } });
   const original = structuredClone(f.messages);
   await assert.rejects(f.adapter.prepare(f.payload), { name: 'AbortError' });
@@ -299,10 +280,10 @@ test('cancellation during checkpoint generation leaves raw/active history and ve
   assert.equal(f.session.rawContext.filter(m => m.role === 'tool').length, 8);
 });
 
-test('checkpoint provider error after a successful summary fails closed without committing', async () => {
-  const f = await fixture({ transportOptions: { checkpointError: true } });
+test('later staged summary error leaves original coverage intact without committing', async () => {
+  const f = await fixture({ count: 30, size: 1500, transportOptions: { checkpointError: true } });
   const original = structuredClone(f.messages);
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.stopReason === 'provider_error');
+  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'provider-error');
   assert.equal(f.requests.length, 2, 'summary dispatched, checkpoint failed, no retry');
   assert.deepEqual(f.messages, original);
   assert.equal(f.session.compactionState.version, 0);
@@ -311,34 +292,78 @@ test('checkpoint provider error after a successful summary fails closed without 
 test('an empty summary is rejected without archiving', async () => {
   const f = await fixture({ transportOptions: { emptySummary: true } });
   const original = structuredClone(f.messages);
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'invalid-summary-or-transcript');
+  await f.adapter.prepare(f.payload);
   assert.equal(f.session.compactionState.version, 0);
   assert.deepEqual(f.messages, original);
 });
 
-test('a malformed checkpoint never commits and never persists an authoritative summary', async () => {
+test('an empty response never commits or persists a summary', async () => {
   const f = await fixture({ transportOptions: { malformed: true } });
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'malformed-checkpoint');
+  await f.adapter.prepare(f.payload);
   assert.equal(f.session.compactionState.version, 0);
   const row = db.prepare('SELECT * FROM subagent_runs WHERE child_session_id = ?').get(f.session.id);
   if (row) assert.equal(JSON.parse(row.compaction_json).version, 0);
 });
 
-test('persistence failure during compaction keeps the in-memory result truthful but never durably resumable', async () => {
+test('accounting persistence failure prevents dispatch and leaves the projection unchanged', async () => {
   const f = await fixture();
   const savedDb = database.db;
   const savedError = console.error;
   console.error = () => {};
   database.db = { prepare() { throw new Error('disk offline'); }, transaction() { throw new Error('disk offline'); } };
   try {
-    await f.adapter.prepare(f.payload);
+    await assert.rejects(f.adapter.prepare(f.payload), error => error.code === 'persistence-failed');
   } finally {
     database.db = savedDb;
     console.error = savedError;
   }
-  assert.equal(f.session.compactionState.version, 1, 'the compaction itself is valid in memory');
+  assert.equal(f.session.compactionState.version, 0, 'failed persistence does not advance the projection');
+  assert.equal(f.session.compactionState.summary, null);
+  assert.equal(f.state.ledger.turns, 0, 'no inference is sent without a durable reservation');
+  assert.equal(f.requests.length, 0);
   assert.equal(f.session.durableResumable, false, 'a failed write never advertises resumability');
   assert.equal(f.session.continuation.persisted, false);
+});
+
+test('permission identity is captured anew at each boundary and guarded during generation', async () => {
+  let revision = 1;
+  const f = await fixture({ configurationIdentity: () => revision,
+    transportOptions: { onRequest: () => { revision++; } } });
+  revision = 2; // A restriction settled before the boundary is valid current state.
+  await assert.rejects(f.adapter.prepare(f.payload), error => error.code === 'source-changed');
+  assert.equal(f.requests.length, 1, 'the boundary admitted the current restriction');
+  assert.equal(f.session.compactionState.version, 0, 'a change during generation cannot commit');
+});
+
+test('request and tool reservations are durable before effects and settled usage is saved', async () => {
+  let f;
+  f = await fixture({ transportOptions: { onRequest() {
+    const saved = JSON.parse(db.prepare('SELECT budget_json FROM subagent_runs WHERE child_session_id = ?').get(f.session.id).budget_json);
+    assert.equal(saved.ledger.turns, 1);
+    assert.ok(saved.ledger.outputReserved > 0);
+  } } });
+  await f.adapter.prepare(f.payload);
+  let saved = JSON.parse(db.prepare('SELECT budget_json FROM subagent_runs WHERE child_session_id = ?').get(f.session.id).budget_json);
+  assert.equal(saved.ledger.outputMeasured, 30);
+  assert.equal(budget.dispatchTool(f.state, f.session, 'read_project_file'), null);
+  saved = JSON.parse(db.prepare('SELECT budget_json FROM subagent_runs WHERE child_session_id = ?').get(f.session.id).budget_json);
+  assert.equal(saved.toolCalls, 1);
+  assert.equal(saved.scope.toolCalls, 1);
+});
+
+test('projection write failure preserves prior summary while keeping durable generation charges', async () => {
+  const f = await fixture();
+  db.prepare(`CREATE TEMP TRIGGER reject_compaction BEFORE UPDATE ON subagent_runs
+    WHEN NEW.child_session_id = '${f.session.id}' AND json_extract(NEW.compaction_json, '$.version') > 0
+    BEGIN SELECT RAISE(FAIL, 'simulated projection failure'); END`).run();
+  const savedError = console.error; console.error = () => {};
+  try { await assert.rejects(f.adapter.prepare(f.payload), error => error.code === 'persistence-failed'); }
+  finally { console.error = savedError; db.prepare('DROP TRIGGER reject_compaction').run(); }
+  assert.equal(f.session.compactionState.version, 0);
+  assert.equal(f.session.compactionState.summary, null);
+  const row = db.prepare('SELECT budget_json, compaction_json FROM subagent_runs WHERE child_session_id = ?').get(f.session.id);
+  assert.equal(JSON.parse(row.budget_json).ledger.turns, 1);
+  assert.equal(JSON.parse(row.compaction_json).version, 0);
 });
 
 // ---- Fidelity under repeated compaction (Steps 1, 2, 7) ---------------------
@@ -346,7 +371,7 @@ test('persistence failure during compaction keeps the in-memory result truthful 
 test('repeated compaction preserves decisions, requirements and never rewrites completed work', async () => {
   const f = await fixture();
   await f.adapter.prepare(f.payload);
-  const prior = structuredClone(f.session.compactionState.checkpoint);
+  const prior = f.session.compactionState.summary;
   for (let round = 1; round <= 2; round++) {
     for (let i = 8 * round; i < 8 * round + 8; i++) {
       f.adapter.append({ role: 'assistant', content: null, tool_calls: [call(`c${i}`)] });
@@ -355,28 +380,18 @@ test('repeated compaction preserves decisions, requirements and never rewrites c
     await f.adapter.prepare({ ...f.payload, messages: f.messages });
   }
   assert.equal(f.session.compactionState.version, 3);
-  for (const entry of prior.completedWork) {
-    assert.ok(f.session.compactionState.checkpoint.completedWork.some(x => x.text === entry.text),
-      'earlier verified work survives');
-  }
-  for (const entry of prior.decisions) {
-    assert.ok(f.session.compactionState.checkpoint.decisions.some(x => x.text === entry.text),
-      'earlier decisions survive');
-  }
+  assert.ok(f.requests.some(p => JSON.parse(p.messages[1].content).previousSummary === prior));
+  assert.equal(f.session.compactionState.checkpoint, null);
   const text = JSON.stringify(f.session.context);
   assert.match(text, /EARLY_VALUE=17/);
   assert.match(text, /read-only|never edit/);
   validatePairs(f.session.context);
 });
 
-test('unverified claims in a compaction checkpoint are demoted, never preserved as verified facts', async () => {
-  const f = await fixture({ transportOptions: { unverifiedCheckpoint: true } });
-  await f.adapter.prepare(f.payload);
-  const cp = f.session.compactionState.checkpoint;
-  assert.equal(cp.completedWork.length, 0, 'work claimed without resolvable evidence is dropped');
-  assert.equal(cp.decisions.filter(d => d.verified).length, 0, 'no claim survives as verified without a source');
-  assert.ok(cp.unknowns.length > 0, 'the unverified claim is recorded as an open unknown');
-  assert.doesNotMatch(JSON.stringify(f.session.context), /Completed work/, 'no completed-work section is rendered for the demoted claim');
+test('the model summary is ordinary Markdown with no semantic checkpoint generation', async () => {
+  const f = await fixture(); await f.adapter.prepare(f.payload);
+  assert.equal(f.requests.length, 1); assert.equal(f.session.compactionState.checkpoint, null);
+  assert.ok(f.requests.every(p => !p.response_format && p.tools.length === 0));
 });
 
 // ---- Window, model and permission surface (Steps 3, 6) ----------------------
@@ -411,5 +426,3 @@ test('compaction and execution never widen the child read-only tool allowlist', 
     assert.match(JSON.stringify(session.context), /not available to this agent/);
   } finally { tools.executeAgentTool = execute; }
 });
-
-console.log('Phase 1.4 compaction hardening: recovery identity, durable aggregate, failure safety, fidelity, boundaries passed.');

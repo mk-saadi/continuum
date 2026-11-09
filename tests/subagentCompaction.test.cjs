@@ -15,7 +15,6 @@ const database = require('../src/main/db'); database.initDatabase(directory);
 const { db } = database;
 const saved = require('../src/main/subagents/budgetSettings');
 const budget = require('../src/main/subagents/executionBudget');
-const compression = require('../src/main/compressionEngine');
 const { createChildContextAdapter, validatePairs, trimToolResult } = require('../src/main/subagents/contextRecovery');
 const { runInvestigationExecution } = require('../src/main/subagents/agentLoop');
 const runtime = require('../src/main/subagents');
@@ -27,18 +26,10 @@ function transport({ malformed = false, summaryError = false, onRequest, main } 
   const fetchImpl = async (url, options = {}) => {
     if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
     const p = JSON.parse(options.body); requests.push(p); onRequest?.(p);
-    if (p.messages[0].content.startsWith('Summarize')) {
+    if (p.messages[0].content.startsWith(require('../src/main/conversationCompaction').PROMPT)) {
       if (summaryError) return new Response('', { status: 500 });
       const data = JSON.parse(p.messages[1].content);
-      return response(`${data.oldSummary ?? ''} EARLY_VALUE=17; src/c0.js was read. Pending: compare remaining paths.`);
-    }
-    if (p.messages[0].content.startsWith('You are compressing a Workspace')) {
-      const input = JSON.parse(p.messages[1].content), evidence = input.evidence.find(e => e.outcome === 'success');
-      return response(malformed ? 'not JSON' : JSON.stringify({ objective: 'Investigate read-only; preserve constraints',
-        decisions: [{ text: `EARLY_VALUE=17 from ${evidence?.paths[0] ?? 'source'}`, verified: false, sources: evidence ? [{ messageId: evidence.messageId, stepId: evidence.stepId }] : [] }],
-        completedWork: evidence ? [{ text: `Read ${evidence.paths[0]}`, sources: [{ messageId: evidence.messageId, stepId: evidence.stepId }] }] : [],
-        nextActions: ['Compare remaining paths'], unknowns: ['No edits performed'], blockers: [], risks: [],
-      }));
+      return response(malformed ? '' : `${data.previousSummary ?? ''} EARLY_VALUE=17; Read src/c0.js. Constraint: read-only. Next: Compare remaining paths.`);
     }
     return main ? main(p, requests) : response('Final answer EARLY_VALUE=17.');
   };
@@ -61,14 +52,12 @@ test.beforeEach(() => saved.saveBudgetSettings({ mode: 'custom', maxTurns: 100, 
   maxAggregateToolCalls: 1000, maxInputTokens: 1000000, maxOutputTokens: 500000 }));
 test.after(() => { database.closeDatabase(); Module._load = originalLoad; fs.rmSync(directory, { recursive: true, force: true }); });
 
-test('child adapter enters shared Workspace summary/checkpoint pipeline before overflow', async () => {
+test('child adapter enters the shared one-summary pipeline before overflow', async () => {
   const f = await fixture(); const before = await f.adapter.measure(f.payload);
-  assert.ok((before.tokens + before.reserve) / before.limit >= .75);
   assert.ok(before.tokens + before.reserve < before.limit);
-  const original = compression.checkAndCompressContext; let invoked = 0;
-  compression.checkAndCompressContext = options => { assert.equal(options.transcriptAdapter, f.adapter); invoked++; return original(options); };
-  try { await f.adapter.prepare(f.payload); } finally { compression.checkAndCompressContext = original; }
-  assert.equal(invoked, 1); assert.equal(f.requests.length, 2); assert.equal(f.session.compactionState.version, 1);
+  await f.adapter.prepare(f.payload);
+  assert.equal(f.requests.length, 1); assert.equal(f.session.compactionState.version, 1);
+  assert.equal(f.session.compactionState.checkpoint, null);
   assert.ok(f.session.compactionState.events[0].after.tokens < before.tokens);
 });
 
@@ -87,15 +76,15 @@ test('raw transcript survives; compacted request retains objective, restrictions
 
 test('repeat compaction retains earlier decisions/actions/requirements rather than trusting omitted fields', async () => {
   const f = await fixture(); await f.adapter.prepare(f.payload);
-  const prior = structuredClone(f.session.compactionState.checkpoint);
+  const prior = f.session.compactionState.summary;
   for (let i = 8; i < 16; i++) {
     f.adapter.append({ role: 'assistant', content: null, tool_calls: [call(`c${i}`)] });
     f.adapter.append({ role: 'tool', tool_call_id: `c${i}`, content: `NEW_VALUE=23\n${'n'.repeat(2200)}` });
   }
   const result = await f.adapter.prepare({ ...f.payload, messages: f.messages });
   assert.equal(f.session.compactionState.version, 2); validatePairs(result.messages);
-  for (const item of prior.completedWork) assert.ok(f.session.compactionState.checkpoint.completedWork.some(x => x.text === item.text));
-  for (const item of prior.decisions) assert.ok(f.session.compactionState.checkpoint.decisions.some(x => x.text === item.text));
+  assert.ok(f.requests.some(p => JSON.parse(p.messages[1].content).previousSummary === prior));
+  assert.equal(f.session.compactionState.checkpoint, null);
   assert.match(JSON.stringify(result.messages), /EARLY_VALUE=17/); assert.match(JSON.stringify(result.messages), /Constraint: read-only/);
 });
 
@@ -130,7 +119,7 @@ test('compaction charges summary and checkpoint without refilling any lifetime o
   f.state.ledger.inputMeasured = 200; f.state.ledger.outputMeasured = 100;
   await f.adapter.prepare(f.payload);
   assert.equal(f.state.toolCalls, 7); assert.equal(f.state.scope.toolCalls, 11);
-  assert.equal(f.state.ledger.turns, 2); assert.equal(f.state.ledger.inputMeasured, 400); assert.equal(f.state.ledger.outputMeasured, 160);
+  assert.equal(f.state.ledger.turns, 1); assert.equal(f.state.ledger.inputMeasured, 300); assert.equal(f.state.ledger.outputMeasured, 130);
 });
 
 test('large structured tool results keep metadata/errors/task values and explicit omission notice', () => {
@@ -152,14 +141,15 @@ test('in-flight/unmatched tool pairs refuse compaction without requests or trans
 
 test('failed summary does not archive or retry indefinitely', async () => {
   const f = await fixture({ transportOptions: { summaryError: true } }); const original = structuredClone(f.messages);
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.stopReason === 'provider_error');
+  await f.adapter.prepare(f.payload);
+  await f.adapter.prepare(f.payload); // unchanged failed source is deferred, not regenerated
   assert.equal(f.requests.length, 1); assert.equal(f.session.compactionState.version, 0); assert.deepEqual(f.messages, original);
 });
 
-test('malformed checkpoint stops without committing; malformed wire input is never sent', async () => {
+test('empty summary is deferred without committing; no checkpoint request is sent', async () => {
   const f = await fixture({ transportOptions: { malformed: true } }); const original = structuredClone(f.messages);
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'malformed-checkpoint');
-  assert.equal(f.requests.length, 2); assert.deepEqual(f.messages, original); assert.equal(f.session.compactionState.version, 0);
+  await f.adapter.prepare(f.payload);
+  assert.equal(f.requests.length, 1); assert.deepEqual(f.messages, original); assert.equal(f.session.compactionState.version, 0);
 });
 
 test('cancellation during summary retains raw/active history and counts the dispatched request', async () => {
@@ -187,9 +177,9 @@ test('short tasks incur neither summary/checkpoint requests nor context mutation
 test('stale snapshot/concurrent transcript change refuses candidate commit', async () => {
   let f;
   f = await fixture({ transportOptions: { onRequest: p => {
-    if (p.messages[0].content.startsWith('You are compressing')) f.adapter.append({ role: 'user', content: 'New constraint' });
+    if (p.messages[0].content.startsWith(require('../src/main/conversationCompaction').PROMPT)) f.adapter.append({ role: 'user', content: 'New constraint' });
   } } });
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'context-changed');
+  await assert.rejects(f.adapter.prepare(f.payload), error => error.code === 'source-changed');
   assert.equal(f.session.compactionState.version, 0); assert.equal(f.messages.at(-1).content, 'New constraint');
 });
 
@@ -204,7 +194,7 @@ test('confirmed overflow compacts once and retries same task without replaying t
   try {
     const result = await runInvestigationExecution({ session: f.session, engine, rootPath: directory, fetchImpl: t.fetchImpl });
     assert.equal(result.outcome, 'completed'); assert.equal(mainCalls, 2); assert.equal(effects, 0);
-    assert.equal(f.session.compactionState.version, 1); assert.equal(f.state.ledger.turns, 4);
+    assert.equal(f.session.compactionState.version, 1); assert.equal(f.state.ledger.turns, 3);
   } finally { tools.executeAgentTool = execute; }
 });
 
@@ -240,7 +230,7 @@ test('running child crosses pressure repeatedly and resumes with early findings 
     assert.ok(session.rawContext.some(m => m.role === 'tool' && m.content.length > 6000));
     assert.ok(session.context.filter(m => m.role === 'tool').every(m => m.content.length < 4000));
     assert.equal(session.budgetState.toolCalls, 9); assert.equal(session.budgetState.scope.toolCalls, 9);
-    assert.equal(session.budgetState.ledger.turns, ordinary + session.compactionState.version * 2);
+    assert.equal(session.budgetState.ledger.turns, t.requests.length);
     const firstRequests = result.accounting.turns;
     const scope = session.budgetState.scope;
     const continued = await runInvestigationExecution({ session, task: 'Report only the already found value.', engine,
@@ -250,7 +240,7 @@ test('running child crosses pressure repeatedly and resumes with early findings 
     assert.equal(session.budgetState.scope, scope);
     assert.equal(continued.accounting.aggregateToolCalls, 9);
     assert.ok(continued.accounting.turns > firstRequests);
-    assert.equal(continued.accounting.turns, ordinary + session.compactionState.version * 2);
+    assert.equal(continued.accounting.turns, t.requests.length);
     const { subagentUsageLines, subagentResultTitle } = await import('../src/lib/subagentDisplay.mjs');
     assert.equal(subagentResultTitle(continued.outcome), 'Final answer');
     const lines = subagentUsageLines(continued).join('\n');
@@ -274,8 +264,8 @@ test('cloud metadata/window and saved provider selection survive independent che
       fetchImpl: () => assert.fail('local transport must not serve selected cloud child'), commit: () => { f.session.context = f.messages.slice(); } });
     await adapter.prepare({ ...f.payload, model: 'cloud-child' });
     assert.equal(state.contextSource, 'provider-metadata'); assert.equal(state.budgets.contextLength, 8192);
-    assert.equal(selectedTargets.length, 2); assert.ok(selectedTargets.every(target => target.provider === 'saved-fixture'));
-    assert.ok(t.requests.every(p => p.model === 'cloud-child')); assert.equal(state.ledger.turns, 2);
+    assert.equal(selectedTargets.length, 1); assert.ok(selectedTargets.every(target => target.provider === 'saved-fixture'));
+    assert.ok(t.requests.every(p => p.model === 'cloud-child')); assert.equal(state.ledger.turns, 1);
     assert.equal(selected.chatTarget.model, 'cloud-child');
   } finally { cloud.getCloudModelMetadata = getMetadata; cloud.createCloudFetch = createFetch; }
 });
@@ -298,21 +288,20 @@ test('cloud confirmed overflow is classified without exposing body and uses one 
   } finally { cloud.createCloudFetch = createFetch; }
 });
 
-test('failed runtime compaction returns partial evidence once instead of re-finalizing through another summary', async () => {
+test('failed oversized runtime summary reports partial evidence with one generation attempt', async () => {
   const f = await fixture({ childId: 'summary-failure-runtime' });
   const t = transport({ summaryError: true });
   const result = await runInvestigationExecution({ session: f.session, engine, rootPath: directory, fetchImpl: t.fetchImpl });
-  assert.equal(result.outcome, 'partial'); assert.equal(result.stopReason, 'provider_error');
-  assert.equal(t.requests.length, 1); assert.match(result.output, /Tool evidence/);
+  assert.equal(result.outcome, 'partial');
+  assert.equal(t.requests.filter(p => p.messages[0].content.startsWith(require('../src/main/conversationCompaction').PROMPT)).length, 1);
+  assert.equal(f.session.compactionState.version, 0);
 });
 
-test('large checkpoint that would drop essential prior entries refuses archival', async () => {
-  const f = await fixture(); f.session.compactionState.checkpoint = { objective: 'Original task',
-    decisions: Array.from({ length: 13 }, (_, i) => ({ text: `ESSENTIAL_${i}`, sources: [], verified: false })),
-    completedWork: [], outstandingRequirements: [], inProgress: [], filesChanged: [], commands: [], tests: [], blockers: [], risks: [], unknowns: [], nextActions: [] };
-  const original = structuredClone(f.messages);
-  await assert.rejects(f.adapter.prepare(f.payload), error => error.compactionReason === 'checkpoint-preservation-too-large');
-  assert.deepEqual(f.messages, original); assert.equal(f.session.compactionState.version, 0);
+test('legacy checkpoint is consolidated as data in the single summary', async () => {
+  const f = await fixture(); f.session.compactionState.checkpoint = { objective: 'Legacy goal', decisions: ['Legacy decision'] };
+  await f.adapter.prepare(f.payload);
+  assert.match(JSON.parse(f.requests[0].messages[1].content).previousSummary, /Legacy decision/);
+  assert.equal(f.session.compactionState.checkpoint, null); assert.equal(f.session.compactionState.version, 1);
 });
 
 test('existing selected-model compaction setting disables proactive and overflow summaries', async () => {
@@ -327,17 +316,8 @@ test('existing selected-model compaction setting disables proactive and overflow
   } finally { profiles.saveProfileSettings(engine.modelId, null); }
 });
 
-test('checkpoint evidence requests stay bounded while the validator retains full raw evidence index', async () => {
-  const f = await fixture({ count: 45, size: 100 });
-  const snapshot = f.adapter.snapshot(f.payload); const input = f.adapter.checkpointInput(snapshot, 'rolling summary');
-  assert.ok(input.evidenceOmitted > 0); assert.match(input.omissionNotice, /raw history/);
-  assert.ok(JSON.stringify(input.evidence).length <= 12000);
-  assert.equal(f.adapter.validationContext(snapshot).index.size, 45);
-  assert.equal(f.session.rawContext.filter(m => m.role === 'tool').length, 45);
-});
-
-test('compaction does not spend the final reporting request on an unusable checkpoint', async () => {
-  const f = await fixture(); f.state.budgets.maxTurns = 2;
+test('compaction preserves a final reporting request without resetting counters', async () => {
+  const f = await fixture(); f.state.budgets.maxTurns = 1;
   await assert.rejects(f.adapter.prepare(f.payload), error => error.stopReason === 'turn_limit');
   assert.equal(f.requests.length, 0); assert.equal(f.state.ledger.turns, 0);
 });
@@ -351,4 +331,45 @@ test('oversized Unicode excerpts preserve valid code points and explicit omissio
     if (code >= 0xD800 && code <= 0xDBFF) { assert.ok(excerpt.charCodeAt(++i) >= 0xDC00 && excerpt.charCodeAt(i) <= 0xDFFF); }
     else assert.ok(code < 0xDC00 || code > 0xDFFF);
   }
+});
+test('stored raw evidence retrieval is child-scoped, bounded and charged as a tool call', async () => {
+  const f = await fixture({ count: 1, size: 100, childId: 'history-reader' });
+  const original = f.session.rawContext.find(m => m.role === 'tool');
+  assert.ok(original);
+  const parent = require('../src/main/sessionManager'); parent.getOrCreateSession('history-owner', 'model');
+  parent.saveMessage('history-owner', 'user', 'PRIVATE_PARENT_HISTORY');
+  let turns = 0;
+  const t = transport({ main: p => {
+    if (++turns === 1) {
+      assert.ok(p.tools.some(tool => tool.function.name === 'read_child_history'));
+      return response(null, [{ id: 'retrieve', type: 'function', function: { name: 'read_child_history', arguments: JSON.stringify({ id: original.id, offset: 0 }) } }], 'tool_calls');
+    }
+    const value = JSON.parse(p.messages.at(-1).content);
+    assert.equal(value.id, original.id); assert.equal(value.found, true);
+    assert.match(value.content, /EARLY_VALUE=17/); assert.ok(!value.content.includes('PRIVATE_PARENT_HISTORY'));
+    assert.ok(value.content.length <= 8000);
+    return response('Retrieved the stored child observation.');
+  } });
+  const result = await runInvestigationExecution({ session: f.session, engine, rootPath: directory, fetchImpl: t.fetchImpl });
+  assert.equal(result.outcome, 'completed'); assert.equal(f.state.toolCalls, 1); assert.equal(f.state.scope.toolCalls, 1);
+});
+test('cloud child repeatedly compacts in one execution with lifetime usage and tool effects conserved', async () => {
+  const cloud = require('../src/main/cloudProviders'), tools = require('../src/main/tools/agentTools');
+  const originalFetch = cloud.createCloudFetch, originalMetadata = cloud.getCloudModelMetadata, originalTool = tools.executeAgentTool;
+  let ordinary = 0, effects = 0;
+  const t = transport({ main: () => ++ordinary <= 9 ? response(null, [call(`cloud-read-${ordinary}`)], 'tool_calls') : response('Cloud investigation complete; EARLY_VALUE=17.') });
+  cloud.createCloudFetch = () => t.fetchImpl;
+  cloud.getCloudModelMetadata = async () => [{ providerId: 'cloud-long', modelId: 'cloud-model', contextLength: 8192 }];
+  tools.executeAgentTool = async () => { effects++; return JSON.stringify({ content: 'EARLY_VALUE=17\n' + 'e'.repeat(8000) }); };
+  try {
+    const session = { id: 'cloud-long-run' };
+    const selected = { provider: 'cloud', modelId: 'cloud-model', chatTarget: { type: 'cloud', provider: 'cloud-long', model: 'cloud-model' } };
+    const result = await runInvestigationExecution({ session, task: 'Investigate read-only, preserve EARLY_VALUE.', engine: selected, rootPath: directory });
+    assert.equal(result.outcome, 'completed'); assert.equal(effects, 9); assert.ok(session.compactionState.version >= 2);
+    assert.equal(session.budgetState.toolCalls, 9); assert.equal(session.budgetState.scope.toolCalls, 9);
+    assert.equal(session.budgetState.ledger.turns, t.requests.length);
+    assert.equal(session.budgetState.ledger.inputMeasured, t.requests.length * 100);
+    assert.equal(session.rawContext.filter(m => m.role === 'tool').length, 9);
+    validatePairs(session.context);
+  } finally { cloud.createCloudFetch = originalFetch; cloud.getCloudModelMetadata = originalMetadata; tools.executeAgentTool = originalTool; }
 });

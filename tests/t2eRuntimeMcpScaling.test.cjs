@@ -226,7 +226,7 @@ test('representative coding task: actual adapters, same-run refresh, recovery ca
     };
     try {
       const final=await runMemoryChat({baseUrl:'http://fixture',modelId:'fixture',cloud:provider!=='local',messages:initial.messages,chatTools:getTools(),getChatTools:async()=>getTools(),
-        recoverContext:async()=>({messages:builder.rebuildChatMessages({sessionId:f.id,modelId:'fixture'})}),
+        compactContext:async boundary=>boundary.force?{compressed:true,payload:boundary.payload,history:boundary.conversationMessages}:({compressed:false}), // synthetic transport rebuild; real compaction is covered separately
         takeSteeringInstructions:async()=>index===1?[{id:'steer',content:'Keep the task objective and verify the edit.'}]:[],markSteeringDelivered:async()=>{steerDelivered++;},
         fetchImpl,executeTool:async call=>{executed++; const result=await require('./helpers/approvedNativeCommand.cjs')({...call,sessionId:f.id,permissionMode:'full_access',executionContext:context}); outcomes.push({name:call.name,error:!!result?.error,status:result?.status??null});assert.ok(!result?.error,JSON.stringify(result));if(call.name==='run_tests')assert.equal(result.status,'passed');return result;}});
       assert.equal(outcomes.length,operations.length);assert.ok(outcomes.every(o=>!o.error));assert.ok(outcomes.some(o=>o.name==='run_tests'&&o.status==='passed'));assert.equal(executed,operations.length);assert.equal(index,operations.length+1);assert.equal(steerDelivered,1);

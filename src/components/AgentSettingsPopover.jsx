@@ -292,7 +292,7 @@ export function AgentSettingsPopover({
 				ref={triggerRef}
 				disabled={disabled}
 				onClick={handleToggle}
-				title="Agent Run Settings"
+				title={allowMidRunQuestions ? "Agent Run Settings · Mid-run questions enabled" : "Agent Run Settings"}
 				aria-expanded={isOpen}
 				aria-haspopup="dialog"
 				className="aero-control sk-button aero-fill sk-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
@@ -300,7 +300,7 @@ export function AgentSettingsPopover({
 				<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
 				<span className="font-medium">Settings</span>
 				{/* Subtle active indicator dot when mid-run questions are on */}
-				{allowMidRunQuestions && <span className="size-1.5 ui-radius-round bg-[var(--accent)]" />}
+				{allowMidRunQuestions && <span role="img" aria-label="Mid-run questions enabled" title="Mid-run questions enabled" className="size-1.5 ui-radius-round bg-[var(--accent)]" />}
 			</button>
 
 			{/* Popover Menu Panel */}

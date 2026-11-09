@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
+import { useModalActions } from "../context/UIStateContext.jsx";
 import {
 	FiArrowLeft,
 	FiFileText,
@@ -11,8 +9,8 @@ import {
 	FiTrash2,
 	FiUpload,
 } from "react-icons/fi";
-import { LuTarget, LuMessageSquare, LuFiles, LuShield, LuSparkles, LuChevronRight } from "react-icons/lu";
-import { projectDate } from "./ProjectsView";
+import { LuMessageSquare, LuFiles, LuShield, LuSparkles, LuChevronRight } from "react-icons/lu";
+
 import ProjectSkillsCard from "./project/ProjectSkillsCard";
 import {
 	PERMISSION_MODE_LABELS,
@@ -34,6 +32,9 @@ export default function ProjectWorkspace({
 	chatComposer = {},
 	onStartChat,
 }) {
+	const { openModelSelector } = useModalActions();
+	const [search, setSearch] = useState("");
+	const [filesExpanded, setFilesExpanded] = useState(false);
 	const [project, setProject] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -122,9 +123,11 @@ export default function ProjectWorkspace({
 	const chats = sessions
 		.filter((session) => session.project_id === projectId)
 		.sort((a, b) => (b.last_active_at || "").localeCompare(a.last_active_at || ""));
-	const pageCount = Math.max(1, Math.ceil(chats.length / 10));
+	const filteredChats = chats.filter(chat => (chat.title || "Untitled chat").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+	const pageSize = 20;
+	const pageCount = Math.max(1, Math.ceil(filteredChats.length / pageSize));
 	const currentPage = Math.min(chatPage, pageCount);
-	const visibleChats = chats.slice((currentPage - 1) * 10, currentPage * 10);
+	const visibleChats = filteredChats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 	return (
 		<main
 			className="aero-stage sk-app projects-page project-workspace"
@@ -132,7 +135,7 @@ export default function ProjectWorkspace({
 		>
 			<div className="projects-content">
 				<button
-					className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mb-6"
+					className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium workspace-back"
 					onClick={onBack}
 				>
 					<FiArrowLeft /> All Projects
@@ -167,13 +170,16 @@ export default function ProjectWorkspace({
 										/>
 									</span>
 									<div className="min-w-0">
-										<p className="projects-muted mb-2">Project workspace</p>
+
 										<h1 className="break-words">{project.name}</h1>
+										<button className="workspace-goal" title={project.description || "Add a project goal"} onClick={() => setEditing(true)}>{project.description || "Add a goal…"}</button>
 									</div>
 								</div>
 								<button
-									className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+									className="aero-orb sk-icon-button aero-fill sk-fill workspace-pin cursor-pointer text-[11px] font-medium"
 									aria-pressed={!!project.is_pinned}
+									aria-label={project.is_pinned ? "Unpin project" : "Pin project"}
+									title={project.is_pinned ? "Unpin project" : "Pin project"}
 									disabled={busy}
 									onClick={() =>
 										perform(async () => {
@@ -186,85 +192,11 @@ export default function ProjectWorkspace({
 										})
 									}
 								>
-									<FiStar fill={project.is_pinned ? "currentColor" : "none"} />
-									{project.is_pinned ? "Pinned" : "Pin Project"}
+									<FiStar aria-hidden="true" fill={project.is_pinned ? "currentColor" : "none"} />
 								</button>
 							</header>
 							<div className="project-hub">
 								<div className="project-stack">
-									<section className="aero-panel sk-panel project-panel">
-										<div className="flex justify-between items-center gap-4 mb-2">
-											<h2>
-												<LuTarget aria-hidden="true" />
-												Project goal
-											</h2>
-											{!editing && (
-												<button
-													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
-													disabled={busy}
-													onClick={() => setEditing(true)}
-												>
-													Edit Goal
-												</button>
-											)}
-										</div>
-										{editing ? (
-											<form
-												onSubmit={(event) => {
-													event.preventDefault();
-													perform(async () => {
-														await save({ name, description: goal });
-														setEditing(false);
-													});
-												}}
-											>
-												<TextField
-													label="Project title"
-													className="mb-3"
-													required
-													value={name}
-													disabled={busy}
-													onChange={(event) => setName(event.target.value)}
-												/>
-												<TextAreaField
-													label="Goal (Markdown)"
-													rows={6}
-													value={goal}
-													disabled={busy}
-													onChange={(event) => setGoal(event.target.value)}
-												/>
-												<div className="project-actions">
-													<button
-														type="button"
-														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
-														disabled={busy}
-														onClick={() => {
-															setName(project.name);
-															setGoal(project.description || "");
-															setEditing(false);
-														}}
-													>
-														Cancel
-													</button>
-													<button
-														className="aero-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
-														disabled={busy || !name.trim()}
-													>
-														Save Goal
-													</button>
-												</div>
-											</form>
-										) : (
-											<div className="aero-inset sk-well project-markdown p-3">
-												<ReactMarkdown remarkPlugins={[remarkGfm]}>
-													{normalizeLatexArrows(
-														project.description ||
-															"Add a goal to help guide every conversation in this project.",
-													)}
-												</ReactMarkdown>
-											</div>
-										)}
-									</section>
 									<section className="aero-panel sk-panel project-panel">
 										<h2>
 											<LuMessageSquare aria-hidden="true" />
@@ -315,19 +247,17 @@ export default function ProjectWorkspace({
 											/>
 										</div>
 										{!canStartChat && (
-											<p className="projects-muted mt-2!">
-												Select and start a model to begin chatting.
-											</p>
+											<div className="workspace-model-action"><span className="projects-muted">Load a model to start chatting.</span><button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy || chatDisabled} onClick={openModelSelector}>Load model</button></div>
 										)}
 									</section>
 									<section className="aero-panel sk-panel project-panel">
-										<h2>
+										<div className="workspace-chat-heading"><h2>
 											<LuMessageSquare aria-hidden="true" />
 											Recent chats{" "}
 											<span className="projects-muted">({chats.length})</span>
-										</h2>
+										</h2><TextField className="workspace-chat-search" type="search" aria-label="Search chats" placeholder="Search chats…" value={search} onChange={event => { setSearch(event.target.value); setChatPage(1); }} /></div>
 										<div className="aero-flat sk-list px-2 pt-2">
-											{chats.length ? (
+											{filteredChats.length ? (
 												visibleChats.map((chat) => (
 													<button
 														className="aero-list-item sk-list-row project-chat disabled:opacity-40"
@@ -336,18 +266,18 @@ export default function ProjectWorkspace({
 														onClick={() => onLoadChat(chat.id)}
 													>
 														<FiMessageSquare />
-														<span>{chat.title || "Untitled chat"}</span>
-														<time className="projects-muted">
-															{projectDate(chat.last_active_at)}
+														<span title={chat.title || "Untitled chat"}>{chat.title || "Untitled chat"}</span>
+														<time className="projects-muted" dateTime={chat.last_active_at}>
+															{chat.last_active_at ? new Date(chat.last_active_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
 														</time>
 													</button>
 												))
 											) : (
 												<p className="projects-muted">
-													No conversations yet. Start with a question above.
+													{search.trim() ? "No chats match your search." : "No conversations yet. Start with a question above."}
 												</p>
 											)}
-											{chats.length > 10 && (
+											{filteredChats.length > pageSize && (
 												<nav
 													className="project-pagination mb-2"
 													aria-label="Chat list pagination"
@@ -356,9 +286,9 @@ export default function ProjectWorkspace({
 														className="projects-muted"
 														role="status"
 													>
-														{(currentPage - 1) * 10 + 1}–
-														{Math.min(currentPage * 10, chats.length)} of{" "}
-														{chats.length} chats
+														{(currentPage - 1) * pageSize + 1}–
+														{Math.min(currentPage * pageSize, filteredChats.length)} of{" "}
+														{filteredChats.length} chats
 													</span>
 													<button
 														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
@@ -388,14 +318,15 @@ export default function ProjectWorkspace({
 								>
 									<details
 										className="aero-panel sk-panel project-panel group"
-										open
+										open={editing}
+										onToggle={event => setEditing(event.currentTarget.open)}
 									>
 										<summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 transition-colors hover:text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
 											<LuSparkles
 												className="inline mr-2"
 												aria-hidden="true"
 											/>
-											Custom instructions
+											Instructions
 											<LuChevronRight
 												size={12}
 												aria-hidden="true"
@@ -405,11 +336,14 @@ export default function ProjectWorkspace({
 										<form
 											onSubmit={(event) => {
 												event.preventDefault();
-												perform(() => save({ custom_instructions: instructions }));
+												perform(() => save({ name, description: goal, custom_instructions: instructions }));
 											}}
 										>
+											<TextField label="Project title" value={name} disabled={busy} required onChange={event => setName(event.target.value)} />
+											<TextAreaField label="Project goal" rows={2} value={goal} disabled={busy} onChange={event => setGoal(event.target.value)} placeholder="What are you working toward?" />
 											<TextAreaField
 												hint="Applied to every chat in this project."
+												label="Custom instructions"
 												aria-label="Custom Instructions"
 												rows={5}
 												value={instructions}
@@ -422,7 +356,7 @@ export default function ProjectWorkspace({
 													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={
 														busy ||
-														instructions === (project.custom_instructions || "")
+														(instructions === (project.custom_instructions || "") && goal === (project.description || "") && name === project.name)
 													}
 												>
 													Save Instructions
@@ -430,28 +364,16 @@ export default function ProjectWorkspace({
 											</div>
 										</form>
 									</details>
-									<section className="aero-panel sk-panel project-panel">
-										<h2>
+									<section className="aero-panel sk-panel project-panel workspace-files" onDragOver={event => { event.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={event => { event.preventDefault(); setDragging(false); if (!busy) upload(Array.from(event.dataTransfer.files)); }}>
+										<div className="workspace-chat-heading"><h2>
 											<LuFiles aria-hidden="true" />
 											Context files{" "}
 											<span className="projects-muted">({project.files.length})</span>
-										</h2>
+										</h2><div className="flex gap-2"><button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy} onClick={() => input.current.click()}>+ Add</button><button className="workspace-context-toggle" aria-label="Toggle file drop zone" aria-expanded={filesExpanded} onClick={() => setFilesExpanded(!filesExpanded)}><LuChevronRight /></button></div></div>
 										<div
 											className="aero-empty sk-empty aero-fill sk-fill project-drop"
 											data-dragging={dragging}
-											onDragOver={(event) => {
-												event.preventDefault();
-												if (!busy) setDragging(true);
-											}}
-											onDragLeave={(event) => {
-												if (!event.currentTarget.contains(event.relatedTarget))
-													setDragging(false);
-											}}
-											onDrop={(event) => {
-												event.preventDefault();
-												setDragging(false);
-												if (!busy) upload(Array.from(event.dataTransfer.files));
-											}}
+											hidden={!filesExpanded && !dragging}
 										>
 											<FiUpload className="mx-auto mb-2" />
 											<p className="projects-muted">Drop reference files here</p>
@@ -465,20 +387,21 @@ export default function ProjectWorkspace({
 											<p className="projects-muted mt-2!">
 												Text, Markdown, code, or PDF · up to 20 MB each
 											</p>
-											<input
-												ref={input}
-												type="file"
-												multiple
-												className="hidden"
-												aria-label="Upload project context files"
-												accept=".txt,.md,.pdf,.csv,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.yaml,.yml,.toml,.ini,.sql,.log,.mjs,.cjs,.sh,.tsv,.c,.h,.cpp,.java,.go,.rs,.rb,.php"
-												onChange={(event) => {
-													const files = Array.from(event.target.files);
-													event.target.value = "";
-													upload(files);
-												}}
-											/>
+
 										</div>
+										<input
+											ref={input}
+											type="file"
+											multiple
+											className="hidden"
+											aria-label="Upload project context files"
+											accept=".txt,.md,.pdf,.csv,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.yaml,.yml,.toml,.ini,.sql,.log,.mjs,.cjs,.sh,.tsv,.c,.h,.cpp,.java,.go,.rs,.rb,.php"
+											onChange={(event) => {
+												const files = Array.from(event.target.files);
+												event.target.value = "";
+												upload(files);
+											}}
+										/>
 										{project.files.map((file) => (
 											<div
 												className="project-file"
@@ -514,7 +437,7 @@ export default function ProjectWorkspace({
 											onUpdated(updated);
 										}}
 									/>
-									<section className="aero-panel sk-panel project-panel">
+									<details className="aero-panel sk-panel project-panel workspace-settings"><summary><FiFolder /><span className="workspace-settings-label">Project settings<span className="workspace-folder-summary" title={project.root_path || ""}>{project.root_path || "No folder connected"}</span></span><LuChevronRight /></summary><div className="workspace-settings-content">
 										<h2 className="flex items-center gap-2">
 											<FiFolder /> Root Directory
 										</h2>
@@ -535,9 +458,7 @@ export default function ProjectWorkspace({
 										>
 											{project.root_path ? "Change Folder" : "Connect Folder"}
 										</button>
-									</section>
-									<section className="aero-panel sk-panel project-panel">
-										<h2>
+										<h2 className="mt-4">
 											<LuShield aria-hidden="true" />
 											Default permission mode
 										</h2>
@@ -564,7 +485,7 @@ export default function ProjectWorkspace({
 												Connect a root folder to make Workspace Write available.
 											</p>
 										)}
-									</section>
+									</div></details>
 								</aside>
 							</div>
 						</>

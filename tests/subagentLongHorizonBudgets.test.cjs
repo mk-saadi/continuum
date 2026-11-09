@@ -195,12 +195,7 @@ test('8. repeated child compactions charge the ledger and never reset cumulative
   const fetchImpl = async (url, options) => {
     const p = JSON.parse(options.body);
     if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
-    if (p.messages[0].content.startsWith('Summarize')) return response('Prior summary EARLY_VALUE=17.');
-    if (p.messages[0].content.startsWith('You are compressing a Workspace')) {
-      const input = JSON.parse(p.messages[1].content);
-      const evidence = input.evidence.find(e => e.outcome === 'success');
-      return response(JSON.stringify({ objective: 'Investigate', decisions: [], completedWork: evidence ? [{ text: `Read ${evidence.paths[0]}`, sources: [{ messageId: evidence.messageId, stepId: evidence.stepId }] }] : [], nextActions: [], unknowns: [], blockers: [], risks: [] }));
-    }
+    if (p.messages[0].content.startsWith(require('../src/main/conversationCompaction').PROMPT)) return response('Prior summary EARLY_VALUE=17.');
     ordinary++;
     if (ordinary <= 9) return response(null, [call(`live-${ordinary}`, 'read_project_file', { relative_path: `src/${ordinary}.js` })], 'tool_calls');
     return response('Found EARLY_VALUE=17.');
@@ -212,11 +207,11 @@ test('8. repeated child compactions charge the ledger and never reset cumulative
     assert.ok(session.compactionState.version >= 2, 'the run crosses pressure repeatedly');
     const version = session.compactionState.version;
     // Each compaction is a summary + checkpoint request charged to the same ledger.
-    assert.equal(session.budgetState.ledger.turns, ordinary + version * 2);
+    assert.equal(session.budgetState.ledger.turns, ordinary + session.compactionState.events.reduce((sum, e) => sum + e.generations, 0));
     assert.equal(session.budgetState.toolCalls, 9, 'compaction never refills the tool counter');
     // Cumulative measured usage equals every request, monotonic, never reset.
-    assert.equal(session.budgetState.usage.prompt_tokens, (ordinary + version * 2) * 100);
-    assert.ok(session.budgetState.ledger.inputMeasured >= version * 2 * 100);
+    assert.equal(session.budgetState.usage.prompt_tokens, (ordinary + session.compactionState.events.reduce((sum, e) => sum + e.generations, 0)) * 100);
+    assert.ok(session.budgetState.ledger.inputMeasured >= version * 100);
   } finally {
     tools.executeAgentTool = execute;
   }

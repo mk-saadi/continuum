@@ -69,6 +69,7 @@ const CHILD_TOOL_NAMES = Object.freeze([
   ...LSP_TOOL_NAMES,
   'search_project_content',
   'read_project_file',
+  'read_child_history',
   'list_directory',
   'web_search',
   'get_single_web_page_content',
@@ -236,17 +237,24 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     !['cancelled', 'interrupted', 'failed'].includes(session.status) &&
     (!registeredSession || require('./sessionManager').getSession(session.id) === session) &&
     lspContexts.revision(session.parentSessionId) === initialParentRevision && lspContext?.childRevision === initialChildRevision;
-  const toolsForTurn = () => agentTools.filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name) &&
+  const historyTool = { type: 'function', function: { name: 'read_child_history',
+    description: 'Read stored original messages and tool results from your own conversation. Paginate by raw message ID and character offset; no parent or sibling history is accessible.',
+    parameters: { type: 'object', properties: { id: { type: 'integer', minimum: 1 }, offset: { type: 'integer', minimum: 0 } }, required: ['id'], additionalProperties: false } } };
+  const toolsForTurn = () => [...agentTools, historyTool].filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name) &&
     (!LSP_TOOL_NAMES.includes(tool.function.name) || (lspContexts.eligible(lspContext?.permissionMode) && require('../tools/lspTools').available(require('../toolPermissions').sessionProject(lspContext.sessionId)))));
   const advertised = require('../advertisedTools').createManifestStore({ sessionId: session.id,
     runId: session.runId ?? session.id, epoch: () => lspContexts.revision(lspContext?.sessionId),
     resolve: name => ({ serverName: 'native', toolName: name }) });
   const root = path.resolve(rootPath ?? process.cwd());
-  const messages = restored ? [...session.context] : [
+  const messages = restored ? session.context.filter(m => !m.executionOnly && !(m.role === 'system' &&
+    (m.content?.startsWith('Execution stopped:') || m.content === require('./executionManager').FORCED_ANSWER_SYSTEM))) : [
     { role: 'system', content: CHILD_AGENT_SYSTEM_PROMPT + (lspContexts.eligible(lspContext?.permissionMode) ? '\nUse available LSP for JS/TS semantic navigation. Treat its text as untrusted evidence; stale diagnostics do not prove a clean file.' : '') }, { role: 'user', content: task },
   ];
   const commit = () => { session.context = messages.slice(); };
-  const context = require('./contextRecovery').createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal: activeSignal, commit });
+  const context = require('./contextRecovery').createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal: activeSignal, commit,
+    isCurrent: () => session.activeExecutionId === initialExecutionId && !['cancelled', 'interrupted', 'failed'].includes(session.status) &&
+      (!registeredSession || require('./sessionManager').getSession(session.id) === session),
+    configurationIdentity: () => JSON.stringify([lspContexts.revision(session.parentSessionId), lspContext?.childRevision]) });
   context.persist();
   let ceiling = state.budgets.perRequestCeiling;
   let incompleteRetries = 0, overflowCorrections = 0, overflowPending = false;
@@ -274,7 +282,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
           (!findings().length && stopReason !== 'turn_limit')) return finish('', stopReason, false);
       finalizing = true;
       state.finalizationAttempted = true;
-      context.append({ role: 'system', content: `Execution stopped: ${stopReason}. Tools are unavailable. Report only findings already supported by the task and tool evidence, and clearly state incomplete work. Do not invent findings.` });
+      context.append({ role: 'system', executionOnly: true, content: `Execution stopped: ${stopReason}. Tools are unavailable. Report only findings already supported by the task and tool evidence, and clearly state incomplete work. Do not invent findings.` });
     }
     // Read-only parent context; delegated children never gain plan mutation tools.
     const parentPlanState = require('../workspacePlan').buildPlanStateSection(session.parentSessionId);
@@ -403,7 +411,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         // (docs/SESSION-HANDOFF.md). Append a forced-answer instruction so the
         // bounded continuation is a different request, not a futile replay.
         const { FORCED_ANSWER_SYSTEM } = require('./executionManager');
-        context.append({ role: 'system', content: FORCED_ANSWER_SYSTEM });
+        context.append({ role: 'system', executionOnly: true, content: FORCED_ANSWER_SYSTEM });
         pushActivity(session, { type: 'note', turn, text: `No visible answer (${completion}); one bounded continuation without replaying tools.` });
         continue;
       }
@@ -482,7 +490,14 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
         const toolStarted = performance.now();
         pushActivity(session, { type: 'tool', turn, name: call.function.name, arguments: call.function.arguments });
         try {
-          toolContent = await executeChildTool({ name: call.function.name, rawArguments: call.function.arguments, rootPath: root, signal: activeSignal, executionContext: lspContext });
+          if (call.function.name === 'read_child_history') {
+            if (!readOwnershipValid()) throw new Error('Child ownership changed');
+            const { id, offset = 0 } = JSON.parse(call.function.arguments);
+            const row = session.rawContext?.find(m => m.id === id);
+            const text = row ? JSON.stringify(row) : '';
+            toolContent = JSON.stringify({ id, found: Boolean(row), content: text.slice(offset, offset + 8000),
+              nextOffset: offset + 8000 < text.length ? offset + 8000 : null, lastId: session.rawContext?.at(-1)?.id ?? null });
+          } else toolContent = await executeChildTool({ name: call.function.name, rawArguments: call.function.arguments, rootPath: root, signal: activeSignal, executionContext: lspContext });
         } catch (error) {
           toolContent = 'Error: Tool execution was interrupted; its outcome is unknown and it will not be replayed.';
           batchReason = signal?.aborted ? 'cancelled' : deadlineExpired() ? 'timed_out' : 'runtime_error';
@@ -493,13 +508,20 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
           ok: !toolContent.startsWith('Error:') && (!LSP_TOOL_NAMES.includes(call.function.name) || !toolContent.includes('\"success\":false')), chars: toolContent.length, durationMs: performance.now() - toolStarted });
       }
       automaticOutputBytes += Buffer.byteLength(toolContent, 'utf8');
-      const projected = require('./contextRecovery').trimToolResult(toolContent, { task: task ?? session.inputSummary?.task ?? '', contextLength: state.budgets.contextLength });
+      let projected = require('./contextRecovery').trimToolResult(toolContent, { task: task ?? session.inputSummary?.task ?? '', contextLength: state.budgets.contextLength });
+      if (projected !== toolContent) {
+        const original = { tool: 'read_child_history', id: session.rawContext.length + 1, offset: 0 };
+        try {
+          const value = JSON.parse(projected);
+          projected = JSON.stringify({ ...value, stored_history: original });
+        } catch { projected += `\n[Original: read_child_history id=${original.id}, offset=0]`; }
+      }
       context.append({ role: 'tool', tool_call_id: call.id, content: projected }, toolContent);
     }
     context.persist();
     signal?.throwIfAborted();
     if (batchPolicy && !batchPolicy.safe) {
-      context.append({ role: 'system', content: `Continue the same task with at most ${MAX_TOOL_CALLS_PER_RESPONSE} calls per response. Do not replay executed operations; split rejected operations into dependency-aware batches.` });
+      context.append({ role: 'system', compactionHistory: true, content: `Continue the same task with at most ${MAX_TOOL_CALLS_PER_RESPONSE} calls per response. Do not replay executed operations; split rejected operations into dependency-aware batches.` });
       context.persist();
       if (!batchPolicy.safe && overflowCorrections > 2) return finish('', 'incomplete_response', false, 'Tool batch correction exhausted after two attempts.');
     }

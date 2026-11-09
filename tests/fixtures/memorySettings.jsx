@@ -11,9 +11,11 @@ const status = () => ({ servers: Object.entries(config.mcpServers).map(([name, d
   tools: name === 'terminal' ? ['run_command', 'run_script'].map(label => ({ name: label, label })) : [],
 })) });
 function publish() { for (const callback of listeners) callback(status()); return { config: structuredClone(config) }; }
+window.chatAPI = { listToolRules: async () => [], deleteToolRule: async () => {} };
 window.api = {
+  getWorkspaceNetworkStatus: async () => ({ available: true, effectivePolicy: 'standard_outbound' }),
   getAppSettings: async () => ({ mcpMode: 'manual', apiServerPort: 8080, disabledSkills: [], notificationEvents: {} }),
-  getConfig: async () => ({ modelDirectory: '/models', appDataDirectory: '/data', engineIdleTimeoutMinutes: 15 }),
+  getConfig: async () => ({ modelDirectory: '/models', appDataDirectory: '/data', engineIdleTimeoutMinutes: 15, workspaceNetwork: { policy: 'standard_outbound' } }),
   getCloudProviders: async () => [],
   getCloudProviderDefaults: async () => ({}),
   getSubagentModel: async () => null,

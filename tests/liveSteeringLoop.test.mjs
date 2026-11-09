@@ -193,7 +193,7 @@ test('a steering message already in the transcript survives context recovery', a
     ...base,
     ...hooks,
     executeTool: async () => ({ success: true }),
-    recoverContext: async () => ({ messages: [{ role: 'system', content: 'REBUILT PREFIX' }] }),
+    compactContext: async boundary => boundary.force ? { compressed:true, payload: {...boundary.payload,messages:[{role:'system',content:'REBUILT PREFIX'},...boundary.payload.messages.filter(m=>m.role!=='system')]} } : {compressed:false},
     fetchImpl: async (_url, options) => {
       const messages = messagesOf(options);
       if (messages.some((message) => message.content === 'REBUILT PREFIX')) {

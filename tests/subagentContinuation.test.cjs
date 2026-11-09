@@ -331,7 +331,7 @@ test('18. continueChild renews, enqueues one instruction, and drives the same ch
     'the previous tool result is reused, not replayed');
   assert.ok(request.messages.some(message => typeof message.content === 'string' && message.content.includes('[Continuation]')));
   // Permission scope is unchanged for a continuation turn: read-only allowlist only.
-  const allowed = new Set(['search_project_content', 'read_project_file', 'list_directory',
+  const allowed = new Set(['read_child_history', 'search_project_content', 'read_project_file', 'list_directory',
     'web_search', 'get_single_web_page_content', 'git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame']);
   for (const tool of request.tools ?? []) assert.ok(allowed.has(tool.function?.name ?? tool.name), tool.function?.name);
 });

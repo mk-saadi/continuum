@@ -45,7 +45,7 @@ function createRuntimeBudget({ provider = 'local', modelId = null, runtimeIdenti
   const verified = valid(runtimeContextTokens);
   // Offline local totals may be shared by unknown slots. Bound the fallback;
   // never divide configured totals and present the quotient as measured.
-  const limit = verified ? runtimeContextTokens : Math.min(valid(configuredContextTokens) ? configuredContextTokens : 8192, valid(fallbackCeilingTokens) ? Math.min(8192, fallbackCeilingTokens) : 8192);
+  const limit = verified ? Math.min(runtimeContextTokens, valid(configuredContextTokens) ? configuredContextTokens : runtimeContextTokens) : Math.min(valid(configuredContextTokens) ? configuredContextTokens : 8192, valid(fallbackCeilingTokens) ? Math.min(8192, fallbackCeilingTokens) : 8192);
   const reserve = reserveTokens(payload, limit);
   if (!Number.isSafeInteger(reserve) || reserve < 0 || reserve >= limit)
     throw new ContextBudgetError('invalid output/reasoning reservation');
@@ -56,11 +56,23 @@ function createRuntimeBudget({ provider = 'local', modelId = null, runtimeIdenti
     advertisedContextTokens: verified && provider !== 'local' ? runtimeContextTokens : null,
     capacityTokens: limit, reservedOutputTokens: reserve - safety, reservedSafetyTokens: safety,
     usableInputTokens, autoCompactionThresholdRatio: 0.90,
-    autoCompactionTriggerTokens: Math.floor(usableInputTokens * 0.90),
+    compactionHeadroomTokens: measurementMethod === 'server-template-tokenizer' ? 0 : Math.ceil(usableInputTokens * .05),
+    autoCompactionTriggerTokens: Math.floor(usableInputTokens * (measurementMethod === 'server-template-tokenizer' ? 1 : .95) * 0.90),
     currentInputTokens, measurementMethod,
     capacityMethod: verified ? (provider === 'local' ? 'runtime-reported' : 'provider-advertised') : 'conservative-fallback',
     capacityConfidence: verified && provider === 'local' ? 'verified' : 'unverified',
     measurementConfidence: measurementMethod === 'server-template-tokenizer' ? 'measured' : 'estimated' };
+}
+function withEffectiveLimit(measured, payload, ceiling = null) {
+  const limit = Number.isSafeInteger(ceiling) && ceiling > 0 ? Math.min(measured.limit, ceiling) : measured.limit;
+  const safety = Math.min(128, Math.ceil(limit / 100));
+  const reserve = measured.budgetContract ? measured.budgetContract.reservedOutputTokens + safety : reserveTokens(payload, limit);
+  const usableInputTokens = limit - reserve;
+  return { ...measured, limit, reserve, budget: usableInputTokens,
+    ...(measured.budgetContract ? { budgetContract: { ...measured.budgetContract, capacityTokens: limit,
+      usableInputTokens, reservedSafetyTokens: safety,
+      compactionHeadroomTokens: measured.method === 'server-template-tokenizer' ? 0 : Math.ceil(usableInputTokens * .05),
+      autoCompactionTriggerTokens: Math.floor(usableInputTokens * (measured.method === 'server-template-tokenizer' ? 1 : .95) * .9) } } : {}) };
 }
 function atCompactionPressure(budget) {
   return budget.currentInputTokens >= budget.autoCompactionTriggerTokens;
@@ -267,4 +279,4 @@ function createContextGuardedFetch(fetchImpl) {
   guardedFetch.contextGuarded = true;
   return guardedFetch;
 }
-module.exports = { setContextRuntimeProvider, createRuntimeBudget, atCompactionPressure, createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };
+module.exports = { withEffectiveLimit, setContextRuntimeProvider, createRuntimeBudget, atCompactionPressure, createContextGuardedFetch, createPromptMeasurer, ContextBudgetError, isContextOverflow, approximateTokens, reserveTokens };

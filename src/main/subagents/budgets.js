@@ -114,8 +114,9 @@ function remaining(limit, used) {
 // to FALLBACK_CONTEXT_LENGTH and says so — callers treat that as
 // lower-confidence, and Custom user budgets still win regardless.
 async function resolveEngineContextLength(engine, deps = {}) {
-  const direct = engine?.contextLength;
-  if (Number.isSafeInteger(direct) && direct >= 2048) return { contextLength: direct, source: 'engine' };
+  const selection = require('./modelSelection');
+  const current = engine?.provider !== 'cloud' && !engine?.chatTarget ? selection.currentLocalEngineConfig(engine) : null;
+  const direct = current ? selection.effectiveContextLength(current) : engine?.contextLength;
   const target = engine?.chatTarget;
   if (target?.type === 'cloud' && typeof target.provider === 'string' && typeof target.model === 'string') {
     try {
@@ -131,6 +132,7 @@ async function resolveEngineContextLength(engine, deps = {}) {
       /* Fall through to the documented fallback below. */
     }
   }
+  if (Number.isSafeInteger(direct) && direct >= 2048) return { contextLength: direct, source: 'engine' };
   return { contextLength: FALLBACK_CONTEXT_LENGTH, source: 'fallback' };
 }
 

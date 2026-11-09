@@ -191,10 +191,11 @@ test('real surgical JSX/CSS, batch editing, write, history and plan routes retai
   assert.ok((await call(f,'get_project_plans',{action:'list'})).success);
   const history=await call(f,'get_recent_chat_history',{limit:5}); assert.ok(!history.error,JSON.stringify(history));
 });
-test('activated interfaces survive real C9 checkpoint rebuild; permission downgrade hides mutations', async () => {
+test('activated interfaces survive production summary rebuild; permission downgrade hides mutations', async () => {
   const f=fixture('full_access'); manage(f,{action:'activate',groups:['editing','git_write']});
   builder.prepareChatMessages({sessionId:f.id,modelId:'fixture',userText:'Inspect and fix source.'});
   sessions.saveMessage(f.id,'assistant','Source evidence. '.repeat(3000)); sessions.saveMessage(f.id,'user','Continue.');
+  for (let i = 0; i < 6; i++) sessions.saveMessage(f.id, i % 2 ? 'assistant' : 'user', 'Recent observation ' + i);
   const result=await require('./fixtures/w3Compaction.cjs').compact({sessionId:f.id,modelId:'fixture'});
   assert.equal(result.compressed,true,JSON.stringify(result));
   builder.rebuildChatMessages({sessionId:f.id,modelId:'fixture'});

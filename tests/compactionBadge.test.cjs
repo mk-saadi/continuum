@@ -15,9 +15,8 @@ const esbuild = require('esbuild');
   for (const flags of [{ is_summarized: 1 }, { is_summarized: true }, { archived: 1 }]) {
     const html = render({ ...flags, created_at: '2026-09-28 12:00:00' });
     assert.match(html, /<time/);
-    assert.match(html, /⚡ Summarized/);
-    assert.match(html, /aria-label="Summarized. This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing."/);
+    assert.doesNotMatch(html, /Summarized|AI can no longer see/);
   }
   assert.doesNotMatch(render({ is_summarized: 0, archived: 0 }), /Summarized/);
-  console.log('Compaction badge and tooltip rendering checks passed.');
+  console.log('Legacy archive flags leave original timestamps and ordinary history visible.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

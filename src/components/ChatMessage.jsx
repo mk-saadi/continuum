@@ -559,10 +559,7 @@ const ChatMessage = React.memo(
 			)} */}
 				{message.role === "assistant" &&
 					!message.streaming &&
-					(activeVariant.stats ||
-						message.created_at ||
-						message.is_summarized ||
-						message.archived) && (
+					(activeVariant.stats || message.created_at) && (
 						<div
 							aria-label="Reply metadata"
 							className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]"
@@ -842,15 +839,11 @@ function SkillProposalCard({ step, projectId }) {
 }
 
 export function MessageContextStatus({ message, inline = false }) {
-	const summarized =
-		message.is_summarized === true || message.is_summarized === 1 || message.archived === 1;
 	const timestamp = message.created_at;
 	const date = timestamp
 		? new Date(/Z$|[+-]\d\d:\d\d$/.test(timestamp) ? timestamp : timestamp.replace(" ", "T") + "Z")
 		: null;
-	if (!summarized && !date) return null;
-	const explanation =
-		"This message has been compressed into a summary to save context space. The AI can no longer see this exact phrasing.";
+	if (!date) return null;
 
 	return (
 		<div
@@ -868,21 +861,6 @@ export function MessageContextStatus({ message, inline = false }) {
 					>
 						{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
 					</time>
-				</Tooltip>
-			)}
-			{summarized && (
-				<Tooltip
-					content={explanation}
-					placement="top"
-					delay={350}
-				>
-					<span
-						aria-label={`Summarized. ${explanation}`}
-						tabIndex={0}
-						className="cursor-help ui-radius-control border border-[var(--subtle-border)] px-1.5 py-0.5"
-					>
-						[⚡ Summarized]
-					</span>
 				</Tooltip>
 			)}
 		</div>

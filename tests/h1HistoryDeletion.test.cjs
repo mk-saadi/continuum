@@ -42,7 +42,8 @@ test('H1 checkpoint, tool evidence, plan, steering and recovery ownership surviv
   const project = require('../src/main/projectManager').createProject({ name: 'shared fixture' });
   for (const id of ['owned', 'neighbor']) {
     sessions.getOrCreateSession(id, 'fixture', project.id);
-    sessions.saveMessage(id, 'user', 'fixture brief');
+    const legacyUser = sessions.saveMessage(id, 'user', 'fixture brief');
+    require('../src/main/taskBriefs').captureBriefForUserMessage(id, legacyUser.id, 'fixture brief', []);
     const assistant = sessions.saveMessage(id, 'assistant', 'fixture tool evidence', [], null, null, null, null, null,
       [{ id: 'tool', type: 'tool_call', toolName: 'read_project_file', status: 'complete', result: 'fixture' }]);
     db.prepare('INSERT INTO workspace_checkpoints(session_id, checkpoint_json) VALUES (?, ?)').run(id, '{}');
@@ -165,11 +166,11 @@ test('H1 child attempts are aborted, evicted and cannot be recovered after owner
 test('H1 supported normal compaction preserves durable messages and changes active context only', async () => {
   const id = 'normal-compaction'; sessions.getOrCreateSession(id, 'fixture');
   for (let i = 0; i < 24; i++) sessions.saveMessage(id, i % 2 ? 'assistant' : 'user', `fixture ${i} `.padEnd(800, 'x'));
-  const result = await require('../src/main/compressionEngine').checkAndCompressContext({ sessionId: id, modelId: 'fixture', contextWindowLimit: 5000,
-    llmSummarizeCallback: async () => 'Fixture compact state.', force: true });
+  const result = await require('./fixtures/w3Compaction.cjs').compact({ sessionId: id, modelId: 'fixture', draft: { objective: 'Fixture compact state.' } });
   assert.equal(result.compressed, true, JSON.stringify(result));
   assert.equal(db.prepare('SELECT count(*) AS n FROM messages WHERE session_id = ?').get(id).n, 24);
-  assert.ok(sessions.getActiveMessages(id).length < 24);
+  assert.equal(sessions.getActiveMessages(id).length, 24);
+  assert.ok(require('../src/main/mainChatCompaction').context(id).messages.length < 24);
   assert.ok(require('../src/main/promptBuilder').rebuildChatMessages({ sessionId: id, modelId: 'fixture' }).some(message => String(message.content).includes('Fixture compact state.')));
   await require('../src/main/sessionDeletion').deleteConversation(id, null, () => true);
   storage.closeDatabase(); storage.initDatabase(directory);

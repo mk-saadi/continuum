@@ -462,7 +462,7 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 	const provider = readSettings().find((row) => row.id === target.provider);
 	const apiKey = provider.apiKey?.trim();
 	if (!apiKey && providerNeedsKey(provider)) throw new Error(`Add your ${provider.name} API key in Settings → Cloud Providers.`);
-	return async (_url, options) => {
+	return async function sendCloud(_url, options) {
 		const original = JSON.parse(options.body);
         const { requiredModalities, assertCapabilities } = require('./modelCapabilities');
         const required = requiredModalities(original.messages);
@@ -495,6 +495,25 @@ function createCloudFetch(target, { fetchImpl = nodeHttpFetch, stream = true, ge
 				body: JSON.stringify(body),
 			},
 		);
+        if (!response.ok && typeof options.contextRecovery === 'function' &&
+            require('./contextBudget').isContextOverflow({ status: response.status, responseBody: await response.clone().text() })) {
+            const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
+            const detail = await response.clone().json().catch(() => ({}));
+            const reported = (detail.error ?? detail).n_ctx;
+            const limit = Number.isSafeInteger(reported) && reported > 0 ? Math.min(metadata?.contextLength ?? reported, reported) : metadata?.contextLength;
+            await response.body?.cancel();
+            const rebuilt = await options.contextRecovery({ payload: original, contextWindowLimit: limit, reason: 'provider-context-overflow' });
+            options.signal?.throwIfAborted();
+            if (!rebuilt || JSON.stringify(rebuilt.messages) === JSON.stringify(original.messages))
+                throw new (require('./contextBudget').ContextBudgetError)('overflow recovery did not change the request');
+            // Clear the callback for exactly one retry, regardless of provider.
+            return sendCloud(_url, { ...options, body: JSON.stringify(rebuilt), contextRecovery: undefined, compactionRecoveryUsed: true });
+        }
+        if (!response.ok && options.compactionRecoveryUsed && require('./contextBudget').isContextOverflow({ status: response.status, responseBody: await response.clone().text() })) {
+            await response.body?.cancel();
+            const error = new (require('./contextBudget').ContextBudgetError)('the single recovery retry also exceeded context');
+            error.confirmedOverflow = true; throw error;
+        }
 		if (!response.ok) {
 			// Child recovery classifies only known overflow shapes; no remote body
 			// is logged or attached to the resulting error. Other callers unchanged.

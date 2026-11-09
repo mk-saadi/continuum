@@ -1,5 +1,6 @@
-const { effectiveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
 "use strict";
+const cancellationReason = code => Object.assign(new Error(code), { code });
+const { effectiveMode, sessionProject, guardTool, requestToolApproval } = require('./toolPermissions');
 
 const { fetchCloudModels, getCloudProviders, getCloudProviderDefaults, saveCloudProviderDefaults,
     saveCloudProvider, deleteCloudProvider, validateChatProvider, createCloudFetch } = require("./cloudProviders");
@@ -38,7 +39,6 @@ const {
 	saveMessage,
 	getContextUsage,
 	getActiveMessages,
-	getSessionSummary,
 } = require("./sessionManager");
 const {
 	loadSession,
@@ -55,7 +55,7 @@ const {
 	getSessionSamplingParams,
 	saveSessionSamplingParams,
 } = require("./sessionManager");
-const { scheduleIdleCompression } = require("./compressionEngine");
+
 const mcpManager = require("./mcpManager");
 const { prepareChatMessages, memoryTools, getToolContext, buildSessionSystemPrompt, rebuildChatMessages } = require("./promptBuilder");
 const { getPlan: getWorkspacePlan } = require("./workspacePlan");
@@ -107,8 +107,7 @@ function defaultTrustedSender(event) {
 
 function registerIpcHandlers({
 	isTrustedSender = defaultTrustedSender,
-	llmSummarizeCallback,
-	llmCheckpointCallback,
+	generateCompactionSummary,
 	launchEngine,
 	beginEngineRequest,
 	onIdleTimeoutChanged,
@@ -383,7 +382,7 @@ function registerIpcHandlers({
 				throw new Error("Wait for the current chat or indexing operation.");
 			const controller = new AbortController();
 			requests.set(sender, new Map([[requestId, controller]]));
-			const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
+			const abort = () => controller.abort(cancellationReason('renderer-destroyed'));
 			sender.once("destroyed", abort);
 			try {
                 notify({ type: "indexing", progress: null });
@@ -526,13 +525,13 @@ function registerIpcHandlers({
             requests.get(sender)?.get(requestId)?.resolveToolLimit?.(action === 'allow');
         },
 		"engine:cancel-chat": ({ requestId }, _notify, sender) => {
-			requests.get(sender)?.get(requestId)?.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
+			requests.get(sender)?.get(requestId)?.abort(cancellationReason('user-cancelled'));
 		},
 		"engine:cancel-session": async ({ sessionId }, _notify, sender) => {
 			const controller = activeStreams.get(sessionId);
 			if (controller && ![...(requests.get(sender)?.values() ?? [])].includes(controller)) throw new Error('This sender does not own the run.');
             await require('./backgroundCommands').terminateSession(sessionId);
-            controller?.abort(require('./workspaceGenerationRuntime').reason('user-cancelled'));
+            controller?.abort(cancellationReason('user-cancelled'));
 		},
 		// Phase 2.1 live steering. Every mutation resolves the executing run from
 		// trusted in-memory state and requires the calling sender to own it; the
@@ -580,8 +579,12 @@ function registerIpcHandlers({
 		},
 		"engine:chat": async ({ requestId, modelId, messages, sessionId, displayName, modelName, activeChatProvider, permissionMode, messageId = requestId }, notify, sender, emitActivity = () => {}) => {
             if (sessionId) require('./sessionDeletion').assertAvailable(sessionId);
-            if (sessionId && require('./db').db.prepare(`SELECT 1 FROM message_attachments a JOIN messages m ON m.id=a.message_id WHERE m.session_id=? AND a.version_id IS NOT NULL LIMIT 1`).get(sessionId))
-                messages = rebuildChatMessages({sessionId,modelId,userText:require('./sessionManager').getActiveMessages(sessionId).filter(m=>m.role==='user').at(-1)?.content || ''});
+            if (sessionId) {
+                const stored = require('./sessionManager').getActiveMessages(sessionId);
+                if (stored.length) messages = rebuildChatMessages({ sessionId, modelId,
+                    excludeMessageIds: stored.some(message => message.id === messageId && message.role === 'assistant') ? [messageId] : [],
+                    userText: stored.filter(message => message.role === 'user').at(-1)?.content ?? '' });
+            }
             const project = sessionProject(sessionId);
             permissionMode = effectiveMode(permissionMode, project);
             const target = validateChatProvider(activeChatProvider);
@@ -643,8 +646,9 @@ function registerIpcHandlers({
 				steeringRuns.set(runId, { runId, sessionId, sender, controller });
 				sender.send('engine:stream-status', { sessionId, status: 'generating', runId });
 			}
-			const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
+			const abort = () => controller.abort(cancellationReason('renderer-destroyed'));
 			sender.once("destroyed", abort);
+            if (sessionId) require('./mainChatCompaction').bindSource(controller, sessionId);
             let persistence;
 			let persistTimer = null;
 			const persist = (status = "in_progress", immediate = false) => {
@@ -719,7 +723,7 @@ function registerIpcHandlers({
 				const memoryEnabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
 					const { tools: availableTools, pluginTokens, toolTokens } = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId, permissionMode, modelId);
                     messages = messages.filter(message => !message.memoryContext);
-                    const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith('[EARLIER CONVERSATION SUMMARY]:'));
+                    const summaryIndex = messages.findIndex(message => message.role === 'system' && message.content?.startsWith(require('./conversationCompaction').MARKER));
                     const currentUserContent = [...messages].reverse().find(message => message.role === 'user')?.content;
                     const currentUserText = typeof currentUserContent === 'string' ? currentUserContent
                         : Array.isArray(currentUserContent) ? currentUserContent.filter(part => part?.type === 'text').map(part => part.text).join('\n') : '';
@@ -828,13 +832,8 @@ function registerIpcHandlers({
                         decodeImage: bytes => !nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty(),
                         loadedContextSize: cloud ? undefined : config.activeModelConfig?.contextLength ?? 32768,
                         getExecutionEnvironment: () => require("./promptBuilder").buildExecutionEnvironmentSection(sessionId),
-                        getSessionPlanState: usageProjectId ? () => require('./workspacePlan').buildPlanStateSection(sessionId) : null,
-                        rebuildWorkspacePrefix: usageProjectId ? projection => rebuildChatMessages({
-                            sessionId, modelId, excludeMessageIds: [persistence?.messageId],
-                            delegationAvailable: tools.some(tool => tool.function?.name === 'spawn_sub_agent'),
-                            userText: currentUserText, compactionProjection: projection,
-                        }) : null,
-                        workspaceCompaction: usageProjectId ? async boundary => {
+                        getSessionPlanState: usageProjectId ? () => require('./workspacePlan').buildPlanSection(sessionId) ?? require('./workspacePlan').buildPlanStateSection(sessionId) : null,
+                        compactContext: sessionId ? async boundary => {
                             // Flush the current row without completing it or changing run identity.
                             if (persistTimer !== null) clearTimeout(persistTimer);
                             persistTimer = null;
@@ -854,111 +853,27 @@ function registerIpcHandlers({
                                 require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === configuration;
                             const configuration = require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId);
                             try {
-                                const result = await require('./workspaceCompaction').compactAtBoundary({ ...boundary,
+                                const result = await require('./mainChatCompaction').compactAtBoundary({ ...boundary,
                                     sessionId, modelId, owner: controller, messageId: persistence?.messageId,
-                                    onActivity: emitActivity, reasoningTarget: cloud ? target : { type: 'local' }, localModel: config?.modelMetadata ?? null,
-                                    mcpToolNames: mcpManager.getTools(sessionId).map(tool => tool.function?.name ?? tool.name),
+                                    onActivity: emitActivity, onStatus: (status, details) => { if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, status, deferred: status === 'deferred', ...(status === 'failed' ? { error: details.reason } : {}) }); }, providerId: cloud ? target.provider : 'local',
                                     signal: controller.signal, isCurrent,
                                     measure: payload => cloud ? measurement(payload) : measurement(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
                                         { signal: controller.signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 32768 }, boundary.contextWindowLimit ?? undefined),
                                     generate: cloud ? async (candidateRequest, { signal }) => {
-                                        const response = await createCloudFetch(target, { stream: false })('cloud:workspace-candidate', {
+                                        const response = await createCloudFetch(target, { stream: false })('cloud:compaction-summary', {
                                             body: JSON.stringify(candidateRequest), signal });
-                                        return response.json();
-                                    } : (candidateRequest, { signal, onProgress }) => llmCheckpointCallback(null, modelId, { signal, onProgress, candidateRequest }),
+                                        return require('./subagents/providers/streamCompletion').readCompletion(response);
+                                    } : (candidateRequest, { signal, onProgress }) => generateCompactionSummary(candidateRequest, modelId, { signal, onProgress }),
                                 });
                                 if (result.compressed && !sender.isDestroyed()) sender.send('session:compression-complete', {
-                                    sessionId, compressed: true, checkpointId: result.checkpointId, archivedCount: result.archivedCount, diagnostics: result.diagnostics });
-                                if (result.optionalContinued && !sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, compressed: false, optionalContinued: true, reason: result.reason });
+                                    sessionId, compressed: true });
                                 return result;
                             } catch (error) {
                                 if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, compressed: false, reason: error.code });
-                                // Unknown metadata cannot certify compaction fit. Keep the
-                                // pre-existing provider path, with compaction unsupported.
-                                if (cloud && error.code === 'unknown-cloud-capacity') return { compressed: false, reason: error.code, unsupported: true };
                                 throw error;
                             }
                         } : null,
-                        recoverContext: !usageProjectId && !cloud && sessionId ? async ({ contextWindowLimit, signal, prepareRecovery }) => {
-                            if (typeof llmSummarizeCallback !== 'function') return null;
-                            const recoveryIdentity = config.runtimeIdentity;
-                            const recoveryConfiguration = require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId);
-                            const recoveryIsCurrent = () => {
-                                const current = getEngineConfig?.(modelId);
-                                return current?.runtimeIdentity === recoveryIdentity && current?.modelPath === config.modelPath && current?.port === config.port &&
-                                    require('./promptMeasurement').preparedConfigurationIdentity(sessionId, modelId) === recoveryConfiguration;
-                            };
-                            const enabled = profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled;
-                            // Schemas for the floor projection: the same tool
-                            // set that will ride the rebuilt request, so the
-                            // gate measures the real overhead.
-                            const preTools = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode, modelId).tools);
-                            const excludeMessageIds = [persistence?.messageId, Number.isSafeInteger(messageId) ? messageId : null];
-                            const delegationAvailable = preTools.some(tool => tool.function?.name === 'spawn_sub_agent');
-                            // Configured output caps so the prospective
-                            // measurement reserves what the real request will
-                            // reserve (uncapped defaults otherwise; the guard
-                            // re-measures the real payload afterwards).
-                            const sampling = profiles.getSessionSettings(sessionId, modelId).params ?? {};
-                            const maxTokens = Number.isSafeInteger(sampling.max_tokens) && sampling.max_tokens > 0
-                                ? sampling.max_tokens : null;
-                            // Re-resolve against the window recovery is working
-                            // toward; a saved budget may clamp to that ceiling.
-                            const currentReasoning = await resolveReasoningForRequest({ contextSize: contextWindowLimit });
-                            const effectiveBudget = currentReasoning.effective.mode === 'budget'
-                                ? currentReasoning.effective.budget : null;
-                            let result;
-                            try {
-                                result = await require('./compressionEngine').recoverContextOverflow({
-                                sessionId, modelId, contextWindowLimit, signal, tools: preTools,
-                                delegationAvailable, userText: currentUserText, excludeMessageIds,
-                                maxTokens, thinkingBudget: effectiveBudget, strictMeasurement: true, isCurrent: recoveryIsCurrent,
-                                llmCheckpointCallback: typeof llmCheckpointCallback === 'function'
-                                    ? (input) => llmCheckpointCallback(input, modelId, { signal, maxTokens: require('./taskCheckpoints').CHECKPOINT_LLM_MAX_TOKENS })
-                                    : null,
-                                // Exact pre-commit verification over the live
-                                // server-template/tokenizer path. Casual recovery
-                                // fails closed when exact measurement is unavailable;
-                                // no model call is held across the commit transaction.
-                                measurePrompt: async ({ messages, tools, limit, signal: measureSignal }) => {
-                                    const measurer = require('./contextBudget').createPromptMeasurer(
-                                        require('./localEngineFetch').localEngineFetch);
-                                    const prospective = { model: modelId, messages, tools,
-                                        ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
-                                        ...reasoningControls.localRequestFields(currentReasoning) };
-                                    const actual = prepareRecovery ? await prepareRecovery(prospective) : prospective;
-                                    if (!recoveryIsCurrent()) throw Object.assign(new Error('Local runtime or settings changed during Casual recovery.'), { code: 'casual-runtime-changed' });
-                                    return measurer(`http://127.0.0.1:${config.port}/v1/chat/completions`, actual,
-                                        { signal: measureSignal, contextWindowLimit: limit });
-                                },
-                                llmSummarizeCallback: (old, batch, _model, options) => llmSummarizeCallback(old, batch, modelId, { ...options, signal: options?.signal ?? signal, maxTokens: 1024 }),
-                                });
-                            } catch (error) {
-                                // Surface the failure reason to the inspection
-                                // panel through the existing completion
-                                // channel, then let the chat error propagate
-                                // unchanged to the caller.
-                                if (!sender.isDestroyed()) sender.send('session:compression-complete',
-                                    { sessionId, compressed: false, error: error?.message ?? String(error) });
-                                throw error;
-                            }
-                            if (!result.compressed) {
-                                if (result.reason && !sender.isDestroyed()) {
-                                    sender.send('session:compression-complete', { sessionId, ...result });
-                                }
-                                const protectedReason = ['protected-context-too-large', 'non-compressible-context-too-large', 'prospective-prompt-exceeds-budget'].includes(result.reason);
-                                throw Object.assign(new Error(protectedReason
-                                    ? 'Casual context recovery cannot fit the protected recent messages, current request, instructions or tools. Reduce the current attachment/tool set or continue in a fresh chat; saved history is preserved.'
-                                    : 'Casual context recovery could not reduce eligible history (compression may be disabled or busy). Saved history is preserved.'),
-                                    { code: protectedReason ? 'casual-protected-context-too-large' : 'casual-recovery-unavailable' });
-                            }
-                            if (!sender.isDestroyed()) sender.send('session:compression-complete', { sessionId, ...result });
-                            const current = getEngineConfig?.(modelId);
-                            if (current?.modelPath !== config.modelPath || current?.port !== config.port) throw new Error('The local model changed during context recovery. Send again with the loaded model.');
-                            const fresh = filterTools(getToolContext(mcpManager.getTools(sessionId), enabled, sessionId, permissionMode, modelId).tools);
-                            return { messages: rebuildChatMessages({ sessionId, modelId, excludeMessageIds,
-                                delegationAvailable: fresh.some(tool => tool.function.name === 'spawn_sub_agent'), userText: currentUserText, contextWindowLimit }) };
-                        } : undefined,
+
 					baseUrl: cloud ? "https://cloud.invalid" : `http://127.0.0.1:${config.port}`,
 					modelId,
 					reasoning,
@@ -1257,17 +1172,7 @@ function registerIpcHandlers({
                 notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted || (stoppedByLimit && !soundLimitTimedOut)
                     ? 'cancelled' : soundLimitTimedOut || stoppedByCircuitBreak || /\[System: Reasoning loop detected and terminated\./.test(text)
                     || incompleteTask ? 'interrupted' : 'completed', incompleteTask });
-				// Per-turn work digest: built from the persisted steps for
-				// Workspace sessions only. Fail-safe by contract
-				// (recordTurnDigestSafe never throws): digest work must never
-				// break, stall, or alter a turn.
-				if (sessionId && persistence) {
-					require('./workLog').recordTurnDigestSafe({
-						sessionId,
-						assistantMessageId: persistence.messageId,
-						partial: controller.signal.aborted || stoppedByCircuitBreak || !!incompleteTask,
-					});
-				}
+
 				if (!stoppedByCircuitBreak) require('./engineManager').notifyChatOutcome({ text,
 					interrupted: stoppedByLimit || !!incompleteTask, aborted: controller.signal.aborted });
 				backgroundNormalCompletion = !controller.signal.aborted && !stoppedByLimit && !stoppedByCircuitBreak && !incompleteTask;
@@ -1275,13 +1180,7 @@ function registerIpcHandlers({
 			} catch (error) {
                 persist("interrupted");
                 notify({ type: 'task-outcome', sessionId, runId, outcome: controller.signal.aborted ? 'cancelled' : 'interrupted' });
-				if (sessionId && persistence) {
-					require('./workLog').recordTurnDigestSafe({
-						sessionId,
-						assistantMessageId: persistence.messageId,
-						partial: true,
-					});
-				}
+
 				require('./engineManager').notifyChatOutcome({ error, aborted: controller.signal.aborted });
                 throw error;
 			} finally {
@@ -1340,16 +1239,6 @@ function registerIpcHandlers({
             };
             const { db } = require('./db');
             return db.transaction(() => {
-                try {
-                    // The re-run turn's digest was recorded against the
-                    // temporary row: re-key it onto the surviving target row
-                    // FIRST, so the temporary row's deletion below (which
-                    // cascades digest rows) never orphans it. Complete beats
-                    // stale partial, same as same-turn races.
-                    require('./workLog').rekeyTurnDigest({ sessionId: data.sessionId, fromMessageId: result.message.id, toMessageId: target.id });
-                } catch (error) {
-                    console.error('[workLog] regenerate digest rekey failed (turn unaffected):', error?.message ?? error);
-                }
                 if (result.message.id !== target.id) db.prepare('DELETE FROM messages WHERE id = ? AND session_id = ?').run(result.message.id, data.sessionId);
                 // The surviving reply row now represents this run, so its
                 // additional-prompts footer follows the regenerated answer.
@@ -1403,6 +1292,8 @@ function registerIpcHandlers({
             }
             return staged;
         },
+        "attachment:retarget": ({fromSessionId,toSessionId,attachments}) =>
+            require('./attachmentStore').retargetDrafts(attachments,fromSessionId,toSessionId),
         "attachment:open": async ({sessionId,attachment}) => {
             const store=require('./attachmentStore'); store.checkSession(sessionId); const row=store.authorize(attachment,sessionId);
             if(row.omitted) throw new Error('This attachment was explicitly omitted. Restore it in attachment details.');
@@ -1535,7 +1426,7 @@ function registerIpcHandlers({
             if (requests.size || standaloneDelegation) throw new Error('Wait for the active chat before delegating a standalone task.');
             standaloneDelegation = true;
             const controller = new AbortController();
-            const abort = () => controller.abort(require('./workspaceGenerationRuntime').reason('renderer-destroyed'));
+            const abort = () => controller.abort(cancellationReason('renderer-destroyed'));
             let finish;
             try {
                 sender.once('destroyed', abort);
@@ -1619,7 +1510,7 @@ function registerIpcHandlers({
             }
 		},
 		"session:get-messages": ({ sessionId }) => getActiveMessages(sessionId),
-		"session:get-summary": ({ sessionId }) => getSessionSummary(sessionId),
+		"session:get-summary": ({ sessionId }) => require('./contextInspection').getSummaryForDisplay(sessionId),
 		// Read-only Workspace Context inspection (see src/main/contextInspection.js).
 		// Same trusted-sender + withDataAccess wrapping as every handler below.
 		"session:get-checkpoint": ({ sessionId }) => require('./contextInspection').getCheckpointForDisplay(sessionId),
@@ -1640,58 +1531,9 @@ function registerIpcHandlers({
         "session:get-plan": ({ sessionId }) => require('./workspacePlan').getPlan(sessionId),
         // Explicit W2 preparation only. This API never calls the compaction
         // commit path and never changes the prompt or active history.
-        "session:generate-compact-candidate": async ({ sessionId, modelId }) => {
-            const config = getEngineConfig?.(modelId);
-            if (!config || config.modelPath !== modelId || !config.port || typeof llmCheckpointCallback !== 'function')
-                return { ok: false, code: 'model-unavailable' };
-            const identity = config.runtimeIdentity;
-            const { createPromptMeasurer } = require('./contextBudget');
-            const { localEngineFetch } = require('./localEngineFetch');
-            const measure = createPromptMeasurer(localEngineFetch);
-            return require('./compressionEngine').generateWorkspaceCompactCandidate({ sessionId, modelId,
-                isCurrent: () => getEngineConfig?.(modelId)?.runtimeIdentity === identity && getEngineConfig?.(modelId)?.modelPath === modelId,
-                localModel: config.modelMetadata ?? null, capacityTokens: config.activeModelConfig?.contextLength ?? 8192,
-                measure: (payload, { signal }) => measure(`http://127.0.0.1:${config.port}/v1/chat/completions`, payload,
-                    { signal, contextWindowLimit: config.activeModelConfig?.contextLength ?? 8192 }),
-                generate: async (request, { signal, onProgress }) => {
-                    if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
-                    const result = await llmCheckpointCallback(null, modelId, { signal, onProgress, candidateRequest: request });
-                    if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) throw Object.assign(new Error('Engine changed.'), { code: 'concurrent-state-change' });
-                    return result;
-                },
-            });
-        },
+        "session:generate-compact-candidate": () => ({ compressed: false, reason: 'model-request-boundary' }),
 		"session:get-archived-messages": ({ sessionId, limit, offset }) => require('./contextInspection').getArchivedMessagesForDisplay(sessionId, { limit, offset }),
-		"session:trigger-compression": ({ sessionId, modelId, contextWindowLimit }, notify) => {
-			if (typeof llmSummarizeCallback !== "function") {
-				throw new Error("Configure a main-process summarizer before scheduling compression.");
-			}
-			scheduleIdleCompression(
-				sessionId,
-				modelId,
-				contextWindowLimit,
-				(oldSummary, messageBatch, _modelId, opts) => llmSummarizeCallback(oldSummary, messageBatch, modelId, opts ?? {}),
-				notify,
-				typeof llmCheckpointCallback === "function"
-					? (input, _modelId, opts) => llmCheckpointCallback(input, modelId, opts ?? {})
-					: null,
-                {
-                    resolveMeasurement: async ({ signal } = {}) => {
-                        const config = getEngineConfig?.(modelId);
-                        const currentModel = config?.modelPath ?? config?.activeModelConfig?.modelPath;
-                        if (!config || currentModel !== modelId || !config.port) return null;
-                        const identity = config.runtimeIdentity;
-                        const measured = await require('./promptMeasurement').measurePreparedContext({ sessionId, modelId, signal,
-                            engine: { port: config.port, modelPath: currentModel, runtimeIdentity: identity,
-                                contextLength: config.activeModelConfig?.contextLength, localModel: config.modelMetadata } });
-                        if (getEngineConfig?.(modelId)?.runtimeIdentity !== identity) return null;
-                        return { ...measured, isCurrent: () => require('./promptMeasurement').isPreparedContextCurrent(sessionId, modelId, measured.stateIdentity) && getEngineConfig?.(modelId)?.runtimeIdentity === identity &&
-                            (getEngineConfig?.(modelId)?.modelPath ?? getEngineConfig?.(modelId)?.activeModelConfig?.modelPath) === modelId };
-                    },
-                },
-			);
-			return { scheduled: true };
-		},
+        "session:trigger-compression": () => ({ scheduled: false, reason: 'model-request-boundary' }),
 	};
 
 	const registered = [];
@@ -1707,7 +1549,7 @@ function registerIpcHandlers({
 		subscribers.clear();
 		scheduledTaskEvents?.off?.('event', forwardScheduledTaskEvent);
 		scheduledSubscribers.clear();
-		for (const active of requests.values()) for (const controller of active.values()) controller.abort(require('./workspaceGenerationRuntime').reason('ipc-disposed'));
+		for (const active of requests.values()) for (const controller of active.values()) controller.abort(cancellationReason('ipc-disposed'));
 		for (const channel of registered.splice(0)) ipcMain.removeHandler(channel);
 	};
 	try {

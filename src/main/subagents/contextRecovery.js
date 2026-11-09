@@ -32,19 +32,6 @@ function validatePairs(messages) {
   }
   if (pending.size) throw compactionError('in-flight-tool-round');
 }
-function completeRounds(messages) {
-  validatePairs(messages);
-  const rounds = [];
-  for (let i = 0; i < messages.length; i++) {
-    const m = messages[i];
-    if (m.role !== 'assistant') continue;
-    const round = [m];
-    for (let n = 0; n < (m.tool_calls?.length ?? 0); n++) round.push(messages[++i]);
-    rounds.push(round);
-  }
-  return rounds;
-}
-
 // Keep small outputs untouched. Large JSON file results retain their metadata,
 // while the model sees explicit, task-focused head/tail/error/value excerpts.
 // The original native result is recorded separately before this projection.
@@ -130,14 +117,18 @@ function claimRawId(index, message) {
   return Number.isSafeInteger(id) ? id : null;
 }
 
-function createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal, commit }) {
+function createChildContextAdapter({ session, messages, engine, state, fetchImpl, signal, commit, isCurrent = () => true, configurationIdentity = () => null }) {
   session.rawContext ??= [];
   session.compactionState ??= { owner: session.id ?? randomUUID(), version: 0, summary: null, checkpoint: null, events: [] };
   session.rawMessageIds ??= new WeakMap();
   const meta = session.compactionState;
-  let limit = state.budgets.contextLength;
+  let limit = state.budgets.contextLength, overflowCeiling = Infinity, lastCapacity = null;
+  const refreshCapacity = value => {
+    limit = value === lastCapacity ? Math.min(limit, value, overflowCeiling) : Math.min(value, overflowCeiling);
+    lastCapacity = value; state.budgets.contextLength = limit;
+  };
   const identity = JSON.stringify(engine);
-  const isDerived = m => m.role === 'system' && (m.content?.startsWith(SUMMARY_MARKER) || m.content?.startsWith(CHILD_CHECKPOINT));
+  const isDerived = m => m.compactionContinuation === true || m.role === 'system' && (m.content?.startsWith(SUMMARY_MARKER) || m.content?.startsWith(CHILD_CHECKPOINT) || m.content?.startsWith(require('../conversationCompaction').MARKER));
   const record = (message, rawContent = message.content) => {
     const id = session.rawContext.length + 1;
     const raw = structuredClone({ ...message, content: rawContent, id });
@@ -154,126 +145,127 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
   // double-count its evidence, and inflate the archive the next compaction
   // computes. Genuinely new messages (a continuation instruction, a fresh
   // round) have no raw match and are recorded normally.
-  const rawIndex = buildRawIdIndex(session.rawContext);
+  const retained = new Set(meta.boundary?.retainedRawIds ?? []);
+  const rawIndex = buildRawIdIndex(meta.boundary ? session.rawContext.filter(row => row.role === 'system' || retained.has(row.id) || row.id > meta.boundary.rawLength) : session.rawContext);
   for (const m of messages) {
     if (isDerived(m) || session.rawMessageIds.has(m)) continue;
     const claimed = claimRawId(rawIndex, m);
     if (claimed !== null) { session.rawMessageIds.set(m, claimed); continue; }
     record(m);
   }
-  const persist = () => { commit(); require('./persistence').persistChildRun(session); };
+  const persist = () => { commit(); return require('./persistence').persistChildRun(session); };
+  const persistAccounting = () => {
+    // Persist accounting against the last committed projection, never a staged summary.
+    if (!require('./persistence').persistChildRun(session))
+      throw Object.assign(new Error('Could not save child request allowance'), { code: 'persistence-failed' });
+  };
+  // Restart migration is representation-only and never spends inference. Keep
+  // every prior artifact as input to the one summary until the model next
+  // consolidates it. Raw records and lifetime counters are untouched.
+  if (meta.checkpoint || messages.some(m => m.role === 'system' &&
+      (m.content?.startsWith(SUMMARY_MARKER) || m.content?.startsWith(CHILD_CHECKPOINT)))) {
+    signal?.throwIfAborted();
+    const previous = [...messages], previousMeta = structuredClone(meta);
+    const legacy = messages.filter(m => m.role === 'system' && isDerived(m));
+    const parts = [meta.summary, ...legacy.map(m => m.content.replace(/^[^\n]*\n?/, '')),
+      meta.checkpoint ? JSON.stringify(meta.checkpoint) : null].filter(Boolean);
+    meta.summary = [...new Set(parts)].join('\n\n'); meta.checkpoint = null; meta.schemaVersion = 2;
+    messages.splice(0, messages.length, ...messages.filter(m => !(m.role === 'system' && isDerived(m))));
+    messages.unshift({ role: 'system', content: `${require('../conversationCompaction').MARKER}\n${meta.summary}` });
+    meta.boundary ??= { rawLength: session.rawContext.length,
+      retainedRawIds: messages.map(m => session.rawMessageIds.get(m)).filter(Boolean) };
+    let durable = false;
+    try { durable = persist(); } catch {}
+    if (!durable) {
+      messages.splice(0, messages.length, ...previous);
+      for (const key of Object.keys(meta)) delete meta[key];
+      Object.assign(meta, previousMeta); session.context = previous.slice();
+      throw Object.assign(new Error('Could not save child compaction migration'), { code: 'persistence-failed' });
+    }
+  }
+
   const append = (message, rawContent = message.content) => {
     record(message, rawContent); messages.push(message); return message;
   };
-  const wire = rows => rows.map(({ id, ...m }) => m);
   const estimate = text => Math.ceil(String(text ?? '').length / 4);
   const local = !engine.chatTarget && engine.provider !== 'cloud';
   const measureLocal = local ? createPromptMeasurer(fetchImpl ?? require('../localEngineFetch').localEngineFetch) : null;
+  const measureCloud = !local && engine.chatTarget ? require('../promptMeasurement').createCloudWorkspaceMeasurer(engine.chatTarget) : null;
   const measure = async payload => {
     signal?.throwIfAborted();
+    if (!local) { const capacity = await require('./budgets').resolveEngineContextLength(engine); refreshCapacity(capacity.contextLength); }
     const rough = approximateTokens(payload), reserve = reserveTokens(payload, limit);
     let measured = { tokens: rough, method: 'approximate-full-request', limit };
     // Avoid new network probes for comfortably short tasks. Exact local
     // measurement is used near pressure, and the transport still guards fit.
     if (local && (rough + reserve) / limit >= .6) measured = await measureLocal(`http://127.0.0.1:${engine.port}/v1/chat/completions`, payload, { signal, contextWindowLimit: limit });
+    if (measureCloud) {
+      try { measured = await measureCloud(payload); }
+      catch { signal?.throwIfAborted(); /* Explicit full-request estimate remains available. */ }
+    }
     limit = Math.min(limit, measured.limit);
-    return { ...measured, limit, reserve: reserveTokens(payload, limit) };
-  };
-  const generate = async (prompt, data, maxTokens) => {
-    // Called outside a held inference slot. No recursive recovery on summary
-    // or checkpoint generations; every request uses the same scheduler/model
-    // and the same lifetime token/request ledger.
-    const payload = budgets.stopBeforeRequest(state, { model: engine.modelId, messages: [
-      { role: 'system', content: prompt }, { role: 'user', content: JSON.stringify(data) },
-    ], tools: [], tool_choice: 'none', temperature: .1, max_tokens: maxTokens });
-    const reply = await scheduler.scheduleInference({ session, engine, payload, signal, fetchImpl, budgetState: state });
-    signal?.throwIfAborted();
-    if (!reply.ok) { const error = compactionError('provider-error'); error.stopReason = 'provider_error'; throw error; }
-    if (state.overrun) throw new budgets.ExecutionBudgetError(state.overrun);
-    const message = reply.result?.choices?.[0]?.message;
-    if (message?.tool_calls?.length || message?.toolMarkupIncomplete || reply.result?.choices?.[0]?.finish_reason === 'length') throw compactionError('incomplete-summary');
-    return message?.content;
+    state.budgets.contextLength = limit;
+    return require('../contextBudget').withEffectiveLimit(measured, payload, limit);
   };
   const adapter = {
     record, append, persist, validate: validatePairs, estimate, measure,
-    assertGenerationCapacity: () => {
-      // Two compaction generations must leave one request for resumed work or
-      // the Phase 1 tool-free report. Never consume the last slot drafting a
-      // checkpoint that the child cannot subsequently use.
-      if (budgets.remaining(state.budgets.maxTurns, budgets.totals(state).turns) < 3) throw new budgets.ExecutionBudgetError('turn_limit');
-      if (budgets.remaining(state.budgets.outputBudget, budgets.totals(state).outputTokens) < 512 + 1024 + 256) throw new budgets.ExecutionBudgetError('output_budget');
-    },
-    snapshot: payload => {
-      validatePairs(messages);
-      const rounds = completeRounds(messages);
-      const eligible = rounds.slice(0, Math.max(0, rounds.length - 2));
-      const candidates = eligible.map(round => ({ content: JSON.stringify(round), round,
-        estimated_tokens: approximateTokens({ messages: round }), role: 'assistant' }));
-      const pinned = messages.filter(m => (m.role === 'system' && !isDerived(m)) || m.role === 'user');
-      return { owner: meta.owner, version: meta.version, fingerprint: JSON.stringify(messages), identity,
-        candidates, pinned, tail: rounds.slice(eligible.length).flat(), payload,
-        oldSummary: meta.summary, checkpoint: meta.checkpoint,
-        briefs: pinned.filter(m => m.role === 'user').map(m => ({ id: session.rawMessageIds.get(m), content_text: m.content })),
-        rawLength: session.rawContext.length, ledgerBefore: budgets.totals(state) };
-    },
-    summarize: (prior, candidates) => generate(require('../compactionCore').WORKSPACE_SUMMARY_PROMPT,
-      { oldSummary: prior, messages: candidates.map(c => wire(c.round)) }, 512),
-    checkpointInput: (snapshot, summary) => {
-      // Same newest-evidence-first policy and 12k ceiling as Workspace's
-      // renderEvidenceForModel, additionally scaled to the child window.
-      const all = adapter.evidence(), evidence = [];
-      const cap = Math.min(12000, Math.floor(limit * .3 * 3));
-      let used = 0;
-      for (let i = all.length - 1; i >= 0; i--) {
-        const size = JSON.stringify(all[i]).length + 1;
-        if (used + size > cap) continue;
-        evidence.unshift(all[i]); used += size;
-      }
-      return { briefs: snapshot.briefs.map(b => ({ id: b.id, text: b.content_text })),
-        priorCheckpoint: snapshot.checkpoint, rollingSummary: summary, evidence,
-        evidenceOmitted: all.length - evidence.length,
-        omissionNotice: all.length > evidence.length ? 'Older evidence omitted from this request; raw history and validated prior checkpoint remain authoritative.' : null,
-        archivedCount: snapshot.candidates.length };
-    },
-    evidence: () => session.rawContext.filter(m => m.role === 'assistant' && m.tool_calls?.length).flatMap(m => m.tool_calls.map(call => {
-      const result = session.rawContext.find(r => r.id > m.id && r.role === 'tool' && r.tool_call_id === call.id);
-      let args = {}; try { args = JSON.parse(call.function.arguments); } catch {}
-      return { messageId: m.id, stepId: call.id, toolName: call.function.name,
-        kind: ['read_project_file', 'search_project_content', 'list_directory', 'git_status', 'git_diff', 'git_log', 'git_show', 'git_branch', 'git_blame'].includes(call.function.name) ? 'file-read' : 'web',
-        outcome: !result ? 'unknown' : /^Error:|^\[Tool skipped/.test(result.content) ? 'error' : 'success',
-        paths: [args.relative_path, args.url].filter(Boolean), args,
-        resultSnippet: typeof result?.content === 'string' ? trimToolResult(result.content, { task: session.inputSummary?.task ?? '', contextLength: 4096, maxCharacters: 800 }) : '' };
-    })),
-    validationContext: snapshot => ({ sessionId: session.id, briefs: snapshot.briefs,
-      index: new Map(adapter.evidence().map(row => [`${row.messageId}:${row.stepId}`, row])),
-      messageExists: id => session.rawContext.some(m => m.id === id) }),
-    draftCheckpoint: async input => {
-      const text = await generate(require('../compactionCore').WORKSPACE_CHECKPOINT_PROMPT, input, 1024);
-      try { return JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, '')); } catch { throw compactionError('malformed-checkpoint'); }
-    },
-    buildPayload: (snapshot, summary, checkpoint, count) => ({ ...snapshot.payload, messages: [
-      ...snapshot.pinned,
-      ...(summary ? [{ role: 'system', content: `${SUMMARY_MARKER}\n${summary}` }] : []),
-      ...(checkpoint ? [{ role: 'system', content: `${CHILD_CHECKPOINT}\n${checkpoint.content}` }] :
-        snapshot.checkpoint ? [{ role: 'system', content: `${CHILD_CHECKPOINT}\n${require('../taskCheckpoints').renderCheckpointSection(snapshot.checkpoint, { version: snapshot.version, stale: false })}` }] : []),
-      ...snapshot.candidates.slice(count).flatMap(c => c.round), ...snapshot.tail,
-    ] }),
-    commit: async (snapshot, candidate) => {
-      signal?.throwIfAborted();
-      if (snapshot.owner !== meta.owner || snapshot.version !== meta.version || snapshot.rawLength !== session.rawContext.length ||
-          snapshot.fingerprint !== JSON.stringify(messages) || identity !== JSON.stringify(engine)) throw compactionError('context-changed');
-      validatePairs(candidate.payload.messages);
-      // Raw messages already exist; persistence keeps them alongside the active
-      // projection. No old raw record is changed or replaced by a summary.
-      messages.splice(0, messages.length, ...candidate.payload.messages);
-      meta.version++; meta.summary = candidate.summary; meta.checkpoint = candidate.checkpoint;
-      meta.events.push({ version: meta.version, reason: candidate.force ? 'overflow' : 'pressure',
-        archivedMessageIds: snapshot.candidates.slice(0, candidate.selectedCount).flatMap(c => c.round.map(m => session.rawMessageIds.get(m))),
-        before: candidate.before, after: candidate.after, ledgerBefore: snapshot.ledgerBefore, ledgerAfter: budgets.totals(state) });
-      pushActivity(session, { type: 'compaction', version: meta.version, before: candidate.before.tokens, after: candidate.after.tokens });
-      persist();
+    compact: async (payload, force) => {
+      const core = require('../conversationCompaction');
+      const fingerprint = JSON.stringify(messages), configuration = configurationIdentity();
+      const rawLength = session.rawContext.length;
+      const runtimeIdentity = () => {
+        if (!local) return null;
+        const config = require('./modelSelection').currentLocalEngineConfig(engine);
+        return config ? JSON.stringify([config.modelPath, config.port, config.runtimeIdentity, require('./modelSelection').effectiveContextLength(config)]) : null;
+      };
+      const currentRuntime = runtimeIdentity();
+      const prior = meta.summary ?? '';
+      // Legacy checkpoint data is migration input exactly once, without a model
+      // call on open. A successful consolidation replaces both old artifacts.
+      const oldSummary = [prior, meta.checkpoint ? JSON.stringify(meta.checkpoint) : ''].filter(Boolean).join('\n\n');
+      const clean = { ...payload, messages: payload.messages.filter(m => !isDerived(m)) };
+      if (oldSummary) clean.messages.unshift({ role: 'system', content: `${core.MARKER}\n${oldSummary}` });
+      return core.compact({ owner: session, payload: clean, oldSummary, force, measure, signal,
+        isCurrent: () => isCurrent() && configuration === configurationIdentity() && fingerprint === JSON.stringify(messages) && rawLength === session.rawContext.length && identity === JSON.stringify(engine) && runtimeIdentity() === currentRuntime,
+        generate: async (request, { continuationPayload }) => {
+          // Every stage must leave a request and output allowance for resuming.
+          if (budgets.remaining(state.budgets.maxTurns, budgets.totals(state).turns) < 2) throw new budgets.ExecutionBudgetError('turn_limit');
+          if (budgets.remaining(state.budgets.outputBudget, budgets.totals(state).outputTokens) < request.max_tokens + 256) throw new budgets.ExecutionBudgetError('output_budget');
+          const policy = require('./budgets');
+          const continuationInput = policy.estimatePromptTokens(continuationPayload.messages, continuationPayload.tools) + request.max_tokens;
+          const summaryInput = policy.estimatePromptTokens(request.messages, request.tools);
+          if (budgets.remaining(state.budgets.inputBudget, budgets.totals(state).inputTokens) < summaryInput + continuationInput)
+            throw new budgets.ExecutionBudgetError('input_budget');
+          budgets.setBudgetPersistence(state, persistAccounting);
+          const prepared = budgets.stopBeforeRequest(state, request);
+          const reply = await scheduler.scheduleInference({ session, engine, payload: prepared, signal, fetchImpl, budgetState: state });
+          if (!reply.ok) throw compactionError('provider-error');
+          if (state.overrun) throw new budgets.ExecutionBudgetError(state.overrun);
+          return reply.result;
+        },
+        save: async candidate => {
+          signal?.throwIfAborted();
+          const previousMessages = [...messages], previousMeta = structuredClone(meta);
+          messages.splice(0, messages.length, ...candidate.payload.messages);
+          meta.version++; meta.summary = candidate.summary; meta.checkpoint = null;
+          meta.boundary = { rawLength, retainedRawIds: candidate.tail.map(m => session.rawMessageIds.get(m)).filter(Boolean) };
+          meta.events.push({ version: meta.version, reason: force ? 'overflow' : 'pressure', before: candidate.before, after: candidate.after,
+            generations: candidate.generations, ledgerAfter: budgets.totals(state) });
+          let durable = false;
+          try { durable = persist(); } catch {}
+          if (!durable) {
+            messages.splice(0, messages.length, ...previousMessages);
+            for (const key of Object.keys(meta)) delete meta[key];
+            Object.assign(meta, previousMeta);
+            session.context = previousMessages.slice();
+            try { commit(); } catch {}
+            throw Object.assign(new Error('Child compaction persistence failed'), { code: 'persistence-failed' });
+          }
+          pushActivity(session, { type: 'compaction', version: meta.version, before: candidate.before.tokens, after: candidate.after.tokens });
+        } });
     },
     prepare: async (payload, force = false, contextWindowLimit = null) => {
+      validatePairs(messages);
       let enabled = true;
       try { enabled = require('../profileSettings').getSessionSettings(null, engine.modelId).effective.compactionEnabled; }
       catch (error) { if (!String(error.message).includes('Call initDatabase()')) throw error; }
@@ -281,9 +273,11 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
         if (force) throw new ContextBudgetError('child compaction is disabled for the selected model');
         return payload;
       }
-      if (contextWindowLimit) limit = Math.min(limit, contextWindowLimit);
+      const capacity = await require('./budgets').resolveEngineContextLength(engine);
+      if (contextWindowLimit) overflowCeiling = Math.min(overflowCeiling, contextWindowLimit);
+      refreshCapacity(capacity.contextLength); state.contextSource = capacity.source;
       let result;
-      try { result = await require('../compressionEngine').checkAndCompressContext({ transcriptAdapter: adapter, payload, force, signal }); }
+      try { result = await adapter.compact(payload, force); }
       catch (error) {
         signal?.throwIfAborted();
         if (error instanceof TypeError) throw compactionError('invalid-summary-or-transcript');
@@ -291,18 +285,7 @@ function createChildContextAdapter({ session, messages, engine, state, fetchImpl
       }
       adapter.lastMeasurement = result.after ?? result.before;
       if (result.compressed) return result.payload;
-      if (result.reason?.startsWith('checkpoint-')) throw compactionError(result.reason);
-      // Forced (overflow recovery) and genuinely-oversized contexts must fail or
-      // surface as an honest context stop.
       if (force || (result.before?.tokens + result.before?.reserve > result.before?.limit)) throw new ContextBudgetError(result.reason);
-      // Opportunistic (pressure-triggered) compaction that cannot help is a
-      // no-op, never a terminal failure: the request still fits. The loop keeps
-      // making progress, and an actual overflow is handled by the single
-      // bounded compact-and-retry. (Phase 1.4: this previously turned
-      // `no-material-reduction` — a still-fitting context — into a permanent
-      // `compaction_failed`, which capped a child's horizon.)
-      if (result.reason !== 'below-threshold' && result.reason !== 'protected-context-too-large'
-        && result.reason !== 'no-material-reduction') throw compactionError(result.reason);
       return payload;
     },
   };

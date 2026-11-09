@@ -42,6 +42,15 @@ function setEngineConfigProvider(provider) {
   engineConfigProvider = typeof provider === 'function' ? provider : () => null;
 }
 
+function currentLocalEngineConfig(engine) {
+  const config = engineConfigProvider(engine?.modelId);
+  if (!config || (config.modelPath && config.modelPath !== engine?.modelId) || (config.port && engine?.port && config.port !== engine.port)) return null;
+  return config;
+}
+function effectiveContextLength(config) {
+  const values = [config.capabilities?.contextLength, config.activeModelConfig?.contextLength].filter(n => Number.isSafeInteger(n) && n > 0);
+  return values.length ? Math.min(...values) : undefined;
+}
 function providerIdOf(engine) {
   if (typeof engine?.provider === 'string' && engine.provider.trim()) return engine.provider.trim();
   return engine?.chatTarget ? 'cloud' : 'local';
@@ -59,7 +68,7 @@ function providerIdOf(engine) {
 function buildChatEngine({ cloud, target, config, modelId }) {
   if (cloud) return { provider: 'cloud', modelId: target?.model ?? null, chatTarget: target ?? null };
   if (!config) return null;
-  return { provider: 'local', port: config.port, modelId, contextLength: config.capabilities?.contextLength ?? config.activeModelConfig?.contextLength,
+  return { provider: 'local', port: config.port, modelId, contextLength: effectiveContextLength(config),
     ...(config.runtimeIdentity ? { runtimeIdentity: config.runtimeIdentity } : {}),
     ...(config.modelMetadata ? { localModel: config.modelMetadata } : {}) };
 }
@@ -146,7 +155,7 @@ function resolveChildEngine(parentEngine = null) {
       provider: 'local',
       port: config.port,
       modelId: config.modelPath,
-      contextLength: config.capabilities?.contextLength ?? config.activeModelConfig?.contextLength,
+      contextLength: effectiveContextLength(config),
     ...(config.runtimeIdentity ? { runtimeIdentity: config.runtimeIdentity } : {}),
       ...(config.modelMetadata ? { localModel: config.modelMetadata } : {}),
     };
@@ -156,4 +165,4 @@ function resolveChildEngine(parentEngine = null) {
 }
 
 module.exports = { getSubagentModel, saveSubagentModel, normalizeSubagentModel,
-  resolveChildEngine, setEngineConfigProvider, providerIdOf, buildChatEngine };
+  resolveChildEngine, setEngineConfigProvider, providerIdOf, buildChatEngine, currentLocalEngineConfig, effectiveContextLength };

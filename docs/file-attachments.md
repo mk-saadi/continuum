@@ -22,7 +22,7 @@ The database separates:
 
 - `attachment_assets`: stable logical attachment identity, independent of storage.
 - `attachment_versions`: source version, storage kind, path, fingerprint/identity metadata, extracted text and optional durable-copy location.
-- `attachment_drafts`: opaque conversation-scoped selection grants, before message persistence.
+- `attachment_drafts`: opaque conversation-scoped selection grants, before message persistence. Starting a project chat reassigns its composer's drafts to the new conversation rather than leaving them bound to the previous one.
 - `message_attachments`: existing conversation ownership rows, with additive `asset_id`, `version_id` and `omitted` fields. Existing numeric IDs and opaque `attachment_read_refs` remain valid.
 
 Tool reads still resolve an opaque attachment reference through the owning user message and conversation. Delegated reads still require the trusted parent/child execution context and recheck authorization after asynchronous work. A supplied path or asset/version ID alone is never a tool read grant. Recovery does not alter another conversation's grant; forks share the original asset/version until explicitly changed.

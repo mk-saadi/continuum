@@ -74,7 +74,7 @@ test.after(() => {
 test('C9.3 IPC persists incomplete status and emits interrupted outcome, while valid finals complete', async () => {
  const mcp = require('../src/main/mcpManager');
  mcp.init = mcp.reload = mcp.load = async () => {}; mcp.getTools = () => [];
- const compaction = require('../src/main/workspaceCompaction');
+ const compaction = require('../src/main/mainChatCompaction');
  const original = compaction.compactAtBoundary; compaction.compactAtBoundary = async () => ({compressed:false});
  dispose = require('../src/main/ipcHandlers').registerIpcHandlers({isTrustedSender:()=>true,
  getEngineConfig:()=>({port:12345,modelPath:'model',activeModelConfig:{contextLength:65536}}),beginEngineRequest:()=>()=>{}});

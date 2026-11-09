@@ -300,7 +300,7 @@ test('10. cancellation is honored during compaction and no further request is is
   const adapter = createChildContextAdapter({ session, messages: [{ role: 'user', content: 'seed' }], engine, state,
     fetchImpl: async () => reply('x'), signal: controller.signal, commit: () => {} });
   controller.abort(Object.assign(new Error('cancelled during compaction'), { name: 'AbortError' }));
-  await assert.rejects(adapter.commit({}, {}), { name: 'AbortError' });
+  await assert.rejects(adapter.prepare({ messages: [], model: engine.modelId }, true), { name: 'AbortError' });
 
   // Even without the adapter check, the scheduler refuses to start a request on
   // an aborted signal, so a compaction that "returns later" cannot continue.

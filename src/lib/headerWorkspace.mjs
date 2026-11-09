@@ -10,7 +10,7 @@
 export const workspaceHeaderFor = (tab, projects = [], update) => {
   if (!tab.projectId) return null;
   return {
-    name: tab.view === 'projects'
+    name: ['projects', 'project'].includes(tab.view)
       ? null
       : projects.find(project => project.id === tab.projectId)?.name || 'Workspace',
     onOpenHome: () => update({ view: 'projects' }),

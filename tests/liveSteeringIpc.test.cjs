@@ -91,7 +91,8 @@ test('steering IPC is scoped to the owning sender and delivers at the final-answ
   let markFirstRequestStarted;
   const firstRequestStarted = new Promise((resolve) => { markFirstRequestStarted = resolve; });
   let requests = 0;
-  fetchMock = async () => {
+  fetchMock = async url => {
+    if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
     requests++;
     if (requests === 1) {
       markFirstRequestStarted();

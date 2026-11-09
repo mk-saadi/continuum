@@ -37,7 +37,9 @@ function workspace(id) {
 }
 
 function userTurn(id, text) {
-  return sessions.saveMessage(id, 'user', text);
+  const message = sessions.saveMessage(id, 'user', text);
+  briefs.captureBriefForUserMessage(id, message.id, text, []); // explicit legacy fixture
+  return message;
 }
 
 function assistantTurn(id, text, steps) {
@@ -99,6 +101,8 @@ test('revisions keep each digest under its own brief row', () => {
   ]);
   workLog.recordTurnDigest({ sessionId: id, assistantMessageId: first.id, partial: false });
   sessions.editMessage(user.id, 'Corrected wording.');
+  const revision = sessions.getActiveMessages(id).find(message => message.role === 'user');
+  briefs.captureRevisionBrief(id, revision.id, 'Corrected wording.', user.id); // historical record fixture
   const second = assistantTurn(id, 'Done twice.', [
     toolStep({ toolName: 'read_project_file', args: { relative_path: 'a.txt' }, result: { content: 'a\n' } }),
   ]);
@@ -245,13 +249,13 @@ test('context usage carries the approximate work-log contribution', () => {
   ]);
   workLog.recordTurnDigest({ sessionId: id, assistantMessageId: assistant.id, partial: false });
   const usage = require('../src/main/sessionManager').getContextUsage(id, MODEL);
-  assert.ok(usage.workLogTokens > 0, 'expected a work-log contribution');
+  assert.equal(usage.workLogTokens, 0, 'legacy work logs do not contribute to model context');
   assert.ok(usage.totalTokens >= usage.workLogTokens);
   // Same inclusion and budgeting semantics as the prompt builder: the figure
   // equals the estimate of the exact section text that would be injected.
   const section = workLog.buildWorkLogSection(id, {});
   assert.ok(section);
-  assert.equal(usage.workLogTokens, Math.ceil(section.content.length / 4));
+  assert.equal(usage.workLogTokens, 0);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

@@ -197,6 +197,7 @@ contextBridge.exposeInMainWorld('api', {
   runAttachmentCleanup: () => ipcRenderer.invoke('attachment:cleanup'),
   getAttachmentPolicy: target => ipcRenderer.invoke('file:attachment-policy', target),
   stageAttachments,
+  retargetAttachments: input => ipcRenderer.invoke('attachment:retarget', input),
   openAttachment: input => ipcRenderer.invoke('attachment:open', input),
   inspectAttachment: input => ipcRenderer.invoke('attachment:inspect', input),
   previewAttachment: input => ipcRenderer.invoke('attachment:preview', input),
@@ -412,4 +413,32 @@ contextBridge.exposeInMainWorld("modelsAPI", {
 
 contextBridge.exposeInMainWorld("engineAPI", {
 	getConfig: () => ipcRenderer.invoke("terminal:getConfig"),
+});
+
+// Main-renderer half of the desktop companion bridge. Companion content gets
+// only mascotPreload.js and cannot invoke the ordinary chat/filesystem APIs.
+contextBridge.exposeInMainWorld('desktopMascotMain', {
+  publish: value => ipcRenderer.invoke('mascot:main-publish', value),
+  target: value => ipcRenderer.invoke('mascot:main-target', value),
+  acknowledge: value => ipcRenderer.invoke('mascot:main-ack', value),
+  onPrompt: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('mascot:prompt', listener);
+    return () => ipcRenderer.removeListener('mascot:prompt', listener);
+  },
+  onCancel: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('mascot:cancel-request', listener);
+    return () => ipcRenderer.removeListener('mascot:cancel-request', listener);
+  },
+  onSettings: callback => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('mascot:settings', listener);
+    return () => ipcRenderer.removeListener('mascot:settings', listener);
+  },
+  onOpenSettings: callback => {
+    const listener = () => callback();
+    ipcRenderer.on('mascot:open-settings', listener);
+    return () => ipcRenderer.removeListener('mascot:open-settings', listener);
+  },
 });

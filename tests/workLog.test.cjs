@@ -41,7 +41,9 @@ function casualSession(id) {
 }
 
 function userTurn(id, text) {
-  return sessions.saveMessage(id, 'user', text);
+  const message = sessions.saveMessage(id, 'user', text);
+  briefs.captureBriefForUserMessage(id, message.id, text, []); // explicit legacy fixture
+  return message;
 }
 
 function assistantTurn(id, text, steps) {
@@ -372,100 +374,14 @@ test('aggregate cap holds under adversarial volume with accounting', () => {
   assert.ok(section.digestIds.length <= 4);
 });
 
-test('prompt injection appears once on later workspace turns without checkpoints', () => {
-  const id = workspaceSession(crypto.randomUUID());
-  userTurn(id, 'Wire the widget.');
-  const assistant = assistantTurn(id, 'Wired.', [
-    toolStep({ toolName: 'str_replace_editor', args: { relative_path: 'w.js', old_str: 'a', new_str: 'b' }, result: { success: true } }),
-  ]);
+test('legacy work logs remain stored but are not injected into model requests', () => {
+  const id = workspaceSession(crypto.randomUUID()); userTurn(id, 'Continue the task');
+  const assistant = assistantTurn(id, 'Completed an inspection', [toolStep({toolName:'read_project_file',args:{relative_path:'a.txt'},result:{content:'a'}})]);
   workLog.recordTurnDigest({ sessionId: id, assistantMessageId: assistant.id, partial: false });
-  userTurn(id, 'Now polish it.');
   const prompt = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  const blocks = prompt.filter((message) => message.workLog === true);
-  assert.equal(blocks.length, 1);
-  assert.match(blocks[0].content, /edited w\.js/);
-  // Resume stability: rebuilding the same state yields the identical block.
-  const again = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  assert.equal(
-    again.filter((message) => message.workLog === true).map((message) => message.content).join('\n'),
-    blocks[0].content,
-  );
-});
-
-test('work-log placement: end-of-prompt preserves more reusable prefix', () => {
-  const id = workspaceSession(crypto.randomUUID());
-  const serializePrompt = (prompt) =>
-    prompt
-      .map((message) => `${message.role}:${typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}`)
-      .join('\n');
-  const commonPrefix = (a, b) => {
-    let i = 0;
-    while (i < a.length && i < b.length && a[i] === b[i]) i++;
-    return i;
-  };
-  const stripWorkLog = (prompt) => prompt.filter((message) => message.workLog !== true);
-  const insertAfterBriefs = (prompt, block) => {
-    const stripped = stripWorkLog(prompt);
-    const at = stripped.findIndex((message) => message.taskBrief === true);
-    stripped.splice(at < 0 ? 1 : at + 1, 0, block);
-    return stripped;
-  };
-  const appendEnd = (prompt, block) => [...stripWorkLog(prompt), block];
-
-  userTurn(id, 'Alpha requirement.');
-  const assistant1 = assistantTurn(id, 'Alpha done.', [
-    toolStep({ toolName: 'read_project_file', args: { relative_path: 'a.txt' }, result: { content: 'a' } }),
-  ]);
-  workLog.recordTurnDigest({ sessionId: id, assistantMessageId: assistant1.id, partial: false });
-  userTurn(id, 'Beta requirement.');
-  const assistant2 = assistantTurn(id, 'Beta done.', [
-    toolStep({ toolName: 'read_project_file', args: { relative_path: 'b.txt' }, result: { content: 'b' } }),
-  ]);
-  workLog.recordTurnDigest({ sessionId: id, assistantMessageId: assistant2.id, partial: false });
-
-  // Case A: a new turn adds a user message (and therefore a brief). Both
-  // placements diverge where the brief section grows, so the digest position
-  // cannot matter; assert the tie explicitly rather than assuming it.
-  const before = serializePrompt(rebuildChatMessages({ sessionId: id, modelId: MODEL }));
-  userTurn(id, 'Gamma requirement.');
-  const afterTurn = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  const reuseBriefs = commonPrefix(before, serializePrompt(insertAfterBriefs(afterTurn, workLog.buildWorkLogSection(id))));
-  const reuseEnd = commonPrefix(before, serializePrompt(appendEnd(afterTurn, workLog.buildWorkLogSection(id))));
-  assert.equal(reuseBriefs, reuseEnd);
-  assert.ok(reuseBriefs > 0, 'some stable prefix (base system) must survive a new turn');
-
-  // Case B: only digest content is new (record, then rebuild with no new
-  // messages — the resume/regenerate-prep shape). End placement keeps the
-  // entire previous prompt reusable; brief-section insertion does not.
-  const id2 = workspaceSession(crypto.randomUUID());
-  userTurn(id2, 'Solo requirement.');
-  const solo = assistantTurn(id2, 'Solo done.', [
-    toolStep({ toolName: 'read_project_file', args: { relative_path: 's.txt' }, result: { content: 's' } }),
-  ]);
-  const baseOnly = serializePrompt(rebuildChatMessages({ sessionId: id2, modelId: MODEL }));
-  workLog.recordTurnDigest({ sessionId: id2, assistantMessageId: solo.id, partial: false });
-  const withDigest = rebuildChatMessages({ sessionId: id2, modelId: MODEL });
-  const digestReuseBriefs = commonPrefix(baseOnly, serializePrompt(insertAfterBriefs(withDigest, workLog.buildWorkLogSection(id2))));
-  const digestReuseEnd = commonPrefix(baseOnly, serializePrompt(appendEnd(withDigest, workLog.buildWorkLogSection(id2))));
-  assert.equal(digestReuseEnd, baseOnly.length);
-  assert.ok(digestReuseEnd > digestReuseBriefs, `end placement must preserve more prefix (${digestReuseEnd} vs ${digestReuseBriefs})`);
-});
-
-test('multiple briefs never duplicate the work log', () => {
-  const id = workspaceSession(crypto.randomUUID());
-  userTurn(id, 'First.');
-  const assistant = assistantTurn(id, 'Done first.', [
-    toolStep({ toolName: 'read_project_file', args: { relative_path: 'a.txt' }, result: { content: 'a' } }),
-  ]);
-  workLog.recordTurnDigest({ sessionId: id, assistantMessageId: assistant.id, partial: false });
-  userTurn(id, 'Second.');
-  userTurn(id, 'Third.');
-  const prompt = rebuildChatMessages({ sessionId: id, modelId: MODEL });
-  assert.equal(prompt.filter((message) => message.workLog === true).length, 1);
-  const occurrences = prompt
-    .filter((message) => message.workLog === true)
-    .map((message) => message.content.match(/\[Turn 1[ ·\]]/g) || []).flat().length;
-  assert.equal(occurrences, 1);
+  assert.equal(prompt.filter(message => message.workLog).length, 0);
+  assert.equal(prompt.filter(message => message.taskBrief).length, 0);
+  assert.ok(digestRows(id).length > 0);
 });
 
 test('corrupt digest rows fail open for prompts, never break them', () => {

@@ -64,6 +64,7 @@ test('web tools survive the activation lifecycle and real compaction', async () 
   for (const name of WEB) assert.ok(names(f).includes(name), `after begin ${name}`);
   builder.prepareChatMessages({ sessionId: f.id, modelId: 'fixture', userText: 'Inspect and report.' });
   sessions.saveMessage(f.id, 'assistant', 'Evidence. '.repeat(3000));
+  for (let i = 0; i < 6; i++) sessions.saveMessage(f.id, i % 2 ? 'assistant' : 'user', 'Recent observation ' + i);
   const result = await require('./fixtures/w3Compaction.cjs').compact({ sessionId: f.id, modelId: 'fixture' });
   assert.equal(result.compressed, true, JSON.stringify(result));
   builder.rebuildChatMessages({ sessionId: f.id, modelId: 'fixture' });

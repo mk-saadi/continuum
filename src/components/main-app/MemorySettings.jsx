@@ -1,3 +1,4 @@
+import MascotSettings from '../mascot/MascotSettings';
 import { nextRadioChoice } from "../../lib/radioChoices.mjs";
 import { themes, themeGroups } from "../../lib/themes.mjs";
 import CloudProviderSettings from "../CloudProviderSettings";
@@ -51,6 +52,13 @@ import {
 } from "../../lib/settingsPanels.mjs";
 
 const tabs = [
+	{
+		id: "mascot",
+		group: "Preferences",
+		label: "Mascot",
+		icon: LuBot,
+		description: "Your floating Continuum companion.",
+	},
 	{
 		id: "appearance",
 		group: "Preferences",
@@ -146,6 +154,7 @@ function LazyPanel({ id, visited, children, ...rest }) {
 			<SettingsMaterialContext.Provider
 				value={[
 					"appearance",
+					"mascot",
 					"branding",
 					"notifications",
 					"integrations",
@@ -164,6 +173,7 @@ function LazyPanel({ id, visited, children, ...rest }) {
 }
 
 function MemorySettings({
+	initialTab = DEFAULT_SETTINGS_TAB,
 	palace,
 	onClose,
 	avatars,
@@ -180,11 +190,11 @@ function MemorySettings({
 	const themeChoiceRefs = useRef(new Map());
 	const changing = useRef(false);
 	const version = useRef(0);
-	const [tab, setTab] = useState(DEFAULT_SETTINGS_TAB);
+	const [tab, setTab] = useState(() => tabs.some(item => item.id === initialTab) ? initialTab : DEFAULT_SETTINGS_TAB);
 	// Tabs mount on first visit and stay mounted afterwards, so their local
 	// form state survives a switch. Opening the modal therefore only pays for
 	// the tab that is actually shown.
-	const [visited, setVisited] = useState(() => new Set(DEFAULT_VISITED));
+	const [visited, setVisited] = useState(() => new Set([...DEFAULT_VISITED, tab]));
 	const [config, setConfig] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [busy, setBusy] = useState(false);
@@ -359,6 +369,7 @@ function MemorySettings({
 							</p>
 						</div>
 
+						<LazyPanel id="mascot" visited={visited} hidden={tab !== "mascot"}><MascotSettings active={tab === "mascot"}/></LazyPanel>
 						<LazyPanel
 							id="appearance"
 							visited={visited}

@@ -13,8 +13,8 @@ Module._load = function(name, ...args) {
 const storage = require('../src/main/db'); storage.initDatabase(directory);
 const sessions = require('../src/main/sessionManager'), engine = require('../src/main/engineManager');
 const builder = require('../src/main/promptBuilder'), budget = require('../src/main/contextBudget');
-const service = require('../src/main/workspaceCompaction'), checkpoints = require('../src/main/taskCheckpoints');
-const candidate = require('../src/main/workspaceCompactCandidate'), evidence = require('../src/main/workspaceEvidence');
+const service = require('../src/main/mainChatCompaction'), core = require('../src/main/conversationCompaction');
+const evidence = require('../src/main/workspaceEvidence');
 const { executeAgentTool } = require('../src/main/tools/agentTools');
 const root = path.join(directory, 'taskflow'); fs.mkdirSync(root);
 const project = require('../src/main/projectManager').createProject({ name: 'C6-C disposable TaskFlow', root_path: root });
@@ -32,10 +32,10 @@ test('C6-C real coding operations preserve failing and passing evidence across t
   const owner = new AbortController(); owner.runId = 'c6c-same-run'; engine.activeStreams.set(id, owner);
   const persistence = engine.createMessagePersistence({ sessionId: id, modelId: 'fixture-model', runId: owner.runId });
   const prefix = projection => builder.rebuildChatMessages({ sessionId: id, modelId: 'fixture-model', excludeMessageIds: [persistence.messageId], compactionProjection: projection });
-  const measure = require('./fixtures/c9SummaryTokenizer.cjs').withSummaryTokenizer(async payload => {
+  const measure = async payload => {
     const tokens = budget.approximateTokens(payload), contract = budget.createRuntimeBudget({ runtimeContextTokens: 65536, payload, currentInputTokens: tokens });
     return { tokens, method: 'approximate-full-request', budgetContract: contract, limit: 65536, budget: contract.usableInputTokens };
-  });
+  };
   const calls = [
     ['read_project_file', { relative_path: 'queue.cjs' }],
     ['run_tests', { command: 'node --test queue.test.cjs' }],
@@ -52,21 +52,18 @@ test('C6-C real coding operations preserve failing and passing evidence across t
   try {
     const answer = await runMemoryChat({ modelId: 'fixture-model', baseUrl: 'http://fixture.invalid', projectId: project.id,
       signal: owner.signal, messages: prefix(), chatTools: tools, samplingParams: { max_tokens: 1024 },
-      onExecutionSteps: steps => persistence.update({ content: 'Working on monotonic IDs', executionSteps: steps }), rebuildWorkspacePrefix: prefix,
-      workspaceCompaction: async boundary => {
+      onExecutionSteps: steps => persistence.update({ content: 'Working on monotonic IDs', executionSteps: steps }),
+      compactContext: async boundary => {
         const force = [4, 6, 8].includes(report.toolExecutions.length) && report.compactions.length < 3;
         const boundaryStart = performance.now();
         const result = await service.compactAtBoundary({ ...boundary, sessionId: id, modelId: 'fixture-model', owner,
           messageId: persistence.messageId, isCurrent: () => true, force, measure,
           generate: async request => {
             const start = performance.now(), input = JSON.parse(request.messages[1].content);
-            const draft = { objective: 'Fix monotonic TaskFlow IDs without publishing', briefIds: input.briefs.map(b => b.id) };
-            for (const key of candidate.ARRAY_KEYS) draft[key] = [];
-            draft.nextActions = ['Review verification evidence before concluding'];
-            draft.research = input.evidence.filter(e => e.observation?.includes('C6C_CRITICAL')).map(e => ({ text: 'C6C_CRITICAL: queue.cjs requires monotonic IDs after deletion; never use array length.', sources: [{ messageId: e.messageId, stepId: e.stepId }] }));
-            draft.blockers = ['Earlier failing test must remain available alongside later verification'];
-            report.generations.push({ inputEstimate: budget.approximateTokens(request), reservedOutput: request.max_tokens, controlledDraftConstructionMs: performance.now() - start, newSourceIds: input.messages.map(m => m.id) });
-            return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(draft) } }] };
+            const summary = '# Compaction summary\nObjective: fix monotonic TaskFlow IDs without publishing.\nC6C_CRITICAL: queue.cjs requires monotonic IDs after deletion; never use array length.\nEarlier test coding-2 failed; retrieve the stored output before reconstructing details. The narrow fix uses nextId++. Later verification coding-5 is stored separately. Never replay completed edits or tests.\nNext: review verification evidence before concluding.';
+            report.generations.push({ inputEstimate: budget.approximateTokens(request), reservedOutput: request.max_tokens,
+              controlledDraftConstructionMs: performance.now() - start, sourceUnits: input.conversation.length });
+            return { choices: [{ finish_reason: 'stop', message: { content: summary } }] };
           } });
         if (result.compressed) report.compactions.push({ ...result.diagnostics, acceptanceWallMilliseconds: performance.now() - boundaryStart });
         return result;
@@ -87,7 +84,7 @@ test('C6-C real coding operations preserve failing and passing evidence across t
         assert.notEqual(result.success, false, JSON.stringify(result)); return result;
       },
       fetchImpl: async (_url, options) => {
-        const request = JSON.parse(options.body); assert.ok(service.paired(request.messages));
+        const request = JSON.parse(options.body); assert.doesNotThrow(() => core.units(request.messages.filter(m => m.role !== 'system')));
         // Only synthetic fixture prompts, opt-in capture for C6-D composition QA.
         if (process.env.C6D_REQUEST_CAPTURE) require('node:fs').appendFileSync(process.env.C6D_REQUEST_CAPTURE, JSON.stringify({ afterTools: report.toolExecutions.length, request }) + '\n');
         report.requests.push({ afterTools: report.toolExecutions.length, serializedBytes: Buffer.byteLength(JSON.stringify(request)), inputEstimate: budget.approximateTokens(request), criticalFactVisible: JSON.stringify(request).includes('C6C_CRITICAL') });
@@ -103,9 +100,9 @@ test('C6-C real coding operations preserve failing and passing evidence across t
     assert.deepEqual(report.testRuns.map(r => r.exitCode), [1, 0]);
     assert.match(answer, /Verified/); assert.equal(report.compactions.length, 3);
     assert.equal(report.toolExecutions.length, 8); assert.equal(new Set(report.toolExecutions.map(c => c.id)).size, 8);
-    const checkpoint = checkpoints.getLatestCheckpoint(id).checkpoint;
-    assert.equal(checkpoint.projection.runId, owner.runId);
-    assert.match(JSON.stringify(checkpoint.evidence), /C6C_CRITICAL/);
+    const state = service.read(id);
+    assert.equal(state.version, 3); assert.equal(state.openId, persistence.messageId);
+    assert.match(state.summary, /C6C_CRITICAL/);
     assert.match(evidence.retrieve(id, { source_step_id: 'coding-2' }).text, /not ok/);
     assert.match(evidence.retrieve(id, { source_step_id: 'coding-5' }).text, /# pass 1/);
     assert.match(evidence.retrieve(id, { source_step_id: 'coding-3' }).text, /nextId/);

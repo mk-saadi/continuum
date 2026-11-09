@@ -25,7 +25,7 @@ app.whenReady().then(async () => {
       const button = (root, text) => [...root.querySelectorAll('button')].find(b => b.textContent === text);
       for (let i = 0; i < 100 && !document.querySelector('dialog[open]'); i++) await tick();
       await tick();
-      check(document.querySelectorAll('nav [role=tab]').length === 10, 'Expected ten tabs after consolidating usage');
+      check(document.querySelectorAll('nav[aria-label="Settings sections"] [role=tab]').length === 11, 'Expected eleven tabs including Mascot');
       const settingsDialog = document.querySelector('dialog[open]');
       check(settingsDialog.classList.contains('aero-dialog'), 'Settings frame uses Aero dialog material');
       check(settingsDialog.querySelector('header').classList.contains('aero-header'), 'Settings top header uses Aero chrome');
@@ -33,6 +33,10 @@ app.whenReady().then(async () => {
       check([...settingsDialog.querySelectorAll('[class*="aero-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'Settings dialog supplies the only backdrop blur');
       check(!panel('appearance').hidden && panel('integrations').hidden, 'Appearance initially visible');
       check(!panel('appearance').querySelector('#global-llm-name'), 'Appearance has no branding model list');
+      check(!panel('mascot').querySelector('input'), 'Mascot panel mounts lazily');
+      tab('mascot').click(); await tick();
+      check(panel('mascot').querySelector('[aria-label="Preview expression"]'), 'Dedicated Mascot settings panel');
+      tab('appearance').click(); await tick();
       tab('branding').click(); await tick();
       const nameInput = panel('branding').querySelector('#global-llm-name');
       const nameStyle = getComputedStyle(nameInput);
@@ -57,7 +61,7 @@ app.whenReady().then(async () => {
       check(panel('memory').querySelectorAll('details').length === 1, 'Memory only retains global profile');
       tab('memory').click(); await tick();
       tab('memory').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await tick();
-      check(document.activeElement === tab('engine'), 'Keyboard tab focus');
+      check(document.activeElement === tab('engine'), 'Keyboard tab focus: ' + document.activeElement?.outerHTML?.slice(0,200));
       tab('integrations').click(); await tick();
       check(!panel('integrations').hidden && panel('memory').hidden, 'Integration visibility');
       check(panel('integrations').textContent.includes('ENOENT'), 'Show connection error reason');
@@ -112,13 +116,13 @@ app.whenReady().then(async () => {
       check(tokenPanel.textContent.includes('Local and cloud model token usage'), 'Local usage explicitly retained');
       check(tokenPanel.textContent.includes('150'), 'All-model token totals rendered');
       check(window.tokenHistoryQuery.modelId === null && window.tokenHistoryQuery.projectId === null, 'Token overview starts with all models and projects');
-      check([...tokenPanel.querySelectorAll('[role=option], option')].some(option => option.textContent.includes('local-model')), 'Local models remain selectable');
+      check([...tokenPanel.querySelectorAll('[role=option], option')].some(option => option.value === 'local-model' || option.getAttribute('data-value') === 'local-model'), 'Local models remain selectable');
       check(!tokenPanel.textContent.includes('Estimated cloud cost'), 'No duplicate cost summary');
       check(!tokenPanel.textContent.includes('Save retention'), 'Retention stays in Storage & Data');
       check(!panel('usage-costs').textContent.includes('Clear logs'), 'Logs absent from analytics');
-      for (const item of document.querySelectorAll('nav [role=tab]')) {
+      for (const item of document.querySelectorAll('nav[aria-label="Settings sections"] [role=tab]')) {
         item.click(); await tick();
-        check([...document.querySelectorAll('[role=tabpanel]')].filter(p => !p.hidden && !p.parentElement.closest('[role=tabpanel]')).length === 1, 'One visible panel');
+        check([...document.querySelectorAll('[role=tabpanel]')].filter(p => !p.hidden && !p.parentElement.closest('[role=tabpanel]')).length === 1, 'One visible panel for ' + item.id + ': ' + [...document.querySelectorAll('[role=tabpanel]')].filter(p => !p.hidden && !p.parentElement.closest('[role=tabpanel]')).map(p=>p.id).join(','));
         check(item.querySelector('svg'), 'Tab icon present');
       }
       return true;

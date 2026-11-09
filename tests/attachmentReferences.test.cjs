@@ -51,6 +51,23 @@ test('native provenance is required; references create no managed copy and tools
   assert.throws(()=>require('../src/main/fileUploads').validateAttachments([{...row,id:undefined,message_id:undefined}]),/Use a conversation attachment ID/);
 });
 
+test('staged drafts move to a new project conversation and stay conversation-scoped',async()=>{
+  const source=write('retarget.txt','retargeted bytes');
+  const files=await stage(source,'retarget-old');
+  await assert.rejects(store.withSnapshots('retarget-new',files,()=>null),/Invalid attachment draft grant/);
+  await assert.rejects(ipc('attachment:retarget',{fromSessionId:'retarget-other',toSessionId:'retarget-new',attachments:files}),/Invalid attachment draft grant/);
+  const moved=await ipc('attachment:retarget',{fromSessionId:'retarget-old',toSessionId:'retarget-new',attachments:files});
+  assert.equal(moved.length,1);
+  assert.equal(moved[0].draft_token,files[0].draft_token);
+  assert.equal(moved[0].session_id,'retarget-new');
+  assert.equal(moved[0].version_id,files[0].version_id);
+  assert.equal((await store.inspect(moved[0],'retarget-new')).status,'ready');
+  await assert.rejects(store.withSnapshots('retarget-old',files,()=>null),/Invalid attachment draft grant/);
+  const message=await persist('retarget-new',moved);
+  assert.equal(message.attachments[0].version_id,files[0].version_id);
+  assert.equal((await store.inspect(message.attachments[0],'retarget-new')).status,'ready');
+});
+
 test('changed, replaced, missing and relinked files require explicit recovery; IDs survive',async()=>{
   const file=write('changes.txt','version one');const message=await persist('changes',await stage(file,'changes'));
   let row=message.attachments[0];const ref=reader.reference(row), asset=row.asset_id;
@@ -155,6 +172,7 @@ test('legacy migration preserves row IDs, opaque references, brief snapshots and
   const workspace=path.join(root,'legacy-workspace');fs.mkdirSync(workspace);
   const project=require('../src/main/projectManager').createProject({name:'Legacy attachment brief',root_path:workspace});
   sessions.getOrCreateSession('legacy','fixture',project.id);const message=sessions.saveMessage('legacy','user','Legacy',[legacy]);
+  require('../src/main/taskBriefs').captureBriefForUserMessage('legacy', message.id, 'Legacy', message.attachments);
   const id=message.attachments[0].id, ref=reader.reference(message.attachments[0]);
   database.closeDatabase();database.initDatabase();
   const row=sessions.loadSession('legacy').messages[0].attachments[0];
@@ -187,7 +205,7 @@ test('referenced attachments preserve delegated restrictions and fork brief iden
   assert.equal((await dispatch(delegated)).code,'ATTACHMENT_UNAUTHORIZED');
   const copied=sessions.branchChat('delegation',message.id);
   const branch=sessions.loadSession(copied.sessionId).messages[0].attachments[0];
-  const brief=require('../src/main/taskBriefs').buildTaskBriefSection(copied.sessionId);
+  const brief=rebuildChatMessages({sessionId:copied.sessionId,modelId:'fixture'});
   assert.match(JSON.stringify(brief),/delegated reference/);
   const moved=path.join(root,'delegated-moved.txt');fs.renameSync(row.file_path,moved);
   await store.recover(branch,copied.sessionId,'locate',moved);

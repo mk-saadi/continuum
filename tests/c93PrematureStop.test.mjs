@@ -16,11 +16,10 @@ async function run(options={}) {
  return {text,requests,incomplete,executed,stats};
 }
 test('rejected compaction safely rebuilds original requirements and plan; narration receives bounded continuation',async()=>{
- let attempts=0, validations=0;
- const r=await run({rebuildWorkspacePrefix:async()=>messages,
- workspaceCompaction:async({payload,tail,buildRequest})=>{attempts++;return {optionalContinued:true,tail,payload:await buildRequest(null,tail),validateDispatch:async()=>{validations++;}};},
+ let attempts=0;
+ const r=await run({compactContext:async()=>{attempts++;return {compressed:false,reason:'deferred'};},
  responses:[response('Let me implement the remaining fixes.'),response('Implemented and verified the requested changes.')]});
- assert.equal(r.requests.length,2);assert.equal(attempts,2);assert.equal(validations,2);
+ assert.equal(r.requests.length,2);assert.equal(attempts,2);
  for(const req of r.requests){assert.match(req.messages[0].content,/Original eight-phase/);assert.match(req.messages[0].content,/0\/8/);assert.ok(req.messages.some(m=>m.content?.includes('Complete all eight phases.')));}
  assert.equal(r.incomplete.length,0);assert.match(r.requests[1].messages.at(-1).content,/Do not replay/);
 });
@@ -36,5 +35,5 @@ test('cancelled run does not recover',async()=>{const c=new AbortController();aw
 test('deleted session fails closed',async()=>{await assert.rejects(run({getTaskState:async()=>{throw Error('Task session deleted.');}}),/deleted/);});
 test('completed tool operations are paired and never replayed',async()=>{const r=await run({responses:[response('', 'tool_calls',[{id:'one',type:'function',function:{name:'inspect',arguments:'{}'}}]),response('Let me implement the fixes.'),response('Verified and finished.')]});assert.equal(r.executed.length,1);assert.equal(r.requests.length,3);assert.equal(r.requests[2].messages.filter(m=>m.role==='tool').length,1);});
 test('steering changes task scope and disables stale-plan recovery',async()=>{let reads=0;const r=await run({takeSteeringInstructions:async()=>++reads===1?[{id:'stop',content:'Stop engineering work. Just summarize.'}]:[]});assert.equal(r.requests.length,1);});
-test('actual overflow propagates without premature-stop retry',async()=>{let n=0;await assert.rejects(run({workspaceCompaction:async()=>{n++;throw Error('prospective-context-overflow');}}),/overflow/);assert.equal(n,1);});
+test('actual overflow propagates without premature-stop retry',async()=>{let n=0;await assert.rejects(run({compactContext:async()=>{n++;throw Error('prospective-context-overflow');}}),/overflow/);assert.equal(n,1);});
 test('acknowledgments after recovery are non-progress, not successful completion',async()=>{const r=await run({responses:[response('Let me implement the fixes.'),response('Okay.'),response('Okay.')]});assert.equal(r.requests.length,3);assert.equal(r.incomplete[0].reason,'non-progress-response');});

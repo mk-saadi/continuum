@@ -20,7 +20,7 @@ function runtime() {
   return state;
 }
 const incident = currentInputTokens => createRuntimeBudget({ configuredContextTokens: 70000,
-  runtimeContextTokens: 35072, payload, currentInputTokens });
+  runtimeContextTokens: 35072, payload, currentInputTokens, measurementMethod: 'server-template-tokenizer' });
 
 test('exact incident: one contract drives header denominator, panel and 90% pressure', async () => {
   const b = incident(30528);
@@ -34,10 +34,10 @@ test('exact incident: one contract drives header denominator, panel and 90% pres
   assert.match(buildContextTooltip({ total: 29100, limit: b.usableInputTokens, budgetContract: b }), /30,528/);
 });
 for (const [slots, capacity] of [[1, 70144], [2, 35072], [3, 23424], [4, 17600]]) {
-  test(`${slots} slots: reported rounded capacity wins over total and arithmetic division`, () => {
+  test(`${slots} slots: effective capacity honors the user ceiling and reported runtime window`, () => {
     const b = createRuntimeBudget({ configuredContextTokens: 70000, runtimeContextTokens: capacity, payload });
-    assert.equal(b.capacityTokens, capacity);
-    assert.equal(b.usableInputTokens, capacity - 1152);
+    assert.equal(b.capacityTokens, Math.min(capacity, 70000));
+    assert.equal(b.usableInputTokens, Math.min(capacity, 70000) - 1152);
   });
 }
 for (const [tokens, pressure] of [[30527, false], [30528, true], [30529, true], [34000, true]]) {

@@ -38,6 +38,7 @@ export function UIStateProvider({ children }) {
 	const [rightOpen, setRightOpen] = useState(() => readBool("rightSidebarOpen"));
 	const [theme, setTheme] = useState(readTheme);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [settingsTab, setSettingsTab] = useState("appearance");
 	const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 	const [projectModalOpen, setProjectModalOpen] = useState(false);
 
@@ -85,7 +86,10 @@ export function UIStateProvider({ children }) {
 	// built once and never changes identity.
 	const modalActions = useMemo(
 		() => ({
-			openSettings: () => setSettingsOpen(true),
+			openSettings: (tab) => {
+				setSettingsTab(typeof tab === "string" ? tab : "appearance");
+				setSettingsOpen(true);
+			},
 			closeSettings: () => setSettingsOpen(false),
 			openModelSelector: () => setModelSelectorOpen(true),
 			closeModelSelector: () => setModelSelectorOpen(false),
@@ -95,8 +99,8 @@ export function UIStateProvider({ children }) {
 		[],
 	);
 	const modalState = useMemo(
-		() => ({ settingsOpen, modelSelectorOpen, projectModalOpen }),
-		[settingsOpen, modelSelectorOpen, projectModalOpen],
+		() => ({ settingsOpen, settingsTab, modelSelectorOpen, projectModalOpen }),
+		[settingsOpen, settingsTab, modelSelectorOpen, projectModalOpen],
 	);
 
 	return (

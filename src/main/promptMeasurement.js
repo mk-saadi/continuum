@@ -260,7 +260,8 @@ function preparedConfigurationIdentity(sessionId, modelId) {
     nativeActivation: require('./nativeToolActivation').snapshot(sessionId), tools: require('./mcpManager').getTools(sessionId),
     mcpPolicy: { mode: require('./mcpManager').getMcpMode?.(),
       servers: [...(require('./mcpManager').servers ?? [])].map(([name, server]) => [name, server.definition, server.enabled, [...(server.disabledTools ?? [])]]) },
-    project: require('./promptBuilder').buildProjectContext(sessionId) });
+    project: require('./promptBuilder').buildProjectContext(sessionId),
+    planRevision: require('./workspacePlan').getPlan(sessionId)?.revision ?? null });
 }
 function preparedStateIdentity(sessionId, modelId, toolsOverride = null) {
   return payloadHash({ messages: require('./sessionManager').getActiveMessages(sessionId),
@@ -280,8 +281,7 @@ function createCloudWorkspaceMeasurer(target, { getMetadata, getProvider } = {})
   return async payload => {
     const provider = getProvider(target.provider);
     const metadata = (await getMetadata()).find(row => row.providerId === target.provider && row.modelId === target.model);
-    const capacity = metadata?.contextLength;
-    if (!Number.isSafeInteger(capacity) || capacity < 1024) throw Object.assign(new Error('Unknown cloud model context capacity'), { code: 'unknown-cloud-capacity' });
+    const capacity = Number.isSafeInteger(metadata?.contextLength) && metadata.contextLength > 0 ? metadata.contextLength : null;
     const body = providers.prepareCloudPayload(payload, target, provider, payload.stream !== false);
     const { approximateTokens, createRuntimeBudget } = require('./contextBudget');
     const tokens = approximateTokens(body);
@@ -289,7 +289,11 @@ function createCloudWorkspaceMeasurer(target, { getMetadata, getProvider } = {})
     const budgetContract = createRuntimeBudget({ provider: target.provider, modelId: target.model,
       runtimeIdentity: payloadHash({ target, provider }), runtimeContextTokens: capacity,
       payload: body, currentInputTokens: tokens, measurementMethod: method });
-    return { tokens, method, limit: capacity, budget: budgetContract.usableInputTokens, budgetContract };
+    if (metadata?.contextSource === 'user') {
+      budgetContract.configuredContextTokens = capacity; budgetContract.advertisedContextTokens = null;
+      budgetContract.capacityMethod = 'user-configured';
+    }
+    return { tokens, method, limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens, budgetContract };
   };
 }
 

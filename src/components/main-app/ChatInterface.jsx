@@ -1,3 +1,4 @@
+import { selectMascotSession, mascotAttention, mascotBusy, mascotRequestFailure } from '../../lib/mascotActivity.mjs';
 import { reconcileMessageSnapshot } from "../../lib/messageSnapshot.mjs";
 import { useCompactionActivity } from '../../hooks/useCompactionActivity.js';
 import RightSidebar from "../RightSidebar";
@@ -32,7 +33,6 @@ import AttachmentPreview from "../chat/AttachmentPreview.jsx";
 import { activeStepsOf, getTurnInteractions, pendingSkillProposals } from "../../lib/executionEvents.mjs";
 import { fetchSessionGroups } from "../../lib/sessionGroups.mjs";
 import { useLeftSidebar, useRightSidebar } from "../../context/UIStateContext.jsx";
-import { useCompressionEvents } from "../../context/CompressionEventsContext.jsx";
 import { useStreamBuffer } from "./useStreamBuffer.js";
 import { OLDER_SCROLL_THRESHOLD_PX, useTranscriptWindow } from "./useTranscriptWindow.js";
 import { useTranscriptVirtual } from "./useTranscriptVirtual.js";
@@ -385,6 +385,15 @@ export function ChatInterface({
 			setToolLimit(null);
 		}
 	}, [streaming]);
+	useEffect(() => {
+		if (tabActive) selectMascotSession(view === 'chat' ? palace.sessionId : null);
+	}, [tabActive, palace.sessionId, view]);
+	useEffect(() => {
+		mascotAttention(palace.sessionId, !!(toolApprovals.length || toolLimit || pausedLoop || Object.keys(pendingQuestions).length));
+	}, [palace.sessionId, toolApprovals, toolLimit, pausedLoop, pendingQuestions]);
+	useEffect(() => {
+		mascotBusy(palace.sessionId, streaming || !!indexing);
+	}, [palace.sessionId, streaming, indexing]);
 	// Phase 2.1: the main process mints the run id and announces it on the
 	// generating status event. Everything steering-related targets this id.
 	useEffect(() => {
@@ -642,14 +651,7 @@ export function ChatInterface({
 	useEffect(() => palace.api?.onSessionDeleted?.(({ sessionId }) => {
         setGroups(current => current.map(group => ({ ...group, sessions: group.sessions.filter(session => session.id !== sessionId) })));
     }), [palace.api]);
-	useCompressionEvents(palace.sessionId, (result) => {
-		const ids = new Set(result.summarizedMessageIds || []);
-		setMessages((previous) =>
-			previous.map((message) =>
-				ids.has(message.id) ? { ...message, is_summarized: 1, archived: 1 } : message,
-			),
-		);
-	});
+
 	const newChat = () => {
 		if (busyRef.current) return;
 		onChat();
@@ -778,7 +780,19 @@ export function ChatInterface({
                 await window.memoryPalace?.setPermissionMode?.(id, initialPermissionMode);
                 setPermissionBySession((current) => ({ ...current, [id]: initialPermissionMode }));
             }
-            // Reprocess attachments against the new session before sending.
+            // Attachments are staged against the composer's current session.
+            // Draft grants are conversation-scoped, so move them onto the new
+            // conversation before the session switch or the send is rejected.
+            if (selectedFiles.length) {
+                if (!window.api?.retargetAttachments)
+                    throw new Error('Attachment support requires the updated desktop application.');
+                const moved = await window.api.retargetAttachments({
+                    fromSessionId: palace.sessionId,
+                    toSessionId: id,
+                    attachments: selectedFiles,
+                });
+                setSelectedFiles(moved);
+            }
 			// Persist the submitted prompt as a draft until generation accepts it.
 			try {
 				localStorage.setItem(`chat_draft_${id}`, text);
@@ -1198,11 +1212,7 @@ export function ChatInterface({
 	}, [palace.sessionId]);
 	// The first prompt's pending AI title, requested once the first reply finishes.
 	const pendingTitleGen = useRef(null);
-	useEffect(() => {
-		if (!streaming) return;
-		const timer = setTimeout(palace.schedule, 250);
-		return () => clearTimeout(timer);
-	}, [messages, streaming, palace.schedule]);
+
 	const handleScroll = (event) => {
 		// Ignore scroll events bubbling from code blocks inside a message.
 		if (event.target !== event.currentTarget) return;
@@ -1499,7 +1509,10 @@ export function ChatInterface({
 				}
 			} catch (err) {
 				failed = true;
-				if (err.name !== "AbortError") setHistoryError(err.message);
+				if (err.name !== "AbortError") {
+                    setHistoryError(err.message);
+                    mascotRequestFailure(palace.sessionId, assistantMsg.id, err.message);
+                }
 			} finally {
 				assistantText = streamBuffer.flush();
 				palace.setDraftTokens(Math.ceil(assistantText.length / 4));
@@ -1631,6 +1644,31 @@ export function ChatInterface({
 		pendingSend.current = null;
 		void sendMessage(edit, retry, submittedText, draftSessionId, queued);
 	}, [agentLoading, loading, palace.sessionId, sendMessage]);
+	const desktopTargetId = useRef(crypto.randomUUID());
+    const desktopTargetKey = `${desktopTargetId.current}:${palace.sessionId || 'new'}`;
+    const desktopPromptReady = tabActive && view === 'chat' && chatAvailable && !!selectedModel && !!palace.api && !agentLoading && !selectedFiles.length;
+    useEffect(() => {
+        if (!tabActive) return;
+        window.desktopMascotMain?.target({id:desktopTargetKey,ready:desktopPromptReady,
+            name:activeModelName || selectedModel || 'Selected chat',
+            reason:selectedFiles.length ? 'Finish or clear attachments in Continuum first.' : 'Open a chat and choose a ready model in Continuum.'}).catch(()=>{});
+    },[tabActive,desktopTargetKey,desktopPromptReady,activeModelName,selectedModel,selectedFiles.length]);
+    useEffect(() => {
+        if (!tabActive) return;
+        return window.desktopMascotMain?.onPrompt(event => {
+            if (event.targetId !== desktopTargetKey) return;
+            const error = !desktopPromptReady ? 'This chat is not ready. Choose a model in Continuum.'
+                : busyRef.current || pendingAgent.current || pendingSend.current || loading ? 'This chat is busy. Wait for it to finish.' : '';
+            window.desktopMascotMain.acknowledge({id:event.id,...(error ? {error} : {})}).catch(()=>{});
+            if (!error) void sendMessage(null,false,event.text,palace.sessionId,true);
+        });
+    },[tabActive,desktopTargetKey,desktopPromptReady,loading,sendMessage,palace.sessionId]);
+    useEffect(() => {
+        if (!tabActive) return;
+        return window.desktopMascotMain?.onCancel(event => {
+            if(event.targetId===desktopTargetKey)abortRef.current?.abort();
+        });
+    },[tabActive,desktopTargetKey]);
 	const isGenerating = streaming || loading || agentLoading;
 	useEffect(() => {
 		if (
@@ -1981,7 +2019,7 @@ export function ChatInterface({
                     attachments: <><p role="status" className="text-[11px] text-[var(--error)]">{historyError}</p>{selectedFiles.length > 0 && <div className="flex gap-2 overflow-auto py-2" aria-label="Selected attachments">
                         {selectedFiles.map((file, index) => <SelectedFilePreview key={`${file.name}-${index}`} file={file} onChange={result=>setSelectedFiles(files=>files.map((f,i)=>i===index?result:f))}
                             disabled={streaming || loading} onRemove={(revoke=true) => {
-                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
+                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:file.session_id ?? palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
                                 setSelectedFiles((files) => files.filter((_, i) => i !== index));
                             }} />)}
                     </div>}</>,
@@ -2322,7 +2360,7 @@ export function ChatInterface({
                                 onChange={result=>setSelectedFiles(files=>files.map((f,i)=>i===index?result:f))}
 								disabled={streaming || loading}
 								onRemove={(revoke=true) => {
-                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
+                                if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:file.session_id ?? palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
 									setSelectedFiles((files) => files.filter((_, i) => i !== index));
 								}}
 							/>

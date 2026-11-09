@@ -50,6 +50,7 @@ const CASUAL_SECTIONS = [
 	{ id: "persona", label: "Persona", Icon: LuUsers },
 	{ id: "generation", label: "Generation", Icon: LuSlidersHorizontal },
 	{ id: "memory", label: "Memory", Icon: LuBrain },
+	{ id: "context", label: "Context", Icon: LuHistory },
 ];
 
 const WORKSPACE_SECTIONS = [
@@ -1067,6 +1068,17 @@ export default function RightSidebar({
 						</section>
 						<section
 							role="tabpanel"
+							id="controls-controls"
+							aria-labelledby="controls-tab-controls"
+							hidden={tab !== "controls"}
+							className={panelClass}
+						>
+							{renderWorkspaceControls()}
+						</section>
+					</>
+				)}
+						<section
+							role="tabpanel"
 							id="controls-context"
 							aria-labelledby="controls-tab-context"
 							hidden={tab !== "context"}
@@ -1081,17 +1093,6 @@ export default function RightSidebar({
 								active={tab === "context"}
 							/>
 						</section>
-						<section
-							role="tabpanel"
-							id="controls-controls"
-							aria-labelledby="controls-tab-controls"
-							hidden={tab !== "controls"}
-							className={panelClass}
-						>
-							{renderWorkspaceControls()}
-						</section>
-					</>
-				)}
 			</div>
 		</aside>
 	);

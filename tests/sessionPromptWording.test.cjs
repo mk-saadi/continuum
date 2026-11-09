@@ -85,8 +85,8 @@ async function main() {
     assert.match(prompt, /explicit human confirmation/);
     assert.match(prompt, /find_and_prepare_mcp_tools/);
     assert.match(prompt, /MID-RUN CLARIFICATIONS \(ENABLED\)/);
-    assert.match(prompt, /get the existing plan/);
-    assert.match(prompt, /original user requirements authoritative/);
+    assert.match(prompt, /otherwise get\/update it/);
+    assert.match(prompt, /Follow applicable user requirements and newer corrections/);
   });
 
   console.log('Session prompt wording: protocol, visualization, and rule behavior pinned.');

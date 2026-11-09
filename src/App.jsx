@@ -1,3 +1,4 @@
+import DesktopMascotBridge from './components/mascot/DesktopMascotBridge';
 import CommandSpotlight from "./components/CommandSpotlight.jsx";
 import NotificationSoundLifecycle from './components/NotificationSoundLifecycle.jsx';
 import ProjectsView from "./components/ProjectsView";
@@ -90,6 +91,7 @@ function SettingsModalSlot({ active, palace, avatars, models, engineRunning, ser
 	if (!modals?.settingsOpen || !active) return null;
 	return (
 		<MemorySettings
+			initialTab={modals.settingsTab}
 			palace={palaceView}
 			avatars={avatars}
 			models={models}
@@ -551,6 +553,7 @@ export default function App() {
 			<TabProvider>
 				<UIStateProvider>
 					<AppContent />
+					<DesktopMascotBridge />
 				</UIStateProvider>
 			</TabProvider>
 		</CompressionEventsProvider>

@@ -466,7 +466,7 @@ function reasoningRequestFields(resolution, cloud) {
 }
 
 export async function runMemoryChat({
-  baseUrl, modelId, messages, loadedContextSize, recoverContext, reasoning = null, getReasoning = null,
+  baseUrl, modelId, messages, loadedContextSize, reasoning = null, getReasoning = null,
   reasoningEffort, cloud = false, localModel = null, memoryTools = [], chatTools, getChatTools, executeTool, retrieveDocuments, samplingParams = {}, getSamplingParams,
   onExecutionSteps = () => {}, onToolStream = () => {}, resolveTool = name => ({ toolName: name }), guardToolContent = content => content,
   onText = () => {}, onStats = () => {}, onThinking = () => {}, signal, fetchImpl = fetch, maxAutoTurns = 30, maxToolRounds = maxAutoTurns, onPaused = async () => false,
@@ -482,7 +482,7 @@ export async function runMemoryChat({
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
   onAdvertisedTools = () => {}, refreshMemoryContext = null,
-  workspaceCompaction = null, rebuildWorkspacePrefix = null, getSessionPlanState = null, getExecutionEnvironment = null,
+  compactContext = null, getSessionPlanState = null, getExecutionEnvironment = null,
   getTaskState = null, onTaskIncomplete = () => {}, preflightIndependentRead = null,
 }) {
   if (!Number.isInteger(maxToolRounds) || maxToolRounds < 1 || maxToolRounds > 1000) {
@@ -513,7 +513,6 @@ export async function runMemoryChat({
     }
   };
   await addRetrievedContext(history);
-  let prefixLength = history.length;
   let tools = chatTools ?? toChatTools(memoryTools);
   let allowedNames = new Set(tools.map((tool) => tool.function.name));
   const usedIds = new Set();
@@ -695,7 +694,7 @@ export async function runMemoryChat({
     }
     if (getSessionPlanState) {
       const state = await getSessionPlanState();
-      for (let i = history.length - 1; i >= 0; i--) if (history[i].workspacePlanState || (history[i].workspacePlan && history[i].planRevision !== state?.planRevision)) history.splice(i, 1);
+      for (let i = history.length - 1; i >= 0; i--) if (history[i].workspacePlanState || history[i].workspacePlan) history.splice(i, 1);
       if (state) history.splice(1, 0, state);
     }
     const phaseStart = round === 1 ? startTime : now();
@@ -737,35 +736,51 @@ export async function runMemoryChat({
     const recordAdvertisement = () => {
       advertisedManifest = onAdvertisedTools(JSON.parse(JSON.stringify(requestPayload.tools)));
     };
-    const compactWorkspace = async (force = false, contextWindowLimit = null) => {
-      if (casualMode || !workspaceCompaction) return null;
+    const compactAtBoundary = async (force = false, contextWindowLimit = null) => {
+      if (!compactContext) return null;
       // No executor is running here. All preceding tool batches have finished;
       // persist() in the owning IPC callback flushes their durable evidence.
       publishSteps(true);
-      const retrieval = history.filter(m => m.role === 'system' && typeof m.content === 'string' &&
-        m.content.startsWith('Use the following document excerpts as reference data'));
-      let rebuiltHistory;
-      const result = await workspaceCompaction({ payload: requestPayload, tail: history.slice(prefixLength), force, contextWindowLimit,
-        buildRequest: async (projection, retained) => {
-          const prefix = await rebuildWorkspacePrefix(projection);
-          const target = [...prefix, { role: 'system', content: toolBatchPolicy.TOOL_BATCH_GUIDANCE }, ...retrieval, ...retained];
-          rebuiltHistory = target;
-          return { ...requestPayload, messages: imagesInUserRole
-            ? moveToolImagesToUser(sanitizeChatMessages(target, decodeImage, { workspaceRoot })) : sanitizeChatMessages(target, decodeImage, { workspaceRoot }) };
-        } });
+      const preparePayload = payload => ({ ...payload, messages: imagesInUserRole
+        ? moveToolImagesToUser(sanitizeChatMessages(payload.messages, decodeImage, { workspaceRoot }))
+        : sanitizeChatMessages(payload.messages, decodeImage, { workspaceRoot }) });
+      if (force) {
+        if (getExecutionEnvironment) {
+          const environment = await getExecutionEnvironment();
+          for (let i = history.length - 1; i >= 0; i--) if (history[i].workspaceExecutionEnvironment) history.splice(i, 1);
+          if (environment) history.splice(1, 0, environment);
+        }
+        if (getSessionPlanState) {
+          const plan = await getSessionPlanState();
+          for (let i = history.length - 1; i >= 0; i--) if (history[i].workspacePlan || history[i].workspacePlanState) history.splice(i, 1);
+          if (plan) history.splice(1, 0, plan);
+        }
+        if (refreshMemoryContext) {
+          const index = history.findIndex(message => message.memoryContext);
+          if (index >= 0) history[index] = await refreshMemoryContext(history);
+        }
+        tools = finalResponseOnly ? [] : getChatTools ? await getChatTools() : tools;
+        allowedNames = new Set(tools.map(tool => tool.function.name));
+        const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
+        if (getReasoning) activeReasoning = await getReasoning({ contextSize: contextWindowLimit ?? activeReasoningContext });
+        for (const key of ['reasoning', 'reasoning_effort', 'reasoning_budget_tokens', 'chat_template_kwargs']) delete requestPayload[key];
+        Object.assign(requestPayload, { tools, max_tokens: updated.max_tokens, temperature: updated.temperature, top_p: updated.top_p,
+          top_k: updated.top_k, repeat_penalty: updated.repeat_penalty }, reasoningRequestFields(activeReasoning, cloud));
+        requestPayload.messages = preparePayload({ ...requestPayload, messages: history }).messages;
+        requestSignal.throwIfAborted();
+      }
+      const result = await compactContext({ payload: requestPayload, conversationMessages: history,
+        preparePayload, force, contextWindowLimit });
       signal?.throwIfAborted();
-      if (result?.compressed || result?.optionalContinued) {
-        history.splice(0, history.length, ...rebuiltHistory);
-        prefixLength = history.length - result.tail.length;
+      if (result?.compressed) {
+        history.splice(0, history.length, ...(result.history ?? result.payload.messages));
         Object.assign(requestPayload, result.payload);
       }
       return result;
     };
     const send = async () => {
-      const compacted = !casualMode && workspaceCompaction ? await compactWorkspace() : null;
+      if (compactContext) await compactAtBoundary();
       recordAdvertisement();
-      if (compacted?.validateDispatch) await compacted.validateDispatch();
-      compacted?.markContinued?.();
       return fetchImpl(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload), signal: requestSignal,
@@ -776,48 +791,10 @@ export async function runMemoryChat({
           isEstimate: measurement.method !== 'server-template-tokenizer', dispatched: true });
       },
       contextWindowLimit: loadedContextSize,
-      contextRecovery: workspaceCompaction && !casualMode ? async ({ contextWindowLimit }) => {
-        const result = await compactWorkspace(true, contextWindowLimit);
-        result?.markContinued?.();
-        return result?.compressed ? requestPayload : null;
-      } : recoverContext ? async ({ contextWindowLimit }) => {
-        // Only the historical prefix is rebuilt. This run's fully paired tool
-        // transcript/continuations survive; never replay tool execution.
-        const tail = history.slice(prefixLength);
-        let prepared;
-        // Build the exact request before storage activation, including RAG,
-        // tools, sampling and this run's paired tail. Reuse it after commit.
-        const prepareRecovery = async ({ messages }) => {
-          const prefix = messages.map(message => ({ ...message }));
-          prefix.push({ role: 'system', content: toolBatchPolicy.TOOL_BATCH_GUIDANCE });
-          await addRetrievedContext(prefix);
-          const nextTools = finalResponseOnly ? [] : getChatTools ? await getChatTools() : tools;
-          const updated = { ...params, ...(getSamplingParams ? await getSamplingParams() : {}) };
-          const nextReasoning = getReasoning ? await getReasoning({ contextSize: contextWindowLimit })
-            : !reasoning ? legacyLocalReasoning({ reasoningEffort, thinkingBudget: updated.thinking_budget, localModel, contextSize: contextWindowLimit }) : activeReasoning;
-          const nextHistory = [...prefix, ...tail];
-          const next = { ...requestPayload };
-          delete next.reasoning_effort; delete next.reasoning_budget_tokens; delete next.reasoning;
-          Object.assign(next, { messages: imagesInUserRole ? moveToolImagesToUser(sanitizeChatMessages(nextHistory, decodeImage, { workspaceRoot })) : sanitizeChatMessages(nextHistory, decodeImage, { workspaceRoot }), tools: nextTools,
-            temperature: updated.temperature, top_p: updated.top_p, top_k: updated.top_k,
-            repeat_penalty: updated.repeat_penalty, max_tokens: updated.max_tokens }, reasoningRequestFields(nextReasoning, cloud));
-          requestSignal.throwIfAborted();
-          prepared = { prefix, nextHistory, nextTools, nextReasoning, payload: next };
-          return next;
-        };
-        const rebuilt = await recoverContext({ contextWindowLimit, signal: requestSignal, prepareRecovery });
-        if (!rebuilt) return null;
-        if (!prepared) await prepareRecovery(rebuilt);
-        requestSignal.throwIfAborted();
-        history.splice(0, history.length, ...prepared.nextHistory);
-        prefixLength = prepared.prefix.length;
-        tools = prepared.nextTools;
-        allowedNames = new Set(tools.map(tool => tool.function.name));
-        activeReasoningContext = contextWindowLimit;
-        activeReasoning = prepared.nextReasoning;
-        requestPayload = prepared.payload;
-        recordAdvertisement();
-        return requestPayload;
+      contextRecovery: compactContext ? async ({ contextWindowLimit }) => {
+        const result = await compactAtBoundary(true, contextWindowLimit);
+        if (result?.compressed) { recordAdvertisement(); return requestPayload; }
+        return null;
       } : undefined,
     });
     };
@@ -1237,7 +1214,7 @@ export async function runMemoryChat({
       return text;
     }
     if (batchPolicy && !batchPolicy.safe) {
-      history.push({ role: 'system', content: 'Tool batch overflow. Explicit not-executed results identify every deferred/rejected operation. Continue the original task; do not replay executed operations. Issue at most ' + MAX_TOOL_CALLS_PER_RESPONSE + ' calls in your next response.' });
+      history.push({ role: 'system', compactionHistory: true, content: 'Tool batch overflow. Explicit not-executed results identify every deferred/rejected operation. Continue the original task; do not replay executed operations. Issue at most ' + MAX_TOOL_CALLS_PER_RESPONSE + ' calls in your next response.' });
       if (!batchPolicy.safe && overflowCorrections > 2) {
         const notice = '\n\n[System: Task incomplete: tool-batch-correction-exhausted; no operations from rejected batches executed.]';
         text += notice; onText(notice);
@@ -1258,17 +1235,17 @@ export async function runMemoryChat({
       const usedNames = new Set(result.toolCalls.map(call => call.function?.name));
       if (!remindedFileOps && [...usedNames].some(name => FILE_OPS_TOOL_NAMES.has(name))) {
         remindedFileOps = true;
-        history.push({ role: 'system', content: CASUAL_FILE_OPS_REMINDER });
+        history.push({ role: 'system', compactionHistory: true, content: CASUAL_FILE_OPS_REMINDER });
       }
       if (!remindedSubagent && usedNames.has('spawn_sub_agent')) {
         remindedSubagent = true;
-        history.push({ role: 'system', content: CASUAL_SUBAGENT_PATTERN_REMINDER });
+        history.push({ role: 'system', compactionHistory: true, content: CASUAL_SUBAGENT_PATTERN_REMINDER });
       }
     }
     if (loopNotices.length) {
       // Keep the matching synthetic tool result and give the model an explicit
       // system instruction on its next generation. Do not rewind this warning.
-      for (const notice of loopNotices) history.push({ role: 'system', content: notice });
+      for (const notice of loopNotices) history.push({ role: 'system', compactionHistory: true, content: notice });
       failedToolStreak = 0;
       failedRangeStart = null;
     } else if (projectId) {

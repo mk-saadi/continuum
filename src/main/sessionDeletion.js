@@ -21,7 +21,7 @@ function deleteConversation(sessionId, sender, ownsController) {
     require('./lspExecutionContext').forget(sessionId);
     require('./promptMeasurement').invalidateMeasuredContext(sessionId);
     controller?.abort(Object.assign(new Error('Conversation deletion requested.'), { code: 'deleted-conversation' }));
-    await require('./compressionEngine').cancelSessionCompression(sessionId);
+    await require('./mainChatCompaction').cancelSessionCompression(sessionId);
     await require('./subagents/continuationManager').forgetParent(sessionId);
     if (controller) {
       if (!controller.settled) throw new Error('Active run cleanup cannot be verified. Retry after it stops.');

@@ -44,7 +44,6 @@ const projects = require('../src/main/projectManager');
 const plan = require('../src/main/workspacePlan');
 const workLog = require('../src/main/workLog');
 const { buildTurnDigest } = require('../src/main/turnDigest');
-const compression = require('../src/main/compressionEngine');
 const { rebuildChatMessages } = require('../src/main/promptBuilder');
 const { executeAgentTool } = require('../src/main/tools/agentTools');
 const { CHILD_TOOL_NAMES } = require('../src/main/subagents/agentLoop');

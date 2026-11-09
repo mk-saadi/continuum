@@ -1,3 +1,4 @@
+import { mascotEvent } from './mascotActivity.mjs';
 // Keep Electron events scoped to this request and remove listeners on every exit.
 // Reasoning is not a renderer-supplied wire parameter. The selected intent is
 // persisted through the settings APIs, and the main process resolves it against
@@ -8,6 +9,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   if (!api) throw new Error('Chat is available in the desktop app.');
   signal?.throwIfAborted();
   const requestId = crypto.randomUUID();
+  mascotEvent(sessionId, requestId, {type:"begin"});
   // Batch text and reasoning together: both can arrive once per token. A trailing
   // timer also publishes short bursts when no further token arrives.
   let timer = null;
@@ -37,6 +39,7 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
   };
   const unsubscribe = api.onEvent(event => {
     if (event.requestId !== requestId || (signal?.aborted && !['step-update', 'message-created', 'stats'].includes(event.type))) return;
+    mascotEvent(sessionId, requestId, event);
     if (event.type === 'live-cost') { onLiveCost?.(event.cost); return; }
     if (event.type === 'message-created') { onMessageCreated?.(event.messageId); return; }
     if (event.type === 'step-update') executionSteps = liveSteps = event.executionSteps;
@@ -81,8 +84,14 @@ export async function runDesktopChat({ activeChatProvider, modelId, modelName, d
     // The invoke result is authoritative even if the final event was delayed.
     if (result.stats) stats = result.stats;
     if (result.executionSteps) executionSteps = result.executionSteps;
+    mascotEvent(sessionId, requestId, {
+      type: "end", reply: result.text || result.message?.content || "",
+      outcome: signal?.aborted ? "cancelled"
+        : result.incompleteTask || ["interrupted", "error", "failed"].includes(result.message?.status) ? "interrupted" : "completed",
+    });
     return result;
   } catch (error) {
+    mascotEvent(sessionId, requestId, { type: "end", outcome: signal?.aborted ? "cancelled" : "interrupted" });
     signal?.throwIfAborted();
     throw error;
   } finally {

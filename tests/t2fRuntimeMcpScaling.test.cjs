@@ -167,7 +167,7 @@ test('Gate C: real loop discovers, selects and dispatches with native tools acro
       await runMemoryChat({baseUrl:'http://fixture',modelId:'fixture',cloud:provider!=='local',messages:payload(s,'full_access','Find an issue related to this project, inspect the relevant source files, and explain the likely fix. Do not modify files.').messages,
         chatTools:getTools(),getChatTools:async()=>getTools(),fetchImpl,
         takeSteeringInstructions:async()=>requests===2?[{id:'steer',content:'Keep this read only.'}]:[],markSteeringDelivered:async()=>{steered++;},
-        recoverContext:async()=>({messages:builder.rebuildChatMessages({sessionId:s.id,modelId:'fixture'})}),
+        compactContext:async boundary=>boundary.force?{compressed:true,payload:boundary.payload,history:boundary.conversationMessages}:({compressed:false}), // synthetic transport rebuild; real compaction is covered separately
         resolveTool:n=>n.startsWith('mcp_')?m.resolveTool(n,s.id):{serverName:'native',toolName:n},
         executeTool:async(call,request)=>{
           executed++;assert.equal(context.runId,runId);let result;

@@ -28,6 +28,9 @@ try {
   saveAppSettings({ apiServerPort: 9090 });
   saveAppSettings({ mcpMode: 'manual' });
   assert.deepEqual(getAppSettings(), { apiServerPort: 9090, mcpMode: 'manual',
+    mascot: require('../src/lib/mascotSettings.cjs').DEFAULT_MASCOT_SETTINGS,
+    notificationSounds: { enabled: true, volume: 25, completed: true, interrupted: true, inputRequired: true },
+    recoveryRetentionDays: 30, recoveryStorageCapMB: 512,
     maxConsecutiveToolFailures: 5, maxTotalToolFailures: 10,
     notificationsEnabled: true, notifyOnlyWhenBackgrounded: true,
     notificationEvents: { completion: true, error: true, contextOverflow: true, action_required: true }, disabledSkills: [] });

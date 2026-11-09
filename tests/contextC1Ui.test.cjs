@@ -37,8 +37,8 @@ test('real Context panel render uses incident usable denominator and honest diag
     const text = renderToStaticMarkup(React.createElement(compiled.exports.default, { sessionId: 's', modelId: 'm',
       measurement: { sessionId: 's', modelId: 'm', tokens: 29100, budgetContract,
         method: 'approximate-full-request', confidence: 'estimated', imageCount: 1, imageAllowanceTokens: 4096 } }));
-    assert.match(text, /29,100.*33,920/);
-    assert.match(text, /30,528/);
+    assert.match(text, /29,100/); assert.match(text, /33,920/);
+    assert.match(text, /29,001/);
     assert.match(text, /35,072/);
     assert.match(text, /4,096 estimated/);
     assert.match(text, /estimated/);

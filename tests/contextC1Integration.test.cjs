@@ -18,7 +18,6 @@ const { initDatabase, closeDatabase, db } = require('../src/main/db');
 initDatabase();
 const sessions = require('../src/main/sessionManager');
 const { measurePreparedContext, clearCache } = require('../src/main/promptMeasurement');
-const { scheduleIdleCompression, checkAndCompressContext } = require('../src/main/compressionEngine');
 const { createRuntimeBudget } = require('../src/main/contextBudget');
 const modelId = 'c1-local';
 function session() {
@@ -58,41 +57,4 @@ test('prepared cache refreshes reported capacity on same model/port and all cont
   await measure({ mcpToolsOverride: [{ type: 'function', function: { name: 'extra', parameters: { type: 'object' } } }] });
   assert.equal(tokenizes, before + 2);
   console.log(JSON.stringify({ preparedFirstMs: firstMs, preparedCacheHitMs: hitMs, props, tokenizes }));
-});
-
-test('idle scheduler uses exact incident boundary, deduplicates failures, preserves history and active rows', async t => {
-  const sessionId = session();
-  const history = sessions.getActiveMessages(sessionId).map(m => m.content);
-  let calls = 0, tokens = 30527, identity = 'prompt-1';
-  const llm = async () => { calls++; throw new Error('intentional summary failure'); };
-  const resolveMeasurement = async () => ({ limit: 35072, promptIdentity: identity, isCurrent: () => true,
-    budgetContract: createRuntimeBudget({ configuredContextTokens: 70000, runtimeContextTokens: 35072,
-      payload: { max_tokens: 1024 }, currentInputTokens: tokens }) });
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const run = async () => {
-    scheduleIdleCompression(sessionId, modelId, 70000, llm, () => {}, null, { resolveMeasurement });
-    t.mock.timers.tick(10000);
-    for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
-  };
-  await run(); assert.equal(calls, 0);
-  tokens = 30528;
-  await run(); assert.equal(calls, 1, 'fires at 30528, before the old 52500 threshold');
-  await run(); assert.equal(calls, 1, 'same failed prompt is never retried automatically');
-  identity = 'prompt-2';
-  const live = sessions.getActiveMessages(sessionId).find(m => m.role === 'assistant');
-  db.prepare("UPDATE messages SET status = 'in_progress' WHERE id = ?").run(live.id);
-  await run(); assert.equal(calls, 1, 'live message blocks idle compression');
-  assert.equal(db.prepare('SELECT archived FROM messages WHERE id = ?').get(live.id).archived, 0);
-  assert.deepEqual(sessions.getActiveMessages(sessionId).map(m => m.content), history);
-  t.mock.timers.reset();
-});
-
-test('model identity changing during summarization prevents archival at commit', async () => {
-  const sessionId = session(); let current = true;
-  const result = checkAndCompressContext({ sessionId, modelId, contextWindowLimit: 35072,
-    pressureMeasurement: { budgetContract: createRuntimeBudget({ runtimeContextTokens: 35072, currentInputTokens: 30528 }) },
-    isCurrent: () => current,
-    llmSummarizeCallback: async () => { current = false; return 'short summary'; } });
-  await assert.rejects(result, /context changed/);
-  assert.equal(sessions.getActiveMessages(sessionId).length, 20);
 });
