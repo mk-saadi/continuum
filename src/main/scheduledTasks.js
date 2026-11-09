@@ -21,6 +21,12 @@ const { randomUUID } = require('node:crypto');
 const scheduleCalc = require('../lib/scheduleCalc.cjs');
 const { db } = require('./db');
 const { waitForTurnLeasesToClear } = require('./modelSwitchCoordinator');
+const {
+  queryGpuMemory,
+  estimateOffloadRequirements,
+  assessGpuFit,
+  DEFAULT_SAFETY_MARGIN_MIB,
+} = require('./gpuMemory');
 
 const TERMINAL_RUN_STATUSES = Object.freeze([
   'completed', 'failed', 'skipped', 'missed', 'interrupted', 'expired', 'blocked', 'cancelled',
@@ -477,6 +483,9 @@ function isTerminal(status) {
 // Scheduler
 // ---------------------------------------------------------------------------
 
+const DEFAULT_UNLOAD_IDLE_FOR_TASK = false; // opt-in only
+const DEFAULT_SWAP_WAIT_MS = 10 * 60_000; // reuse modelLeaseWaitMs default
+
 function createScheduler({
   tickMs = DEFAULT_TICK_MS,
   startupCap = DEFAULT_STARTUP_CAP,
@@ -507,6 +516,10 @@ function createScheduler({
   logger = console,
   createAbortController = () => new AbortController(),
   isAppShuttingDown = () => false,
+  unloadIdleForScheduledTask = DEFAULT_UNLOAD_IDLE_FOR_TASK,
+  swapWaitMs = DEFAULT_SWAP_WAIT_MS,
+  getScannedModels = () => new Map(),
+  stopEngine = null,
 } = {}) {
   if (!Number.isSafeInteger(tickMs) || tickMs < 1_000) throw new TypeError('tickMs must be at least 1000ms.');
   if (!Number.isSafeInteger(startupCap) || startupCap < 0) throw new TypeError('startupCap must be a non-negative integer.');
@@ -514,6 +527,10 @@ function createScheduler({
   if (!Number.isSafeInteger(modelReadyWaitMs) || modelReadyWaitMs < 1_000) throw new TypeError('modelReadyWaitMs must be at least 1000ms.');
   if (!Number.isSafeInteger(modelReadyPollMs) || modelReadyPollMs < 1) throw new TypeError('modelReadyPollMs must be a positive integer.');
   if (!Number.isSafeInteger(maxWallClockMs) || maxWallClockMs < 1_000) throw new TypeError('maxWallClockMs must be at least 1000ms.');
+  if (unloadIdleForScheduledTask !== true && unloadIdleForScheduledTask !== 'vram-pressure' && unloadIdleForScheduledTask !== false) {
+    throw new TypeError('unloadIdleForScheduledTask must be true, "vram-pressure", or false.');
+  }
+  if (!Number.isSafeInteger(swapWaitMs) || swapWaitMs < 1_000) throw new TypeError('swapWaitMs must be at least 1000ms.');
   const deferMs = Number.isSafeInteger(startupDeferMs) && startupDeferMs >= 0 ? startupDeferMs : tickMs;
   const events = new EventEmitter();
   const activeRuns = new Map();
@@ -919,6 +936,121 @@ function createScheduler({
     });
   }
 
+  // -- Model swap helper ---------------------------------------------------
+
+  /**
+   * Attempt to swap the currently loaded model for the task model.
+   * Returns { ok: true, swappedOut: { modelPath, config, wasLoaded } }
+   * or { ok: false, reason }.
+   */
+  async function trySwapForTaskModel(taskModelRef, signal) {
+    // Only for local->local
+    if (taskModelRef.kind !== 'local') {
+      return { ok: false, reason: 'cloud-model-no-swap' };
+    }
+    const taskModelPath = taskModelRef.modelPath;
+
+    // Find currently loaded local model
+    let currentModelPath = null;
+    let currentEntry = null;
+    for (const entry of getEngines()) {
+      if (entry && entry.childProcess) {
+        currentModelPath = entry.modelPath;
+        currentEntry = entry;
+        break;
+      }
+    }
+
+    // If no model loaded, nothing to swap
+    if (!currentModelPath) {
+      return { ok: false, reason: 'no-model-loaded' };
+    }
+
+    // If same model already loaded, no swap needed
+    if (currentModelPath === taskModelPath) {
+      return { ok: false, reason: 'same-model-loaded' };
+    }
+
+    // Get current model's saved config for restoration
+    let currentConfig = {};
+    let currentWasLoaded = true;
+    try {
+      const savedLoad = loadConfigFor()(currentModelPath) ?? {};
+      currentConfig = savedLoad.remembered ? { ...savedLoad.config } : {};
+      if (savedLoad.projectorPath !== undefined) {
+        currentConfig.mmprojPath = savedLoad.projectorPath;
+      }
+    } catch (error) {
+      logger.warn?.('[scheduled-tasks] could not read saved config for current model:', error?.message ?? error);
+    }
+
+    // Check VRAM: if task model fits alongside, no swap needed
+    // (unless unloadIdleForScheduledTask === true which forces swap)
+    if (unloadIdleForScheduledTask !== true) {
+      const modelInfo = getScannedModels().get(taskModelPath) ?? { modelPath: taskModelPath };
+      const taskEstimate = estimateOffloadRequirements({
+        model: modelInfo,
+        config: taskModelRef.config ?? {},
+        projectorBytes: taskModelRef.config?.mmprojPath ? null : null,
+      });
+      if (taskEstimate.totalMiB !== null) {
+        const memory = await queryGpuMemory();
+        if (memory.available) {
+          const fit = assessGpuFit({ estimate: taskEstimate, memory, safetyMarginMiB: DEFAULT_SAFETY_MARGIN_MIB });
+          if (fit.status !== 'insufficient') {
+            // Ample VRAM - load alongside without swap
+            return { ok: false, reason: 'vram-sufficient' };
+          }
+        }
+      }
+    }
+
+    // Check if current model has active turn lease
+    if (currentEntry?.lifecycle?.hasActiveTurnLease) {
+      // Wait for lease release (bounded by swapWaitMs)
+      const leaseResult = await currentEntry.lifecycle.waitForTurnLeaseRelease({
+        timeoutMs: swapWaitMs,
+        signal,
+      });
+      if (!leaseResult.released) {
+        if (leaseResult.aborted || signal?.aborted) {
+          return { ok: false, reason: 'cancelled' };
+        }
+        if (leaseResult.timedOut) {
+          return { ok: false, reason: 'vram_conflict' };
+        }
+        return { ok: false, reason: 'lease-wait-failed' };
+      }
+    }
+
+    // Current model is idle - unload it
+    if (typeof launchModel !== 'function' || typeof stopEngine !== 'function') {
+      return { ok: false, reason: 'loader-unavailable' };
+    }
+
+    // Use stopEngine from main.js to unload the current model
+    const stopResult = await stopEngine(currentModelPath, 'scheduled-task-swap', 'model-loader', false);
+    if (!stopResult.success && !stopResult.deferred) {
+      return { ok: false, reason: 'unload-failed', detail: stopResult.error };
+    }
+    if (stopResult.deferred) {
+      // Should not happen since we waited for lease, but handle gracefully
+      return { ok: false, reason: 'unload-deferred' };
+    }
+
+    // Wait for process to actually exit
+    await new Promise((resolve) => {
+      const check = () => {
+        const entry = getEngineConfig(currentModelPath);
+        if (!entry) return resolve();
+        setTimeoutImpl(check, 100);
+      };
+      check();
+    });
+
+    return { ok: true, swappedOut: { modelPath: currentModelPath, config: currentConfig, wasLoaded: currentWasLoaded } };
+  }
+
   async function prepareModelForTask(task, { signal, onStatus }) {
     const candidates = [task.model, ...(Array.isArray(task.fallback) ? task.fallback : [])];
     let last = { reason: 'model_unavailable', detail: 'No model is configured.' };
@@ -971,6 +1103,24 @@ function createScheduler({
         continue;
       }
 
+      let swapResult = null;
+      // Attempt model swap if configured and models differ
+      if (unloadIdleForScheduledTask !== false && ref.kind === 'local') {
+        swapResult = await trySwapForTaskModel(ref, signal);
+        if (swapResult.ok) {
+          // Swap successful - track for restoration
+          onStatus?.('waiting_for_model', fallbackUsed ? 'fallback-load' : 'load');
+        } else if (swapResult.reason === 'vram_conflict') {
+          // Could not swap due to VRAM conflict - skip this model
+          last = { reason: 'vram_conflict', detail: 'The model does not fit in available GPU memory and swap was not possible.' };
+          break;
+        } else if (swapResult.reason === 'cancelled') {
+          return { ok: false, reason: 'cancelled' };
+        }
+        // For other reasons (vram-sufficient, same-model-loaded, no-model-loaded, etc.),
+        // continue with normal load behavior
+      }
+
       if (typeof launchModel !== 'function') {
         last = { reason: 'model_unavailable', detail: 'The local model loader is unavailable.' };
         continue;
@@ -1012,7 +1162,7 @@ function createScheduler({
             break;
           }
           const ready = modelReady(ref);
-          if (ready) return { ...ready, fallbackUsed };
+          if (ready) return { ...ready, fallbackUsed, swappedOut: swapResult?.swappedOut ?? null };
           last = { reason: 'model_unavailable', detail: 'The model did not become available after loading.' };
           break;
         }
@@ -1094,6 +1244,7 @@ function createScheduler({
     let lease = null;
     let model = null;
     let fallbackUsed = false;
+    let swappedOutModel = null;
     try {
       updateRunProgress(run, 'waiting_for_model');
       const prepared = await prepareModelForTask(task, {
@@ -1113,8 +1264,10 @@ function createScheduler({
       }
       model = prepared.model;
       fallbackUsed = prepared.fallbackUsed;
+      swappedOutModel = prepared.swappedOut ?? null;
       active.model = model;
       active.fallbackUsed = fallbackUsed;
+      active.swappedModel = swappedOutModel;
 
       if (shuttingDown || isAppShuttingDown()) {
         finalizeRun(run, task, { status: 'interrupted', reason: 'The application is shutting down.' });
@@ -1234,6 +1387,33 @@ function createScheduler({
     } finally {
       clearTimeoutImpl(timeout);
       try { lease?.release?.(); } catch { /* idempotent */ }
+      
+      // Restore swapped model if needed
+      if (active.swappedModel && active.swappedModel.wasLoaded) {
+        const { modelPath: prevModelPath, config: prevConfig } = active.swappedModel;
+        // Check if the previous model is still unloaded (not reloaded by something else)
+        const prevEntry = getEngineConfig(prevModelPath);
+        if (!prevEntry) {
+          try {
+            // Reload the previous model with its saved config
+            const launchOptions = {
+              ...prevConfig,
+              ...(prevConfig.mmprojPath !== undefined ? { mmprojPath: prevConfig.mmprojPath } : {}),
+              // Don't rewrite saved settings
+              rememberSettings: undefined,
+            };
+            if (typeof launchModel === 'function') {
+              const reloadResult = await launchModel(prevModelPath, launchOptions);
+              if (!reloadResult?.success) {
+                logger.warn?.(`[scheduled-tasks] failed to restore previous model ${prevModelPath}:`, reloadResult?.error);
+              }
+            }
+          } catch (restoreError) {
+            logger.warn?.(`[scheduled-tasks] error restoring previous model ${prevModelPath}:`, restoreError?.message ?? restoreError);
+          }
+        }
+        // If previous model was already reloaded by something else, don't interfere
+      }
       activeRuns.delete(run.id);
       const taskRuns = activeByTask.get(task.id);
       if (taskRuns) {

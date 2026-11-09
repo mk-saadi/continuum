@@ -1038,6 +1038,8 @@ if (hasSingleInstanceLock)
 		getEngines: () => engines.values(),
 		getEngineLifecycle: (modelId) => getEngine(modelId)?.lifecycle ?? null,
 		isAppShuttingDown: () => appShuttingDown,
+		getScannedModels: () => scannedModels,
+		stopEngine,
 	});
 	// Build the recovery blob reference index in the background. Until it is
 	// built the storage panel falls back to a conservative reading of the
