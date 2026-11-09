@@ -1,5 +1,5 @@
-import React from "react";
-import { FaBars, FaCog, FaSlidersH } from "react-icons/fa";
+import React, { useState } from "react";
+import { FaBars, FaCog, FaEject, FaSlidersH } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
 import { LuFolder, LuHouse } from "react-icons/lu";
 
@@ -13,11 +13,13 @@ export default function Header({
 	isRightSidebarOpen: isRightSidebarOpenProp,
 	onToggleRightSidebar: onToggleRightSidebarProp,
 	modelName,
+	modelId,
 	isCloud = false,
 	engineRunning,
 	contextStatus,
 	loadWarning = null,
 	onOpenModels: onOpenModelsProp,
+	onUnloadModel,
 	palace,
 	onOpenSettings: onOpenSettingsProp,
 	workspace = null,
@@ -64,6 +66,21 @@ export default function Header({
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
 	const button =
 		"aero-orb sk-icon-button aero-fill sk-fill size-7 cursor-pointer shrink-0";
+
+	const [ejecting, setEjecting] = useState(false);
+	const canEject = !isCloud && engineRunning && !!modelId && typeof onUnloadModel === "function";
+	const ejectModel = async () => {
+		if (!canEject || ejecting) return;
+		setEjecting(true);
+		try {
+			await onUnloadModel(modelId);
+		} catch {
+			// The App-level handler already reports the failure; the status
+			// event remains the source of truth for whether the model unloaded.
+		} finally {
+			setEjecting(false);
+		}
+	};
 
 	return (
 		<header className="aero-header sk-window-header sk-texture-grain relative flex h-9 shrink-0 items-center gap-3 px-3">
@@ -116,7 +133,7 @@ export default function Header({
 			)}
 
 			{/* Absolutely centered relative to the whole header, not the remaining flex space */}
-			<div className="pointer-events-none absolute inset-0 flex items-center justify-center px-32 max-[600px]:px-20">
+			<div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-32 max-[600px]:px-20">
 				<button
 					type="button"
 					onClick={onOpenModels}
@@ -164,6 +181,19 @@ export default function Header({
 						<FiChevronDown />
 					</span>
 				</button>
+				{canEject && (
+					<Tooltip content={ejecting ? "Unloading model..." : "Unload model"}>
+						<button
+							type="button"
+							onClick={ejectModel}
+							disabled={ejecting}
+							className={`${button} pointer-events-auto disabled:cursor-not-allowed disabled:opacity-40`}
+							aria-label="Unload model"
+						>
+							<FaEject className="size-3.5" aria-hidden="true" />
+						</button>
+					</Tooltip>
+				)}
 			</div>
 
 			{/* Spacer to keep the right-side group pushed right, now that the center div is absolute */}

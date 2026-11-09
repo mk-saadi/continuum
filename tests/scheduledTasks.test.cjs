@@ -22,6 +22,7 @@ Module._load = function (name, ...rest) {
 const { initDatabase, closeDatabase } = require('../src/main/db');
 const { db } = require('../src/main/db');
 const store = require('../src/main/scheduledTasks');
+const { saveLoadConfig, getLoadConfig } = require('../src/main/configManager');
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -45,6 +46,7 @@ test.beforeEach(() => {
   clock = BASE;
   db.prepare('DELETE FROM scheduled_task_runs').run();
   db.prepare('DELETE FROM scheduled_tasks').run();
+  db.prepare('DELETE FROM model_load_configs').run();
 });
 
 function makeTask(overrides = {}) {
@@ -243,6 +245,62 @@ test('model preparation completes before the turn lease is acquired and before r
   });
   await scheduler.tick({ startup: true, awaitDrain: true });
   assert.deepEqual(order, ['launch:model-a', 'lease', 'run', 'release']);
+});
+
+test('scheduled runs load a local model with its remembered settings and preserve them', async () => {
+  saveLoadConfig('model-a', {
+    contextLength: 90000,
+    threads: 3,
+    evalBatch: 2048,
+    physicalBatch: 1024,
+    parallel: 1,
+  });
+  const task = makeTask();
+  setNextRun(task.id, Date.UTC(2026, 0, 10, 9));
+  let loaded = false;
+  const launches = [];
+  const { scheduler } = makeScheduler({
+    getEngineConfig: modelPath => loaded ? { port: 1, modelPath } : null,
+    launchModel: async (modelPath, options) => {
+      launches.push({ modelPath, options });
+      loaded = true;
+      return { success: true };
+    },
+    runAgentTurn: async () => ({ text: 'done', message: { status: 'completed' } }),
+  });
+  await scheduler.tick({ startup: true, awaitDrain: true });
+
+  assert.equal(launches.length, 1);
+  assert.equal(launches[0].options.contextLength, 90000, 'the saved context length must be used');
+  assert.equal(launches[0].options.threads, 3);
+  assert.equal(launches[0].options.rememberSettings, undefined, 'a scheduled load must not rewrite or forget the saved settings');
+  assert.equal(getLoadConfig('model-a').remembered, true, 'the saved settings must survive the run');
+  assert.equal(getLoadConfig('model-a').config.contextLength, 90000);
+  assert.equal(store.listRunRecords({ taskId: task.id }).runs[0].status, 'completed');
+});
+
+test('a task-level model config still overrides the remembered load settings', async () => {
+  saveLoadConfig('model-a', { contextLength: 90000, threads: 3 });
+  const task = makeTask({
+    model: { kind: 'local', modelPath: 'model-a', config: { contextLength: 32768 } },
+  });
+  setNextRun(task.id, Date.UTC(2026, 0, 10, 9));
+  let loaded = false;
+  const launches = [];
+  const { scheduler } = makeScheduler({
+    getEngineConfig: modelPath => loaded ? { port: 1, modelPath } : null,
+    launchModel: async (modelPath, options) => {
+      launches.push({ modelPath, options });
+      loaded = true;
+      return { success: true };
+    },
+    runAgentTurn: async () => ({ text: 'done', message: { status: 'completed' } }),
+  });
+  await scheduler.tick({ startup: true, awaitDrain: true });
+
+  assert.equal(launches[0].options.contextLength, 32768);
+  assert.equal(launches[0].options.threads, 3, 'other remembered settings still apply');
+  assert.equal(getLoadConfig('model-a').config.contextLength, 90000, 'the task override is not persisted');
 });
 
 test('a VRAM conflict uses only an explicitly configured fallback', async () => {

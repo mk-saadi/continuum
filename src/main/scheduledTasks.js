@@ -490,6 +490,7 @@ function createScheduler({
   clearTimeoutImpl = clearTimeout,
   runAgentTurn = null,
   launchModel = null,
+  getLoadConfig = null,
   getEngineConfig = () => null,
   getEngines = () => [],
   getEngineLifecycle = () => null,
@@ -519,6 +520,10 @@ function createScheduler({
   let drainPromise = null;
 
   const runner = () => runAgentTurn ?? require('./agentTurnRunner').runAgentTurn;
+  // Saved per-model load preferences ("Remember settings for this model") are
+  // owned by the load settings dialog. Scheduled runs must start the model with
+  // exactly those preferences instead of the bare defaults.
+  const loadConfigFor = () => getLoadConfig ?? require('./configManager').getLoadConfig;
   const prepareMessages = () => prepareChatMessages ?? require('./promptBuilder').prepareChatMessages;
   const getOrCreate = () => getOrCreateSession ?? require('./sessionManager').getOrCreateSession;
   const updateSessionRecord = () => updateSession ?? require('./sessionManager').updateSession;
@@ -905,15 +910,27 @@ function createScheduler({
       }
 
       onStatus?.('waiting_for_model', fallbackUsed ? 'fallback-load' : 'load');
+      // Use the preferences saved from the load settings dialog. An explicit
+      // per-task config still wins, and an absent saved config falls back to
+      // the loader's defaults. `rememberSettings` is deliberately omitted so
+      // the load does not rewrite or forget the user's saved preferences.
+      let savedLoad = {};
+      try {
+        savedLoad = loadConfigFor()(ref.modelPath) ?? {};
+      } catch (error) {
+        logger.warn?.('[scheduled-tasks] could not read saved model settings:', error?.message ?? error);
+      }
+      const launchOptions = {
+        ...(savedLoad.remembered ? savedLoad.config : {}),
+        ...(savedLoad.projectorPath !== undefined ? { mmprojPath: savedLoad.projectorPath } : {}),
+        ...(ref.config ?? {}),
+        ...(ref.config?.allowPartialOffload === undefined ? { allowPartialOffload: false } : {}),
+      };
       for (let attempt = 0; attempt < Math.max(1, modelRetryAttempts); attempt++) {
         if (signal?.aborted || shuttingDown || isAppShuttingDown()) return { ok: false, reason: 'cancelled' };
         let result;
         try {
-          result = await launchModel(ref.modelPath, {
-            ...(ref.config ?? {}),
-            rememberSettings: false,
-            ...(ref.config?.allowPartialOffload === undefined ? { allowPartialOffload: false } : {}),
-          });
+          result = await launchModel(ref.modelPath, launchOptions);
         } catch (error) {
           result = { success: false, error: error?.message ?? 'Model load failed.' };
         }

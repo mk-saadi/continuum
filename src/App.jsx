@@ -368,6 +368,7 @@ function AppContent() {
 					models={chatModels}
 					localModels={models}
 					onCreateProject={modalActions.openProjectModal}
+					onUnloadModel={onUnloadModel}
 					engines={engines}
 					serverError={serverError}
 					markTabSaved={markTabSaved}
@@ -395,6 +396,7 @@ const TabPane = memo(function TabPane({
 	models,
 	localModels,
 	onCreateProject,
+	onUnloadModel,
 	engines,
 	serverError,
 	markTabSaved,
@@ -454,6 +456,8 @@ const TabPane = memo(function TabPane({
 							: models.find((model) => model.id === tab.modelId)?.name || tab.modelId
 				}
 				engineRunning={localReady}
+				modelId={tab.modelId}
+				onUnloadModel={onUnloadModel}
 				palace={palace}
 				workspace={workspaceHeader}
 			/>

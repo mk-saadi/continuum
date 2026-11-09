@@ -863,7 +863,14 @@ async function launchModel(modelId, input) {
             if (stats.size !== identity.size || stats.mtimeMs !== identity.mtimeMs) throw new Error('Model or projector changed since scanning. Rescan your models.');
         }
         const config = normalizeLoadConfig({ reasoningFormat: model.reasoningFormat ?? "auto", ...input });
-		if (typeof input.rememberSettings !== "boolean") throw new Error("Invalid remember settings option.");
+		// `rememberSettings` is intentionally tri-state: true saves the settings,
+		// false forgets them (an explicit "do not remember" from the load
+		// settings dialog), and omitting it leaves any saved preferences
+		// untouched. Internal loads such as scheduled tasks must not erase the
+		// user's per-model settings just because they did not come from the
+		// dialog.
+		if (input.rememberSettings !== undefined && typeof input.rememberSettings !== "boolean")
+			throw new Error("Invalid remember settings option.");
 		if (input.allowPartialOffload !== undefined && typeof input.allowPartialOffload !== "boolean")
 			throw new Error("Invalid partial-offload option.");
 		if (!fs.existsSync(model.modelPath) || (model.mmprojPath && !fs.existsSync(model.mmprojPath)))
@@ -896,8 +903,8 @@ async function launchModel(modelId, input) {
 		if (result.success) {
 			try {
 				require('./src/main/configManager').saveLastProjector(modelId, model.mmprojPath || null);
-				if (input.rememberSettings) saveLoadConfig(modelId, config);
-				else forgetLoadConfig(modelId);
+				if (input.rememberSettings === true) saveLoadConfig(modelId, config);
+				else if (input.rememberSettings === false) forgetLoadConfig(modelId);
 			} catch (error) {
 				return {
 					...result,

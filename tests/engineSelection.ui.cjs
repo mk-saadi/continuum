@@ -36,6 +36,8 @@ app.whenReady().then(async () => {
       const loaded = {running: true, isLoaded: true, contextStatus: 'ready', modelPath: '/active-outside-scan.gguf', modelName: 'Active', pid: 7};
       mountApp({status: loaded, scanned}); await wait();
       const active = {label: label(), model: chatModel, stored: localStorage.getItem('lastSelectedModelPath')};
+      document.querySelector('[aria-label="Unload model"]').click(); await wait();
+      const ejected = window.unloaded;
       mountApp({status: loaded, scanned: scanned.slice().reverse()}); await wait(); const refreshed = label();
       mountApp({status: stopped, delayed: true, scanned}); await wait();
       emitStatus(loaded); await wait(); resolveInitialStatus(stopped); await wait(); const raced = label();
@@ -46,7 +48,7 @@ app.whenReady().then(async () => {
       const cloudAfterEngineStatus = { label: label(), provider: chatProvider.type, model: chatModel };
       emitStatus(stopped); await wait();
       const cloudAfterUnload = { label: label(), provider: chatProvider.type, model: chatModel };
-      return {empty, remembered, active, refreshed, raced, unloaded, cloudAfterEngineStatus, cloudAfterUnload};
+      return {empty, remembered, active, ejected, refreshed, raced, unloaded, cloudAfterEngineStatus, cloudAfterUnload};
     })()`);
     assert.match(results.empty, /Select Model/);
     assert.doesNotMatch(results.empty, /First/);
@@ -54,6 +56,7 @@ app.whenReady().then(async () => {
     assert.match(results.active.label, /Active.*Ready/);
     assert.equal(results.active.model, '/active-outside-scan.gguf');
     assert.equal(results.active.stored, '/active-outside-scan.gguf');
+    assert.equal(results.ejected, '/active-outside-scan.gguf', 'the header eject button unloads the active model');
     assert.match(results.refreshed, /Active.*Ready/);
     assert.match(results.raced, /Active.*Ready/);
     assert.match(results.unloaded, /Not loaded/);

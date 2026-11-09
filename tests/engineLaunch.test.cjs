@@ -5,7 +5,7 @@ const { EventEmitter } = require('node:events');
 const { createRequire } = require('node:module');
 const mainRequire = createRequire(require('node:path').resolve('main.js'));
 const handlers = new Map();
-const appEvents = new Map(), lifecycleEvents = [], signals = [];
+const appEvents = new Map(), lifecycleEvents = [], signals = [], configCalls = [];
 const mockProcess = Object.assign(Object.create(process), { kill: (pid, signal) => signals.push({ pid, signal }) });
 let children = [], fail = false, spawnOptions, spawnArgs, spawnCommand;
 const context = {
@@ -14,7 +14,13 @@ const context = {
     if (name === './src/main/engineLifecycle') return { createEngineLifecycle: options => mainRequire(name).createEngineLifecycle({ ...options, emit: record => lifecycleEvents.push(record) }) };
     if (name === './src/main/db.js') return {};
     if (name === './src/main/ipcHandlers.js') return {};
-    if (name === './src/main/configManager') return { ...mainRequire(name), getAppSettings: () => ({ apiServerPort: 8080 }), saveLoadConfig() {}, forgetLoadConfig() {} };
+    if (name === './src/main/configManager') return {
+      ...mainRequire(name),
+      getAppSettings: () => ({ apiServerPort: 8080 }),
+      saveLastProjector() {},
+      saveLoadConfig: (modelId) => configCalls.push(['save', modelId]),
+      forgetLoadConfig: (modelId) => configCalls.push(['forget', modelId]),
+    };
     if (name === './src/main/engineManager') return { ...mainRequire(name), createStartupHandler: ({ onStatus }) => ({ onOutput: () => onStatus('warming'), cancel() {} }) };
     if (name === 'child_process') return { spawn(command, args, options) {
       spawnCommand = command; spawnArgs = args; spawnOptions = options ?? args;
@@ -123,6 +129,21 @@ vm.runInContext('mainWindow = testWindow;', context);
   assert.equal((await status()).running, false);
   assert.equal(getStatus().modelPath, null);
 
+  // An internal load that omits `rememberSettings` (scheduled tasks, retries)
+  // must leave the saved preferences untouched: neither rewritten nor
+  // forgotten.
+  vm.runInContext("scannedModels.set('preserve-settings', { modelPath: __dirname + '/main.js' });", context);
+  const preserved = await context.switchForTest('preserve-settings', { allowPartialOffload: true });
+  assert.equal(preserved.success, true);
+  assert.equal(configCalls.some(([kind]) => kind === 'save'), false, 'an internal load must not rewrite saved settings');
+  assert.equal(configCalls.some(([kind]) => kind === 'forget'), false, 'an internal load must not forget saved settings');
+  const preserveChild = children.at(-1);
+  const preservePath = require('node:path').resolve('main.js');
+  assert.equal((await handlers.get('engine:unload')({}, { modelId: preservePath })).success, true);
+  preserveChild.emit('exit', 0, 'SIGTERM');
+  preserveChild.emit('close', 0, 'SIGTERM');
+  assert.equal(context.enginesForTest.size, 0);
+
   // Custom shell launch stays disabled.
   const custom = await context.launchForTest('llama-server -m "/tmp/model with spaces.gguf" --api-key=secret --api-key-file "/tmp/key file.txt" --port 9090');
   assert.equal(custom.success, false);
@@ -133,6 +154,7 @@ vm.runInContext('mainWindow = testWindow;', context);
   vm.runInContext("scannedModels.set('replacement', { modelPath: __dirname + '/main.js' });", context);
   const replacing = await context.switchForTest('replacement', { rememberSettings: false });
   assert.equal(replacing.success, true);
+  assert.deepEqual(configCalls, [['forget', 'replacement']], 'the dialog can still explicitly forget settings');
   assert.equal(context.enginesForTest.size, 1);
   const replacementChild = children.at(-1);
   assert.ok(lifecycleEvents.some(event => event.event === 'server-starting'));

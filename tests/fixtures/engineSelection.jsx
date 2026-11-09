@@ -8,6 +8,7 @@ window.mountApp = ({ status, delayed = false, scanned = [] }) => {
     getConfig: async () => ({ modelDirectory: '/models' }),
     listProjects: async () => [],
     getCloudProviders: async () => [{ id: 'openai', name: 'OpenAI', modelId: 'test-cloud', configured: true }],
+    unloadEngine: async (modelPath) => { window.unloaded = modelPath; },
   };
   window.terminalAPI = { onStatus: fn => { window.emitStatus = fn; return () => {}; }, status: async () => status };
   window.engineAPI = { getConfig: async () => ({ port: 8080 }) };
