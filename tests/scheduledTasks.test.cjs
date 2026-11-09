@@ -247,6 +247,73 @@ test('model preparation completes before the turn lease is acquired and before r
   assert.deepEqual(order, ['launch:model-a', 'lease', 'run', 'release']);
 });
 
+test('a scheduled run waits for a freshly launched engine to become ready before starting the turn', async () => {
+  const task = makeTask();
+  setNextRun(task.id, Date.UTC(2026, 0, 10, 9));
+  const order = [];
+  let status = null;
+  const { scheduler } = makeScheduler({
+    modelReadyPollMs: 5,
+    getEngineConfig: modelPath => status === null ? null : { port: 1, modelPath, contextStatus: status },
+    launchModel: async modelPath => {
+      order.push(`launch:${modelPath}`);
+      status = 'loading';
+      return { success: true };
+    },
+    runAgentTurn: async () => {
+      order.push('run');
+      return { text: 'done', message: { status: 'completed' } };
+    },
+  });
+  const becomesReady = setTimeout(() => { status = 'ready'; }, 10);
+  await scheduler.tick({ startup: true, awaitDrain: true });
+  clearTimeout(becomesReady);
+
+  assert.deepEqual(order, ['launch:model-a', 'run'], 'the turn must wait until the engine reports ready');
+  assert.equal(store.listRunRecords({ taskId: task.id }).runs[0].status, 'completed');
+});
+
+test('a scheduled run skips with a clear reason when the launched engine exits during startup', async () => {
+  const task = makeTask();
+  setNextRun(task.id, Date.UTC(2026, 0, 10, 9));
+  let status = null;
+  const { scheduler, calls } = makeScheduler({
+    modelReadyPollMs: 5,
+    getEngineConfig: modelPath => status === null ? null : { port: 1, modelPath, contextStatus: status },
+    launchModel: async () => { status = 'loading'; return { success: true }; },
+  });
+  const crashes = setTimeout(() => { status = null; }, 10);
+  await scheduler.tick({ startup: true, awaitDrain: true });
+  clearTimeout(crashes);
+
+  const run = store.listRunRecords({ taskId: task.id }).runs[0];
+  assert.equal(run.status, 'skipped');
+  assert.match(run.failureReason, /exited while starting/i);
+  assert.ok(!calls.some(call => call.type === 'run'), 'a dead engine must never reach the agent turn');
+});
+
+test('a scheduled run surfaces a warmup failure instead of a misleading context error', async () => {
+  const task = makeTask();
+  setNextRun(task.id, Date.UTC(2026, 0, 10, 9));
+  let status = null;
+  const { scheduler, calls } = makeScheduler({
+    modelReadyPollMs: 5,
+    getEngineConfig: modelPath => status === null
+      ? null
+      : { port: 1, modelPath, contextStatus: status, warmupError: 'CUDA out of memory' },
+    launchModel: async () => { status = 'loading'; return { success: true }; },
+  });
+  const failsWarmup = setTimeout(() => { status = 'warmup-failed'; }, 10);
+  await scheduler.tick({ startup: true, awaitDrain: true });
+  clearTimeout(failsWarmup);
+
+  const run = store.listRunRecords({ taskId: task.id }).runs[0];
+  assert.equal(run.status, 'skipped');
+  assert.match(run.failureReason, /failed to warm up/i);
+  assert.match(run.failureReason, /CUDA out of memory/);
+  assert.ok(!calls.some(call => call.type === 'run'));
+});
+
 test('scheduled runs load a local model with its remembered settings and preserve them', async () => {
   saveLoadConfig('model-a', {
     contextLength: 90000,

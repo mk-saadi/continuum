@@ -39,6 +39,8 @@ const DEFAULT_MAX_OVERDUE_DAYS = 7;
 const DEFAULT_TICK_MS = 30_000;
 const DEFAULT_STARTUP_CAP = 5;
 const DEFAULT_MODEL_LEASE_WAIT_MS = 10 * 60_000;
+const DEFAULT_MODEL_READY_WAIT_MS = 10 * 60_000;
+const DEFAULT_MODEL_READY_POLL_MS = 250;
 const DEFAULT_MAX_WALL_CLOCK_MS = 30 * 60_000;
 const MAX_RUN_REASON = 1000;
 
@@ -480,6 +482,8 @@ function createScheduler({
   startupCap = DEFAULT_STARTUP_CAP,
   startupDeferMs = null,
   modelLeaseWaitMs = DEFAULT_MODEL_LEASE_WAIT_MS,
+  modelReadyWaitMs = DEFAULT_MODEL_READY_WAIT_MS,
+  modelReadyPollMs = DEFAULT_MODEL_READY_POLL_MS,
   modelRetryAttempts = 2,
   modelRetryDelayMs = 1_000,
   maxWallClockMs = DEFAULT_MAX_WALL_CLOCK_MS,
@@ -507,6 +511,8 @@ function createScheduler({
   if (!Number.isSafeInteger(tickMs) || tickMs < 1_000) throw new TypeError('tickMs must be at least 1000ms.');
   if (!Number.isSafeInteger(startupCap) || startupCap < 0) throw new TypeError('startupCap must be a non-negative integer.');
   if (!Number.isSafeInteger(modelRetryAttempts) || modelRetryAttempts < 1) throw new TypeError('modelRetryAttempts must be at least 1.');
+  if (!Number.isSafeInteger(modelReadyWaitMs) || modelReadyWaitMs < 1_000) throw new TypeError('modelReadyWaitMs must be at least 1000ms.');
+  if (!Number.isSafeInteger(modelReadyPollMs) || modelReadyPollMs < 1) throw new TypeError('modelReadyPollMs must be a positive integer.');
   if (!Number.isSafeInteger(maxWallClockMs) || maxWallClockMs < 1_000) throw new TypeError('maxWallClockMs must be at least 1000ms.');
   const deferMs = Number.isSafeInteger(startupDeferMs) && startupDeferMs >= 0 ? startupDeferMs : tickMs;
   const events = new EventEmitter();
@@ -865,6 +871,54 @@ function createScheduler({
     });
   }
 
+  // A local load resolves as soon as the process spawns, not when the engine can
+  // accept a request. Starting the turn against a still-warming engine makes the
+  // context guard fall back to its conservative 8k capacity and reject an
+  // otherwise valid prompt, so a scheduled run must wait for readiness. An
+  // engine that exits during startup is reported as unavailable instead of
+  // surfacing a misleading context error.
+  function awaitEngineReady(ref, signal) {
+    const maxAttempts = Math.max(1, Math.ceil(modelReadyWaitMs / modelReadyPollMs));
+    return new Promise(resolve => {
+      let attempts = 0;
+      let timer = null;
+      let settled = false;
+      const finish = outcome => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeoutImpl(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        resolve(outcome);
+      };
+      const onAbort = () => finish({
+        ok: false, reason: 'cancelled',
+        detail: 'The run was cancelled while waiting for the model.',
+      });
+      if (signal) {
+        if (signal.aborted) return onAbort();
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+      const check = () => {
+        const config = getEngineConfig(ref.modelPath);
+        const status = config?.contextStatus;
+        if (config && (status === undefined || status === null || status === 'ready'))
+          return finish({ ok: true });
+        if (config && status === 'warmup-failed')
+          return finish({
+            ok: false, reason: 'model_unavailable',
+            detail: `The local model failed to warm up${config.warmupError ? `: ${config.warmupError}` : '.'}`,
+          });
+        if (!config)
+          return finish({ ok: false, reason: 'model_unavailable', detail: 'The local engine exited while starting.' });
+        if (attempts >= maxAttempts)
+          return finish({ ok: false, reason: 'model_unavailable', detail: 'The model did not become ready in time.' });
+        attempts++;
+        timer = setTimeoutImpl(check, modelReadyPollMs);
+      };
+      check();
+    });
+  }
+
   async function prepareModelForTask(task, { signal, onStatus }) {
     const candidates = [task.model, ...(Array.isArray(task.fallback) ? task.fallback : [])];
     let last = { reason: 'model_unavailable', detail: 'No model is configured.' };
@@ -884,7 +938,20 @@ function createScheduler({
       }
 
       const already = modelReady(ref);
-      if (already) return { ...already, fallbackUsed };
+      if (already) {
+        // The engine may still be warming from an earlier load. Never hand a
+        // not-yet-ready engine to the turn; wait for it like a fresh load.
+        const readiness = await awaitEngineReady(ref, signal);
+        if (!readiness.ok) {
+          last = { reason: readiness.reason ?? 'model_unavailable', detail: readiness.detail };
+          if (last.reason === 'cancelled') return { ok: false, ...last };
+          continue;
+        }
+        const ready = modelReady(ref);
+        if (ready) return { ...ready, fallbackUsed };
+        last = { reason: 'model_unavailable', detail: 'The model did not become available.' };
+        continue;
+      }
 
       onStatus?.('waiting_for_lease', fallbackUsed ? 'fallback-model-switch' : 'model-switch');
       const lease = await waitForTurnLeases({
@@ -935,6 +1002,15 @@ function createScheduler({
           result = { success: false, error: error?.message ?? 'Model load failed.' };
         }
         if (result?.success) {
+          // The process spawned, but the engine may still be loading. Starting
+          // the turn now would let the context guard fall back to 8k and reject
+          // a prompt that actually fits the configured context.
+          const readiness = await awaitEngineReady(ref, signal);
+          if (!readiness.ok) {
+            last = { reason: readiness.reason ?? 'model_unavailable', detail: readiness.detail };
+            if (last.reason === 'cancelled') return { ok: false, ...last };
+            break;
+          }
           const ready = modelReady(ref);
           if (ready) return { ...ready, fallbackUsed };
           last = { reason: 'model_unavailable', detail: 'The model did not become available after loading.' };
