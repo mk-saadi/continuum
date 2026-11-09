@@ -2665,24 +2665,26 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
 			if (content.includes("\0")) throw new Error(`Refusing binary file: ${file.oldName}.`);
 			lines = content.split("\n");
 		}
-		// Apply hunks against a working copy, tracking the line offset so
-		// later hunks in the same file land correctly.
-		let offset = 0;
+		// Apply hunks against a working copy. Process right-to-left so
+		// earlier hunks don't shift line numbers for later ones.
+		// We validate all hunks against the original lines first, then
+		// apply in reverse order.
+		const originalLines = lines.slice();
+		const hunksToApply = [];
 		for (const [hunkIndex, hunk] of file.hunks.entries()) {
 			const needle = hunk.oldLines;
 			let at = -1;
 			if (needle.length) {
-				for (let start = 0; start <= lines.length - needle.length; start++) {
-					if (!needle.every((line, i) => line === lines[start + i])) continue;
+				// Validate against original lines (not progressively modified)
+				for (let start = 0; start <= originalLines.length - needle.length; start++) {
+					if (!needle.every((line, i) => line === originalLines[start + i])) continue;
 					if (at !== -1) require('./editDiagnostics').throwDetails({code:'PATCH_CONTEXT_AMBIGUOUS',path:file.oldName,hunk_index:hunkIndex,hunk_number:hunkIndex+1,zero_writes:true,candidates:[{start_line:at+1,end_line:at+needle.length},{start_line:start+1,end_line:start+needle.length}],suggested_action:'Add unique unchanged context to this hunk. No files modified.'});
 					at = start;
 				}
                 if (at === -1) {
-                    const current=lines.join('\n');
+                    const current=originalLines.join('\n');
                     try {
                         const match=locateReplacement(current,needle.join('\n'),target);
-                        // Patch context describes complete lines, never a substring
-                        // inside a source line. Share string-edit safety and uniqueness.
                         if((match.start>0&&current[match.start-1]!=='\n') || (match.end<current.length&&!['\n','\r'].includes(current[match.end])))
                             throw new Error('Patch context does not cover complete source lines.');
                         at=current.slice(0,match.start).split('\n').length-1;
@@ -2691,24 +2693,26 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
                     } catch(error) {
                         const details=error.editDetails || {};
                         const expected=Number(hunk.header.match(/-(\d+)/)?.[1] || 1);
-                        const start=Math.max(0,Math.min(lines.length-1,expected-3));
+                        const start=Math.max(0,Math.min(originalLines.length-1,expected-3));
                         require('./editDiagnostics').throwDetails({ ...details,
                             code: details.category==='ambiguous-match'?'PATCH_CONTEXT_AMBIGUOUS':'PATCH_CONTEXT_MISMATCH', path:file.oldName,
                             hunk_index:hunkIndex,hunk_number:hunkIndex+1,expected_old_range:hunk.header.trim(),
                             expected_context:needle.slice(0,12).join('\n').slice(0,1000),
                             explanation:details.explanation || error.message,
-                            nearby_source:details.nearby_source?.length?details.nearby_source:[{start_line:start+1,end_line:Math.min(lines.length,start+12),excerpt:lines.slice(start,start+12).join('\n').slice(0,2000)}],
+                            nearby_source:details.nearby_source?.length?details.nearby_source:[{start_line:start+1,end_line:Math.min(originalLines.length,start+12),excerpt:originalLines.slice(start,start+12).join('\n').slice(0,2000)}],
                             source_state:hunkIndex?'staged-patch':'on-disk',
                             changed_since_read:null,target_exists:!creating,zero_writes:true,applied_files:[],
                             suggested_action:`${details.explanation || error.message} Correct hunk ${hunkIndex+1} using the reported source; preserve intervening declarations and children. No files modified.` });
                     }
                 }
 			} else {
-				at = Math.max(0, Math.min(lines.length, offset));
+				at = Math.max(0, Math.min(originalLines.length, offset));
 			}
-			const next = [...lines.slice(0, at), ...hunk.newLines, ...lines.slice(at + (hunk.matchedLineCount ?? needle.length))];
-			offset += hunk.newLines.length - needle.length;
-			lines = next;
+			hunksToApply.push({ at, newLines: hunk.newLines, matchedLineCount: hunk.matchedLineCount ?? needle.length, offsetDelta: hunk.newLines.length - needle.length });
+		}
+		// Apply right-to-left so earlier hunks don't shift positions of later ones
+		for (const hunk of hunksToApply.reverse()) {
+			lines = [...lines.slice(0, hunk.at), ...hunk.newLines, ...lines.slice(hunk.at + hunk.matchedLineCount)];
 		}
 		planned.push({ target, relative: creating ? file.newName : file.oldName, content: lines.join("\n"), original, creating });
 	}
