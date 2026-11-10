@@ -13,7 +13,9 @@ import { readSkillDecision } from "./chat/PendingInteractions.jsx";
 import { activeReplyVariant, assistantLabel } from "../lib/messageIdentity.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useMemo } from "react";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
+import { protectLocalPaths, remarkLocalPaths } from "../lib/remarkLocalPaths.mjs";
 import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
 import { hasMultipleRequests } from "../lib/requestAccounting.mjs";
 import { progressTextOffset, toolDisplayName } from "../lib/executionEvents.mjs";
@@ -21,11 +23,12 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import InteractiveChart from "./InteractiveChart";
 import { RichBlock } from "./RichBlocks.jsx";
+import { MediaGalleryProvider, useRegisterMedia } from "./chat/MediaGallery.jsx";
 import { textBlock, withColorSwatches } from "./ColorSwatch.jsx";
 import Tooltip from "./Tooltip.jsx";
 import {
 	mediaSource,
-	isLocalVideoSource,
+	isVideoSource,
 	mediaUrlTransform,
 	rehypeMediaSources,
 	mediaSchema,
@@ -174,9 +177,52 @@ function setDefaultVideoVolume(element) {
 	if (element) element.volume = 0.1;
 }
 
+// Markdown destinations arrive percent-encoded (React serializes hrefs that
+// way). The file manager needs the literal filesystem path back.
+function localPathFromHref(href) {
+	try {
+		return decodeURI(href);
+	} catch {
+		return href;
+	}
+}
+
 function MarkdownMedia({ src, alt = "", children }) {
 	const source = mediaSource(src);
 	const [failedSource, setFailedSource] = useState(null);
+	const childCount = React.Children.count(children);
+	const childSource =
+		!source && childCount > 0
+			? React.Children.toArray(children)
+					.map((child) => child?.props?.src)
+					.find(Boolean)
+			: null;
+	const gallerySource = source || mediaSource(childSource || "");
+	const video = source ? isVideoSource(source) : childCount > 0;
+	const registration = useRegisterMedia(
+		gallerySource && failedSource !== source
+			? { src: gallerySource, video, title: alt || (video ? "Video" : "Image") }
+			: null,
+	);
+	
+	// Extract parent folder path for local files
+	const folderPath = (() => {
+		try {
+			const url = new URL(source);
+			if (url.protocol === 'media:' && url.host === 'files') {
+				// url.pathname is like '/home/user/folder/file.jpg'
+				const decodedPath = decodeURIComponent(url.pathname);
+				const pathParts = decodedPath.split('/').filter(Boolean);
+				if (pathParts.length > 1) {
+					// Reconstruct parent directory path
+					pathParts.pop();
+					return '/' + pathParts.join('/');
+				}
+			}
+		} catch {}
+		return null;
+	})();
+	
 	if ((!source && !children) || failedSource === source) {
 		return (
 			<span
@@ -188,13 +234,13 @@ function MarkdownMedia({ src, alt = "", children }) {
 			</span>
 		);
 	}
-	// Video playback is restricted to local files; remote video URLs degrade to the image path.
-	if (isLocalVideoSource(source)) {
-		return (
+	// Videos may be local files served by the app or remote https URLs.
+	if (video) {
+		const element = (
 			<video
 				ref={setDefaultVideoVolume}
-				src={source}
-				type={videoMimeType(source)}
+				src={source || undefined}
+				type={source ? videoMimeType(source) : undefined}
 				controls
 				preload="metadata"
 				aria-label={alt || "Video"}
@@ -204,21 +250,20 @@ function MarkdownMedia({ src, alt = "", children }) {
 				{children}
 			</video>
 		);
-	}
-	if (!source && children) {
+		if (!registration) return element;
 		return (
-			<video
-				ref={setDefaultVideoVolume}
-				controls
-				preload="metadata"
-				aria-label={alt || "Video"}
-				className="max-w-full ui-radius-control my-2 max-h-[400px]"
-			>
-				{children}
-			</video>
+			<span className="markdown-media-video-wrap">
+				{element}
+				<button
+					type="button"
+					className="markdown-media-open"
+					aria-label={`Open video: ${alt || "Video"}`}
+					onClick={() => registration.gallery.open(registration.id)}
+				/>
+			</span>
 		);
 	}
-	return (
+	const image = (
 		<img
 			src={source}
 			alt={alt}
@@ -227,6 +272,41 @@ function MarkdownMedia({ src, alt = "", children }) {
 			onError={() => setFailedSource(source)}
 		/>
 	);
+	const mediaButton = (
+		<button
+			type="button"
+			className="markdown-media-button"
+			aria-label={`Open image: ${alt || "Image"}`}
+			onClick={() => registration.gallery.open(registration.id)}
+		>
+			{image}
+		</button>
+	);
+	
+	const content = registration ? mediaButton : image;
+	
+	// Render folder path link for local media
+	if (folderPath) {
+		return (
+			<div className="markdown-media-wrapper">
+				{content}
+				<div className="markdown-media-folder">
+					<a
+						href={folderPath}
+						className="text-[var(--link)] underline cursor-pointer text-xs"
+						onClick={(e) => {
+							e.preventDefault();
+							window.api?.openPath?.(folderPath);
+						}}
+					>
+						{folderPath}
+					</a>
+				</div>
+			</div>
+		);
+	}
+	
+	return content;
 }
 
 const components = makeComponents(false);
@@ -310,16 +390,19 @@ function makeComponents(isStreaming) {
 			);
 		},
 		a: ({ node, href, ...props }) => {
-			// Local filesystem path -> open with the system's default app
-			if (href && /^\/[^\s]+/.test(href)) {
+			// Local filesystem path -> hand the decoded path to the OS. React
+			// serializes hrefs percent-encoded, but shell.openPath needs the
+			// literal path, so decode it here.
+			if (href && /^\/[^\s]/.test(href) && !href.startsWith('//')) {
 				return (
 					<a
 						{...props}
 						href={href}
+						title={localPathFromHref(href)}
 						className="text-[var(--link)] underline cursor-pointer"
 						onClick={(e) => {
 							e.preventDefault();
-							window.api?.openPath?.(href);
+							window.api?.openPath?.(localPathFromHref(href));
 						}}
 					/>
 				);
@@ -1157,11 +1240,25 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 
 // Keep parsing and media DOM independent of message metadata and parent renders.
 const MarkdownContent = React.memo(function MarkdownContent({ text }) {
-	return <ReactMarkdown remarkPlugins={[remarkGfm]}
-		rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
-		urlTransform={mediaUrlTransform} components={components}>
-		{normalizeLatexArrows(text)}
-	</ReactMarkdown>;
+	// Bare paths are swapped for markers before markdown parses the message, so
+	// brackets and underscores inside a path are not eaten as link/emphasis
+	// syntax. remarkLocalPaths then turns each marker back into a real link.
+	const { text: source, paths } = useMemo(
+		() => protectLocalPaths(normalizeLatexArrows(text)),
+		[text],
+	);
+	return (
+		<MediaGalleryProvider>
+			<ReactMarkdown
+				remarkPlugins={[remarkGfm, [remarkLocalPaths, { paths }]]}
+				rehypePlugins={[rehypeRaw, rehypeMediaSources, [rehypeSanitize, mediaSchema]]}
+				urlTransform={mediaUrlTransform}
+				components={components}
+			>
+				{source}
+			</ReactMarkdown>
+		</MediaGalleryProvider>
+	);
 });
 
 export const ProgressText = React.memo(function ProgressText({ text }) {
