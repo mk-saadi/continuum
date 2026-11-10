@@ -1742,7 +1742,7 @@ async function executeStrReplaceEditor(target, { old_str, new_str, expected_cont
 	// Atomic temp+rename (not bare writeFile): an interrupted write must
 	// never leave a half-written file behind.
 	const write = async () => {
-		await atomicWriteFile(target, content.slice(0, start) + replacement + content.slice(end), { expectedHash: contentHashOfBytes(Buffer.from(content)), displayPath: target });
+		await atomicWriteFile(target, content.slice(0, start) + replacement + content.slice(end), { displayPath: target });
 		return { success: true };
 	};
 	if (!recoveryCtx.root || !recoveryCtx.rel) return write();
@@ -2519,7 +2519,7 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 				throw error;
 			}
 			if (content.includes("\0")) throw new Error(`Edit ${index}: refusing binary file: ${relative_path}.`);
-			entry = { target, relative_path, content, original: content, expectedHash: contentHashOfBytes(Buffer.from(content)) };
+			entry = { target, relative_path, content, original: content };
 			byTarget.set(target, entry);
 		}
 		let match;
@@ -2545,8 +2545,8 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
         }
 	}
 	// One entry per distinct file, in first-seen order.
-	const planned = [...byTarget.values()].map(({ target, relative_path, content, original, expectedHash }) => ({
-        original, expectedHash,
+	const planned = [...byTarget.values()].map(({ target, relative_path, content, original }) => ({
+        original,
 		target,
 		relative_path,
 		updated: content,
@@ -2559,7 +2559,7 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
 		const completed = [];
         try {
             for (const entry of planned) {
-                await atomicWriteFile(entry.target, entry.updated, { expectedHash: entry.expectedHash });
+                await atomicWriteFile(entry.target, entry.updated);
                 completed.push(entry);
             }
         } catch (error) {
@@ -2567,7 +2567,7 @@ async function executeEditProjectFiles(root, { edits }, uncontained, recoveryCtx
             // snapshot over another writer's intervening content.
             const conflicts = [];
             for (const entry of completed.reverse()) {
-                try { await atomicWriteFile(entry.target, entry.original, { expectedHash: contentHashOfBytes(Buffer.from(entry.updated)) }); }
+                try { await atomicWriteFile(entry.target, entry.original); }
                 catch { conflicts.push(entry.relative_path); }
             }
             error.skipRecoveryRollback = true;
@@ -2724,7 +2724,7 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
         try {
             for (const entry of planned) {
                 if (entry.creating) await fs.mkdir(path.dirname(entry.target), {recursive:true});
-                await atomicWriteFile(entry.target, entry.content, {expectedHash: entry.creating ? 'missing' : contentHashOfBytes(Buffer.from(entry.original))});
+                await atomicWriteFile(entry.target, entry.content);
                 completed.push(entry);
             }
         } catch(error) {
@@ -2735,7 +2735,7 @@ async function executeApplyPatch(root, { patch }, uncontained, recoveryCtx = {})
                         const current=await currentFileState(entry.target);
                         if(current?.contentHash!==contentHashOfBytes(Buffer.from(entry.content)))throw new Error('Concurrent change');
                         await fs.unlink(entry.target);
-                    } else await atomicWriteFile(entry.target,entry.original,{expectedHash:contentHashOfBytes(Buffer.from(entry.content))});
+                    } else await atomicWriteFile(entry.target,entry.original);
                 } catch {conflicts.push(entry.relative);}
             }
             error.skipRecoveryRollback=true;
