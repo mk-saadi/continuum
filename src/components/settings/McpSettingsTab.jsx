@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { LuBot, LuPlug, LuSlidersHorizontal } from "react-icons/lu";
+import { SelectField } from "../FormControls";
 import IntegrationsTab from "../IntegrationsTab";
 import { SettingsMaterialContext, SettingsCard, SettingsMessage } from "./SettingsSection";
 
@@ -16,6 +17,8 @@ const descriptions = {
 export default function McpSettingsTab(props) {
 	const aero = useContext(SettingsMaterialContext);
 	const [mode, setMode] = useState(null);
+	const [searchProvider, setSearchProvider] = useState(null);
+	const [searchLoaded, setSearchLoaded] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [modeError, setModeError] = useState("");
 
@@ -24,7 +27,7 @@ export default function McpSettingsTab(props) {
 		window.api
 			.getAppSettings()
 			.then((settings) => {
-				if (active) setMode(settings.mcpMode);
+				if (active) { setMode(settings.mcpMode); setSearchProvider(settings.webSearchProvider ?? null); setSearchLoaded(true); }
 			})
 			.catch((error) => {
 				if (active) setModeError(error.message);
@@ -49,6 +52,21 @@ export default function McpSettingsTab(props) {
 		} finally {
 			setSaving(false);
 		}
+	}
+
+	const searchChoices = Object.entries(props.config?.mcpServers ?? {}).filter(([, definition]) =>
+		definition.disabled !== true && definition.enabled !== false && definition.uiEnabled !== false
+	).map(([name]) => ({ value: name, label: name }));
+	const searchValue = searchProvider?.serverName ?? '';
+
+	async function selectSearch(value) {
+		setSaving(true); setModeError('');
+		try {
+			const settings = await window.api.saveAppSettings({ webSearchProvider: value ? { serverName: value } : null });
+			setSearchProvider(settings.webSearchProvider);
+			window.dispatchEvent(new Event('generation-settings-changed'));
+		} catch (error) { setModeError(error.message); }
+		finally { setSaving(false); }
 	}
 
 	return (
@@ -86,6 +104,18 @@ export default function McpSettingsTab(props) {
 					))}
 				</div>
 				<SettingsMessage>{modeError}</SettingsMessage>
+			</SettingsCard>
+			<SettingsCard icon={LuPlug} title="Default web search"
+				description="Use native DuckDuckGo, or choose a configured MCP server for web search. This applies to workspace and casual chats starting with the next message. The assistant chooses among its enabled tools for search, summaries, and page reading.">
+				<SelectField label="Search provider" value={searchValue} disabled={!searchLoaded || saving}
+					onChange={event => selectSearch(event.target.value)}>
+					<option value="">Native DuckDuckGo (default)</option>
+					{searchValue && !searchChoices.some(choice => choice.value === searchValue) &&
+						<option value={searchValue}>{searchValue} (unavailable)</option>}
+					{searchChoices.map(choice => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
+				</SelectField>
+				<p className="mt-2 text-xs text-[var(--text-muted)]">All enabled tools from the selected server are available to the assistant. Their own approval rules apply. If unavailable, the assistant reports the problem instead of switching to DuckDuckGo.</p>
+				{mode === 'manual' && searchProvider && <p className="mt-2 text-xs text-[var(--text-muted)]">Manual mode: keep the selected server and its tools enabled below.</p>}
 			</SettingsCard>
 			<IntegrationsTab {...props} />
 		</>

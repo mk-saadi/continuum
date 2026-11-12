@@ -699,6 +699,11 @@ function registerIpcHandlers({
                 mcpManager.beginRun?.(sessionId, runId);
                 notify({ type: "indexing", progress: null });
 				await mcpManager.init();
+                try { await mcpManager.prepareDefaultWebSearch?.(sessionId, { signal: controller.signal }); }
+                catch (error) {
+                    controller.signal.throwIfAborted();
+                    console.warn('[web-search] Selected MCP search could not be prepared:', error.message);
+                }
 				controller.signal.throwIfAborted();
 				const config = getEngineConfig?.(modelId);
 				if (!cloud && !config) throw new Error("Start the local model server first.");

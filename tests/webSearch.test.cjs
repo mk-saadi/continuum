@@ -23,7 +23,7 @@ test('web fetch caps downloads, rejects private URLs and returns bounded text', 
   assert.ok(content.length <= 12000);
   await assert.rejects(getSingleWebPageContent({ url: 'http://127.0.0.1/private', fetchImpl: () => assert.fail('Must not fetch') }), /public/);
   await assert.rejects(getSingleWebPageContent({ url: 'https://example.com/large',
-    fetchImpl: async () => new Response('x'.repeat(1024 * 1024 + 1), { headers: { 'content-type': 'text/html' } }) }), /download limit/);
+    fetchImpl: async () => new Response('x'.repeat(8 * 1024 * 1024 + 1), { headers: { 'content-type': 'text/html' } }) }), /download limit/);
 });
 
 test('web fetch sends browser headers and validates each redirect', async () => {
@@ -97,7 +97,7 @@ test('invalid JSON and misleading content-type declarations degrade recoverably'
 
 test('JSON responses honor the download and output size limits', async () => {
   await assert.rejects(getSingleWebPageContent({ url: 'https://api.example.test/huge',
-    fetchImpl: async () => new Response(JSON.stringify({ blob: 'x'.repeat(1024 * 1024 + 1) }),
+    fetchImpl: async () => new Response(JSON.stringify({ blob: 'x'.repeat(8 * 1024 * 1024 + 1) }),
       { headers: { 'content-type': 'application/json' } }) }), /download limit/);
   const big = await getSingleWebPageContent({ url: 'https://api.example.test/many',
     fetchImpl: async () => new Response(JSON.stringify(Array.from({ length: 2000 }, (_, index) => ({ index, note: 'item' }))),
@@ -199,4 +199,29 @@ test('a JavaScript-only HTTP200 page reports no readable content instead of empt
   await assert.rejects(getSingleWebPageContent({ url: 'https://example.com/demo',
     fetchImpl: async () => new Response('<html><body><div id="root"></div><script src="/app.js"></script></body></html>', { headers: { 'content-type': 'text/html' } }) }),
     error => error.code === 'WEB_PAGE_NO_READABLE_CONTENT' && /JavaScript rendering/.test(error.message));
+});
+
+test('pages larger than the old cap are readable and later sections remain accessible', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls++; return new Response(`<html><!--${'x'.repeat(1100000)}--><article>${'intro '.repeat(3000)} LATE_SECTION quantum evidence ${'tail '.repeat(3000)}</article></html>`); };
+  const options = { url: 'https://example.com/sections', scope: 'section-test', fetchImpl };
+  const first = await getSingleWebPageContent(options);
+  assert.match(first, /More available/);
+  const later = await getSingleWebPageContent({ ...options, offset: 17000 });
+  assert.match(later, /LATE_SECTION/);
+  const relevant = await getSingleWebPageContent({ ...options, query: 'quantum evidence' });
+  assert.match(relevant, /quantum evidence/);
+  assert.ok(first.length <= 12000 && relevant.length <= 12000);
+  assert.equal(calls, 1);
+});
+
+test('permanent fetch failures are not repeatedly downloaded in the same scope', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls++; return new Response('blocked', { status: 403 }); };
+  const options = { url: 'https://example.com/blocked', scope: 'failure-test', fetchImpl };
+  await assert.rejects(getSingleWebPageContent(options), /HTTP 403.*browser/);
+  await assert.rejects(getSingleWebPageContent(options), /WEB_PAGE_REPEAT_FAILURE/);
+  assert.equal(calls, 1);
+  await assert.rejects(getSingleWebPageContent({ ...options, scope: 'other-chat' }), /HTTP 403/);
+  assert.equal(calls, 2);
 });

@@ -29,7 +29,7 @@ module.exports = {
       'workspaceNetworkAddressPolicy.json', 'experimental/**', 'x64/**'] }],
   beforePack: async () => {
     if (!fs.existsSync(path.join(sourceResources, 'manifest.json')))
-      throw new Error('No verified networking resources to package. Run: npm run local:network:prepare -- /absolute/pinned/slirp4netns /absolute/helper-review.tar.gz');
+      throw new Error('No verified networking resource to package. Run: npm run local:network:prepare -- /absolute/pinned/slirp4netns /absolute/helper-review.tar.gz');
     const prepared = verifyConfiguration(path.dirname(sourceResources));
     if (!prepared.verified)
       throw new Error('Pre-pack networking resource verification failed: ' + prepared.blockers.join(' '));

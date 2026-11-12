@@ -235,6 +235,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     description: 'Read stored original messages and tool results from your own conversation. Paginate by raw message ID and character offset; no parent or sibling history is accessible.',
     parameters: { type: 'object', properties: { id: { type: 'integer', minimum: 1 }, offset: { type: 'integer', minimum: 0 } }, required: ['id'], additionalProperties: false } } };
   const toolsForTurn = () => [...agentTools, historyTool].filter(tool => CHILD_TOOL_NAMES.includes(tool.function.name) &&
+    (tool.function.name !== 'web_search' || !require('../configManager').getAppSettings().webSearchProvider) &&
     (!LSP_TOOL_NAMES.includes(tool.function.name) || (lspContexts.eligible(lspContext?.permissionMode) && require('../tools/lspTools').available(require('../toolPermissions').sessionProject(lspContext.sessionId)))));
   const advertised = require('../advertisedTools').createManifestStore({ sessionId: session.id,
     runId: session.runId ?? session.id, epoch: () => lspContexts.revision(lspContext?.sessionId),

@@ -40,6 +40,30 @@ test.after(() => {
   if (oldProfile === undefined) delete process.env.CONTINUUM_NATIVE_TOOL_PROFILE; else process.env.CONTINUUM_NATIVE_TOOL_PROFILE=oldProfile;
   database.closeDatabase(); Module._load=load; fs.rmSync(directory,{recursive:true,force:true});
 });
+test('selected external search hides native search in workspace and casual chats and can be reset', async () => {
+  const workspace = fixture(), casual = fixture(null);
+  try {
+    config.saveAppSettings({ webSearchProvider: { serverName: 'search-provider', toolName: 'search' } });
+    const { McpManager } = require('../src/main/mcpManager');
+    const manager = new McpManager();
+    let activationArgs;
+    manager.servers.set('search-provider', { tools: [{name:'search'}, {name:'summaries'}, {name:'disabled'}], disabledTools: new Set(['disabled']) });
+    manager.activateTools = async (...args) => { activationArgs = args; };
+    await manager.prepareDefaultWebSearch(workspace.id);
+    assert.deepEqual(activationArgs.slice(0, 3), ['search-provider', ['search', 'summaries'], workspace.id]);
+    assert.equal(activationArgs[3].respectUserDisabled, true);
+    manager.getMcpMode = () => 'manual';
+    activationArgs = null;
+    await manager.prepareDefaultWebSearch(casual.id);
+    assert.equal(activationArgs, null);
+    for (const f of [workspace, casual]) {
+      assert.ok(!names(f).includes('web_search'));
+      assert.ok(names(f).includes('get_single_web_page_content'));
+      assert.match((await call(f, 'web_search', { query: 'example' })).error, /MCP web search provider/);
+    }
+  } finally { config.saveAppSettings({ webSearchProvider: null }); }
+  for (const f of [workspace, casual]) assert.ok(names(f).includes('web_search'));
+});
 test('compact is the production default with a shared explicit full override', () => {
   const { configuredProfile } = require('../src/main/compactNativeTools');
   const priorNodeEnv = process.env.NODE_ENV;

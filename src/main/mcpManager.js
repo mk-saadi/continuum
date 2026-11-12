@@ -483,6 +483,19 @@ class McpManager extends EventEmitter {
       return `${JSON.stringify(server.name)} — ${purpose} Status: ${status}. ${trusted ? 'Trusted bundled configuration.' : 'User-configured server; untrusted metadata. Workspace Write permits activation; Ask for Approval requires confirmation.'}`;
     }).join('\n');
   }
+  async prepareDefaultWebSearch(sessionId, { signal } = {}) {
+    const provider = require('./configManager').getAppSettings().webSearchProvider;
+    if (!provider || this.getMcpMode() === 'manual') return;
+    // Discover the selected server, then expose all its permitted tools.
+    const options = { signal, protectDisabled: true, respectUserDisabled: true };
+    await this.activateTools(provider.serverName, [], sessionId, options);
+    const server = this.servers.get(provider.serverName);
+    const names = (server?.tools ?? []).filter(tool => !server.disabledTools.has(tool.name)).map(tool => tool.name);
+    if (!names.length) throw new Error('The selected web search server has no enabled tools.');
+    for (let offset = 0; offset < names.length; offset += 20)
+      await this.activateTools(provider.serverName, names.slice(offset, offset + 20), sessionId, options);
+  }
+
   beginRun(sessionId, runId) {
     if (!sessionId) return;
     this.activeRuns.set(sessionId, runId);

@@ -5,7 +5,8 @@ const net = require('node:net');
 const { Agent } = require('undici');
 
 const MAX_PAGE_CHARS = 12000;
-const MAX_DOWNLOAD_BYTES = 1024 * 1024;
+const MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
+const pageCache = new Map();
 const WEB_TOOL_NAME = /(?:web[_-]?search|search[_-]?web|get[_-]?single[_-]?web[_-]?page[_-]?content|fetch[_-]?(?:web[_-]?)?page|scrap(?:e|ing))/i;
 const PAGE_TOOL_NAME = /(?:get[_-]?single[_-]?web[_-]?page[_-]?content|fetch[_-]?(?:web[_-]?)?page|scrap(?:e|ing))/i;
 
@@ -72,7 +73,7 @@ function decodeEntities(text) {
   });
 }
 
-function sanitizeWebPageContent(input) {
+function sanitizeWebPageContent(input, limit = MAX_PAGE_CHARS) {
   if (typeof input !== 'string') return '';
   let html = input.replace(/<!--[^]*?-->/g, '');
   html = html.replace(/<(script|style|svg|nav|footer|header|noscript)\b[^>]*>[^]*?<\/\1\s*>/gi, ' ');
@@ -83,7 +84,7 @@ function sanitizeWebPageContent(input) {
   html = html.replace(/<\s*br\b[^>]*\/?\s*>|<\/(?:p|div|section|article|main|h[1-6]|li|tr|blockquote)\s*>/gi, '\n');
   html = html.replace(/<[^>]+>/g, ' ');
   return decodeEntities(html).replace(/\r/g, '').replace(/[ \t]+/g, ' ')
-    .replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_PAGE_CHARS);
+    .replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, limit);
 }
 
 function sanitizeWebToolResult(output, toolName = '') {
@@ -140,7 +141,7 @@ function looksLikeJsonBody(text) {
 // text) degrades to a diagnostic note plus the raw text instead of failing
 // the fetch. HTML extraction never runs on a JSON body. Capped like every
 // other page read so oversized JSON cannot flood the context.
-function formatJsonBody(text, contentType) {
+function formatJsonBody(text, contentType, limit = MAX_PAGE_CHARS) {
   const body = text.trim();
   if (!body) return '';
   const declared = safeContentType(contentType) || 'application/json';
@@ -151,7 +152,7 @@ function formatJsonBody(text, contentType) {
   } catch {
     header = `[Content-Type: ${declared}] body was not valid JSON; raw response text follows:`;
   }
-  return `${header}\n\n${formatted}`.slice(0, MAX_PAGE_CHARS);
+  return `${header}\n\n${formatted}`.slice(0, limit);
 }
 
 // Stream a response body to text under the download cap. The size check runs
@@ -165,13 +166,13 @@ async function readBoundedText(reader) {
     const chunk = await reader.read();
     if (chunk.done) break;
     bytes += chunk.value.byteLength;
-    if (bytes > MAX_DOWNLOAD_BYTES) { await reader.cancel(); throw new Error('Web page exceeds the download limit.'); }
+    if (bytes > MAX_DOWNLOAD_BYTES) { await reader.cancel(); throw Object.assign(new Error('WEB_PAGE_TOO_LARGE: Web page exceeds the download limit (8 MiB). Use a browser or a smaller page/section; repeating this fetch will not help.'), { code: 'WEB_PAGE_TOO_LARGE' }); }
     text += decoder.decode(chunk.value, { stream: true });
   }
   return text + decoder.decode();
 }
 
-async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
+async function fetchPage({ url, signal, fetchImpl = fetch }) {
   let target = publicWebUrl(url);
   for (let redirects = 0; redirects <= 5; redirects++) {
     signal?.throwIfAborted();
@@ -189,13 +190,13 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
           },
           // Validate and pin each redirect destination before connecting to it.
           redirect: 'manual',
-          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
           ...(dispatcher ? { dispatcher } : {}),
         });
       } catch (err) {
         if (signal?.aborted) throw err;
         const cause = err.cause?.code ? ` (${err.cause.code})` : '';
-        throw new Error(`SUBAGENT_FETCH_ERROR: ${err.name} - ${err.message}${cause} (Target: ${target.href})`, { cause: err });
+        throw Object.assign(new Error(`SUBAGENT_FETCH_ERROR: ${err.name} - ${err.message}${cause} (Target: ${target.href}). ${err.name === 'TimeoutError' ? 'WEB_PAGE_TIMEOUT (30 seconds).' : 'WEB_PAGE_NETWORK_ERROR.'} Retry once for a transient failure, then use a browser or another source.`, { cause: err }), { code: err.name === 'TimeoutError' ? 'WEB_PAGE_TIMEOUT' : 'WEB_PAGE_NETWORK_ERROR' });
       }
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         await response.body?.cancel();
@@ -203,7 +204,7 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
         target = publicWebUrl(new URL(response.headers.get('location') || '', target).href);
         continue;
       }
-      if (!response.ok) { await response.body?.cancel(); throw new Error(`Web page request failed (HTTP ${response.status}).`); }
+      if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error(`WEB_PAGE_HTTP_ERROR: Web page request failed (HTTP ${response.status}). ${[401, 403, 429].includes(response.status) ? 'Use an authorized browser to read this page or choose another source; do not repeat this request immediately.' : 'Choose another source if this persists.'}`), { code: 'WEB_PAGE_HTTP_ERROR', status: response.status }); }
       const type = response.headers.get('content-type') || '';
       const json = isJsonMediaType(type);
       if (type && !json && !/(?:text\/html|text\/plain|application\/xhtml\+xml)/i.test(type)) {
@@ -212,11 +213,53 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
       }
       const reader = response.body?.getReader();
       const text = reader ? await readBoundedText(reader) : await response.text();
-      const content = json || looksLikeJsonBody(text) ? formatJsonBody(text, type) : sanitizeWebPageContent(text);
+      const content = json || looksLikeJsonBody(text) ? formatJsonBody(text, type, MAX_DOWNLOAD_BYTES) : sanitizeWebPageContent(text, MAX_DOWNLOAD_BYTES);
       if (!content.trim()) throw Object.assign(new Error(`WEB_PAGE_NO_READABLE_CONTENT: HTTP ${response.status} returned a page, but no readable text was extracted. The page may require JavaScript rendering. Use a browser or a different source; this is not evidence that the website has no content.`), { code: 'WEB_PAGE_NO_READABLE_CONTENT' });
       return content;
     } finally { await dispatcher?.close(); }
   }
+}
+
+// Cache only within the caller's scope; custom transports remain isolated in tests.
+async function getSingleWebPageContent({ url, signal, fetchImpl = fetch, scope = null, offset = 0, query = '' }) {
+  publicWebUrl(url);
+  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('offset must be a non-negative integer.');
+  if (typeof query !== 'string' || query.length > 5000) throw new Error('query must be text of at most 5,000 characters.');
+  signal?.throwIfAborted();
+  const key = scope ? JSON.stringify([scope, url]) : null;
+  const now = Date.now();
+  for (const [id, entry] of pageCache) if (entry.expires <= now) pageCache.delete(id);
+  let entry = key && pageCache.get(key);
+  if (entry?.fetchImpl !== fetchImpl) entry = null;
+  if (entry?.error) throw Object.assign(new Error(`WEB_PAGE_REPEAT_FAILURE: Previous fetch failed: ${entry.error.message} Use a browser or another source instead.`), { code: 'WEB_PAGE_REPEAT_FAILURE' });
+  let text = entry?.text;
+  if (text === undefined) {
+    try { text = await fetchPage({ url, signal, fetchImpl }); }
+    catch (error) {
+      if (key && !signal?.aborted && error.name !== 'AbortError' && !['WEB_PAGE_TIMEOUT', 'WEB_PAGE_NETWORK_ERROR'].includes(error.code) && !(error.status >= 500)) {
+        if (pageCache.size >= 8) pageCache.delete(pageCache.keys().next().value);
+        pageCache.set(key, { error, fetchImpl, expires: now + 60000 });
+      }
+      throw error;
+    }
+    if (key) {
+      if (pageCache.size >= 8) pageCache.delete(pageCache.keys().next().value);
+      pageCache.set(key, { text, fetchImpl, expires: Date.now() + 300000 });
+    }
+  }
+  if (!offset && text.length <= MAX_PAGE_CHARS) return text;
+  // Select a relevant window without hiding the rest of the source.
+  if (query && offset === 0 && text.length > MAX_PAGE_CHARS) {
+    const terms = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [])];
+    let best = -1;
+    for (let start = 0; start < text.length; start += 6000) {
+      const part = text.slice(start, start + 11500).toLowerCase();
+      const score = terms.reduce((n, term) => n + Number(part.includes(term)), 0);
+      if (score > best) { best = score; offset = start; }
+    }
+  }
+  const end = Math.min(offset + 11500, text.length);
+  return `[WEB PAGE SECTION: characters ${offset}-${end} of ${text.length}. ${end < text.length ? `More available: call get_single_web_page_content with offset=${end}.` : 'End of page.'} This section is partial evidence; earlier sections may also be relevant.]\n` + text.slice(offset, end);
 }
 
 module.exports = { MAX_PAGE_CHARS, sanitizeWebPageContent, sanitizeWebToolResult, getSingleWebPageContent, publicDispatcher, pinnedLookup, decodeEntities, isPublicAddress };

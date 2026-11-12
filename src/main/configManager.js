@@ -140,6 +140,12 @@ function normalizeAppSettings(input = {}) {
 	}
 	const mcpMode = input.mcpMode === undefined ? "auto" : input.mcpMode;
 	if (!["auto", "manual"].includes(mcpMode)) throw new Error("MCP mode must be auto or manual.");
+	const rawSearchProvider = input.webSearchProvider ?? null;
+	const webSearchProvider = rawSearchProvider === null ? null : { serverName: rawSearchProvider.serverName };
+	if (webSearchProvider !== null && (typeof rawSearchProvider !== 'object' || Array.isArray(rawSearchProvider) ||
+		!['serverName'].every(key => typeof webSearchProvider[key] === 'string' && webSearchProvider[key].trim() && webSearchProvider[key].length <= 200) ||
+		Object.keys(rawSearchProvider).some(key => !['serverName', 'toolName'].includes(key))))
+		throw new Error("Select a valid MCP server, or native web search.");
 	const maxConsecutiveToolFailures =
 		input.maxConsecutiveToolFailures === undefined ? 5 : input.maxConsecutiveToolFailures;
 	const maxTotalToolFailures = input.maxTotalToolFailures === undefined ? 10 : input.maxTotalToolFailures;
@@ -193,6 +199,7 @@ function normalizeAppSettings(input = {}) {
 		mascot: normalizeMascotSettings(input.mascot),
 		apiServerPort,
 		mcpMode,
+		webSearchProvider,
 		maxConsecutiveToolFailures,
 		maxTotalToolFailures,
 		notificationsEnabled,
@@ -208,7 +215,7 @@ function getAppSettings() {
 	const { db } = require("./db");
 	const rows = db
 		.prepare(
-			"SELECT key, value_json FROM app_settings WHERE key IN ('mascot', 'apiServerPort', 'mcpMode', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'notificationSounds', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
+			"SELECT key, value_json FROM app_settings WHERE key IN ('mascot', 'apiServerPort', 'mcpMode', 'webSearchProvider', 'maxConsecutiveToolFailures', 'maxTotalToolFailures', 'notificationsEnabled', 'notifyOnlyWhenBackgrounded', 'notificationEvents', 'notificationSounds', 'disabledSkills', 'recoveryRetentionDays', 'recoveryStorageCapMB')",
 		)
 		.all();
 	return normalizeAppSettings(Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value_json)])));
@@ -224,6 +231,7 @@ function saveAppSettings(input) {
 		save.run("mascot", JSON.stringify(settings.mascot));
 		save.run("apiServerPort", JSON.stringify(settings.apiServerPort));
 		save.run("mcpMode", JSON.stringify(settings.mcpMode));
+		save.run("webSearchProvider", JSON.stringify(settings.webSearchProvider));
 		save.run("maxConsecutiveToolFailures", JSON.stringify(settings.maxConsecutiveToolFailures));
 		save.run("maxTotalToolFailures", JSON.stringify(settings.maxTotalToolFailures));
 		save.run("notificationsEnabled", JSON.stringify(settings.notificationsEnabled));

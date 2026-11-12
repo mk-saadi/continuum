@@ -126,8 +126,8 @@ const agentTools = [
 	),
 	define(
 		"get_single_web_page_content",
-		"Fetch a public web page or JSON API endpoint and return readable article text or pretty-printed JSON, capped at 12,000 characters. For single pages and API responses only; delegate full-page extraction or multi-page research to spawn_sub_agent or extract_web_page_data instead of pulling raw pages here.",
-		{ url: string("Public HTTP or HTTPS page URL") },
+		"Fetch a public web page or JSON API endpoint and return readable article text or pretty-printed JSON, in sections of up to 12,000 characters. Downloads support up to 8 MiB. Use offset to retrieve further sections, or query to select a relevant section. For single pages and API responses only; delegate full-page extraction or multi-page research to spawn_sub_agent or extract_web_page_data instead of pulling raw pages here.",
+		{ url: string("Public HTTP or HTTPS page URL"), offset: { type: "integer", minimum: 0, description: "Character offset for the next section" }, query: string("Optional question to locate a relevant section") },
 		["url"],
 	),
 	define(
@@ -2893,8 +2893,10 @@ async function executeAgentTool({ id = null, name, arguments: rawArguments, sess
             return getRecentChatHistory(args, sessionId);
         }
 		if (name === "take_screenshot") return await screenshot(args, sessionId);
+		if (name === "web_search" && require('../configManager').getAppSettings().webSearchProvider)
+            throw new Error('The user selected an MCP web search provider. Use its advertised search tool in the parent chat; native DuckDuckGo is disabled until Settings > MCP > Default web search is changed.');
 		if (name === "web_search") return await require("./webDiscovery").searchWeb({ query: args.query, max_results: args.max_results, signal });
-		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal });
+		if (name === "get_single_web_page_content") return await require("./webSearch").getSingleWebPageContent({ ...args, signal, scope: sessionId });
 		if (name === "extract_web_page_data") return await require("../subAgentRunner").extractWebPageData({ ...args, engine, signal, parentSessionId: sessionId, budgetScope });
 		if (name === "generate_image") return await require("./generateImage").generateImage({ ...args, signal, expectedProviderKey: guardDecision?.imageProviderKey });
 		// Durable, session-owned task state: no filesystem or workspace access

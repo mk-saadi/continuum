@@ -485,10 +485,10 @@ async function runWebExtractionExecution({ session, url, query, engine, signal, 
   // error identity so it is still recorded as a cancellation, not a failure.
   let page;
   try {
-    page = await getSingleWebPageContent({ url, signal: activeSignal, fetchImpl: pageFetchImpl });
+    page = await getSingleWebPageContent({ url, query, scope: session.parentSessionId ?? session.id, signal: activeSignal, fetchImpl: pageFetchImpl });
   } catch (error) {
     if (signal?.aborted || deadlineExpired() || error?.name === 'AbortError' || error?.code === 'ABORT_ERR') throw error;
-    throw new Error(`Web page fetch failed for ${url}: ${error?.message ?? error}`);
+    throw Object.assign(new Error(`Web page fetch failed for ${url}: ${error?.message ?? error}`), { code: error?.code, cause: error });
   }
   pushActivity(session, { type: 'fetch', url, chars: typeof page === 'string' ? page.length : 0 });
   signal?.throwIfAborted();

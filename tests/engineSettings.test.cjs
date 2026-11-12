@@ -27,13 +27,25 @@ try {
   assert.equal(getAppSettings().mcpMode, 'auto');
   saveAppSettings({ apiServerPort: 9090 });
   saveAppSettings({ mcpMode: 'manual' });
-  assert.deepEqual(getAppSettings(), { apiServerPort: 9090, mcpMode: 'manual',
+  assert.deepEqual(getAppSettings(), { apiServerPort: 9090, mcpMode: 'manual', webSearchProvider: null,
     mascot: require('../src/lib/mascotSettings.cjs').DEFAULT_MASCOT_SETTINGS,
     notificationSounds: { enabled: true, volume: 25, completed: true, interrupted: true, inputRequired: true },
     recoveryRetentionDays: 30, recoveryStorageCapMB: 512,
     maxConsecutiveToolFailures: 5, maxTotalToolFailures: 10,
     notificationsEnabled: true, notifyOnlyWhenBackgrounded: true,
     notificationEvents: { completion: true, error: true, contextOverflow: true, action_required: true }, disabledSkills: [] });
+  const provider = { serverName: 'external-search' };
+  saveAppSettings({ webSearchProvider: { ...provider, toolName: 'legacy-search' } });
+  assert.deepEqual(getAppSettings().webSearchProvider, provider);
+  saveAppSettings({ webSearchProvider: provider });
+  closeDatabase(); initDatabase();
+  assert.deepEqual(getAppSettings().webSearchProvider, provider);
+  saveAppSettings({ mcpMode: 'auto' });
+  assert.deepEqual(getAppSettings().webSearchProvider, provider);
+  for (const value of ['search', [], {}, { serverName: '' }])
+    assert.throws(() => saveAppSettings({ webSearchProvider: value }), /valid MCP/);
+  saveAppSettings({ webSearchProvider: null, mcpMode: 'manual' });
+  assert.equal(getAppSettings().webSearchProvider, null);
   saveNotificationPrefs({ notificationsEnabled: false, notificationEvents: { completion: false } });
   assert.equal(getAppSettings().notificationsEnabled, false);
   assert.deepEqual(getAppSettings().notificationEvents,
