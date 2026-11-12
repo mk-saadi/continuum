@@ -4,7 +4,7 @@ Continuum is a local-first desktop AI assistant combining local GGUF models, clo
 
 ## Overview
 
-**Casual Chat** is for conversation, attachments, rich responses, and persistent history. **Agentic Workspace** adds a project directory, native development tools, task plans, and permission-controlled execution. Model capabilities and your configuration determine which workflows are available.
+**Casual Chat** is for conversation, attachments, rich responses, and persistent history. **Agentic Workspace** adds a project directory, a built-in file explorer with inline Git diffs, native development tools, task plans, and permission-controlled execution. Model capabilities and your configuration determine which workflows are available.
 
 Conversations, memories, settings, and usage records are stored locally in SQLite. Local inference runs on your machine; cloud requests send their contents to the selected provider. External tools, web access, and model-asset downloads can also use the network.
 
@@ -59,6 +59,16 @@ In a Workspace, agents can inspect directories, read and create files, edit sour
 
 Attachments include images, audio, video, PDFs, and documents, subject to format and model support. Responses render Markdown tables, highlighted code, cards, progress flows, interactive charts, color swatches, and inline media. Attaching a format does not imply every model can interpret it. See [attachment handling](docs/file-attachments.md) and [chat history](docs/chat-history.md).
 
+### Workspace File Explorer & Inline Git Diffs
+
+Inspect files and review changes alongside the conversation without opening a separate editor. Switch between **Chats** and **Files** in the left sidebar, expand project folders, and select a file to open a read-only preview beside chat. Both the sidebar and preview have draggable resize handles.
+
+- **File previews:** syntax highlighting, line numbers, selectable text, and refresh controls. Large files use plain text to keep previews responsive; previews are bounded to the first 512 KB.
+- **Inline Git review:** switch between **File** and **Git diff** in the preview toolbar. Review unified or side-by-side diffs, browse changed files, and see addition/deletion counts. Side-by-side panes synchronize horizontal and vertical scrolling. Git controls appear only for supported Git repositories; modified filenames also receive a colored **M** badge when the workspace has a GitHub remote configured.
+- **File recovery:** expand **Recovery** in the diff view to inspect checkpoint coverage, preview a revert, and confirm restoration of a covered file. Availability depends on a covering recovery checkpoint; a Git diff alone does not provide recovery coverage.
+
+![Workspace file explorer with a syntax-highlighted preview beside chat](docs/images/workspace-explorer.png)
+
 ### Coding Tools & File Operations
 
 **Reliable File Editing and Recovery.** Native tools provide unique string replacement, guarded file writes, unified patches, and batches of up to 20 replacements. Exact matching comes first, with conservative formatting-tolerant matching for supported source, including CSS and candidate-local JSX/TSX checks. Ambiguous or unsafe matches reject rather than guessing.
@@ -68,6 +78,16 @@ Argument validation identifies the failing edit; diagnostics include bounded sou
 **Large-File Navigation.** Text reads return bounded pages by default, with explicit line ranges, total line counts, continuation positions, and source revision hashes. Optional revision checks detect stale pages; Unicode-safe character windows make unusually long lines inspectable. Source reads stay inside the workspace, including resolved symlinks. Agents can use edit diagnostics to read just the relevant range before retrying.
 
 Returned content is bounded, but each text page can scan the whole file internally for hashing, line counting, and binary detection. This is not constant-time random access. See [large-file reading](docs/r2-large-file-pagination-report.md).
+
+### Local Task Scheduling
+
+Use **Tasks → Create task** to schedule assistant instructions for a specific time, every day, every N days, or selected weekdays, with an explicit timezone. Tasks can use a project workspace or casual context, a selected local or cloud model, an optional fallback model, a permission mode, and a maximum run time.
+
+**Scheduling runs locally inside Continuum.** Task definitions and execution history persist in local SQLite storage; there is no hosted scheduler or independent background service. The app process must be running and the computer awake to execute a task. Tasks do not run after quitting the app or while the computer is asleep. When Continuum starts again or the computer wakes, missed occurrences are evaluated using the task's configured grace-period, skip, or catch-up policy, subject to overdue limits. Local scheduling does not make a cloud model or network tool offline: those still require their configured services.
+
+- **Manage schedules:** create, edit, pause/resume, delete, or run a task manually. The Tasks page shows upcoming tasks, active runs, paused tasks, recent results, and execution history.
+- **Review results:** each execution creates a conversation that can be opened from its run details. Runs execute through a serial queue and prepare the selected model; an alternative model is used only through configured fallback choices.
+- **Unattended execution:** scheduled runs use the agent pipeline with the task's permissions and run-time budget. A request for approval or user input blocks the run for review rather than waiting indefinitely for an unattended answer. Interrupted runs are recorded; scheduling does not guarantee automatic continuation after a crash or shutdown.
 
 ### Memory & Automatic Compaction
 
@@ -94,6 +114,8 @@ Delegate scoped investigations, file analysis, or web extraction to child agents
 Children have context-management support, but parent-level self-compaction parity and real-model reliability are not established universally. Active jobs and budget ledgers are not restored after application restart. See [subagent execution and limits](docs/subagents.md).
 
 Connect MCP servers over **stdio, SSE, or Streamable HTTP**. Configuration watching supports hot reload and tool registration/discovery. Agents can create and register server code, subject to permissions, available dependencies, and successful server startup; setup is not guaranteed to be automatic. Native Playwright browser tools are also available and require a compatible browser installation. See [MCP configuration](MCP.md).
+
+Web search uses native DuckDuckGo by default. To use an external provider, enable its MCP server, then choose it under **Settings → MCP Integrations → Default web search**. Select the server rather than an individual tool: the assistant chooses among its enabled tools for search, summaries, and page reading. The choice persists and applies to workspace and casual chats starting with the next message; existing tool permissions and approval rules still apply. In Manual mode, keep the server and desired tools enabled. If the selected provider is unavailable, the assistant is instructed to report the problem instead of silently switching to DuckDuckGo. Select **Native DuckDuckGo (default)** to switch back.
 
 ### Usage & Cost Analytics
 
@@ -200,7 +222,7 @@ npm run dist:local
 
 Continuum is actively developed. Editing, pagination, compaction, permissions, recovery, and accounting have deterministic regression coverage, but that does not establish universal real-model or platform reliability. Recent context and edit-recovery reports explicitly retain real-model acceptance gaps and known baseline/environment test failures.
 
-Local performance depends on hardware and model; cloud features require provider access. Compaction and corrective tool use depend partly on model behavior, recovery coverage can be incomplete, and native sandboxing is platform-dependent. Persistent scheduled autonomous jobs, arbitrary crash-resumable tasks, and work after application shutdown are not documented as implemented capabilities.
+Local performance depends on hardware and model; cloud features require provider access. Compaction and corrective tool use depend partly on model behavior, recovery coverage can be incomplete, and native sandboxing is platform-dependent. Task scheduling is local to the running app, with missed-run handling on startup or wake. It does not provide execution after application shutdown or guarantee automatic continuation of interrupted runs.
 
 See the [README accuracy audit](docs/readme-v2-audit.md) for source evidence and documentation gaps, and [release readiness](docs/migration-electron44-release-readiness.md) for packaging limits.
 
