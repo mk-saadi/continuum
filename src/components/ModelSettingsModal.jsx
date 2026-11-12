@@ -206,11 +206,11 @@ export default function ModelSettingsModal({ model, onClose, onLoaded }) {
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-24px)] max-w-[880px] overflow-clip p-0"
+			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[85dvh] max-h-[85dvh] w-[calc(100%-24px)] max-w-[1000px] overflow-clip p-0"
 		>
 			<form
 				onSubmit={submit}
-				className="flex max-h-[85dvh] flex-col"
+				className="flex h-full min-h-0 flex-col"
 			>
 				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">

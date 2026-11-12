@@ -106,7 +106,7 @@ function SettingsModalSlot({ active, palace, avatars, models, engineRunning, ser
 }
 
 function AppContent() {
-	const { tabs, activeTab, activeTabId, updateTab, markTabSaved } = useTabs();
+	const { tabs, activeTab, activeTabId, updateTab, markTabSaved, openSessionTab } = useTabs();
 	// Stable action object: opening the project modal from the sidebar must not
 	// subscribe AppContent (or TabPane) to modal visibility changes.
 	const modalActions = useModalActions();
@@ -372,6 +372,7 @@ function AppContent() {
 					engines={engines}
 					serverError={serverError}
 					markTabSaved={markTabSaved}
+                    openSessionTab={openSessionTab}
 				/>
 			))}
 		</div>
@@ -400,6 +401,7 @@ const TabPane = memo(function TabPane({
 	engines,
 	serverError,
 	markTabSaved,
+	openSessionTab,
 }) {
 	const update = useCallback((patch) => updateTab(tab.id, patch), [updateTab, tab.id]);
 	const setSessionId = useCallback((id) => update({ sessionId: id }), [update]);
@@ -480,6 +482,7 @@ const TabPane = memo(function TabPane({
 				</div>
 			)}
 			<ChatInterface
+                onNavigateChat={openSessionTab}
 				navigationTarget={tab.navigationTarget}
 				tabActive={active}
 				view={view}

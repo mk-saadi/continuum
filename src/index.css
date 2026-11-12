@@ -2108,3 +2108,32 @@ input:is([type="button"], [type="submit"], [type="reset"]) {
 svg.recharts-surface:focus:not(:focus-visible) {
 	outline: none;
 }
+
+/* Give plain controls the same configurable corners as styled controls.
+ * Explicit utilities (including circular buttons) keep their own radius. */
+@layer base {
+  :where(button, [role="button"]) {
+    border-radius: var(--ui-radius-control);
+  }
+}
+
+/* Replace Chromium's platform-colored focus outline consistently across
+ * appearances. An inset outline stays visible in clipped lists and follows
+ * the control's actual corners without replacing its existing shadows. */
+html :is(button, [role="button"]):focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
+}
+html :is(button, [role="button"]):focus:not(:focus-visible) {
+  outline: none !important;
+}
+@media (forced-colors: active) {
+  html :is(button, [role="button"]):focus-visible {
+    outline-color: Highlight !important;
+  }
+}
+
+/* The tab housing owns the focus indicator; its label must not draw another. */
+html .aero-tab .aero-tab-label:focus-visible {
+  outline: none !important;
+}

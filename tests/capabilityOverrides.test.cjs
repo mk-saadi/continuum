@@ -26,6 +26,15 @@ test('overrides persist, remain isolated by model and can return to automatic', 
     assert.throws(() => api.saveOverrides(local,{image:'yes'}),/Invalid/);
     assert.throws(() => api.saveOverrides(local,{contextLength:128000}),/Invalid/);
     for (const contextLength of [0,-1,1.5,'128000']) assert.throws(() => api.saveOverrides(cloud,{contextLength}),/Invalid/);
+    api.saveOverrides(cloud,{inputPrice:2,outputPrice:8});
+    assert.deepEqual(api.getOverrides(cloud),{inputPrice:2,outputPrice:8});
+    assert.deepEqual(api.getOverrides({...cloud,model:'two'}),{});
+    for (const inputPrice of [-1,Infinity,NaN,'2']) assert.throws(() => api.saveOverrides(cloud,{inputPrice,outputPrice:8}),/Invalid/);
+    assert.throws(() => api.saveOverrides(cloud,{inputPrice:2}),/both/);
+    assert.throws(() => api.saveOverrides(local,{inputPrice:2,outputPrice:8}),/Invalid/);
+    api.saveOverrides(cloud,{inputPrice:0,outputPrice:0});
+    assert.equal(api.getOverrides(cloud).inputPrice,0);
+    api.saveOverrides(cloud,{audio:true,contextLength:128000,inputPrice:null,outputPrice:null});
     api.saveOverrides(local,{});
     assert.deepEqual(api.getOverrides(local),{});
     assert.deepEqual(api.getOverrides(cloud),{audio:true,contextLength:128000});

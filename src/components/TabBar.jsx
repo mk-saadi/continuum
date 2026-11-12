@@ -102,6 +102,7 @@ export default function TabBar({ projects = [] }) {
 					data-active={tab.id === activeTabId}
 					data-dragging={dragId === tab.id}
 					draggable
+                    onClick={() => activateTab(tab.id)}
 					onDragStart={(event) => {
 						dragIdRef.current = tab.id;
 						setDragId(tab.id);
@@ -130,7 +131,6 @@ export default function TabBar({ projects = [] }) {
 								if (element) tabButtons.current.set(tab.id, element);
 								else tabButtons.current.delete(tab.id);
 							}}
-							onClick={() => activateTab(tab.id)}
 							aria-current={tab.id === activeTabId ? "page" : undefined}
 							className="aero-tab-label flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
 						>
@@ -160,7 +160,7 @@ export default function TabBar({ projects = [] }) {
 					</Tooltip>
 					<button
 						type="button"
-						onClick={() => closeTab(tab.id)}
+						onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}
 						aria-label={`Close ${title}`}
 						className="aero-chrome-button sk-icon-button p-1 cursor-pointer"
 					>

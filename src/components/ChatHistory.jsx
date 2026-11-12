@@ -20,6 +20,7 @@ import {
 
 import { getRecentSessions } from "../lib/sidebarHistory.mjs";
 import { LuX } from "react-icons/lu";
+import Tooltip from "./Tooltip";
 
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
@@ -223,7 +224,6 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 		>
 			<button
 				className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
-				disabled={locked}
 				aria-current={activeId === session.id ? "page" : undefined}
 				title={session.title || "Untitled chat"}
 				onClick={() => {
@@ -493,18 +493,19 @@ export default function ChatHistory({
 							className="min-w-0 w-full bg-transparent text-sm text-[var(--text-primary)] outline-none"
 						/>
 					</label>
-					<button
-						className="aero-control sk-button grid size-9 shrink-0 place-items-center"
-						disabled={locked}
-						onClick={() => {
-							setAction({ kind: "New Folder" });
-							setError("");
-						}}
-						title="New Folder"
-						aria-label="New Folder"
-					>
-						<FiFolderPlus className="size-4" />
-					</button>
+					<Tooltip content="New Folder">
+						<button
+							className="aero-control sk-button grid size-9 shrink-0 place-items-center cursor-pointer"
+							disabled={locked}
+							onClick={() => {
+								setAction({ kind: "New Folder" });
+								setError("");
+							}}
+							aria-label="New Folder"
+						>
+							<FiFolderPlus className="size-4" />
+						</button>
+					</Tooltip>
 				</div>
 			</div>
 			<nav
@@ -653,7 +654,7 @@ export default function ChatHistory({
 						role="menu"
 						aria-label="Chat actions"
 						style={{ left: menu.left, top: menu.top }}
-						className="aero-popover sk-menu absolute z-50 w-[184px] p-1"
+						className="aero-popover sk-menu absolute z-50 w-[184px] p-1 text-[var(--text-primary)]"
 						onKeyDown={(event) => {
 							if (event.key === "Escape") {
 								event.preventDefault();
@@ -684,7 +685,7 @@ export default function ChatHistory({
 							<button
 								key={kind}
 								role="menuitem"
-								className={`${buttonStyle} w-full ${kind === "Delete" ? "text-[var(--error)]" : ""}`}
+								className={`${buttonStyle} w-full ${kind === "Delete" ? "text-[var(--error)]" : "text-[var(--text-primary)]"}`}
 								disabled={locked}
 								onClick={() => choose(kind)}
 							>

@@ -129,6 +129,7 @@ export function ChatInterface({
 	onProject,
 	onCreateProject,
 	onChat = () => {},
+	onNavigateChat = null,
 	onTasks = null,
 	renderWorkspace,
 	selectedModel,
@@ -718,7 +719,22 @@ export function ChatInterface({
 		}
 	};
 
+    const historyNavigation = useRef(0);
+    useEffect(() => { if (!tabActive) historyNavigation.current++; return () => { historyNavigation.current++; }; }, [tabActive]);
 	const loadChat = async (id) => {
+        if (onNavigateChat) {
+          const request = ++historyNavigation.current;
+          if (id === palace.sessionId) { onChat(); return; }
+          try {
+            const session = await loadDisplaySession(id);
+            if (request !== historyNavigation.current) return;
+            if (!session) { await refreshHistory().catch(() => {}); throw new Error('This chat no longer exists.'); }
+            const targetProject = projects.find(project => project.id === session.project_id) ?? null;
+            const mode = resolveChatPermissionMode({ sessionId: id, currentSessionId: palace.sessionId, tabMode: tabPermissionMode, sessionMode: permissionBySession[id], project: targetProject });
+            onNavigateChat(session, mode);
+          } catch (error) { if (request === historyNavigation.current) setHistoryError(error.message); }
+          return;
+        }
 		if (busyRef.current) return;
 		busyRef.current = true;
 		setIndexing(null);

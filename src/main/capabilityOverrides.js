@@ -35,6 +35,8 @@ function saveOverrides(target, input) {
 		typeof input !== "object" ||
 		Array.isArray(input) ||
 		Object.entries(input).some(([key, value]) => {
+			if (["inputPrice", "outputPrice"].includes(key))
+                return target?.type !== "cloud" || (value !== null && (typeof value !== "number" || !Number.isFinite(value) || value < 0));
 			if (key === "contextLength")
 				return (
 					target?.type !== "cloud" ||
@@ -46,6 +48,7 @@ function saveOverrides(target, input) {
 		})
 	)
 		throw new Error("Invalid capability overrides.");
+    if ((input.inputPrice != null) !== (input.outputPrice != null)) throw new Error("Enter both input and output prices, or leave both automatic.");
 	const key = keyFor(target),
 		all = readOverrides();
 	const patch = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== null));

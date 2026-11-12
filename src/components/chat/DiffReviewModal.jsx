@@ -76,7 +76,7 @@ function renderToken(node, key, stylesheet) {
 
 // Highlight a whole column once so multiline comments and strings keep their
 // syntax context. Each pane owns one horizontal scrollbar, shared by all rows.
-const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, unified = false, onScroll }) {
+const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, unified = false, onScroll, wrap = false }) {
     const lineNumberDigits = rows.reduce((digits, row) => Math.max(digits, String(row[`${side}No`] ?? '').length), 4);
 	const text = rows
 		.map((row) => (row.type === "hunk" || row.type === "note" ? row.text : (row[side] ?? "")))
@@ -101,7 +101,7 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 					fontFamily: "var(--font-mono)",
 					overflow: "visible",
 				}}
-				codeTagProps={{ style: { fontFamily: "inherit", display: "block", minWidth: "max-content" } }}
+				codeTagProps={{ style: { fontFamily: "inherit", display: "block", minWidth: wrap ? 0 : "max-content" } }}
 				renderer={({ rows: tokens, stylesheet }) =>
 					tokens.map((token, index) => {
 						const row = rows[index];
@@ -121,7 +121,8 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 						return (
 							<div
 								key={index}
-								className={`flex min-h-[22px] ${tone}`}
+								data-diff-row=""
+                                className={`flex min-h-[22px] ${tone}`}
 							>
 								{!unified && <span
 									aria-hidden="true"
@@ -136,7 +137,7 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 								>
 									{added ? "+" : removed ? (unified ? "-" : "−") : ""}
 								</span>
-								<span className="pr-4 whitespace-pre">
+								<span className="min-w-0 pr-4" style={{ whiteSpace: wrap ? "pre-wrap" : "pre", overflowWrap: wrap ? "anywhere" : "normal" }}>
 									{meta ? row.text : renderToken(token, index, stylesheet)}
 								</span>
 							</div>
@@ -168,7 +169,7 @@ const FLAG_TONE = {
 // worktree status, per-file diffs, and per-file revert through the recovery
 // checkpoint engine (latest covering checkpoint, preview-then-confirm).
 // Read-only until the user confirms; revert refuses while its run is active.
-export default function DiffReviewModal({ sessionId, projectName, running = false, onClose, embedded = false, filePath = null }) {
+export default function DiffReviewModal({ sessionId, projectName, running = false, onClose, embedded = false, filePath = null, wrap = false }) {
 	const dialogRef = useRef(null);
     const synchronizedScroll = useRef(new WeakMap());
     const syncDiffScroll = useCallback((event) => {
@@ -339,6 +340,32 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
     const displayedUnifiedRows = useMemo(() => embedded ? unifiedRows.filter(row => !/^(diff --git |index |--- |\+\+\+ )/.test(row.text)) : unifiedRows, [embedded, unifiedRows]);
 	const splitAvailable = split?.ok === true;
 	const effectiveView = view === "split" && splitAvailable ? "split" : "unified";
+
+    useEffect(() => {
+      if (!wrap || effectiveView !== 'split') return;
+      const root = dialogRef.current;
+      let frame;
+      const align = () => {
+        const left = root?.querySelectorAll('[aria-label="Original code"] [data-diff-row]');
+        const right = root?.querySelectorAll('[aria-label="Updated code"] [data-diff-row]');
+        if (!left || !right) return;
+        [...left, ...right].forEach(row => { row.style.minHeight = '22px'; });
+        left.forEach((row, i) => { if (right[i]) {
+          const height = Math.max(row.getBoundingClientRect().height, right[i].getBoundingClientRect().height);
+          row.style.minHeight = right[i].style.minHeight = `${height}px`;
+        } });
+      };
+      const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(align); };
+      const resize = new ResizeObserver(schedule);
+      const mutations = new MutationObserver(schedule);
+      root?.querySelectorAll('[aria-label="Original code"], [aria-label="Updated code"]').forEach(pane => resize.observe(pane));
+      if (root) mutations.observe(root, { childList: true, subtree: true });
+      schedule();
+      return () => {
+        cancelAnimationFrame(frame); resize.disconnect(); mutations.disconnect();
+        root?.querySelectorAll('[data-diff-row]').forEach(row => { row.style.minHeight = ''; });
+      };
+    }, [wrap, effectiveView, split, language]);
 
 	const runPreviewWith = async (forceValue) => {
 		if (selectedPath == null || covering?.checkpointId == null || busyRef.current) return;
@@ -714,13 +741,13 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													</div>
 													<div className="min-h-0 flex-1 overflow-hidden">
 														<div className="grid h-full min-h-0 grid-cols-2 divide-x divide-[var(--code-border)]">
-															<DiffCodePane
+															<DiffCodePane wrap={wrap}
 																onScroll={syncDiffScroll}
                                                         rows={split.rows}
 																side="left"
 																language={language}
 															/>
-															<DiffCodePane
+															<DiffCodePane wrap={wrap}
 																onScroll={syncDiffScroll}
                                                         rows={split.rows}
 																side="right"
@@ -738,7 +765,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 														</p>
 													)}
 													<div className="min-h-0 flex-1 overflow-hidden ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]">
-														<DiffCodePane
+														<DiffCodePane wrap={wrap}
 															rows={displayedUnifiedRows}
 															side="right"
 															language={language}

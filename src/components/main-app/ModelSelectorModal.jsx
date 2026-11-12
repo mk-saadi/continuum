@@ -19,6 +19,7 @@ import {
 	LuCheck,
 	LuPencil,
 	LuStar,
+	LuSettings2,
 } from "react-icons/lu";
 
 const secondaryButton =
@@ -148,6 +149,16 @@ export default function ModelSelectorModal({
 		};
 	}, []);
 	const [busy, setBusy] = useState(false);
+	const launchPending = useRef(false);
+	const [loadingModelId, setLoadingModelId] = useState(null);
+	const [lastUsedModels, setLastUsedModels] = useState(() => {
+		try {
+			const value = JSON.parse(localStorage.getItem("cloud-model-last-used") || "{}");
+			return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+		} catch {
+			return {};
+		}
+	});
 	const [error, setError] = useState("");
 	const [cloudMetadata, setCloudMetadata] = useState([]);
 	const [metadataStatus, setMetadataStatus] = useState("");
@@ -284,9 +295,51 @@ export default function ModelSelectorModal({
 	}
 
 	function chooseModel(row, modelId) {
-		if (!modelId) return;
+		if (!modelId || busy) return;
+		const nextLastUsed = { ...lastUsedModels, [row.id]: modelId };
+		setLastUsedModels(nextLastUsed);
+		try {
+			localStorage.setItem("cloud-model-last-used", JSON.stringify(nextLastUsed));
+		} catch {}
 		onSelectProvider({ type: "cloud", provider: row.id, model: modelId });
 		onClose();
+	}
+
+	async function quickLoad(model) {
+		if (launchPending.current) return;
+		launchPending.current = true;
+		setBusy(true);
+		setLoadingModelId(model.id);
+		setError("");
+		try {
+			const { config, remembered, projectorPath } = await window.api.getModelLoadConfig(model.id);
+			const result = await window.api.launchEngine(model.id, {
+				...config,
+				reasoningFormat: remembered
+					? (config.reasoningFormat ?? "auto")
+					: (model.reasoningFormat ?? "auto"),
+				mmprojPath: projectorPath !== undefined ? projectorPath : model.mmprojPath || null,
+				rememberSettings: remembered,
+				allowPartialOffload: false,
+			});
+			if (result?.requiresConfirmation) {
+				setConfiguring(model);
+				return;
+			}
+			if (!result?.success)
+				throw new Error(
+					result?.error ||
+						"Could not start the engine. Adjust this model’s load settings and try again.",
+				);
+			onLoaded(result);
+			onClose();
+		} catch (cause) {
+			setError(cause.message || "Could not load this model.");
+		} finally {
+			launchPending.current = false;
+			setBusy(false);
+			setLoadingModelId(null);
+		}
 	}
 
 	const matchingQuery = (value) => value.toLowerCase().includes(query.toLowerCase());
@@ -332,9 +385,29 @@ export default function ModelSelectorModal({
 			? (b.model?.fileIdentity?.size || 0) - (a.model?.fileIdentity?.size || 0) ||
 				a.name.localeCompare(b.name)
 			: a.name.localeCompare(b.name);
+	const quickCloudEntries = providers
+		.flatMap((row) => {
+			const favorites = Array.isArray(favoritesByProvider[row.id])
+				? favoritesByProvider[row.id].filter((id) => typeof id === "string" && id.trim())
+				: [];
+			const lastUsed = (activeProviderId === row.id ? activeModelId : null) || lastUsedModels[row.id];
+			const ids = favorites.length
+				? favorites
+				: typeof lastUsed === "string" && lastUsed
+					? [lastUsed]
+					: [];
+			return [...new Set(ids)].map((modelId) => ({
+				kind: "cloud-model",
+				provider: row,
+				modelId,
+				name: modelDisplayName(modelId, { name: metadataFor(row.id, modelId)?.name }),
+			}));
+		})
+		.filter((entry) => !query || matchingQuery(`${entry.name} ${entry.modelId} ${entry.provider.name}`));
 	const groups = [
 		{ kind: "local", title: "Local models", entries: localEntries.sort(compareEntries) },
-		{ kind: "cloud", title: "Cloud models", entries: cloudEntries.sort(compareEntries) },
+		{ kind: "cloud-model", title: "Cloud models", entries: quickCloudEntries.sort(compareEntries) },
+		{ kind: "cloud", title: "Cloud providers", entries: cloudEntries.sort(compareEntries) },
 	];
 	const entries = groups.flatMap((group) => group.entries);
 
@@ -376,9 +449,9 @@ export default function ModelSelectorModal({
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto w-[calc(100%-24px)] max-w-[1000px] overflow-hidden p-0"
+			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[85dvh] max-h-[85dvh] w-[calc(100%-24px)] max-w-[1000px] overflow-hidden p-0"
 		>
-			<div className="flex max-h-[85dvh] flex-col">
+			<div className="flex h-full min-h-0 flex-col">
 				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
 						<span className="aero-fill sk-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
@@ -483,11 +556,11 @@ export default function ModelSelectorModal({
 									key={group.kind}
 									data-model-source={group.kind}
 									aria-labelledby={`model-group-${group.kind}`}
-									className="mb-6 last:mb-0"
+									className="mb-4 last:mb-0"
 								>
 									<h3
 										id={`model-group-${group.kind}`}
-										className="mb-3 flex items-center gap-2 text-xs font-semibold"
+										className="mb-2 flex items-center gap-2 text-xs font-semibold"
 									>
 										{group.kind === "local" ? (
 											<LuCpu aria-hidden="true" />
@@ -515,7 +588,7 @@ export default function ModelSelectorModal({
 						</div> */}
 									<ul
 										aria-label={group.title}
-										className="m-0 list-none space-y-3 p-0"
+										className="m-0 list-none space-y-1.5 p-0"
 									>
 										{group.entries.map((entry) => {
 											if (entry.kind === "local") {
@@ -526,7 +599,9 @@ export default function ModelSelectorModal({
 														(engine) => engine.modelPath === modelPath,
 													) ?? null;
 												const loaded = !!loadedEngine?.isLoaded;
-												const loading = !!loadedEngine && !loaded;
+												const loading =
+													loadingModelId === model.id ||
+													(!!loadedEngine && !loaded);
 												const active =
 													activeChatProvider?.type === "local" &&
 													selectedModel === model.id;
@@ -548,9 +623,9 @@ export default function ModelSelectorModal({
 																	onSelectModel(model.id);
 																	onSelectProvider({ type: "local" });
 																	onClose();
-																} else if (!loading) setConfiguring(model);
+																} else if (!loading) quickLoad(model);
 															}}
-															className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-12 py-3 text-left disabled:opacity-40`}
+															className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-20 py-1.5 text-left disabled:opacity-40`}
 														>
 															<Tooltip
 																content={
@@ -633,11 +708,21 @@ export default function ModelSelectorModal({
 																)}
 															</span>
 														</button>
+														<Tooltip content="Load settings">
+															<button
+																type="button"
+																aria-label={`Load settings for ${name}`}
+																disabled={busy}
+																onClick={() => setConfiguring(model)}
+																className={`${ghostButton} absolute right-10 top-1.5`}
+															>
+																<LuSettings2 size={13} />
+															</button>
+														</Tooltip>
 														<Tooltip content="Edit model capabilities">
 															<button
 																type="button"
 																aria-label={`Edit capabilities for ${name}`}
-																title="Edit model capabilities"
 																disabled={busy}
 																onClick={() =>
 																	setEditingCapabilities({
@@ -646,7 +731,7 @@ export default function ModelSelectorModal({
 																		name,
 																	})
 																}
-																className={`${ghostButton} absolute right-2 top-3`}
+																className={`${ghostButton} absolute right-2 top-1.5`}
 															>
 																<LuPencil
 																	size={13}
@@ -658,6 +743,110 @@ export default function ModelSelectorModal({
 												);
 											}
 
+											if (entry.kind === "cloud-model") {
+												const row = entry.provider;
+												const metadata = metadataFor(row.id, entry.modelId);
+												const active =
+													activeProviderId === row.id &&
+													activeModelId === entry.modelId;
+												const capabilityModel = {
+													...row,
+													...(metadata || {}),
+													id: row.id,
+													modelId: entry.modelId,
+												};
+												const overrides =
+													capabilityOverrides[overrideKey(capabilityModel, false)];
+												return (
+													<li
+														key={`${row.id}:${entry.modelId}`}
+														className={`${modelCard} overflow-hidden ui-radius-surface border border-[var(--border)]`}
+													>
+														<button
+															type="button"
+															aria-label={`Use ${entry.name} via ${row.name}`}
+															aria-current={active ? "true" : undefined}
+															disabled={busy}
+															onClick={() => chooseModel(row, entry.modelId)}
+															className={`${rowGrid} aero-list-item sk-list-row w-full cursor-pointer pl-3 pr-12 py-1.5 text-left`}
+														>
+															<span className="min-w-0">
+																<span className="block truncate text-xs font-semibold">
+																	{entry.name}
+																</span>
+																<span className="block truncate text-[10px] text-[var(--text-muted)]">
+																	{row.name} · {entry.modelId}
+																</span>
+															</span>
+															<span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+																<LuCloud />
+																{row.name}
+															</span>
+															<Capabilities
+																model={capabilityModel}
+																local={false}
+																overrides={overrides}
+															/>
+															<span className="text-[11px]">
+																{tokens(
+																	overrides?.contextLength ??
+																		metadata?.contextLength,
+																)}
+															</span>
+															<span className="text-[11px]">
+																{tokens(metadata?.maxOutputTokens)}
+															</span>
+															<span className="text-right text-[11px]">
+																{priceLabel(
+																	overrides?.inputPrice != null &&
+																		overrides?.outputPrice != null
+																		? {
+																				input:
+																					overrides.inputPrice /
+																					1e6,
+																				output:
+																					overrides.outputPrice /
+																					1e6,
+																			}
+																		: metadata?.pricing,
+																)}
+															</span>
+															<span className="flex items-center justify-end gap-1 text-[10px] text-[var(--accent)]">
+																{active ? (
+																	<>
+																		<LuCheck />
+																		Active
+																	</>
+																) : (
+																	<>
+																		Use <LuArrowRight />
+																	</>
+																)}
+															</span>
+														</button>
+														<Tooltip content="Edit model capabilities">
+															<button
+																type="button"
+																aria-label={`Edit capabilities for ${entry.name} via ${row.name}`}
+																disabled={busy}
+																onClick={() =>
+																	setEditingCapabilities({
+																		model: capabilityModel,
+																		local: false,
+																		name: `${entry.name} / ${row.name}`,
+																	})
+																}
+																className={`${ghostButton} absolute right-2 top-1.5`}
+															>
+																<LuPencil
+																	size={13}
+																	aria-hidden="true"
+																/>
+															</button>
+														</Tooltip>
+													</li>
+												);
+											}
 											const row = entry.provider;
 											const isActive = activeProviderId === row.id;
 											const expanded = expandedProvider === row.id;
@@ -709,7 +898,7 @@ export default function ModelSelectorModal({
 														aria-label={`${isActive ? "Change" : "Choose"} a model for ${row.name}`}
 														aria-current={isActive ? "true" : undefined}
 														onClick={() => toggleProvider(row)}
-														className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-12 py-3 text-left disabled:opacity-40`}
+														className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-12 py-1.5 text-left disabled:opacity-40`}
 													>
 														<Tooltip content={row.baseUrl}>
 															<span className="min-w-0">
@@ -802,7 +991,7 @@ export default function ModelSelectorModal({
 																</>
 															) : (
 																<>
-																	{expanded ? "Choose" : "Models"}
+																	{expanded ? "Choose" : "Browse"}
 																	<LuArrowRight
 																		size={12}
 																		aria-hidden="true"
@@ -811,29 +1000,6 @@ export default function ModelSelectorModal({
 															)}
 														</span>
 													</button>
-													{capabilityModel && (
-														<Tooltip content="Edit model capabilities">
-															<button
-																type="button"
-																aria-label={`Edit capabilities for ${row.name}`}
-																title="Edit model capabilities"
-																disabled={busy}
-																onClick={() =>
-																	setEditingCapabilities({
-																		model: capabilityModel,
-																		local: false,
-																		name: `${row.name} / ${capabilityModelId}`,
-																	})
-																}
-																className={`${ghostButton} absolute right-2 top-3`}
-															>
-																<LuPencil
-																	size={13}
-																	aria-hidden="true"
-																/>
-															</button>
-														</Tooltip>
-													)}
 													{expanded && (
 														<div className="aero-inset sk-well m-3 p-3">
 															<div className="flex max-w-xl items-end gap-2">

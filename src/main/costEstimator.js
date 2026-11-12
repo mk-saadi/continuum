@@ -1,7 +1,7 @@
 'use strict';
 
 // Phase 2.0C-3 cost orchestration. This module owns the *policy* of where a
-// price comes from — saved provider rates, live OpenRouter metadata, the
+// price comes from — live OpenRouter metadata, the
 // verified catalog, or a provider-reported charge — and delegates all money
 // math to the pure ../lib/cloudPricing.cjs resolver.
 //
@@ -40,8 +40,17 @@ function routeContext({ isLocal, providerId }) {
 }
 
 function pricingFrom(route, provider, modelId, providerMeta) {
+  let userRates = null;
+  if (provider?.id && modelId) {
+    try {
+      const overrides = require('./capabilityOverrides').getOverrides({ type: 'cloud', provider: provider.id, model: modelId });
+      if (Number.isFinite(overrides.inputPrice) && Number.isFinite(overrides.outputPrice)) userRates = { input: overrides.inputPrice, output: overrides.outputPrice };
+    } catch { /* Missing overrides leave automatic pricing in effect. */ }
+  }
+  // Legacy provider-wide rates cannot describe a provider serving many models.
+  // Keep stored history intact; resolve new turns using model-specific evidence.
   return pricing.resolvePricing(
-    { route, modelId, providerMeta, userRates: provider?.pricing ?? null },
+    { route, modelId, providerMeta, userRates },
     { openRouterPricing: providerMeta?.pricingRaw ?? null },
   );
 }

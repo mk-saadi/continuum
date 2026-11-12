@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { LuCloud } from "react-icons/lu";
-import { NumberField, SelectField, TextField } from "./FormControls";
+import { SelectField, TextField } from "./FormControls";
 import {
 	SettingsButton,
 	SettingsCard,
@@ -161,23 +161,9 @@ export default function CloudProviderSettings() {
 				modelId: "",
 				apiType: category === "text" ? "openai" : "openrouter",
 				configured: false,
-				...(category === "text"
-					? { pricing: { input: "", output: "", cacheRead: "", cacheWrite: "" } }
-					: {}),
 			},
 		]);
 	}
-	// Optional per-provider cost rates (USD per million tokens). Blank fields are
-	// simply absent evidence; entering both input and output enables an estimate
-	// for models the catalog does not know. Nothing here spends or fetches.
-	function updatePricing(id, field, value) {
-		setProviders((previous) =>
-			previous.map((row) =>
-				row.id === id ? { ...row, pricing: { ...(row.pricing ?? {}), [field]: value } } : row,
-			),
-		);
-	}
-
 	const categoryCopy =
 		tab === "text"
 			? "Configure conversational cloud providers. Only text models appear in the chat model selector."
@@ -466,59 +452,6 @@ export default function CloudProviderSettings() {
 							</SettingsHint>
 							<SettingsMessage>{modelLists[row.id]?.error}</SettingsMessage>
 						</div>
-					)}
-					{row.category === "text" && (
-						<fieldset className="aero-inset sk-well p-3">
-							<legend className="px-1 text-[11px] text-[var(--text-muted)]">
-								Cost rates (optional, USD per million tokens)
-							</legend>
-							<div className="grid gap-2 sm:grid-cols-4">
-								<NumberField
-									label="Input"
-									min="0"
-									step="any"
-									value={row.pricing?.input ?? ""}
-									disabled={busy}
-									placeholder="e.g. 2"
-									onChange={(event) => updatePricing(row.id, "input", event.target.value)}
-								/>
-								<NumberField
-									label="Output"
-									min="0"
-									step="any"
-									value={row.pricing?.output ?? ""}
-									disabled={busy}
-									placeholder="e.g. 10"
-									onChange={(event) => updatePricing(row.id, "output", event.target.value)}
-								/>
-								<NumberField
-									label="Cache read"
-									min="0"
-									step="any"
-									value={row.pricing?.cacheRead ?? ""}
-									disabled={busy}
-									placeholder="optional"
-									onChange={(event) =>
-										updatePricing(row.id, "cacheRead", event.target.value)
-									}
-								/>
-								<NumberField
-									label="Cache write"
-									min="0"
-									step="any"
-									value={row.pricing?.cacheWrite ?? ""}
-									disabled={busy}
-									placeholder="optional"
-									onChange={(event) =>
-										updatePricing(row.id, "cacheWrite", event.target.value)
-									}
-								/>
-							</div>
-							<SettingsHint>
-								Used for cost estimates only. Enter both input and output to enable them;
-								leave blank to rely on known provider pricing or a provider-reported charge.
-							</SettingsHint>
-						</fieldset>
 					)}
 					<div className="flex items-center gap-2 border-t border-[var(--border)] pt-3">
 						<SettingsButton

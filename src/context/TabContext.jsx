@@ -89,6 +89,16 @@ export function TabProvider({ children }) {
     commit(current => ({ tabs: [...current.tabs, tab], activeTabId: tab.id }));
     return tab.id;
   }, [commit]);
+  const openSessionTab = useCallback((session, permissionMode) => {
+    const candidate = { ...newTab(session.model_id || '', session.project_id ?? null), sessionId: session.id,
+      title: session.title || 'Untitled chat', saved: true, ...(permissionMode ? { permissionMode } : {}) };
+    commit(current => {
+      const existing = current.tabs.find(tab => tab.sessionId === session.id);
+      if (existing) return { ...current, activeTabId: existing.id,
+        tabs: existing.view === 'chat' ? current.tabs : current.tabs.map(tab => tab.id === existing.id ? { ...tab, view: 'chat' } : tab) };
+      return { tabs: [...current.tabs, candidate], activeTabId: candidate.id };
+    });
+  }, [commit]);
   const closeTab = useCallback(id => {
     const sessionId = stateRef.current.tabs.find(tab => tab.id === id)?.sessionId;
     if (sessionId) void window.chatAPI?.cancelSession?.(sessionId)?.catch(console.error);
@@ -204,8 +214,8 @@ export function TabProvider({ children }) {
   }, []);
 
   const value = useMemo(() => ({ ...state, activeTab: state.tabs.find(tab => tab.id === state.activeTabId),
-    updateTab, openTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved }),
-    [state, updateTab, openTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved]);
+    updateTab, openTab, openSessionTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved }),
+    [state, updateTab, openTab, openSessionTab, closeTab, closeAllTabs, cycleTab, activateTab, moveTab, markTabSaved]);
   return <TabContext.Provider value={value}>{restored ? children : null}</TabContext.Provider>;
 }
 

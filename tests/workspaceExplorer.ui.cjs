@@ -32,7 +32,7 @@ if (!process.versions.electron) {
           getRecoveryCoveringCheckpoint: async () => null,
           getWorkspaceGitStatus: async () => ({ connected: window.gitConnected, modified: ['README.md'] }),
           listWorkspaceDirectory: async (id, path) => ({ items: path === '.' ? [{name:'src',path:'src',directory:true},{name:'README.md',path:'README.md'}] : [{name:'app.js',path:'src/app.js'}] }),
-          readWorkspaceFile: async (id, path) => ({ content: window.largePreview ? 'a'.repeat(100000) : path === 'README.md' ? '# Project documentation' : 'const answer = 42;' }),
+          readWorkspaceFile: async (id, path) => ({ content: window.largePreview ? 'a'.repeat(100000) : path === 'README.md' ? '# Project documentation' : 'export function AttachmentControls({ attachment, sessionId = attachment.session_id, disabled = false, onChange, expanded = false }) { return <div className="long-preview-content" data-description="' + 'long JSX content '.repeat(35) + '">{attachment.name}</div>; }' }),
         };
         function Demo() {
           const [file, setFile] = useState(null);
@@ -80,11 +80,28 @@ if (!process.versions.electron) {
         check(!document.querySelector('[aria-label="Modified"]'), 'no decoration without GitHub remote');
         window.gitConnected = true; document.querySelector('[aria-label="Refresh files"]').click(); await wait();
         button('src').click(); await wait(); button('app.js').click(); await wait();
-        check(document.querySelector('[aria-label="File preview"]').textContent.includes('const answer = 42;'), 'nested file preview');
+        check(document.querySelector('[aria-label="File preview"]').textContent.includes('export function AttachmentControls'), 'nested file preview');
         check(document.querySelector('[data-chat]').getBoundingClientRect().width > 300, 'chat retains width');
         check(document.querySelector('[aria-label="File preview"]').getBoundingClientRect().right < document.querySelector('[data-chat]').getBoundingClientRect().left, 'preview sits left of chat');
         check(document.querySelector('[aria-label="File preview"] code span[style*="--code-keyword"]'), 'JavaScript keywords highlighted');
         check(document.querySelector('[aria-label="Message"]').value === 'Keep my draft', 'draft preserved');
+        const preview = document.querySelector('[aria-label="File preview"]');
+        preview.style.setProperty('--text-primary', 'rgb(12, 34, 56)');
+        preview.style.setProperty('--text-muted', 'rgb(65, 43, 21)');
+        check(getComputedStyle(preview.querySelector('header span[title]')).color === 'rgb(12, 34, 56)', 'file title follows theme');
+        check(getComputedStyle(preview.querySelector('[aria-label="Refresh preview"]')).color === 'rgb(12, 34, 56)', 'refresh follows theme');
+        check(!preview.textContent.includes('Read only'), 'read only label removed');
+        document.querySelector('[aria-label="Toggle line wrap"]').click(); await wait();
+        check(getComputedStyle(preview.querySelector('code')).whiteSpace === 'pre-wrap', 'file wrap enabled');
+        const sourceLine = preview.querySelector('[data-source-line]');
+        check(sourceLine && getComputedStyle(sourceLine).display === 'block', 'tokens flow inline within each source line');
+        check(sourceLine.getBoundingClientRect().height > 48, 'long JSX line wraps across rows');
+        const fileViewport = preview.querySelector('code').closest('pre').parentElement;
+        check(fileViewport.scrollWidth <= fileViewport.clientWidth + 1, 'wrapped JSX fits preview width');
+        check(sourceLine.querySelectorAll('.react-syntax-highlighter-line-number').length === 1, 'one line number per logical source line');
+
+        document.querySelector('[aria-label="Toggle line wrap"]').click(); await wait();
+        preview.style.removeProperty('--text-primary'); preview.style.removeProperty('--text-muted');
         button('Git diff').click(); await wait();
         const loading = document.querySelector('[aria-label="Review workspace changes"] [role="status"]');
         check(loading?.textContent === 'Loading changed files…', 'loading status visible');
@@ -98,6 +115,11 @@ if (!process.versions.electron) {
         check(getComputedStyle(document.querySelector('[aria-label="Revert controls"]')).display !== 'none', 'recovery controls accessible');
         button('Recovery').click(); await wait();
         button('Side-by-side').click(); await wait();
+        document.querySelector('[aria-label="Toggle line wrap"]').click(); await wait();
+        const wrappedRows = document.querySelectorAll('[aria-label="Original code"] [data-diff-row]');
+        const peerRows = document.querySelectorAll('[aria-label="Updated code"] [data-diff-row]');
+        check([...wrappedRows].every((row,i) => Math.abs(row.getBoundingClientRect().height - peerRows[i].getBoundingClientRect().height) < 1), 'wrapped split rows stay aligned');
+        document.querySelector('[aria-label="Toggle line wrap"]').click(); await wait();
         const leftCode = document.querySelector('[aria-label="Original code"]');
         const rightCode = document.querySelector('[aria-label="Updated code"]');
         const gutter = leftCode.querySelector('span[aria-hidden="true"]');
@@ -145,6 +167,19 @@ if (!process.versions.electron) {
       window.webContents.sendInputEvent({type:'mouseUp', x:grip.x + 60, y:grip.y, button:'left', clickCount:1});
       await new Promise(resolve => setTimeout(resolve, 100));
       assert.ok(await window.webContents.executeJavaScript(`document.querySelector('#chat-sidebar').clientWidth > ${grip.width + 40}`), 'sidebar expands by dragging its edge: ' + await window.webContents.executeJavaScript(`document.querySelector('#chat-sidebar').clientWidth`));
+      window.webContents.sendInputEvent({type:'keyDown',keyCode:'Tab'});
+      window.webContents.sendInputEvent({type:'keyUp',keyCode:'Tab'});
+      await window.webContents.executeJavaScript(`(() => {
+        const button = document.querySelector('[aria-label="Refresh preview"]');
+        button.style.setProperty('--accent', 'rgb(11, 122, 133)');
+        button.style.setProperty('--ui-radius-control', '9px');
+        button.focus();
+        const style = getComputedStyle(button);
+        if (!button.matches(':focus-visible') || style.outlineColor !== 'rgb(11, 122, 133)' || style.borderRadius !== '9px') throw new Error('Theme focus color and dynamic radius');
+        button.style.borderRadius = '50%';
+        if (getComputedStyle(button).borderRadius !== '50%') throw new Error('Circular focus shape preserved');
+        button.blur(); button.style.removeProperty('--accent'); button.style.removeProperty('--ui-radius-control'); button.style.removeProperty('border-radius');
+      })()`);
       await new Promise(resolve => setTimeout(resolve, 250));
       await window.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Git diff').click()`);
       await new Promise(resolve => setTimeout(resolve, 350));
