@@ -1,8 +1,8 @@
 {
   "fixture": "compact-prompt-budget-v1",
-  "method": "Normalized serialized JSON bytes, not model tokens. 10% allowed growth applies only to this fixed fixture.",
+  "method": "Normalized serialized JSON bytes, not model tokens. Complete descriptions retained (previously truncated at 320 characters); 10% growth guard plus compact fresh-workspace estimate <10000. MCP auto discovery enabled; recent chat history loads through memory activation.",
   "normalizedBytes": {
-    "full": 45019,
-    "compact": 25209
+    "full": 51353,
+    "compact": 29317
   }
 }

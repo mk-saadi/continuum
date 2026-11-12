@@ -152,14 +152,14 @@ export default function RecoveryCard({
 			>
 				View recovery history
 			</button>
-			<button
+			{onOpenReview && <button
 				type="button"
 				onClick={onOpenReview}
 				disabled={disabled || !onOpenReview}
 				className="aero-control sk-button aero-fill sk-fill mt-2 w-full cursor-pointer px-2.5 py-1.5 text-xs font-medium"
 			>
 				Review changes
-			</button>
+			</button>}
 		</div>
 	);
 }

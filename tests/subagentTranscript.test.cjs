@@ -47,6 +47,20 @@ const answerTurn = (content) => Response.json({
 });
 
 async function main() {
+  await test('assistant text and final results are full while tool previews remain bounded', () => {
+    const persistence = require('../src/main/subagents/persistence');
+    const text = 'START' + 'x'.repeat(15000) + 'END';
+    const turns = persistence.mapContextTurns([{ role: 'assistant', content: text }, { role: 'tool', content: text }]);
+    assert.equal(turns[0].text.text, text); assert.equal(turns[0].text.truncated, false);
+    assert.equal(turns[1].text.truncated, true);
+    const session = require('../src/main/subagents/sessionManager').createSession({});
+    session.result = text; session.context = [{ role: 'assistant', content: text }];
+    assert.equal(runtime.getChildTranscript(session.id).result.text, text);
+    assert.equal(persistence.persistChildRun(session), true);
+    assert.equal(persistence.readPersistedTranscript(session.id).result.text, text);
+    assert.equal(persistence.readPersistedTranscript(session.id).turns[0].text.text, text);
+  });
+
   await test('unknown children report found:false instead of throwing', () => {
     assert.deepEqual(runtime.getChildTranscript('nope'), { found: false });
     assert.deepEqual(runtime.getChildTranscript(null), { found: false });
@@ -154,7 +168,7 @@ async function main() {
     assert.equal(session.activity[0].turn, 10);
     assert.ok(typeof session.activity[0].t === 'number');
     pushActivity(session, { type: 'thought', text: 'x'.repeat(2000) });
-    assert.ok(session.activity.at(-1).text.length <= 601);
+    assert.equal(session.activity.at(-1).text.length, 2000, 'thought text is retained in full');
   });
 
   await test('the loop records activity without changing its outcome', async () => {

@@ -63,6 +63,13 @@ for (const workspace of [false, true]) for (const provider of ['local', 'cloud']
     assert.match(JSON.stringify(rebuilt), /EARLY_VALUE=17/);
     assert.ok(!JSON.stringify(rebuilt).includes('[ORIGINAL TASK BRIEF]'));
     assert.equal(service.read(f.id).version, 1);
+    const activity = require('../src/main/workspaceCompactionActivity').list(f.id).at(-1);
+    assert.equal(activity.metadata.compactionSummary, service.read(f.id).summary);
+    assert.ok(activity.metadata.conversationTokens < 5000);
+    assert.ok(activity.metadata.compactionUsage.inputTokens > 0);
+    assert.ok(activity.metadata.compactionUsage.outputTokens > 0);
+    assert.equal(activity.metadata.compactionUsage.outputMethod, 'provider-usage');
+    assert.equal(activity.metadata.compactionUsage.outputTokens, generations * 30);
   });
 }
 test('restart restores summary, retained tail and later user input exactly once', async () => {
@@ -126,7 +133,7 @@ for (const workspace of [false, true]) test(`long ${workspace ? 'workspace' : 'c
   const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
   const tool = { type: 'function', function: { name: 'read_project_file', parameters: { type: 'object', properties: { relative_path: { type: 'string' } }, required: ['relative_path'] } } };
   await runMemoryChat({ baseUrl: 'http://localhost:9', modelId: 'model', messages: f.payload.messages,
-    samplingParams: { max_tokens: 512 }, chatTools: [tool], maxToolRounds: 15, casualMode: !workspace, onToolLimit: async () => true,
+    samplingParams: { max_tokens: 512 }, chatTools: [tool], maxToolRounds: 25, casualMode: !workspace, onToolLimit: async () => true,
     onExecutionSteps: value => { steps = value; }, onText: chunk => { text += chunk; },
     executeTool: async () => { effects++; return 'TOOL_VALUE=42\n' + 'e'.repeat(10000); },
     compactContext: boundary => {
@@ -136,15 +143,15 @@ for (const workspace of [false, true]) test(`long ${workspace ? 'workspace' : 'c
     },
     fetchImpl: async (_url, options) => {
       const p = JSON.parse(options.body); ordinary++;
-      if (ordinary <= 13) return Response.json({ choices: [{ finish_reason: 'tool_calls', message: { content: null,
+      if (ordinary <= 23) return Response.json({ choices: [{ finish_reason: 'tool_calls', message: { content: null,
         tool_calls: [{ id: `read-${ordinary}`, type: 'function', function: { name: 'read_project_file', arguments: JSON.stringify({ relative_path: `f${ordinary}` }) } }] } }] });
       assert.match(JSON.stringify(p), /TOOL_VALUE=42/); return Response.json(reply('Task complete.'));
     } });
   persistence.update({ content: text, executionSteps: steps, status: 'completed' });
-  assert.equal(effects, 13); assert.equal(ordinary, 14); assert.ok(service.read(f.id).version >= 2);
+  assert.equal(effects, 23); assert.equal(ordinary, 24); assert.ok(service.read(f.id).version >= 2);
   assert.ok(generations >= service.read(f.id).version);
   const stored = sessions.loadSession(f.id).messages.find(m => m.id === persistence.messageId);
-  assert.equal(stored.executionSteps.filter(s => s.type === 'tool_call').length, 13);
+  assert.equal(stored.executionSteps.filter(s => s.type === 'tool_call').length, 23);
   const rebuilt = builder.rebuildChatMessages({ sessionId: f.id, modelId: 'model' });
   assert.match(JSON.stringify(rebuilt), /TOOL_VALUE=42/);
   assert.equal((JSON.stringify(rebuilt).match(/COMPACTION SUMMARY/g) ?? []).length, 1);
@@ -202,4 +209,15 @@ test('post-compaction background result updates survive restart without duplicat
   assert.match(JSON.stringify(rebuilt),/LATEST_BACKGROUND_RESULT/);
   assert.equal(rebuilt.filter(m=>m.role==='assistant'&&m.tool_calls?.some(c=>c.id===call.id)).length,1);
   assert.doesNotThrow(()=>core.units(rebuilt.filter(m=>m.role!=='system')));
+});
+
+test('telemetry-only updates during generation do not invalidate a conversation snapshot', async () => {
+  const f = fixture();
+  const last = sessions.loadSession(f.id).messages.at(-1);
+  const result = await service.compactAtBoundary({ ...f.options, generate: async () => {
+    storage.db.prepare('UPDATE messages SET stats=? WHERE id=?').run(JSON.stringify({ durationMs: 1200, promptTokens: 10656 }), last.id);
+    return reply('Current task and correction preserved.');
+  } });
+  assert.equal(result.compressed, true);
+  assert.equal(service.read(f.id).version, 1);
 });

@@ -23,15 +23,16 @@ export default function Header({
 	palace,
 	onOpenSettings: onOpenSettingsProp,
 	workspace = null,
+	sidebarsDisabled = false,
 }) {
 	// Chrome state comes from context in the real app; the explicit props remain
 	// supported so Header can still be rendered standalone in tests.
 	const leftSidebar = useLeftSidebar();
 	const rightSidebar = useRightSidebar();
 	const modals = useModalActions();
-	const isSidebarOpen = isSidebarOpenProp ?? leftSidebar?.open ?? false;
+	const isSidebarOpen = !sidebarsDisabled && (isSidebarOpenProp ?? leftSidebar?.open ?? false);
 	const onToggleSidebar = onToggleSidebarProp ?? leftSidebar?.toggle;
-	const isRightSidebarOpen = isRightSidebarOpenProp ?? rightSidebar?.open ?? false;
+	const isRightSidebarOpen = !sidebarsDisabled && (isRightSidebarOpenProp ?? rightSidebar?.open ?? false);
 	const onToggleRightSidebar = onToggleRightSidebarProp ?? rightSidebar?.toggle;
 	const onOpenModels = onOpenModelsProp ?? modals?.openModelSelector;
 	const onOpenSettings = onOpenSettingsProp ?? modals?.openSettings;
@@ -91,7 +92,8 @@ export default function Header({
 				aria-expanded={isSidebarOpen}
 				aria-pressed={isSidebarOpen}
 				aria-controls="chat-sidebar"
-				onClick={onToggleSidebar}
+				disabled={sidebarsDisabled}
+                onClick={sidebarsDisabled ? undefined : onToggleSidebar}
 			>
 				<FaBars />
 			</button>
@@ -233,7 +235,8 @@ export default function Header({
 				aria-expanded={isRightSidebarOpen}
 				aria-pressed={isRightSidebarOpen}
 				aria-controls="right-sidebar"
-				onClick={onToggleRightSidebar}
+				disabled={sidebarsDisabled}
+                onClick={sidebarsDisabled ? undefined : onToggleRightSidebar}
 			>
 				<FaSlidersH />
 			</button>

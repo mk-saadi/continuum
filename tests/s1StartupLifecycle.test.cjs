@@ -17,6 +17,7 @@ Module._load = function(name, ...args) {
 const storage = require('../src/main/db'); storage.initDatabase(directory);
 const sessions = require('../src/main/sessionManager');
 const measurement = require('../src/main/promptMeasurement');
+const compression = require('../src/main/mainChatCompaction');
 const modelId = 'fixture';
 let dispose;
 test.after(async () => { dispose?.(); await compression.shutdownCompression(); storage.closeDatabase(); Module._load = load; fs.rmSync(directory, { recursive: true, force: true }); });

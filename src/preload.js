@@ -95,6 +95,9 @@ contextBridge.exposeInMainWorld('api', {
   getUsageModelDetail: options => ipcRenderer.invoke('usage:model-detail', options),
   exportChat: (chatId, format) => ipcRenderer.invoke('chat:export', { chatId, format }),
   openPath: filePath => ipcRenderer.invoke('shell:open-path', filePath),
+  // A chat message's link destination may be workspace-relative; main resolves
+  // it against the session's project root (or the agent's cwd) before opening.
+  openChatPath: ({ path: filePath, sessionId } = {}) => ipcRenderer.invoke('chat:open-path', { path: filePath, sessionId }),
   setGitIdentity: identity => ipcRenderer.invoke('config:set-git-identity', identity),
   getConfig: () => ipcRenderer.invoke('config:get'),
   getWorkspaceNetworkStatus: () => ipcRenderer.invoke('config:network-status'),
@@ -182,7 +185,11 @@ contextBridge.exposeInMainWorld('api', {
   previewRecoveryRestore: (sessionId, checkpointId, options) => ipcRenderer.invoke('recovery:preview', { sessionId, checkpointId, ...(options ?? {}) }),
   restoreRecoveryCheckpoint: (sessionId, checkpointId, options) => ipcRenderer.invoke('recovery:restore', { sessionId, checkpointId, ...(options ?? {}) }),
   pinRecoveryCheckpoint: (sessionId, checkpointId, pinned) => ipcRenderer.invoke('recovery:pin', { sessionId, checkpointId, pinned }),
-  getRecoveryChangedFiles: sessionId => ipcRenderer.invoke('recovery:changed-files', { sessionId }),
+  getRecoveryChangedFiles: (sessionId, options = {}) => ipcRenderer.invoke('recovery:changed-files', { sessionId, includeCounts: options.includeCounts }),
+  getWorkspaceRepository: projectId => ipcRenderer.invoke('workspace:repository-info', { projectId }),
+  getWorkspaceGitStatus: projectId => ipcRenderer.invoke('workspace:git-status', { projectId }),
+  listWorkspaceDirectory: (projectId, relativePath = '.') => ipcRenderer.invoke('workspace:list-directory', { projectId, relativePath }),
+  readWorkspaceFile: (projectId, relativePath) => ipcRenderer.invoke('workspace:read-file', { projectId, relativePath }),
   getRecoveryFileDiff: (sessionId, relPath) => ipcRenderer.invoke('recovery:file-diff', { sessionId, relPath }),
   getRecoveryCoveringCheckpoint: (sessionId, relPath) => ipcRenderer.invoke('recovery:covering-checkpoint', { sessionId, relPath }),
   getRecoveryStats: () => ipcRenderer.invoke('recovery:stats'),

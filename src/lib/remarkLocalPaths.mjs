@@ -65,7 +65,11 @@ function skipCode(source, index) {
 		const end = source.indexOf(fence[0], index + fence[0].length);
 		return end === -1 ? source.length : end + fence[0].length;
 	}
-	const run = source.slice(index).match(/^`+/)[0];
+	// Only a backtick run can open an inline code span. A lone or doubled `~`
+	// is GFM strikethrough (or prose), so it must stay in the text: matching
+	// backticks there finds nothing and used to dereference a null match.
+	const run = source.slice(index).match(/^`+/)?.[0];
+	if (!run) return null;
 	const end = source.indexOf(run, index + run.length);
 	return end === -1 ? null : end + run.length;
 }
@@ -97,6 +101,17 @@ export function protectLocalPaths(source) {
 	if (typeof source !== 'string' || !source.includes('/')) {
 		return { text: typeof source === 'string' ? source : '', paths: [] };
 	}
+	try {
+		return protectLocalPathsUnsafe(source);
+	} catch {
+		// Linkification is a convenience. If the scanner ever trips over an
+		// unexpected shape, render the original text instead of letting the
+		// throw escape into a render and unmount the whole app.
+		return { text: source, paths: [] };
+	}
+}
+
+function protectLocalPathsUnsafe(source) {
 	const paths = [];
 	const out = [];
 	let index = 0;

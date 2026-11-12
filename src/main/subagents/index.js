@@ -439,10 +439,10 @@ function describeChild(childId) {
 const TRANSCRIPT_MESSAGE_LIMIT = 3000;
 const TRANSCRIPT_TURN_LIMIT = 60;
 
-function previewTurnText(value) {
+function previewTurnText(value, full = false) {
   const text = typeof value === 'string' ? value
     : value == null ? '' : JSON.stringify(value);
-  if (text.length <= TRANSCRIPT_MESSAGE_LIMIT) return { text, truncated: false };
+  if (full || text.length <= TRANSCRIPT_MESSAGE_LIMIT) return { text, truncated: false };
   return { text: text.slice(0, TRANSCRIPT_MESSAGE_LIMIT), truncated: true };
 }
 
@@ -470,7 +470,7 @@ function getChildTranscript(childSessionId) {
     model: session.model,
     provider: session.provider,
     usage: session.usage ?? null,
-    result: typeof session.result === 'string' ? previewTurnText(session.result) : null,
+    result: typeof session.result === 'string' ? previewTurnText(session.result, true) : null,
     error: session.error ?? latest?.error ?? null,
     durationMs: session.durationMs,
     turnCount: attempts.length,

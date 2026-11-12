@@ -21,7 +21,7 @@ export function mediaSource(value) {
     }
     return 'media://files' + source.split('/').map(segment => encodeURIComponent(segment)).join('/');
   }
-  // Online video is intentionally unsupported: playback is local-files-only.
+  // Remote https sources pass through unchanged; legacy media:/// is normalized.
   if (/^media:\/\/\//i.test(source)) return source.replace(/^media:\/\/\//i, 'media://files/');
   if (/^(https:\/\/|media:\/\/files\/|local:\/\/media\/)/i.test(source)) return source;
   // Inline base64 is limited to images; video must be a file on disk.

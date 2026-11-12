@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { jsonrepair } from "jsonrepair";
+import { mediaSource, isVideoSource } from "../lib/markdownMedia.mjs";
+import MediaLightbox from "./chat/MediaLightbox.jsx";
 
 export const RICH_HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const clip = (s, n = 400) => String(s ?? "").slice(0, n);
@@ -31,22 +33,74 @@ function Swatches({ colors }) {
 
 function Cards({ data }) {
 	const items = (data.items ?? []).slice(0, 8);
+	const [lightboxIndex, setLightboxIndex] = useState(null);
+	const cards = items.map((item) => {
+		const mediaSrc = item.media ? mediaSource(item.media) : "";
+		return { item, mediaSrc, isVideo: Boolean(mediaSrc) && isVideoSource(mediaSrc) };
+	});
+	const mediaItems = [];
+	for (const card of cards) {
+		if (!card.mediaSrc) continue;
+		card.mediaIndex = mediaItems.length;
+		mediaItems.push({
+			src: card.mediaSrc,
+			video: card.isVideo,
+			title: clip(card.item.title, 100),
+		});
+	}
 	return (
 		<div className="rich-block">
 			{data.title && <div className="rich-title">{clip(data.title, 120)}</div>}
 			<div className="rich-cards" data-cols={data.columns === 1 ? 1 : 2}>
-				{items.map((item, i) => (
-					<div className="rich-card" key={i}>
-						<Swatches colors={item.swatches} />
-						<div className="rich-card-main">
-							<div className="rich-card-title">{clip(item.title, 100)}</div>
-							{item.badge && <span className="rich-badge">{clip(item.badge, 40)}</span>}
-							{item.body && <p className="rich-card-body">{clip(item.body)}</p>}
-							{item.note && <p className="rich-card-note">{clip(item.note, 200)}</p>}
+				{cards.map(({ item, mediaSrc, isVideo, mediaIndex }, i) => {
+					const label = clip(item.title, 100) || (isVideo ? "Video" : "Image");
+					return (
+						<div className="rich-card" key={i}>
+							{!mediaSrc && <Swatches colors={item.swatches} />}
+							{mediaSrc && (
+								<button
+									type="button"
+									className="rich-card-media-button"
+									aria-label={`Open ${isVideo ? "video" : "image"}: ${label}`}
+									title={`Open ${isVideo ? "video" : "image"}`}
+									onClick={() => setLightboxIndex(mediaIndex)}
+								>
+									{isVideo ? (
+										<video
+											className="rich-card-media"
+											src={mediaSrc}
+											muted
+											playsInline
+											preload="metadata"
+										/>
+									) : (
+										<img
+											className="rich-card-media"
+											src={mediaSrc}
+											alt={label}
+											loading="lazy"
+										/>
+									)}
+								</button>
+							)}
+							<div className="rich-card-main">
+								<div className="rich-card-title">{clip(item.title, 100)}</div>
+								{item.badge && <span className="rich-badge">{clip(item.badge, 40)}</span>}
+								{item.body && <p className="rich-card-body">{clip(item.body)}</p>}
+								{item.note && <p className="rich-card-note">{clip(item.note, 200)}</p>}
+							</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
+			{lightboxIndex != null && (
+				<MediaLightbox
+					items={mediaItems}
+					index={lightboxIndex}
+					onIndexChange={setLightboxIndex}
+					onClose={() => setLightboxIndex(null)}
+				/>
+			)}
 		</div>
 	);
 }

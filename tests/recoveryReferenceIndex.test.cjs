@@ -120,7 +120,7 @@ test('2. a blob shared by two checkpoints is counted once per checkpoint', async
 
   const stats = await recovery.getRecoveryStats();
   assert.ok(stats.referencedBlobs >= 2);
-  assert.equal(stats.logicalBytes, stats.physicalBytes, 'both blobs are referenced, so both totals agree');
+  assert.equal(stats.logicalBytes, stats.blobBytes, 'both blobs are referenced, so blob totals agree');
 });
 
 test('3. the index is authoritative from the first capture on a fresh store', () => {
@@ -164,7 +164,7 @@ test('6. a legacy checkpoint is indexed by the build, and its numbers then match
   // reading: every known blob counts as referenced, so nothing is understated.
   const before = await recovery.getRecoveryStats();
   assert.equal(before.referencedBlobs, before.blobFiles);
-  assert.equal(before.logicalBytes, before.physicalBytes);
+  assert.equal(before.logicalBytes, before.blobBytes);
 
   await index.build();
   assert.equal(index.isReady(), true);

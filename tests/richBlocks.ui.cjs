@@ -4,6 +4,9 @@ const path = require('node:path');
 const esbuild = require('esbuild');
 
 app.disableHardwareAcceleration();
+// Keep the main process alive through cleanup so a failed assertion reaches the
+// catch handler instead of exiting when the fixture window is destroyed.
+app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
   const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'rich-blocks-ui-'));
   const browser = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
@@ -14,9 +17,17 @@ app.whenReady().then(async () => {
       import React from 'react';
       import { createRoot } from 'react-dom/client';
       import ChatMessage from './src/components/ChatMessage';
+      import AttachmentPreview from './src/components/chat/AttachmentPreview';
       import { RichBlock } from './src/components/RichBlocks';
       const root = createRoot(document.getElementById('root'));
+      const previewPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=';
+      window.openAttachmentCalls = 0;
+      window.api = {
+        previewAttachment: async () => ({ dataUrl: previewPng }),
+        openAttachment: async () => { window.openAttachmentCalls++; },
+      };
       window.renderMessage = content => root.render(<ChatMessage message={{ role: 'assistant', content }} />);
+      window.renderAttachments = attachments => root.render(<AttachmentPreview attachments={attachments} />);
       window.renderRich = (kind, raw, streaming) => root.render(
         <RichBlock kind={kind} raw={raw} streaming={streaming} fallback={<pre>fallback:{raw}</pre>} />
       );
@@ -35,6 +46,7 @@ app.whenReady().then(async () => {
         throw new Error('Timed out: ' + document.getElementById('root').innerHTML.slice(0, 500));
       };
       const fence = String.fromCharCode(96).repeat(3);
+      const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=';
       const out = {};
       // 1. Cards render with badge + pastel swatch, non-hex dropped.
       const cards = JSON.stringify({ title: 'Pick', items: [
@@ -48,6 +60,66 @@ app.whenReady().then(async () => {
       out.swatchCount = sw.length;
       if (!out.cards.includes('Pick') || !out.cards.includes('fast')) throw new Error('cards missing title/badge');
       if (out.swatchCount !== 1) throw new Error('non-hex swatches not dropped: ' + out.swatchCount);
+      // 1b. Cards media: local paths normalize to media://, https image/video pass through, invalid dropped.
+      const mediaCards = JSON.stringify({ items: [
+        { title: 'Local image', media: '/tmp/preview.png', swatches: ['#A8D8EA'] },
+        { title: 'Remote image', media: 'https://example.com/banner.jpg' },
+        { title: 'Local video', media: '/tmp/clip.webm' },
+        { title: 'Remote video', media: 'https://example.com/clip.mp4' },
+        { title: 'Invalid', media: 'javascript:alert(1)', swatches: ['#F7C6D0'] },
+      ]});
+      window.renderMessage(fence + 'json:cards\\n' + mediaCards + '\\n' + fence);
+      await waitFor(() => document.querySelectorAll('.rich-card').length === 5);
+      out.media = [...document.querySelectorAll('.rich-card-media')].map(el => el.tagName + ':' + el.getAttribute('src'));
+      out.cardOpenIcons = document.querySelectorAll('.rich-card-media-open').length;
+      // Swatches are suppressed whenever a card has media; the invalid-media card keeps its own.
+      out.mediaSwatchCount = document.querySelectorAll('.rich-swatches').length;
+      // 1c. Card images open a lightbox with previous/next navigation and video support.
+      document.querySelector('.rich-card-media-button').click();
+      await waitFor(() => document.querySelector('.media-lightbox[open]'));
+      out.lightboxInitial = document.querySelector('.media-lightbox-media')?.getAttribute('src');
+      out.lightboxCount = document.querySelector('.media-lightbox-count')?.textContent.trim();
+      document.querySelector('.media-lightbox-next').click();
+      await waitFor(() => document.querySelector('.media-lightbox-media')?.getAttribute('src') === 'https://example.com/banner.jpg');
+      out.lightboxNext = document.querySelector('.media-lightbox-media')?.getAttribute('src');
+      document.querySelector('.media-lightbox-next').click();
+      await waitFor(() => document.querySelector('.media-lightbox-media')?.tagName === 'VIDEO');
+      out.lightboxVideo = document.querySelector('.media-lightbox-media')?.tagName;
+      document.querySelector('.media-lightbox-prev').click();
+      await waitFor(() => document.querySelector('.media-lightbox-media')?.getAttribute('src') === 'https://example.com/banner.jpg');
+      out.lightboxPrev = document.querySelector('.media-lightbox-media')?.getAttribute('src');
+      document.querySelector('.media-lightbox-close').click();
+      await waitFor(() => !document.querySelector('.media-lightbox'));
+      out.lightboxClosed = !document.querySelector('.media-lightbox');
+      // 1d. Remote video in plain Markdown renders as <video>, not an <img>.
+      window.renderMessage('<video src="https://example.com/clip.mp4" controls></video>');
+      await waitFor(() => [...document.querySelectorAll('.assistant-markdown video')].some(el => el.getAttribute('src') === 'https://example.com/clip.mp4'));
+      out.markdownRemoteVideo = [...document.querySelectorAll('.assistant-markdown video')].map(el => el.getAttribute('src')).find(src => src === 'https://example.com/clip.mp4');
+      // 1e. Agent-rendered Markdown images open in the lightbox.
+      window.renderMessage('<img src="' + png + '" alt="Inline photo">');
+      await waitFor(() => document.querySelector('.markdown-media-button img'));
+      document.querySelector('.markdown-media-button').click();
+      await waitFor(() => document.querySelector('.media-lightbox[open]'));
+      out.markdownImageLightbox = document.querySelector('.media-lightbox-media')?.getAttribute('src');
+      document.querySelector('.media-lightbox-close').click();
+      await waitFor(() => !document.querySelector('.media-lightbox'));
+      // 1f. User-sent image attachments open in the lightbox, not the desktop app.
+      window.openAttachmentCalls = 0;
+      window.renderAttachments([
+        { id: 'a1', session_id: 's1', version_id: 'v1', file_path: '/tmp/a1.png', name: 'First', mime_type: 'image/png' },
+        { id: 'a2', session_id: 's1', version_id: 'v2', file_path: '/tmp/a2.png', name: 'Second', mime_type: 'image/png' },
+      ]);
+      await waitFor(() => document.querySelector('[aria-label="View attachment First"] img'));
+      document.querySelector('[aria-label="View attachment First"]').click();
+      await waitFor(() => document.querySelector('.media-lightbox[open]'));
+      out.attachmentLightbox = document.querySelector('.media-lightbox-media')?.getAttribute('src');
+      out.attachmentCount = document.querySelector('.media-lightbox-count')?.textContent.trim();
+      document.querySelector('.media-lightbox-next').click();
+      await waitFor(() => document.querySelector('.media-lightbox-count')?.textContent.trim() === '2 / 2');
+      out.attachmentNextCount = document.querySelector('.media-lightbox-count')?.textContent.trim();
+      document.querySelector('.media-lightbox-close').click();
+      await waitFor(() => !document.querySelector('.media-lightbox'));
+      out.attachmentDesktopCalls = window.openAttachmentCalls;
       // 2. Invalid JSON finished -> fallback code block.
       window.renderMessage(fence + 'json:cards\\n{bad json}\\n' + fence);
       await waitFor(() => document.querySelector('.assistant-markdown pre'));
@@ -108,6 +180,28 @@ app.whenReady().then(async () => {
       if (!m) return (v || '').toLowerCase();
       return '#' + [1, 2, 3].map(i => Number(m[i]).toString(16).padStart(2, '0')).join('').toUpperCase();
     };
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=';
+    const expectedMedia = [
+      'IMG:media://files/tmp/preview.png',
+      'IMG:https://example.com/banner.jpg',
+      'VIDEO:media://files/tmp/clip.webm',
+      'VIDEO:https://example.com/clip.mp4',
+    ];
+    if (JSON.stringify(result.media) !== JSON.stringify(expectedMedia)) throw new Error('cards media wrong: ' + JSON.stringify(result.media));
+    if (result.cardOpenIcons !== 0) throw new Error('card media still renders an expand icon');
+    if (result.mediaSwatchCount !== 1) throw new Error('swatches not suppressed for media cards: ' + result.mediaSwatchCount);
+    if (result.lightboxInitial !== 'media://files/tmp/preview.png') throw new Error('lightbox did not open the clicked image: ' + result.lightboxInitial);
+    if (result.lightboxCount !== '1 / 4') throw new Error('lightbox count wrong: ' + result.lightboxCount);
+    if (result.lightboxNext !== 'https://example.com/banner.jpg') throw new Error('lightbox next failed: ' + result.lightboxNext);
+    if (result.lightboxVideo !== 'VIDEO') throw new Error('lightbox did not render video: ' + result.lightboxVideo);
+    if (result.lightboxPrev !== 'https://example.com/banner.jpg') throw new Error('lightbox previous failed: ' + result.lightboxPrev);
+    if (!result.lightboxClosed) throw new Error('lightbox did not close');
+    if (result.markdownRemoteVideo !== 'https://example.com/clip.mp4') throw new Error('remote Markdown video did not render: ' + JSON.stringify(result.markdownRemoteVideo));
+    if (result.markdownImageLightbox !== png) throw new Error('Markdown image did not open in the lightbox: ' + result.markdownImageLightbox);
+    if (result.attachmentLightbox !== png) throw new Error('attachment did not open in the lightbox: ' + result.attachmentLightbox);
+    if (result.attachmentCount !== '1 / 2') throw new Error('attachment lightbox count wrong: ' + result.attachmentCount);
+    if (result.attachmentNextCount !== '2 / 2') throw new Error('attachment lightbox navigation failed: ' + result.attachmentNextCount);
+    if (result.attachmentDesktopCalls !== 0) throw new Error('attachment media still opened the desktop app: ' + result.attachmentDesktopCalls);
     if (!result.invalidFallback) throw new Error('invalid JSON did not fall back');
     if (!result.skeleton) throw new Error('streaming skeleton missing');
     if (!result.scriptLiteral || !result.noScriptTag) throw new Error('script not rendered as literal text');

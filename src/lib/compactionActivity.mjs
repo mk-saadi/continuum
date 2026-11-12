@@ -28,6 +28,10 @@ export function measurementLabel(method) {
   return /approx|estimat|bytes/i.test(method ?? '') ? 'Estimated' : /tokeniz|exact/i.test(method ?? '') ? 'Tokenizer measured' : 'Runtime measured';
 }
 export function activityReason(code) {
+  if (code === 'protected-context-too-large') return 'The current system instructions, tool schemas and protected input exceed the available request budget. Original history was preserved.';
+  if (code === 'source-changed') return 'Conversation or request configuration changed during compaction. The outdated replacement was not saved.';
+  if (code === 'recent-unit-exceeds-conversation-budget') return 'The newest complete message/tool round is too large for the under-5,000-token conversation limit. Original history was preserved.';
+  if (code === 'replacement-exceeds-conversation-budget') return 'The summary and recent conversation still exceed the under-5,000-token limit. No replacement was saved.';
   const abortReasons = {
     'user-cancelled': 'Compaction stopped at your request.',
     'deleted-conversation': 'Compaction stopped because the conversation is being deleted.',

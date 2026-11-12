@@ -283,7 +283,7 @@ function completeSession(session, { usage = null, result = null, outcome = 'comp
   markCompletedAt(session);
   if (usage) session.usage = usage;
   session.result = result;
-  session.error = outcome === 'completed' ? null : result;
+  session.error = outcome === 'failed' ? result : null;
   persistChildRun(session);
   return session;
 }
@@ -321,7 +321,7 @@ function pushActivity(session, event) {
   if (!Array.isArray(session.activity)) session.activity = [];
   const entry = { t: Date.now(), ...event };
   for (const key of ['text', 'error', 'arguments']) {
-    if (typeof entry[key] === 'string' && entry[key].length > ACTIVITY_TEXT_LIMIT) {
+    if (!(event.type === 'thought' && key === 'text') && typeof entry[key] === 'string' && entry[key].length > ACTIVITY_TEXT_LIMIT) {
       entry[key] = `${entry[key].slice(0, ACTIVITY_TEXT_LIMIT)}…`;
     }
   }

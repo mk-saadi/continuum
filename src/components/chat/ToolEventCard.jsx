@@ -26,6 +26,8 @@ import FileBrowserWidget from "../FileBrowserWidget";
 import { isDirectoryTool, parseDirectoryListing } from "../../lib/directoryListing.mjs";
 import SubagentTranscriptModal from "./SubagentTranscriptModal.jsx";
 import SubagentLimitBadge from "./SubagentLimitBadge.jsx";
+import { mediaSource, isVideoSource } from "../../lib/markdownMedia.mjs";
+import { MediaGalleryProvider, useRegisterMedia } from "./MediaGallery.jsx";
 
 function subagentTaskText(step) {
 	const args = step?.args;
@@ -224,6 +226,41 @@ function Detail({ summary, children }) {
 // Image results render as previews, never as JSON dumps.
 function resultImages(step) {
 	return [...new Set(mediaUrls(step.result))].slice(0, 4);
+}
+
+function ToolMediaImage({ src }) {
+	const source = mediaSource(src);
+	const video = Boolean(source) && isVideoSource(source);
+	const registration = useRegisterMedia(source ? { src: source, video, title: "Tool-generated media" } : null);
+	if (!source) return null;
+	const media = video ? (
+		<video
+			src={source}
+			muted
+			playsInline
+			preload="metadata"
+			aria-label="Tool-generated media"
+			className="max-h-64 max-w-full ui-radius-control object-contain"
+		/>
+	) : (
+		<img
+			src={source}
+			alt="Tool-generated media"
+			loading="lazy"
+			className="max-h-64 max-w-full ui-radius-control object-contain"
+		/>
+	);
+	if (!registration) return media;
+	return (
+		<button
+			type="button"
+			className="markdown-media-button"
+			aria-label={`Open ${video ? "video" : "image"}: Tool-generated media`}
+			onClick={() => registration.gallery.open(registration.id)}
+		>
+			{media}
+		</button>
+	);
 }
 
 function isImageOnlyResult(step) {
@@ -463,6 +500,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					<SubagentLimitBadge childSessionId={step.childSessionId} />
 				</div>
 			)}
+					{typeof step.result?.recoveryWarning === "string" && <p role="status" className="text-xs text-[var(--warning)]">{step.result.recoveryWarning}</p>}
 					{(failed || blocked || cancelled) && err && (
 						<div
 							role={failed || blocked ? "alert" : "status"}
@@ -506,20 +544,16 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						!imageOnly &&
 						classification.key === "success" && <ReadOutput step={step} />}
 					{imageOnly && images.length > 0 && (
-						<div
-							className="flex flex-wrap gap-2"
-							aria-label="Generated media"
-						>
-							{images.map((src, index) => (
-								<img
-									key={index}
-									src={src}
-									alt="Tool-generated media"
-									loading="lazy"
-									className="max-h-64 max-w-full ui-radius-control object-contain"
-								/>
-							))}
-						</div>
+						<MediaGalleryProvider>
+							<div
+								className="flex flex-wrap gap-2"
+								aria-label="Generated media"
+							>
+								{images.map((src, index) => (
+									<ToolMediaImage key={index} src={src} />
+								))}
+							</div>
+						</MediaGalleryProvider>
 					)}
 					{diff && (
 						<section aria-label="Requested edit diff">
@@ -572,20 +606,16 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						</section>
 					)}
 					{images.length > 0 && !imageOnly && kind !== "media" && (
-						<div
-							className="flex flex-wrap gap-2"
-							aria-label="Generated media"
-						>
-							{images.map((src, index) => (
-								<img
-									key={index}
-									src={src}
-									alt="Tool-generated media"
-									loading="lazy"
-									className="max-h-64 max-w-full ui-radius-control object-contain"
-								/>
-							))}
-						</div>
+						<MediaGalleryProvider>
+							<div
+								className="flex flex-wrap gap-2"
+								aria-label="Generated media"
+							>
+								{images.map((src, index) => (
+									<ToolMediaImage key={index} src={src} />
+								))}
+							</div>
+						</MediaGalleryProvider>
 					)}
 					{listing ? (
 						<FileBrowserWidget

@@ -1,0 +1,9 @@
+# Shell recovery checkpoint race — November 12, 2026
+
+The reported `Unknown recovery checkpoint: 1.` comes from Continuum's recovery store, not the shell sandbox and not the conversation compaction summary. A shell operation captures a workspace checkpoint, executes, then records its post-operation state. The final bookkeeping can fail after the command has already run.
+
+The maintenance timer inherited the capture workflow's AsyncLocalStorage scope. The recovery maintenance gate treated cleanup as a reentrant call and could run it while the originating shell workflow was still active. Retention/storage cleanup can then delete a checkpoint needed by finalization. Empty tables can reuse integer ID 1; repeated errors mentioning 1 do not prove the model is supplying a stale ID.
+
+Cleanup now exits the inherited workflow context before requesting exclusive maintenance access. Captures still require a durable pre-state before mutation. If post-operation finalization nevertheless fails, an object result preserves the command's actual output and exit status and carries an explicit recovery warning, incomplete-recovery flags and advice not to rerun merely to repair bookkeeping. Actual command errors remain errors. Verification results preserve the warning, and expanded tool cards display it.
+
+Verification: 35 assertions passed across `recoveryBoundary.test.cjs`, `recoveryPostState.test.cjs` and `recoveryMaintenance.test.cjs`. Regression coverage includes an automatic timer scheduled inside a still-active command, cleanup waiting through the full boundary, exactly one completed operation, and injected post-operation checkpoint loss preserving successful output. The frontend build and diff check pass. The installed packaged application must be rebuilt/reinstalled; the reported production interaction has not been replayed against that updated package. No production recovery history was modified during diagnosis.

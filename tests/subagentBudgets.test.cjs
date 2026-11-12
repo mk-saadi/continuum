@@ -77,6 +77,7 @@ async function main() {
     assert.equal(resolved.maxAggregateToolCalls, null);
     assert.equal(resolved.inputBudget, null);
     assert.equal(resolved.outputBudget, null);
+    assert.equal(resolved.perRequestCeiling, resolved.contextLength);
     assert.deepEqual(budgets.limitReached(null, 1e12), false);
     assert.equal(budgets.remaining(null, 1e12), Infinity);
     // Unbounded turns leave the *output* envelope finite unless output is explicit.

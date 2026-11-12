@@ -1092,15 +1092,18 @@ export async function runMemoryChat({
       formatted ??= formatToolResult(output, entry.call.function.name, { workspaceRoot,
         nativeTool: entry.step.serverName === 'native' ? entry.call.function.name : undefined });
       automaticOutputBytes += new TextEncoder().encode(JSON.stringify(output) ?? '').length;
-      let guarded = guardToolContent(formatted.content);
+      // A child's answer is the handoff, not a bulk file/log excerpt. Keep
+      // it intact; normal full-request budgeting/compaction handles capacity.
+      let guarded = SUB_AGENT_TOOL_NAMES.has(entry.call.function.name)
+        ? formatted.content : guardToolContent(formatted.content);
       let evidenceNotice = projectId && JSON.stringify(guarded) !== JSON.stringify(formatted.content) ? `\n[Stored evidence: tool call ${entry.call.id}. Retrieve original via get_recent_chat_history with source_step_id=${JSON.stringify(entry.call.id)}; activate native memory tools if needed. Historical observation may be stale.]` : '';
       if (entry.step.serverName === 'native' && entry.call.function.name === 'read_project_file' && guarded !== formatted.content) {
         const page = boundNativeFilePage(formatted.content, guardToolContent, evidenceNotice);
         if (page !== null) { guarded = page; evidenceNotice = ''; }
       }
-      history.push({ role: 'tool', tool_call_id: entry.call.id,
+      entry.historyMessage = { role: 'tool', tool_call_id: entry.call.id,
         [NATIVE_RESULT]: entry.step.serverName === 'native' ? entry.call.function.name : undefined,
-        content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded });
+        content: evidenceNotice ? (typeof guarded === 'string' ? guarded + evidenceNotice : Array.isArray(guarded) ? [...guarded, { type: 'text', text: evidenceNotice }] : guarded) : guarded };
       if (!entry.validationBlocked) projectToolLoopGuard?.record?.(entry.call.function.name, entry.step.args, output);
       toolFailureCircuitBreaker?.record(output, entry.call.function.name, entry.step.status === 'error');
       if (projectId && failedToolReason) {
@@ -1111,7 +1114,11 @@ export async function runMemoryChat({
     // The single place a tool result reaches history: oldest entry first, so
     // call order holds no matter which entries were dispatched ahead.
     const drainPending = async () => {
-      while (pendingEntries.length) await settleEntry(pendingEntries.shift());
+      while (pendingEntries.length) {
+        const entry = pendingEntries.shift();
+        await (entry.settlement ?? settleEntry(entry));
+        history.push(entry.historyMessage);
+      }
     };
     for (const [callIndex, call] of result.toolCalls.entries()) {
       if (batchPolicy?.safe && callIndex % MAX_TOOL_CALLS_PER_RESPONSE === 0 && !automaticStop) {
@@ -1194,6 +1201,10 @@ export async function runMemoryChat({
           // while it waits; the settlement path observes the same rejection.
           entry.outcome = dispatched;
           Promise.resolve(dispatched).catch(() => {});
+          // Reflect each child's terminal state immediately; only insertion
+          // into model history waits for the original call order.
+          entry.settlement = settleEntry(entry);
+          entry.settlement.catch(() => {});
           pendingEntries.push(entry);
           continue;
         }

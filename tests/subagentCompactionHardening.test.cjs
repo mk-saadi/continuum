@@ -426,3 +426,60 @@ test('compaction and execution never widen the child read-only tool allowlist', 
     assert.match(JSON.stringify(session.context), /not available to this agent/);
   } finally { tools.executeAgentTool = execute; }
 });
+
+test('investigation final answers are not clipped at the former 6,000-character handoff ceiling', async () => {
+  const answer = 'REPORT_START\n' + 'Finding: preserve this completed analysis.\n'.repeat(800) + 'REPORT_END';
+  const result = await runInvestigationExecution({ session: { id: `full-answer-${randomUUID()}` }, task: 'Return the analysis.', rootPath: directory,
+    engine: { ...engine, contextLength: 75000 }, fetchImpl: transport({ main: () => response(answer) }).fetchImpl });
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.output, answer);
+});
+
+test('one-shot file answers reach the parent inference payload intact beyond both former character caps', async () => {
+  const file = path.join(directory, 'complete-handoff.js'); fs.writeFileSync(file, 'module.exports = 42;');
+  const answer = 'ONE_SHOT_START\n' + 'Analysis of the module and its exact exports.\n'.repeat(900) + 'ONE_SHOT_END';
+  const child = await require('../src/main/subagents/executionManager').runFileAnalysisExecution({
+    session: { id: `one-shot-full-${randomUUID()}` }, task_description: 'Analyze this module.', target_files: [file], rootPath: directory,
+    engine: { ...engine, contextLength: 75000 }, fetchImpl: transport({ main: () => response(answer) }).fetchImpl });
+  assert.equal(child.outcome, 'completed'); assert.equal(child.output, answer);
+  const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
+  let requests = 0;
+  await runMemoryChat({ baseUrl: 'http://fixture', modelId: 'parent',
+    messages: [{ role: 'system', content: 'Use child findings.' }, { role: 'user', content: 'Analyze the file.' }],
+    chatTools: [{ type: 'function', function: { name: 'spawn_sub_agent', parameters: { type: 'object' } } }],
+    resolveTool: () => ({ serverName: 'native' }), guardToolContent: require('../src/main/engineManager').truncateToolOutput,
+    executeTool: async () => child.output,
+    fetchImpl: async (_url, options) => {
+      if (requests++ === 0) return response(null, [{ id: 'full-child', type: 'function', function: { name: 'spawn_sub_agent', arguments: '{}' } }], 'tool_calls');
+      assert.equal(JSON.parse(options.body).messages.find(m => m.role === 'tool').content, answer);
+      return response('Complete findings received.');
+    } });
+  assert.equal(requests, 2);
+});
+
+test('a repeated blocked fetch does not block a different search in the same batch', async () => {
+  const tools = require('../src/main/tools/agentTools'), original = tools.executeAgentTool;
+  const executed = [];
+  tools.executeAgentTool = async args => { executed.push(args.name); return args.name === 'web_search'
+    ? { results: [{ title: 'Demo docs', url: 'https://example.com/docs', snippet: 'Toast setup documentation' }] }
+    : { success: false, error: 'WEB_PAGE_NO_READABLE_CONTENT: JavaScript rendering required.' }; };
+  const fetchCall = id => ({ id, type: 'function', function: { name: 'get_single_web_page_content', arguments: '{"url":"https://example.com/demo"}' } });
+  const t = transport({ main: (p, requests) => {
+    if (requests.length < 3) return response(null, [fetchCall(`fetch-${requests.length}`)], 'tool_calls');
+    if (requests.length === 3) return response(null, [fetchCall('repeated-fetch'), { id: 'alternative-search', type: 'function', function: { name: 'web_search', arguments: '{"query":"demo docs"}' } }], 'tool_calls');
+    assert.match(JSON.stringify(p.messages), /Toast setup documentation/);
+    return response('The direct page needs JavaScript. Search found setup documentation.');
+  } });
+  try {
+    const result = await runInvestigationExecution({ session: { id: `web-fallback-${randomUUID()}` }, task: 'Analyze the public demo.', rootPath: directory,
+      engine: { ...engine, contextLength: 75000 }, fetchImpl: t.fetchImpl });
+    assert.equal(result.outcome, 'completed');
+    assert.deepEqual(executed, ['get_single_web_page_content','get_single_web_page_content','web_search']);
+  } finally { tools.executeAgentTool = original; }
+});
+test('a partial report is retained as a result without duplicating it as a runtime error', () => {
+  const session = sm.createSession({ parentSessionId: 'partial-owner' }); sm.startSession(session);
+  sm.completeSession(session, { outcome: 'partial', stopReason: 'no_progress', result: 'No findings; extraction unavailable.' });
+  assert.equal(session.status, 'partial'); assert.equal(session.error, null);
+  assert.equal(persistence.readPersistedTranscript(session.id).error, null);
+});

@@ -904,7 +904,7 @@ function structureVerification(args, result, signal, timeoutMs, cwdLabel) {
 	};
 	// Carry the shell recovery boundary's evidence through, so a verification
 	// that touched the workspace is still restorable from the returned result.
-	for (const key of ["environmentHint", "commandEnvironment", "started_at", "finished_at", "duration_ms", "timeout_ms", "requested_timeout_ms", "output_truncated", "signal", "recoveryCheckpointId", "recoveryChangedTotal", "recoveryChanged", "recoveryComplete", "recoveryPostFailed"]) {
+	for (const key of ["environmentHint", "commandEnvironment", "started_at", "finished_at", "duration_ms", "timeout_ms", "requested_timeout_ms", "output_truncated", "signal", "recoveryCheckpointId", "recoveryChangedTotal", "recoveryChanged", "recoveryComplete", "recoveryPostFailed", "recoveryWarning"]) {
 		if (result && result[key] !== undefined) structured[key] = result[key];
 	}
 	if (status === "passed") {
@@ -1808,7 +1808,10 @@ const { locateReplacement, replacementText } = require('./fileEditMatcher');
 // mutation failures trigger a best-effort rollback from the checkpoint, and
 // the checkpoint row always remains for explicit restore. Shell/MCP
 // mutations are NOT covered — see docs/workspace-recovery-architecture.md.
-async function withFileRecovery(root, { chatSessionId = null, toolName, op = null, paths, uncontained = false }, mutate) {
+function withFileRecovery(...args) {
+  return require('../recoveryMaintenanceGate').run(() => runFileRecovery(...args));
+}
+async function runFileRecovery(root, { chatSessionId = null, toolName, op = null, paths, uncontained = false }, mutate) {
 	let checkpoint;
 	try {
 		// The operation is about to mutate exactly these paths: any capture
@@ -3382,7 +3385,7 @@ module.exports = {
 	prepareFileDelete,
 	approvedMutations,
 	agentTools,
-	executeAgentTool,
+	executeAgentTool: (...args) => require("../recoveryMaintenanceGate").run(() => executeAgentTool(...args)),
 	getRecentChatHistory,
 	hasProjectWorkspace,
 	truncateOutput,

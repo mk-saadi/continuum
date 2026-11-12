@@ -16,10 +16,10 @@ test('spawn_sub_agent schema matches the prompt invocation', () => {
   assert.ok(require('../src/main/tools/agentTools').agentTools.includes(spawnSubagentTool));
 });
 
-test('web invocation passes one URL and constraints to the isolated extractor', async () => {
-  const original = runtime.runWebExtraction;
+test('web invocation passes one URL and constraints to the compacting investigation worker', async () => {
+  const original = runtime.runInvestigation;
   let call;
-  runtime.runWebExtraction = async options => { call = options; return 'Score: 68.0'; };
+  runtime.runInvestigation = async options => { call = options; return 'Score: 68.0'; };
   try {
     const answer = await executeSpawnSubagent({
       task: 'Inspect https://example.com/benchmarks and extract MMLU.',
@@ -27,25 +27,27 @@ test('web invocation passes one URL and constraints to the isolated extractor', 
       engine: { port: 4321, modelId: 'model' },
     });
     assert.equal(answer, 'Score: 68.0');
-    assert.equal(call.url, 'https://example.com/benchmarks');
-    assert.match(call.query, /No raw HTML/);
-    assert.match(call.query, /One-row markdown table/);
+    assert.match(call.task, /Source URL: https:\/\/example.com\/benchmarks/);
+    assert.match(call.task, /automatically compacted/);
+    assert.match(call.task, /No raw HTML/);
+    assert.match(call.task, /One-row markdown table/);
     await assert.rejects(executeSpawnSubagent({ task: 'Compare https://a.example/a and https://b.example/b' }), /one web URL/);
-  } finally { runtime.runWebExtraction = original; }
+  } finally { runtime.runInvestigation = original; }
 });
 
 test('file invocation delegates exactly one absolute path to the isolated runtime', async () => {
-  const original = runtime.runFileAnalysis;
+  const original = runtime.runInvestigation;
   let call;
-  runtime.runFileAnalysis = async options => { call = options; return 'File summary'; };
+  runtime.runInvestigation = async options => { call = options; return 'File summary'; };
   try {
     const answer = await executeSpawnSubagent({ task: 'Inspect error logs', target_file: '/abs/logs/app.log' });
     assert.equal(answer, 'File summary');
-    assert.deepEqual(call.target_files, ['/abs/logs/app.log']);
-    assert.match(call.task_description, /Inspect error logs/);
+    assert.match(call.task, /Source file: \/abs\/logs\/app.log/);
+    assert.match(call.task, /automatically compacted/);
+    assert.match(call.task, /Inspect error logs/);
     await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs', target_file: '' }), /target_file must be a non-empty absolute path/);
     await assert.rejects(executeSpawnSubagent({ task: 'Inspect logs' }), /Provide a url or target_file parameter/);
-  } finally { runtime.runFileAnalysis = original; }
+  } finally { runtime.runInvestigation = original; }
 });
 
 test('investigate routes a task-only delegation to the child agent loop', async () => {
@@ -82,5 +84,5 @@ test('the investigate option stays additive to the spawn schema', () => {
   assert.deepEqual(schema.parameters.required, ['task']);
   assert.equal(schema.parameters.additionalProperties, false);
   assert.match(schema.description, /isolated web research/);
-  assert.match(schema.description, /investigate=true/);
+  assert.match(schema.description, /investigate:true/);
 });

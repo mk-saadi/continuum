@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiCode, FiFile, FiFileText, FiFilm, FiImage } from "react-icons/fi";
 import { AttachmentControls } from "./AttachmentControls.jsx";
+import { MediaGalleryProvider, useRegisterMedia } from "./MediaGallery.jsx";
 
 function displayName(filePath) {
 	return String(filePath ?? "")
@@ -31,6 +32,7 @@ const KIND_ICON = {
 function AttachmentCard({ attachment }) {
 	const [failed, setFailed] = useState(false);
 	const kind = kindOf(attachment);
+	const media = kind === "image" || kind === "video";
 	const name = attachment.name || displayName(attachment?.file_path) || "Attachment";
 	const [src,setSrc]=useState(''), [problem,setProblem]=useState('');
     useEffect(()=>{
@@ -38,7 +40,12 @@ function AttachmentCard({ attachment }) {
         if(attachment.version_id && !attachment.omitted) window.api?.previewAttachment?.({sessionId:attachment.session_id,attachment:{id:attachment.id}}).then(result=>{if(active)setSrc(result.dataUrl || '');}).catch(error=>{if(active){setFailed(true);setProblem(error.message);}});
         return ()=>{active=false;};
     },[attachment.version_id,attachment.omitted]);
+    const registration = useRegisterMedia(media && src && !failed ? { src, video: kind === "video", title: name } : null);
     const open = async () => {
+        if (media) {
+            if (registration) registration.gallery.open(registration.id);
+            return;
+        }
         try { await window.api?.openAttachment?.({sessionId:attachment.session_id,attachment:{id:attachment.id}}); }
         catch(error) { setProblem(error.message); }
     };
@@ -47,8 +54,8 @@ function AttachmentCard({ attachment }) {
 		<div className="w-44 shrink-0">
         <button
 			type="button"
-			title={`${name}\n${attachment?.file_path ?? ""}\nClick to open`}
-			aria-label={`Open attachment ${name}`}
+			title={`${name}\n${attachment?.file_path ?? ""}\n${media ? "Click to view" : "Click to open"}`}
+			aria-label={`${media ? "View" : "Open"} attachment ${name}`}
 			onClick={open}
 			className="w-36 shrink-0 cursor-pointer overflow-hidden ui-radius-control border border-[var(--attachment-border)] bg-[var(--surface-raised)] text-left transition-colors hover:border-[var(--edit-border)]"
 		>
@@ -58,7 +65,7 @@ function AttachmentCard({ attachment }) {
 						src={src}
 						alt={name}
 						loading="lazy"
-						className="h-24 w-full object-cover"
+						className="h-24 w-full cursor-zoom-in object-cover"
 						onError={() => setFailed(true)}
 					/>
 				) : kind === "video" && src && !failed ? (
@@ -68,7 +75,7 @@ function AttachmentCard({ attachment }) {
 							preload="metadata"
 							muted
 							playsInline
-							className="h-24 w-full object-cover"
+							className="h-24 w-full cursor-zoom-in object-cover"
 							onError={() => setFailed(true)}
 						/>
 						<span
@@ -109,15 +116,17 @@ function AttachmentCard({ attachment }) {
 export default function AttachmentPreview({ attachments }) {
 	if (!attachments?.length) return null;
 	return (
-		<ul
-			aria-label="Message attachments"
-			className="flex flex-wrap gap-2 whitespace-normal"
-		>
-			{attachments.map((attachment) => (
-				<li key={attachment.id || attachment.file_path}>
-					<AttachmentCard attachment={attachment} />
-				</li>
-			))}
-		</ul>
+		<MediaGalleryProvider>
+			<ul
+				aria-label="Message attachments"
+				className="flex flex-wrap gap-2 whitespace-normal"
+			>
+				{attachments.map((attachment) => (
+					<li key={attachment.id || attachment.file_path}>
+						<AttachmentCard attachment={attachment} />
+					</li>
+				))}
+			</ul>
+		</MediaGalleryProvider>
 	);
 }

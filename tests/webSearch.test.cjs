@@ -168,7 +168,7 @@ test('web extractor sends only matching page text to an isolated tool-free reque
   let payload;
   const summary = await extractWebPageData({ url: 'https://example.com/story', query: 'What is the launch date?',
     engine: { port: 4321, modelId: 'local-model' },
-    pageFetchImpl: async () => new Response('<article><p>Navigation filler</p><p>The launch date is 1 October.</p></article>',
+    pageFetchImpl: async () => new Response('<nav>Navigation filler</nav><article><p>The launch date is 1 October.</p></article>',
       { headers: { 'content-type': 'text/html' } }),
     fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: 'The launch date is 1 October.' } }] }); },
   });
@@ -193,4 +193,10 @@ test('web extractor answers a question from a JSON API response', async () => {
   // The JSON body, not a rejection, is what reaches the extractor prompt.
   assert.match(payload.messages[1].content, /temperature_2m/);
   assert.ok(!/did not return|fetch failed/.test(payload.messages[1].content));
+});
+
+test('a JavaScript-only HTTP200 page reports no readable content instead of empty success', async () => {
+  await assert.rejects(getSingleWebPageContent({ url: 'https://example.com/demo',
+    fetchImpl: async () => new Response('<html><body><div id="root"></div><script src="/app.js"></script></body></html>', { headers: { 'content-type': 'text/html' } }) }),
+    error => error.code === 'WEB_PAGE_NO_READABLE_CONTENT' && /JavaScript rendering/.test(error.message));
 });

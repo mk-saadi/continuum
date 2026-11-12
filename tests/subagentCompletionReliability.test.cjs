@@ -29,7 +29,7 @@ db.initDatabase(directory);
 const settings = require('../src/main/subagents/budgetSettings');
 const completion = require('../src/main/subagents/completion');
 const { runInvestigationExecution } = require('../src/main/subagents/agentLoop');
-const { runFileAnalysisExecution } = require('../src/main/subagents/executionManager');
+const { runWebExtractionExecution, runFileAnalysisExecution } = require('../src/main/subagents/executionManager');
 const { readCompletion } = require('../src/main/subagents/providers/streamCompletion');
 
 const engine = { provider: 'local', port: 9, modelId: 'fixture', contextLength: 32768 };
@@ -295,4 +295,50 @@ test('the forced-answer continuation still leaves room for a truncated retry (no
   for (const key of ['thinking_budget', 'reasoning_budget', 'max_thinking_tokens', 'reasoning_effort']) {
     assert.ok(!(key in s.requests[1]), `${key} must not be sent (unsupported by the verified backend)`);
   }
+});
+
+test('a web answer clipped by the result limit is incomplete even after a clean provider stop', async () => {
+  const result = await runWebExtractionExecution({
+    session: {}, url: 'https://example.com/page', query: 'Analyze the page.', engine,
+    pageFetchImpl: async () => new Response('<article>Source evidence.</article>', { headers: { 'content-type': 'text/html' } }),
+    fetchImpl: async () => json('Supported finding. '.repeat(400)),
+  });
+  assert.equal(result.stopReason, 'incomplete_response');
+  assert.match(result.output, /Summary truncated/);
+});
+
+test('unlimited output removes the hidden file generation ceiling, bounded by prompt context', async () => {
+  configure({ maxOutputTokens: 'unbounded' });
+  fs.writeFileSync(path.join(directory, 'unlimited.txt'), 'Read this source.');
+  const s = script([json('Complete analysis.')]);
+  const result = await runFileAnalysisExecution({ session: {}, task_description: 'Analyze.',
+    target_files: ['unlimited.txt'], rootPath: directory, engine, fetchImpl: s.fetchImpl });
+  assert.equal(result.outcome, 'completed');
+  assert.ok(s.requests[0].max_tokens > 3072, 'must not retain the old task-kind cap');
+  assert.ok(s.requests[0].max_tokens < engine.contextLength, 'prompt still occupies context');
+});
+test('reasoning exhausting both generations without an answer fails rather than returning source as findings', async () => {
+  fs.writeFileSync(path.join(directory, 'no-answer.txt'), 'SOURCE_MUST_NOT_BECOME_FINDINGS');
+  const s = script([json(null, 'length', { reasoning_content: 'thinking' }),
+    json(null, 'length', { reasoning_content: 'still thinking' })]);
+  const result = await runFileAnalysisExecution({ session: {}, task_description: 'Analyze.',
+    target_files: ['no-answer.txt'], rootPath: directory, engine, fetchImpl: s.fetchImpl });
+  assert.equal(result.outcome, 'failed');
+  assert.equal(result.stopReason, 'incomplete_response');
+  assert.equal(result.completionClass, COMPLETION.TRUNCATED);
+  assert.equal(result.accounting.evidence, false);
+  assert.match(result.output, /exhausted its generation allowance/);
+  assert.doesNotMatch(result.output, /SOURCE_MUST_NOT_BECOME_FINDINGS|Source evidence/);
+});
+
+test('unlimited investigation output leaves input room for automatic compaction planning', async () => {
+  configure({ maxInputTokens: 'unbounded', maxOutputTokens: 'unbounded', maxTurns: 'unbounded',
+    maxToolCalls: 'unbounded', maxAggregateToolCalls: 'unbounded' });
+  const session = { id: 'unlimited-compaction-planning' };
+  const s = script([json('Complete investigation.')]);
+  const result = await run(session, s);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(s.requests.length, 1);
+  assert.ok(s.requests[0].max_tokens > 2048);
+  assert.ok(s.requests[0].max_tokens < engine.contextLength);
 });

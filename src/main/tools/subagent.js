@@ -1,19 +1,7 @@
 'use strict';
 
-// Supported spawn_sub_agent inputs:
-//   1. url (or exactly one URL inside `task`): ONE public page, fetched with
-//      the SSRF-protected getSingleWebPageContent (public-host validation,
-//      pinned DNS, GET-only, 1 MB / 12k-char caps) and answered in one shot.
-//   2. target_file: ONE local text file, analyzed in one shot.
-//   3. investigate: true: a multi-turn read-only child loop over
-//      search_project_content / read_project_file / list_directory /
-//      git_status / git_diff / git_log / git_show / git_branch / git_blame /
-//      web_search / get_single_web_page_content. The worker can now discover
-//      public URLs itself with the same zero-configuration native search tool
-//      the main agent uses; it still cannot use MCP or unrestricted Playwright.
-// A URL-only call stays a single-page fetch. A discovery-style task with no
-// URL must use investigate: true (or the parent can call web_search first and
-// pass the chosen URL), and otherwise still fails with actionable guidance.
+// Every delegated task uses the durable, read-only investigation loop, including
+// explicit file and URL targets. Each child owns its context and auto-compaction.
 const spawnSubagentTool = {
   type: 'function',
   function: {
@@ -25,9 +13,9 @@ const spawnSubagentTool = {
         task: { type: 'string', description: 'Concrete bounded question, paths or sources, exclusions, and acceptance criterion. Avoid overlap with other children.' },
         constraint: { type: 'string', description: 'Optional length and omission rules, such as no raw HTML or boilerplate.' },
         expected_output: { type: 'string', description: 'Concise findings with file/line or URL evidence first, followed by uncertainties and unfinished work.' },
-        url: { type: 'string', description: 'Public HTTP or HTTPS URL for one-page web research (one per call). The worker fetches exactly this page; for discovery, use investigate: true or call web_search in the main context first.' },
-        target_file: { type: 'string', description: 'Absolute path to a single local file to analyze. Required for single-file analysis; a path mentioned only in task does not select the file.' },
-        investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across several turns before returning one concise answer. Cannot be combined with url or target_file.' },
+        url: { type: 'string', description: 'Public HTTP or HTTPS URL to analyze. The worker reads this source and continues in its own automatically compacting context. For broader source discovery use investigate: true.' },
+        target_file: { type: 'string', description: 'Absolute path to the file to analyze. The worker reads numbered pages, follows pagination, and automatically compacts its own context as needed.' },
+        investigate: { type: 'boolean', description: 'Set true to let the worker investigate autonomously: it searches, reads, and lists project files (and may fetch public web pages) across as many turns as its configured budgets allow, automatically compacting its own context before returning its answer. Cannot be combined with url or target_file.' },
       },
       required: ['task'],
       additionalProperties: false,
@@ -68,24 +56,26 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     throw new Error('investigate must be a boolean.');
   }
 
-  // --- Autonomous investigation path ---
-  // The read-only child agent loop: one foreground child session that
-  // searches/reads its way to an answer over multiple model turns. The
-  // specialized file-analysis and web-extraction paths below stay exactly as
-  // they are — existing callers keep their behavior.
+  const runWorker = async instruction => {
+    const runtime = require('../subagents');
+    return boundResultForParent(await runtime.runInvestigation({ task: instruction, rootPath, engine, signal,
+      parentSessionId, parentToolCallId, budgetScope, onSpawn: id => {
+        const child = require('../subagents/sessionManager').getSession(id);
+        require('../lspExecutionContext').authorizeChild(child, executionContext);
+        onSpawn?.(id);
+      } }));
+  };
+  const instructionFor = source => [task, source,
+    expected_output && `Expected output: ${expected_output}`,
+    constraint && `Constraint: ${constraint}`,
+    'Work until the requested analysis is complete or a real blocker prevents progress. Use tools to read evidence; do not answer from the task alone. Read remaining source pages when pagination indicates more content. Your context is automatically compacted as needed; retrieve earlier evidence with read_child_history rather than restarting or asking the parent to continue.'
+  ].filter(Boolean).join('\n');
+  // All source types share the same scheduler, continuation and compaction path.
   if (investigate === true) {
     if (url !== undefined || target_file !== undefined) {
       throw new Error('Choose either investigate or url/target_file, not both.');
     }
-    const instruction = [task, expected_output && `Expected output: ${expected_output}`,
-      constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
-    const runtime = require('../subagents');
-    const answer = await runtime.runInvestigation({ task: instruction, rootPath, engine, signal, parentSessionId, parentToolCallId, onSpawn: id => {
-      const child = require('../subagents/sessionManager').getSession(id);
-      require('../lspExecutionContext').authorizeChild(child, executionContext);
-      onSpawn?.(id);
-    }, budgetScope });
-    return boundResultForParent(answer);
+    return runWorker(instructionFor(''));
   }
 
   // --- File analysis path ---
@@ -93,16 +83,11 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
     if (typeof target_file !== 'string' || !target_file.trim()) {
       throw new Error('target_file must be a non-empty absolute path.');
     }
-    const instruction = [task, expected_output && `Expected output: ${expected_output}`,
-      constraint && `Constraint: ${constraint}`].filter(Boolean).join('\n');
-    const runtime = require('../subagents');
-    const summary = await runtime.runFileAnalysis({
-      task_description: instruction,
-      target_files: [target_file],
-      rootPath: process.cwd(),
-      engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope,
-    });
-    return boundResultForParent(summary);
+    if (!require('node:path').isAbsolute(target_file) || target_file.includes('\0')) {
+      throw new Error('target_file must be a non-empty absolute path.');
+    }
+    if (url !== undefined) throw new Error('Choose either url or target_file, not both.');
+    return runWorker(instructionFor(`Source file: ${target_file}. Start with read_project_file using relative_path=${JSON.stringify(require('node:path').relative(rootPath ?? process.cwd(), target_file))}. Use the returned line numbers for citations.`));
   }
 
   // --- Web URL path ---
@@ -127,12 +112,7 @@ async function executeSpawnSubagent({ task, constraint = '', expected_output = '
       + 'set investigate: true, or call web_search in the main context and pass the chosen URL. For local analysis put the absolute path in target_file, not just task.'), { code: 'SUBAGENT_TARGET_REQUIRED' });
   }
 
-  const instruction = [task, expected_output && `Expected output: ${expected_output}`,
-    constraint && `Constraint: ${constraint}`, 'Return only a concise answer. Do not include raw source content.']
-    .filter(Boolean).join('\n');
-  const runtime = require('../subagents');
-  const summary = await runtime.runWebExtraction({ url: sourceUrl, query: instruction, engine, signal, parentSessionId, parentToolCallId, onSpawn, budgetScope });
-  return boundResultForParent(summary);
+  return runWorker(instructionFor(`Source URL: ${sourceUrl}. Start by fetching this page with get_single_web_page_content. Keep the analysis scoped to this source; clearly identify unavailable or truncated content.`));
 }
 
 module.exports = { spawnSubagentTool, executeSpawnSubagent, PARENT_RESULT_LIMIT, boundResultForParent };

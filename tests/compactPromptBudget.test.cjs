@@ -23,6 +23,7 @@ test('fixed prompt budget is repeatable across timezone/profile environments and
     }
     assert.deepEqual(results[0], results[1]);
     assert.ok(results[0][1].normalizedBytes < results[0][0].normalizedBytes);
+    assert.ok(results[0][1].estimatedTokens < 10000, "Fresh workspace must stay below 10k estimated input tokens");
     const tinyBaseline = path.join(directory, 'tiny.json');
     fs.writeFileSync(tinyBaseline, JSON.stringify({ normalizedBytes: { full: 1, compact: 1 } }));
     const growthOutput = path.join(directory, 'growth.json');

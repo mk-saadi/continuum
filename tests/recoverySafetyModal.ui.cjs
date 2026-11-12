@@ -112,7 +112,7 @@ app.whenReady().then(async () => {
       button('Confirm restore').click(); await tick(); await tick(); await tick();
       check(window.apiCalls.restore.length === 1, 'safe restore dispatched once');
       check(window.apiCalls.restore[0].allowRisky === false && window.apiCalls.restore[0].force === false, 'safe restore sends no authorization');
-      check(text().includes('Restored 1 path') && text().includes('Undo point #11 (pinned against cleanup)'), 'success reports undo pin');
+      check(text().includes('Restored 1 path') && text().includes('Undo point #11 (pinned for retention; storage cap still applies)'), 'success reports undo pin');
 
       // 2. Risky preview: paths, sizes, reason; confirm gated on the checkbox; force stays independent.
       window.scenario = 'risky';

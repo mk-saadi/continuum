@@ -1045,6 +1045,7 @@ if (hasSingleInstanceLock)
 	// built the storage panel falls back to a conservative reading of the
 	// recovery store; the build itself never blocks the main thread.
 	require("./src/main/recoveryReferenceIndex").startBuild();
+	require("./src/main/recoveryStore").startRecoveryMaintenance();
 	registerIpcHandlers({
 		launchEngine: launchModel,
 		// A request counts against the idle timer of the engine it targets.

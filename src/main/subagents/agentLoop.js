@@ -92,10 +92,7 @@ const DEFAULT_MAX_TURNS = require('./budgets').MAX_TURNS.investigation;
 const DEFAULT_MAX_TOOL_CALLS = require('./budgets').MAX_TOOL_CALLS.investigation;
 const MAX_TASK_CHARACTERS = 8000;
 const TURN_TEMPERATURE = 0.2;
-// Final-answer and per-tool-result ceilings: aligned with the existing
-// MAX_SUMMARY_CHARACTERS and the web tool's 12,000-character page cap.
-const MAX_FINAL_CHARACTERS = 6000;
-const TRUNCATION_NOTICE = '\n[Truncated]';
+// Generated final answers stay intact; provider token budgets govern output.
 
 /** Plain-text content of a model message, tolerating the array-of-parts form. */
 function textContent(value) {
@@ -129,10 +126,7 @@ function normalizeToolCalls(rawCalls) {
   }));
 }
 
-function truncate(text, maxCharacters) {
-  if (text.length <= maxCharacters) return text;
-  return text.slice(0, Math.max(0, maxCharacters - TRUNCATION_NOTICE.length)) + TRUNCATION_NOTICE;
-}
+
 
 
 /**
@@ -263,7 +257,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
   const findings = () => session.rawContext.filter(m => m.role === 'tool' && !/^Error:|^\[Tool skipped/.test(m.content ?? ''));
   const fallback = () => findings().slice(-6).map(m => `Tool evidence (${m.tool_call_id}): ${m.content.slice(0, 700)}`).join('\n\n');
   const finish = (output, reason = 'completed', hasFindings = !!output?.trim(), detail = null, completionClass = null) => {
-    const result = budget.outcome(state, { output: truncate(output || fallback(), MAX_FINAL_CHARACTERS),
+    const result = budget.outcome(state, { output: output || fallback(),
       stopReason: reason, findings: hasFindings || findings().length > 0, detail, completionClass });
     context.append({ role: 'assistant', content: result.output }); context.persist();
     return result;
@@ -291,8 +285,13 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     const requestTools = finalizing ? [] : toolsForTurn();
     let reply, requestManifest;
     try {
+      // Plan compaction with a working reserve. Reserving the entire window
+      // for unlimited output would leave no room even for the task itself.
+      // Dispatch below then grants the remaining measured context to generation.
+      const unlimitedOutput = !finalizing && state.budgets.outputBudget === null;
+      const planningCeiling = unlimitedOutput ? require('./budgets').ceilingFor('investigation') : ceiling;
       let payload = { model: engine.modelId, messages, temperature: TURN_TEMPERATURE,
-        max_tokens: finalizing ? Math.min(ceiling, 1024) : ceiling, tools: requestTools, tool_choice: finalizing ? 'none' : 'auto',
+        max_tokens: finalizing ? Math.min(ceiling, 1024) : planningCeiling, tools: requestTools, tool_choice: finalizing ? 'none' : 'auto',
         ...reasoningFields };
       payload = await context.prepare(payload);
       // Summary/checkpoint requests can consume ordinary-turn capacity. Honor
@@ -303,7 +302,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       let recovered = false;
       for (;;) {
         const measured = context.lastMeasurement;
-        payload = budget.stopBeforeRequest(state, payload,
+        payload = budget.stopBeforeRequest(state, unlimitedOutput ? { ...payload, max_tokens: ceiling } : payload,
           measured?.method === 'server-template-tokenizer' ? measured.tokens : undefined, measured?.limit);
         pushActivity(session, { type: 'turn', turn: budget.totals(state).turns + 1 });
         try {
@@ -317,7 +316,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
           // Never schedule a summarizer recursively while holding its slot.
           if (!error?.confirmedOverflow || recovered) throw error;
           recovered = true;
-          payload = await context.prepare(payload, true, error.contextWindowLimit);
+          payload = await context.prepare(unlimitedOutput ? { ...payload, max_tokens: planningCeiling } : payload, true, error.contextWindowLimit);
         }
       }
       if (!reply.ok) {
@@ -435,7 +434,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
     overflowPending = Boolean(batchPolicy && !batchPolicy.safe);
     if (batchPolicy && !batchPolicy.safe) overflowCorrections++;
     context.append({ role: 'assistant', content: content || null, tool_calls: calls });
-    let batchReason = null, automaticOutputBytes = 0;
+    let batchReason = null, automaticOutputBytes = 0, repeatedBlocked = false, executedInBatch = false;
     for (const [callIndex, call] of calls.entries()) {
       if (batchPolicy?.safe && callIndex % MAX_TOOL_CALLS_PER_RESPONSE === 0 && !batchReason) {
         pushActivity(session, { type: 'note', turn, text: `Read batch ${Math.floor(callIndex / MAX_TOOL_CALLS_PER_RESPONSE) + 1}/${Math.ceil(calls.length / MAX_TOOL_CALLS_PER_RESPONSE)}` });
@@ -481,12 +480,14 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       }
       let toolContent;
       if (skipped) {
-        if (skipped !== 'invalid_tool') batchReason ??= skipped;
+        if (skipped === 'no_progress') repeatedBlocked = true;
+        else if (skipped !== 'invalid_tool') batchReason ??= skipped;
         state.blockedCalls += ['no_progress', 'invalid_tool', 'cancelled'].includes(skipped) ? 1 : 0;
         toolContent = skipped === 'invalid_tool'
           ? `Error: Tool "${call.function.name}" is not available to this agent or its arguments are invalid. This call was not executed.`
           : `[Tool skipped: ${skipped}] This requested tool was not executed.`;
       } else {
+        executedInBatch = true;
         const toolStarted = performance.now();
         pushActivity(session, { type: 'tool', turn, name: call.function.name, arguments: call.function.arguments });
         try {
@@ -525,7 +526,7 @@ async function runInvestigationExecution({ session, task, rootPath, engine, sign
       context.persist();
       if (!batchPolicy.safe && overflowCorrections > 2) return finish('', 'incomplete_response', false, 'Tool batch correction exhausted after two attempts.');
     }
-    stopReason = batchReason ?? budget.exhaustion(state);
+    stopReason = batchReason ?? (repeatedBlocked && !executedInBatch ? 'no_progress' : budget.exhaustion(state));
   }
 }
 

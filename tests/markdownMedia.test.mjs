@@ -17,7 +17,10 @@ test('local media paths preserve spaces, Unicode, percent signs and URL delimite
   assert.equal(mediaSource('C:\\Users\\me\\clip.mov'), 'media://files/C%3A/Users/me/clip.mov');
   assert.equal(mediaSource('file:///C:/Users/me/clip.mov'), 'media://files/C%3A/Users/me/clip.mov');
   for (const value of ['file://server/share/a.png', '//server/a.png', 'javascript:alert(1)', 'data:text/html;base64,AAAA']) assert.equal(mediaSource(value), '');
+  assert.equal(mediaSource('https://example.com/photo.png'), 'https://example.com/photo.png');
+  assert.equal(mediaSource('https://example.com/clip.mp4?token=1'), 'https://example.com/clip.mp4?token=1');
   for (const ext of ['mp4', 'WEBM', 'mov', 'mkv', 'avi', 'TS']) assert.ok(isVideoSource(`media://files/tmp/clip.${ext}?token=1#t=2`));
+  for (const ext of ['mp4', 'WEBM', 'mov', 'mkv', 'avi']) assert.ok(isVideoSource(`https://example.com/clip.${ext}?token=1`));
   assert.equal(isVideoSource('https://example.com/photo.png?name=video.mp4'), false);
   for (const ext of ['mp4', 'webm', 'mov', 'mkv', 'avi', 'ts', 'm2ts', 'mpeg', 'mpg', 'm4v', 'ogv', '3gp', 'wmv', 'flv']) assert.ok(isLocalVideoSource(`media://files/tmp/clip.${ext}`));
   assert.equal(isLocalVideoSource('https://example.com/clip.mp4'), false);
@@ -25,9 +28,11 @@ test('local media paths preserve spaces, Unicode, percent signs and URL delimite
 
 test('markdown and raw HTML retain media sources while active HTML is stripped', () => {
   assert.match(render('![Photo](</tmp/my photo.png>)'), /src="media:\/\/files\/tmp\/my%20photo.png"/);
-  const html = render('![Photo](file:///home/me/photo.png)\n\n<video src="C:\\Users\\me\\clip.mp4" controls onerror="alert(1)"></video>\n\n<video controls><source src="/tmp/clip.webm" type="video/webm"></video>\n\n<img src="https://example.com/photo.png" onerror="alert(1)"><script>alert(1)</script><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Demo"></iframe><iframe src="javascript:alert(1)"></iframe>');
+  const html = render('![Photo](file:///home/me/photo.png)\n\n<video src="C:\\Users\\me\\clip.mp4" controls onerror="alert(1)"></video>\n\n<video src="https://example.com/clip.mp4" controls></video>\n\n<video controls><source src="/tmp/clip.webm" type="video/webm"></video>\n\n<img src="https://example.com/photo.png" onerror="alert(1)"><script>alert(1)</script><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Demo"></iframe><iframe src="javascript:alert(1)"></iframe>');
   assert.match(html, /src="media:\/\/files\/home\/me\/photo.png"/);
   assert.match(html, /src="media:\/\/files\/C%3A\/Users\/me\/clip.mp4"/);
+  assert.match(html, /src="https:\/\/example.com\/clip.mp4"/);
+  assert.match(html, /src="https:\/\/example.com\/photo.png"/);
   assert.match(html, /<source src="media:\/\/files\/tmp\/clip.webm"/);
   // Iframes are no longer allowed by the schema: every iframe is stripped from output.
   assert.doesNotMatch(html, /<iframe/);

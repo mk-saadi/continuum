@@ -3,7 +3,7 @@
 const { requestTimeoutError, defaultTimers } = require('../executionDeadline');
 
 // Assemble the same completion shape the execution layer already consumes,
-// while publishing a bounded preview of the current generation.
+// while publishing the complete current generation for the activity view.
 //
 // Phase 1.3B: `inactivityMs` arms a streaming-only watchdog. It is reset on
 // every chunk that arrives and fires only when the stream stops producing data,
@@ -68,7 +68,7 @@ async function readCompletion(response, onProgress, { inactivityMs = null, timer
     if (!delta.content && !delta.reasoning_content && !delta.reasoning && !delta.tool_calls?.length) return;
     const type = delta.tool_calls?.length || xml.calls.length || /<tool_call\b|<function\s*=/i.test(rawContent) ? 'tool-planning'
       : delta.reasoning_content || delta.reasoning ? 'thinking' : 'responding';
-    onProgress?.({ type, text: (type === 'thinking' ? message.reasoning_content : message.content).slice(-3000),
+    onProgress?.({ type, text: (type === 'thinking' ? message.reasoning_content : message.content),
       tools: [...calls.values(), ...xml.calls].map(call => call.function.name).filter(Boolean) });
   }
   try {

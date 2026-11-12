@@ -4,6 +4,7 @@ import { formatDuration } from "../lib/durationFormat.mjs";
 import React, { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRowUiState } from "../hooks/useRowUiState.js";
 import ThoughtBlock from "./ThoughtBlock";
+import CompactionActivity from "./chat/CompactionActivity.jsx";
 import CasualActivity from "./chat/CasualActivity.jsx";
 import ToolCallBlock from "./ToolCallBlock";
 import ToolEventCard from "./chat/ToolEventCard.jsx";
@@ -16,6 +17,7 @@ import remarkGfm from "remark-gfm";
 import { useMemo } from "react";
 import { normalizeLatexArrows } from "../lib/latexArrows.mjs";
 import { protectLocalPaths, remarkLocalPaths } from "../lib/remarkLocalPaths.mjs";
+import { classifyChatHref } from "../lib/chatLinks.mjs";
 import { costChipText, formatSignedUsd, formatUsd } from "../lib/costFormat.mjs";
 import { hasMultipleRequests } from "../lib/requestAccounting.mjs";
 import { progressTextOffset, toolDisplayName } from "../lib/executionEvents.mjs";
@@ -77,40 +79,7 @@ import { PiWarning } from "react-icons/pi";
 import { RiRobot2Line } from "react-icons/ri";
 import { LuRepeat, LuZap } from "react-icons/lu";
 
-// Prism accepts CSS variables, so syntax colors change with data-theme.
-const syntaxTheme = {
-	'pre[class*="language-"]': { background: "transparent", color: "var(--code-text)" },
-	'code[class*="language-"]': { background: "transparent", color: "var(--code-text)" },
-	comment: { color: "var(--code-comment)" },
-	prolog: { color: "var(--code-comment)" },
-	doctype: { color: "var(--code-comment)" },
-	cdata: { color: "var(--code-comment)" },
-	punctuation: { color: "var(--code-text)" },
-	property: { color: "var(--code-key)" },
-	tag: { color: "var(--code-key)" },
-	boolean: { color: "var(--code-literal)" },
-	number: { color: "var(--code-literal)" },
-	constant: { color: "var(--code-literal)" },
-	symbol: { color: "var(--code-literal)" },
-	selector: { color: "var(--code-key)" },
-	"attr-name": { color: "var(--code-key)" },
-	string: { color: "var(--code-string)" },
-	char: { color: "var(--code-string)" },
-	builtin: { color: "var(--code-string)" },
-	inserted: { color: "var(--code-string)" },
-	operator: { color: "var(--code-text)" },
-	entity: { color: "var(--code-text)" },
-	url: { color: "var(--code-string)" },
-	atrule: { color: "var(--code-key)" },
-	"attr-value": { color: "var(--code-string)" },
-	keyword: { color: "var(--code-keyword)" },
-	function: { color: "var(--code-function)" },
-	"class-name": { color: "var(--code-function)" },
-	regex: { color: "var(--code-literal)" },
-	important: { color: "var(--code-literal)" },
-	variable: { color: "var(--code-text)" },
-	deleted: { color: "var(--error)" },
-};
+import { syntaxTheme } from "../lib/syntaxTheme.mjs";
 
 function CodeBlock({ code, language }) {
 	const [copied, setCopied] = useState(false);
@@ -309,9 +278,9 @@ function MarkdownMedia({ src, alt = "", children }) {
 	return content;
 }
 
-const components = makeComponents(false);
-
-function makeComponents(isStreaming) {
+// A chat link's destination is resolved by the main process against the
+// session's base directory, so the components map is built per session.
+function makeComponents(isStreaming, sessionId = null) {
 	return {
 		img: ({ src, alt }) => (
 			<MarkdownMedia
@@ -390,10 +359,11 @@ function makeComponents(isStreaming) {
 			);
 		},
 		a: ({ node, href, ...props }) => {
-			// Local filesystem path -> hand the decoded path to the OS. React
+			const kind = classifyChatHref(href);
+			// Absolute local path -> hand the decoded path to the OS. React
 			// serializes hrefs percent-encoded, but shell.openPath needs the
 			// literal path, so decode it here.
-			if (href && /^\/[^\s]/.test(href) && !href.startsWith('//')) {
+			if (kind === "local-absolute") {
 				return (
 					<a
 						{...props}
@@ -408,11 +378,31 @@ function makeComponents(isStreaming) {
 				);
 			}
 			// Web URLs require an explicit action before opening the browser.
-			if (href && /^https?:\/\//i.test(href)) {
+			if (kind === "web") {
 				return (
 					<LinkPopover
 						{...props}
 						href={href}
+					/>
+				);
+			}
+			// A relative path is a file reference into the chat's own base
+			// directory (project root in Workspace, the agent's cwd in Casual).
+			// The main process owns that mapping, so hand it the raw href and
+			// let it resolve and open. Without this the link fell through to
+			// target="_blank" below, where Electron denies the navigation and
+			// the click silently did nothing.
+			if (kind === "local-relative") {
+				return (
+					<a
+						{...props}
+						href={href}
+						title={href}
+						className="text-[var(--link)] underline cursor-pointer"
+						onClick={(e) => {
+							e.preventDefault();
+							window.api?.openChatPath?.({ path: href, sessionId })?.catch?.(() => {});
+						}}
 					/>
 				);
 			}
@@ -458,9 +448,13 @@ function StreamingText({ buffer, onFrame, offset = 0 }) {
 const ChatMessage = React.memo(
 	function ChatMessage({
 		message,
+        compactionActivity = [],
 		streamBuffer,
 		onStreamFrame,
 		projectId,
+		// Link destinations resolve against this chat's base directory in main;
+		// fall back to the message's own session when the prop is absent.
+		sessionId = null,
 		pendingQuestions = {},
 		onAnswerQuestion,
 		showHeader = true,
@@ -487,12 +481,14 @@ const ChatMessage = React.memo(
 		const textOffset = progressTextOffset(activeVariant.executionSteps);
 		const remainingText = (activeVariant.content || "").slice(textOffset);
 		const responseText = mode === "casual" ? finalAssistantResponse(message) : remainingText;
+		const chatSessionId = sessionId ?? message.session_id ?? null;
 		const renderStep = (step, idx) => {
 			if (step.type === "text")
 				return (
 					<ProgressText
 						key={step.id ?? idx}
 						text={step.content}
+						sessionId={chatSessionId}
 					/>
 				);
 			if (step.type === "thought") {
@@ -574,6 +570,10 @@ const ChatMessage = React.memo(
 				{showHeader && message.role !== "assistant" && <MessageContextStatus message={message} />}
 				{showHeader && <div className="mb-2 text-xs text-[var(--text-muted)]">{displayName}</div>}
 				<PromptProcessingGate message={message} buffer={streamBuffer}>
+                {casualActivity && compactionActivity.filter(event => {
+                  const runId = activeVariant.run_id ?? message.run_id;
+                  return runId ? event.run_id === runId : event.message_id === (message.persistedMessageId ?? message.id);
+                }).map(event => <CompactionActivity key={event.id} event={event} />)}
 				{casualActivity ? (
 					<CasualActivity
 						key={`${message.id ?? "message"}:${index}`}
@@ -586,8 +586,8 @@ const ChatMessage = React.memo(
 						interrupted={activeVariant.status === "interrupted"}
 						renderStep={renderStep}
 						liveText={message.streaming
-							? (streamBuffer ? <StreamingText buffer={streamBuffer} offset={textOffset} onFrame={onStreamFrame} /> : <ProgressText text={remainingText} />)
-							: (!responseText && remainingText ? <ProgressText text={remainingText} /> : null)}
+							? (streamBuffer ? <StreamingText buffer={streamBuffer} offset={textOffset} onFrame={onStreamFrame} /> : <ProgressText text={remainingText} sessionId={chatSessionId} />)
+							: (!responseText && remainingText ? <ProgressText text={remainingText} sessionId={chatSessionId} /> : null)}
 					/>
 				) : (
 					steps?.length > 0 && (
@@ -621,7 +621,7 @@ const ChatMessage = React.memo(
 							<span className="whitespace-pre-wrap break-words">{responseText}</span>
 						)
 					) : (
-						<MarkdownContent text={responseText || (steps?.length || toolCalls?.length || thinking ? "" : "...")} />
+						<MarkdownContent text={responseText || (steps?.length || toolCalls?.length || thinking ? "" : "...")} sessionId={chatSessionId} />
 					)}
 				</div>}
 				{activeVariant.status === "interrupted" && (
@@ -675,6 +675,7 @@ const ChatMessage = React.memo(
 		previous.streamBuffer === next.streamBuffer &&
 		previous.onStreamFrame === next.onStreamFrame &&
 		previous.projectId === next.projectId &&
+		previous.sessionId === next.sessionId &&
 		previous.pendingQuestions === next.pendingQuestions &&
 		previous.onAnswerQuestion === next.onAnswerQuestion &&
 		previous.showHeader === next.showHeader &&
@@ -1239,7 +1240,7 @@ export function ThinkingAccordion({ text, duration, stateKey = null }) {
 }
 
 // Keep parsing and media DOM independent of message metadata and parent renders.
-const MarkdownContent = React.memo(function MarkdownContent({ text }) {
+const MarkdownContent = React.memo(function MarkdownContent({ text, sessionId = null }) {
 	// Bare paths are swapped for markers before markdown parses the message, so
 	// brackets and underscores inside a path are not eaten as link/emphasis
 	// syntax. remarkLocalPaths then turns each marker back into a real link.
@@ -1247,6 +1248,9 @@ const MarkdownContent = React.memo(function MarkdownContent({ text }) {
 		() => protectLocalPaths(normalizeLatexArrows(text)),
 		[text],
 	);
+	// Link clicks resolve against the session's base directory in main, so the
+	// component map is keyed by session rather than shared module-wide.
+	const components = useMemo(() => makeComponents(false, sessionId), [sessionId]);
 	return (
 		<MediaGalleryProvider>
 			<ReactMarkdown
@@ -1261,8 +1265,8 @@ const MarkdownContent = React.memo(function MarkdownContent({ text }) {
 	);
 });
 
-export const ProgressText = React.memo(function ProgressText({ text }) {
+export const ProgressText = React.memo(function ProgressText({ text, sessionId = null }) {
 	return <div className="assistant-markdown max-w-none text-inherit select-text">
-		<MarkdownContent text={text} />
+		<MarkdownContent text={text} sessionId={sessionId} />
 	</div>;
 });

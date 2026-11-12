@@ -134,6 +134,23 @@ function ensureRecoverySchema() {
       connection().prepare('ALTER TABLE recovery_workspace_index ADD COLUMN ctime_ms INTEGER').run();
     }
   })();
+  // Maintain byte totals incrementally: stats must not rescan gigabytes of JSON.
+  const db = connection();
+  db.prepare(`CREATE TABLE IF NOT EXISTS recovery_storage_usage(name TEXT PRIMARY KEY, bytes INTEGER NOT NULL)`).run();
+  for (const [table, expression] of [
+    ['recovery_checkpoints', "length(CAST(manifest_json AS BLOB)) + coalesce(length(CAST(op_json AS BLOB)), 0) + length(CAST(coverage_json AS BLOB)) + 256"],
+    ['recovery_workspace_index', "length(CAST(root AS BLOB)) + length(CAST(path AS BLOB)) + coalesce(length(hash), 0) + 128"],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM recovery_storage_usage WHERE name = ?').get(table)) {
+      db.prepare(`INSERT INTO recovery_storage_usage VALUES (?, (SELECT coalesce(sum(${expression}), 0) FROM ${table}))`).run(table);
+    }
+    const qualified = (prefix) => expression.replace(/\b(manifest_json|op_json|coverage_json|root|path|hash)\b/g, `${prefix}.$1`);
+    for (const [event, delta] of [
+      ['INSERT', qualified('NEW')], ['DELETE', `-(${qualified('OLD')})`],
+      ['UPDATE', `(${qualified('NEW')}) - (${qualified('OLD')})`],
+    ]) db.prepare(`CREATE TRIGGER IF NOT EXISTS ${table}_storage_${event} AFTER ${event} ON ${table}
+      BEGIN UPDATE recovery_storage_usage SET bytes = bytes + (${delta}) WHERE name = '${table}'; END`).run();
+  }
   // The blob reference index owns the refcount column and the build state
   // that says whether those counts can be trusted.
   require('./recoveryReferenceIndex').ensureReferenceSchema();
@@ -521,6 +538,7 @@ async function captureOperation({ root, chatSessionId = null, toolName = null, k
     markIndexed(id);
     return id;
   })();
+  scheduleRecoveryMaintenance();
   return { checkpointId, sessionId, manifest, coverage };
 }
 
@@ -672,6 +690,7 @@ async function commitScanResult({ root, chatSessionId = null, toolName = null, k
     markIndexed(id);
     return id;
   })();
+  scheduleRecoveryMaintenance();
   return { checkpointId, sessionId, manifest: scan.manifest, coverage };
 }
 
@@ -767,6 +786,14 @@ async function finalizeBoundaryCheckpoint(preCheckpointId, { postPaths = null, p
     for (const rel of new Set([...Object.keys(manifest.paths), ...Object.keys(postPaths ?? {})])) {
       postState[rel] = compressStateRecord((postPaths ?? {})[rel]);
     }
+    // Complete scans can inherit unchanged states from the pre-manifest.
+    // Persist only differences rather than another full workspace listing.
+    if (postSkipped.length === 0 && !truncated) {
+      for (const rel of Object.keys(postState)) {
+        if (JSON.stringify(postState[rel]) === JSON.stringify(compressStateRecord(manifest.paths[rel]))) delete postState[rel];
+      }
+      priorOp.postStateBase = 'manifest';
+    }
     priorOp.postState = postState;
     priorOp.changed = changed;
     priorOp.postComplete = postSkipped.length === 0 && !truncated;
@@ -779,6 +806,7 @@ async function finalizeBoundaryCheckpoint(preCheckpointId, { postPaths = null, p
     connection().prepare('UPDATE recovery_checkpoints SET op_json = ? WHERE id = ?')
       .run(JSON.stringify(priorOp), preCheckpointId);
   }
+  scheduleRecoveryMaintenance();
   return getCheckpoint(preCheckpointId);
 }
 
@@ -786,12 +814,18 @@ function getCheckpoint(checkpointId) {
   ensureRecoverySchema();
   const row = connection().prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(checkpointId);
   if (!row) throw new Error(`Unknown recovery checkpoint: ${checkpointId}.`);
-  return {
+  const checkpoint = {
     ...row,
     op: row.op_json ? JSON.parse(row.op_json) : null,
     manifest: JSON.parse(row.manifest_json),
     coverage: JSON.parse(row.coverage_json),
   };
+  if (checkpoint.op?.postStateBase === 'manifest') {
+    const base = Object.fromEntries(Object.entries(checkpoint.manifest.paths)
+      .map(([rel, record]) => [rel, compressStateRecord(record)]));
+    checkpoint.op.postState = { ...base, ...checkpoint.op.postState };
+  }
+  return checkpoint;
 }
 
 function listCheckpoints(sessionId, limit = 50) {
@@ -857,6 +891,7 @@ async function recordOpPostState(checkpointId, postState) {
   op.postState = postState;
   connection().prepare('UPDATE recovery_checkpoints SET op_json = ? WHERE id = ?')
     .run(JSON.stringify(op), checkpointId);
+  scheduleRecoveryMaintenance();
   return postState;
 }
 
@@ -1313,8 +1348,7 @@ async function countBlobs() {
   return connection().prepare('SELECT COUNT(*) AS n FROM recovery_blobs').get().n;
 }
 
-// Pinning: pinned checkpoints survive retention pruning (never auto-deleted,
-// never cap-evicted). Set from the recovery UI; stored on the checkpoint row.
+// Pins protect against age-based retention, but the storage cap takes priority.
 async function setCheckpointPinned(checkpointId, pinned) {
   ensureRecoverySchema();
   const row = connection().prepare('SELECT id FROM recovery_checkpoints WHERE id = ?').get(checkpointId);
@@ -1323,8 +1357,8 @@ async function setCheckpointPinned(checkpointId, pinned) {
   return { checkpointId, pinned: pinned === true };
 }
 
-// Physical vs logical storage accounting. Physical = deduplicated bytes on
-// disk; logical = content bytes referenced by checkpoints. Both are exposed so
+// Physical vs logical storage accounting. Physical includes blob files and
+// stored metadata (with row overhead); logical is referenced file content. Both are exposed so
 // the UI can show real disk cost and the amount of history that cost buys.
 //
 // This runs on the Electron main thread every time the storage panel opens,
@@ -1334,7 +1368,10 @@ async function setCheckpointPinned(checkpointId, pinned) {
 // index answers the same questions in O(blobs).
 async function getRecoveryStats() {
   ensureRecoverySchema();
-  const { physicalBytes, blobFiles } = await measureBlobStore();
+  const { physicalBytes: blobBytes, blobFiles } = await measureBlobStore();
+  const metadataBytes = connection().prepare('SELECT coalesce(sum(bytes), 0) AS bytes FROM recovery_storage_usage').get().bytes
+    + connection().prepare('SELECT count(*) * 256 AS bytes FROM recovery_blobs').get().bytes;
+  const physicalBytes = blobBytes + metadataBytes;
   const totals = connection().prepare(
     `SELECT COUNT(*) AS n,
             SUM(size) AS bytes,
@@ -1351,6 +1388,8 @@ async function getRecoveryStats() {
   const logicalBytes = ready ? (totals.referencedBytes ?? 0) : (totals.bytes ?? 0);
   return {
     physicalBytes,
+    blobBytes,
+    metadataBytes,
     logicalBytes,
     blobFiles,
     referencedBlobs,
@@ -1359,8 +1398,8 @@ async function getRecoveryStats() {
   };
 }
 
-// Bytes actually held by the blob store. This is the number the storage cap
-// is enforced against, so it is measured from disk rather than from the
+// Bytes actually held by the blob store, one part of the cap. Measure from
+// disk rather than from the
 // database: an orphan file left by an interrupted capture still occupies
 // space. The walk is async, so it never blocks the event loop, and the stats
 // are read from SQLite concurrently while it runs.
@@ -1401,14 +1440,8 @@ async function measureBlobStore() {
   return { physicalBytes, blobFiles };
 }
 
-// Retention pruning with explicit guarantees. Keeps, per recovery session:
-// pinned checkpoints, everything younger than retentionDays, the latest
-// `latestPerSession` checkpoints, and the earliest checkpoint per chat run
-// younger than twice the retention window (run-start proxy). Storage-cap
-// enforcement then evicts oldest-first among the remainder, but never pinned
-// checkpoints, never the latest per session, and never anything from the
-// last `recentHours` (active-run proxy). Anything still over cap afterwards
-// is reported as capShortfallMB — never silently forced.
+// Retention protects pins and recent points only while under budget. The hard
+// cap takes precedence: even a single oversized or pinned checkpoint may go.
 async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPerSession = 10, recentHours = 24, now = Date.now() } = {}) {
   ensureRecoverySchema();
   const rows = connection().prepare(
@@ -1443,33 +1476,41 @@ async function pruneRecovery({ retentionDays = 30, storageCapMB = 512, latestPer
   for (const id of activeRestores.keys()) keep.add(id);
   const pruned = rows.filter((row) => !keep.has(row.id)).map((row) => row.id);
   await deleteCheckpoints(pruned);
-  // Storage cap: evict oldest-first among non-pinned, non-latest, non-recent.
-  const capBytes = storageCapMB * 1024 * 1024;
-  const recentCutoff = now - recentHours * 3600000;
-  const latestIds = new Set();
-  for (const [, list] of bySession) {
-    for (const row of list.slice(-5)) latestIds.add(row.id);
-  }
-  const createdMs = (createdAt) => {
-    const ms = Date.parse(`${createdAt} UTC`);
-    return Number.isFinite(ms) ? ms : 0;
-  };
+  const capBytes = Math.max(0, storageCapMB * 1024 * 1024);
+  await gcRecoveryBlobs();
   let stats = await getRecoveryStats();
   const capEvicted = [];
-  if (stats.physicalBytes > capBytes) {
-    const candidates = rows
-      .filter((row) => keep.has(row.id) && !row.pinned && !latestIds.has(row.id) && createdMs(row.created_at) < recentCutoff)
-      .sort((a, b) => a.id - b.id);
-    await deleteCheckpoints(candidates.map((row) => row.id));
-    for (const row of candidates) {
-      keep.delete(row.id);
-      capEvicted.push(row.id);
+  // Use the reference index to estimate when enough bytes can be reclaimed,
+  // then verify from disk. GC still derives liveness from manifests; estimates
+  // never authorize blob deletion. Avoid rescanning all history per eviction.
+  let pendingGc = false;
+  for (const row of rows) {
+    if (stats.physicalBytes <= capBytes) break;
+    if (!keep.has(row.id) || activeRestores.has(row.id)) continue;
+    await deleteCheckpoints([row.id]);
+    keep.delete(row.id);
+    capEvicted.push(row.id);
+    pendingGc = true;
+    let projectedBytes = Infinity;
+    if (referenceIndexReady()) {
+      projectedBytes = connection().prepare('SELECT coalesce(sum(bytes), 0) AS bytes FROM recovery_storage_usage').get().bytes
+        + connection().prepare('SELECT coalesce(sum(size + 256), 0) AS bytes FROM recovery_blobs WHERE refcount > 0').get().bytes;
+    }
+    if (!referenceIndexReady() || projectedBytes <= capBytes) {
+      await gcRecoveryBlobs();
+      stats = await getRecoveryStats();
+      pendingGc = false;
     }
   }
-  // Every checkpoint that is not retained has already been deleted, so the
-  // checkpoints that are left are exactly the ones to keep.
-  const gc = await gcRecoveryBlobs();
-  stats = await getRecoveryStats();
+  if (pendingGc) {
+    await gcRecoveryBlobs();
+    stats = await getRecoveryStats();
+  }
+  // The workspace index is a disposable scan cache, not retained history.
+  if (stats.physicalBytes > capBytes && keep.size === 0) {
+    connection().prepare('DELETE FROM recovery_workspace_index').run();
+    stats = await getRecoveryStats();
+  }
   return {
     pruned,
     capEvicted,
@@ -1856,3 +1897,39 @@ module.exports = {
   findLatestCheckpointForPath,
   getCheckpointDetail,
 };
+
+// Coalesce writes, enforce at startup and periodically, and retry failures.
+let maintenanceTimer = null;
+function scheduleRecoveryMaintenance() {
+  if (maintenanceTimer) return;
+  maintenanceTimer = setTimeout(() => {
+    maintenanceTimer = null;
+    // Timers inherit AsyncLocalStorage. Detach cleanup from the capture that
+    // scheduled it, otherwise the maintenance lock treats it as reentrant.
+    require('./recoveryMaintenanceGate').withoutWorkflow(() => module.exports.enforceRecoveryPolicy()).catch(error => {
+      console.warn('Recovery cleanup failed:', error.message);
+      scheduleRecoveryMaintenance();
+    });
+  }, 250);
+  maintenanceTimer.unref?.();
+}
+async function enforceRecoveryPolicy() {
+  const settings = require('./configManager').getAppSettings();
+  return module.exports.pruneRecovery({ retentionDays: settings.recoveryRetentionDays,
+    storageCapMB: settings.recoveryStorageCapMB });
+}
+function startRecoveryMaintenance() {
+  scheduleRecoveryMaintenance();
+  const timer = setInterval(scheduleRecoveryMaintenance, 60000);
+  timer.unref?.();
+  return () => { clearInterval(timer); clearTimeout(maintenanceTimer); maintenanceTimer = null; };
+}
+Object.assign(module.exports, { scheduleRecoveryMaintenance, enforceRecoveryPolicy, startRecoveryMaintenance });
+const maintenanceGate = require('./recoveryMaintenanceGate');
+for (const name of ['captureOperation', 'scanWorkspaceState', 'commitScanResult',
+  'finalizeBoundaryCheckpoint', 'recordOpPostState', 'createManualCheckpoint',
+  'restoreCheckpoint', 'pruneRecovery', 'gcRecoveryBlobs', 'deleteCheckpoints']) {
+  const implementation = module.exports[name];
+  module.exports[name] = (...args) => (['pruneRecovery', 'gcRecoveryBlobs', 'deleteCheckpoints'].includes(name)
+    ? maintenanceGate.exclusive : maintenanceGate.run)(() => implementation(...args));
+}

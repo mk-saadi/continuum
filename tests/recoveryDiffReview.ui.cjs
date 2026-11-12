@@ -201,7 +201,7 @@ app.whenReady().then(async () => {
       check(window.apiCalls.restore[0].id === 7, 'revert targets the covering checkpoint');
       check(JSON.stringify(window.apiCalls.restore[0].paths) === JSON.stringify(['a.jsx']), 'revert scoped to the file');
       check(window.apiCalls.restore[0].allowRisky === false && window.apiCalls.restore[0].force === false, 'no authorization flags');
-      check(text().includes('Undo point #11 (pinned against cleanup)'), 'success reports undo pin');
+      check(text().includes('Undo point #11 (pinned for retention; storage cap still applies)'), 'success reports undo pin');
       check(text().includes('Changed files (3)'), 'list refreshes after revert');
 
       // 5. Repeated clicks: single dispatch (busy guard).

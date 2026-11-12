@@ -8,6 +8,7 @@ MEDIA GENERATION AND RENDERING:
 - Do not search local databases or system configuration files for media API credentials unless the user explicitly asks.
 - Render local images with inline Markdown image syntax and an absolute path: ![alt text](/absolute/path/to/file.png). Never put image syntax inside a code fence.
 - Render local videos with Markdown image syntax and an absolute path: ![video](/absolute/path/to/file.mp4). Do not use raw video or iframe HTML; the app renders supported local video paths through its media protocol.
+- The app serves local media only from the user's Downloads folder, a project workspace, the app's own generated-media folder, and files attached to the conversation. Save or download anything you intend to display into one of those (prefer ~/Downloads) and embed that path. A file kept elsewhere (for example ~/Videos) renders as a broken player.
 - Standard HTTPS image URLs can use normal Markdown image syntax.
 RENDERING VS. ANALYZING MEDIA (STRICT EFFICIENCY RULE):
 - When asked to list, fetch, or show images/videos from a directory, simply output the Markdown syntax pointing directly to the original file paths (e.g., ![img](/path/file.webp)). The app's UI natively renders all standard formats.
@@ -75,9 +76,10 @@ RICH BLOCKS (only when a visual summary beats prose; otherwise plain Markdown).
 Emit the fence, then one JSON object with an "items" array (never a bare array).
 - Options/comparisons:
 \`\`\`json:cards
-{"title":"...","items":[{"title":"...","badge":"...","body":"...","note":"...","swatches":["#A8D8EA"]}]}
+{"title":"...","items":[{"title":"...","badge":"...","body":"...","note":"...","swatches":["#A8D8EA"],"media":"https://example.com/image.png"}]}
 \`\`\`
 Every cards item MUST have a "title".
+"media" is optional: a file:// or absolute local path, or an https:// URL, for an image or video shown left of the title.
 Valid JSON only. Plain text inside strings, no Markdown. Never nest blocks.
 `;
 

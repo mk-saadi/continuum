@@ -33,7 +33,7 @@ test('restore outcomes distinguish success, refusal, and partial with undo info'
     removed: [], skipped: [], preRestoreCheckpointId: 12, undoPinned: true });
   assert.equal(ok.kind, 'success');
   assert.match(ok.text, /Restored 1 path/);
-  assert.match(ok.text, /Undo point #12 \(pinned against cleanup\)/);
+  assert.match(ok.text, /Undo point #12 \(pinned for retention; storage cap still applies\)/);
   const refused = restoreOutcomeMessage({ strategy: 'refused', complete: false, restored: [], removed: [], skipped: [],
     safety: { verdict: 'refused', filesWouldEmpty: 1, bytesWouldDestroy: 9, anomalies: [] } });
   assert.equal(refused.kind, 'refused');

@@ -212,7 +212,9 @@ async function getSingleWebPageContent({ url, signal, fetchImpl = fetch }) {
       }
       const reader = response.body?.getReader();
       const text = reader ? await readBoundedText(reader) : await response.text();
-      return json || looksLikeJsonBody(text) ? formatJsonBody(text, type) : sanitizeWebPageContent(text);
+      const content = json || looksLikeJsonBody(text) ? formatJsonBody(text, type) : sanitizeWebPageContent(text);
+      if (!content.trim()) throw Object.assign(new Error(`WEB_PAGE_NO_READABLE_CONTENT: HTTP ${response.status} returned a page, but no readable text was extracted. The page may require JavaScript rendering. Use a browser or a different source; this is not evidence that the website has no content.`), { code: 'WEB_PAGE_NO_READABLE_CONTENT' });
+      return content;
     } finally { await dispatcher?.close(); }
   }
 }

@@ -76,7 +76,7 @@ export default function RecoveryStorageSettings({ disabled = false }) {
 			setNotice(
 				`Cleanup kept ${report.kept} checkpoint${report.kept === 1 ? "" : "s"}` +
 					` and removed ${report.pruned.length + report.capEvicted.length}` +
-					(report.capShortfallMB > 0 ? `; still ${report.capShortfallMB} MB over the cap (pinned and recent points are never forced out)` : "."),
+					(report.capShortfallMB > 0 ? `; still ${report.capShortfallMB} MB over the cap (cleanup will retry after active recovery finishes)` : "."),
 			);
 			setStats(await window.api.getRecoveryStats());
 		} catch (cause) {
@@ -90,7 +90,7 @@ export default function RecoveryStorageSettings({ disabled = false }) {
 		<SettingsCard
 			icon={LuHardDrive}
 			title="Workspace recovery storage"
-			description="File snapshots behind the per-chat recovery history. Oldest unpinned checkpoints are cleaned automatically; pinned checkpoints and each session's latest points are never forced out. Snapshot content lives outside your projects and is never synced anywhere."
+			description="File snapshots behind the per-chat recovery history. Oldest checkpoints are cleaned automatically to stay within the storage cap, including pinned and recent checkpoints when necessary. The cap includes snapshot files and database metadata. Snapshot content lives outside your projects and is never synced anywhere."
 		>
 			<div className="grid grid-cols-2 gap-3">
 				<NumberField

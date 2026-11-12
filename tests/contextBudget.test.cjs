@@ -115,3 +115,44 @@ test('a template that omits parameter schemas cannot claim exact measurement aft
     body: JSON.stringify({ ...payload, tools: [{ type: 'function', function: { name: 'read', description: 'tool schema', parameters: hugeSchema } }] }) }), /approximate-full-request/);
   assert.equal(sends, 0);
 });
+
+test('a loaded 75k engine keeps its capacity when counting endpoints are unavailable', async () => {
+  const context = require('../src/main/contextBudget');
+  context.setContextRuntimeProvider(() => ({ port: 4321, runtimeIdentity: 'loaded-75k', contextStatus: 'ready', activeModelConfig: { contextLength: 75000 } }));
+  const sent = [];
+  const wire = async (url, options) => {
+    if (new URL(url).pathname !== '/v1/chat/completions') return new Response('', { status: 404 });
+    sent.push(JSON.parse(options.body)); return Response.json({ ok: true });
+  };
+  try {
+    const request = { ...payload, max_tokens: 1024, messages: [{ role: 'system', content: 's'.repeat(40000) }, { role: 'user', content: 'Continue' }] };
+    const measured = await context.createPromptMeasurer(wire)('http://localhost:4321/v1/chat/completions', request, { contextWindowLimit: 75000 });
+    assert.equal(measured.limit, 75000);
+    assert.equal(measured.method, 'approximate-full-request');
+    assert.equal(measured.budgetContract.capacityMethod, 'loaded-engine-configuration');
+    let recoveries = 0;
+    const guarded = context.createContextGuardedFetch(wire);
+    await guarded('http://localhost:4321/v1/chat/completions', { method: 'POST', body: JSON.stringify(request), contextWindowLimit: 75000,
+      contextRecovery: async () => { recoveries++; throw new Error('must not compact a fitting request'); } });
+    assert.equal(recoveries, 0); assert.equal(sent.length, 1);
+  } finally { context.setContextRuntimeProvider(() => null); }
+});
+test('loaded runtime fallback still honors a smaller user ceiling and server slot capacity', async () => {
+  const context = require('../src/main/contextBudget');
+  context.setContextRuntimeProvider(() => ({ port: 4321, runtimeIdentity: 'loaded', activeModelConfig: { contextLength: 75000 } }));
+  try {
+    const unavailable = context.createPromptMeasurer(async () => new Response('', { status: 404 }));
+    assert.equal((await unavailable('http://localhost:4321/v1/chat/completions', payload, { contextWindowLimit: 12000 })).limit, 12000);
+    assert.equal((await unavailable('http://localhost:4321/v1/chat/completions', payload, { contextWindowLimit: 75000 }, 6000)).limit, 6000, 'confirmed overflow ceiling survives counting outage');
+    const reporting = context.createPromptMeasurer(async url => new URL(url).pathname === '/props'
+      ? Response.json({ default_generation_settings: { n_ctx: 6000 } }) : new Response('', { status: 404 }));
+    assert.equal((await reporting('http://localhost:4321/v1/chat/completions', payload, { contextWindowLimit: 75000 })).limit, 6000);
+  } finally { context.setContextRuntimeProvider(() => null); }
+});
+
+test('a real source change is preserved instead of mislabeled as context overflow', async () => {
+  const b = backend({ infer: overflow });
+  const changed = Object.assign(new Error('Compaction source changed; original history preserved'), { code: 'source-changed' });
+  await assert.rejects(send(b, payload, { contextRecovery: async () => { throw changed; } }), error => error === changed);
+  assert.equal(b.calls.length, 1);
+});

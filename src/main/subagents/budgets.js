@@ -180,7 +180,10 @@ function resolveTaskBudgets({ kind, engine, settings, contextLength = null } = {
     kind: kind ?? 'investigation',
     inputBudget,
     outputBudget,
-    perRequestCeiling: ceilingFor(kind),
+    // Explicit unlimited output also removes the task-kind generation cap.
+    // Request admission still clamps to actual prompt occupancy, model context,
+    // and provider constraints; no infinity is ever sent to the provider.
+    perRequestCeiling: outputBudget === null ? auto.contextLength : ceilingFor(kind),
     contextLength: auto.contextLength,
     // Where each number came from, for settings UI and diagnostics.
     sources: {

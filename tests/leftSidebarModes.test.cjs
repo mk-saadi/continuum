@@ -159,7 +159,7 @@ assert.ok(
 	'both modes give the conversation list the flexible scroll area',
 );
 assert.ok(
-	sidebarSource.includes('max-[650px]:w-[220px]'),
+	fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'ResizableSidebar.jsx'), 'utf8').includes('max-[650px]:w-[220px]'),
 	'narrow window widths preserved',
 );
 assert.ok(

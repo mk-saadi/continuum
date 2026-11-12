@@ -168,8 +168,9 @@ external process replacing a directory entry between the final identity check an
 unlink; directory-descriptor anchoring prevents following that entry into an external
 original.
 
-The composer exposes **Attachment storage → Preview cleanup counts**, also available
-in attachment details. Production preload APIs expose `attachmentCleanupStatus`,
+The workspace Activity sidebar exposes **Attachment storage** with a cleanup summary;
+the same count-only preview is also available in attachment details. Production
+preload APIs expose `attachmentCleanupStatus`,
 `previewAttachmentCleanup` and `runAttachmentCleanup`. Responses contain reclaimed
 bytes, pending file count, retryable failure count, unresolved item count, unused
 version count and active operation count; no paths or contents. Preview changes no

@@ -12,7 +12,7 @@ const focused = [
   'contextC1Integration', 'contextC1Ui', 'contextPanel', 's1StartupLifecycle', 'h1HistoryDeletion',
   'workspacePlan', 'compactPlanResults', 'attachmentReferences', 'r3Reliability', 'p2CompactNativeTools',
   'webToolAvailability', 'permissionIsolationReliability', 'liveSteeringIpc', 'workLog', 'workLogDisplay', 'compactionBadge', 'sessionPromptWording',
-].map(name => `tests/${name}.test.cjs`).concat(['contextDispatch','liveSteeringLoop','c93PrematureStop','requestAccounting','memoryChat','t11ChildReadBatch','subagentDispatchConcurrency','t1ToolBatch'].map(name=>`tests/${name}.test.mjs`)).filter(name => fs.existsSync(path.join(root,name)));
+].map(name => `tests/${name}.test.cjs`).concat(['subagentCompletionDisplay','contextDispatch','liveSteeringLoop','c93PrematureStop','requestAccounting','memoryChat','t11ChildReadBatch','subagentDispatchConcurrency','t1ToolBatch'].map(name=>`tests/${name}.test.mjs`)).filter(name => fs.existsSync(path.join(root,name)));
 const files = args.includes('--all') ? fs.readdirSync(path.join(root,'tests')).filter(name=>/\.test\.(?:cjs|mjs|js)$/.test(name)).sort().map(name=>`tests/${name}`) : focused;
 const directory = fs.mkdtempSync(path.join(os.tmpdir(),'continuum-compaction-acceptance-'));
 const output = args.find(arg=>arg.endsWith('.json'));

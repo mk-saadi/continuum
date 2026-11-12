@@ -14,12 +14,12 @@ app.whenReady().then(async () => {
       import ToolEventCard from './src/components/chat/ToolEventCard';
       import ToolCallBlock from './src/components/ToolCallBlock';
       window.status='running';
-      window.api={getChildTranscript:async()=>({found:true,status:window.status,turns:[],activity:[],turnCount:1,liveProgress:window.progress,result:window.status==='complete'?{text:'Done'}:null})};
+      window.api={getChildTranscript:async()=>({found:true,status:window.status,model:'Test model',turns:[],activity:[{type:'fetch',url:'https://example.com',chars:1200}],turnCount:1,liveProgress:window.progress,result:window.status==='complete'?{text:'Done'}:null})};
       const root=createRoot(document.getElementById('root'));
       window.renderCard=(legacy,status)=>{window.status=status;root.render(React.createElement(legacy?ToolCallBlock:ToolEventCard,{step:{id:'call',type:'tool_call',toolName:'spawn_sub_agent',childSessionId:'child',status,args:{task:'Inspect files'},result:'Done'}}));};
     `, loader: 'jsx', resolveDir: process.cwd() }, bundle: true, outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' } });
     const assets = path.join(process.cwd(), 'dist/assets');
-    await fs.copyFile(path.join(assets, (await fs.readdir(assets)).find(name => name.endsWith('.css'))), path.join(directory, 'fixture.css'));
+    await fs.copyFile(path.join(assets, (await fs.readdir(assets)).find(name => name.startsWith('index-') && name.endsWith('.css'))), path.join(directory, 'fixture.css'));
     await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><div id="root"></div><script src="fixture.js"></script>');
     await window.loadFile(path.join(directory, 'index.html'));
     await window.webContents.executeJavaScript(`(async()=>{
@@ -43,21 +43,41 @@ app.whenReady().then(async () => {
       }
       window.renderCard(false,'running');await wait();activityButton().click();await wait();
       const poll=()=>new Promise(r=>setTimeout(r,600));
-      for(const [type,label] of [['thinking','Thinking'],['responding','Output']]) {
-        window.progress={type,text:Array.from({length:100},(_,i)=>'Line '+i).join('\\n')};await poll();
-        const pane=document.querySelector('[aria-label="'+label+' text"]');
-        if(!pane||pane.scrollHeight<=pane.clientHeight)throw Error(label+' pane does not overflow');
-        if(pane.scrollHeight-pane.scrollTop-pane.clientHeight>2)throw Error(label+' did not follow initial text');
-        window.progress={type,text:window.progress.text+'\\nMore text'};await poll();
-        if(pane.scrollHeight-pane.scrollTop-pane.clientHeight>2)throw Error(label+' did not follow new text');
+      const pane=document.querySelector('[aria-label="Sub-agent conversation"]');
+      if(!pane)throw Error('Missing shared conversation viewport');
+      for(const type of ['thinking','responding']) {
+        window.progress={type,text:'BEGIN_FULL_TEXT '+Array.from({length:100},(_,i)=>'Line '+i+' '+ 'x'.repeat(50)).join('\\n')+' END_FULL_TEXT'};await poll();
+        if(type==='thinking') {
+          const thought=[...pane.querySelectorAll('summary')].find(el=>el.textContent.includes('Thought'));
+          if(!thought)throw Error('Missing shared thought disclosure');
+          thought.click();await wait();
+          window.progress={type,text:window.progress.text+'\\nMore text'};await poll();
+        }
+        if(!pane.textContent.includes('BEGIN_FULL_TEXT')||!pane.textContent.includes('END_FULL_TEXT'))throw Error(type+' text was clipped');
+        if(pane.scrollHeight<=pane.clientHeight)throw Error(type+' conversation does not overflow');
+        if(pane.scrollHeight-pane.scrollTop-pane.clientHeight>2)throw Error('Conversation did not follow text');
         pane.scrollTop=0;pane.dispatchEvent(new Event('scroll',{bubbles:true}));await wait();
         window.progress={type,text:window.progress.text+'\\nAdditional text'};await poll();
-        if(pane.scrollTop!==0)throw Error(label+' interrupted reading older text');
-        const jump=[...pane.closest('section').querySelectorAll('button')].find(b=>b.textContent.includes('Jump to latest'));
-        if(!jump)throw Error(label+' lacks resume control');jump.click();await wait();
-        if(pane.scrollHeight-pane.scrollTop-pane.clientHeight>2)throw Error(label+' did not jump to latest');
+        if(pane.scrollTop!==0)throw Error('Conversation interrupted reading older text');
+        const jump=[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Jump to latest'));
+        if(!jump)throw Error('Missing resume control');jump.click();await wait();
+        if(pane.scrollHeight-pane.scrollTop-pane.clientHeight>2)throw Error('Conversation did not jump to latest');
       }
+      window.progress=null;window.status='completed';await poll();
+      window.api.getChildTranscript=async()=>({found:true,status:'completed',model:'Test model',turns:[],activity:[{type:'fetch',url:'https://example.com',chars:1200},{type:'thought',text:'Read the page and compare the examples.'}],result:{text:'## Findings\\n\\nA **complete** answer with formatted text.\\n\\n~~~js\\nconst example = true;\\n~~~'}});await poll();
+      if(!pane.querySelector('h2')||!pane.querySelector('strong')||!pane.querySelector('pre'))throw Error('Answer lacks shared Markdown rendering');
+      for(const label of ['Assigned task','Final answer','Activity history','Usage and tools','Conversation details']) {
+        if(pane.textContent.includes(label))throw Error('Old section remains: '+label);
+      }
+      const partialAnswer='Analysis unavailable because the page requires JavaScript.';
+      window.api.getChildTranscript=async()=>({found:true,status:'partial',turns:[],activity:[],result:{text:partialAnswer},error:partialAnswer});await poll();
+      if(pane.querySelector('[role="alert"]'))throw Error('Partial answer duplicated as a runtime error');
+      if((pane.textContent.match(/Analysis unavailable because the page requires JavaScript/g)||[]).length!==1)throw Error('Partial answer must appear once');
+
+
     })()`);
+    await window.setSize(1200, 900);
+    await fs.writeFile('/tmp/subagent-chat-modal.png', (await window.webContents.capturePage()).toPNG());
     console.log('Both tool cards retain open modals on success/error and allow reopening after completion.');
   } finally { window.destroy(); await fs.rm(directory, { recursive: true, force: true }); }
   app.exit(0);

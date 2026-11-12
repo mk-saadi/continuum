@@ -23,7 +23,7 @@ import BackgroundCommandCard from "./chat/BackgroundCommandCard";
 import WorkspacePlanCard from "./chat/WorkspacePlanCard";
 import RecoveryCard from "./chat/RecoveryCard";
 import RecoveryHistoryModal from "./chat/RecoveryHistoryModal";
-import DiffReviewModal from "./chat/DiffReviewModal";
+import { AttachmentStorageStatus } from "./chat/AttachmentControls.jsx";
 import {
 	extractSubagentRuns,
 	formatSessionDuration,
@@ -201,7 +201,6 @@ export default function RightSidebar({
 	const [memoryError, setMemoryError] = useState("");
 	const [memoryStatus, setMemoryStatus] = useState("");
 	const [recoveryOpen, setRecoveryOpen] = useState(false);
-	const [reviewOpen, setReviewOpen] = useState(false);
 	const isDirty = isPromptDirty(prompt, savedPrompt);
 	const presetExists = !sessionAgent?.id || agents.some((agent) => agent.id === sessionAgent.id);
 	const prevMode = useRef(isWorkspace);
@@ -719,8 +718,8 @@ export default function RightSidebar({
 				disabled={disabled}
 				running={Boolean(runtime && (runtime.streaming || runtime.loading || runtime.agentLoading))}
 				onOpenHistory={() => setRecoveryOpen(true)}
-				onOpenReview={() => setReviewOpen(true)}
 			/>
+			{open && tab === "activity" && <AttachmentStorageStatus />}
 			{recoveryOpen && (
 				<RecoveryHistoryModal
 					sessionId={sessionId}
@@ -729,16 +728,6 @@ export default function RightSidebar({
 						runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
 					)}
 					onClose={() => setRecoveryOpen(false)}
-				/>
-			)}
-			{reviewOpen && (
-				<DiffReviewModal
-					sessionId={sessionId}
-					projectName={projectName}
-					running={Boolean(
-						runtime && (runtime.streaming || runtime.loading || runtime.agentLoading),
-					)}
-					onClose={() => setReviewOpen(false)}
 				/>
 			)}
 

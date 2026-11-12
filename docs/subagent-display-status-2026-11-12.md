@@ -1,0 +1,9 @@
+# Subagent text display and completion status — November 12, 2026
+
+The live provider snapshot retained only the last 3,000 characters of thinking or response text. On completion, thought activity was shortened to 600 characters and transcript assistant/final text to 3,000 characters. This explains why beginnings disappeared during streaming and complete thoughts appeared shortened later. These UI projections are separate from model-facing tool-result trimming.
+
+Live snapshots now carry complete current-generation thinking/text. Thought activity retains full text. Assistant/user transcript turns and final results are returned in full; tool previews remain capped and explicitly marked. Saved raw turns reconstruct full assistant text where available. The existing recent-history limits (60 turns, 80 activity events) remain. Previously truncated thoughts cannot be recreated from shortened records.
+
+Parallel child calls previously updated their parent tool steps in original call order. A finished second child consequently remained Running behind an unfinished first child, even though the child modal correctly reported its terminal state. Each child now settles its visible tool step immediately. Only insertion into the model's tool-result history waits for original call order; parent continuation still waits for all children.
+
+Verification: all 40 acceptance suites pass. New regressions cover a second child completing visibly while the first remains active, original tool-result ordering, long live text with intact beginning/end, and full live/saved assistant output. The rendered modal test passes with long thought/text, scroll following/pausing, completion and reopening. The build and diff check pass. The separate transcript suite still fails two existing activity/one-shot metadata checks; its full-text targeted checks pass. See the companion evidence JSON for details. No installed production application was modified by these source edits.

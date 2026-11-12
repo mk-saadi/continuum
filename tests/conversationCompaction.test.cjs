@@ -79,7 +79,7 @@ test('media stays in native parts rather than encoded JSON source text', () => {
 });
 test('forced recovery accepts a smaller fitting request even below ten percent savings', async () => {
   const f = fixture(10000); f.payload.max_tokens = 500;
-  f.measure = async p => ({ tokens: p.messages.some(m => m.content?.startsWith(core.MARKER)) ? 7600 : p.messages[0]?.content === core.PROMPT ? 1000 : 8000,
+  f.measure = async p => ({ tokens: p.tools.length === 0 && p.messages[0]?.content !== core.PROMPT ? 1000 : p.messages.some(m => m.content?.startsWith(core.MARKER)) ? 7600 : p.messages[0]?.content === core.PROMPT ? 1000 : 8000,
     limit: 10000, reserve: p.max_tokens, method: 'test-estimate' });
   const result = await core.compact(f); assert.equal(result.compressed, true); assert.equal(result.before.tokens - result.after.tokens, 400);
 });
@@ -94,4 +94,65 @@ test('runtime warnings can consolidate while current system instructions remain 
   assert.match(JSON.stringify(f.requests),/Old runtime warning/);
   assert.ok(!result.payload.messages.some(m=>m.content==='Old runtime warning'));
   assert.equal(result.payload.messages[0].content,'Current instructions');
+});
+
+test('mixed counting methods cannot certify shrink when the replacement is larger', async () => {
+  const f = fixture(10000);
+  f.generate = async () => reply('L'.repeat(16000));
+  f.measure = async p => ({ tokens: p === f.payload ? 9000 : 100, limit: 10000,
+    reserve: p.max_tokens, method: p === f.payload ? 'approximate-full-request' : 'server-template-tokenizer' });
+  const result = await core.compact(f);
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'replacement-does-not-fit-or-shrink');
+  assert.equal(f.saved.length, 0);
+});
+
+test('mixed counting methods allow a genuinely smaller fitting replacement', async () => {
+  const f = fixture(10000);
+  f.measure = async p => ({ tokens: p === f.payload ? 9000 : 100, limit: 10000,
+    reserve: p.max_tokens, method: p === f.payload ? 'approximate-full-request' : 'server-template-tokenizer' });
+  assert.equal((await core.compact(f)).compressed, true);
+  assert.equal(f.saved.length, 1);
+});
+
+test('large model windows still leave fewer than 5000 conversational tokens, excluding system and tools', async () => {
+  const f = fixture(70000);
+  f.payload.messages[0].content = 'System context '.repeat(4000);
+  for (let i = 1; i < f.payload.messages.length; i++) f.payload.messages[i].content += ' history'.repeat(500);
+  const result = await core.compact(f);
+  assert.equal(result.compressed, true);
+  assert.ok(f.saved[0].conversationTokens < 5000);
+  assert.ok(result.after.tokens > 5000, 'protected system context is excluded from the conversation ceiling');
+  assert.ok(result.tail.length > 0);
+});
+test('an oversized most-recent unit never commits a result above the conversation ceiling', async () => {
+  const f = fixture(70000);
+  f.payload.messages.at(-1).content = 'pending input '.repeat(3000);
+  const result = await core.compact(f);
+  assert.equal(result.compressed, false);
+  assert.equal(result.reason, 'recent-unit-exceeds-conversation-budget');
+  assert.equal(f.saved.length, 0);
+});
+
+test('a settled oversized recent tool round is summarized completely instead of retained above the ceiling', async () => {
+  const f = fixture(70000);
+  f.payload.messages.push({ role: 'assistant', tool_calls: [{ id: 'huge', type: 'function', function: { name: 'read', arguments: '{}' } }] },
+    { role: 'tool', tool_call_id: 'huge', content: 'Z'.repeat(24000) });
+  const result = await core.compact(f);
+  assert.equal(result.compressed, true);
+  assert.ok(f.saved[0].conversationTokens < 5000);
+  assert.ok(f.requests.some(p => JSON.parse(p.messages[1].content).conversation.some(m => m.tool_call_id === 'huge')));
+});
+
+test('inline usage counts summary input without the system prompt and provider output across stages', async () => {
+  const f = fixture(2000);
+  f.generate = async p => { f.requests.push(p); return { ...reply('Current objective and next steps.'), usage: { completion_tokens: 17 } }; };
+  const statuses = []; f.onStatus = (status, details) => statuses.push({ status, details });
+  const result = await core.compact(f);
+  assert.equal(result.compressed, true);
+  const input = await Promise.all(f.requests.map(p => f.measure({ ...p, messages: p.messages.filter(m => m.role !== 'system') })));
+  assert.equal(f.saved[0].compactionUsage.inputTokens, input.reduce((sum, m) => sum + m.tokens, 0));
+  assert.equal(f.saved[0].compactionUsage.outputTokens, f.requests.length * 17);
+  assert.equal(f.saved[0].compactionUsage.outputMethod, 'provider-usage');
+  assert.equal(statuses.at(-1).details.compactionSummary, 'Current objective and next steps.');
 });

@@ -66,3 +66,14 @@ for (const mode of ['json', 'sse']) {
     assert.equal(result.choices[0].message.tool_calls, undefined);
   });
 }
+
+test('live reasoning and response snapshots preserve their beginning and ending beyond 3,000 characters', async () => {
+  const thought = 'THOUGHT_START' + 'a'.repeat(12000) + 'THOUGHT_END';
+  const answer = 'ANSWER_START' + 'b'.repeat(12000) + 'ANSWER_END';
+  const chunks = [{ choices: [{ delta: { reasoning_content: thought } }] }, { choices: [{ delta: { content: answer }, finish_reason: 'stop' }] }];
+  const body = chunks.map(value => `data: ${JSON.stringify(value)}\n\n`).join('');
+  const progress = [];
+  await readCompletion(new Response(body, { headers: { 'Content-Type': 'text/event-stream' } }), value => progress.push(value));
+  assert.equal(progress.find(p => p.type === 'thinking').text, thought);
+  assert.equal(progress.find(p => p.type === 'responding').text, answer);
+});

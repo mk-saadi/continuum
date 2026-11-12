@@ -64,6 +64,8 @@ test('media rendering and failure handling are preserved', () => {
   assert.match(MEDIA_GENERATION_RULES, /BLIND RENDERING/);
   assert.match(MEDIA_GENERATION_RULES, /UNLESS the user explicitly asks you to describe, analyze, or verify/);
   assert.match(MEDIA_GENERATION_RULES, /convert files just to render them/);
+  assert.match(MEDIA_GENERATION_RULES, /Downloads folder/);
+  assert.match(MEDIA_GENERATION_RULES, /broken player/);
   assert.match(BASE_SYSTEM_PROMPT_WITH_TOOLS, /STRICT TOKEN CONSERVATION/);
   assert.match(BASE_SYSTEM_PROMPT_WITH_TOOLS, /respond with text only/);
 });

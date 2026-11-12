@@ -96,14 +96,14 @@ app.whenReady().then(async () => {
       const text=()=>document.querySelector('dialog')?.textContent??'';
       for(const [name,id] of Object.entries(cases)) {
         window.stage='child '+name;window.openChild(id);await until(()=>text().includes(name==='unknown'||name==='unavailable'?'completed':name));
-        if(name==='completed') {check(text().includes('Final answer'),'completed title');check(text().includes('Child model requests: 1 / 200'),'completed request accounting');}
-        if(name==='partial') {check(text().includes('partial · tool_limit'),'partial stop reason');check(text().includes('Partial findings'),'partial title');check(text().includes('blocked attempts: 2'),'blocked accounting');check(text().includes('remaining reads are incomplete'),'partial evidence');}
+        if(name==='completed') {check(text().includes('Fixture complete.'),'completed answer in conversation');check(!text().includes('Usage and tools'),'no separate usage panel');}
+        if(name==='partial') {check(text().includes('partial · tool_limit'),'partial stop reason');check(text().includes('Hit tool-call limit'),'partial limit notice');check(text().includes('remaining reads are incomplete'),'partial evidence');}
         if(name==='failed') check(text().includes('failed · provider_error'),'provider failure distinct');
         if(name==='cancelled') check(text().includes('cancelled · cancelled'),'cancellation distinct');
-        if(name==='unavailable') {check(text().includes('(estimated)'),'missing input is estimated');check(text().includes('(reserved)'),'missing output is reserved');}
+        if(name==='unavailable') check(text().includes('No usage reported.'),'answer remains visible without usage');
         document.querySelector('[aria-label="Close sub-agent activity"]').click();await until(()=>!document.querySelector('dialog'));
       }
-      window.openChild(cases.partial);await until(()=>text().includes('Partial findings'));
+      window.openChild(cases.partial);await until(()=>text().includes('remaining reads are incomplete'));
       return {settings:(await window.api.getSubagentBudgets()).settings,cases};
     })()`);
     const row = database.db.prepare('SELECT value_json FROM app_settings WHERE key = ?').get('subagentBudgets');

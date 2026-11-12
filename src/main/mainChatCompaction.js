@@ -2,7 +2,12 @@
 const { db } = require('./db');
 const core = require('./conversationCompaction');
 const manager = () => require('./sessionManager');
-const sourceIdentity = rows => core.fingerprint(rows);
+// Guard conversation meaning, not telemetry/timestamps updated during a run.
+const sourceIdentity = rows => core.fingerprint(rows.map(row => ({
+  id: row.id, parent: row.parent_id, role: row.role, content: row.content,
+  variant: row.active_variant_index, executionSteps: row.executionSteps,
+  toolCalls: row.toolCalls, attachments: row.attachments,
+})));
 const sourceRows = sessionId => manager().withAttachments(manager().activePath(sessionId));
 const sources = new WeakMap();
 function bindSource(owner, sessionId, openId = null) {
@@ -122,9 +127,10 @@ async function performBoundary(options) {
     force: options.force, isCurrent: current,
     onStatus: (status, details) => {
       activity ??= require('./workspaceCompactionActivity').create({ sessionId, runId: owner?.runId, messageId,
+        anchorStepId: messageId ? require('./executionSteps').readExecutionSteps(rows.find(row => row.id === messageId) ?? {}).at(-1)?.id : null,
         broadcast: options.onActivity });
       activity.update(status, { code: details.reason, beforeTokens: details.before?.tokens, afterTokens: details.after?.tokens,
-        measurementMethod: details.before?.method, afterMeasurementMethod: details.after?.method, generationStages: details.generations });
+        measurementMethod: details.before?.method, afterMeasurementMethod: details.after?.method, generationStages: details.generations, conversationTokens: details.conversationTokens, compactionUsage: details.compactionUsage, compactionSummary: details.compactionSummary });
       options.onStatus?.(status, details);
     },
     save: async candidate => {
@@ -140,7 +146,7 @@ async function performBoundary(options) {
             openStepDigests: Object.fromEntries((open ? require('./executionSteps').readExecutionSteps(open) : []).filter(step => step.type === 'tool_call')
               .map(step => [step.id, core.fingerprint([step.status, step.result, step.error])])),
             openContentDigest: open ? core.fingerprint(open.content) : null,
-            openContentLength: open?.content.length ?? 0, openStepIds: open ? require('./executionSteps').readExecutionSteps(open).map(step => step.id) : [], before: candidate.before, after: candidate.after });
+            openContentLength: open?.content.length ?? 0, openStepIds: open ? require('./executionSteps').readExecutionSteps(open).map(step => step.id) : [], before: candidate.before, after: candidate.after, conversationTokens: candidate.conversationTokens, compactionUsage: candidate.compactionUsage });
         }).immediate();
       } catch (cause) { throw Object.assign(new Error('Could not save compaction; original history preserved', { cause }), { code: 'persistence-failed' }); }
     } });

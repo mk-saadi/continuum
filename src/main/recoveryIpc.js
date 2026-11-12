@@ -138,16 +138,16 @@ function truncateDiffText(text) {
   return text.length > FILE_DIFF_CHAR_CAP ? `${text.slice(0, FILE_DIFF_CHAR_CAP)}\n[Output truncated]` : text;
 }
 
-async function recoveryChangedFiles(sessionId) {
+async function recoveryChangedFiles(sessionId, { includeCounts = true } = {}) {
   const root = workspaceRootFor(sessionId);
   const { runGit } = require('./tools/agentTools');
   const statusOut = await runGit(root, ['-c', 'core.quotePath=false', 'status', '--porcelain=v1', '--untracked-files=all']);
   // Unborn HEAD (no commits yet) has no revision to diff against: rows still
   // list, per-file counts fall back below.
-  const numstatOut = await runGit(root, ['-c', 'core.quotePath=false', 'diff', '--no-ext-diff', '--no-textconv', '--numstat', 'HEAD', '--']).catch((error) => {
+  const numstatOut = includeCounts ? await runGit(root, ['-c', 'core.quotePath=false', 'diff', '--no-ext-diff', '--no-textconv', '--numstat', 'HEAD', '--']).catch((error) => {
     if (/unknown revision|bad revision|ambiguous argument/i.test(error?.message ?? '')) return '';
     throw error;
-  });
+  }) : '';
   let branch = null;
   try {
     branch = (await runGit(root, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim() || null;
@@ -188,7 +188,7 @@ async function recoveryChangedFiles(sessionId) {
   const truncated = all.length > CHANGED_FILES_CAP;
   const files = all.slice(0, CHANGED_FILES_CAP);
   const fsPromises = require('node:fs/promises');
-  for (const entry of files) {
+  for (const entry of includeCounts ? files : []) {
     const hit = counts.get(entry.path);
     if (hit) {
       if (hit.binary) entry.binary = true;

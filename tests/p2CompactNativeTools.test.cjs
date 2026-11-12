@@ -40,14 +40,15 @@ test.after(() => {
   if (oldProfile === undefined) delete process.env.CONTINUUM_NATIVE_TOOL_PROFILE; else process.env.CONTINUUM_NATIVE_TOOL_PROFILE=oldProfile;
   database.closeDatabase(); Module._load=load; fs.rmSync(directory,{recursive:true,force:true});
 });
-test('production default is held at full pending real-model acceptance; explicit selection is shared by launch paths', () => {
+test('compact is the production default with a shared explicit full override', () => {
   const { configuredProfile } = require('../src/main/compactNativeTools');
   const priorNodeEnv = process.env.NODE_ENV;
   try {
     for (const mode of ['development', 'production']) {
       process.env.NODE_ENV = mode;
       delete process.env.CONTINUUM_NATIVE_TOOL_PROFILE;
-      assert.equal(configuredProfile(), 'full');
+      assert.equal(configuredProfile(), 'compact');
+      assert.ok(names(fixture()).includes('manage_native_tools'));
       process.env.CONTINUUM_NATIVE_TOOL_PROFILE = 'full'; assert.equal(configuredProfile(), 'full');
       process.env.CONTINUUM_NATIVE_TOOL_PROFILE = 'compact'; assert.equal(configuredProfile(), 'compact');
     }
@@ -59,6 +60,25 @@ test('production default is held at full pending real-model acceptance; explicit
     if (priorNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = priorNodeEnv;
     process.env.CONTINUUM_NATIVE_TOOL_PROFILE = 'compact';
   }
+});
+test('advertisement preserves complete usage descriptions and parameter contracts', () => {
+  const f = fixture();
+  const normalize = value => typeof value === 'string' ? value.replace(/\s+/g, ' ') : value;
+  for (const original of agentTools) {
+    const advertised = available(f).find(t => t.function.name === original.function.name);
+    if (!advertised) continue;
+    assert.equal(advertised.function.description, normalize(original.function.description), original.function.name);
+    // Description whitespace is the only normalization anywhere in the schema.
+    const normalized = JSON.parse(JSON.stringify(original.function.parameters, (key, value) => key === 'description' ? normalize(value) : value));
+    assert.deepEqual(advertised.function.parameters, normalized, original.function.name);
+  }
+  const read = tools(f).find(t => t.function.name === 'read_project_file');
+  assert.ok(read.function.description.length > 320);
+  assert.match(read.function.description, /omit optional hash arguments/);
+  assert.match(read.function.description, /relative_path/);
+  const prompt = builder.buildSessionSystemPrompt({ sessionId: f.id, modelId: 'fixture', delegationAvailable: false }).content;
+  assert.match(prompt, /exact argument names\/types/);
+  assert.match(prompt, /never empty arguments/);
 });
 test('all authorized schemas compile strictly; read union preserves exactly-one and field constraints', () => {
   const f = fixture();
@@ -98,14 +118,14 @@ test('activation is isolated between sessions, stale owners, termination and new
   assert.ok(!names(f).includes('edit_project_files'));
   assert.equal(activation.profile(f.id), 'compact');
 });
-test('19-tool default preserves exact schemas and stable run profile, full fallback and Casual', () => {
-  // 16 profile defaults + the three always-advertised native web tools.
-  const f=fixture(); assert.equal(names(f).length,19);
+test('18-tool default preserves exact schemas and stable run profile, full fallback and Casual', () => {
+  // 15 profile defaults + the three always-advertised native web tools.
+  const f=fixture(); assert.equal(names(f).length,18);
   for (const t of tools(f)) {
     const original=available(f).find(v=>v.function.name===t.function.name); assert.deepEqual(t,original);
     schema.compile(t.function.parameters);
   }
-  process.env.CONTINUUM_NATIVE_TOOL_PROFILE='full'; assert.equal(names(f).length,19);
+  process.env.CONTINUUM_NATIVE_TOOL_PROFILE='full'; assert.equal(names(f).length,18);
   const full=fixture(); assert.ok(names(full).length>40); assert.ok(!names(full).includes('manage_native_tools'));
   process.env.CONTINUUM_NATIVE_TOOL_PROFILE='compact';
   assert.deepEqual(names(fixture(null)),['extract_web_page_data','find_and_prepare_mcp_tools','get_single_web_page_content','manage_native_tools','web_search']);

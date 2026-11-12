@@ -93,7 +93,7 @@ test('each execution runs in its own child session with recorded lifecycle and u
     assert.equal(payload.stream, true);
     assert.deepEqual(payload.tools, []);
     assert.equal(payload.tool_choice, 'none');
-    assert.match(payload.messages[1].content, /\[FILE: a\.txt\]\nFILE TEXT\n\[END FILE\]/);
+    assert.match(payload.messages[1].content, /\[FILE: a\.txt\]\n1: FILE TEXT\n\[END FILE\]/);
     assert.ok(!JSON.stringify(payload).includes('MAIN HISTORY'));
   } finally {
     await fs.rm(rootPath, { recursive: true, force: true });
@@ -157,7 +157,8 @@ test('web extraction runs through the runtime with page text in an isolated requ
   assert.deepEqual(payload.tools, []);
   assert.equal(payload.tool_choice, 'none');
   assert.match(payload.messages[1].content, /The launch date is 1 October/);
-  assert.ok(!payload.messages[1].content.includes('Navigation filler'));
+  assert.ok(payload.messages[1].content.includes('Navigation filler'), 'retain source paragraphs even without query keyword matches');
+  assert.ok(!payload.messages[0].content.includes('under 500 tokens'));
   const session = sessionManager.listSessions().find(item => item.parentSessionId === 'parent-web');
   assert.equal(session.status, 'completed');
   assert.equal(session.model, 'local-model');
@@ -183,4 +184,32 @@ test('the legacy runSubAgent facade flows through the same runtime boundary', as
   } finally {
     await fs.rm(rootPath, { recursive: true, force: true });
   }
+});
+
+ test('web extraction retains detailed answers beyond the former 1800 character ceiling', async () => {
+  const answer = 'Detailed supported finding. '.repeat(120);
+  const output = await runtime.runWebExtraction({
+    url: 'https://example.com/details', query: 'Analyze every section.', engine,
+    pageFetchImpl: async () => new Response('<article>Complete source text.</article>', { headers: { 'content-type': 'text/html' } }),
+    fetchImpl: async () => jsonResponse(answer, { completion_tokens: 800 }),
+  });
+  assert.equal(output, answer.trim());
+});
+
+test('file analysis supplies original line numbers including blank lines for citations', async () => {
+  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'numbered-child-'));
+  try {
+    await fs.writeFile(path.join(rootPath, 'source.js'), "const first = 1;\n\nconst third = 3;\n");
+    let payload;
+    await runtime.runFileAnalysis({ task_description: 'Report findings with file/line evidence.',
+      target_files: ['source.js'], rootPath, engine,
+      fetchImpl: async (_url, options) => {
+        payload = JSON.parse(options.body);
+        return jsonResponse('source.js:3 declares third.', { completion_tokens: 10 });
+      },
+    });
+    assert.match(payload.messages[1].content, /1: const first = 1;\n2: \n3: const third = 3;/);
+    assert.match(payload.messages[0].content, /Cite these supplied numbers directly/);
+    assert.match(payload.messages[0].content, /Do not reconstruct line numbers/);
+  } finally { await fs.rm(rootPath, { recursive: true, force: true }); }
 });

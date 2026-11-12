@@ -1,3 +1,19 @@
+# Default workspace tool profile — 2026-11-11
+
+Compact advertisement is now the shared default for ordinary development, source production and packaged launches. No profile switch is required. `CONTINUUM_NATIVE_TOOL_PROFILE=full` remains an explicit diagnostic override. Restart the running app to load changed source; installed distributions require a new build.
+
+The initial workspace set includes common file, editing, command, plan, Git inspection and web tools plus discovery. Recent chat history is discovered through the memory group. Specialized groups activate within the same run; full descriptions and parameter contracts arrive on the next request. No tool description is truncated: only whitespace is normalized. Required fields, unions, enums, limits, hashes and permission checks are preserved. Explicit reader guidance requires exactly one source identifier on every call.
+
+The refreshed production request fixture enables automatic MCP discovery, memory with zero stored records, rich blocks off, an empty persona, no injected project files/repository instructions and a fresh greeting. It estimates **9,837 input tokens**, 18 tools and 29,317 serialized bytes, compared with 17,182 estimated tokens for full advertisement with complete descriptions. These are conservative application estimates, not new tokenizer or provider measurements. The benchmark now fails at 10,000 estimated compact tokens as well as on excessive byte growth. The byte baseline changed intentionally to preserve complete descriptions and exercise automatic MCP discovery.
+
+Validation for this revision: the compact native-tool suite, prompt-budget regression, prompt correctness, web availability and tool-validation reliability suites pass. The production frontend build and temporary ASAR/Electron production-mode budget and native-tool checks pass. No new live-model inference was run.
+
+This is a starting-context budget, not a cap on arbitrary project instructions, memories, attachments, external tool selections or history. Activated specialized groups can exceed it. Historical real-model native-reader failures below have not been reclassified as passing; schema and handler verification cannot guarantee every model emits valid calls. The prior 6,117-token measurement used truncated descriptions and is not a measurement of this revision.
+
+The following is the historical November 6 validation record; its held-default rollout instructions are superseded by this update and the user's explicit request to make compact the default.
+
+---
+
 # Compact native-tool validation — 2026-11-06
 
 **Production remains on full.** The compact schema defect is fixed, automated acceptance passes, and the fixed greeting measures below 10k with the user's model tokenizer. A host inference server was subsequently found outside the sandbox: real greetings and specialized discovery ran, but native-file-reader acceptance failed in both profiles. The requested gate for switching the default has not been met. No default switch is claimed.

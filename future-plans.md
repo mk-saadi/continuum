@@ -10,7 +10,9 @@ Completed, reported: Phases 1.1–1.7 (full agentic roadmap; implementation repo
 
 Outstanding before production — Priority 1:
 
-* Automatic context compaction — production-critical and unresolved; deliberately postponed, must be resolved before production.
+* Subagent reliability — current focus (November 11, 2026): investigate intermittent partial web-research and direct-page analyses even with configurable execution limits removed.
+
+* Automatic context compaction — fixed (confirmed November 11, 2026).
 
 * Background command suspension and agent resumption — verify the full lifecycle: completion events carry stdout, stderr, exit code, and task ID; the correct session resumes exactly once; cancellation and shutdown are handled; concurrent completions do not cross wires.
 

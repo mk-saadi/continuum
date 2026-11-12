@@ -459,7 +459,8 @@ const TabPane = memo(function TabPane({
 				modelId={tab.modelId}
 				onUnloadModel={onUnloadModel}
 				palace={palace}
-				workspace={workspaceHeader}
+				workspace={view === "tasks" && workspaceHeader ? { ...workspaceHeader, name: null } : workspaceHeader}
+                sidebarsDisabled={view === "projects" || view === "tasks"}
 			/>
 			<SettingsModalSlot
 				active={active}

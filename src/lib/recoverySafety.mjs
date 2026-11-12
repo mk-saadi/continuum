@@ -88,7 +88,7 @@ export function restoreOutcomeMessage(result) {
   const skipped = result.skipped?.length ?? 0;
   const unchangedNote = unchanged ? `, ${unchanged} already matching` : '';
   const undoNote = result.preRestoreCheckpointId != null
-    ? ` Undo point #${result.preRestoreCheckpointId}${result.undoPinned ? ' (pinned against cleanup)' : ''}.`
+    ? ` Undo point #${result.preRestoreCheckpointId}${result.undoPinned ? ' (pinned for retention; storage cap still applies)' : ''}.`
     : '';
   if (result.complete) {
     return {

@@ -279,6 +279,15 @@ function registerIpcHandlers({
             const error = await shell.openPath(filePath);
             if (error) throw new Error(error);
         },
+        // A markdown link's destination is a chat-relative reference until this
+        // process resolves it: only main knows the session's project root, so
+        // the same href opens different files in casual and workspace chat.
+        "chat:open-path": async ({ path: target, sessionId } = {}) => {
+            const resolved = require('./chatPath').resolveChatPath(target, sessionId);
+            const error = await shell.openPath(resolved);
+            if (error) throw new Error(error);
+            return resolved;
+        },
         "cloud:get": () => getCloudProviders(),
         "cloud:model-metadata": () => require("./cloudProviders").getCloudModelMetadata(),
         "cloud:defaults:get": () => {
@@ -460,8 +469,16 @@ function registerIpcHandlers({
 		// Diff review (UI-only reads + checkpoint-backed single-file revert
 		// through the standard preview/restore path). No new destructive
 		// primitives: revert reuses recovery:preview/recovery:restore below.
-		"recovery:changed-files": ({ sessionId } = {}) =>
-			require("./recoveryIpc").recoveryChangedFiles(sessionId),
+		"workspace:repository-info": ({ projectId } = {}) =>
+			require("./workspaceExplorer").repositoryInfo(projectId),
+		"workspace:git-status": ({ projectId } = {}) =>
+			require("./workspaceExplorer").gitStatus(projectId),
+		"workspace:list-directory": ({ projectId, relativePath } = {}) =>
+			require("./workspaceExplorer").listDirectory(projectId, relativePath),
+		"workspace:read-file": ({ projectId, relativePath } = {}) =>
+			require("./workspaceExplorer").readFile(projectId, relativePath),
+		"recovery:changed-files": ({ sessionId, includeCounts } = {}) =>
+			require("./recoveryIpc").recoveryChangedFiles(sessionId, { includeCounts }),
 		"recovery:file-diff": ({ sessionId, relPath } = {}) =>
 			require("./recoveryIpc").recoveryFileDiff(sessionId, relPath),
 		"recovery:covering-checkpoint": ({ sessionId, relPath } = {}) =>

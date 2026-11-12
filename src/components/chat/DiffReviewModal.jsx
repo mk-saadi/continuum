@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import "./diffReview.css";
+import React, { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
 import { CheckboxField } from "../FormControls";
 import { FiEye } from "react-icons/fi";
@@ -75,25 +76,27 @@ function renderToken(node, key, stylesheet) {
 
 // Highlight a whole column once so multiline comments and strings keep their
 // syntax context. Each pane owns one horizontal scrollbar, shared by all rows.
-const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, unified = false }) {
+const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, unified = false, onScroll }) {
+    const lineNumberDigits = rows.reduce((digits, row) => Math.max(digits, String(row[`${side}No`] ?? '').length), 4);
 	const text = rows
 		.map((row) => (row.type === "hunk" || row.type === "note" ? row.text : (row[side] ?? "")))
 		.join("\n");
 	return (
 		<div
-			className="min-w-0 overflow-x-auto"
+			className="min-h-0 min-w-0 h-full overflow-auto"
+            onScroll={onScroll}
 			tabIndex={0}
 			aria-label={unified ? "Unified code" : side === "left" ? "Original code" : "Updated code"}
 		>
 			<SyntaxHighlighter
-				language={language}
+				language={text.length > 64 * 1024 ? 'text' : language}
 				style={syntaxTheme}
 				wrapLines
 				customStyle={{
 					margin: 0,
 					padding: 0,
 					background: "transparent",
-					fontSize: 12,
+					fontSize: 11,
 					lineHeight: "22px",
 					fontFamily: "var(--font-mono)",
 					overflow: "visible",
@@ -120,12 +123,13 @@ const DiffCodePane = React.memo(function DiffCodePane({ rows, side, language, un
 								key={index}
 								className={`flex min-h-[22px] ${tone}`}
 							>
-								<span
+								{!unified && <span
 									aria-hidden="true"
-									className="sticky left-0 w-12 shrink-0 select-none border-r border-[var(--code-border)] bg-[var(--code-bg)] px-2 text-right text-[var(--text-muted)] tabular-nums"
+									style={{ width: `calc(${lineNumberDigits}ch + 12px)`, paddingLeft: 6, paddingRight: 6, fontSize: 10 }}
+                                    className="sticky left-0 shrink-0 select-none border-r border-[var(--code-border)] bg-[var(--code-bg)] text-right text-[var(--text-muted)] tabular-nums"
 								>
 									{meta ? "" : row[`${side}No`]}
-								</span>
+								</span>}
 								<span
 									aria-hidden="true"
 									className={`w-5 shrink-0 select-none text-center ${added ? "text-[var(--success)]" : removed ? "text-[var(--error)]" : ""}`}
@@ -164,15 +168,32 @@ const FLAG_TONE = {
 // worktree status, per-file diffs, and per-file revert through the recovery
 // checkpoint engine (latest covering checkpoint, preview-then-confirm).
 // Read-only until the user confirms; revert refuses while its run is active.
-export default function DiffReviewModal({ sessionId, projectName, running = false, onClose }) {
+export default function DiffReviewModal({ sessionId, projectName, running = false, onClose, embedded = false, filePath = null }) {
 	const dialogRef = useRef(null);
+    const synchronizedScroll = useRef(new WeakMap());
+    const syncDiffScroll = useCallback((event) => {
+      const source = event.currentTarget;
+      const expected = synchronizedScroll.current.get(source);
+      if (expected && expected.left === source.scrollLeft && expected.top === source.scrollTop) {
+        synchronizedScroll.current.delete(source);
+        return;
+      }
+      for (const target of source.parentElement.children) {
+        if (target === source) continue;
+        target.scrollLeft = source.scrollLeft;
+        target.scrollTop = source.scrollTop;
+        synchronizedScroll.current.set(target, { left: target.scrollLeft, top: target.scrollTop });
+      }
+    }, []);
+
 	const [files, setFiles] = useState(null);
 	const [filesTruncated, setFilesTruncated] = useState(false);
 	const [branch, setBranch] = useState(null);
 	const [selectedPath, setSelectedPath] = useState(null);
 	const [diff, setDiff] = useState(null);
 	const [covering, setCovering] = useState(null);
-	const [view, setView] = useState("split");
+	const [view, setView] = useState(embedded ? "unified" : "split");
+	const [recoveryExpanded, setRecoveryExpanded] = useState(false);
 	const [preview, setPreview] = useState(null);
 	const [force, setForce] = useState(false);
 	const [confirming, setConfirming] = useState(false);
@@ -188,6 +209,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 	const busyRef = useRef(false);
 
 	useEffect(() => {
+		if (embedded) return;
 		const element = dialogRef.current;
 		if (element && !element.open) {
 			try {
@@ -199,17 +221,17 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 		return () => {
 			if (element?.open) element.close();
 		};
-	}, []);
+	}, [embedded]);
 
 	const loadFiles = async (selectFirst) => {
 		setError("");
 		try {
 			if (!window.api?.getRecoveryChangedFiles) throw new Error("Diff review is unavailable here.");
-			const value = await window.api.getRecoveryChangedFiles(sessionId);
+			const value = await window.api.getRecoveryChangedFiles(sessionId, { includeCounts: !embedded });
 			setBranch(value.branch ?? null);
 			setFiles(value.files ?? []);
 			setFilesTruncated(!!value.truncated);
-			if (selectFirst && (value.files ?? []).length) setSelectedPath(value.files[0].path);
+			if (selectFirst && (value.files ?? []).length) setSelectedPath(filePath ?? value.files[0].path);
 		} catch (cause) {
 			setError(cause?.message ?? String(cause));
 		}
@@ -219,23 +241,24 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 		setFiles(null);
 		setFilesTruncated(false);
 		setBranch(null);
-		setSelectedPath(null);
+		setSelectedPath(filePath);
 		setDiff(null);
 		setCovering(null);
-		setView("split");
+		setView(embedded ? "unified" : "split");
 		setPreview(null);
 		setConfirming(false);
 		setRiskyConfirmed(false);
 		setNotice("");
+		setRecoveryExpanded(false);
 		loadFiles(true);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [sessionId]);
+	}, [sessionId, filePath]);
 
 	useEffect(() => {
 		if (selectedPath == null) {
 			setDiff(null);
 			setCovering(null);
-			setView("split");
+			setView(embedded ? "unified" : "split");
 			setPreview(null);
 			setConfirming(false);
 			setRiskyConfirmed(false);
@@ -244,7 +267,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 		let active = true;
 		setDiff(null);
 		setCovering(null);
-		setView("split");
+		setView(embedded ? "unified" : "split");
 		setPreview(null);
 		setConfirming(false);
 		setRiskyConfirmed(false);
@@ -313,6 +336,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 			}),
 		[diff],
 	);
+    const displayedUnifiedRows = useMemo(() => embedded ? unifiedRows.filter(row => !/^(diff --git |index |--- |\+\+\+ )/.test(row.text)) : unifiedRows, [embedded, unifiedRows]);
 	const splitAvailable = split?.ok === true;
 	const effectiveView = view === "split" && splitAvailable ? "split" : "unified";
 
@@ -343,7 +367,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 	const runPreview = async () => runPreviewWith(force);
 
 	const refreshAfterRevert = async () => {
-		const value = await window.api.getRecoveryChangedFiles(sessionId);
+		const value = await window.api.getRecoveryChangedFiles(sessionId, { includeCounts: !embedded });
 		setBranch(value.branch ?? null);
 		setFiles(value.files ?? []);
 		setFilesTruncated(!!value.truncated);
@@ -511,8 +535,9 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 		!confirmRiskyReady ||
 		!confirmForceReady;
 
+	const Container = embedded ? "div" : "dialog";
 	return (
-		<dialog
+		<Container
 			ref={dialogRef}
 			aria-label="Review workspace changes"
 			onCancel={(event) => {
@@ -522,10 +547,10 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 			onClick={(event) => {
 				if (event.target === dialogRef.current && !busy) onClose();
 			}}
-			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"
+			className={embedded ? "embedded-diff h-full min-h-0 overflow-hidden text-[var(--text-primary)]" : "aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center gap-2 px-4 py-3">
+				<header style={embedded ? { display: "none" } : undefined} className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center gap-2 px-4 py-3">
 					<FiEye
 						aria-hidden="true"
 						className="shrink-0 text-[var(--accent)]"
@@ -552,7 +577,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 						<LuX />
 					</button>
 				</header>
-				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-xs">
+				<div className={embedded ? "diff-body flex min-h-0 flex-1 flex-col overflow-hidden text-xs" : "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-xs"}>
 					{error && (
 						<p
 							role="alert"
@@ -570,14 +595,19 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 						</p>
 					)}
 					{!files ? (
-						<p className="text-[var(--text-muted)]">Loading changed files…</p>
-					) : files.length === 0 ? (
+                        !error && <div role="status" className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-[var(--text-muted)]">Loading changed files…</div>
+                    ) : files.length === 0 ? (
 						<p className="text-[var(--text-muted)]">No uncommitted changes in this workspace.</p>
 					) : (
-						<div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-3 md:grid-rows-1 md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]">
+						<div className={embedded ? "flex min-h-0 flex-1 flex-col gap-2" : "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-3 md:grid-rows-1 md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]"}>
+                            {embedded && <select aria-label="Changed file" value="" onChange={event => { setSelectedPath(event.target.value); setRecoveryExpanded(false); }} className="diff-file-picker">
+                              <option value="">Browse changes ({files.length})</option>
+                              {files.map(file => <option key={file.path} value={file.path}>{file.path}</option>)}
+                            </select>}
 							<section
-								aria-label="Changed files"
-								className="flex min-h-0 flex-col gap-2"
+								hidden={embedded}
+                                aria-label="Changed files"
+								className={embedded ? "hidden" : "flex min-h-0 flex-col gap-2"}
 							>
 								<div className="flex items-center gap-2">
 									<h3 className="text-xs font-semibold">Changed files ({files.length})</h3>
@@ -593,7 +623,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 							</section>
 							<section
 								aria-label="File diff"
-								className="flex min-h-0 min-w-0 flex-col gap-3"
+								className="diff-file-section flex min-h-0 min-w-0 flex-1 flex-col gap-3"
 							>
 								{selectedPath == null ? (
 									<p className="min-h-0 flex-1 text-[var(--text-muted)]">
@@ -603,13 +633,14 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 									<p className="min-h-0 flex-1 text-[var(--text-muted)]">Loading diff…</p>
 								) : (
 									<>
-										<div className="flex flex-wrap items-center gap-2">
+										<div className="diff-toolbar flex flex-wrap items-center gap-2">
 											<h3
 												className="min-w-0 flex-1 truncate font-mono text-xs"
 												title={selectedPath}
 											>
-												{selectedPath}
-											</h3>
+												{embedded ? <span className="flex items-center gap-2 font-sans font-normal"><span className="text-[var(--text-muted)]">{branch || 'Working tree'}</span><span className="text-[var(--success)]">+{(diff.text?.match(/^\+(?!\+)/gm) || []).length}</span><span className="text-[var(--error)]">−{(diff.text?.match(/^-(?!-)/gm) || []).length}</span></span> : selectedPath}
+                                            </h3>
+                                            {embedded && !diff.clean && <button type="button" aria-expanded={recoveryExpanded} onClick={() => setRecoveryExpanded(value => !value)} className="diff-recovery-toggle">Recovery</button>}
 											<div
 												className="flex gap-1"
 												role="group"
@@ -681,15 +712,17 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 															</span>
 														</div>
 													</div>
-													<div className="min-h-0 flex-1 overflow-y-auto">
-														<div className="grid grid-cols-2 divide-x divide-[var(--code-border)]">
+													<div className="min-h-0 flex-1 overflow-hidden">
+														<div className="grid h-full min-h-0 grid-cols-2 divide-x divide-[var(--code-border)]">
 															<DiffCodePane
-																rows={split.rows}
+																onScroll={syncDiffScroll}
+                                                        rows={split.rows}
 																side="left"
 																language={language}
 															/>
 															<DiffCodePane
-																rows={split.rows}
+																onScroll={syncDiffScroll}
+                                                        rows={split.rows}
 																side="right"
 																language={language}
 															/>
@@ -704,9 +737,9 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 															showing unified.
 														</p>
 													)}
-													<div className="min-h-0 flex-1 overflow-auto ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]">
+													<div className="min-h-0 flex-1 overflow-hidden ui-radius-control border border-[var(--code-border)] bg-[var(--code-bg)]">
 														<DiffCodePane
-															rows={unifiedRows}
+															rows={displayedUnifiedRows}
 															side="right"
 															language={language}
 															unified
@@ -716,7 +749,8 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											)}
 										</div>
 										<div
-											className="max-h-[30dvh] shrink-0 space-y-2 overflow-y-auto"
+											style={embedded && (!recoveryExpanded || diff.clean) ? { display: "none" } : undefined}
+                                            className="diff-recovery-details max-h-[30dvh] shrink-0 space-y-2 overflow-y-auto"
 											aria-label="Revert details"
 										>
 											{diff.truncated && (
@@ -841,7 +875,8 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 									</>
 								)}
 								<div
-									className="aero-footer sk-window-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 ui-radius-control"
+									style={embedded && (!recoveryExpanded || diff?.clean) ? { display: "none" } : undefined}
+                                    className="aero-footer sk-window-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 ui-radius-control"
 									role="group"
 									aria-label="Revert controls"
 								>
@@ -911,6 +946,6 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 					)}
 				</div>
 			</div>
-		</dialog>
+		</Container>
 	);
 }

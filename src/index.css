@@ -766,7 +766,7 @@ pre {
 	--bg-primary: #f9f5d7;
 	--bg-secondary: #f2e5bc;
 	--bg-tertiary: #ebdbb2;
-	--bg-input: #fdf9e0;
+	--bg-input: #f2e5bc;
 	--text-primary: #3c3836;
 	--text-secondary: #504945;
 	--text-muted: #7c6f64;
@@ -779,9 +779,9 @@ pre {
 	--success: #79740e;
 	--warning: #b57614;
 	--shadow: rgba(60, 56, 54, 0.12);
-	--surface: #fdf9e0;
-	--surface-raised: #fffcee;
-	--input: #fdf9e0;
+	--surface: #f2e5bc;
+	--surface-raised: #fbf1c7;
+	--input: #f2e5bc;
 	--surface-hover: #ebdbb2;
 	--terminal: #f2e5bc;
 	--scrollbar-track: #f2e5bc;
@@ -1475,10 +1475,10 @@ pre {
 	margin-block: 1.5em;
 	border-color: var(--subtle-border);
 }
-.assistant-markdown > :first-child {
+.assistant-markdown > :not(dialog):first-child {
 	margin-top: 0;
 }
-.assistant-markdown > :last-child {
+.assistant-markdown > :not(dialog):last-child {
 	margin-bottom: 0;
 }
 .assistant-markdown .assistant-table :is(th, td) > :first-child {
@@ -1592,11 +1592,206 @@ pre {
 }
 .rich-card {
 	display: flex;
+	align-items: flex-start;
 	gap: 10px;
 	padding: 10px;
 	border: 1px solid var(--subtle-border);
 	border-radius: var(--ui-radius-control);
 	background: var(--surface-raised);
+}
+.rich-card-main {
+	flex: 1;
+	min-width: 0;
+}
+.rich-card-media {
+	display: block;
+	width: 48px;
+	height: 48px;
+	object-fit: cover;
+	border-radius: var(--ui-radius-small);
+	background: var(--surface);
+}
+.rich-card-media-button {
+	position: relative;
+	display: block;
+	flex-shrink: 0;
+	width: 48px;
+	height: 48px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: zoom-in;
+}
+.rich-card-media-button:hover .rich-card-media {
+	filter: brightness(1.08);
+}
+.markdown-media-button {
+	display: inline-block;
+	max-width: 100%;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: zoom-in;
+}
+.markdown-media-video-wrap {
+	position: relative;
+	display: inline-block;
+	max-width: 100%;
+}
+/* Leave the native control strip clickable; the rest opens the lightbox. */
+.markdown-media-open {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 40px;
+	left: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: zoom-in;
+}
+
+/* Folder path display for local media */
+.markdown-media-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-width: 100%;
+}
+.markdown-media-folder {
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding-left: 2px;
+}
+.markdown-media-folder a:hover {
+	color: var(--link-hover);
+}
+
+/* Rich-card media viewer. Slightly larger than the reference lightbox. */
+.media-lightbox {
+	position: fixed;
+	inset: 0;
+	margin: auto;
+	width: min(1560px, calc(100vw - 32px));
+	height: min(920px, 92dvh);
+	max-width: none;
+	max-height: none;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: var(--ui-radius-surface);
+	background: var(--surface);
+	color: var(--text-primary);
+	overflow: hidden;
+	box-shadow: 0 24px 80px var(--window-shadow);
+}
+.media-lightbox::backdrop {
+	background: rgba(0, 0, 0, 0.72);
+}
+.media-lightbox-shell {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+.media-lightbox-header {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--subtle-border);
+	background: var(--surface-raised);
+}
+.media-lightbox-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+	font-weight: 600;
+}
+.media-lightbox-count {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+.media-lightbox-close {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--subtle-border);
+	border-radius: 9999px;
+	background: var(--surface);
+	color: var(--text-primary);
+	cursor: pointer;
+}
+.media-lightbox-close:hover {
+	background: var(--surface-hover);
+}
+.media-lightbox-stage {
+	position: relative;
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	align-items: center;
+	justify-content: center;
+	padding: 16px 72px;
+	background: var(--bg-secondary);
+}
+.media-lightbox-media {
+	max-width: 100%;
+	max-height: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	border-radius: var(--ui-radius-control);
+}
+.media-lightbox-nav {
+	position: absolute;
+	top: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border: 1px solid var(--subtle-border);
+	border-radius: 9999px;
+	background: var(--surface-raised);
+	color: var(--text-primary);
+	cursor: pointer;
+	transform: translateY(-50%);
+	box-shadow: 0 4px 16px var(--window-shadow);
+}
+.media-lightbox-nav:hover:not(:disabled) {
+	background: var(--surface-hover);
+}
+.media-lightbox-nav:disabled {
+	cursor: default;
+	opacity: 0.35;
+}
+.media-lightbox-prev {
+	left: 14px;
+}
+.media-lightbox-next {
+	right: 14px;
+}
+@media (max-width: 560px) {
+	.media-lightbox-stage {
+		padding: 12px 52px;
+	}
+	.media-lightbox-nav {
+		width: 34px;
+		height: 34px;
+	}
 }
 .rich-card-title {
 	font-weight: 600;

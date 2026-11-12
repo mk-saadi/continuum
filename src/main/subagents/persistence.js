@@ -17,15 +17,15 @@ const continuationState = require('./continuationState');
 const TURNS_CAP = 60;
 const TURN_TEXT_CAP = 3000;
 
-function previewTurnText(value) {
+function previewTurnText(value, full = false) {
   const text = typeof value === 'string' ? value
     : value == null ? '' : JSON.stringify(value);
-  if (text.length <= TURN_TEXT_CAP) return { text, truncated: false };
+  if (full || text.length <= TURN_TEXT_CAP) return { text, truncated: false };
   return { text: text.slice(0, TURN_TEXT_CAP), truncated: true };
 }
 
-// Bounded turn shapes shared with the live transcript view (see ./index.js
-// getChildTranscript): same caps, same fields, no duplication.
+// Recent turn shapes shared with the live transcript view. Assistant/user
+// text stays complete; large tool results retain explicitly bounded previews.
 function mapContextTurns(context) {
   if (!Array.isArray(context)) return [];
   const turns = [];
@@ -40,7 +40,7 @@ function mapContextTurns(context) {
       }
       return { name: call?.function?.name ?? 'tool', arguments: previewTurnText(args) };
     }) : [];
-    turns.push({ role, text: previewTurnText(message.content), toolCalls: calls });
+    turns.push({ role, text: previewTurnText(message.content, role !== 'tool'), toolCalls: calls });
   }
   return turns;
 }
@@ -272,14 +272,15 @@ function readPersistedTranscript(childSessionId) {
     try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; }
     catch { return []; }
   };
-  const turns = parseArray(row.turns_json);
+  const rawTurns = parseArray(row.raw_turns_json);
+  const turns = rawTurns.length ? mapContextTurns(rawTurns) : parseArray(row.turns_json);
   return {
     found: true, persisted: true, childSessionId: row.child_session_id,
     parentSessionId: row.parent_session_id, kind: row.kind, status: row.status,
     model: row.model, provider: row.provider, task: row.task_text,
     stopReason: row.stop_reason ?? null, accounting: row.accounting_json ? JSON.parse(row.accounting_json) : null,
     usage: null, totalTokens: row.total_tokens, durationMs: row.duration_ms,
-    result: typeof row.output_text === 'string' ? previewTurnText(row.output_text) : null,
+    result: typeof row.output_text === 'string' ? previewTurnText(row.output_text, true) : null,
     activeTurns: mapContextTurns(parseArray(row.context_json)),
     compactions: row.compaction_json ? JSON.parse(row.compaction_json).events ?? [] : [],
     rawTurnCount: row.raw_turns_json ? parseArray(row.raw_turns_json).length : null,

@@ -140,7 +140,8 @@ test('each spawn_sub_agent call opens its own completed child session end to end
     req.on('end', () => {
       requests.push(JSON.parse(body));
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'E2E summary', finish_reason: 'stop' } }],
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: requests.length % 2 ? '' : 'E2E summary', finish_reason: requests.length % 2 ? 'tool_calls' : 'stop',
+        ...(requests.length % 2 ? { tool_calls: [{ id: 'read-file', type: 'function', function: { name: 'read_project_file', arguments: JSON.stringify({ relative_path: 'a.txt' }) } }] } : {}) } }],
         usage: { prompt_tokens: 9, completion_tokens: 3, total_tokens: 12 } }));
     });
   });
@@ -150,9 +151,9 @@ test('each spawn_sub_agent call opens its own completed child session end to end
     const live = { ...engine, port: server.address().port };
     const parent = 'session_spawn_e2e';
     const first = await executeSpawnSubagent({ task: 'Summarize the file', target_file: path.join(rootPath, 'a.txt'),
-      engine: live, parentSessionId: parent });
+      rootPath, engine: live, parentSessionId: parent });
     const second = await executeSpawnSubagent({ task: 'Summarize the file', target_file: path.join(rootPath, 'a.txt'),
-      engine: live, parentSessionId: parent });
+      rootPath, engine: live, parentSessionId: parent });
     assert.equal(first, 'E2E summary');
     assert.equal(second, 'E2E summary');
 
@@ -165,18 +166,20 @@ test('each spawn_sub_agent call opens its own completed child session end to end
       assert.equal(child.status, 'completed');
       assert.equal(child.model, 'local-model');
       assert.equal(child.result, 'E2E summary');
-      assert.equal(child.usage.completion_tokens, 3);
+      assert.equal(child.usage.completion_tokens, 6);
       assert.equal(listExecutions(child.id).length, 1);
     }
-    // Existing request shape is unchanged: isolated, tool-free, one file injected.
-    assert.equal(requests.length, 2);
+    // Explicit file delegation now uses the tool loop, with source evidence
+    // read by the worker and retained in its own context between requests.
+    assert.equal(requests.length, 4);
     for (const payload of requests) {
-      assert.equal(payload.messages.length, 2);
       assert.equal(payload.stream, true);
-      assert.deepEqual(payload.tools, []);
-      assert.equal(payload.tool_choice, 'none');
-      assert.match(payload.messages[1].content, /\[FILE: .*a\.txt\]\nE2E FILE TEXT\n\[END FILE\]/);
+      assert.ok(payload.tools.some(tool => tool.function.name === 'read_project_file'));
+      assert.equal(payload.tool_choice, 'auto');
     }
+    assert.match(requests[0].messages[1].content, /relative_path="a.txt"/);
+    assert.match(requests[1].messages.find(message => message.role === 'tool').content, /E2E FILE TEXT/);
+
   } finally {
     await new Promise(resolve => server.close(resolve));
     await fs.rm(rootPath, { recursive: true, force: true });

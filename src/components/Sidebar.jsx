@@ -1,5 +1,6 @@
-import React from "react";
-import { FiCalendar, FiGrid, FiMessageSquare, FiPlus, FiStar } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { WorkspaceFiles } from "./WorkspaceFiles.jsx";
+import { FiCalendar, FiFolder, FiGrid, FiMessageSquare, FiPlus, FiStar } from "react-icons/fi";
 import ChatHistory from "./ChatHistory";
 import { mapSessionGroups, sessionsForProject, sessionsWithoutProject } from "../lib/sidebarHistory.mjs";
 import "./projects.css";
@@ -18,8 +19,13 @@ export default function Sidebar({
 	chatProjectId = null,
 	onNewWorkspaceChat = null,
 	canStartChat = false,
+	selectedFilePath = null,
+	onSelectFile = null,
+	explorerActive = true,
 	...history
 }) {
+	const [section, setSection] = useState("chats");
+	useEffect(() => setSection("chats"), [chatProjectId]);
 	const globalGroups = mapSessionGroups(history.groups, sessionsWithoutProject);
 	const workspaceProject = chatProjectId
 		? (projects.find((project) => project.id === chatProjectId) ?? null)
@@ -35,7 +41,7 @@ export default function Sidebar({
 		return (
 			<aside
 				aria-label="Chat navigation"
-				className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
+				className="flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
 			>
 				<div className="min-h-0 flex-1">
 					<ChatHistory
@@ -106,8 +112,14 @@ export default function Sidebar({
 	return (
 		<aside
 			aria-label="Workspace navigation"
-			className="flex h-full w-[272px] shrink-0 flex-col bg-[var(--surface)] text-[var(--text-primary)] max-[650px]:w-[220px]"
+			className="flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
 		>
+			<div className="flex shrink-0 gap-1 border-b border-[var(--border)] p-2" aria-label="Workspace sidebar views">
+                {[['chats', 'Chats', FiMessageSquare], ['files', 'Files', FiFolder]].map(([id, label, Icon]) =>
+                    <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)}
+                        className={`flex flex-1 cursor-pointer items-center justify-center gap-2 ui-radius-control px-3 py-2 text-xs ${section === id ? 'bg-[var(--surface-hover)] text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}><Icon />{label}</button>)}
+            </div>
+            {section === "files" ? <div className="min-h-0 flex-1"><WorkspaceFiles active={explorerActive} projectId={chatProjectId} projectName={workspaceProject?.name} selectedPath={selectedFilePath} onSelect={onSelectFile} /></div> : <>
 			<div className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 pt-3 pb-2">
 				<button
 					className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
@@ -149,6 +161,7 @@ export default function Sidebar({
 					activeId={view === "chat" ? history.activeId : null}
 				/>
 			</div>
+            </>}
 		</aside>
 	);
 }

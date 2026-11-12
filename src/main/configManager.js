@@ -234,6 +234,7 @@ function saveAppSettings(input) {
 		save.run("recoveryRetentionDays", JSON.stringify(settings.recoveryRetentionDays));
 		save.run("recoveryStorageCapMB", JSON.stringify(settings.recoveryStorageCapMB));
 	})();
+	require("./recoveryStore").scheduleRecoveryMaintenance();
 	return settings;
 }
 Object.assign(module.exports, { normalizeAppSettings, getAppSettings, saveAppSettings });

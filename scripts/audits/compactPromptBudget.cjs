@@ -25,7 +25,7 @@ async function main() {
   const mcp = require('../../src/main/mcpManager');
   mcp.configPath = path.join(directory, 'mcp_config.json');
   fs.writeFileSync(mcp.configPath, '{"mcpServers":{}}');
-  require('../../src/main/configManager').saveAppSettings({ mcpMode: 'manual' });
+  require('../../src/main/configManager').saveAppSettings({ mcpMode: 'auto' });
   require('../../src/main/profileSettings').saveProfileSettings(null, {
     memoryEnabled: true, systemPrompt: '', richBlocks: 'off', allowMidRunQuestions: true,
   });
@@ -73,8 +73,10 @@ async function main() {
     const base = baseline.normalizedBytes[record.profile];
     if (record.normalizedBytes > Math.ceil(base * 1.10)) growthFailures.push(`${record.profile}: ${record.normalizedBytes} bytes exceeds fixed-fixture 10% growth budget (${base}). Inspect the change; do not blindly refresh the baseline.`);
   }
+  const compact = records.find(record => record.profile === 'compact');
+  if (compact.estimatedTokens >= 10000) growthFailures.push(`compact: ${compact.estimatedTokens} estimated tokens exceeds the fresh-workspace budget (<10000).`);
   const result = { fixture: 'compact-prompt-budget-v1', method: 'Normalized production local-request JSON UTF-8 bytes; estimates use production bytes/3 + per-message overhead, NOT exact model tokens',
-    conditions: { user: 'hello', permission: 'workspace_write', mcpMode: 'manual', externalSchemas: 0, browserSchemas: 0,
+    conditions: { user: 'hello', permission: 'workspace_write', mcpMode: 'auto', externalSchemas: 0, browserSchemas: 0,
       persona: 'empty', memories: 0, history: 'one user turn', projectFiles: 'one sample.txt, contents not injected', repositoryInstructions: 0, richBlocks: 'off', date: '2026-11-06', timezoneOffsetMinutes: 0 },
     runtime: { node: process.versions.node, electron: process.versions.electron ?? null, nodeEnv: process.env.NODE_ENV ?? null, packagedAsar: __filename.includes('.asar/') },
     budgetCheck: { checked: !args.includes('--record-only'), passed: growthFailures.length === 0, maxGrowthRatio: 1.10, failures: growthFailures }, records };

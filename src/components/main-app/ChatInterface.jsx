@@ -8,13 +8,15 @@ import MessageActions from "../MessageActions.jsx";
 import ChatMessage, { MessageContextStatus } from "../ChatMessage.jsx";
 import AdditionalPrompts from "../AdditionalPrompts.jsx";
 import Sidebar from "../Sidebar.jsx";
+import ResizableSidebar from "../ResizableSidebar.jsx";
+import { WorkspaceSplit, WorkspaceFilePreview } from "../WorkspaceFiles.jsx";
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { attachmentPolicy, assertAttachmentNames } from "../../lib/attachmentPolicy.mjs";
 import { BsRobot } from "react-icons/bs";
 import { FiArrowDown, FiChevronDown, FiMessageSquare } from "react-icons/fi";
 import ChatInput from "../ChatInput";
 import { composerFileName } from "../../utils/composerAttachments.mjs";
-import { AttachmentControls, AttachmentIssues, AttachmentStorageStatus } from "../chat/AttachmentControls.jsx";
+import { AttachmentControls, AttachmentIssues } from "../chat/AttachmentControls.jsx";
 import { assistantLabel, resolveDisplayName, formatModelName } from "../../lib/messageIdentity.mjs";
 import { combineQuotedMessage, extractScopedSelectionText } from "../../lib/textSelection.mjs";
 import { applyFindMarks, clearFindMarks, markIndexForMessage, scrollMarkIntoView, setActiveFindMark } from "../../lib/chatFind.mjs";
@@ -599,8 +601,11 @@ export function ChatInterface({
 	// Authoritative sidebar mode: the session row's project wins for existing
 	// chats, the tab's project binding for fresh drafts — never the sidebar's
 	// own visibility or tab state.
+	const [selectedWorkspaceFile, setSelectedWorkspaceFile] = useState(null);
+	const closeWorkspaceFile = useCallback(() => setSelectedWorkspaceFile(null), []);
+	useEffect(() => setSelectedWorkspaceFile(null), [chatProjectId]);
 	const isWorkspaceChat = getSidebarMode(chatProjectId) === "workspace";
-    const compactionActivity = useCompactionActivity(palace.api, palace.sessionId, isWorkspaceChat);
+    const compactionActivity = useCompactionActivity(palace.api, palace.sessionId, true);
 	// Skill proposals awaiting review above the composer. Resolved decisions
 	// persist per step id in localStorage; the transcript shows the outcome.
 	// Decision changes have their own version counter so derivation only re-runs
@@ -1923,22 +1928,7 @@ export function ChatInterface({
 			)}
 			<LeftSidebarState isSidebarOpen={isSidebarOpen}>
 				{(isSidebarOpen) => (
-			<div
-				id="chat-sidebar"
-				aria-hidden={!isSidebarOpen}
-				inert={isSidebarOpen ? undefined : ""}
-				className={`relative z-20 h-full shrink-0 ${isSidebarOpen ? "w-[272px] max-[650px]:w-[220px]" : "w-0"}`}
-			>
-				{/*
-				 * The spacer element above owns the transcript's available width.
-				 * It changes size once per toggle (a single layout) and never
-				 * animates width, so the transcript is not re-laid-out on every
-				 * animation frame. Only this inner panel is animated, and only
-				 * with translate/opacity — properties that do not cause layout.
-				 */}
-				<div
-					className={`absolute inset-y-0 left-0 w-[272px] max-[650px]:w-[220px] overflow-hidden transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none ${isSidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"}`}
-				>
+            <ResizableSidebar open={isSidebarOpen && view !== "projects" && view !== "tasks"}>
 					<Sidebar
 						projects={projects}
 						view={view}
@@ -1951,6 +1941,9 @@ export function ChatInterface({
 						tasksActive={view === "tasks"}
 						isWorkspace={isWorkspaceChat}
 						chatProjectId={chatProjectId}
+						selectedFilePath={selectedWorkspaceFile}
+						onSelectFile={setSelectedWorkspaceFile}
+                        explorerActive={tabActive && view === "chat" && isSidebarOpen}
 						onNewWorkspaceChat={() => newWorkspaceChat(chatProjectId)}
 						canStartChat={!!chatAvailable && !!selectedModel}
 						isOpen={isSidebarOpen}
@@ -1999,8 +1992,7 @@ export function ChatInterface({
 							}
 						}}
 					/>
-				</div>
-			</div>
+            </ResizableSidebar>
 				)}
 			</LeftSidebarState>
 			{renderWorkspace?.({
@@ -2025,12 +2017,13 @@ export function ChatInterface({
                     </div>}</>,
                 },
 			})}
+            <WorkspaceSplit visible={view === "chat"} preview={isWorkspaceChat && selectedWorkspaceFile ? <WorkspaceFilePreview sessionId={palace.sessionId} running={streaming || loading || agentLoading} projectId={chatProjectId} path={selectedWorkspaceFile} onClose={closeWorkspaceFile} /> : null}>
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}
 				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
 			>
 				{/* bg-[var(--bg-secondary)]!  */}
-                <AttachmentStorageStatus /><AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
+                <AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
 				{historyError && (
 					<p
 						role="alert"
@@ -2095,6 +2088,7 @@ export function ChatInterface({
 										activeStreamMessageId={activeStreamMessageIdRef.current}
 										onStreamFrame={onStreamFrame}
 										projectId={chatProjectId}
+										sessionId={palace.sessionId}
 										pendingQuestions={pendingQuestions}
 										disabled={streaming || loading}
 										onSelectReplyVariant={selectReplyVariant}
@@ -2237,6 +2231,7 @@ export function ChatInterface({
 												>
 													{msg.role === "assistant" ? (
 														<ChatMessage
+                                                        compactionActivity={compactionActivity}
 															message={msg}
 															streamBuffer={
 																msg.streaming &&
@@ -2249,6 +2244,7 @@ export function ChatInterface({
 															// project (session row, else the tab binding) —
 															// never the currently selected tab's project.
 															projectId={chatProjectId}
+															sessionId={palace.sessionId}
 															pendingQuestions={pendingQuestions}
 															onAnswerQuestion={answerQuestion}
 															showHeader={false}
@@ -2626,6 +2622,7 @@ export function ChatInterface({
 					/>
 				</div>
 			</div>
+            </WorkspaceSplit>
 			<RightSidebarState isRightSidebarOpen={isRightSidebarOpen} onClose={onCloseRightSidebar}>
 				{(isRightSidebarOpen, onClose) => (
 			<RightSidebar

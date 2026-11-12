@@ -80,3 +80,32 @@ test('the marker never leaks into rendered output', () => {
 	const html = render(`a ${BRACKET_PATH} b`);
 	assert.doesNotMatch(html, /[\uE000\uE001]/);
 });
+
+test('a tilde next to a path does not crash the renderer', () => {
+	// The regression: the code scanner assumed any `~` opened a fence and
+	// dereferenced a null backtick match, throwing inside a render and
+	// unmounting the whole app.
+	const cases = [
+		'Depends: python3 (>= 3.3~), python3-markdown',
+		'~2,900 works is fine',
+		'a ~~struck~~ note about /tmp/one/file.txt',
+		'pathRegex = /(\\/[\\w\\-]+)+/ and a ~ here',
+	];
+	for (const source of cases) {
+		const { text, paths } = protectLocalPaths(source);
+		assert.equal(typeof text, 'string', 'scanning must not throw');
+		assert.ok(Array.isArray(paths));
+	}
+});
+
+test('strikethrough survives and is not treated as a code fence', () => {
+	const html = render('~~gone~~ and /tmp/one/file.txt');
+	assert.match(html, /<del>gone<\/del>/);
+	assert.match(html, /<a href="\/tmp\/one\/file\.txt">/);
+});
+
+test('a tilde fence still swallows the block it opens', () => {
+	const html = render(['~~~', '/tmp/fenced/no', '~~~', '', 'after /tmp/one/file.txt'].join('\n'));
+	assert.doesNotMatch(html, /<a href="\/tmp\/fenced\/no"/, 'fenced paths must not be linkified');
+	assert.match(html, /<a href="\/tmp\/one\/file\.txt">/);
+});

@@ -101,7 +101,10 @@ function summarizeChanged(changed, limit = 50) {
 // merge the diff into the checkpoint. `mutate` throwing (abort, timeout,
 // tool error) still attempts the post-scan — effects may have landed —
 // before the error propagates with a recovery note attached.
-async function withExternalRecovery({ root, chatSessionId = null, toolName, opKind, opMeta = {} }, mutate) {
+function withExternalRecovery(...args) {
+  return require('./recoveryMaintenanceGate').run(() => runExternalRecovery(...args));
+}
+async function runExternalRecovery({ root, chatSessionId = null, toolName, opKind, opMeta = {} }, mutate) {
   if (!root) return mutate();
   let pre;
   try {
@@ -126,34 +129,46 @@ async function withExternalRecovery({ root, chatSessionId = null, toolName, opKi
   } catch (error) {
     postFailed = error.message;
   }
-  if (postFailed) {
-    await recoveryStore.finalizeBoundaryCheckpoint(pre.checkpointId, { postFailed });
-    if (result && typeof result === 'object' && !Array.isArray(result)) {
-      result = {
-        ...result,
-        recoveryCheckpointId: pre.checkpointId,
-        recoveryComplete: false,
-        recoveryPostFailed: true,
-      };
+  try {
+    if (postFailed) {
+      await recoveryStore.finalizeBoundaryCheckpoint(pre.checkpointId, { postFailed });
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+        result = {
+          ...result,
+          recoveryCheckpointId: pre.checkpointId,
+          recoveryComplete: false,
+          recoveryPostFailed: true,
+        };
+      }
+    } else {
+      const changed = recoveryStore.diffStates(pre.manifest.paths, post.manifest.paths);
+      await recoveryStore.finalizeBoundaryCheckpoint(pre.checkpointId, {
+        postPaths: post.manifest.paths, postSkipped: post.coverage.skipped, changed, truncated: post.truncated,
+      });
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+        const summary = summarizeChanged(changed);
+        result = {
+          ...result,
+          recoveryCheckpointId: pre.checkpointId,
+          recoveryChangedTotal: summary.total,
+          recoveryChanged: summary.entries,
+          recoveryComplete: post.coverage.complete && pre.coverage.complete,
+        };
+      }
     }
-  } else {
-    const changed = recoveryStore.diffStates(pre.manifest.paths, post.manifest.paths);
-    await recoveryStore.finalizeBoundaryCheckpoint(pre.checkpointId, {
-      postPaths: post.manifest.paths, postSkipped: post.coverage.skipped, changed, truncated: post.truncated,
-    });
-    if (result && typeof result === 'object' && !Array.isArray(result)) {
-      const summary = summarizeChanged(changed);
-      result = {
-        ...result,
-        recoveryCheckpointId: pre.checkpointId,
-        recoveryChangedTotal: summary.total,
-        recoveryChanged: summary.entries,
-        recoveryComplete: post.coverage.complete && pre.coverage.complete,
-      };
-    }
+  } catch (error) {
+    // The operation already ran. A bookkeeping failure must not turn its
+    // successful result into a shell failure that encourages duplicate effects.
+    const warning = `Recovery finalization failed after the operation ran: ${error.message}. Do not rerun the operation just to repair recovery metadata.`;
+    if (opError) opError.message += ` [${warning}]`;
+    else if (result && typeof result === 'object' && !Array.isArray(result)) result = {
+      ...result, recoveryCheckpointId: pre.checkpointId, recoveryComplete: false,
+      recoveryPostFailed: true, recoveryWarning: warning,
+    };
+    else throw Object.assign(new Error(warning), { code: 'recovery-finalization-failed', operationExecuted: true, operationResult: result });
   }
   if (opError) {
-    opError.message = `${opError.message} [Recovery checkpoint #${pre.checkpointId} captured pre-operation state.]`;
+    opError.message = `${opError.message} [Recovery checkpoint #${pre.checkpointId} captured pre-operation state; its continued availability depends on recovery retention.]`;
     throw opError;
   }
   return result;

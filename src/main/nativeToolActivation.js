@@ -34,7 +34,7 @@ function begin(sessionId, runId) {
   if (sessionId) {
     const selected = require('./compactNativeTools').configuredProfile();
     runs.set(sessionId, { runId, profile: selected, groups: new Set(), count: 0 });
-    if (selected === 'compact') console.info('[native-tools] Workspace profile: compact (opt-in); run', runId);
+    if (selected === 'compact') console.info('[native-tools] Workspace profile: compact; run', runId);
   }
 }
 function end(sessionId, runId) {
@@ -88,6 +88,6 @@ function manage({ action, groups: requested = [], query }, sessionId, availableT
 function compact(value) {
   if (Array.isArray(value)) return value.map(compact);
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, key === 'description' && typeof item === 'string' ? item.replace(/\s+/g, ' ').slice(0, 320) : compact(item)]));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, key === 'description' && typeof item === 'string' ? item.replace(/\s+/g, ' ') : compact(item)]));
 }
 module.exports = { forgetSession: sessionId => runs.delete(sessionId), compact, tool, groups, profile, begin, end, snapshot, filter, manage };

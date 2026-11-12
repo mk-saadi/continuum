@@ -194,7 +194,7 @@ test('5. URL extraction with no content reports which stage failed', async () =>
   // returned no answer. Reported as the model stage — with attempt
   // diagnostics — not as a page or fetch failure.
   let calls = 0;
-  const answerOutput = await runtime.runWebExtraction({
+  const answerError = await expectRejection(runtime.runWebExtraction({
     url: 'https://example.com/story',
     query: 'When does it launch?',
     engine,
@@ -206,12 +206,11 @@ test('5. URL extraction with no content reports which stage failed', async () =>
       calls += 1;
       return completion({ content: '   ', usage: { completion_tokens: 0 } });
     },
-  });
-  const answerError = { message: answerOutput };
-  assert.match(answerOutput, /Sub-agent partial: empty_response/);
+  }), 'empty model answer');
+  assert.match(answerError.message, /Sub-agent failed: empty_response/);
   assert.equal(calls, 2, 'one bounded retry for the empty model answer');
   assert.match(answerError.message, /returned no visible answer/);
-  assert.match(answerError.message, /Source evidence/);
+  assert.doesNotMatch(answerError.message, /Source evidence/);
   assert.match(answerError.message, /attempt 1/);
   assert.match(answerError.message, /attempt 2/);
   assert.match(answerError.message, /finish_reason="stop"/);

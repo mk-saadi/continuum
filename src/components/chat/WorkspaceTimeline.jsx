@@ -36,6 +36,7 @@ export function WorkspaceMessage({
 	activeStreamMessageId,
 	onStreamFrame,
 	projectId,
+	sessionId = null,
 	pendingQuestions = {},
 	disabled = false,
 	onSelectReplyVariant,
@@ -93,6 +94,7 @@ export function WorkspaceMessage({
 			}
 			onStreamFrame={onStreamFrame}
 			projectId={projectId}
+			sessionId={sessionId}
 			pendingQuestions={pendingQuestions}
 			disabled={disabled}
 			onSelectReplyVariant={onSelectReplyVariant}
@@ -118,6 +120,7 @@ export default function WorkspaceTimeline({
 	activeStreamMessageId,
 	onStreamFrame,
 	projectId,
+	sessionId = null,
 	pendingQuestions = {},
 	disabled = false,
 	onSelectReplyVariant,
@@ -164,6 +167,7 @@ export default function WorkspaceTimeline({
 					activeStreamMessageId={activeStreamMessageId}
 					onStreamFrame={onStreamFrame}
 					projectId={projectId}
+					sessionId={sessionId}
 					pendingQuestions={pendingQuestions}
 					disabled={disabled}
 					onSelectReplyVariant={onSelectReplyVariant}
@@ -276,8 +280,9 @@ function RunHeader({
 				: "";
 	const showTechnical = technical && formatModelName(technical) !== readable;
 	const streaming = !!message.streaming;
-	const interrupted = message.status === "interrupted";
-	const statusLabel = streaming ? "Generating" : interrupted ? "Interrupted" : "Completed";
+	const interrupted = ["interrupted", "partial", "failed", "cancelled"].includes(message.status);
+	const terminalLabels = { interrupted: "Interrupted", partial: "Partial", failed: "Failed", cancelled: "Cancelled" };
+	const statusLabel = streaming ? "Generating" : terminalLabels[message.status] ?? "Completed";
 	const avatarModelId = fields.modelId || selectedModel;
 	const avatarUrl = sessionAgent?.avatar_url ?? null;
 	const agentName =
@@ -312,7 +317,9 @@ function RunHeader({
 						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${
 							streaming
 								? "bg-amber-400/10 text-amber-500"
-								: interrupted
+								: message.status === "partial"
+                                    ? "bg-[var(--warning)]/10 text-[var(--warning)]"
+                                : interrupted
 									? "bg-[var(--error)]/10 text-[var(--error)]"
 									: "bg-[var(--bg-tertiary)] text-[var(--text-muted)]"
 						}`}
@@ -359,6 +366,7 @@ function RunSection({
 	streamBuffer,
 	onStreamFrame,
 	projectId,
+	sessionId = null,
 	pendingQuestions,
 	disabled,
 	onSelectReplyVariant,
@@ -407,7 +415,7 @@ function RunSection({
 				role="list"
 				aria-label="Run execution stages"
 			>
-					{stages.map((stage) => stage.text ? <div role="listitem" key={stage.key}><ProgressText text={stage.text.content} /></div> : stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
+					{stages.map((stage) => stage.text ? <div role="listitem" key={stage.key}><ProgressText text={stage.text.content} sessionId={sessionId} /></div> : stage.activity ? <div role="listitem" key={stage.key}><CompactionActivity event={stage.activity} /></div> : (
 						<StageSection
 							key={stage.key}
 							stage={stage}
@@ -428,6 +436,7 @@ function RunSection({
 						streamBuffer={streamBuffer}
 						onStreamFrame={onStreamFrame}
 						projectId={projectId}
+						sessionId={sessionId}
 						pendingQuestions={pendingQuestions}
 						showHeader={false}
 						disabled={disabled}

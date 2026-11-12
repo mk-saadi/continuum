@@ -117,7 +117,13 @@ function createPromptMeasurer(fetchImpl) {
     const signal = options.signal;
     signal?.throwIfAborted();
     let limit = knownLimit ?? options.contextWindowLimit;
-    let props, runtimeContextTokens = null;
+    const registered = runtimeProvider(Number(new URL(url).port));
+    const loaded = registered && Number(new URL(url).port) === registered.port &&
+      !['stopped', 'idle_unloaded'].includes(registered.contextStatus) ? registered : null;
+    const loadedLimits = [loaded?.activeModelConfig?.contextLength, loaded?.capabilities?.contextLength]
+      .filter(n => Number.isSafeInteger(n) && n > 0);
+    let props, runtimeContextTokens = loadedLimits.length ? Math.min(...loadedLimits, knownLimit ?? Infinity) : null;
+    let capacityFromLoadedEngine = runtimeContextTokens !== null;
     const probeSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(2500)]) : AbortSignal.timeout(2500);
     const probe = async (route, body) => {
       const response = await fetchImpl(new URL(route, url).href, {
@@ -138,7 +144,8 @@ function createPromptMeasurer(fetchImpl) {
       props = await probe('/props');
       const reported = props?.default_generation_settings?.n_ctx;
       if (Number.isSafeInteger(reported) && reported > 0) {
-        runtimeContextTokens = knownLimit ? Math.min(knownLimit, reported) : reported;
+        runtimeContextTokens = Math.min(reported, runtimeContextTokens ?? Infinity, knownLimit ?? Infinity);
+        capacityFromLoadedEngine = false;
         limit = runtimeContextTokens;
       }
     } catch { signal?.throwIfAborted(); }
@@ -189,6 +196,10 @@ function createPromptMeasurer(fetchImpl) {
       runtimeIdentity: options.runtimeIdentity ?? runtimeAtStart ?? identity ?? url,
       configuredContextTokens: options.contextWindowLimit ?? null,
       runtimeContextTokens, runtimeSlots: Number.isSafeInteger(props?.total_slots) && props.total_slots > 0 ? props.total_slots : null, fallbackCeilingTokens: knownLimit ?? 8192, payload, currentInputTokens: tokens, measurementMethod: method });
+    if (capacityFromLoadedEngine) {
+      budgetContract.capacityMethod = 'loaded-engine-configuration';
+      budgetContract.capacityConfidence = 'configured';
+    }
     const imageCount = payload.messages.reduce((n, message) => n + (Array.isArray(message.content)
       ? message.content.filter(part => part?.type === 'image_url').length : 0), 0);
     return { tokens, method, measurementStatus: method === 'server-template-tokenizer' ? 'verified' : note === 'tokenizer-operation-unsupported' ? 'unsupported' : note === 'tokenizer-measurement-failed' ? 'temporarily-unavailable' : 'estimated', limit: budgetContract.capacityTokens, budget: budgetContract.usableInputTokens,
@@ -227,7 +238,7 @@ function createContextGuardedFetch(fetchImpl) {
       try { rebuilt = await contextRecovery({ payload, contextWindowLimit: knownLimit ?? contextWindowLimit ?? 8192, reason }); }
       catch (error) {
         options.signal?.throwIfAborted();
-        if (error?.name === 'AbortError' || (typeof error?.code === 'string' && error.code.startsWith('casual-')) || error?.code === 'CONTEXT_BUDGET_EXCEEDED' || error?.code === 'SUBAGENT_BUDGET_EXCEEDED') throw error;
+        if (error?.name === 'AbortError' || (typeof error?.code === 'string' && error.code.startsWith('casual-')) || error?.code === 'CONTEXT_BUDGET_EXCEEDED' || error?.code === 'SUBAGENT_BUDGET_EXCEEDED' || error?.code === 'source-changed') throw error;
         throw new ContextBudgetError(`summarization/rebuild failed: ${error.message}`);
       }
       options.signal?.throwIfAborted();

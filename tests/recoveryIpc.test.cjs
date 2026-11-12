@@ -236,7 +236,7 @@ test('pins survive pruning; active and latest points are immune', async () => {
   assert.ok(!remaining.includes(ids[1]), 'aged middle checkpoint pruned');
 });
 
-test('cap enforcement is oldest-first with pinned/latest/recent immune', async () => {
+test('cap enforcement evicts oldest first including pinned and recent points', async () => {
   const root = makeWorkspace({ 'c.txt': 'c0\n' });
   const sid = chatFor(root);
   const seen = [];
@@ -248,16 +248,14 @@ test('cap enforcement is oldest-first with pinned/latest/recent immune', async (
   const old = new Date(Date.now() - 48 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
   dbConn().prepare('UPDATE recovery_checkpoints SET created_at = ? WHERE id = ?').run(old, seen[1]);
   dbConn().prepare('UPDATE recovery_checkpoints SET created_at = ? WHERE id = ?').run(old, seen[2]);
-  // ~2.4MB across 8 checkpoints; 1MB cap forces eviction of the evictable
-  // oldest (seen[1], seen[2]); pinned/latest stay and the shortfall is honest.
   const report = await recovery.pruneRecovery({ retentionDays: 365, storageCapMB: 1, latestPerSession: 10 });
-  assert.ok(report.capEvicted.includes(seen[1]), 'oldest evictable goes first');
-  assert.ok(!report.capEvicted.includes(seen[0]), 'pinned immune to cap');
-  assert.ok(!report.capEvicted.includes(seen[seen.length - 1]), 'latest immune to cap');
-  assert.ok(report.capShortfallMB > 0, 'remaining overage reported, not forced');
+  assert.ok(report.capEvicted.includes(seen[0]), 'oldest pinned point is eligible under hard cap');
+  assert.deepEqual(report.capEvicted, [...report.capEvicted].sort((a, b) => a - b));
+  assert.equal(report.capShortfallMB, 0);
+  assert.ok(report.storage.physicalBytes <= 1024 * 1024);
   const remaining = (await service.recoveryHistory(sid, 200)).mine.map((e) => e.id);
-  assert.ok(remaining.includes(seen[0]));
-  assert.ok(remaining.includes(seen[seen.length - 1]));
+  assert.ok(remaining.includes(seen[seen.length - 1]), 'stop evicting once under cap');
+
 });
 
 test('storage stats distinguish physical from logical bytes', async () => {
@@ -267,7 +265,7 @@ test('storage stats distinguish physical from logical bytes', async () => {
   await recovery.captureOperation({ root, chatSessionId: sid, toolName: 't', paths: ['u1.txt', 'u2.txt'] });
   const stats = await service.recoveryStats();
   assert.ok(stats.physicalBytes > 0 && stats.logicalBytes > 0);
-  assert.ok(stats.logicalBytes >= stats.physicalBytes, 'sharing makes logical >= physical');
+  assert.ok(stats.physicalBytes === stats.blobBytes + stats.metadataBytes, 'cap counts blobs and metadata');
   assert.ok(stats.checkpointCount >= 2 && stats.blobFiles >= 1);
   assert.equal(typeof stats.usagePercent, 'number');
 });
@@ -405,6 +403,11 @@ test('diff review: changed files list staged, unstaged, and untracked rows', asy
   assert.equal(byPath['b.txt'].added, 1);
   assert.equal(byPath['c.txt'].status, 'untracked');
   assert.equal(byPath['c.txt'].added, 3);
+  const lightweight = await service.recoveryChangedFiles(sid, { includeCounts: false });
+  assert.deepEqual(lightweight.files.map(file => file.path), changed.files.map(file => file.path));
+  assert.equal(lightweight.branch, changed.branch);
+  assert.ok(lightweight.files.every(file => file.added === undefined && file.bytes === undefined), 'embedded review skips per-file counts and reads');
+
   assert.equal(byPath['c.txt'].deleted, 0);
   // Non-repos fail closed exactly like the agent git tools.
   const plain = makeWorkspace({ 'x.txt': 'x\n' });
