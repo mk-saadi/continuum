@@ -1,3 +1,4 @@
+import { WorkspacePreviewContext } from "../../context/WorkspacePreviewContext.jsx";
 import { selectMascotSession, mascotAttention, mascotBusy, mascotRequestFailure } from '../../lib/mascotActivity.mjs';
 import { reconcileMessageSnapshot } from "../../lib/messageSnapshot.mjs";
 import { useCompactionActivity } from '../../hooks/useCompactionActivity.js';
@@ -402,7 +403,7 @@ export function ChatInterface({
 	useEffect(() => {
 		const off = window.chatAPI?.onStreamStatus?.(({ sessionId, status, runId }) => {
 			if (sessionId !== sessionIdRef.current) return;
-			const next = status === "generating" ? runId ?? null : null;
+			const next = ["generating", "waiting_commands"].includes(status) ? runId ?? null : null;
 			activeRunIdRef.current = next;
 			setActiveRunId(next);
 		});
@@ -602,10 +603,17 @@ export function ChatInterface({
 	// Authoritative sidebar mode: the session row's project wins for existing
 	// chats, the tab's project binding for fresh drafts — never the sidebar's
 	// own visibility or tab state.
-	const [selectedWorkspaceFile, setSelectedWorkspaceFile] = useState(null);
-	const closeWorkspaceFile = useCallback(() => setSelectedWorkspaceFile(null), []);
-	useEffect(() => setSelectedWorkspaceFile(null), [chatProjectId]);
 	const isWorkspaceChat = getSidebarMode(chatProjectId) === "workspace";
+	const [selectedWorkspaceFile, setSelectedWorkspaceFile] = useState(null);
+	const openWorkspacePreview = useCallback(async (href) => {
+        if (!isWorkspaceChat || !chatProjectId) return false;
+        const result = await window.api.resolveWorkspacePreviewFile(chatProjectId, href);
+        if (!result) return false;
+        setSelectedWorkspaceFile(result.path);
+        return true;
+    }, [isWorkspaceChat, chatProjectId]);
+    const closeWorkspaceFile = useCallback(() => setSelectedWorkspaceFile(null), []);
+	useEffect(() => setSelectedWorkspaceFile(null), [chatProjectId]);
     const compactionActivity = useCompactionActivity(palace.api, palace.sessionId, true);
 	// Skill proposals awaiting review above the composer. Resolved decisions
 	// persist per step id in localStorage; the transcript shows the outcome.
@@ -1896,6 +1904,7 @@ export function ChatInterface({
 		}
 	}, []);
 	return (
+		<WorkspacePreviewContext.Provider value={isWorkspaceChat ? openWorkspacePreview : null}>
 		<div data-chat-mode={isWorkspaceChat ? "workspace" : "casual"} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
 			{toolApprovals[0] && (
 				<ToolApprovalToast
@@ -2033,7 +2042,7 @@ export function ChatInterface({
                     </div>}</>,
                 },
 			})}
-            <WorkspaceSplit visible={view === "chat"} preview={isWorkspaceChat && selectedWorkspaceFile ? <WorkspaceFilePreview sessionId={palace.sessionId} running={streaming || loading || agentLoading} projectId={chatProjectId} path={selectedWorkspaceFile} onClose={closeWorkspaceFile} /> : null}>
+            <WorkspaceSplit visible={view === "chat"} preview={isWorkspaceChat && selectedWorkspaceFile ? <WorkspaceFilePreview onSelectFile={setSelectedWorkspaceFile} sessionId={palace.sessionId} running={streaming || loading || agentLoading} projectId={chatProjectId} path={selectedWorkspaceFile} onClose={closeWorkspaceFile} /> : null}>
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}
 				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"
@@ -2675,5 +2684,6 @@ export function ChatInterface({
 				)}
 			</RightSidebarState>
 		</div>
+        </WorkspacePreviewContext.Provider>
 	);
 }

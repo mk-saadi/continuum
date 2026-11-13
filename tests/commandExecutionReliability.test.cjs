@@ -23,15 +23,15 @@ test.after(() => { closeDatabase(); Module._load = originalLoad; fs.rmSync(root,
 
 test('schema, defaults, numeric validation and maximum', async () => {
  const schema = agentTools.find(t=>t.function.name==='execute_command').function.parameters.properties.timeout_ms;
- assert.equal(schema.maximum,300000);
- for (const timeout_ms of [0,-1,999,300001,1.5,'1000',null]) {
+ assert.equal(schema.maximum,86400000);
+ for (const timeout_ms of [0,-1,999,86400001,1.5,'1000',null]) {
   const r = await run({command:'echo SHOULD_NOT_RUN',timeout_ms});
   assert.equal(r.success,false); assert.match(r.error,/timeout_ms/);
  }
  const normal = await run({command:'printf default'});
- assert.equal(normal.timeout_ms,60000); assert.equal(normal.status,'completed');
- const maximum = await run({command:'printf max',timeout_ms:300000});
- assert.equal(maximum.timeout_ms,300000);
+ assert.equal(normal.timeout_ms,3600000); assert.equal(normal.status,'completed');
+ const maximum = await run({command:'printf max',timeout_ms:86400000});
+ assert.equal(maximum.timeout_ms,86400000);
 });
 test('stdout, stderr, nonzero and actual exit status', async()=>{
  const r=await run({command:'printf hello; printf failure >&2; exit 7'});

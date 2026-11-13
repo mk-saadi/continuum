@@ -475,6 +475,10 @@ function registerIpcHandlers({
 			require("./workspaceExplorer").gitStatus(projectId),
 		"workspace:list-directory": ({ projectId, relativePath } = {}) =>
 			require("./workspaceExplorer").listDirectory(projectId, relativePath),
+		"workspace:resolve-preview-file": ({ projectId, href } = {}) =>
+			require("./workspaceExplorer").resolvePreviewFile(projectId, href),
+		"workspace:reveal-file": ({ projectId, relativePath } = {}) =>
+			require("./workspaceExplorer").revealFile(projectId, relativePath),
 		"workspace:read-file": ({ projectId, relativePath } = {}) =>
 			require("./workspaceExplorer").readFile(projectId, relativePath),
 		"recovery:changed-files": ({ sessionId, includeCounts } = {}) =>
@@ -564,6 +568,7 @@ function registerIpcHandlers({
         "steering:submit": ({ sessionId, runId, content, idempotencyKey }, _notify, sender) => {
 			resolveSteeringRun({ runId, sessionId, sender });
 			const result = runSteering.submitSteering({ sessionId, runId, content, idempotencyKey });
+			require('./backgroundCommands').wake(runId);
 			emitSteeringUpdates(sender, [result.record], { includeContent: true });
 			return result;
 		},
@@ -795,6 +800,13 @@ function registerIpcHandlers({
                         projectId: usageProjectId,
                         workspaceRoot: backgroundContext?.workspace,
                         takeCommandCompletions: backgroundContext ? () => require('./backgroundCommands').take(backgroundContext) : null,
+                        waitForCommands: backgroundContext ? signal => {
+                            if (runSteering.getRunSteering(sessionId, runId).some(row => row.state === 'queued')) return true;
+                            return require('./backgroundCommands').wait(backgroundContext, signal);
+                        } : null,
+                        onCommandWaiting: waiting => {
+                            if (sessionId && !sender.isDestroyed()) sender.send('engine:stream-status', { sessionId, runId, status: waiting ? 'waiting_commands' : 'generating' });
+                        },
                         markCommandCompletions: backgroundContext ? (ids, accepted) => require('./backgroundCommands').acknowledge(backgroundContext, ids, accepted) : null,
                         projectToolLoopGuard: usageProjectId ? createProjectToolLoopGuard(usageProjectId) : null,
                         // Phase 2.1: the loop asks for steering only at a model-request

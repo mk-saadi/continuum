@@ -44,31 +44,37 @@ export default function BackgroundCommandCard({ sessionId }) {
   const [records, setRecords] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState('');
+  const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     let disposed = false;
     const api = window.memoryPalace;
     setRecords([]);
+    setWaiting(false);
+    const offStatus = window.chatAPI?.onStreamStatus?.(event => {
+      if (!disposed && event.sessionId === sessionId) setWaiting(event.status === 'waiting_commands');
+    });
     // Subscribe before loading; merge so a slower snapshot cannot overwrite
     // completion events that arrived while the request was in flight.
     const updates = new Map();
     const unsubscribe = api?.onBackgroundCommand?.(event => {
       if (disposed || event.sessionId !== sessionId) return;
       updates.set(event.record.command_id, event.record);
-      setRecords(previous => [...previous.filter(r => r.command_id !== event.record.command_id), event.record]);
+      setRecords(previous => [...previous.filter(r => r.command_id !== event.record.command_id), ...(event.record.background === false ? [] : [event.record])]);
     });
     api?.getBackgroundCommands?.(sessionId).then(rows => {
-      if (!disposed) setRecords([...new Map([...rows, ...updates.values()].map(r => [r.command_id, r])).values()]);
+      if (!disposed) setRecords([...new Map([...rows, ...updates.values()].map(r => [r.command_id, r])).values()].filter(r => r.background !== false));
     }).catch(() => {});
     const timer = setInterval(() => {
       setNow(Date.now());
       api?.getBackgroundCommands?.(sessionId).then(rows => { if (!disposed) setRecords(rows); }).catch(() => {});
     }, 1000);
-    return () => { clearInterval(timer); disposed = true; unsubscribe?.(); };
+    return () => { clearInterval(timer); disposed = true; unsubscribe?.(); offStatus?.(); };
   }, [sessionId]);
   if (!records.length) return null;
   const running = records.filter(r => ['starting', 'running'].includes(r.status)).length;
   return <section className="aero-panel sk-panel p-3" aria-label="Background commands">
     <h3 className="text-xs font-semibold">Background commands · {running} running</h3>
+    {waiting && <p role="status" className="mt-1 text-xs">Waiting for command results. The agent will continue automatically.</p>}
     {error && <p role="alert">{error}</p>}
     {records.slice(-12).reverse().map(r => <details key={r.command_id} className="mt-2 text-[11px] break-words">
       <summary>{r.command_summary} · {r.status} · {r.notification_state === 'delivered' ? 'Agent informed' : `Notification: ${r.notification_state}`}</summary>

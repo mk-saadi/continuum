@@ -11,6 +11,7 @@ if (!process.versions.electron) {
   app.whenReady().then(async () => {
     const directory = await fs.mkdtemp('/tmp/workspace-explorer-ui-');
     const window = new BrowserWindow({ show: true, width: 1440, height: 900, webPreferences: { sandbox: true } });
+    window.webContents.on('console-message', (_event, _level, message) => console.log(message));
     try {
       await require('esbuild').build({ stdin: { contents: `
         import React, { useState } from 'react';
@@ -18,6 +19,14 @@ if (!process.versions.electron) {
         import Sidebar from './src/components/Sidebar.jsx';
         import ResizableSidebar from './src/components/ResizableSidebar.jsx';
         import { WorkspaceSplit, WorkspaceFilePreview } from './src/components/WorkspaceFiles.jsx';
+        window.observedChanges = new Set();
+        const NativeObserver = window.IntersectionObserver;
+        window.IntersectionObserver = class extends NativeObserver {
+          constructor(callback, options) { super(callback, options); this.targets = new Set(); }
+          observe(target) { this.targets.add(target); window.observedChanges.add(target); super.observe(target); }
+          unobserve(target) { this.targets.delete(target); window.observedChanges.delete(target); super.unobserve(target); }
+          disconnect() { this.targets.forEach(target => window.observedChanges.delete(target)); this.targets.clear(); super.disconnect(); }
+        };
         window.explorerTimers = new Set();
         const nativeSetInterval = window.setInterval.bind(window);
         const nativeClearInterval = window.clearInterval.bind(window);
@@ -42,7 +51,7 @@ if (!process.versions.electron) {
           window.setWorkspace = setWorkspace;
           return <div style={{display:'flex', height:'100vh', color:'var(--text-primary)', background:'var(--bg-primary)'}}>
             <ResizableSidebar open><Sidebar explorerActive={explorerActive} isWorkspace={workspace} chatProjectId="project" projects={[{id:'project',name:'Example workspace'}]} groups={[]} onSelectFile={setFile} selectedFilePath={file} /></ResizableSidebar>
-            <WorkspaceSplit preview={file && <WorkspaceFilePreview projectId="project" sessionId="chat" path={file} onClose={() => setFile(null)} />}>
+            <WorkspaceSplit preview={file && <WorkspaceFilePreview onSelectFile={setFile} projectId="project" sessionId="chat" path={file} onClose={() => setFile(null)} />}>
               <div data-chat style={{flex:1,padding:24}}><h2>Main chat</h2><p>Chat stays visible while browsing workspace files.</p><textarea aria-label="Message" defaultValue="Keep my draft" /></div>
             </WorkspaceSplit>
           </div>;
@@ -184,9 +193,45 @@ if (!process.versions.electron) {
       await window.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Git diff').click()`);
       await new Promise(resolve => setTimeout(resolve, 350));
       await fs.writeFile('/tmp/workspace-explorer-preview.png', (await window.webContents.capturePage()).toPNG());
+      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+      await new Promise(resolve => setTimeout(resolve, 450));
+      assert.equal(await window.webContents.executeJavaScript(`(async () => {
+        const view = document.querySelector('[aria-label="Workspace changes"]');
+        if (document.querySelector('[aria-label="File preview"] [aria-label="Preview mode"]')) throw new Error('Changes should not show file/diff buttons');
+        for (const kind of ['added', 'removed']) {
+          const line = view?.querySelector('[data-change-line="' + kind + '"]');
+          if (!line || getComputedStyle(line).backgroundColor === 'rgba(0, 0, 0, 0)') throw new Error('Missing ' + kind + ' background');
+          if (line.getBoundingClientRect().width < view.clientWidth - 30) throw new Error('Diff background does not fill the row');
+        }
+        if (!view?.querySelector('.token')) throw new Error('Changes lack syntax highlighting');
+        if (!view || !view.textContent.includes('1 changed files') || !view.textContent.includes('src/app.js') || !view.textContent.includes('const answer = 42')) throw new Error('Combined changes show files, totals and diff');
+        const section = view.querySelector('section');
+        section.querySelector('[aria-expanded]').click();
+        await new Promise(resolve => setTimeout(resolve, 30));
+        if (section.querySelector('pre')) throw new Error('Collapsed diff still visible');
+        section.querySelector('[aria-expanded]').click();
+        await new Promise(resolve => setTimeout(resolve, 30));
+        [...section.querySelectorAll('button')].find(button => button.textContent === 'Open file').click();
+        return true;
+      })()`), true);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="File preview"]').textContent.includes('src/app.js') && !document.querySelector('[aria-label="Workspace changes"]')`), true);
+      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+      await new Promise(resolve => setTimeout(resolve, 450));
+      assert.ok(await window.webContents.executeJavaScript(`!!document.querySelector('[aria-label="Workspace changes"]')`), 'Explorer opens all changes directly');
+
       assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Close file preview"]').click(); true`), true);
       await new Promise(resolve => setTimeout(resolve, 100));
       assert.equal(await window.webContents.executeJavaScript(`!document.querySelector('[aria-label="File preview"]') && document.querySelector('[aria-label="Message"]').value === 'Keep my draft'`), true);
+      for (let cycle=0;cycle<5;cycle++) {
+        await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+        await new Promise(resolve => setTimeout(resolve, 450));
+        assert.ok(await window.webContents.executeJavaScript(`!!document.querySelector('[data-change-line="added"] .token')`), 'Syntax highlighting survives repeated open/close');
+        await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Close file preview"]').click()`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        assert.equal(await window.webContents.executeJavaScript(`window.observedChanges.size`), 0, 'Closed reviews release observed DOM elements');
+        assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-change-line]').length`), 0, 'Closed reviews release highlighted rows');
+      }
       console.log('Workspace sidebar, folders, split preview, resize, draft preservation and close passed.');
     } finally { window.destroy(); await fs.rm(directory, {recursive:true,force:true}); }
   }).then(() => app.quit()).catch(error => { console.error(error); app.exit(1); });

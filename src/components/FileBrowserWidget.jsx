@@ -1,3 +1,4 @@
+import { useWorkspacePreview } from "../context/WorkspacePreviewContext.jsx";
 import React, { useState } from 'react';
 import { FiFolder, FiFile, FiCode, FiFileText, FiImage, FiFilm, FiExternalLink } from 'react-icons/fi';
 import { localMediaUrl } from '../lib/directoryListing.mjs';
@@ -12,6 +13,7 @@ function sizeLabel(size) {
 }
 
 function FileCard({ item }) {
+  const openPreview = useWorkspacePreview();
   const [failedPreview, setFailedPreview] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
@@ -24,6 +26,9 @@ function FileCard({ item }) {
   const media = image || video;
   const registration = useRegisterMedia(media ? { src: localMediaUrl(item.path), video, title: item.name } : null);
   async function open() {
+    if (!folder && openPreview) {
+      try { if (await openPreview(item.path)) return; } catch {}
+    }
     if (media) {
       if (registration) registration.gallery.open(registration.id);
       return;

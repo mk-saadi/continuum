@@ -481,6 +481,7 @@ export async function runMemoryChat({
   takeSteeringInstructions = null, markSteeringDelivered = null, markSteeringUndelivered = null,
   maxSteeringContinuations = 8,
   takeCommandCompletions = null, markCommandCompletions = null,
+  waitForCommands = null, onCommandWaiting = () => {},
   onAdvertisedTools = () => {}, refreshMemoryContext = null,
   compactContext = null, getSessionPlanState = null, getExecutionEnvironment = null,
   getTaskState = null, onTaskIncomplete = () => {}, preflightIndependentRead = null,
@@ -964,6 +965,17 @@ export async function runMemoryChat({
     }
     if (!result.toolCalls.length) {
       signal?.throwIfAborted();
+      if (waitForCommands && !finalResponseOnly) {
+        let resume;
+        onCommandWaiting(true);
+        try { resume = await waitForCommands(signal); }
+        finally { onCommandWaiting(false); }
+        signal?.throwIfAborted();
+        if (resume) {
+          history.push({ role: 'assistant', content: result.content || null });
+          continue;
+        }
+      }
       if (completionContinuations < 4) {
         const late = await readCompletions();
         if (late.length) {

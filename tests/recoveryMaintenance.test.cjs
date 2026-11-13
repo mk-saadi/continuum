@@ -150,3 +150,20 @@ test('automatic maintenance timer cannot inherit a capture workflow and bypass i
     assert.equal(cleanupStarted, true);
   } finally { release?.(); recovery.enforceRecoveryPolicy = enforce; }
 });
+
+test('a background recovery lease protects its checkpoint without blocking independent tools behind maintenance', async () => {
+  const events = [];
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  const job = gate.background(async () => {
+    events.push('background-start');
+    await held;
+    await gate.run(async () => events.push('background-post-state'));
+  });
+  await delay(0);
+  const cleanup = gate.exclusive(async () => events.push('cleanup'));
+  await gate.run(async () => events.push('independent-tool'));
+  assert.deepEqual(events, ['background-start', 'independent-tool']);
+  release(); await Promise.all([job, cleanup]);
+  assert.deepEqual(events, ['background-start', 'independent-tool', 'background-post-state', 'cleanup']);
+});

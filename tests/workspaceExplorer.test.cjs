@@ -17,14 +17,33 @@ test('workspace browsing bounds reads and rejects paths outside the project', as
     await fs.writeFile(path.join(root, 'binary.dat'), Buffer.from([0, 1, 2]));
     await fs.writeFile(path.join(directory, 'outside.txt'), 'outside');
     await fs.symlink(path.join(directory, 'outside.txt'), path.join(root, 'escape'));
+    await fs.writeFile(path.join(root, 'image.png'), Buffer.from([0, 1, 2]));
+    await fs.writeFile(path.join(root, 'video.mp4'), Buffer.from([0, 1, 2]));
+    let revealed;
     const service = { exports: {} };
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../src/main/workspaceExplorer.js'), 'utf8'), {
       module: service, Buffer, process, URL,
-      require: name => name === './projectManager' ? { getProject: id => {
+      require: name => name === 'electron' ? { shell: { showItemInFolder: target => { revealed = target; } } } : name === './projectManager' ? { getProject: id => {
         assert.equal(id, 'project'); return { root_path: root };
       } } : name === './workspaceGit' ? require('../src/main/workspaceGit') : name === './toolPermissions' ? require('../src/main/toolPermissions') : require(name),
     });
     const { listDirectory, readFile, gitStatus, repositoryInfo } = service.exports;
+    assert.equal((await readFile('project', 'image.png')).kind, 'image');
+    const video = await readFile('project', 'video.mp4');
+    assert.equal(video.kind, 'video');
+    assert.equal(video.content, undefined);
+    assert.equal(decodeURIComponent(video.src.slice('local://media/'.length)), path.join(root, 'video.mp4'));
+    await service.exports.revealFile('project', 'image.png');
+    assert.equal(revealed, path.join(root, 'image.png'));
+    await assert.rejects(service.exports.revealFile('project', 'escape'), /escapes/);
+    const resolve = service.exports.resolvePreviewFile;
+    assert.equal((await resolve('project', 'hello.txt')).path, 'hello.txt');
+    assert.equal((await resolve('project', path.join(root, 'hello.txt'))).path, 'hello.txt');
+    assert.equal((await resolve('project', 'file://' + path.join(root, 'hello.txt'))).path, 'hello.txt');
+    assert.equal(await resolve('project', '../outside.txt'), null);
+    assert.equal(await resolve('project', 'escape'), null);
+    assert.equal(await resolve('project', 'src'), null);
+    assert.equal(await resolve('project', 'missing.txt'), null);
     const listing = await listDirectory('project');
     assert.equal(listing.items[0].name, 'src');
     assert.ok(!listing.items.some(item => item.name === '.git'));

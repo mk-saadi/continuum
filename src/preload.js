@@ -189,6 +189,8 @@ contextBridge.exposeInMainWorld('api', {
   getWorkspaceRepository: projectId => ipcRenderer.invoke('workspace:repository-info', { projectId }),
   getWorkspaceGitStatus: projectId => ipcRenderer.invoke('workspace:git-status', { projectId }),
   listWorkspaceDirectory: (projectId, relativePath = '.') => ipcRenderer.invoke('workspace:list-directory', { projectId, relativePath }),
+  resolveWorkspacePreviewFile: (projectId, href) => ipcRenderer.invoke('workspace:resolve-preview-file', { projectId, href }),
+  revealWorkspaceFile: (projectId, relativePath) => ipcRenderer.invoke('workspace:reveal-file', { projectId, relativePath }),
   readWorkspaceFile: (projectId, relativePath) => ipcRenderer.invoke('workspace:read-file', { projectId, relativePath }),
   getRecoveryFileDiff: (sessionId, relPath) => ipcRenderer.invoke('recovery:file-diff', { sessionId, relPath }),
   getRecoveryCoveringCheckpoint: (sessionId, relPath) => ipcRenderer.invoke('recovery:covering-checkpoint', { sessionId, relPath }),

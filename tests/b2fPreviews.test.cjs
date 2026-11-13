@@ -293,7 +293,8 @@ test('development profile: standard Node, kernel limits and aggregate OOM fail c
     const limits = await f.command({ command: `python3 -c 'import resource,json; print(json.dumps({n:resource.getrlimit(getattr(resource,n)) for n in ["RLIMIT_AS","RLIMIT_DATA","RLIMIT_RSS","RLIMIT_CPU","RLIMIT_NOFILE"]}))'` });
     const values = JSON.parse(limits.stdout.trim());
     assert.deepEqual(values.RLIMIT_AS, [64 * 1024 ** 4, 64 * 1024 ** 4]);
-    assert.deepEqual(values.RLIMIT_CPU, [60, 60]); assert.deepEqual(values.RLIMIT_NOFILE, [256, 256]);
+    const cpuSeconds = require('../src/main/commandLifetimes').DEFAULT_MS / 1000 * 2 + 30;
+    assert.deepEqual(values.RLIMIT_CPU, [cpuSeconds, cpuSeconds]); assert.deepEqual(values.RLIMIT_NOFILE, [256, 256]);
     const membership = await f.command({ command: 'cat /proc/self/cgroup' });
     const group = '/sys/fs/cgroup' + membership.stdout.trim().split('::')[1];
     assert.equal(fs.readFileSync(path.join(group, 'memory.max'), 'utf8').trim(), '1073741824');

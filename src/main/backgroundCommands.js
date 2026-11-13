@@ -70,7 +70,7 @@ function start(context, command, timeoutMs, operation, validate, persistent = fa
   validate(); owner.signal?.throwIfAborted(); prune();
   const all = [...records.values()];
   if (closing || all.filter(active).length >= ACTIVE_LIMIT || all.filter(r => active(r) && r.run_id === owner.runId).length >= RUN_LIMIT) throw new Error('Background command concurrency limit reached (2 per run, 4 application-wide).');
-  if (records.size >= HISTORY_LIMIT || all.filter(r => r.run_id === owner.runId).length >= RUN_HISTORY_LIMIT) throw new Error('Background command history/notification capacity reached.');
+  if (records.size >= HISTORY_LIMIT || all.filter(r => r.run_id === owner.runId && !r.foreground_consumed).length >= RUN_HISTORY_LIMIT) throw new Error('Background command history/notification capacity reached.');
   const controller = new AbortController();
   const r = { command_id: `cmd_${randomUUID()}`, run_id: owner.runId, session_id: owner.sessionId, workspace: owner.workspace,
     authorization: context.authorization ? structuredClone(context.authorization) : null,
@@ -86,12 +86,12 @@ function start(context, command, timeoutMs, operation, validate, persistent = fa
   const guardedValidate = () => { try { validate(); } catch (error) { cancel(r, 'permission_revoked'); throw error; } };
   const revocation = setInterval(() => { try { guardedValidate(); } catch {} }, 50);
   const began = performance.now();
-  r.promise = Promise.resolve().then(() => operation(controller.signal, update => {
+  r.promise = Promise.resolve().then(() => require('./recoveryMaintenanceGate').background(() => operation(controller.signal, update => {
     if (!active(r)) return;
     const { previewAuthority, ...publicUpdate } = update;
     if (previewAuthority) previewAuthorities.set(r, previewAuthority);
     Object.assign(r, publicUpdate); save(r);
-  }, guardedValidate)).then(result => {
+  }, guardedValidate))).then(result => {
     Object.assign(r, result);
   }, error => {
     Object.assign(r, { status: controller.signal.aborted ? 'cancelled' : 'spawn_failed', success: false, exitCode: null, stderr: String(error.message).slice(0, 500) });
@@ -109,6 +109,48 @@ function start(context, command, timeoutMs, operation, validate, persistent = fa
   return publicRecord(r);
 }
 function status(id, context) { return publicRecord(owned(id, context)); }
+// No model requests or status polling while waiting. Subscribe before checking
+// state so completion between the final response and sleep cannot be lost.
+function wait(context, signal) {
+  const owner = ownerRun(context);
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      events.removeListener('change', changed);
+      events.removeListener('wake', wake);
+      signal?.removeEventListener('abort', aborted);
+    };
+    const finish = value => { cleanup(); resolve(value); };
+    const aborted = () => { cleanup(); reject(signal.reason ?? new Error('Run cancelled')); };
+    const wake = runId => { if (runId === context.runId) finish(true); };
+    const changed = record => {
+      if (record.run_id === context.runId && record.session_id === context.sessionId && record.workspace === context.workspace) check();
+    };
+    const check = () => {
+      if (owner.ended) { finish(false); return; }
+      const own = [...records.values()].filter(r => r.run_id === context.runId && r.session_id === context.sessionId && r.workspace === context.workspace);
+      if (own.some(r => r.notification_state === 'queued')) { finish(true); return; }
+      // Persistent preview servers are deliberately not task dependencies.
+      if (!own.some(r => active(r) && !r.survive_run_completion)) finish(false);
+    };
+    events.on('change', changed); events.on('wake', wake);
+    signal?.addEventListener('abort', aborted, { once: true });
+    if (signal?.aborted) aborted(); else check();
+  });
+}
+function wake(runId) { events.emit('wake', runId); }
+// Preserve a normal foreground result for quick commands; yield the same
+// process (never restart it) if it takes longer than the interactive interval.
+async function foregroundResult(id, context, yieldMs) {
+  const r = owned(id, context);
+  let timer;
+  try { await Promise.race([r.promise, new Promise(resolve => { timer = setTimeout(resolve, yieldMs); })]); }
+  finally { clearTimeout(timer); }
+  if (active(r)) return { ...publicRecord(r), next_action: 'Continue independent work. When you finish responding, the runtime waits without inference and resumes automatically on command completion. Do not restart or poll this command.' };
+  r.foreground_consumed = true;
+  r.background = false;
+  r.notification_state = 'delivered'; save(r);
+  return { ...publicRecord(r), background: false };
+}
 function cancel(r, reason, error = new Error(reason)) {
   if (!active(r) || r.controller?.signal.aborted) return;
   r.reason = reason; r.controller?.abort(error);
@@ -145,6 +187,7 @@ async function closeRun(context, { normalCompletion = false } = {}) {
   if (owner.sessionId !== context.sessionId || owner.workspace !== context.workspace) throw new Error('Background command ownership denied.');
   if (owner.closePromise) return owner.closePromise;
   owner.ended = true;
+  wake(owner.runId);
   owner.closePromise = (async () => {
     const pending = [];
     for (const r of records.values()) {
@@ -175,14 +218,14 @@ async function shutdown() {
   await Promise.allSettled([...records.values()].filter(active).map(r => { cancel(r, 'application_shutdown'); return r.promise; }));
   await Promise.allSettled([...runs.values()].map(owner => closeRun(owner)));
 }
-function list(sessionId, workspace) { return [...records.values()].filter(r => r.session_id === sessionId && r.workspace === workspace).map(publicRecord); }
+function list(sessionId, workspace) { return [...records.values()].filter(r => r.background !== false && r.session_id === sessionId && r.workspace === workspace).map(publicRecord); }
 async function stopForSession(id, sessionId, workspace) {
   const r = records.get(id);
   if (!r || r.session_id !== sessionId || r.workspace !== workspace) throw new Error('Background command not found in this workspace session.');
   cancel(r, 'user_stopped'); await r.promise; return publicRecord(r);
 }
 function workspaceBusy(workspace) { return [...records.values()].some(r => active(r) && r.workspace === workspace); }
-module.exports = { terminateSession, stopForSession, workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
+module.exports = { wait, wake, foregroundResult, terminateSession, stopForSession, workspaceBusy, forgetSession, openRun, closeRun, start, status, stop, take, acknowledge, shutdown, restore, list, events, ACTIVE_LIMIT, RUN_LIMIT, HISTORY_LIMIT };
 
 // Main-process-only capability resolution. Nothing here is registered as a
 // model operation. Trusted IPC may resolve it; never serialize the capability.

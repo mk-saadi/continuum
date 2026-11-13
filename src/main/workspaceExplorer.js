@@ -29,6 +29,12 @@ async function readFile(projectId, relativePath) {
   try {
     const stat = await handle.stat();
     if (!stat.isFile()) throw new Error('Select a regular file to preview.');
+    const extension = path.extname(target).toLowerCase();
+    const kind = /\.(png|jpe?g|webp|gif|avif|bmp|ico)$/.test(extension) ? 'image'
+      : /\.(mp4|webm|mov|mkv|avi|m4v|ogv|ogg|mpeg|mpg|3gp|3g2|wmv|flv|vob)$/.test(extension) ? 'video' : null;
+    if (kind) return { kind, src: 'local://media/' + encodeURIComponent(target), size: stat.size };
+    if (/\.(pdf|zip|gz|7z|rar|docx?|xlsx?|pptx?|exe|dll|so|woff2?|ttf|otf|gguf)$/.test(extension))
+      return { binary: true, size: stat.size };
     const buffer = Buffer.alloc(Math.min(stat.size, PREVIEW_LIMIT));
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
     const bytes = buffer.subarray(0, bytesRead);
@@ -77,4 +83,24 @@ async function repositoryInfo(projectId) {
   const root = await targetFor(projectId);
   return { available: require('./workspaceGit').repository(root).state === 'detected' };
 }
-module.exports = { listDirectory, readFile, gitStatus, repositoryInfo };
+async function resolvePreviewFile(projectId, href) {
+  if (typeof href !== 'string' || !href || href.includes('\0')) return null;
+  const root = await targetFor(projectId);
+  let requested;
+  try { requested = decodeURIComponent(href); } catch { requested = href; }
+  if (requested.startsWith('file:')) {
+    try { requested = require('node:url').fileURLToPath(requested); } catch { return null; }
+  }
+  const relativePath = path.relative(root, path.resolve(root, requested));
+  try {
+    const target = await targetFor(projectId, relativePath);
+    if (!(await fs.stat(target)).isFile()) return null;
+    return { path: relativePath.split(path.sep).join('/') };
+  } catch { return null; }
+}
+async function revealFile(projectId, relativePath) {
+  const target = await targetFor(projectId, relativePath);
+  if (!(await fs.stat(target)).isFile()) throw new Error('Select a regular file.');
+  require('electron').shell.showItemInFolder(target);
+}
+module.exports = { resolvePreviewFile, revealFile, listDirectory, readFile, gitStatus, repositoryInfo };

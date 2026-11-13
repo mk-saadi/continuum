@@ -262,6 +262,10 @@ const run = (
 			),
 		);
 		assert.ok((await run("list_directory", {})).entries.some((entry) => entry.name === "src"));
+		fs.mkdirSync(path.join(workspace, 'src', 'context'), { recursive: true });
+		fs.writeFileSync(path.join(workspace, 'src', 'context', 'Example.jsx'), 'export default {};');
+		assert.deepEqual((await run('list_directory', { directory_name: 'context' })).matches, ['src/context']);
+		assert.ok((await run('list_directory', { relative_path: 'src/context' })).entries.some(entry => entry.name === 'Example.jsx'));
 		assert.equal(
 			(await run("read_project_file", { relative_path: "src/test.txt" }, "missing")).success,
 			false,

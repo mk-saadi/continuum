@@ -1,3 +1,4 @@
+import { useWorkspacePreview } from "../context/WorkspacePreviewContext.jsx";
 import PromptProcessingGate from "./chat/PromptProcessingGate.jsx";
 import { finalAssistantResponse } from "../lib/assistantResponse.mjs";
 import { formatDuration } from "../lib/durationFormat.mjs";
@@ -363,20 +364,9 @@ function makeComponents(isStreaming, sessionId = null) {
 			// Absolute local path -> hand the decoded path to the OS. React
 			// serializes hrefs percent-encoded, but shell.openPath needs the
 			// literal path, so decode it here.
-			if (kind === "local-absolute") {
-				return (
-					<a
-						{...props}
-						href={href}
-						title={localPathFromHref(href)}
-						className="text-[var(--link)] underline cursor-pointer"
-						onClick={(e) => {
-							e.preventDefault();
-							window.api?.openPath?.(localPathFromHref(href));
-						}}
-					/>
-				);
-			}
+            if (kind === "local-absolute" || /^file:/i.test(href || '')) {
+                return <LocalFileAnchor {...props} href={href} sessionId={sessionId} absolute />;
+            }
 			// Web URLs require an explicit action before opening the browser.
 			if (kind === "web") {
 				return (
@@ -392,20 +382,9 @@ function makeComponents(isStreaming, sessionId = null) {
 			// let it resolve and open. Without this the link fell through to
 			// target="_blank" below, where Electron denies the navigation and
 			// the click silently did nothing.
-			if (kind === "local-relative") {
-				return (
-					<a
-						{...props}
-						href={href}
-						title={href}
-						className="text-[var(--link)] underline cursor-pointer"
-						onClick={(e) => {
-							e.preventDefault();
-							window.api?.openChatPath?.({ path: href, sessionId })?.catch?.(() => {});
-						}}
-					/>
-				);
-			}
+            if (kind === "local-relative") {
+                return <LocalFileAnchor {...props} href={href} sessionId={sessionId} />;
+            }
 			// Keep other supported schemes on the existing external-link path.
 			return (
 				<a
@@ -443,6 +422,17 @@ function StreamingText({ buffer, onFrame, offset = 0 }) {
 			className="whitespace-pre-wrap break-words"
 		/>
 	);
+}
+
+function LocalFileAnchor({ href, sessionId, absolute, ...props }) {
+ const openPreview = useWorkspacePreview();
+ return <a {...props} href={href} title={href} className="text-[var(--link)] underline cursor-pointer"
+  onClick={async event => {
+   event.preventDefault();
+   try { if (openPreview && await openPreview(href)) return; } catch {}
+   if (absolute) window.api?.openPath?.(localPathFromHref(href));
+   else window.api?.openChatPath?.({ path: href, sessionId })?.catch?.(() => {});
+  }} />;
 }
 
 const ChatMessage = React.memo(

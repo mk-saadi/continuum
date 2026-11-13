@@ -62,10 +62,13 @@ def verify_development_budget():
         raise module.NetworkError('NETWORK_RESOURCE_CONTAINMENT_UNAVAILABLE')
 
 
-def command_limits():
+def command_limits(timeout_ms):
     resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
+    # CPU quota remains bounded by the worker's cgroup; allow CPU-heavy work
+    # for its requested wall-clock lifetime instead of killing it at 60 CPU s.
+    cpu_seconds = int(timeout_ms / 1000) * 2 + 30
+    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
     resource.setrlimit(resource.RLIMIT_AS, (64 * 1024**4,) * 2)
 
 
@@ -73,14 +76,20 @@ def execute(request):
     process = None
     try:
         with owner._lock:
+            timeout_ms = request['timeoutMs']
+            # The controller may shorten a valid tool lifetime to the remaining
+            # agent deadline, including a final fraction of a second.
+            if type(timeout_ms) is not int or not 1 <= timeout_ms <= 86400000:
+                raise module.NetworkError('NETWORK_COMMAND_LIFETIME_INVALID')
             owner._authorize(request['session'], request['workspace'])
+            owner._deadline = max(owner._deadline, time.monotonic() + timeout_ms / 1000 + 30)
             launch = request['launch']
             if launch['file'] != '/usr/bin/bwrap' or request['id'] in cancelled:
                 raise module.NetworkError('NETWORK_COMMAND_CANCELLED_OR_INVALID')
             # The verified argv is immutable in the controller. The worker
             # supplies namespace handles privately; there is no host-shell path.
             process = owner._spawn(owner._enter() + [launch['file'], *launch['argv']],
-                                   pass_fds=(owner.net_fd, owner.user_fd), resource_limits=command_limits)
+                                   pass_fds=(owner.net_fd, owner.user_fd), resource_limits=lambda: command_limits(timeout_ms))
             members[request['id']] = process
             owner._members.append(process)
         emit({'event': 'running', 'id': request['id']})
@@ -211,7 +220,7 @@ try:
         raise module.NetworkError('NETWORK_POLICY_INVALID')
     scratch = start['scratch']
     owner = module.NetworkOwner(session=start['session'], workspace=start['workspace'],
-                                helper=start['helper'], validate=lambda: None, lifetime=1830, scratch_parent=scratch, network_policy=policy).start()
+                                helper=start['helper'], validate=lambda: None, lifetime=86430, scratch_parent=scratch, network_policy=policy).start()
     emit({'event': 'ready', 'resolver': str(owner.resolver)})
     while not owner.closed:
         with selectors.DefaultSelector() as selector:

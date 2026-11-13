@@ -40,7 +40,7 @@ test.after(async () => { await manager.shutdown(); database.closeDatabase(); Mod
 test('schemas and strict argument validation preserve foreground bounds', async () => {
   for (const name of ['get_command_status', 'stop_background_command']) assert.deepEqual(agentTools.find(t => t.function.name === name).function.parameters.required, ['command_id']);
   const fixture = setup();
-  for (const args of [{ background: 'yes' }, { background_lifetime_ms: 1000 }, { background: true, background_lifetime_ms: 1800001 }, { background: true, background_lifetime_ms: 1000, timeout_ms: 1000 }]) {
+  for (const args of [{ background: 'yes' }, { background_lifetime_ms: 1000 }, { background: true, background_lifetime_ms: 86400001 }, { background: true, background_lifetime_ms: 1000, timeout_ms: 1000 }]) {
     assert.equal((await fixture.dispatch('execute_command', { command: 'echo forbidden', ...args })).success, false);
   }
   assert.equal((await fixture.dispatch('execute_command', { command: 'printf foreground', background: false })).status, 'completed');
@@ -213,9 +213,10 @@ test('queued authorization revalidation prevents spawn after downgrade; persiste
 });
 test('completion persistence failure retains truthful in-memory outcome; queue capacity is bounded', async () => {
   const f = setup(); const db = database.db;
-  let release;
-  const r = manager.start(f.context, 'persistence fixture', 1000, () => new Promise(resolve => { release = resolve; }), () => {});
-  await delay(0);
+  let release, ready;
+  const prepared = new Promise(resolve => { ready = resolve; });
+  const r = manager.start(f.context, 'persistence fixture', 1000, () => new Promise(resolve => { release = resolve; ready(); }), () => {});
+  await prepared;
   database.initDatabase(temporary).exec('ALTER TABLE background_commands RENAME TO background_commands_unavailable');
   try {
     release({ status: 'nonzero_exit', exitCode: 6, stderr: 'expected failure' });

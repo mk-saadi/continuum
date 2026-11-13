@@ -31,7 +31,7 @@ function manifest(mode, cwd) {
     home: sandbox ? 'isolated' : process.env.HOME || process.env.USERPROFILE ? 'available' : 'unavailable',
     runtimes: Object.fromEntries(['node', 'npm', 'python3', 'git'].map(name => [name, host ? executable(name) ? 'available' : 'unavailable' : 'unknown'])),
     hostNvmInitialization: sandbox ? 'unavailable' : 'unknown', network: sandbox ? network.description : 'unknown (normal OS policy)', networkState: network,
-    temporaryFiles: sandbox ? 'workspace scratch; host /tmp not shared' : 'inherited host environment',
+    temporaryFiles: sandbox ? 'invocation-local /tmp; erased after each command; host /tmp not shared; use project-relative files for persistence' : 'inherited host environment',
     unixSockets: sandbox ? 'unavailable' : 'unknown (normal OS policy)',
     display: sandbox ? 'unavailable' : process.env.DISPLAY || process.env.WAYLAND_DISPLAY ? 'unknown (configured, not verified)' : 'unavailable',
     developmentPreviews: network?.operational ? 'authenticated preview available after bounded server startup' : 'unavailable',
@@ -41,7 +41,14 @@ function manifest(mode, cwd) {
 function section(mode, cwd) {
   const m = manifest(mode, cwd);
   const runtime = m.sandboxed ? 'node/npm/python3/git unknown' : Object.entries(m.runtimes).map(([k,v]) => `${k} ${v}`).join(',');
-  return `[COMMAND ENVIRONMENT] ${m.profile}; ${m.shell}; cwd=${m.cwd}; HOME ${m.home}; ${runtime}; NVM ${m.hostNvmInitialization}; network ${m.network}; tmp ${m.sandboxed ? 'isolated' : 'host'}; Unix/X11/GUI ${m.sandboxed ? 'unavailable' : 'OS policy/display unverified'}; packages ${m.packages}. No Bash syntax. Run tests directly.${require('./workspaceGit').section(mode, cwd)}`;
+  const filesystemInstructions = m.sandboxed ? `
+[WORKSPACE FILESYSTEM RULES]
+The project root is ${JSON.stringify(cwd)}. File tools resolve project-relative paths against that root; shell relative paths resolve against the command's cwd. Use verified paths within the project for authorized reads, edits, scripts, and saved output. Workspace Write permits eligible contained commands and project edits without confirmation; approval requirements returned by tools still apply. Ask for Approval requires command approval.
+For data needed by another command or file tool, save inside the project, for example ./agent-scratch/candidates.txt (create its parent first). Read it with relative_path: "agent-scratch/candidates.txt". If you change shell cwd, keep the saved path anchored to the project root. A leading slash is an absolute filesystem path: /tmp_organize.py is outside the project; ./tmp_organize.py is project-relative.
+Shell /tmp and sandbox HOME are fresh temporary storage for EACH command. A successful write or wc inside one command does not make that file available to later commands. Use /tmp only when creating and consuming the file within the SAME command. It is not host /tmp. Project file tools cannot read or write /tmp or other paths outside the project; do not use traversal or escaping symlinks. Host files, startup scripts, sockets and GUI access are unavailable unless explicitly advertised.
+On "Path escapes the project root", correct the path to a verified project-relative location; do not retry the outside path through another tool. On a later command's missing /tmp file, regenerate it inside the project; copying or reading the vanished file cannot recover it. After truncated output, save the full output inside the project and page through it with file tools. Do not repeat an unchanged failed call or claim a file was reviewed without a successful read.
+` : '';
+  return `[COMMAND ENVIRONMENT] ${m.profile}; ${m.shell}; cwd=${m.cwd}; HOME ${m.home}; ${runtime}; NVM ${m.hostNvmInitialization}; network ${m.network}; tmp ${m.sandboxed ? 'invocation-local, erased after each command' : 'host'}; Unix/X11/GUI ${m.sandboxed ? 'unavailable' : 'OS policy/display unverified'}; packages ${m.packages}. No Bash syntax. Run tests directly.${require('./workspaceGit').section(mode, cwd)}${filesystemInstructions}`;
 }
 
 const displayFailure = result => /(?:Missing X server or \$DISPLAY|cannot open display|Unable to open X display|Failed to connect to (?:the )?X server|The platform failed to initialize)/i.test(`${result?.stderr || ''}\n${result?.stdout || ''}`);

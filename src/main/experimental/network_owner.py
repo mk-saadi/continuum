@@ -70,7 +70,7 @@ def validate_address_policy(policy, today=None):
 def limits():
     resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
+    resource.setrlimit(resource.RLIMIT_CPU, (172860, 172860))
     resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024,) * 2)
 
 
@@ -134,9 +134,9 @@ class NetworkOwner:
         self.network_policy = network_policy
         if not isinstance(session, str) or not session or not callable(validate):
             raise NetworkError('NETWORK_AUTHORIZATION_DENIED')
-        # B2-D: cap owner safety lifetime just beyond B1's 30-minute command
-        # maximum. Individual command deadlines remain separately enforced.
-        if not 1 <= lifetime <= 1830:
+        # Bounded owner safety lifetime covers the 24-hour command maximum.
+        # The production worker renews it for each authorized command.
+        if not 1 <= lifetime <= 86430:
             raise NetworkError('NETWORK_LIFETIME_INVALID')
         self.scratch_parent = scratch_parent
         self.session = session

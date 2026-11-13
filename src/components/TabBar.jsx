@@ -150,8 +150,8 @@ export default function TabBar({ projects = [] }) {
 								return (
 									<Icon
 										className={`size-3 shrink-0 ${isGenerating ? "animate-pulse [filter:drop-shadow(0_0_4px_var(--accent))]" : ""}`}
-										aria-label={label}
-										title={label}
+										aria-label={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : label}
+										title={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : label}
 									/>
 								);
 							})()}
