@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiZap } from 'react-icons/fi';
@@ -30,11 +31,12 @@ export default function ProjectSkillsCard({ project, onUpdated }) {
     });
   }
   return <section className="aero-panel sk-panel project-panel"><h2>Project Skills <span className="projects-muted">({active.filter(skill => enabled.has(skill.id)).length})</span></h2>
-    {active.filter(skill => enabled.has(skill.id)).map(skill => <div key={skill.id} className="workspace-skill"><FiZap aria-hidden="true" /><div><p>{skill.title}</p>{skill.description && <p className="projects-muted" title={skill.description}>{skill.description}</p>}</div></div>)}
+    {active.filter(skill => enabled.has(skill.id)).map(skill => <div key={skill.id} className="workspace-skill"><FiZap aria-hidden="true" /><div><p>{skill.title}</p>{skill.description && <Tooltip content={skill.description}><p className="projects-muted">{skill.description}</p></Tooltip>}</div></div>)}
     {!active.some(skill => enabled.has(skill.id)) && <p className="projects-muted">No active skills selected.</p>}
     <button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer mt-4" onClick={() => setOpen(true)}>Manage Project Skills</button>
     {error && <p role="alert" className="project-error">{error}</p>}
-    {open && createPortal(<dialog ref={dialogRef} aria-label="Manage Project Skills" className="aero-dialog sk-window sk-dialog m-auto w-[calc(100%-32px)] max-w-lg p-5" onCancel={() => setOpen(false)} onClose={() => setOpen(false)} onClick={event => {
+    {open && createPortal(<dialog ref={dialogRef}
+    aria-label="Manage Project Skills" className="aero-dialog sk-window sk-dialog m-auto w-[calc(100%-32px)] max-w-lg p-5" onCancel={() => setOpen(false)} onClose={() => setOpen(false)} onClick={event => {
       if (event.target !== event.currentTarget) return;
       const rect = event.currentTarget.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setOpen(false);
@@ -44,8 +46,8 @@ export default function ProjectSkillsCard({ project, onUpdated }) {
         <div className="max-h-72 space-y-2 overflow-auto">{active.map(skill => <CheckboxField key={skill.id} label={skill.title} hint={skill.description} checked={enabled.has(skill.id)} disabled={busy} onChange={() => toggle(skill.id)} />)}
           {!active.length && <p className="projects-muted">No globally active skills. Import one to begin.</p>}</div>
         <div className="mt-4 flex gap-2">
-          <button className="aero-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold cursor-pointer" disabled={busy} title="Import a .md or .zip skill file" onClick={() => importNew()}>Import Skill File</button>
-          <button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy} title="Import a folder containing SKILL.md" onClick={() => importNew('folder')}>Import Skill Folder</button>
+          <Tooltip content="Import a .md or .zip skill file"><button className="aero-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold cursor-pointer" disabled={busy} aria-label="Import a .md or .zip skill file" onClick={() => importNew()}>Import Skill File</button></Tooltip>
+          <Tooltip content="Import a folder containing SKILL.md"><button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy} aria-label="Import a folder containing SKILL.md" onClick={() => importNew('folder')}>Import Skill Folder</button></Tooltip>
         </div>
       </dialog>, document.body)}
   </section>;

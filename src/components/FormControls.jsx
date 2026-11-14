@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import "../styles/knob.css";
@@ -162,6 +163,7 @@ export const SelectField = forwardRef(function SelectField(
 		icon,
 		items = [], // Array of { value, label, description, icon }
 		dropdownFooter, // ReactNode OR Function({ close }) => ReactNode
+		tooltip,
 		triggerLabel, // Override text shown on the main button
 		hideChevron = false,
 		...selectProps
@@ -254,44 +256,46 @@ export const SelectField = forwardRef(function SelectField(
 						: children}
 				</select>
 
-				<button
-					type="button"
-					id={id}
-					aria-label={selectProps["aria-label"]}
-					ref={triggerRef}
-					disabled={disabled}
-					aria-haspopup="listbox"
-					aria-expanded={isOpen}
-					aria-describedby={hint ? `${id}-hint` : undefined}
-					onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
-					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
-				>
-					<div className="flex items-center gap-1.5 truncate pr-2">
-						{icon && (
-							<span className="flex shrink-0 items-center text-[var(--text-muted)]">
-								{icon}
+				<Tooltip content={tooltip}>
+					<button
+						type="button"
+						id={id}
+						aria-label={selectProps["aria-label"]}
+						ref={triggerRef}
+						disabled={disabled}
+						aria-haspopup="listbox"
+						aria-expanded={isOpen}
+						aria-describedby={hint ? `${id}-hint` : undefined}
+						onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
+						className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+					>
+						<div className="flex items-center gap-1.5 truncate pr-2">
+							{icon && (
+								<span className="flex shrink-0 items-center text-[var(--text-muted)]">
+									{icon}
+								</span>
+							)}
+							<span
+								className={
+									!selectedOption && !triggerLabel ? "text-[var(--text-primary)]" : "truncate"
+								}
+							>
+								{triggerLabel !== undefined
+									? triggerLabel
+									: selectedOption
+										? selectedOption.label
+										: placeholder}
 							</span>
+						</div>
+						{!hideChevron && (
+							<LuChevronDown
+								size={14}
+								aria-hidden="true"
+								className={`shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+							/>
 						)}
-						<span
-							className={
-								!selectedOption && !triggerLabel ? "text-[var(--text-primary)]" : "truncate"
-							}
-						>
-							{triggerLabel !== undefined
-								? triggerLabel
-								: selectedOption
-									? selectedOption.label
-									: placeholder}
-						</span>
-					</div>
-					{!hideChevron && (
-						<LuChevronDown
-							size={14}
-							aria-hidden="true"
-							className={`shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-						/>
-					)}
-				</button>
+					</button>
+				</Tooltip>
 
 				{isOpen &&
 					createPortal(
@@ -1006,20 +1010,22 @@ export const PillToggle = forwardRef(function PillToggle(
 	ref,
 ) {
 	return (
-		<button
-			{...props}
-			ref={ref}
-			type="button"
-			role="switch"
-			aria-checked={active}
-			data-selected={active}
-			disabled={disabled}
-			title={title}
-			onClick={() => onToggle?.(!active)}
-			className={`aero-control sk-button flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
-		>
-			{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
-			<span>{active ? activeLabel || label : label}</span>
-		</button>
+		<Tooltip content={title}>
+			<button
+				{...props}
+				ref={ref}
+				type="button"
+				role="switch"
+				aria-checked={active}
+				data-selected={active}
+				disabled={disabled}
+				aria-label={title}
+				onClick={() => onToggle?.(!active)}
+				className={`aero-control sk-button flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
+			>
+				{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
+				<span>{active ? activeLabel || label : label}</span>
+			</button>
+		</Tooltip>
 	);
 });

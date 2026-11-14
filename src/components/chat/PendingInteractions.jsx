@@ -1,3 +1,4 @@
+import { useToastMessage } from "../../hooks/useAppToast.jsx";
 import React, { useState } from 'react';
 
 // Composer-adjacent pending interactions. Rendered immediately above the
@@ -49,6 +50,7 @@ function QuestionPanel({ request, onAnswer }) {
   const [answer, setAnswer] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  useToastMessage(error);
   const options = Array.isArray(request.options) ? request.options : [];
   async function submit(value) {
     if (!value.trim() || sending) return;
@@ -94,7 +96,7 @@ function QuestionPanel({ request, onAnswer }) {
           Send answer
         </button>
       </form>
-      {error && <p role="alert" className="project-error mt-2">{error}</p>}
+
     </div>
   );
 }
@@ -103,6 +105,7 @@ function SkillApprovalPanel({ step, projectId, onDecision }) {
   const proposal = step.args;
   const [, setDecision] = useState(() => readSkillDecision(step.id));
   const [error, setError] = useState('');
+  useToastMessage(error);
   const [busy, setBusy] = useState(false);
   if (!proposal || typeof proposal !== 'object') return null;
   async function register() {
@@ -147,7 +150,7 @@ function SkillApprovalPanel({ step, projectId, onDecision }) {
           Decline
         </button>
       </div>
-      {error && <p className="project-error mt-2" role="alert">{error}</p>}
+
     </div>
   );
 }

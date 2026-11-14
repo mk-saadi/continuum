@@ -67,7 +67,7 @@ def command_limits(timeout_ms):
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     # CPU quota remains bounded by the worker's cgroup; allow CPU-heavy work
     # for its requested wall-clock lifetime instead of killing it at 60 CPU s.
-    cpu_seconds = int(timeout_ms / 1000) * 2 + 30
+    cpu_seconds = resource.RLIM_INFINITY if timeout_ms is None else int(timeout_ms / 1000) * 2 + 30
     resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
     resource.setrlimit(resource.RLIMIT_AS, (64 * 1024**4,) * 2)
 
@@ -76,13 +76,13 @@ def execute(request):
     process = None
     try:
         with owner._lock:
-            timeout_ms = request['timeoutMs']
+            timeout_ms = request.get('timeoutMs')
             # The controller may shorten a valid tool lifetime to the remaining
             # agent deadline, including a final fraction of a second.
-            if type(timeout_ms) is not int or not 1 <= timeout_ms <= 86400000:
+            if timeout_ms is not None and (type(timeout_ms) is not int or not 1 <= timeout_ms <= 86400000):
                 raise module.NetworkError('NETWORK_COMMAND_LIFETIME_INVALID')
             owner._authorize(request['session'], request['workspace'])
-            owner._deadline = max(owner._deadline, time.monotonic() + timeout_ms / 1000 + 30)
+            owner._deadline = max(owner._deadline, float("inf") if timeout_ms is None else time.monotonic() + timeout_ms / 1000 + 30)
             launch = request['launch']
             if launch['file'] != '/usr/bin/bwrap' or request['id'] in cancelled:
                 raise module.NetworkError('NETWORK_COMMAND_CANCELLED_OR_INVALID')
@@ -93,7 +93,7 @@ def execute(request):
             members[request['id']] = process
             owner._members.append(process)
         emit({'event': 'running', 'id': request['id']})
-        deadline = time.monotonic() + request['timeoutMs'] / 1000
+        deadline = float("inf") if timeout_ms is None else time.monotonic() + timeout_ms / 1000
         status = None
         with selectors.DefaultSelector() as selector:
             for stream, name in ((process.stdout, 'stdout'), (process.stderr, 'stderr')):

@@ -113,10 +113,12 @@ html[data-bg-image="true"] .aero-stage {
 		var(--aero-glow);
 	color: var(--on-accent);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):hover {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	.aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):hover {
 	background: var(--aero-gloss-accent-hover), var(--aero-accent-fill-hover);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):active {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	.aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):active {
 	transform: translateY(1px);
 	background: var(--aero-gloss-pressed), var(--aero-accent-fill-hover);
 	box-shadow: var(--aero-bevel-pressed), var(--aero-glow);
@@ -408,17 +410,23 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-control:i
 
 /* Chrome gets the reflection; a modal supplies one shared blur behind all
    of its header/navigation/footer fills. No extra compositing for its children. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-tabbar, .aero-footer, .aero-navigation, .aero-titlebar) {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(.aero-header, .aero-tabbar, .aero-footer, .aero-navigation, .aero-titlebar) {
 	background: var(--aero-gloss-chrome), var(--aero-chrome-fill);
 	border-color: var(--aero-line);
-	box-shadow: inset 0 1px 0 var(--aero-line-strong), inset 0 -1px 0 var(--aero-shade);
+	box-shadow:
+		inset 0 1px 0 var(--aero-line-strong),
+		inset 0 -1px 0 var(--aero-shade);
 	text-shadow: none;
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-tabbar, .aero-titlebar) {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(.aero-header, .aero-tabbar, .aero-titlebar) {
 	-webkit-backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
 	backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-dialog :is(.aero-header, .aero-tabbar) {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	.aero-dialog
+	:is(.aero-header, .aero-tabbar) {
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
 }
@@ -435,7 +443,8 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-secti
 html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:checked) {
 	border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:hover:not(:has(input:disabled)) {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	.aero-choice:hover:not(:has(input:disabled)) {
 	border-color: var(--edit-border);
 }
 html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:focus-visible) {
@@ -448,9 +457,13 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-well,
 	background: var(--aero-gloss-well), var(--aero-well-fill);
 	box-shadow: var(--aero-bevel-well);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-well, .aero-chat-composer):focus-within {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(.aero-well, .aero-chat-composer):focus-within {
 	border-color: var(--accent);
-	box-shadow: var(--aero-bevel-well), 0 0 0 1px var(--accent), var(--aero-glow);
+	box-shadow:
+		var(--aero-bevel-well),
+		0 0 0 1px var(--accent),
+		var(--aero-glow);
 }
 /* Override the legacy global modal outline suppression only in Aero mode. */
 html:not([data-appearance="flat"]):not([data-appearance="skeu"]) dialog :focus-visible {
@@ -698,11 +711,21 @@ input:disabled + .aero-checkbox {
 
 /* Flat window chrome supports raised tabs without a large blurred surface. */
 .aero-tabbar {
+	scrollbar-width: none;
 	border-bottom: 1px solid var(--aero-line-bottom);
 	background:
 		linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 65%),
 		var(--surface-raised);
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
+}
+.aero-tabbar::-webkit-scrollbar {
+	display: none;
+}
+.aero-tab-close {
+	border: 0;
+	background: none;
+	box-shadow: none;
+	color: inherit;
 }
 .aero-tab {
 	color: var(--text-secondary);
@@ -894,8 +917,18 @@ input:disabled + .aero-checkbox {
 	background: var(--surface);
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
 }
+.workspace-run .aero-chat-tool > button {
+	-webkit-user-select: text;
+	user-select: text;
+}
 .aero-chat-tool[data-expanded="true"] {
-	background: var(--surface);
+	/* The transcript can share --surface, so lift expanded calls toward the
+	   theme's text color for visible separation in both light and dark palettes. */
+	background: color-mix(in srgb, var(--surface) 88%, var(--text-primary));
+}
+/* Solarized's muted foreground needs a darker fill to retain readability. */
+html[data-theme="solarized-dark"] .aero-chat-tool[data-expanded="true"] {
+	background: color-mix(in srgb, var(--surface) 65%, black);
 }
 
 /* Explicit geometry keeps the prompt separator visible above message actions. */
@@ -955,24 +988,38 @@ html[data-bg-image="true"]::before {
 
 /* Chrome participates in the same performance and accessibility fallbacks. */
 @media (prefers-reduced-transparency: reduce) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+		:is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
 		background: var(--surface);
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;
 	}
 }
-html[data-bg-animated="true"]:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar) {
+html[data-bg-animated="true"]:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(.aero-header, .aero-titlebar, .aero-tabbar) {
 	background-color: var(--surface);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+		:is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
 		background: var(--surface);
 	}
 }
 @media (forced-colors: active) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation, .aero-section-header, .aero-choice, .aero-well, .aero-chat-composer) {
+	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+		:is(
+			.aero-header,
+			.aero-titlebar,
+			.aero-tabbar,
+			.aero-footer,
+			.aero-navigation,
+			.aero-section-header,
+			.aero-choice,
+			.aero-well,
+			.aero-chat-composer
+		) {
 		border-color: ButtonBorder;
 		background: Canvas;
 		color: CanvasText;
@@ -988,12 +1035,162 @@ html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-com
 	border-width: 1px;
 	border-color: color-mix(in srgb, var(--border) 50%, transparent);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer,
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-composer:focus-within {
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
+	.aero-chat-composer,
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
+	.aero-chat-composer:focus-within {
 	border-color: color-mix(in srgb, var(--control-border) 50%, transparent);
 }
 html[data-style="skeu"] :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .sk-composer,
-html[data-style="skeu"] :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .sk-composer:is(:hover, :focus-within) {
+html[data-style="skeu"]
+	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
+	.sk-composer:is(:hover, :focus-within) {
 	border-width: 1px;
 	border-color: color-mix(in srgb, var(--sk-edge) 50%, transparent);
+}
+
+/* Classic Aero buttons. Keep the material local to controls so cards, chrome,
+   and the Flat/Skeu appearances retain their own treatments. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) {
+	:is(.aero-control, .aero-primary, .aero-orb):not(.aero-section-header, .aero-choice) {
+		--classic-fill: var(--aero-glass-raised);
+		/* Already-positioned controls (model row actions, scroll-to-bottom,
+		   slider thumbs) must keep their layout anchor for the glow layer. */
+		&:not(.absolute, .fixed, .sticky) {
+			position: relative;
+		}
+		isolation: isolate;
+		background:
+			linear-gradient(180deg,
+				rgb(255 255 255 / 38%) 0%,
+				rgb(255 255 255 / 12%) 48%,
+				transparent 49%,
+				rgb(255 255 255 / 10%) 100%),
+			var(--classic-fill);
+		box-shadow:
+			inset 0 1px 0 rgb(255 255 255 / 55%),
+			inset 0 -1px 2px rgb(255 255 255 / 20%),
+			0 2px 4px rgb(0 0 0 / 20%);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease,
+			filter 180ms ease;
+
+		&:is(.aero-primary, [aria-pressed="true"], [aria-selected="true"], [data-selected="true"]) {
+			--classic-fill: var(--aero-accent-fill);
+		}
+
+		/* Neutral glass needs a shaded lower half as well as a white reflection:
+		   white alone disappears against the pale surfaces of light themes. */
+		&:not(.aero-primary, [aria-pressed="true"], [aria-selected="true"], [data-selected="true"]) {
+			--classic-secondary-fill: color-mix(in srgb, var(--surface-raised) 88%, var(--text-primary));
+			--classic-secondary-gloss: linear-gradient(180deg,
+				rgb(255 255 255 / 52%) 0%,
+				rgb(255 255 255 / 18%) 48%,
+				rgb(0 0 0 / 12%) 49%,
+				rgb(0 0 0 / 5%) 78%,
+				rgb(255 255 255 / 18%) 100%);
+			background: var(--classic-secondary-gloss), var(--classic-secondary-fill);
+			border-color: var(--aero-line);
+			box-shadow:
+				inset 0 1px 0 rgb(255 255 255 / 70%),
+				inset 0 0 0 1px rgb(255 255 255 / 12%),
+				inset 0 -1px 0 rgb(255 255 255 / 28%),
+				0 1px 3px rgb(0 0 0 / 22%);
+
+			@media (hover: hover) {
+				&:hover:not(:disabled, [aria-disabled="true"]) {
+					background: var(--classic-secondary-gloss),
+						color-mix(in srgb, var(--accent) 14%, var(--classic-secondary-fill));
+					border-color: color-mix(in srgb, var(--accent) 45%, var(--aero-line));
+				}
+			}
+
+			@media (forced-colors: active) {
+				&, &:hover:not(:disabled, [aria-disabled="true"]) {
+					background: ButtonFace;
+					border-color: ButtonBorder;
+					box-shadow: none;
+				}
+			}
+		}
+
+		/* Paint behind the label without clipping focus rings or child menus. */
+		&::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			z-index: -1;
+			border-radius: inherit;
+			pointer-events: none;
+			background: radial-gradient(ellipse at 50% 100%, rgb(255 255 255 / 50%), transparent 70%);
+			opacity: 0;
+			transition: opacity 220ms ease;
+		}
+
+		@media (hover: hover) {
+			&:hover:not(:disabled, [aria-disabled="true"]) {
+				transform: none;
+				filter: brightness(1.06);
+				box-shadow:
+					inset 0 0 0 1px rgb(255 255 255 / 35%),
+					inset 0 -2px 7px rgb(255 255 255 / 45%),
+					0 2px 4px rgb(0 0 0 / 20%),
+					0 0 14px rgb(255 255 255 / 22%);
+			}
+			&:hover:not(:disabled, [aria-disabled="true"])::after {
+				opacity: 1;
+			}
+		}
+
+		&:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"]) {
+			transform: translateY(1px);
+			filter: brightness(.96);
+			box-shadow:
+				inset 0 2px 5px rgb(0 0 0 / 28%),
+				inset 0 0 0 1px rgb(255 255 255 / 25%),
+				0 1px 1px rgb(0 0 0 / 12%);
+		}
+		&:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"])::after {
+			opacity: .3;
+		}
+
+		&:is(:disabled, [aria-disabled="true"]) {
+			box-shadow: inset 0 1px 0 var(--aero-line-soft);
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			&, &::after { transition: none; }
+			&:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"]) {
+				transform: none;
+			}
+		}
+
+		@media (forced-colors: active) {
+			&, &:is(:hover, :active, [data-pressed="true"]) {
+				background: ButtonFace;
+				color: ButtonText;
+				box-shadow: none;
+				filter: none;
+			}
+			&::after { display: none; }
+		}
+	}
+}
+
+/* Appearance choices stay quiet until selected, including during hover/press.
+   Preserve geometry, swatches, radio indicators, and keyboard focus outlines. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(.aero-theme-choice:not([aria-checked="true"]), .aero-style-choice:not([data-selected="true"])) {
+	background: transparent !important;
+	border: 1px solid var(--control-border) !important;
+	box-shadow: none !important;
+	filter: none !important;
+	transform: none !important;
+
+	&::after {
+		content: none;
+	}
 }

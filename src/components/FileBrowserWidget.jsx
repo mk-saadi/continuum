@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import { useWorkspacePreview } from "../context/WorkspacePreviewContext.jsx";
 import React, { useState } from 'react';
 import { FiFolder, FiFile, FiCode, FiFileText, FiImage, FiFilm, FiExternalLink } from 'react-icons/fi';
@@ -43,21 +44,24 @@ function FileCard({ item }) {
   }
   return (
     <li className="min-w-0">
-      <button type="button" onClick={open} disabled={opening} title={item.path} aria-label={`${media ? 'View' : 'Open'} ${item.name}`}
-        className="group flex h-full w-full cursor-pointer flex-col overflow-hidden ui-radius-surface border border-[var(--subtle-border)] bg-[var(--input)] text-left transition hover:border-[var(--accent)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-60">
-        <div className={`relative flex h-24 w-full items-center justify-center overflow-hidden ${folder ? 'bg-amber-400/10 text-amber-500' : 'bg-slate-400/5 text-[var(--text-muted)]'}`}>
-          {image && !failedPreview ? <img src={localMediaUrl(item.path)} alt="" loading="lazy" onError={() => setFailedPreview(true)} className="h-full w-full cursor-zoom-in object-cover" /> :
-            video && !failedPreview ? <video src={localMediaUrl(item.path)} muted playsInline preload="metadata" onError={() => setFailedPreview(true)}
-              onLoadedMetadata={event => { if (event.currentTarget.duration > 0.1) event.currentTarget.currentTime = 0.1; }} className="h-full w-full cursor-zoom-in object-cover" /> :
-              <Icon aria-hidden="true" size={32} strokeWidth={1.4} />}
-          {video && <span className="absolute bottom-1 right-1 ui-radius-control bg-black/60 px-1.5 py-0.5 text-[9px] text-white">VIDEO</span>}
-          {!media && <FiExternalLink aria-hidden="true" className="absolute right-2 top-2 ui-radius-control bg-[var(--surface)] p-0.5 text-base opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />}
-        </div>
-        <div className="w-full space-y-1 p-2.5">
-          <p className="truncate font-medium text-[var(--text-primary)]">{item.name}</p>
-          <p className="truncate text-[10px] text-[var(--text-muted)]">{opening ? 'Opening…' : folder ? 'Folder' : [extension.toUpperCase(), sizeLabel(item.size)].filter(Boolean).join(' · ')}</p>
-        </div>
-      </button>
+      <Tooltip content={item.path}>
+        <button type="button" onClick={open} disabled={opening}
+        aria-label={`${media ? 'View' : 'Open'} ${item.name}`}
+	        className="group flex h-full w-full cursor-pointer flex-col overflow-hidden ui-radius-surface border border-[var(--subtle-border)] bg-[var(--input)] text-left transition hover:border-[var(--accent)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-60">
+	        <div className={`relative flex h-24 w-full items-center justify-center overflow-hidden ${folder ? 'bg-amber-400/10 text-amber-500' : 'bg-slate-400/5 text-[var(--text-muted)]'}`}>
+	          {image && !failedPreview ? <img src={localMediaUrl(item.path)} alt="" loading="lazy" onError={() => setFailedPreview(true)} className="h-full w-full cursor-zoom-in object-cover" /> :
+	            video && !failedPreview ? <video src={localMediaUrl(item.path)} muted playsInline preload="metadata" onError={() => setFailedPreview(true)}
+	              onLoadedMetadata={event => { if (event.currentTarget.duration > 0.1) event.currentTarget.currentTime = 0.1; }} className="h-full w-full cursor-zoom-in object-cover" /> :
+	              <Icon aria-hidden="true" size={32} strokeWidth={1.4} />}
+	          {video && <span className="absolute bottom-1 right-1 ui-radius-control bg-black/60 px-1.5 py-0.5 text-[9px] text-white">VIDEO</span>}
+	          {!media && <FiExternalLink aria-hidden="true" className="absolute right-2 top-2 ui-radius-control bg-[var(--surface)] p-0.5 text-base opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />}
+	        </div>
+	        <div className="w-full space-y-1 p-2.5">
+	          <p className="truncate font-medium text-[var(--text-primary)]">{item.name}</p>
+	          <p className="truncate text-[10px] text-[var(--text-muted)]">{opening ? 'Opening…' : folder ? 'Folder' : [extension.toUpperCase(), sizeLabel(item.size)].filter(Boolean).join(' · ')}</p>
+	        </div>
+	      </button>
+      </Tooltip>
       {error && <p role="alert" className="mt-1 break-words text-[var(--error)]">{error}</p>}
     </li>
   );

@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { activityLabel, activityReason, measurementLabel } from '../../lib/compactionActivity.mjs';
@@ -15,7 +16,7 @@ export default function CompactionActivity({ event }) {
     </div>
     <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[var(--subtle-border)] pt-2">
       <span className={event.status === 'failed' ? 'text-[var(--error)]' : 'text-[var(--text-primary)]'}>{complete ? 'Compaction ended' : terminal ? activityLabel(event) : 'Compacting conversation…'}</span>
-      {complete && usage && <span className="tabular-nums" title="Total across compaction summary generations; system instructions excluded">Input: {usage.inputTokens.toLocaleString()} tokens{usage.inputMethod !== 'server-template-tokenizer' ? ' (estimated)' : ''} · Output: {usage.outputTokens.toLocaleString()} tokens{usage.outputMethod !== 'provider-usage' ? ' (estimated)' : ''} · excludes system tokens</span>}
+      {complete && usage && <Tooltip content="Total across compaction summary generations; system instructions excluded"><span className="tabular-nums">Input: {usage.inputTokens.toLocaleString()} tokens{usage.inputMethod !== 'server-template-tokenizer' ? ' (estimated)' : ''} · Output: {usage.outputTokens.toLocaleString()} tokens{usage.outputMethod !== 'provider-usage' ? ' (estimated)' : ''} · excludes system tokens</span></Tooltip>}
       {complete && !usage && <span>Input/output counts unavailable for this older compaction.</span>}
     </div>
     {m.conversationTokens != null && <p className="mt-2 tabular-nums">Summary + recent conversation: {m.conversationTokens.toLocaleString()} tokens · excludes system context and tools</p>}

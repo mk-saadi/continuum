@@ -57,8 +57,7 @@ function context(sessionId, exclude = []) {
   const candidate = stateFor(sessionId);
   const state = candidate && !candidate.basis.some(row => exclude.includes(row.id)) ? candidate : null;
   const remaining = state ? rows.slice(state.basis.length) : rows;
-  const messages = remaining.filter(m => !exclude.includes(m.id))
-    .map(require('./promptBuilder').messageForModel);
+  const messages = require('./promptBuilder').messagesForModel(remaining.filter(m => !exclude.includes(m.id)));
   // A partial live row was represented by complete wire rounds at commit.
   // Its later final prose remains available after restart without replaying tools.
   const open = state?.openId && rows.find(m => m.id === state.openId);

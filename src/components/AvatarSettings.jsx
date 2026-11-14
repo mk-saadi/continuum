@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useContext, useId, useState } from "react";
 import { LuImages, LuUserRound } from "react-icons/lu";
 import ModelProfileSettings from "./ModelProfileSettings";
@@ -182,12 +183,13 @@ function ModelAvatarRow({ model, displayName, onNameChange, avatarUrl, busy, dis
 				</div>
 			)}
 			<div className="min-w-0 flex-1">
-				<span
-					className="block truncate text-xs font-medium"
-					title={model.name || model.id}
-				>
-					{model.name || model.id}
-				</span>
+				<Tooltip content={model.name || model.id}>
+					<span
+						className="block truncate text-xs font-medium"
+					>
+						{model.name || model.id}
+					</span>
+				</Tooltip>
 				<TextField
 					type="text"
 					aria-label={`Display name for ${model.name || model.id}`}

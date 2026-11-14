@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { useModalActions } from "../context/UIStateContext.jsx";
 import {
@@ -172,28 +173,29 @@ export default function ProjectWorkspace({
 									<div className="min-w-0">
 
 										<h1 className="break-words">{project.name}</h1>
-										<button className="workspace-goal" title={project.description || "Add a project goal"} onClick={() => setEditing(true)}>{project.description || "Add a goal…"}</button>
+										<Tooltip content={project.description || "Add a project goal"}><button className="workspace-goal" aria-label={project.description || "Add a project goal"} onClick={() => setEditing(true)}>{project.description || "Add a goal…"}</button></Tooltip>
 									</div>
 								</div>
-								<button
-									className="aero-orb sk-icon-button aero-fill sk-fill workspace-pin cursor-pointer text-[11px] font-medium"
-									aria-pressed={!!project.is_pinned}
-									aria-label={project.is_pinned ? "Unpin project" : "Pin project"}
-									title={project.is_pinned ? "Unpin project" : "Pin project"}
-									disabled={busy}
-									onClick={() =>
-										perform(async () => {
-											const updated = await window.api.setProjectPinned(
-												projectId,
-												!project.is_pinned,
-											);
-											setProject(updated);
-											onUpdated(updated);
-										})
-									}
-								>
-									<FiStar aria-hidden="true" fill={project.is_pinned ? "currentColor" : "none"} />
-								</button>
+								<Tooltip content={project.is_pinned ? "Unpin project" : "Pin project"}>
+									<button
+										className="aero-orb sk-icon-button aero-fill sk-fill workspace-pin cursor-pointer text-[11px] font-medium"
+										aria-pressed={!!project.is_pinned}
+										aria-label={project.is_pinned ? "Unpin project" : "Pin project"}
+										disabled={busy}
+										onClick={() =>
+											perform(async () => {
+												const updated = await window.api.setProjectPinned(
+													projectId,
+													!project.is_pinned,
+												);
+												setProject(updated);
+												onUpdated(updated);
+											})
+										}
+									>
+										<FiStar aria-hidden="true" fill={project.is_pinned ? "currentColor" : "none"} />
+									</button>
+								</Tooltip>
 							</header>
 							<div className="project-hub">
 								<div className="project-stack">
@@ -266,7 +268,7 @@ export default function ProjectWorkspace({
 														onClick={() => onLoadChat(chat.id)}
 													>
 														<FiMessageSquare />
-														<span title={chat.title || "Untitled chat"}>{chat.title || "Untitled chat"}</span>
+														<Tooltip content={chat.title || "Untitled chat"}><span>{chat.title || "Untitled chat"}</span></Tooltip>
 														<time className="projects-muted" dateTime={chat.last_active_at}>
 															{chat.last_active_at ? new Date(chat.last_active_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
 														</time>
@@ -408,7 +410,7 @@ export default function ProjectWorkspace({
 												key={file.id}
 											>
 												<FiFileText />
-												<span title={file.file_path}>{file.file_name}</span>
+												<Tooltip content={file.file_path}><span>{file.file_name}</span></Tooltip>
 												<button
 													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													aria-label={`Remove ${file.file_name}`}
@@ -437,16 +439,17 @@ export default function ProjectWorkspace({
 											onUpdated(updated);
 										}}
 									/>
-									<details className="aero-panel sk-panel project-panel workspace-settings"><summary><FiFolder /><span className="workspace-settings-label">Project settings<span className="workspace-folder-summary" title={project.root_path || ""}>{project.root_path || "No folder connected"}</span></span><LuChevronRight /></summary><div className="workspace-settings-content">
+									<details className="aero-panel sk-panel project-panel workspace-settings"><summary><FiFolder /><span className="workspace-settings-label">Project settings<Tooltip content={project.root_path || ""}><span className="workspace-folder-summary">{project.root_path || "No folder connected"}</span></Tooltip></span><LuChevronRight /></summary><div className="workspace-settings-content">
 										<h2 className="flex items-center gap-2">
 											<FiFolder /> Root Directory
 										</h2>
-										<span
-											className="project-path sk-path"
-											title={project.root_path || ""}
-										>
-											{project.root_path || "No folder connected"}
-										</span>
+										<Tooltip content={project.root_path || ""}>
+											<span
+												className="project-path sk-path"
+											>
+												{project.root_path || "No folder connected"}
+											</span>
+										</Tooltip>
 										<p className="projects-muted mt-2!">
 											Connect your working folder to include repository guidelines and
 											workspace context.

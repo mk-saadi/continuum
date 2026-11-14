@@ -16,6 +16,16 @@ function createManifestStore({ sessionId, runId, epoch, resolve }) {
 			)
 				throw new Error("TOOL_NOT_ADVERTISED: Request authorization or configuration changed.");
 		},
+        afterAuthorization(request, policyRevision) {
+            // guardTool permits a revision transition only through a trusted
+            // saved-approval receipt. Keep configuration and later revocations
+            // checked while adopting that one authorized policy revision.
+            const authorized = policyRevision == null ? request : {
+                ...request, epoch: { ...request.epoch, permission: policyRevision },
+            };
+            this.validateEpoch(authorized);
+            return authorized;
+        },
 		record(tools) {
 			const requestId = randomUUID();
 			const names = new Set();

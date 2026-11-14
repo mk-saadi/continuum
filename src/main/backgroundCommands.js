@@ -65,7 +65,7 @@ function owned(id, context) {
   if (!r || r.session_id !== context.sessionId || r.workspace !== context.workspace) throw new Error('Background command not found in this workspace session.');
   return r;
 }
-function start(context, command, timeoutMs, operation, validate, persistent = false) {
+function start(context, command, timeoutMs, operation, validate, persistent = false, waitForCompletion = true) {
   const owner = ownerRun(context);
   validate(); owner.signal?.throwIfAborted(); prune();
   const all = [...records.values()];
@@ -75,7 +75,7 @@ function start(context, command, timeoutMs, operation, validate, persistent = fa
   const r = { command_id: `cmd_${randomUUID()}`, run_id: owner.runId, session_id: owner.sessionId, workspace: owner.workspace,
     authorization: context.authorization ? structuredClone(context.authorization) : null,
     command_summary: command.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 160), background: true,
-    survive_run_completion: persistent, expires_at: new Date(Date.now() + timeoutMs).toISOString(),
+    survive_run_completion: persistent, wait_for_completion: waitForCompletion, expires_at: timeoutMs == null ? null : new Date(Date.now() + timeoutMs).toISOString(),
     status: 'starting', started_at: new Date().toISOString(), timeout_ms: timeoutMs, exitCode: null,
     notification_state: 'pending', controller, validate, ownerSignal: owner.signal };
   // Fail closed before any operation starts if the initial durable record fails.
@@ -129,8 +129,9 @@ function wait(context, signal) {
       if (owner.ended) { finish(false); return; }
       const own = [...records.values()].filter(r => r.run_id === context.runId && r.session_id === context.sessionId && r.workspace === context.workspace);
       if (own.some(r => r.notification_state === 'queued')) { finish(true); return; }
-      // Persistent preview servers are deliberately not task dependencies.
-      if (!own.some(r => active(r) && !r.survive_run_completion)) finish(false);
+      // Persistence controls process ownership, not whether the task needs its result.
+      // Only explicitly detached services are excluded from automatic continuation.
+      if (!own.some(r => active(r) && r.wait_for_completion !== false)) finish(false);
     };
     events.on('change', changed); events.on('wake', wake);
     signal?.addEventListener('abort', aborted, { once: true });
@@ -239,12 +240,12 @@ function previewAuthority(commandId, context) {
     const current = require('./networkExecution').trustedIdentity(context, identity.workspace);
     if (!r || records.get(commandId) !== r || !active(r) || r.controller?.signal.aborted ||
         !r.survive_run_completion || r.session_id !== identity.sessionId || r.workspace !== identity.workspace ||
-        current.revision !== identity.revision || Date.now() >= Date.parse(r.expires_at) || !authority)
+        current.revision !== identity.revision || (r.expires_at != null && Date.now() >= Date.parse(r.expires_at)) || !authority)
       throw new Error('Preview command authorization denied.');
     r.validate(); authority.validate();
   }
   validate();
   return Object.freeze({ validate, connect: port => { validate(); return authority.connect(port); },
-    expiresAt: Date.parse(r.expires_at), signal: r.controller.signal });
+    expiresAt: r.expires_at == null ? Infinity : Date.parse(r.expires_at), signal: r.controller.signal });
 }
 module.exports.previewAuthority = previewAuthority;

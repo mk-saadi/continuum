@@ -216,7 +216,7 @@ function createService({ readiness = policy.readiness, resolveAuthority = requir
   }
   function status(context, commandId) {
     const p = lookup(context, commandId);
-    return { status: p.ready ? 'ready' : 'starting', url: p.ready ? p.origin + '/' : null, expires_at: new Date(p.authority.expiresAt).toISOString() };
+    return { status: p.ready ? 'ready' : 'starting', url: p.ready ? p.origin + '/' : null, expires_at: Number.isFinite(p.authority.expiresAt) ? new Date(p.authority.expiresAt).toISOString() : null };
   }
   async function open(context, commandId) {
     const p = lookup(context, commandId);

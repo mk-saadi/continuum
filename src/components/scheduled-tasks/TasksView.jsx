@@ -9,30 +9,27 @@ import {
 	FiPlay,
 	FiPlus,
 	FiRefreshCw,
-	FiSearch,
+	FiX,
 	FiTrash2,
 } from "react-icons/fi";
-import { TextField } from "../FormControls";
-import TaskDetails, { StatusChip } from "./TaskDetails.jsx";
+import { TextField, SelectField } from "../FormControls";
+import { StatusChip } from "./TaskDetails.jsx";
 import TaskEditor from "./TaskEditor.jsx";
+import TaskResults from "./TaskResults.jsx";
 import {
 	activeRunFor,
 	applyScheduledEvent,
 	describeRepeatShort,
-	eventTouchesTask,
 	filterTasks,
-	formatDateTime,
 	isActiveRun,
 	modelLabel,
 	nextRunSummary,
-	relativeTime,
-	runStatusLabel,
 	summarize,
 	taskState,
 } from "../../lib/scheduledTasks.mjs";
 import "./tasks.css";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 const FILTERS = [
 	{ value: "all", label: "All" },
 	{ value: "active", label: "Scheduled" },
@@ -51,7 +48,7 @@ function useNow() {
 	return now;
 }
 
-function OverviewCard({ icon, title, value, children, tone }) {
+function OverviewCard({ icon, title, value, tone }) {
 	return (
 		<article
 			className="aero-panel sk-panel sk-card sk-texture-satin tasks-card"
@@ -67,7 +64,6 @@ function OverviewCard({ icon, title, value, children, tone }) {
 				<h2>{title}</h2>
 				<span className="tasks-card-value">{value}</span>
 			</header>
-			<div className="tasks-card-body">{children}</div>
 		</article>
 	);
 }
@@ -150,7 +146,9 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const [actionError, setActionError] = useState("");
 	const [notice, setNotice] = useState("");
 	const [selectedId, setSelectedId] = useState(null);
-	const [history, setHistory] = useState({ runs: [], total: 0, loading: false, error: "" });
+	const [resultStatus, setResultStatus] = useState("completed");
+	const [mobileView, setMobileView] = useState("tasks");
+	const [history, setHistory] = useState({ runs: [], total: 0, offset: 0, loading: false, error: "" });
 	const [editor, setEditor] = useState(null);
 	const [confirmDelete, setConfirmDelete] = useState(null);
 	const [deleteBusy, setDeleteBusy] = useState(false);
@@ -166,6 +164,11 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const selectedRef = useRef(selectedId);
 	selectedRef.current = selectedId;
 	const historyTimer = useRef(null);
+	const historyRequest = useRef(0);
+	const historyOffsetRef = useRef(0);
+	historyOffsetRef.current = history.offset;
+	const resultStatusRef = useRef(resultStatus);
+	resultStatusRef.current = resultStatus;
 
 	const load = useCallback(
 		async ({ quiet = false } = {}) => {
@@ -199,28 +202,29 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	}, [load, refreshKey]);
 
 	const loadHistory = useCallback(
-		async (taskId, offset = 0) => {
-			if (!api || !taskId) return;
-			setHistory((current) =>
-				offset
-					? { ...current, loading: true, error: "" }
-					: { runs: [], total: 0, loading: true, error: "" },
-			);
+		async (taskId, offset = historyOffsetRef.current) => {
+			if (!api || taskId !== selectedRef.current || resultStatus !== resultStatusRef.current) return;
+			const request = ++historyRequest.current;
+			setHistory(current => ({ ...current, loading: true, error: "" }));
 			try {
-				const result = await api.history({ taskId, limit: PAGE_SIZE, offset });
-				if (selectedRef.current !== taskId) return;
+				const result = await api.history({ taskId, status: resultStatus === "all" ? null : resultStatus, limit: PAGE_SIZE, offset });
+				if (request !== historyRequest.current) return;
+				if (offset > 0 && offset >= (result?.total ?? 0)) {
+					return loadHistory(taskId, Math.max(0, Math.ceil((result?.total ?? 0) / PAGE_SIZE) - 1) * PAGE_SIZE);
+				}
 				setHistory((current) => {
-					const rows = offset ? [...current.runs, ...(result?.runs ?? [])] : result?.runs ?? [];
+					const rows = result?.runs ?? [];
 					const seen = new Set();
 					return {
 						runs: rows.filter((run) => (seen.has(run.id) ? false : seen.add(run.id))),
 						total: result?.total ?? rows.length,
+						offset,
 						loading: false,
 						error: "",
 					};
 				});
 			} catch (err) {
-				if (selectedRef.current !== taskId) return;
+				if (request !== historyRequest.current) return;
 				setHistory((current) => ({
 					...current,
 					loading: false,
@@ -228,16 +232,14 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 				}));
 			}
 		},
-		[api],
+		[api, resultStatus],
 	);
 
 	useEffect(() => {
-		if (!selectedId) {
-			setHistory({ runs: [], total: 0, loading: false, error: "" });
-			return;
-		}
+		setHistory({ runs: [], total: 0, offset: 0, loading: true, error: "" });
 		loadHistory(selectedId, 0);
-	}, [selectedId, loadHistory]);
+		return () => { ++historyRequest.current; };
+	}, [selectedId, loadHistory, refreshKey]);
 
 	// Live scheduler events are the source of truth for status changes; the
 	// page never fabricates a local task state. The subscription is torn down on
@@ -252,9 +254,9 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 				setData(next);
 			}
 			const taskId = selectedRef.current;
-			if (taskId && eventTouchesTask(event, taskId, previous.runs)) {
+			if (event?.type?.startsWith("run-")) {
 				clearTimeout(historyTimer.current);
-				historyTimer.current = setTimeout(() => loadHistory(taskId, 0), 200);
+				historyTimer.current = setTimeout(() => loadHistory(taskId), 200);
 			}
 		});
 		return () => {
@@ -266,7 +268,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const refreshAll = useCallback(async () => {
 		const taskId = selectedRef.current;
 		await load({ quiet: true });
-		if (taskId) await loadHistory(taskId, 0);
+		await loadHistory(taskId);
 	}, [load, loadHistory]);
 
 	const act = useCallback(
@@ -294,12 +296,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 		() => filterTasks(data.tasks, data.runs, { query, filter }),
 		[data, query, filter],
 	);
-	const selectedTask = data.tasks.find((task) => task.id === selectedId) ?? null;
-	const selectedActiveRun = selectedTask ? activeRunFor(data.runs, selectedTask.id) : null;
-	const taskById = useMemo(
-		() => new Map(data.tasks.map((task) => [task.id, task])),
-		[data.tasks],
-	);
+
 
 	const saveTask = async (payload, task) => {
 		if (!api) throw new Error("Scheduled tasks are not available in this build.");
@@ -340,7 +337,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 				<header className="tasks-heading">
 					<div className="flex min-w-0 items-center gap-3">
 						<span
-							className="tasks-heading-icon"
+							className="aero-orb sk-icon-button tasks-heading-icon"
 							aria-hidden="true"
 						>
 							<FiCalendar size={18} />
@@ -420,127 +417,22 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 					</p>
 				)}
 
-				<section
-					className="tasks-overview"
-					aria-label="Overview"
-				>
-					<OverviewCard
-						icon={<FiCalendar />}
-						title="Upcoming"
-						value={summary.upcoming.length}
-						tone="neutral"
-					>
-						{summary.upcoming.length ? (
-							<ul className="tasks-mini-list">
-								{summary.upcoming.slice(0, 3).map((task) => (
-									<li key={task.id}>
-										<button
-											type="button"
-											className="tasks-link"
-											onClick={() => setSelectedId(task.id)}
-										>
-											{task.name}
-										</button>
-										<span className="tasks-muted">
-											{relativeTime(task.nextRunAt, now)}
-										</span>
-									</li>
-								))}
-							</ul>
-						) : (
-							<p className="tasks-muted">Nothing scheduled.</p>
-						)}
-					</OverviewCard>
-					<OverviewCard
-						icon={<FiPlay />}
-						title="Running now"
-						value={summary.running.length}
-						tone={summary.running.length ? "active" : "neutral"}
-					>
-						{summary.running.length ? (
-							<ul className="tasks-mini-list">
-								{summary.running.map((task) => {
-									const run = activeRunFor(data.runs, task.id);
-									return (
-										<li key={task.id}>
-											<button
-												type="button"
-												className="tasks-link"
-												onClick={() => setSelectedId(task.id)}
-											>
-												{task.name}
-											</button>
-											<span className="tasks-muted">
-												{run ? runStatusLabel(run.status) : "Active"}
-											</span>
-										</li>
-									);
-								})}
-							</ul>
-						) : (
-							<p className="tasks-muted">Nothing is running.</p>
-						)}
-					</OverviewCard>
-					<OverviewCard
-						icon={<FiPause />}
-						title="Paused"
-						value={summary.paused.length}
-						tone="neutral"
-					>
-						{summary.paused.length ? (
-							<ul className="tasks-mini-list">
-								{summary.paused.slice(0, 3).map((task) => (
-									<li key={task.id}>
-										<button
-											type="button"
-											className="tasks-link"
-											onClick={() => setSelectedId(task.id)}
-										>
-											{task.name}
-										</button>
-									</li>
-								))}
-							</ul>
-						) : (
-							<p className="tasks-muted">No paused tasks.</p>
-						)}
-					</OverviewCard>
-					<OverviewCard
-						icon={<FiClock />}
-						title="Recent results"
-						value={summary.recent.length}
-						tone="neutral"
-					>
-						{summary.recent.length ? (
-							<ul className="tasks-mini-list">
-								{summary.recent.slice(0, 4).map((run) => {
-									const task = taskById.get(run.taskId);
-									return (
-										<li key={run.id}>
-											<button
-												type="button"
-												className="tasks-link"
-												onClick={() => task && setSelectedId(task.id)}
-												disabled={!task}
-											>
-												{task?.name ?? "Deleted task"}
-											</button>
-											<StatusChip status={run.status} />
-										</li>
-									);
-								})}
-							</ul>
-						) : (
-							<p className="tasks-muted">No runs recorded yet.</p>
-						)}
-					</OverviewCard>
+				<section className="tasks-overview" aria-label="Overview">
+					<OverviewCard icon={<FiCalendar />} title="Upcoming" value={summary.upcoming.length} tone="neutral" />
+					<OverviewCard icon={<FiPlay />} title="Running now" value={summary.running.length} tone={summary.running.length ? "active" : "neutral"} />
+					<OverviewCard icon={<FiPause />} title="Paused" value={summary.paused.length} tone="neutral" />
 				</section>
 
-				<div className={`tasks-layout${selectedTask ? " tasks-layout--detail" : ""}`}>
+				<div className="tasks-mobile-tabs" role="group" aria-label="Tasks page view">
+					<button className="aero-control sk-button tasks-filter" aria-pressed={mobileView === "tasks"} onClick={() => setMobileView("tasks")}>Scheduled tasks</button>
+					<button className="aero-control sk-button tasks-filter" aria-pressed={mobileView === "results"} onClick={() => setMobileView("results")}>Results</button>
+				</div>
+				<div className="tasks-layout tasks-layout--results" data-mobile-view={mobileView}>
 					<section
 						className="tasks-list-panel"
 						aria-label="Task list"
 					>
+						<h2 className="tasks-panel-title">Scheduled tasks</h2>
 						<div className="tasks-toolbar">
 							<TextField
 								frameClassName="aero-well sk-well flex min-h-8 flex-1 items-center text-[var(--text-primary)]"
@@ -607,10 +499,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 											<tr>
 												<th scope="col">Task</th>
 												<th scope="col">Next run</th>
-												<th scope="col">Repeats</th>
-												<th scope="col">Model</th>
 												<th scope="col">Status</th>
-												<th scope="col">Last result</th>
 												<th scope="col">
 													<span className="sr-only">Actions</span>
 												</th>
@@ -621,7 +510,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 												const activeRun = activeRunFor(data.runs, task.id);
 												const state = taskState(task, activeRun);
 												const next = nextRunSummary(task, now);
-												const lastRun = data.runs.find((run) => run.taskId === task.id);
+
 												return (
 													<tr
 														key={task.id}
@@ -631,27 +520,19 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 															<button
 																type="button"
 																className="tasks-name"
-																onClick={() => setSelectedId(task.id)}
+																onClick={() => { setSelectedId(task.id); setMobileView("results"); }}
 																aria-current={task.id === selectedId ? "true" : undefined}
 															>
 																{task.name}
 															</button>
 															<span className="tasks-muted tasks-block tasks-clamp">
-																{task.prompt}
+																{describeRepeatShort(task)} · {modelLabel(models, task.model)}
 															</span>
 														</td>
 														<td>
-															<span className="tasks-nowrap">{next.text}</span>
-															{next.detail && (
-																<span
-																	className={`tasks-block tasks-muted${next.overdue ? " tasks-overdue" : ""}`}
-																>
-																	{next.detail}
-																</span>
-															)}
+															<span>{next.detail || next.text}</span>
+
 														</td>
-														<td className="tasks-nowrap">{describeRepeatShort(task)}</td>
-														<td className="tasks-cell-model">{modelLabel(models, task.model)}</td>
 														<td>
 															<StatusChip
 																tone={state.tone}
@@ -659,83 +540,27 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 															/>
 														</td>
 														<td>
-															{lastRun ? (
-																<>
-																	<StatusChip status={lastRun.status} />
-																	<span className="tasks-muted tasks-block">
-																		{formatDateTime(lastRun.scheduledFor, { timezone: task.timezone })}
-																	</span>
-																</>
-															) : (
-																<span className="tasks-muted">Never run</span>
-															)}
-														</td>
-														<td>
-															<div
-																className="tasks-row-actions"
-																onClick={(event) => event.stopPropagation()}
-															>
-																<button
-																	type="button"
-																	className="aero-orb sk-icon-button tasks-icon-button"
-																	title="Run now"
-																	aria-label={`Run ${task.name} now`}
-																	disabled={busy === `run:${task.id}`}
-																	onClick={() =>
-																		act(
-																			`run:${task.id}`,
-																			() => api.runNow(task.id),
-																			`“${task.name}” was queued and starts as soon as it is this task's turn.`,
-																		)
-																	}
-																>
-																	<FiPlay aria-hidden="true" />
-																</button>
-																<button
-																	type="button"
-																	className="aero-orb sk-icon-button tasks-icon-button"
-																	title={task.enabled ? "Pause" : "Resume"}
-																	aria-label={`${task.enabled ? "Pause" : "Resume"} ${task.name}`}
-																	disabled={busy === `pause:${task.id}`}
-																	onClick={() =>
-																		act(
-																			`pause:${task.id}`,
-																			() =>
-																				task.enabled
-																					? api.pause(task.id)
-																					: api.resume(task.id),
-																			task.enabled ? "Task paused." : "Task resumed.",
-																		)
-																	}
-																>
-																	{task.enabled ? (
-																		<FiPause aria-hidden="true" />
-																	) : (
-																		<FiPlay aria-hidden="true" />
-																	)}
-																</button>
-																<button
-																	type="button"
-																	className="aero-orb sk-icon-button tasks-icon-button"
-																	title="Edit"
-																	aria-label={`Edit ${task.name}`}
-																	onClick={() => setEditor({ task })}
-																>
-																	<FiEdit2 aria-hidden="true" />
-																</button>
-																<button
-																	type="button"
-																	className="aero-orb sk-icon-button tasks-icon-button tasks-icon-button--danger"
-																	title="Delete"
-																	aria-label={`Delete ${task.name}`}
-																	onClick={() => {
-																		setDeleteError("");
-																		setConfirmDelete(task);
-																	}}
-																>
-																	<FiTrash2 aria-hidden="true" />
-																</button>
-															</div>
+															<SelectField
+																className="tasks-task-actions"
+																aria-label={`Actions for ${task.name}`}
+																value=""
+																triggerLabel="•••"
+																hideChevron
+																items={[
+																	{ value: "run", label: "Run now", icon: <FiPlay />, disabled: busy === `run:${task.id}` },
+																	{ value: "pause", label: task.enabled ? "Pause" : "Resume", icon: task.enabled ? <FiPause /> : <FiPlay />, disabled: busy === `pause:${task.id}` },
+																	...(activeRun ? [{ value: "cancel", label: "Cancel run", icon: <FiX />, disabled: busy === `cancel:${task.id}` }] : []),
+																	{ value: "edit", label: "Edit", icon: <FiEdit2 /> },
+																	{ value: "delete", label: "Delete", icon: <FiTrash2 /> },
+																]}
+																onChange={({ target: { value } }) => {
+																	if (value === "run") act(`run:${task.id}`, () => api.runNow(task.id), `“${task.name}” was queued and starts as soon as it is this task's turn.`);
+																	if (value === "pause") act(`pause:${task.id}`, () => task.enabled ? api.pause(task.id) : api.resume(task.id), task.enabled ? "Task paused." : "Task resumed.");
+																	if (value === "cancel" && activeRun) act(`cancel:${task.id}`, () => api.cancel({ runId: activeRun.id }), "Run cancelled.");
+																	if (value === "edit") setEditor({ task });
+																	if (value === "delete") { setDeleteError(""); setConfirmDelete(task); }
+																}}
+															/>
 														</td>
 													</tr>
 												);
@@ -751,51 +576,10 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 						)}
 					</section>
 
-					{selectedTask && (
-						<TaskDetails
-							task={selectedTask}
-							activeRun={selectedActiveRun}
-							models={models}
-							projects={projects}
-							history={history}
-							onOpenRun={onOpenRun}
-							chatBusy={chatBusy}
-							now={now}
-							busy={busy}
-							onClose={() => setSelectedId(null)}
-							onEdit={() => setEditor({ task: selectedTask })}
-							onDelete={() => {
-								setDeleteError("");
-								setConfirmDelete(selectedTask);
-							}}
-							onRunNow={() =>
-								act(
-									"run",
-									() => api.runNow(selectedTask.id),
-									`“${selectedTask.name}” was queued and starts as soon as it is this task's turn.`,
-								)
-							}
-							onCancelRun={() =>
-								selectedActiveRun &&
-								act(
-									"cancel",
-									() => api.cancel({ runId: selectedActiveRun.id }),
-									"Run cancelled.",
-								)
-							}
-							onTogglePause={() =>
-								act(
-									"pause",
-									() =>
-										selectedTask.enabled
-											? api.pause(selectedTask.id)
-											: api.resume(selectedTask.id),
-									selectedTask.enabled ? "Task paused." : "Task resumed.",
-								)
-							}
-							onLoadMore={() => loadHistory(selectedTask.id, history.runs.length)}
-						/>
-					)}
+					<TaskResults tasks={data.tasks} selectedId={selectedId} onSelectTask={setSelectedId}
+						status={resultStatus} onStatusChange={setResultStatus} history={history}
+						pageSize={PAGE_SIZE} onPageChange={page => loadHistory(selectedId, (page - 1) * PAGE_SIZE)}
+						onRetry={() => loadHistory(selectedId)} onOpenRun={onOpenRun} chatBusy={chatBusy} now={now} />
 				</div>
 			</div>
 

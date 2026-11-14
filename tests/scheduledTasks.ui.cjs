@@ -16,7 +16,8 @@ app.on('window-all-closed', () => {});
 
 app.whenReady().then(async () => {
 	const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'tasks-ui-'));
-	const window = new BrowserWindow({ width: 1280, height: 900, show: false, webPreferences: { sandbox: true } });
+	const window = new BrowserWindow({ width: 1280, height: 900, show: true, webPreferences: { sandbox: true } });
+	window.webContents.on('console-message', event => { if (event.level === 'error') console.error(event.message); });
 	try {
 		await esbuild.build({
 			stdin: {
@@ -58,13 +59,16 @@ app.whenReady().then(async () => {
           window.subscriptions = subscriptions;
           window.failList = false;
           window.setTasks = next => { tasks = next; };
+          window.setRuns = next => { runs = next; };
+          window.initialTasks = clone(tasks);
+          window.initialRuns = clone(runs);
           window.pushEvent = emit;
 
           window.api = { scheduledTasks: {
             list: async () => { calls.list++; if (window.failList) throw new Error('Backend unavailable'); return clone(tasks); },
             history: async (options = {}) => {
               calls.history.push({ ...options });
-              const rows = options.taskId ? runs.filter(run => run.taskId === options.taskId) : runs;
+              const rows = runs.filter(run => (!options.taskId || run.taskId === options.taskId) && (!options.status || run.status === options.status));
               const offset = options.offset || 0;
               const limit = options.limit || 25;
               return { runs: clone(rows.slice(offset, offset + limit)), total: rows.length, limit, offset };
@@ -130,7 +134,7 @@ app.whenReady().then(async () => {
             window.setMounted = setMounted;
             return <>
               <div style={{ display: 'flex', height: '100%' }}>
-                <Navigation />
+                <div style={{ width: 220, flexShrink: 0 }}><Navigation /></div>
                 <div style={{ display: 'flex', flex: 1, minWidth: 0 }}>{mounted && <TasksView
                   models={[{ id: '/models/alpha.gguf', name: 'Local/alpha.gguf' }, { id: 'cloud:openai:gpt-4o-mini', name: 'OpenAI / gpt-4o-mini' }]}
                   projects={[{ id: 'p1', name: 'Proj' }]}
@@ -191,6 +195,12 @@ app.whenReady().then(async () => {
       };
       const rowOf = name => [...document.querySelectorAll('.tasks-list-table tbody tr')].find(row => row.textContent.includes(name));
       const dialog = () => document.querySelector('dialog[open]');
+      const taskAction = async (name, label) => {
+        ariaButton('Actions for ' + name).click(); await wait();
+        const option = [...document.querySelectorAll('button[role="option"]')].find(node => node.textContent.trim() === label);
+        check(!!option, 'shared action menu exposes ' + label);
+        option.click(); await wait();
+      };
 
       // ---- Navigation -----------------------------------------------------
       for (let i = 0; i < 60 && !rowOf('Alpha'); i++) await wait();
@@ -210,25 +220,60 @@ app.whenReady().then(async () => {
       check(alphaRow.textContent.includes('Daily 09:00'), 'recurrence shown');
       check(alphaRow.textContent.includes('Local/alpha.gguf'), 'selected model shown');
       check(alphaRow.textContent.includes('Scheduled'), 'scheduled status shown');
-      check(alphaRow.textContent.includes('Completed'), 'last result shown');
+      check(document.querySelector('.tasks-results').textContent.includes('Completed'), 'completed results shown by default');
       check(rowOf('Beta').textContent.includes('Last run failed'), 'failed task differs from blocked');
       check(rowOf('Gamma').textContent.includes('Paused'), 'paused task shown');
       check(text().includes('Tasks run inside Continuum while the app is open'), 'closed-app behaviour is stated');
       check(text().includes('1') && text().includes('Upcoming'), 'overview renders');
 
-      // ---- Details and history --------------------------------------------
+      // ---- Results open directly, with independent task/status filters -------
+      const results = document.querySelector('.tasks-results');
+      check(!!results && !document.querySelector('.tasks-detail'), 'results present without opening task details');
+      check(results.querySelectorAll('button.tasks-result-row').length === 1, 'completed filter excludes other statuses');
+      results.querySelector('button.tasks-result-row').click();
+      check(window.openedRun === 'scheduled-r1', 'one click opens completed run chat');
+      const selectResult = (index, value) => {
+        const select = results.querySelectorAll('select')[index];
+        Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(select, value);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      };
       [...alphaRow.querySelectorAll('button')].find(b => b.textContent.trim() === 'Alpha').click(); await wait();
-      const detail = document.querySelector('.tasks-detail');
-      check(!!detail, 'details panel opens');
-      check(detail.textContent.includes('Configuration') && detail.textContent.includes('History'), 'sections present');
-      check(detail.textContent.includes('Alpha instructions for the assistant.'), 'instructions visible');
-      check(detail.textContent.includes('read_only'), 'permission mode visible');
-      check(detail.textContent.includes('Completed') && detail.textContent.includes('Needs attention'), 'history shows success and blocked');
-      check(detail.textContent.includes('approval_required'), 'blocked reason visible');
-      check(window.calls.history.some(call => call.taskId === 'a'), 'history queried for the task');
-      check(!!button('Open chat', detail), 'completed run offers its saved chat');
-      button('Open chat', detail).click();
-      check(window.openedRun === 'scheduled-r1', 'open chat selects the run session');
+      check(results.querySelector('select').value === 'a', 'task name filters results');
+      check(!document.querySelector('.tasks-detail'), 'task click never opens configuration panel');
+      selectResult(1, 'all'); await wait();
+      check(results.textContent.includes('Needs attention') && results.textContent.includes('approval_required'), 'all runs includes blocked reasons');
+      check(window.calls.history.some(call => call.taskId === 'a'), 'history queried for selected task');
+      button('Show all tasks', results).click(); await wait();
+      selectResult(1, 'failed'); await wait();
+      check(results.querySelector('.tasks-results-scroll').textContent.includes('Beta') && !results.querySelector('.tasks-results-scroll').textContent.includes('Alpha'), 'status filter spans all tasks');
+      selectResult(1, 'completed'); await wait();
+
+      await wait();
+      check(document.querySelector('.tasks-list-panel').getBoundingClientRect().right <= results.getBoundingClientRect().left, 'desktop panels sit side by side');
+      check(document.querySelector('.tasks-page').scrollWidth <= document.querySelector('.tasks-page').clientWidth, 'page has no horizontal overflow');
+      // Older results are fetched from persisted history, including deleted tasks.
+      const older = Array.from({ length: 28 }, (_, index) => ({ ...window.initialRuns[0], id: 'old-' + index, taskId: index === 27 ? 'deleted' : 'b', sessionId: 'old-chat-' + index, scheduledFor: Date.now() - (index + 1) * 86400000 }));
+      window.setRuns(older);
+      button('Refresh').click(); await wait(100);
+      check(results.querySelectorAll('.tasks-result-row').length === 10, 'first results page has ten items');
+      check(results.textContent.includes('Page 1 of 3') && button('Previous', results).disabled, 'pagination starts on first page');
+      check(!results.querySelector('.tasks-results-scroll').textContent.includes('Open chat'), 'rows show open icon without redundant text');
+      check(results.querySelectorAll('button[aria-haspopup="listbox"]').length === 2, 'filters use shared SelectField controls');
+      button('Next', results).click(); await wait(100);
+      check(results.querySelectorAll('.tasks-result-row').length === 10 && results.textContent.includes('Page 2 of 3'), 'next page replaces the previous ten rows');
+      check(window.calls.history.some(call => call.offset === 10 && call.limit === 10), 'page requests use ten-item offsets');
+      button('Next', results).click(); await wait(100);
+      check(results.querySelectorAll('.tasks-result-row').length === 8 && button('Next', results).disabled, 'last page contains remaining results');
+      const deletedResult = [...results.querySelectorAll('button.tasks-result-row')].find(row => row.textContent.includes('Deleted task'));
+      check(!!deletedResult, 'deleted task history remains accessible');
+      deletedResult.click(); check(window.openedRun === 'old-chat-27', 'deleted task chat still opens');
+      button('Previous', results).click(); await wait(100);
+      check(results.textContent.includes('Page 2 of 3'), 'previous navigates back');
+      selectResult(1, 'failed'); await wait(100);
+      check(results.textContent.includes('Page 1 of 1'), 'changing filters resets pagination');
+      selectResult(1, 'completed'); await wait(100);
+      window.setRuns(window.initialRuns);
+      button('Refresh').click(); await wait(100);
 
       // ---- Live events touch the right task --------------------------------
       window.pushEvent({ type: 'run-updated', run: { id: 'live-1', taskId: 'b', status: 'running', trigger: 'schedule', scheduledFor: Date.now(), startedAt: Date.now() } });
@@ -270,7 +315,7 @@ app.whenReady().then(async () => {
       check(!!rowOf('Nightly digest'), 'created task appears from persisted state');
 
       // ---- Edit sends a minimal patch -------------------------------------
-      ariaButton('Edit Alpha').click(); await wait();
+      await taskAction('Alpha', 'Edit'); await wait();
       check(!!dialog(), 'edit dialog opens');
       setValue(field('Task name'), 'Alpha edited');
       button('Save changes', dialog()).click();
@@ -282,30 +327,26 @@ app.whenReady().then(async () => {
       check(!!rowOf('Alpha edited'), 'edit applied to the list');
 
       // ---- Pause, resume, run now, cancel ---------------------------------
-      ariaButton('Pause Alpha edited').click();
+      await taskAction('Alpha edited', 'Pause');
       for (let i = 0; i < 40 && !window.calls.pause.length; i++) await wait();
       check(window.calls.pause.includes('a'), 'pause reaches IPC');
       await wait(80);
       check(rowOf('Alpha edited').textContent.includes('Paused'), 'paused state shown');
-      ariaButton('Resume Alpha edited').click();
+      await taskAction('Alpha edited', 'Resume');
       for (let i = 0; i < 40 && !window.calls.resume.length; i++) await wait();
       check(window.calls.resume.includes('a'), 'resume reaches IPC');
 
-      ariaButton('Run Alpha edited now').click();
+      await taskAction('Alpha edited', 'Run now');
       for (let i = 0; i < 40 && !window.calls.runNow.length; i++) await wait();
       check(window.calls.runNow.includes('a'), 'run now reaches IPC');
       await wait(120);
       check(text().includes('was queued'), 'queued run is acknowledged');
-      [...rowOf('Alpha edited').querySelectorAll('button')].find(b => b.textContent.trim() === 'Alpha edited').click();
-      await wait(120);
-      const cancelButton = [...document.querySelectorAll('.tasks-detail button')].find(b => b.textContent.trim() === 'Cancel run');
-      check(!!cancelButton, 'active run can be cancelled from details');
-      cancelButton.click();
+      await taskAction('Alpha edited', 'Cancel run');
       for (let i = 0; i < 40 && !window.calls.cancel.length; i++) await wait();
       check(window.calls.cancel.includes('run-now-a'), 'cancel targets the active run');
 
       // ---- Delete needs confirmation --------------------------------------
-      ariaButton('Delete Alpha edited').click(); await wait();
+      await taskAction('Alpha edited', 'Delete'); await wait();
       check(dialog() && dialog().textContent.includes('history is kept'), 'deletion explains history is preserved');
       button('Delete task', dialog()).click();
       for (let i = 0; i < 40 && !window.calls.remove.length; i++) await wait();
@@ -325,7 +366,7 @@ app.whenReady().then(async () => {
       check(!!rowOf('Gamma'), 'retry recovers the list');
 
       // ---- Theme variables drive colours ----------------------------------
-      const failedChip = [...rowOf('Beta').querySelectorAll('.tasks-chip')].find(chip => chip.textContent.includes('Failed'));
+      const failedChip = rowOf('Beta').querySelector('.tasks-chip');
       check(!!failedChip, 'failed chip present');
       document.documentElement.style.setProperty('--error', 'rgb(9, 9, 9)');
       check(getComputedStyle(failedChip).color === 'rgb(9, 9, 9)', 'status colour follows the theme variable');
@@ -346,9 +387,51 @@ app.whenReady().then(async () => {
       window.setMounted(false);
       await wait(80);
       check(window.subscriptions.removed === window.subscriptions.added, 'subscription removed on unmount');
-      return { added, removed: window.subscriptions.removed, checks: 40 };
+      return { added, removed: window.subscriptions.removed };
     })()`);
-		console.log('Scheduled tasks UI: navigation, list, details, create/edit, lifecycle, live events, error/empty states and theming passed.');
+		await window.webContents.executeJavaScript(`window.setTasks(window.initialTasks); window.setRuns(window.initialRuns); window.setMounted(true); undefined;`);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        // Inspect with the app's compiled theme when a production build is available.
+        const assets = path.join(process.cwd(), 'dist/assets');
+        const styles = (await fs.readdir(assets).catch(() => [])).filter(name => /^(index|App)-.*\.css$/.test(name));
+        for (const name of styles) {
+          const css = await fs.readFile(path.join(assets, name), 'utf8');
+          await window.webContents.executeJavaScript(`{ const style = document.createElement('style'); style.textContent = ${JSON.stringify(css)}; document.head.append(style); }; undefined;`);
+        }
+        await window.webContents.executeJavaScript(`document.documentElement.dataset.theme = 'dark'; document.documentElement.style.removeProperty('--error'); document.querySelector('.tasks-results select').value = ''; document.querySelector('.tasks-results select').dispatchEvent(new Event('change', {bubbles:true}));`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await window.webContents.executeJavaScript(`(() => {
+          const headingButtons = document.querySelectorAll('.tasks-heading-actions button');
+          if (Math.abs(headingButtons[0].getBoundingClientRect().height - headingButtons[1].getBoundingClientRect().height) > 1) throw new Error('heading button heights differ');
+          const icon = document.querySelector('.tasks-heading-icon');
+          document.documentElement.dataset.appearance = 'flat';
+          if (getComputedStyle(icon).backgroundImage !== 'none' || getComputedStyle(icon).boxShadow !== 'none') throw new Error('flat icon retains aero effects');
+          document.documentElement.dataset.appearance = 'aero';
+          if (getComputedStyle(icon).backgroundImage === 'none') throw new Error('aero icon lost its style');
+          const panel = document.querySelector('.tasks-results').getBoundingClientRect();
+          const page = document.querySelector('.tasks-page').getBoundingClientRect();
+          const padding = parseFloat(getComputedStyle(document.querySelector('.tasks-page')).paddingBottom);
+          if (Math.abs(panel.bottom - (page.bottom - padding)) > 2) throw new Error('results panel must extend to bottom of page');
+          const footer = document.querySelector('.tasks-results-pagination').getBoundingClientRect();
+          if (footer.bottom > page.bottom) throw new Error('pagination must remain visible');
+        })()`);
+        await fs.writeFile('/tmp/tasks-results-desktop.png', (await window.webContents.capturePage()).toPNG());
+        window.setSize(700, 900);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await window.webContents.executeJavaScript(`(() => {
+          const check = (value, message) => { if (!value) throw new Error(message); };
+          const tabs = document.querySelector('.tasks-mobile-tabs');
+          check(getComputedStyle(tabs).display !== 'none', 'narrow window exposes local tabs');
+          tabs.querySelectorAll('button')[1].click();
+        })()`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await window.webContents.executeJavaScript(`(() => {
+          if (getComputedStyle(document.querySelector('.tasks-list-panel')).display !== 'none') throw new Error('results tab hides list');
+          const page = document.querySelector('.tasks-page');
+          if (page.scrollWidth > page.clientWidth) throw new Error('narrow results overflow');
+        })()`);
+        await fs.writeFile('/tmp/tasks-results-narrow.png', (await window.webContents.capturePage()).toPNG());
+		console.log('Scheduled tasks UI: navigation, list, direct results, filters, pagination, create/edit, lifecycle, live events, error/empty states and theming passed.');
 		console.log(JSON.stringify(result));
 	} finally {
 		window.destroy();

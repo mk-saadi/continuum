@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -39,10 +40,13 @@ const FileChanges = React.memo(function FileChanges({ file, diff, onOpenFile, wr
   }), []);
   return <section ref={container} className="border-b border-[var(--border)]" aria-label={file.path}>
     <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}
-        className="min-w-0 flex-1 cursor-pointer truncate text-left" title={file.path}>
-        {open ? '▾' : '▸'} {file.path}
-      </button>
+      <Tooltip content={file.path}>
+        <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}
+	        className="min-w-0 flex-1 cursor-pointer truncate text-left"
+        aria-label={file.path}>
+	        {open ? '▾' : '▸'} {file.path}
+	      </button>
+      </Tooltip>
       <span className="text-[var(--text-muted)]">{file.status}</span>
       <span className="text-[var(--success)]">+{file.added ?? '—'}</span>
       <span className="text-[var(--error)]">−{file.deleted ?? '—'}</span>

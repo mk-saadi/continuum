@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { useEffect, useState } from "react";
 import { subagentLimitNotice } from "../../lib/subagentDisplay.mjs";
 
@@ -22,11 +23,12 @@ export default function SubagentLimitBadge({ childSessionId }) {
 	}, [childSessionId]);
 	if (!notice) return null;
 	return (
-		<span
-			title={notice}
-			className="shrink-0 ui-radius-control bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-		>
-			Limit hit — raise in Settings › Agents &amp; Skills › Custom hard limits
-		</span>
+		<Tooltip content={notice}>
+			<span
+				className="shrink-0 ui-radius-control bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+			>
+				Limit hit — raise in Settings › Agents &amp; Skills › Custom hard limits
+			</span>
+		</Tooltip>
 	);
 }

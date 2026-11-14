@@ -522,7 +522,7 @@ function buildBranchContext(userMessageId, modelId) {
 						.get(row.parent_id);
 	}
 	if (!modelId) return { sessionId, messages: path };
-	const { buildSessionSystemPrompt, messageForModel } = require("./promptBuilder");
+	const { buildSessionSystemPrompt, messagesForModel } = require("./promptBuilder");
 	const { prependBaseSystemPrompt } = require("./baseSystemPrompt");
 	const effective = require("./profileSettings").getSessionSettings(sessionId, modelId).effective;
 	const richLevel = require("./profileSettings").resolveRichLevel(sessionId, modelId);
@@ -532,7 +532,7 @@ function buildBranchContext(userMessageId, modelId) {
 		messages: prependBaseSystemPrompt(
 			[
 				buildSessionSystemPrompt({ sessionId, modelId, userText: path.at(-1)?.content ?? "" }),
-				...path.map(messageForModel),
+				...messagesForModel(path),
 			],
 			effective.memoryEnabled,
 			null,

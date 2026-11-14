@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import SavedToolRule from '../SavedToolRule';
 import React, { useState } from "react";
 import { useRowUiState } from "../../hooks/useRowUiState.js";
@@ -10,7 +11,6 @@ import {
 	commandOutcome,
 	fileEditStats,
 	failureDetail,
-	formatArgFields,
 	isBlockedStep,
 	isCancelledStep,
 	isTestCommand,
@@ -348,7 +348,6 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 	const { summary, paths } = summarizeStep(step);
 	const kind = toolKind(step);
 	const verb = toolVerb(step);
-	const fields = formatArgFields(step);
 	const running = classification.key === "running";
 	const failed = classification.key === "failed";
 	const blocked = classification.key === "blocked";
@@ -373,12 +372,6 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 	// pasted report stands alone.
 	const detail = failed || blocked || cancelled ? failureDetail(step) : "";
 	const copyErrorText = detail ? `${err}\n\n${detail}` : err;
-	// The path is already the diff header (edits) or WriteSummary (writes);
-	// repeating it in the fields table would duplicate the same heading.
-	const writePathShown = kind === "write" && typeof step.args?.relative_path === "string";
-	const isPathShownElsewhere = (field) =>
-		field.label === "Path" && ((diff && kind === "edit") || writePathShown);
-	const visibleFields = fields.filter((field) => !isPathShownElsewhere(field));
 
 	const titleTone = failed
 		? "text-[var(--error)]"
@@ -394,13 +387,11 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			classification.key !== "success" && classification.key !== "blocked"
 		: true;
 	const containerTone = timeline
-		? classification.key === "failed"
-			? "bg-[var(--error)]/[0.05]"
-			: classification.key === "blocked"
-				? "border-l-2 border-l-amber-400/70 bg-amber-400/[0.05]"
-				: classification.key === "running"
-					? "bg-amber-400/[0.04]"
-					: "bg-transparent"
+		? classification.key === "blocked"
+			? "border-l-2 border-l-amber-400/70 bg-amber-400/[0.05]"
+			: classification.key === "running"
+				? "bg-amber-400/[0.04]"
+				: "bg-transparent"
 		: "";
 
 	return (
@@ -421,7 +412,11 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			<button
 				type="button"
 				aria-expanded={expanded}
-				onClick={() => setUserExpanded(!expanded)}
+				onClick={(event) => {
+					const selection = window.getSelection();
+					if (event.detail > 0 && selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode)) return;
+					setUserExpanded(!expanded);
+				}}
 				className={
 					timeline
 						? "flex w-full min-w-0 cursor-pointer items-center gap-2 ui-radius-control px-2 py-1 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
@@ -440,12 +435,13 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 				) : (
 					<StatusIcon tone={classification.tone} />
 				)}
-				<strong
-					className={`min-w-0 shrink-0 font-medium ${titleTone}`}
-					title={step.toolName}
-				>
-					{verb}
-				</strong>
+				<Tooltip content={step.toolName}>
+					<strong
+						className={`min-w-0 shrink-0 font-medium ${titleTone}`}
+					>
+						{verb}
+					</strong>
+				</Tooltip>
 				{showPill && (
 					<span
 						className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${compact && !expanded ? "bg-transparent text-[var(--text-muted)]" : PILL_STYLES[classification.tone] ?? PILL_STYLES.muted}`}
@@ -459,12 +455,13 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					</span>
 				)}
 				{summary && !expanded && (
-					<span
-						className="min-w-0 flex-1 truncate text-[var(--text-muted)]"
-						title={summary}
-					>
-						{summary}
-					</span>
+					<Tooltip content={summary}>
+						<span
+							className="min-w-0 flex-1 truncate text-[var(--text-muted)]"
+						>
+							{summary}
+						</span>
+					</Tooltip>
 				)}
 				{meta && !expanded && (
 					<span className={`shrink-0 font-mono text-[10px] tabular-nums ${meta.tone}`}>
@@ -472,12 +469,13 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					</span>
 				)}
 				{step.serverName && (
-					<span
-						title={step.serverName}
-						className={`ml-auto hidden max-w-[30%] truncate ui-radius-control border border-[var(--subtle-border)] ${compact && !expanded ? "bg-transparent" : "bg-[var(--input)]"} px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block`}
-					>
-						{step.serverName}
-					</span>
+					<Tooltip content={step.serverName}>
+						<span
+							className={`ml-auto hidden max-w-[30%] truncate ui-radius-control border border-[var(--subtle-border)] ${compact && !expanded ? "bg-transparent" : "bg-[var(--input)]"} px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] sm:block`}
+						>
+							{step.serverName}
+						</span>
+					</Tooltip>
 				)}
 			</button>
 			{expanded && (
@@ -634,21 +632,6 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						!diff &&
 						!directory && <GenericResult step={step} />
 					)}
-					{visibleFields.length > 0 && (
-						<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-							{visibleFields.map((field, index) => (
-								<React.Fragment key={index}>
-									<dt className="shrink-0 text-[var(--text-muted)]">{field.label}</dt>
-									<dd
-										className="min-w-0 break-words text-[var(--text-secondary)]"
-										title={field.value}
-									>
-										{field.value}
-									</dd>
-								</React.Fragment>
-							))}
-						</dl>
-					)}
 					{kind === "write" && typeof step.args?.content === "string" && (
 						<Detail summary="Written content">
 							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)]">
@@ -657,11 +640,15 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 						</Detail>
 					)}
 					{step.args != null && (
-						<Detail summary="Full arguments">
-							<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words ui-radius-control bg-[var(--code-bg)] p-3 font-mono text-[11px] text-[var(--code-text)] shadow-[0_2px_4px_var(--window-shadow)]">
+						<details className="group/arguments border-t border-[var(--border)] pt-2 text-xs">
+							<summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-[var(--text-muted)] outline-none hover:text-[var(--text-primary)] focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+								<FiChevronRight aria-hidden="true" className="shrink-0 transition-transform group-open/arguments:rotate-90" />
+								Arguments
+							</summary>
+							<pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words bg-transparent font-mono text-[11px] text-[var(--text-primary)]">
 								{formatBody(step.args)}
 							</pre>
-						</Detail>
+						</details>
 					)}
 				</div>
 			)}

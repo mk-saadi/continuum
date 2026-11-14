@@ -169,3 +169,47 @@ test('Anthropic receives original base64 image blocks and rejects audio/video be
   await assert.rejects(chat([{ role: 'user', content: [{ type: 'input_audio', input_audio: { data: 'AAAA', format: 'wav' } }] }], adapter, true), /does not support audio/);
   assert.equal(calls, 1);
 });
+
+test('historical screenshots become references; current images and explicit rereads retain pixels', async () => {
+  const { messagesForModel, rebuildChatMessages } = require('../src/main/promptBuilder');
+  const file = path.join(directory, 'history.png');
+  fs.writeFileSync(file, fixtures[0].bytes);
+  const attachments = await uploads.processUploads([file]);
+  const sessionId = 'history-on-demand';
+  const first = prepareChatMessages({ sessionId, modelId: 'fixture', userText: 'Inspect', attachments });
+  const count = messages => messages.flatMap(m => Array.isArray(m.content) ? m.content : []).filter(p => p.type === 'image_url').length;
+  assert.equal(count(first), 1);
+  sessions.saveMessage(sessionId, 'assistant', 'Screenshot observations');
+  // Rebuilding within the original turn (including regeneration) preserves pixels.
+  assert.equal(count(rebuildChatMessages({ sessionId, modelId: 'fixture' })), 1);
+  const next = prepareChatMessages({ sessionId, modelId: 'fixture', userText: 'Thanks' });
+  assert.equal(count(next), 0);
+  assert.match(JSON.stringify(next), /Historical image pixels are not included/);
+  assert.match(JSON.stringify(next), /Screenshot observations/);
+  const row = sessions.loadSession(sessionId).messages[0].attachments[0];
+  const ref = reader.reference(row);
+  assert.equal(reader.read({ attachment_id: ref }, sessionId).image.type, 'image_url');
+  const newer = prepareChatMessages({ sessionId, modelId: 'fixture', userText: 'New screenshot', attachments });
+  assert.equal(count(newer), 1);
+  const rows = sessions.loadSession(sessionId).messages;
+  assert.equal(count(messagesForModel(rows)), 1);
+});
+
+test('image inspection shares decoding for identical bytes but rejects changed bytes and MIME', async () => {
+  const originalStats = sharp.prototype.stats;
+  let decodes = 0;
+  sharp.prototype.stats = function(...args) { decodes++; return originalStats.apply(this, args); };
+  try {
+    const bytes = await sharp({ create: { width: 73, height: 19, channels: 3, background: '#123456' } }).png().toBuffer();
+    const [a, b] = await Promise.all([inspectImage(bytes, 'image/png'), inspectImage(Buffer.from(bytes), 'image/png')]);
+    assert.equal(decodes, 1);
+    a.width = 0;
+    assert.equal(b.width, 73);
+    assert.equal((await inspectImage(bytes, 'image/png')).width, 73);
+    assert.equal(decodes, 1);
+    await assert.rejects(inspectImage(bytes, 'image/jpeg'), /does not match/);
+    const corrupt = bytes.subarray(0, bytes.length - 30);
+    await assert.rejects(inspectImage(corrupt, 'image/png'), /could not be safely decoded/);
+    await assert.rejects(inspectImage(corrupt, 'image/png'), /could not be safely decoded/);
+  } finally { sharp.prototype.stats = originalStats; }
+});

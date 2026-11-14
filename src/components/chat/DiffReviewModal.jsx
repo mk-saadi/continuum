@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import "./diffReview.css";
 import React, { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -513,12 +514,13 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 					{entry.status}
 				</span>
 				<span className="order-first min-w-0 basis-full">
-					<span
-						className="block truncate font-mono text-[11px]"
-						title={entry.path}
-					>
-						{entry.path}
-					</span>
+					<Tooltip content={entry.path}>
+						<span
+							className="block truncate font-mono text-[11px]"
+						>
+							{entry.path}
+						</span>
+					</Tooltip>
 					<span className="block text-[10px] text-[var(--text-muted)] tabular-nums">
 						{renderCounts(entry)}
 						{entry.renamedFrom ? ` ← ${entry.renamedFrom}` : ""}
@@ -661,12 +663,13 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 								) : (
 									<>
 										<div className="diff-toolbar flex flex-wrap items-center gap-2">
-											<h3
+											<Tooltip content={selectedPath}>
+												<h3
 												className="min-w-0 flex-1 truncate font-mono text-xs"
-												title={selectedPath}
 											>
 												{embedded ? <span className="flex items-center gap-2 font-sans font-normal"><span className="text-[var(--text-muted)]">{branch || 'Working tree'}</span><span className="text-[var(--success)]">+{(diff.text?.match(/^\+(?!\+)/gm) || []).length}</span><span className="text-[var(--error)]">−{(diff.text?.match(/^-(?!-)/gm) || []).length}</span></span> : selectedPath}
                                             </h3>
+											</Tooltip>
                                             {embedded && !diff.clean && <button type="button" aria-expanded={recoveryExpanded} onClick={() => setRecoveryExpanded(value => !value)} className="diff-recovery-toggle">Recovery</button>}
 											<div
 												className="flex gap-1"

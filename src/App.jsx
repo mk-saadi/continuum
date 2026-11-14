@@ -16,7 +16,7 @@ import { Titlebar } from "./components/main-app/Titlebar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import { TabProvider, useTabs } from "./context/TabContext.jsx";
 import { CompressionEventsProvider } from "./context/CompressionEventsContext.jsx";
-import { UIStateProvider, useModalActions, useModalState, useTheme } from "./context/UIStateContext.jsx";
+import { ChatSidebarProvider, UIStateProvider, useModalActions, useModalState, useTheme } from "./context/UIStateContext.jsx";
 import useBackgroundSettings from "./hooks/useBackgroundSettings";
 import { workspaceHeaderFor } from "./lib/headerWorkspace.mjs";
 
@@ -334,7 +334,9 @@ function AppContent() {
 	);
 	return (
 		<div className="sk-app sk-app-window flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
-			<CommandSpotlight projects={projects} models={models} engines={engines} onLoadedModel={onLoadedModel} />
+			<ChatSidebarProvider sessionId={activeTab?.sessionId}>
+				<CommandSpotlight projects={projects} models={models} engines={engines} onLoadedModel={onLoadedModel} />
+			</ChatSidebarProvider>
 			<Titlebar />
 			<TabBar projects={projects} />
 			<GlobalModals
@@ -440,6 +442,7 @@ const TabPane = memo(function TabPane({
 	// Chat vs Workspace Chat for the Header, keyed on tab.projectId.
 	const workspaceHeader = workspaceHeaderFor(tab, projects, update);
 	return (
+		<ChatSidebarProvider sessionId={tab.sessionId}>
 		<div
 			style={active ? undefined : { display: "none" }}
 			aria-hidden={!active}
@@ -549,6 +552,7 @@ const TabPane = memo(function TabPane({
 				onTabSaved={markTabSaved}
 			/>
 		</div>
+		</ChatSidebarProvider>
 	);
 });
 

@@ -107,7 +107,7 @@ function runForeground(file, argv, { cwd, env, signal, timeoutMs, requestedTimeo
       // Keep the tree cleanup grace period even when all pipes close early.
       if (!forceTimer) finish();
     });
-    timer = setTimeout(() => stop(timeoutReason), timeoutMs);
+    if (timeoutMs != null) timer = setTimeout(() => stop(timeoutReason), timeoutMs);
     if (validateAuthorization) revocationTimer = setInterval(() => {
       try { validateAuthorization(); } catch { stop('cancelled'); }
     }, 50);

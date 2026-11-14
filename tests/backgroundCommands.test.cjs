@@ -40,7 +40,7 @@ test.after(async () => { await manager.shutdown(); database.closeDatabase(); Mod
 test('schemas and strict argument validation preserve foreground bounds', async () => {
   for (const name of ['get_command_status', 'stop_background_command']) assert.deepEqual(agentTools.find(t => t.function.name === name).function.parameters.required, ['command_id']);
   const fixture = setup();
-  for (const args of [{ background: 'yes' }, { background_lifetime_ms: 1000 }, { background: true, background_lifetime_ms: 86400001 }, { background: true, background_lifetime_ms: 1000, timeout_ms: 1000 }]) {
+  for (const args of [{ wait_for_completion: 'yes' }, { wait_for_completion: false }, { background: true, wait_for_completion: false }, { background: 'yes' }, { background_lifetime_ms: 1000 }, { background: true, background_lifetime_ms: 86400001 }, { background: true, background_lifetime_ms: 1000, timeout_ms: 1000 }]) {
     assert.equal((await fixture.dispatch('execute_command', { command: 'echo forbidden', ...args })).success, false);
   }
   assert.equal((await fixture.dispatch('execute_command', { command: 'printf foreground', background: false })).status, 'completed');

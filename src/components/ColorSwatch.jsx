@@ -1,15 +1,17 @@
+import Tooltip from "./Tooltip.jsx";
 import React from "react";
 import { splitTextWithColors } from "../lib/colorSwatches.mjs";
 
 export function ColorSwatch({ value }) {
 	return (
-		<span
-			className="inline-color-swatch"
-			style={{ backgroundColor: value }}
-			role="img"
-			aria-label={`Color preview: ${value}`}
-			title={value}
-		/>
+		<Tooltip content={value}>
+			<span
+				className="inline-color-swatch"
+				style={{ backgroundColor: value }}
+				role="img"
+				aria-label={`Color preview: ${value}`}
+			/>
+		</Tooltip>
 	);
 }
 

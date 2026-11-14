@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React,{useEffect,useRef,useState} from 'react';
 import {LuMessageSquare,LuSend,LuX,LuSquare,LuExternalLink} from 'react-icons/lu';
 import MascotArtwork from './MascotArtwork';
@@ -66,24 +67,30 @@ export default function DesktopMascot(){
         try{await api.submit(text);setText('');setError('')}catch(e){setError(e.message);changePanel({editor:true})}
     }
     return <div className="desktop-mascot" onContextMenu={event=>{event.preventDefault();api.contextMenu()}}>
-        <button className="desktop-mascot-art" aria-label={`Continuum mascot: ${label(state)}. Right-click for options.`}
+        <button className="desktop-mascot-art"
+        aria-label={`Continuum mascot: ${label(state)}. Right-click for options.`}
             style={{left:layout.art.x,top:layout.art.y,width:layout.art.width,height:layout.art.height,cursor:settings.locked?'default':'grab'}}
             onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onKeyDown={keyboard}
             onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)}>
             <MascotArtwork state={state} id={activity.id} size={layout.size} hue={settings.hue} direction={direction} reduced={reduced}/>
         </button>
-        {(hovered||focused||showEditor)&&<button className="desktop-mascot-compose" aria-label="Write a prompt" title="Write a prompt"
+        {(hovered||focused||showEditor)&&<Tooltip content="Write a prompt">
+          <button className="desktop-mascot-compose"
+          aria-label="Write a prompt"
             style={{left:layout.control.x,top:layout.control.y,width:layout.control.width,height:layout.control.height}}
-            onClick={()=>{setError('');changePanel({editor:!showEditor})}}><LuMessageSquare size={14}/></button>}
-        {layout.panel&&<section className="desktop-mascot-panel" aria-label="Continuum quick chat"
+            onClick={()=>{setError('');changePanel({editor:!showEditor})}}><LuMessageSquare size={14}/></button>
+        </Tooltip>}
+        {layout.panel&&<section className="desktop-mascot-panel"
+        aria-label="Continuum quick chat"
             style={{left:layout.panel.x,top:layout.panel.y,width:layout.panel.width,maxHeight:layout.panel.height}}>
-            <header><span title={target?.name}>Continuum · {busy?'Working…':target?.name||'Quick chat'}</span>
-                <button aria-label="Open full chat" title="Open full chat" onClick={()=>api.openMain()}><LuExternalLink size={12}/></button>
+            <header><Tooltip content={target?.name}><span>Continuum · {busy?'Working…':target?.name||'Quick chat'}</span></Tooltip>
+                <Tooltip content="Open full chat"><button aria-label="Open full chat" onClick={()=>api.openMain()}><LuExternalLink size={12}/></button></Tooltip>
                 <button aria-label="Close quick chat" onClick={()=>changePanel({editor:false,response:false})}><LuX size={12}/></button></header>
             {showResponse&&<div className="desktop-mascot-reply" aria-label="Agent response" tabIndex={0}>{activity.reply||error||(activity.state==='confused'?'The agent needs your input.':activity.state==='error-xx'?'This request could not finish. Open the full chat for details.':'Waiting for the agent…')}</div>}
             {activity.state==='confused'&&<button className="desktop-mascot-attention" onClick={()=>api.openMain()}>Your input is needed · Open Continuum</button>}
             {showEditor&&<form onSubmit={send}>
-                <textarea ref={input} aria-label="Prompt Continuum" placeholder={target?.ready?'Ask Continuum…':'Choose a model in Continuum first'} value={text}
+                <textarea ref={input}
+                aria-label="Prompt Continuum" placeholder={target?.ready?'Ask Continuum…':'Choose a model in Continuum first'} value={text}
                     maxLength={32000} onChange={event=>setText(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send(event)}}}/>
                 <footer><span>{error||(!target?.ready?target?.reason:'Enter to send · Shift+Enter for a new line')}</span>
                     <button type="submit" aria-label="Send prompt" disabled={busy||!text.trim()||!target?.ready}><LuSend size={13}/></button></footer>

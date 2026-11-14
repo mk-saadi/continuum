@@ -394,6 +394,12 @@ contextBridge.exposeInMainWorld('chatAPI', {
 
 // Window and engine controls share the same sandbox-compatible Electron import.
 contextBridge.exposeInMainWorld("windowAPI", {
+	isFullscreen: () => ipcRenderer.invoke("window:is-fullscreen"),
+	onFullscreenChanged: (callback) => {
+		const listener = (_event, fullscreen) => callback(fullscreen);
+		ipcRenderer.on("window:fullscreen-changed", listener);
+		return () => ipcRenderer.removeListener("window:fullscreen-changed", listener);
+	},
 	minimize: () => ipcRenderer.send("window:minimize"),
 	maximize: () => ipcRenderer.send("window:maximize"),
 	close: () => ipcRenderer.send("window:close"),

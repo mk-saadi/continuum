@@ -29,9 +29,14 @@ test('schema, defaults, numeric validation and maximum', async () => {
   assert.equal(r.success,false); assert.match(r.error,/timeout_ms/);
  }
  const normal = await run({command:'printf default'});
- assert.equal(normal.timeout_ms,3600000); assert.equal(normal.status,'completed');
+ assert.equal(normal.timeout_ms,null); assert.equal(normal.status,'completed');
  const maximum = await run({command:'printf max',timeout_ms:86400000});
  assert.equal(maximum.timeout_ms,86400000);
+});
+test('omitted lifetime does not arm a process-killing timer', async () => {
+ const r = await run({command:node("setTimeout(()=>require('fs').writeSync(1,'FINISHED'),100)")});
+ assert.equal(r.timeout_ms,null); assert.equal(r.requested_timeout_ms,null);
+ assert.equal(r.status,'completed'); assert.match(r.stdout,/FINISHED/);
 });
 test('stdout, stderr, nonzero and actual exit status', async()=>{
  const r=await run({command:'printf hello; printf failure >&2; exit 7'});

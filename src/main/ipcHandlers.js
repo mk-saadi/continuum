@@ -1072,7 +1072,7 @@ function registerIpcHandlers({
                             const currentSchema = getToolContext(mcpManager.getTools(sessionId), memoryEnabled, sessionId,
                                 lspExecutionContext?.permissionMode ?? permissionMode, modelId).tools.find(t => t.function.name === call.name);
                             if (!currentSchema) throw new Error('TOOL_NOT_ADVERTISED: Tool was revoked.');
-                            const acceptedManifest = advertisedTools.accept(activationRequest?.advertisedManifest, call.name, currentSchema.function.parameters, target);
+                            let acceptedManifest = advertisedTools.accept(activationRequest?.advertisedManifest, call.name, currentSchema.function.parameters, target);
                             require('./toolSchemaValidation').validate(currentSchema.function.parameters, args);
 
 							if (isMemory && !profiles.getSessionSettings(sessionId, modelId).effective.memoryEnabled) throw new Error('Memory is disabled for this chat.');
@@ -1081,12 +1081,12 @@ function registerIpcHandlers({
                                 native: isAgent || isMemory, serverName: target.serverName,
                                 ...(!isAgent && !isMemory ? mcpManager.getApprovalFacts(target.serverName, target.toolName) : {}), signal: controller.signal,
                                 requestApproval: ({ name, args, policy }) => requestToolApproval({ controller, sender, requestId, sessionId, name, args, policy }) });
-                            advertisedTools.validateEpoch(acceptedManifest);
+                            acceptedManifest = advertisedTools.afterAuthorization(acceptedManifest, approval?.policyRevision);
                             if (approval?.savedRule) {
-                                savedRulesByToolCall.set(call.id, { ...approval.savedRule, projectId: project.id, sessionId });
+                                savedRulesByToolCall.set(call.id, { ...approval.savedRule, projectId: project?.id ?? null, sessionId });
                                 const step = executionSteps.find(step => step?.id === call.id);
                                 if (step) {
-                                    step.savedRule = { ...approval.savedRule, projectId: project.id, sessionId };
+                                    step.savedRule = { ...approval.savedRule, projectId: project?.id ?? null, sessionId };
                                     persist();
                                     notify({ type: 'step-update', messageId, executionSteps: displaySteps(executionSteps) });
                                 }

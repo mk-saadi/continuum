@@ -1,3 +1,4 @@
+import Tooltip from "../../Tooltip.jsx";
 import React, { useEffect, useMemo, useState } from 'react';
 import { costValue, rateValue, sourceLabel } from './usageDashboardFormat.mjs';
 import { SettingsButton, SettingsMessage } from '../SettingsSection';
@@ -95,7 +96,7 @@ export default function PricingHistoryView({ filters }) {
                         <span className="block font-medium">{row.providerLabel}</span>
                         <span className="text-[10px] text-[var(--text-muted)]">{row.providerFamilyLabel}</span>
                       </td>
-                      <td className="max-w-48 truncate py-2 pr-3" title={row.modelLabel}>{row.modelLabel}</td>
+                      <Tooltip content={row.modelLabel}><td className="max-w-48 truncate py-2 pr-3">{row.modelLabel}</td></Tooltip>
                       <td className="py-2 pr-3">
                         <button type="button" className="text-left capitalize hover:underline" onClick={() => setExpanded(open ? null : row.key)} aria-expanded={open}>
                           {sourceLabel(row.source)}

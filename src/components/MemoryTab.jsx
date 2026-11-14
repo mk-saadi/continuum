@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useEffect, useState } from "react";
 import { LuBrain } from "react-icons/lu";
 import { SettingsIcon as Icon } from "./SettingsIcon";
@@ -107,16 +108,17 @@ export default function MemoryTab({ palace }) {
 										{memory.content}
 									</p>
 								</div>
-								<button
-									type="button"
-									className="aero-orb sk-icon-button aero-fill sk-fill aero-control--danger flex size-7 shrink-0 items-center justify-center"
-									disabled={busy}
-									aria-label={`Delete memory: ${memory.content}`}
-									title="Delete memory"
-									onClick={() => mutate(() => palace.api.deleteMemory(memory.id))}
-								>
-									<Icon name="delete" />
-								</button>
+								<Tooltip content="Delete memory">
+									<button
+										type="button"
+										className="aero-orb sk-icon-button aero-fill sk-fill aero-control--danger flex size-7 shrink-0 items-center justify-center"
+										disabled={busy}
+										aria-label={`Delete memory: ${memory.content}`}
+										onClick={() => mutate(() => palace.api.deleteMemory(memory.id))}
+									>
+										<Icon name="delete" />
+									</button>
+								</Tooltip>
 							</li>
 						))}
 					</ul>

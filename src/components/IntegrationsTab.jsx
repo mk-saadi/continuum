@@ -171,7 +171,7 @@ export default function IntegrationsTab({
 								icon={LuX}
 								disabled={busy}
 								onClick={() => onDelete(name)}
-								title={`Delete ${name}`}
+								tooltip={`Delete ${name}`}
 							/>
 						</div>
 

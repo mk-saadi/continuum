@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { LuCheck, LuHistory, LuPin, LuX } from "react-icons/lu";
@@ -479,12 +480,13 @@ export default function RecoveryHistoryModal({ sessionId, projectName, running =
 											className="min-w-0 text-[11px]"
 										>
 											<span className="flex min-w-0 items-baseline gap-2">
-												<span
-													className="min-w-0 flex-1 truncate font-mono"
-													title={item.path}
-												>
-													{item.path}
-												</span>
+												<Tooltip content={item.path}>
+													<span
+														className="min-w-0 flex-1 truncate font-mono"
+													>
+														{item.path}
+													</span>
+												</Tooltip>
 												<span
 													className={`shrink-0 ${STATUS_TONE[item.status] ?? STATUS_TONE.unverifiable}`}
 												>

@@ -232,7 +232,14 @@ function prepareChatMessages({
 		.immediate();
 }
 
-function messageForModel({ role, content, attachments = [], id }) {
+// Preserve the current user turn across tool rounds and regeneration. Older
+// images stay accessible by their authorized reference, without replaying pixels.
+function messagesForModel(messages) {
+  const latestUser = messages.findLastIndex(message => message.role === 'user');
+  return messages.map((message, index) => messageForModel(message, { includeImages: index === latestUser }));
+}
+
+function messageForModel({ role, content, attachments = [], id }, { includeImages = true } = {}) {
 	if (role !== "user" || !attachments.length) return { role, content };
 	const files = validateAttachments(attachments);
 	const attachmentContext = [];
@@ -254,9 +261,12 @@ function messageForModel({ role, content, attachments = [], id }) {
 			);
 			attachmentContext.push(`${header}\n${access}\n${fence}\n${raw}\n${fence}\n[End of Attached File]`);
 		} else {
-			attachmentContext.push(`${header}\n${access}\nInspect with read_project_file using attachment_id. This reference grants read-only attachment access in every permission mode; do not use internal storage paths or shell commands. Media interpretation requires compatible model support.\n[End of Attached File]`);
+			const inspection = mime_type.startsWith('image/') && includeImages
+        ? 'Image pixels are supplied directly in this message; inspect them without an additional attachment read.'
+        : 'Inspect with read_project_file using attachment_id.';
+			attachmentContext.push(`${header}\n${access}\n${inspection} This reference grants read-only attachment access in every permission mode; do not use internal storage paths or shell commands. Media interpretation requires compatible model support.\n[End of Attached File]`);
 		}
-		if (mime_type.startsWith("image/")) {
+		if (mime_type.startsWith("image/") && includeImages) {
 			images.push({
 				type: "image_url",
 				image_url: { url: `data:${mime_type};base64,${bytes.toString("base64")}` },
@@ -265,6 +275,8 @@ function messageForModel({ role, content, attachments = [], id }) {
         if (mime_type.startsWith('audio/')) images.push({ type: 'input_audio', input_audio: { data: bytes.toString('base64'), format: mime_type === 'audio/wav' ? 'wav' : 'mp3' } });
         if (mime_type.startsWith('video/')) images.push({ type: 'input_video', input_video: { data: bytes.toString('base64'), format: mime_type } });
 	}
+	if (!includeImages && files.some(file => !file.omitted && file.mime_type.startsWith('image/')))
+      attachmentContext.push('[Historical image pixels are not included in this request. Use prior observations for context; if visual details are needed, discover/activate read_project_file and read the attachment_id above. Do not guess unseen details.]');
 	const text = `${attachmentContext.join("\n\n")}\n\nUser Prompt: ${content}`;
 	return { role, content: images.length ? [{ type: "text", text }, ...images] : text };
 }
@@ -354,4 +366,5 @@ module.exports = {
 	prepareChatMessages,
 	rebuildChatMessages,
 	messageForModel,
+    messagesForModel,
 };

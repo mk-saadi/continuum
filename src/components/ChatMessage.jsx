@@ -1,3 +1,4 @@
+import { useToastMessage } from "../hooks/useAppToast.jsx";
 import { useWorkspacePreview } from "../context/WorkspacePreviewContext.jsx";
 import PromptProcessingGate from "./chat/PromptProcessingGate.jsx";
 import { finalAssistantResponse } from "../lib/assistantResponse.mjs";
@@ -174,7 +175,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 			? { src: gallerySource, video, title: alt || (video ? "Video" : "Image") }
 			: null,
 	);
-	
+
 	// Extract parent folder path for local files
 	const folderPath = (() => {
 		try {
@@ -192,7 +193,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 		} catch {}
 		return null;
 	})();
-	
+
 	if ((!source && !children) || failedSource === source) {
 		return (
 			<span
@@ -252,9 +253,9 @@ function MarkdownMedia({ src, alt = "", children }) {
 			{image}
 		</button>
 	);
-	
+
 	const content = registration ? mediaButton : image;
-	
+
 	// Render folder path link for local media
 	if (folderPath) {
 		return (
@@ -275,7 +276,7 @@ function MarkdownMedia({ src, alt = "", children }) {
 			</div>
 		);
 	}
-	
+
 	return content;
 }
 
@@ -359,18 +360,19 @@ function makeComponents(isStreaming, sessionId = null) {
 				</code>
 			);
 		},
-		a: ({ node, href, ...props }) => {
+		a: ({ node, href, title, ...props }) => {
 			const kind = classifyChatHref(href);
 			// Absolute local path -> hand the decoded path to the OS. React
 			// serializes hrefs percent-encoded, but shell.openPath needs the
 			// literal path, so decode it here.
             if (kind === "local-absolute" || /^file:/i.test(href || '')) {
-                return <LocalFileAnchor {...props} href={href} sessionId={sessionId} absolute />;
+                return <LocalFileAnchor {...props} title={title} href={href} sessionId={sessionId} absolute />;
             }
 			// Web URLs require an explicit action before opening the browser.
 			if (kind === "web") {
 				return (
 					<LinkPopover
+						title={title}
 						{...props}
 						href={href}
 					/>
@@ -383,17 +385,19 @@ function makeComponents(isStreaming, sessionId = null) {
 			// target="_blank" below, where Electron denies the navigation and
 			// the click silently did nothing.
             if (kind === "local-relative") {
-                return <LocalFileAnchor {...props} href={href} sessionId={sessionId} />;
+                return <LocalFileAnchor {...props} title={title} href={href} sessionId={sessionId} />;
             }
 			// Keep other supported schemes on the existing external-link path.
 			return (
-				<a
-					{...props}
-					href={href}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="text-[var(--link)] underline"
-				/>
+				<Tooltip content={title}>
+					<a
+						{...props}
+						href={href}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-[var(--link)] underline"
+					/>
+				</Tooltip>
 			);
 		},
 	};
@@ -424,15 +428,17 @@ function StreamingText({ buffer, onFrame, offset = 0 }) {
 	);
 }
 
-function LocalFileAnchor({ href, sessionId, absolute, ...props }) {
+function LocalFileAnchor({ href, sessionId, absolute, title, ...props }) {
  const openPreview = useWorkspacePreview();
- return <a {...props} href={href} title={href} className="text-[var(--link)] underline cursor-pointer"
+ return <Tooltip content={title || href}>
+   <a {...props} href={href} className="text-[var(--link)] underline cursor-pointer"
   onClick={async event => {
    event.preventDefault();
    try { if (openPreview && await openPreview(href)) return; } catch {}
    if (absolute) window.api?.openPath?.(localPathFromHref(href));
    else window.api?.openChatPath?.({ path: href, sessionId })?.catch?.(() => {});
-  }} />;
+  }} />
+ </Tooltip>;
 }
 
 const ChatMessage = React.memo(
@@ -745,6 +751,7 @@ function AskUserCard({ step, request, onAnswer }) {
 	const [answer, setAnswer] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState("");
+	useToastMessage(error);
 	const question = request?.question || step.args?.question;
 	const options = request?.options || step.args?.options || [];
 	if (!question) return <ToolCallBlock step={step} />;
@@ -822,14 +829,7 @@ function AskUserCard({ step, request, onAnswer }) {
 							: "Resuming…"}
 				</p>
 			)}
-			{error && (
-				<p
-					role="alert"
-					className="project-error mt-2"
-				>
-					{error}
-				</p>
-			)}
+
 		</section>
 	);
 }
@@ -839,6 +839,7 @@ function SkillProposalCard({ step, projectId }) {
 	const storageKey = `skill-proposal:${step.id}`;
 	const [decision, setDecision] = useState(() => localStorage.getItem(storageKey) || "");
 	const [error, setError] = useState("");
+	useToastMessage(error);
 	const [busy, setBusy] = useState(false);
 	if (!proposal || step.status === "preparing" || step.status === "error")
 		return <ToolCallBlock step={step} />;
@@ -900,14 +901,7 @@ function SkillProposalCard({ step, projectId }) {
 					</button>
 				</div>
 			)}
-			{error && (
-				<p
-					className="project-error mt-2"
-					role="alert"
-				>
-					{error}
-				</p>
-			)}
+
 		</div>
 	);
 }
@@ -1060,7 +1054,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 				</Tooltip>
 			)}
 
-			{/* Tool Loop Indicator Badge (workspace only; hidden in casual chat) */}
+			{/* Request scope (workspace only; hidden in casual chat) */}
 			{mode !== "casual" &&
 				(isMultiPass ? (
 					<Tooltip
@@ -1068,7 +1062,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 						placement="top"
 						delay={350}
 					>
-						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] border border-[var(--subtle-border)] cursor-help">
+						<span className="inline-flex cursor-help items-center gap-1">
 							<LuRepeat className="w-3.5 h-3.5 text-[var(--text-muted)]" />
 							Multiple model requests
 						</span>
@@ -1079,7 +1073,7 @@ export function StatsFooter({ stats, mode = "casual", inline = false }) {
 						placement="top"
 						delay={350}
 					>
-						<span className="inline-flex items-center gap-1.5 px-2 py-0.5 ui-radius-control text-xs text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--subtle-border)] cursor-help">
+						<span className="inline-flex cursor-help items-center gap-1">
 							<LuZap className="w-3.5 h-3.5 text-[var(--text-muted)] opacity-70" />
 							{stats.promptRequests === 1 || stats.raw?.length === 1
 								? "Single request"

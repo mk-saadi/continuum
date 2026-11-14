@@ -253,6 +253,16 @@ function createWindow() {
         saveSettings: require('./src/main/configManager').saveAppSettings,
     });
 	configureExternalLinks(mainWindow);
+	const sendFullscreenState = () => {
+		mainWindow.webContents.send("window:fullscreen-changed", mainWindow.isFullScreen());
+	};
+	mainWindow.on("enter-full-screen", sendFullscreenState);
+	mainWindow.on("leave-full-screen", sendFullscreenState);
+	mainWindow.webContents.on("before-input-event", (event, input) => {
+		if (input.type !== "keyDown" || input.key !== "F11") return;
+		event.preventDefault();
+		if (!input.isAutoRepeat) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+	});
 
 	mainWindow.webContents.on("did-finish-load", () => {
 		// Apply the default 120% UI scale on startup and reload.
@@ -472,6 +482,10 @@ app.on("browser-window-created", (_event, window) => {
 ipcMain.on("window:minimize", (event) => {
 	const win = BrowserWindow.fromWebContents(event.sender);
 	if (win) win.minimize();
+});
+
+ipcMain.handle("window:is-fullscreen", (event) => {
+	return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false;
 });
 
 ipcMain.on("window:maximize", (event) => {

@@ -1,7 +1,8 @@
 import { applyTheme } from "../lib/themes.mjs";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createSidebarStore } from "../lib/sidebarState.mjs";
 
-// Global UI chrome state — sidebar visibility, theme and modal visibility —
+// UI chrome state — conversation sidebar visibility, theme and modal visibility —
 // lives here instead of inside AppContent. When it changes, only the components
 // that actually render that chrome re-render: AppContent, the tab list, and
 // every mounted chat transcript stay untouched.
@@ -13,6 +14,21 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 // consume it without re-rendering when a modal opens.
 const LeftSidebarContext = createContext(null);
 const RightSidebarContext = createContext(null);
+const SidebarStoreContext = createContext(null);
+
+export function ChatSidebarProvider({ sessionId, children }) {
+	const store = useContext(SidebarStoreContext);
+	return store && sessionId
+		? <ScopedSidebars entry={store.forSession(sessionId)}>{children}</ScopedSidebars>
+		: children;
+}
+
+function ScopedSidebars({ entry, children }) {
+	const state = useSyncExternalStore(entry.subscribe, entry.getSnapshot);
+	const left = useMemo(() => ({ open: state.left, setOpen: value => entry.setOpen("left", value), toggle: () => entry.setOpen("left", value => !value) }), [entry, state.left]);
+	const right = useMemo(() => ({ open: state.right, setOpen: value => entry.setOpen("right", value), toggle: () => entry.setOpen("right", value => !value) }), [entry, state.right]);
+	return <LeftSidebarContext.Provider value={left}><RightSidebarContext.Provider value={right}>{children}</RightSidebarContext.Provider></LeftSidebarContext.Provider>;
+}
 const ThemeContext = createContext(null);
 const ModalActionsContext = createContext(null);
 const ModalStateContext = createContext(null);
@@ -34,6 +50,11 @@ function readTheme() {
 }
 
 export function UIStateProvider({ children }) {
+	const [sidebarStore] = useState(() => {
+		let storage;
+		try { storage = window.localStorage; } catch { /* Storage is optional. */ }
+		return createSidebarStore(storage);
+	});
 	const [leftOpen, setLeftOpen] = useState(() => readBool("sidebarOpen"));
 	const [rightOpen, setRightOpen] = useState(() => readBool("rightSidebarOpen"));
 	const [theme, setTheme] = useState(readTheme);
@@ -108,7 +129,7 @@ export function UIStateProvider({ children }) {
 			<ModalStateContext.Provider value={modalState}>
 				<ThemeContext.Provider value={themeValue}>
 					<LeftSidebarContext.Provider value={left}>
-						<RightSidebarContext.Provider value={right}>{children}</RightSidebarContext.Provider>
+						<RightSidebarContext.Provider value={right}><SidebarStoreContext.Provider value={sidebarStore}>{children}</SidebarStoreContext.Provider></RightSidebarContext.Provider>
 					</LeftSidebarContext.Provider>
 				</ThemeContext.Provider>
 			</ModalStateContext.Provider>

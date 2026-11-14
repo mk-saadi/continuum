@@ -24,7 +24,7 @@ function fixture() {
   manager.openRun({ ...context, signal: controller.signal });
   return { context, controller };
 }
-function command(f, persistent = false) {
+function command(f, persistent = false, waitForCompletion = true) {
   let release;
   const done = new Promise(resolve => { release = resolve; });
   const r = manager.start(f.context, 'controlled finite task', 3600000, signal => new Promise(resolve => {
@@ -32,16 +32,16 @@ function command(f, persistent = false) {
     signal.addEventListener('abort', aborted, { once: true });
     if (signal.aborted) aborted();
     done.then(result => { signal.removeEventListener('abort', aborted); resolve(result); });
-  }), () => {}, persistent);
+  }), () => {}, persistent, waitForCompletion);
   return { id: r.command_id, release };
 }
 test.after(async () => {
   await manager.shutdown(); database.closeDatabase(); Module._load = load;
   fs.rmSync(temporary, { recursive: true, force: true });
 });
-for (const [status, exitCode] of [['completed', 0], ['nonzero_exit', 7], ['timed_out', null]]) {
-  test(`sleep makes no inference requests; ${status} wakes original conversation exactly once`, { timeout: 3000 }, async () => {
-    const f = fixture(); const c = command(f);
+for (const [status, exitCode, persistent] of [['completed', 0, false], ['nonzero_exit', 7, false], ['timed_out', null, false], ['completed', 0, true], ['nonzero_exit', 7, true]]) {
+  test(`sleep makes no inference requests; ${persistent ? "persistent " : ""}${status} wakes original conversation exactly once`, { timeout: 3000 }, async () => {
+    const f = fixture(); const c = command(f, persistent);
     const { runMemoryChat } = await import('../src/lib/memoryChat.mjs');
     let requests = 0, sleeps = 0, delivered = 0;
     const transcript = [];
@@ -91,7 +91,7 @@ test('completion-before-sleep, independent commands, cancellation and steering w
   await manager.closeRun(f.context);
 });
 test('persistent servers do not keep the agent asleep; quick foreground results are consumed without a second notification', async () => {
-  const f = fixture(); const server = command(f, true);
+  const f = fixture(); const server = command(f, true, false);
   assert.equal(await manager.wait(f.context, f.controller.signal), false);
   server.release({ status: 'completed', exitCode: 0 });
   await manager.foregroundResult(server.id, f.context, 100);
@@ -104,13 +104,30 @@ test('persistent servers do not keep the agent asleep; quick foreground results 
   assert.deepEqual(manager.take(f.context), []);
   await manager.closeRun(f.context, { normalCompletion: true });
 });
-test('real main workspace dispatch yields the SAME process and retains a one-hour default', { timeout: 16000 }, async () => {
+for (const status of ['completed', 'nonzero_exit']) {
+  test(`persistent finite job keeps the agent asleep and delivers ${status}`, async () => {
+    const f = fixture(); const job = command(f, true);
+    let resumed = false;
+    const waiting = manager.wait(f.context, f.controller.signal).then(value => { resumed = true; return value; });
+    await delay(20);
+    assert.equal(resumed, false, 'persistence must not end the owning task');
+    job.release({ status, exitCode: status === 'completed' ? 0 : 7 });
+    assert.equal(await waiting, true);
+    const events = manager.take(f.context);
+    assert.equal(events.length, 1); assert.equal(events[0].id, job.id);
+    manager.acknowledge(f.context, [job.id], true);
+    assert.equal(manager.status(job.id, f.context).notification_state, 'delivered');
+    await manager.closeRun(f.context, { normalCompletion: true });
+  });
+}
+test('real main workspace dispatch yields the SAME process and has no default timeout', { timeout: 16000 }, async () => {
   const f = fixture();
   const executionContext = contexts.createContext(f.context.sessionId, 'full_access', f.context.runId);
   const invoke = require('./helpers/approvedNativeCommand.cjs');
-  const started = await invoke({ name: 'execute_command', arguments: { command: `${JSON.stringify(process.execPath)} -e 'setTimeout(()=>{console.log("LONG_DONE")},10500)'` }, sessionId: f.context.sessionId, permissionMode: 'full_access', signal: f.controller.signal, executionContext, backgroundContext: f.context });
+  const started = await invoke({ name: 'execute_command', arguments: { command: `${JSON.stringify(process.execPath)} -e 'setTimeout(()=>{require("fs").writeSync(1,"LONG_DONE")},10500)'` }, sessionId: f.context.sessionId, permissionMode: 'full_access', signal: f.controller.signal, executionContext, backgroundContext: f.context });
   assert.equal(started.background, true); assert.match(started.command_id, /^cmd_/);
-  assert.equal(started.timeout_ms, 3600000);
+  assert.equal(started.timeout_ms, null);
+  assert.equal(started.expires_at, null);
   await manager.wait(f.context, f.controller.signal);
   const result = manager.status(started.command_id, f.context);
   assert.equal(result.exitCode, 0); assert.match(result.stdout, /LONG_DONE/);

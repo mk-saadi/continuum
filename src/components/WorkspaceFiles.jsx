@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import WorkspaceChanges, { WORKSPACE_CHANGES } from "./WorkspaceChanges.jsx";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -112,45 +113,47 @@ function Directory({ projectId, path = ".", depth = 0, selectedPath, onSelect, r
 		<ul aria-label={path === "." ? "Workspace files" : path}>
 			{state.items.map((item) => (
 				<li key={item.path}>
-					<button
-						type="button"
-						title={item.path}
-						aria-expanded={item.directory ? !!expanded[item.path] : undefined}
-						aria-current={!item.directory && selectedPath === item.path ? "true" : undefined}
-						onClick={() =>
-							item.directory
-								? setExpanded((old) => ({ ...old, [item.path]: !old[item.path] }))
-								: onSelect(item.path)
-						}
-						style={{ paddingLeft: 12 + depth * 14 }}
-						className={`flex w-full cursor-pointer ui-radius-control items-center gap-2 py-1.5 pr-3 text-left text-xs hover:bg-[var(--surface-hover)] ${selectedPath === item.path ? "bg-[var(--surface-hover)] text-[var(--accent)]" : ""}`}
-					>
-						{item.directory ? (
-							<>
-								{expanded[item.path] ? (
-									<FiChevronDown className="shrink-0" />
-								) : (
-									<FiChevronRight className="shrink-0" />
-								)}
-								<FiFolder className="shrink-0 text-[var(--accent)]" />
-							</>
-						) : (
-							<FiFile className="ml-5 shrink-0 text-[var(--text-muted)]" />
-						)}
-						{!item.directory && modified.has(item.path) && (
-							<span
-								aria-label="Modified"
-								className="shrink-0 font-semibold text-[var(--warning)]"
-							>
-								M
-							</span>
-						)}
-						<span
-							className={`truncate ${!item.directory && modified.has(item.path) ? "text-[var(--warning)]" : ""}`}
+					<Tooltip content={item.path}>
+						<button
+							type="button"
+							aria-label={item.path}
+							aria-expanded={item.directory ? !!expanded[item.path] : undefined}
+							aria-current={!item.directory && selectedPath === item.path ? "true" : undefined}
+							onClick={() =>
+								item.directory
+									? setExpanded((old) => ({ ...old, [item.path]: !old[item.path] }))
+									: onSelect(item.path)
+							}
+							style={{ paddingLeft: 12 + depth * 14 }}
+							className={`flex w-full cursor-pointer ui-radius-control items-center gap-2 py-1.5 pr-3 text-left text-xs hover:bg-[var(--surface-hover)] ${selectedPath === item.path ? "bg-[var(--surface-hover)] text-[var(--accent)]" : ""}`}
 						>
-							{item.name}
-						</span>
-					</button>
+							{item.directory ? (
+								<>
+									{expanded[item.path] ? (
+										<FiChevronDown className="shrink-0" />
+									) : (
+										<FiChevronRight className="shrink-0" />
+									)}
+									<FiFolder className="shrink-0 text-[var(--accent)]" />
+								</>
+							) : (
+								<FiFile className="ml-5 shrink-0 text-[var(--text-muted)]" />
+							)}
+							{!item.directory && modified.has(item.path) && (
+								<span
+									aria-label="Modified"
+									className="shrink-0 font-semibold text-[var(--warning)]"
+								>
+									M
+								</span>
+							)}
+							<span
+								className={`truncate ${!item.directory && modified.has(item.path) ? "text-[var(--warning)]" : ""}`}
+							>
+								{item.name}
+							</span>
+						</button>
+					</Tooltip>
 					{item.directory && expanded[item.path] && (
 						<Directory
 							{...{ projectId, selectedPath, onSelect, refresh, modified }}
@@ -236,17 +239,21 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 			<div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-3 text-xs font-medium">
 				<FiFolder className="shrink-0" />
 				<span className="min-w-0 flex-1 truncate">{projectName || "Workspace"}</span>
-                {hasRepository && <button type="button" onClick={() => onSelect(WORKSPACE_CHANGES)}
-                  className="aero-control sk-button aero-fill sk-fill ui-radius-control px-2 py-1 cursor-pointer" title="Review all uncommitted changes">Changes</button>}
-				<button
-					type="button"
-					title="Refresh files"
-					aria-label="Refresh files"
-					onClick={() => setRefresh((value) => value + 1)}
-					className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
-				>
-					<FiRefreshCw />
-				</button>
+                {hasRepository && <Tooltip content="Review all uncommitted changes">
+                  <button type="button" onClick={() => onSelect(WORKSPACE_CHANGES)}
+                  className="aero-control sk-button aero-fill sk-fill ui-radius-control px-2 py-1 cursor-pointer"
+                  aria-label="Review all uncommitted changes">Changes</button>
+                </Tooltip>}
+				<Tooltip content="Refresh files">
+					<button
+						type="button"
+						aria-label="Refresh files"
+						onClick={() => setRefresh((value) => value + 1)}
+						className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+					>
+						<FiRefreshCw />
+					</button>
+				</Tooltip>
 			</div>
 			<div className="min-h-0 flex-1 overflow-auto py-1">
 				<Directory
@@ -442,12 +449,13 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 		>
 			<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 py-3 text-xs">
 				<FiFile className="shrink-0" />
-				<span
-					title={path === WORKSPACE_CHANGES ? "Uncommitted changes" : path}
-					className="min-w-0 flex-1 truncate"
-				>
-					{allChanges ? "Uncommitted changes" : path}
-				</span>
+				<Tooltip content={path === WORKSPACE_CHANGES ? "Uncommitted changes" : path}>
+					<span
+						className="min-w-0 flex-1 truncate"
+					>
+						{allChanges ? "Uncommitted changes" : path}
+					</span>
+				</Tooltip>
 				{gitAvailable && !allChanges && (
 					<div
 						role="group"
@@ -469,17 +477,18 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 						))}
 					</div>
 				)}
-				<button
-					type="button"
-					disabled={!allChanges && !showDiff && (state.kind || state.binary || state.loading || !!state.error)}
-					aria-label="Toggle line wrap"
-					title={wrap ? "Disable line wrap" : "Enable line wrap"}
-					aria-pressed={wrap}
-					onClick={() => setWrap((value) => !value)}
-					className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
-				>
-					<FiCornerDownLeft />
-				</button>
+				<Tooltip content={wrap ? "Disable line wrap" : "Enable line wrap"}>
+					<button
+						type="button"
+						disabled={!allChanges && !showDiff && (state.kind || state.binary || state.loading || !!state.error)}
+						aria-label="Toggle line wrap"
+						aria-pressed={wrap}
+						onClick={() => setWrap((value) => !value)}
+						className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+					>
+						<FiCornerDownLeft />
+					</button>
+				</Tooltip>
 				<button
 					type="button"
 					aria-label="Refresh preview"
@@ -541,7 +550,7 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 
 export function WorkspaceSplit({ children, preview, visible = true }) {
 	const root = useRef(null);
-	const [width, setWidth] = useState(40);
+	const [width, setWidth] = useState(45);
 
 	function resize(event) {
 		event.preventDefault();

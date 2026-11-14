@@ -169,43 +169,46 @@ const ChatInputBar = memo(
 
 						{streaming ? (
 							<>
-								<button
-									type="button"
-									title={
+								<Tooltip content={
 										steeringBusy
 											? "Sending steering instruction..."
 											: canSteer
 												? "Steer this run (Enter)"
 												: "Type an instruction to steer the run"
-									}
-									aria-label="Steer running agent"
+									}>
+									<button
+										type="button"
+										aria-label="Steer running agent"
+										onClick={submit}
+										disabled={!canSteer}
+										className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
+									>
+										<IoSend className="size-3" />
+									</button>
+								</Tooltip>
+								<Tooltip content="Stop">
+									<button
+										type="button"
+										aria-label="Stop"
+										onClick={onStop}
+										className="aero-control sk-button aero-fill sk-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
+									>
+										<FaStop className="size-3" />
+									</button>
+								</Tooltip>
+							</>
+						) : (
+							<Tooltip content={sendTitle}>
+								<button
+									type="button"
+									aria-label="Send"
 									onClick={submit}
-									disabled={!canSteer}
+									disabled={!ready}
 									className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<IoSend className="size-3" />
 								</button>
-								<button
-									type="button"
-									title="Stop"
-									aria-label="Stop"
-									onClick={onStop}
-									className="aero-control sk-button aero-fill sk-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
-								>
-									<FaStop className="size-3" />
-								</button>
-							</>
-						) : (
-							<button
-								type="button"
-								title={sendTitle}
-								aria-label="Send"
-								onClick={submit}
-								disabled={!ready}
-								className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
-							>
-								<IoSend className="size-3" />
-							</button>
+							</Tooltip>
 						)}
 					</div>
 				</div>
@@ -247,7 +250,7 @@ function PermissionSelector({
 		<div className="mr-auto w-full max-w-[200px]">
 			<SelectField
 				aria-label="Tool permission mode"
-				title="Permission mode authorizes actions; execution environment determines where commands run."
+				tooltip="Permission mode authorizes actions; execution environment determines where commands run."
 				value={value}
 				onChange={(event) => onChange?.(event.target.value)}
 				disabled={disabled}

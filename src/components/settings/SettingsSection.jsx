@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { createContext, useContext, useId } from "react";
 import { LuCheck } from "react-icons/lu";
 
@@ -88,29 +89,33 @@ export function SettingsCard({
 	);
 }
 
-export function SettingsButton({ variant = "secondary", className = "", type = "button", ...props }) {
+export function SettingsButton({ variant = "secondary", className = "", type = "button", tooltip, ...props }) {
 	const aero = useContext(SettingsMaterialContext);
 	const material = variant === "primary" ? "aero-primary sk-button sk-primary" : variant === "ghost" ? "aero-list-item sk-list-row" : "aero-control sk-button";
 	return (
-		<button
-			type={type}
-			className={`${buttonBase} ${aero ? `${material} aero-fill sk-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
-			{...props}
-		/>
+		<Tooltip content={tooltip}>
+			<button
+				type={type}
+				className={`${buttonBase} ${aero ? `${material} aero-fill sk-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
+				{...props}
+			/>
+		</Tooltip>
 	);
 }
 
-export function SettingsIconButton({ label, icon: Icon, size = 16, className = "", ...props }) {
+export function SettingsIconButton({ label, icon: Icon, size = 16, className = "", tooltip, ...props }) {
 	const aero = useContext(SettingsMaterialContext);
 	return (
-		<button
-			type="button"
-			aria-label={label}
-			className={`${aero ? "aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
-			{...props}
-		>
-			{Icon ? <Icon size={size} aria-hidden="true" /> : null}
-		</button>
+		<Tooltip content={tooltip}>
+			<button
+				type="button"
+				aria-label={label}
+				className={`${aero ? "aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
+				{...props}
+			>
+				{Icon ? <Icon size={size} aria-hidden="true" /> : null}
+			</button>
+		</Tooltip>
 	);
 }
 

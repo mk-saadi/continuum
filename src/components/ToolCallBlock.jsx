@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import SavedToolRule from './SavedToolRule';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { FiChevronRight, FiTool } from 'react-icons/fi';
@@ -82,11 +83,11 @@ const ToolCallBlock = React.memo(function ToolCallBlock({ step }) {
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
         <FiChevronRight aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         <FiTool aria-hidden="true" className="shrink-0 text-[var(--accent)]" />
-        <strong className="min-w-0 truncate text-[var(--accent-bright)]" title={step.toolName}>{lspLabel ? `${lspLabel} (${step.toolName})` : toolDisplayName(step) || 'Tool'}</strong>
+        <Tooltip content={step.toolName}><strong className="min-w-0 truncate text-[var(--accent-bright)]">{lspLabel ? `${lspLabel} (${step.toolName})` : toolDisplayName(step) || 'Tool'}</strong></Tooltip>
         <span className={`shrink-0 ${step.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
           {preparing ? 'Preparing…' : running ? 'Executing…' : step.status}
         </span>
-        {step.serverName && <span title={step.serverName} className="ml-auto max-w-[45%] truncate ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span>}
+        {step.serverName && <Tooltip content={step.serverName}><span className="ml-auto max-w-[45%] truncate ui-radius-control border border-[var(--subtle-border)] bg-[var(--input)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">{step.serverName}</span></Tooltip>}
       </button>
       {!expanded && <div className="flex min-w-0 gap-3 px-3 pb-2 pl-9 text-[var(--text-muted)]">
         <span className="min-w-0 flex-1 truncate"><span className="font-medium">Arguments:</span> {preview(step.args)}</span>

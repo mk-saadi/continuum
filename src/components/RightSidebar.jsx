@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { formatUsd } from "../lib/costFormat.mjs";
 import { activeReplyVariant } from "../lib/messageIdentity.mjs";
@@ -665,12 +666,13 @@ export default function RightSidebar({
 					/>
 					<h3 className="text-xs font-semibold">{activity.statusLabel}</h3>
 					{runDuration && (
-						<span
-							className="ml-auto text-[11px] font-normal text-[var(--text-muted)]"
-							title="Time since the current agent run started"
-						>
-							{runDuration}
-						</span>
+						<Tooltip content="Time since the current agent run started">
+							<span
+								className="ml-auto text-[11px] font-normal text-[var(--text-muted)]"
+							>
+								{runDuration}
+							</span>
+						</Tooltip>
 					)}
 				</div>
 				<p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
@@ -745,12 +747,13 @@ export default function RightSidebar({
 								key={call.id}
 								className="flex min-w-0 items-center justify-between gap-2 text-[11px]"
 							>
-								<span
-									className="min-w-0 truncate"
-									title={call.toolName}
-								>
-									{call.displayName}
-								</span>
+								<Tooltip content={call.toolName}>
+									<span
+										className="min-w-0 truncate"
+									>
+										{call.displayName}
+									</span>
+								</Tooltip>
 								<span
 									className={`shrink-0 ${TOOL_STATUS_STYLE[call.status] ?? TOOL_STATUS_STYLE.unknown}`}
 								>
@@ -975,29 +978,29 @@ export default function RightSidebar({
 					className="aero-tabbar sk-toolbar sk-texture-brushed mt-3 flex shrink-0 gap-1 px-3 pt-2"
 				>
 					{sections.map(({ id, label, Icon }, index) => (
-						<button
-							key={id}
-							ref={(node) => {
-								tabs.current[index] = node;
-							}}
-							type="button"
-							role="tab"
-							id={`controls-tab-${id}`}
-							aria-controls={`controls-${id}`}
-							aria-label={label}
-							title={label}
-							aria-selected={tab === id}
-							tabIndex={tab === id ? 0 : -1}
-							onClick={() => setTab(id)}
-							onKeyDown={(event) => handleTabKey(event, index)}
-							className="aero-tab sk-tab flex min-w-0 flex-1 cursor-pointer items-center justify-center px-1 py-3"
-						>
-							<Icon
-								size={17}
-								aria-hidden="true"
-								className="shrink-0"
-							/>
-						</button>
+						<Tooltip key={id} content={label}>
+							<button
+								ref={(node) => {
+									tabs.current[index] = node;
+								}}
+								type="button"
+								role="tab"
+								id={`controls-tab-${id}`}
+								aria-controls={`controls-${id}`}
+								aria-label={label}
+								aria-selected={tab === id}
+								tabIndex={tab === id ? 0 : -1}
+								onClick={() => setTab(id)}
+								onKeyDown={(event) => handleTabKey(event, index)}
+								className="aero-tab sk-tab flex min-w-0 flex-1 cursor-pointer items-center justify-center px-1 py-3"
+							>
+								<Icon
+									size={17}
+									aria-hidden="true"
+									className="shrink-0"
+								/>
+							</button>
+						</Tooltip>
 					))}
 				</div>
 

@@ -1,3 +1,4 @@
+import { useToastMessage } from "../../hooks/useAppToast.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { LuHistory } from "react-icons/lu";
 
@@ -14,6 +15,7 @@ export default function RecoveryCard({
 }) {
 	const [overview, setOverview] = useState(null);
 	const [error, setError] = useState("");
+  useToastMessage(error);
 	const wasRunning = useRef(running);
 
 	useEffect(() => {
@@ -85,12 +87,7 @@ export default function RecoveryCard({
 				/>
 			</div>
 			{error ? (
-				<p
-					role="alert"
-					className="mt-2 text-[11px] text-[var(--error)]"
-				>
-					Recovery status unavailable: {error}
-				</p>
+				null
 			) : !overview ? (
 				<p className="mt-2 text-[11px] text-[var(--text-muted)]">Checking recovery status…</p>
 			) : overview.state === "empty" ? (

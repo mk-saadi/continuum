@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useState } from "react";
 import { jsonrepair } from "jsonrepair";
 import { mediaSource, isVideoSource } from "../lib/markdownMedia.mjs";
@@ -58,30 +59,31 @@ function Cards({ data }) {
 						<div className="rich-card" key={i}>
 							{!mediaSrc && <Swatches colors={item.swatches} />}
 							{mediaSrc && (
-								<button
-									type="button"
-									className="rich-card-media-button"
-									aria-label={`Open ${isVideo ? "video" : "image"}: ${label}`}
-									title={`Open ${isVideo ? "video" : "image"}`}
-									onClick={() => setLightboxIndex(mediaIndex)}
-								>
-									{isVideo ? (
-										<video
-											className="rich-card-media"
-											src={mediaSrc}
-											muted
-											playsInline
-											preload="metadata"
-										/>
-									) : (
-										<img
-											className="rich-card-media"
-											src={mediaSrc}
-											alt={label}
-											loading="lazy"
-										/>
-									)}
-								</button>
+								<Tooltip content={`Open ${isVideo ? "video" : "image"}`}>
+									<button
+										type="button"
+										className="rich-card-media-button"
+										aria-label={`Open ${isVideo ? "video" : "image"}: ${label}`}
+										onClick={() => setLightboxIndex(mediaIndex)}
+									>
+										{isVideo ? (
+											<video
+												className="rich-card-media"
+												src={mediaSrc}
+												muted
+												playsInline
+												preload="metadata"
+											/>
+										) : (
+											<img
+												className="rich-card-media"
+												src={mediaSrc}
+												alt={label}
+												loading="lazy"
+											/>
+										)}
+									</button>
+								</Tooltip>
 							)}
 							<div className="rich-card-main">
 								<div className="rich-card-title">{clip(item.title, 100)}</div>

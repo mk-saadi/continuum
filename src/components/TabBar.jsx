@@ -11,6 +11,20 @@ export default function TabBar({ projects = [] }) {
 	const { tabs, activeTabId, activateTab, closeTab, closeAllTabs, cycleTab, openTab, activeTab, moveTab } =
 		useTabs();
 	const tabButtons = useRef(new Map());
+	const tabBar = useRef(null);
+	useEffect(() => {
+		const element = tabBar.current;
+		const handleWheel = (event) => {
+			// Keep native horizontal gestures; map a regular mouse wheel to tabs.
+			if (event.ctrlKey || event.shiftKey || event.deltaX !== 0) return;
+			const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1;
+			const previous = element.scrollLeft;
+			element.scrollLeft += event.deltaY * unit;
+			if (element.scrollLeft !== previous) event.preventDefault();
+		};
+		element.addEventListener("wheel", handleWheel, { passive: false });
+		return () => element.removeEventListener("wheel", handleWheel);
+	}, []);
 	// Drag-to-reorder (browser-style). The dragged tab id lives in a ref so
 	// drop math always sees it; dragId/dropIndex state only drives visuals.
 	// The + button is never draggable and never a drop slot past the end, so
@@ -60,6 +74,7 @@ export default function TabBar({ projects = [] }) {
 	}, [activeTab?.modelId, activeTabId, tabs.length, openTab, closeTab, closeAllTabs, cycleTab]);
 	return (
 		<nav
+			ref={tabBar}
 			aria-label="Chat tabs"
 			className="aero-tabbar sk-toolbar sk-texture-brushed flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
 			onDragOver={(event) => {
@@ -122,7 +137,7 @@ export default function TabBar({ projects = [] }) {
 					}}
 				>
 					<Tooltip
-						content={title}
+						content={tab.status === "awaiting_approval" ? `${title} · Needs attention` : tab.status === "waiting_commands" ? `${title} · Waiting for command; resumes automatically` : title}
 						placement="bottom"
 					>
 						<button
@@ -140,7 +155,6 @@ export default function TabBar({ projects = [] }) {
 										<PiWarning
 											className="size-3 shrink-0 text-red-500 animate-pulse"
 											aria-label="Needs attention"
-											title="Needs attention"
 										/>
 									);
 								}
@@ -151,7 +165,6 @@ export default function TabBar({ projects = [] }) {
 									<Icon
 										className={`size-3 shrink-0 ${isGenerating ? "animate-pulse [filter:drop-shadow(0_0_4px_var(--accent))]" : ""}`}
 										aria-label={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : label}
-										title={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : label}
 									/>
 								);
 							})()}
@@ -162,7 +175,7 @@ export default function TabBar({ projects = [] }) {
 						type="button"
 						onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}
 						aria-label={`Close ${title}`}
-						className="aero-chrome-button sk-icon-button p-1 cursor-pointer"
+						className="aero-tab-close shrink-0 p-1 cursor-pointer"
 					>
 						<LuX />
 					</button>
@@ -176,15 +189,16 @@ export default function TabBar({ projects = [] }) {
 					className="h-6 w-[2px] shrink-0 self-center ui-radius-round bg-[var(--accent)]"
 				/>
 			)}
-			<button
-				type="button"
-				onClick={() => openTab(activeTab?.modelId || "")}
-				aria-label="New chat tab"
-				title="New chat tab"
-				className="aero-orb sk-icon-button aero-fill sk-fill mb-0.5 size-7 shrink-0 cursor-pointer"
-			>
-				✦
-			</button>
+			<Tooltip content="New chat tab">
+				<button
+					type="button"
+					onClick={() => openTab(activeTab?.modelId || "")}
+					aria-label="New chat tab"
+					className="aero-orb sk-icon-button aero-fill sk-fill mb-0.5 size-7 shrink-0 cursor-pointer"
+				>
+					✦
+				</button>
+			</Tooltip>
 		</nav>
 	);
 }

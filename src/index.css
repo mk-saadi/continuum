@@ -2085,6 +2085,12 @@ button,
 input:is([type="button"], [type="submit"], [type="reset"]) {
 	-webkit-user-select: none;
 	user-select: none;
+	cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"],
+input:is([type="button"], [type="submit"], [type="reset"]):disabled {
+    cursor: not-allowed;
 }
 
 /* Native text selection follows the theme, including inputs and code. */

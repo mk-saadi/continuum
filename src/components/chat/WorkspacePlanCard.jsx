@@ -1,3 +1,5 @@
+import { useToastMessage } from "../../hooks/useAppToast.jsx";
+import Tooltip from "../Tooltip.jsx";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 
 // Read-only presentation of the durable Workspace task plan.
@@ -83,6 +85,7 @@ export function WorkspacePlanCard({ sessionId }) {
 	const [loading, setLoading] = useState(true);
 	const [plan, setPlan] = useState(null);
 	const [error, setError] = useState("");
+  useToastMessage(error);
 	const requestRef = useRef(0);
 
 	const load = useCallback(async () => {
@@ -160,15 +163,16 @@ export function WorkspacePlanCard({ sessionId }) {
 							Rev {plan.revision}
 						</span>
 					) : null}
-					<button
-						type="button"
-						onClick={load}
-						aria-label="Refresh task plan"
-						title="Refresh task plan"
-						className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2 py-1 text-[11px]"
-					>
-						↻
-					</button>
+					<Tooltip content="Refresh task plan">
+						<button
+							type="button"
+							onClick={load}
+							aria-label="Refresh task plan"
+							className="aero-control sk-button aero-fill sk-fill cursor-pointer px-2 py-1 text-[11px]"
+						>
+							↻
+						</button>
+					</Tooltip>
 				</div>
 			</div>
 
@@ -178,9 +182,7 @@ export function WorkspacePlanCard({ sessionId }) {
 				</p>
 			) : error ? (
 				<div className="mt-2">
-					<p role="alert" className="text-[11px] text-[var(--error)]">
-						Could not load the plan: {error}
-					</p>
+
 					<button
 						type="button"
 						onClick={load}

@@ -1,3 +1,5 @@
+import { useToastMessage } from "../../hooks/useAppToast.jsx";
+import Tooltip from "../Tooltip.jsx";
 import { WorkspacePreviewContext } from "../../context/WorkspacePreviewContext.jsx";
 import { selectMascotSession, mascotAttention, mascotBusy, mascotRequestFailure } from '../../lib/mascotActivity.mjs';
 import { reconcileMessageSnapshot } from "../../lib/messageSnapshot.mjs";
@@ -76,12 +78,13 @@ function SelectedFilePreview({ file, onRemove, onChange, disabled }) {
 			) : (
 				<span className="flex h-16 items-center justify-center text-xs">Text file</span>
 			)}
-			<span
-				title={file.name}
-				className="truncate text-[11px]"
-			>
-				{file.name}
-			</span>
+			<Tooltip content={file.name}>
+				<span
+					className="truncate text-[11px]"
+				>
+					{file.name}
+				</span>
+			</Tooltip>
             {file.version_id && <AttachmentControls attachment={file} onChange={result=>result?onChange?.(result):onRemove(false)} disabled={disabled} />}
 			<button
 				type="button"
@@ -641,10 +644,12 @@ export function ChatInterface({
         window.addEventListener('attachments-changed',changed);
         return ()=>window.removeEventListener('attachments-changed',changed);
     },[palace.sessionId]);
-	// Casual-chat summarization notice: a slim inline line near the composer,
-	// set only when a sent prompt's reply save hits the compression lock.
-	// Workspace chats keep the full-width error section instead.
+	// Notify when saving a casual reply hits the compression lock.
 	const [summarizeNotice, setSummarizeNotice] = useState("");
+	useToastMessage(historyError);
+	useToastMessage(steeringError);
+	useToastMessage(midRunQuestionsError);
+	useToastMessage(summarizeNotice, "warning", !isWorkspaceChat);
 	const [loading, setLoading] = useState(false);
 	const [editing, setEditing] = useState(null);
 	const [editText, setEditText] = useState("");
@@ -2033,7 +2038,7 @@ export function ChatInterface({
                     attachDisabled: !window.api?.stageAttachments,
                     attachmentTooltip: uploadPolicy.tooltip,
                     hasAttachments: selectedFiles.length > 0,
-                    attachments: <><p role="status" className="text-[11px] text-[var(--error)]">{historyError}</p>{selectedFiles.length > 0 && <div className="flex gap-2 overflow-auto py-2" aria-label="Selected attachments">
+                    attachments: <>{selectedFiles.length > 0 && <div className="flex gap-2 overflow-auto py-2" aria-label="Selected attachments">
                         {selectedFiles.map((file, index) => <SelectedFilePreview key={`${file.name}-${index}`} file={file} onChange={result=>setSelectedFiles(files=>files.map((f,i)=>i===index?result:f))}
                             disabled={streaming || loading} onRemove={(revoke=true) => {
                                 if(revoke && file.draft_token) window.api.recoverAttachment({sessionId:file.session_id ?? palace.sessionId,attachment:file,action:'omit'}).catch(error=>setHistoryError(error.message));
@@ -2049,14 +2054,7 @@ export function ChatInterface({
 			>
 				{/* bg-[var(--bg-secondary)]!  */}
                 <AttachmentIssues sessionId={palace.sessionId} refreshKey={historyError} />
-				{historyError && (
-					<p
-						role="alert"
-						className="p-2 text-[var(--error-soft)]"
-					>
-						{historyError}
-					</p>
-				)}
+
 				{findOpen && view === "chat" && (
 					<ChatFindBar
 						query={findQuery}
@@ -2341,15 +2339,16 @@ export function ChatInterface({
 				</div>
 				{(showScrollToBottom || transcript.hasNewer) && (
 					<div className="pointer-events-none relative z-[55] mx-auto h-0 w-[calc(100%-2rem)] max-w-[980px] shrink-0 max-[450px]:w-[calc(100%-1.5rem)]">
-						<button
-							type="button"
-							aria-label="Scroll to bottom"
-							title="Scroll to bottom"
-							onClick={jumpToLatest}
-							className="aero-orb sk-icon-button aero-fill sk-fill pointer-events-auto absolute bottom-3 right-3 flex size-9 cursor-pointer items-center justify-center text-[var(--text-secondary)] shadow-lg hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-						>
-							<FiArrowDown aria-hidden="true" className="size-4" />
-						</button>
+						<Tooltip content="Scroll to bottom">
+							<button
+								type="button"
+								aria-label="Scroll to bottom"
+								onClick={jumpToLatest}
+								className="aero-orb sk-icon-button aero-fill sk-fill pointer-events-auto absolute bottom-3 right-3 flex size-9 cursor-pointer items-center justify-center text-[var(--text-secondary)] shadow-lg hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+							>
+								<FiArrowDown aria-hidden="true" className="size-4" />
+							</button>
+						</Tooltip>
 					</div>
 				)}
 				{/* Pending questions and skill approvals stay anchored above the
@@ -2407,13 +2406,9 @@ export function ChatInterface({
 					</div>
 				)}
 
-				{summarizeNotice && !isWorkspaceChat && (
-					<p className="mx-auto w-[calc(100%-2rem)] max-w-[980px] px-1 pb-1 text-[11px] leading-relaxed text-[var(--text-muted)] max-[450px]:w-[calc(100%-1.5rem)]">
-						{summarizeNotice}
-					</p>
-				)}
 
-				{(steeringForRun.length > 0 || steeringError) && (
+
+				{(steeringForRun.length > 0) && (
 					<div
 						aria-label="Steering instructions"
 						className="mx-auto mb-2 w-[calc(100%-2rem)] max-w-[980px] max-[450px]:w-[calc(100%-1.5rem)]"
@@ -2457,18 +2452,19 @@ export function ChatInterface({
 											key={item.id}
 											className="flex items-start gap-2 ui-radius-control border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 text-xs text-[var(--text-secondary)]"
 										>
-											<span
-												title={item.failureReason || undefined}
-												className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${
-													item.state === "delivered"
-														? "bg-[var(--accent)]/15 text-[var(--accent)]"
-														: item.state === "undelivered"
-															? "bg-[var(--error)]/15 text-[var(--error)]"
-															: "bg-[var(--surface-hover)] text-[var(--text-muted)]"
-												}`}
-											>
-												{label}
-											</span>
+											<Tooltip content={item.failureReason || undefined}>
+												<span
+													className={`shrink-0 ui-radius-control px-1.5 py-0.5 text-[10px] font-medium ${
+														item.state === "delivered"
+															? "bg-[var(--accent)]/15 text-[var(--accent)]"
+															: item.state === "undelivered"
+																? "bg-[var(--error)]/15 text-[var(--error)]"
+																: "bg-[var(--surface-hover)] text-[var(--text-muted)]"
+													}`}
+												>
+													{label}
+												</span>
+											</Tooltip>
 											<span className="min-w-0 flex-1 whitespace-pre-wrap break-words line-clamp-3">
 												{item.content}
 											</span>
@@ -2491,11 +2487,7 @@ export function ChatInterface({
 								})}
 							</ul>
 						)}
-						{steeringError && (
-							<p role="alert" className="px-1 pt-1 text-[11px] text-[var(--error)]">
-								{steeringError}
-							</p>
-						)}
+
 					</div>
 				)}
 
@@ -2539,22 +2531,22 @@ export function ChatInterface({
 							className="absolute bottom-full left-0 right-0 z-10 mb-2 flex max-h-28 flex-wrap gap-1 overflow-y-auto"
 						>
 							{promptQueue.map((item, index) => (
-								<button
-									key={`${item.id}-${index}`}
-									type="button"
-									title={item.text}
-									aria-label={`Remove queued prompt: ${item.text}`}
-									onClick={() =>
-										setPromptQueue((previous) =>
-											previous.filter((entry) => entry !== item),
-										)
-									}
-									className="max-w-full truncate ui-radius-control border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]"
-								>
-									<IoIosHourglass /> Queued ({promptQueue.length}): &quot;
-									{item.text.slice(0, 30)}
-									{item.text.length > 30 ? "..." : ""}&quot; (click to remove)
-								</button>
+								<Tooltip key={`${item.id}-${index}`} content={item.text}>
+									<button
+										type="button"
+										aria-label={`Remove queued prompt: ${item.text}`}
+										onClick={() =>
+											setPromptQueue((previous) =>
+												previous.filter((entry) => entry !== item),
+											)
+										}
+										className="max-w-full truncate ui-radius-control border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm hover:text-[var(--text-primary)]"
+									>
+										<IoIosHourglass /> Queued ({promptQueue.length}): &quot;
+										{item.text.slice(0, 30)}
+										{item.text.length > 30 ? "..." : ""}&quot; (click to remove)
+									</button>
+								</Tooltip>
 							))}
 						</div>
 					)}
@@ -2617,7 +2609,7 @@ export function ChatInterface({
 						allowMidRunQuestions={isWorkspaceChat ? true : allowMidRunQuestions}
 						onMidRunQuestionsChange={changeMidRunQuestions}
 						midRunQuestionsBusy={midRunQuestionsBusy}
-						midRunQuestionsError={midRunQuestionsError}
+						midRunQuestionsError=""
 						midRunQuestionsLocked={isWorkspaceChat}
 						onPermissionModeChange={changePermissionMode}
 						ref={composerRef}

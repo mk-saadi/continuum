@@ -1,3 +1,4 @@
+import { useAppToast, useToastMessage } from "../hooks/useAppToast.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -160,14 +161,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						className="aero-well sk-well aero-fill sk-fill w-full px-3 py-2 text-sm"
 					/>
 				)}
-				{error && (
-					<p
-						role="alert"
-						className="text-sm text-[var(--error)]"
-					>
-						{error}
-					</p>
-				)}
+
 				<div className="flex justify-end gap-2">
 					<button
 						type="button"
@@ -222,23 +216,26 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 			aria-current={activeId === session.id ? "true" : undefined}
 			className="aero-list-item sk-list-row group relative flex items-center ui-radius-control py-1"
 		>
-			<button
-				className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
-				aria-current={activeId === session.id ? "page" : undefined}
-				title={session.title || "Untitled chat"}
-				onClick={() => {
-					closeMenu();
-					onLoad(session.id);
-				}}
-			>
-				{session.title || "Untitled chat"}
-			</button>
-			<span
-				className="shrink-0 block group-hover:invisible group-focus-within:invisible text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
-				title={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}
-			>
-				{tokenFormatter.format(session.total_tokens || 0)} tokens
-			</span>
+			<Tooltip content={session.title || "Untitled chat"}>
+				<button
+					className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
+					aria-current={activeId === session.id ? "page" : undefined}
+					aria-label={session.title || "Untitled chat"}
+					onClick={() => {
+						closeMenu();
+						onLoad(session.id);
+					}}
+				>
+					{session.title || "Untitled chat"}
+				</button>
+			</Tooltip>
+			<Tooltip content={`${(session.total_tokens || 0).toLocaleString()} estimated tokens in saved messages`}>
+				<span
+					className="shrink-0 block group-hover:invisible group-focus-within:invisible text-[10px] tabular-nums text-[var(--text-muted)] duration-300 pr-1.5"
+				>
+					{tokenFormatter.format(session.total_tokens || 0)} tokens
+				</span>
+			</Tooltip>
 			<button
 				className="aero-list-item sk-list-row absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
 				aria-label={`Actions for ${session.title || "Untitled chat"}`}
@@ -276,13 +273,9 @@ export default function ChatHistory({
 	const [menu, setMenu] = useState(null);
 	const [action, setAction] = useState(null);
 	const [error, setError] = useState("");
+	useToastMessage(error);
 	const [busy, setBusy] = useState(false);
-	const [toast, setToast] = useState(null);
-	useEffect(() => {
-		if (!toast) return;
-		const timer = setTimeout(() => setToast(null), 4500);
-		return () => clearTimeout(timer);
-	}, [toast]);
+	const notify = useAppToast();
 	const [dropTarget, setDropTarget] = useState(null);
 	const menuRef = useRef(null);
 	const menuTrigger = useRef(null);
@@ -377,7 +370,7 @@ export default function ChatHistory({
 				const result = await window.api.exportChat(id, value);
 				if (!result?.canceled) {
 					if (!result?.success) throw new Error(result?.error || "Could not export chat.");
-					setToast({ text: "Chat exported successfully.", error: false });
+					notify("Chat exported successfully.", "success");
 				}
 			} else await onAction(kind, id, value);
 			if (kind === "Move to Folder" || kind === "New Folder")
@@ -389,7 +382,7 @@ export default function ChatHistory({
 			setAction(null);
 		} catch (err) {
 			setError(err.message);
-			if (kind === "Export Chat...") setToast({ text: err.message, error: true });
+			if (kind === "Export Chat...") notify(err.message);
 		} finally {
 			setBusy(false);
 		}
@@ -429,19 +422,25 @@ export default function ChatHistory({
 								</span>
 							)}
 						</div>
-						<button
-							className="aero-primary sk-button sk-primary aero-fill sk-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
-							disabled={locked || !canCreateWorkspaceChat}
-							title={
+						<Tooltip content={
 								canCreateWorkspaceChat
 									? "Start a new chat in this workspace"
 									: "Select and start a model before creating a workspace chat"
-							}
-							onClick={() => onNewWorkspaceChat?.()}
-						>
-							<FiPlus className="shrink-0" />
-							New workspace chat
-						</button>
+							}>
+							<button
+								className="aero-primary sk-button sk-primary aero-fill sk-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
+								disabled={locked || !canCreateWorkspaceChat}
+								aria-label={
+									canCreateWorkspaceChat
+										? "Start a new chat in this workspace"
+										: "Select and start a model before creating a workspace chat"
+								}
+								onClick={() => onNewWorkspaceChat?.()}
+							>
+								<FiPlus className="shrink-0" />
+								New workspace chat
+							</button>
+						</Tooltip>
 						{!canCreateWorkspaceChat && (
 							<p className="mt-2! text-[11px] text-[var(--text-muted)]">
 								Select and start a model to begin chatting.
@@ -593,12 +592,13 @@ export default function ChatHistory({
 										aria-hidden="true"
 									/>
 								)}
-								<span
-									className="min-w-0 flex-1 truncate text-left"
-									title={group.folder_name}
-								>
-									{group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
-								</span>
+								<Tooltip content={group.folder_name}>
+									<span
+										className="min-w-0 flex-1 truncate text-left"
+									>
+										{group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
+									</span>
+								</Tooltip>
 								<span>{group.sessions.length}</span>
 							</button>
 							{expanded && (
@@ -638,14 +638,7 @@ export default function ChatHistory({
 					</p>
 				)}
 			</nav>
-			{error && !action && (
-				<p
-					role="alert"
-					className="px-3 pb-3 text-xs text-[var(--error)]"
-				>
-					{error}
-				</p>
-			)}
+
 
 			{menu &&
 				createPortal(
@@ -696,23 +689,14 @@ export default function ChatHistory({
 					</div>,
 					document.body,
 				)}
-			{toast &&
-				createPortal(
-					<div
-						role={toast.error ? "alert" : "status"}
-						className="aero-popover sk-menu fixed bottom-5 left-1/2 z-[100] max-w-[90vw] -translate-x-1/2 px-4 py-3 text-sm"
-					>
-						{toast.text}
-					</div>,
-					document.body,
-				)}
+
 			{action && (
 				<ActionDialog
 					action={action}
 					folders={folders}
 					busy={busy}
 					disabled={disabled}
-					error={error}
+					error=""
 					onClose={() => setAction(null)}
 					onSubmit={(value) => perform(action.kind, action.session?.id, value)}
 				/>

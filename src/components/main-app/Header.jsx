@@ -100,15 +100,16 @@ export default function Header({
 
 			{workspace ? (
 				<div className="flex min-w-0 items-center gap-1.5">
-					<button
-						type="button"
-						className="aero-orb sk-icon-button aero-fill sk-fill size-7 shrink-0 cursor-pointer"
-						aria-label="Workspace Home"
-						title="Workspace Home"
-						onClick={workspace.onOpenHome}
-					>
-						<LuHouse className="size-3.5" />
-					</button>
+					<Tooltip content="Workspace Home">
+						<button
+							type="button"
+							className="aero-orb sk-icon-button aero-fill sk-fill size-7 shrink-0 cursor-pointer"
+							aria-label="Workspace Home"
+							onClick={workspace.onOpenHome}
+						>
+							<LuHouse className="size-3.5" />
+						</button>
+					</Tooltip>
 					{workspace.name && (
 						<>
 							<span
@@ -117,16 +118,17 @@ export default function Header({
 							>
 								|
 							</span>
-							<button
-								type="button"
-								className="aero-control sk-button aero-fill sk-fill flex min-h-7 min-w-0 max-w-44 cursor-pointer items-center gap-1.5 px-1.5 py-1 text-xs text-[var(--text-primary)] max-[700px]:max-w-24"
-								aria-label="Open workspace"
-								title="Open workspace"
-								onClick={workspace.onOpenWorkspace}
-							>
-								<LuFolder className="size-3.5 shrink-0" />
-								<span className="truncate">{workspace.name}</span>
-							</button>
+							<Tooltip content="Open workspace">
+								<button
+									type="button"
+									className="aero-control sk-button aero-fill sk-fill flex min-h-7 min-w-0 max-w-44 cursor-pointer items-center gap-1.5 px-1.5 py-1 text-xs text-[var(--text-primary)] max-[700px]:max-w-24"
+									aria-label="Open workspace"
+									onClick={workspace.onOpenWorkspace}
+								>
+									<LuFolder className="size-3.5 shrink-0" />
+									<span className="truncate">{workspace.name}</span>
+								</button>
+							</Tooltip>
 						</>
 					)}
 				</div>
@@ -168,14 +170,15 @@ export default function Header({
 						</span>
 					)}
 					{!isCloud && engineRunning && loadWarning && (
-						<span
-							role="status"
-							aria-label="Partial GPU offload"
-							title={loadWarning}
-							className="shrink-0 text-[10px] font-medium text-[var(--error)]"
-						>
-							CPU offload
-						</span>
+						<Tooltip content={loadWarning}>
+							<span
+								role="status"
+								aria-label="Partial GPU offload"
+								className="shrink-0 text-[10px] font-medium text-[var(--error)]"
+							>
+								CPU offload
+							</span>
+						</Tooltip>
 					)}
 					<span
 						aria-hidden="true"

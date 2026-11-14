@@ -44,14 +44,14 @@ export default function SkillsSettingsTab() {
 						variant="primary"
 						className="primary"
 						disabled={busy}
-						title="Import a .md or .zip skill file"
+						tooltip="Import a .md or .zip skill file"
 						onClick={() => action(() => window.api.importSkill())}
 					>
 						Import Skill File
 					</SettingsButton>
 					<SettingsButton
 						disabled={busy}
-						title="Import a folder containing SKILL.md"
+						tooltip="Import a folder containing SKILL.md"
 						onClick={() => action(() => window.api.importSkillFolder())}
 					>
 						Import Skill Folder

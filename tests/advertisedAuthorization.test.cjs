@@ -1,0 +1,21 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createManifestStore } = require('../src/main/advertisedTools');
+test('trusted approval revision preserves the accepted operation but not later revocations or configuration changes', () => {
+  let current = { permission: 1, configuration: 'original', mcpMode: 'automatic' };
+  const identity = { serverName: 'native', toolName: 'execute_command' };
+  const schema = { type: 'object' };
+  const store = createManifestStore({ sessionId: 's', runId: 'r', epoch: () => ({ ...current }), resolve: () => identity });
+  const id = store.record([{ function: { name: 'execute_command', parameters: schema } }]);
+  const accepted = store.accept(id, 'execute_command', schema, identity);
+  current.permission = 2;
+  assert.throws(() => store.validateEpoch(accepted), /authorization/);
+  const authorized = store.afterAuthorization(accepted, 2);
+  store.validateEpoch(authorized);
+  assert.throws(() => store.accept(id, 'execute_command', schema, identity), /authorization/, 'other calls from the stale request stay invalid');
+  current.permission = 3;
+  assert.throws(() => store.validateEpoch(authorized), /authorization/);
+  assert.throws(() => store.afterAuthorization(accepted, 2), /authorization/);
+  current.configuration = 'changed';
+  assert.throws(() => store.afterAuthorization(accepted, 3), /authorization/);
+});

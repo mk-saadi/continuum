@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aero Glass Buttons</title>
+<style>
+  :root {
+    --glass-border: rgba(255, 255, 255, 0.45);
+    --glass-shadow: 0 6px 18px rgba(31, 45, 90, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    /* Vibrant background so the frosted glass reads clearly */
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #7db9ff 0%, transparent 55%),
+      radial-gradient(1000px 700px at 110% 20%, #b388ff 0%, transparent 50%),
+      linear-gradient(135deg, #4f6df5 0%, #7a5cff 45%, #e96fb0 100%);
+    background-attachment: fixed;
+  }
+
+  /* Floating shape to make the blur visible */
+  body::before {
+    content: "";
+    position: fixed;
+    top: -120px; left: -80px;
+    width: 360px; height: 360px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    filter: blur(10px);
+    z-index: -1;
+  }
+
+  .panel {
+    width: min(560px, 100%);
+    padding: 34px 36px 40px;
+    border-radius: 18px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.28), rgba(255,255,255,0.10));
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    box-shadow: 0 20px 50px rgba(20, 30, 70, 0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+
+  .panel h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .panel p.sub {
+    margin: 0 0 26px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  /* ============ BASE AERO GLASS BUTTON ============ */
+  .btn-glass {
+    position: relative;
+    isolation: isolate;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #fff;
+    padding: 12px 26px;
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    overflow: hidden;
+
+    /* Frosted glass surface */
+    background: linear-gradient(to bottom, rgba(255,255,255,0.38), rgba(255,255,255,0.14));
+    backdrop-filter: blur(9px) saturate(160%);
+    -webkit-backdrop-filter: blur(9px) saturate(160%);
+
+    box-shadow: var(--glass-shadow);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.28);
+
+    transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+  }
+
+  /* Glossy top highlight */
+  .btn-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 52% 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.45), rgba(255,255,255,0));
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .btn-glass:hover {
+    background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0.2));
+    box-shadow: 0 10px 26px rgba(31,45,90,0.3), inset 0 1px 0 rgba(255,255,255,0.7);
+    transform: translateY(-1px);
+  }
+
+  .btn-glass:active {
+    transform: translateY(1px) scale(.98);
+    box-shadow: 0 3px 10px rgba(31,45,90,0.25), inset 0 2px 6px rgba(0,0,0,0.18);
+    background: linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+  }
+
+  .btn-glass:focus-visible {
+    outline: none;
+    box-shadow: var(--glass-shadow), 0 0 0 3px rgba(255,255,255,0.6);
+  }
+
+  /* ============ TINT VARIANTS ============ */
+  .btn-glass--primary {
+    background: linear-gradient(to bottom, rgba(80,140,255,0.55), rgba(60,90,230,0.35));
+  }
+  .btn-glass--success {
+    background: linear-gradient(to bottom, rgba(70,200,130,0.55), rgba(40,150,90,0.35));
+  }
+  .btn-glass--danger {
+    background: linear-gradient(to bottom, rgba(240,90,90,0.55), rgba(200,60,70,0.35));
+  }
+
+  /* Ghost / clear variant */
+  .btn-glass--ghost {
+    color: #fff;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+  }
+
+  /* Pill shape */
+  .btn-glass--pill { border-radius: 999px; }
+  .btn-glass--pill::before { border-radius: 999px 999px 0 0; }
+
+  /* Disabled */
+  .btn-glass:disabled,
+  .btn-glass[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Aero Glass Buttons</h1>
+    <p class="sub">Vanilla CSS &middot; frosted glass, gloss highlight &amp; soft shadows</p>
+
+    <div class="row">
+      <button class="btn-glass btn-glass--primary">Primary</button>
+      <button class="btn-glass btn-glass--success">Success</button>
+      <button class="btn-glass btn-glass--danger">Danger</button>
+    </div>
+
+    <div class="row">
+      <button class="btn-glass">Neutral Glass</button>
+      <button class="btn-glass btn-glass--ghost">Ghost</button>
+      <button class="btn-glass btn-glass--primary btn-glass--pill">Pill Action</button>
+    </div>
+
+    <div class="row">
+      <span class="label">Disabled</span>
+      <button class="btn-glass btn-glass--primary" disabled>Disabled</button>
+      <button class="btn-glass" aria-disabled="true">Aria Disabled</button>
+    </div>
+  </div>
+</body>
+</html>

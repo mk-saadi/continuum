@@ -199,3 +199,28 @@ Electron/libvips emits non-fatal GLib warnings in this environment. Chromium che
 require execution outside the restricted process sandbox and keep isolated profiles.
 No packaged application was installed or launched. No external provider interpretation
 or cross-platform safe-unlink verification was performed.
+
+## Image request performance (2026-11-14)
+
+Model history now includes image pixels only for the latest user turn. That turn
+keeps its images during tool rounds and regeneration. On the next user turn,
+earlier screenshots retain their names and authorized attachment references;
+the agent can reopen an original with `read_project_file` when visual details
+are needed. Text documents and audio/video delivery are unchanged. Originals,
+resolution, alpha and orientation handling are preserved. Existing historical
+source verification and recovery still apply.
+
+Successful image inspection is cached in memory by SHA-256 of the encoded bytes
+and MIME type, with at most 128 entries. Concurrent identical inspections share
+validation. Failed validation is evicted; changed bytes or MIME cannot reuse an
+old result. Restarting the application clears the cache. No schema migration or
+caller-supplied validation flag is needed. EXIF/WebP transformations still run
+when required; transformed bytes are not retained in this metadata cache.
+
+Regression coverage in `attachmentDelivery.test.cjs` checks current versus
+historical image delivery, regeneration, explicit reference reads, repeated and
+concurrent validation, metadata isolation, changed/corrupt bytes and MIME mismatch.
+A synthetic 3840×2160 solid-color PNG measured approximately 532 ms for initial
+inspection and 0.38 ms for a cache hit in this environment; this is a local
+validation microbenchmark, not an end-to-end model latency estimate. No live
+provider/model response-time comparison was performed.

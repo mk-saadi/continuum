@@ -15,7 +15,7 @@ class LifetimeTests(unittest.TestCase):
                      and node.name in ('command_limits', 'execute')]
         limits, events, launches = {}, [], []
         resource = types.SimpleNamespace(
-            RLIMIT_NOFILE='files', RLIMIT_CORE='core', RLIMIT_CPU='cpu', RLIMIT_AS='memory',
+            RLIM_INFINITY=-1, RLIMIT_NOFILE='files', RLIMIT_CORE='core', RLIMIT_CPU='cpu', RLIMIT_AS='memory',
             setrlimit=lambda key, value: limits.update({key: value}))
 
         class NetworkError(Exception):
@@ -54,8 +54,16 @@ class LifetimeTests(unittest.TestCase):
         self.assertEqual(limits['cpu'], (172830, 172830))
         self.assertEqual(events[-1]['code'], 'TEST_STOP_BEFORE_LAUNCH')
 
+    def test_no_timeout_has_no_wall_or_cpu_deadline(self):
+        env, owner, limits, events, launches = self.worker()
+        env['execute']({'id': 'unlimited', 'session': 's', 'workspace': '/work',
+                        'timeoutMs': None, 'launch': {'file': '/usr/bin/bwrap', 'argv': []}})
+        self.assertEqual(owner._deadline, float('inf'))
+        self.assertEqual(limits['cpu'], (-1, -1))
+        self.assertEqual(len(launches), 1)
+
     def test_invalid_lifetimes_never_launch_or_renew(self):
-        for value in (True, 0, -1, 86400001, '3600000', None):
+        for value in (True, 0, -1, 86400001, '3600000'):
             with self.subTest(value=value):
                 env, owner, _, events, launches = self.worker()
                 env['execute']({'id': 'bad', 'timeoutMs': value})

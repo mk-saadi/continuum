@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiCheck, FiCopy, FiExternalLink } from "react-icons/fi";
@@ -5,7 +6,7 @@ import { clampMenuPosition } from "../../lib/textSelection.mjs";
 
 const itemClass = "flex cursor-pointer items-center gap-1.5 ui-radius-control px-2.5 py-1.5 text-xs whitespace-nowrap text-[var(--text-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
 
-export default function LinkPopover({ href, children, ...props }) {
+export default function LinkPopover({ href, children, title, ...props }) {
  const [position, setPosition] = useState(null);
  const [copied, setCopied] = useState(false);
  const [error, setError] = useState("");
@@ -37,17 +38,20 @@ export default function LinkPopover({ href, children, ...props }) {
   };
  }, [position]);
  return <>
-  <a {...props} ref={anchor} href={href} aria-haspopup="dialog" aria-expanded={!!position}
-   className="text-[var(--link)] underline cursor-pointer"
-   onClick={event => {
-    event.preventDefault();
-    window.getSelection()?.removeAllRanges();
-    setCopied(false); setError("");
-    setPosition(clampMenuPosition(event.currentTarget.getBoundingClientRect(), 280, 44, 10));
-   }}>
-   {children}
-  </a>
-  {position && createPortal(<div ref={panel} role="dialog" aria-label="Link actions"
+  <Tooltip content={title || href}>
+    <a {...props} ref={anchor} href={href} aria-haspopup="dialog" aria-expanded={!!position}
+	   className="text-[var(--link)] underline cursor-pointer"
+	   onClick={event => {
+	    event.preventDefault();
+	    window.getSelection()?.removeAllRanges();
+	    setCopied(false); setError("");
+	    setPosition(clampMenuPosition(event.currentTarget.getBoundingClientRect(), 280, 44, 10));
+	   }}>
+	   {children}
+	  </a>
+  </Tooltip>
+  {position && createPortal(<div ref={panel} role="dialog"
+  aria-label="Link actions"
    className="fixed z-[80] flex flex-wrap items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
    style={{ left: position.left, top: position.top, maxWidth: "calc(100vw - 16px)" }}>
    <button ref={copyButton} type="button" className={itemClass} onClick={async () => {

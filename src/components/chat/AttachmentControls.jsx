@@ -1,7 +1,9 @@
+import { useToastMessage } from "../../hooks/useAppToast.jsx";
 import React, { useEffect, useState } from 'react';
 
 export function AttachmentControls({ attachment, sessionId = attachment.session_id, onChange, disabled = false, expanded = false }) {
   const [open,setOpen]=useState(expanded), [current,setCurrent]=useState(attachment), [busy,setBusy]=useState(false), [problem,setProblem]=useState(''), [storage,setStorage]=useState(null);
+  useToastMessage(problem);
   useEffect(()=>setCurrent(attachment),[attachment]);
   const refresh=async()=>{
     try { setCurrent(await window.api.inspectAttachment({sessionId,attachment:current})); }
@@ -38,7 +40,7 @@ export function AttachmentControls({ attachment, sessionId = attachment.session_
       </div>
     </div>}
     {busy && <p role="status">Verifying attachment…</p>}
-    {problem && <p role="alert" className="text-[var(--error)]">{problem}</p>}
+
   </div>;
 }
 
@@ -68,6 +70,7 @@ function formatStorageBytes(value) {
 
 export function AttachmentStorageStatus() {
   const [storage,setStorage]=useState(null),[problem,setProblem]=useState(''),[busy,setBusy]=useState(false);
+  useToastMessage(problem);
   const refresh=async()=>{
     if (!window.api?.previewAttachmentCleanup) { setProblem('Storage status is unavailable.'); return; }
     setBusy(true);
@@ -123,6 +126,6 @@ export function AttachmentStorageStatus() {
         <p className="mt-1 leading-relaxed">{unresolved} unrecognized legacy item{unresolved===1?'':'s'} kept for safety; they are not removed automatically.</p>
       </details>}
     </div> : !problem && <p className="mt-2 text-[11px] text-[var(--text-muted)]">Checking storage…</p>}
-    {problem && <p role="alert" className="mt-2 text-[11px] text-[var(--error)]">{problem}</p>}
+
   </div>;
 }

@@ -9,6 +9,21 @@
 	--ui-radius-pill: var(--ui-radius-round);
 }
 
+/* Aero uses compact corners across themes, including formerly pill-shaped
+   controls. Keep the round token for structural dots and avatars. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"]) {
+	--ui-radius-small: 4px;
+	--ui-radius-control: 4px;
+	--ui-radius-surface: 4px;
+	--ui-radius-pill: 4px;
+}
+
+/* Icon buttons also use compact corners; tabs retain their square base. */
+html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	:is(button, [role="button"], .aero-orb):not(.aero-tab) {
+	border-radius: var(--ui-radius-control);
+}
+
 html[data-appearance="flat"] {
 	--ui-radius-small: 2px;
 	--ui-radius-control: 4px;

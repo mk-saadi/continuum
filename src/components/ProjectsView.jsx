@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useState } from "react";
 import { FiFolder, FiPlus, FiStar } from "react-icons/fi";
 import { TextField } from "./FormControls";
@@ -129,12 +130,13 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 										{project.description || "Add a goal to give this project direction."}
 									</p>
 									<div className="mt-auto w-full min-w-0">
-										<span
-											className="project-path sk-path"
-											title={project.root_path || undefined}
-										>
-											{project.root_path || "No folder connected"}
-										</span>
+										<Tooltip content={project.root_path || undefined}>
+											<span
+												className="project-path sk-path"
+											>
+												{project.root_path || "No folder connected"}
+											</span>
+										</Tooltip>
 										<p className="projects-muted mt-3">
 											Created {projectDate(project.created_at)}
 										</p>

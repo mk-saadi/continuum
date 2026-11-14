@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { LuSlidersHorizontal, LuBrain } from "react-icons/lu";
@@ -287,21 +288,23 @@ export function AgentSettingsPopover({
 	return (
 		<div className="relative shrink-0">
 			{/* Main Settings Trigger Pill */}
-			<button
-				type="button"
-				ref={triggerRef}
-				disabled={disabled}
-				onClick={handleToggle}
-				title={allowMidRunQuestions ? "Agent Run Settings · Mid-run questions enabled" : "Agent Run Settings"}
-				aria-expanded={isOpen}
-				aria-haspopup="dialog"
-				className="aero-control sk-button aero-fill sk-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
-			>
-				<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
-				<span className="font-medium">Settings</span>
-				{/* Subtle active indicator dot when mid-run questions are on */}
-				{allowMidRunQuestions && <span role="img" aria-label="Mid-run questions enabled" title="Mid-run questions enabled" className="size-1.5 ui-radius-round bg-[var(--accent)]" />}
-			</button>
+			<Tooltip content={allowMidRunQuestions ? "Agent Run Settings · Mid-run questions enabled" : "Agent Run Settings"}>
+				<button
+					type="button"
+					ref={triggerRef}
+					disabled={disabled}
+					onClick={handleToggle}
+					aria-label={allowMidRunQuestions ? "Agent Run Settings · Mid-run questions enabled" : "Agent Run Settings"}
+					aria-expanded={isOpen}
+					aria-haspopup="dialog"
+					className="aero-control sk-button aero-fill sk-fill flex min-h-8 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs"
+				>
+					<LuSlidersHorizontal className="size-3.5 text-[var(--text-muted)]" />
+					<span className="font-medium">Settings</span>
+					{/* Subtle active indicator dot when mid-run questions are on */}
+					{allowMidRunQuestions && <span role="img" aria-label="Mid-run questions enabled" className="size-1.5 ui-radius-round bg-[var(--accent)]" />}
+				</button>
+			</Tooltip>
 
 			{/* Popover Menu Panel */}
 			{isOpen &&

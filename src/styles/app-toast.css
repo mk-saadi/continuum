@@ -1,0 +1,163 @@
+.app-toast {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	width: min(380px, calc(100vw - 32px));
+	box-sizing: border-box;
+	padding: 12px;
+	border: 1px solid var(--border);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	font-family: inherit;
+	text-align: left;
+	--toast-accent: var(--text-secondary);
+	border-inline-start: 3px solid var(--toast-accent);
+	margin-left: 82px;
+}
+.app-toast[data-severity="error"] {
+	--toast-accent: var(--error);
+}
+.app-toast[data-severity="warning"] {
+	--toast-accent: var(--warning, var(--accent));
+}
+.app-toast[data-severity="success"] {
+	--toast-accent: var(--success, var(--accent));
+}
+.app-toast-icon {
+	flex-shrink: 0;
+	width: 19px;
+	height: 19px;
+	color: var(--toast-accent);
+}
+.app-toast-content {
+	min-width: 0;
+	flex: 1;
+}
+.app-toast-content strong {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+}
+.app-toast-content p {
+	margin: 5px 0 0;
+	font-size: 12px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	max-height: 40vh;
+	overflow-y: auto;
+}
+.app-toast-close {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	border: 0;
+	border-radius: 5px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.app-toast-close:hover {
+	background: var(--input);
+	color: var(--text-primary);
+}
+.app-toast-close:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.outer_container:has(.app-toast) {
+		animation: none !important;
+	}
+}
+
+.app-approval-toast {
+	width: min(32rem, calc(100vw - 2rem));
+	box-sizing: border-box;
+	padding: 18px;
+	border: 0;
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	text-align: left;
+	max-height: calc(100vh - 3rem);
+	overflow-y: auto;
+}
+.outer_container:has(.app-approval-toast) {
+	justify-content: center;
+	left: 0;
+	right: 0;
+}
+.outer_container.exiting:has(.app-approval-toast) {
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.outer_container:has(.app-approval-toast) {
+		animation: none !important;
+	}
+}
+
+/* Toast-only Aero surface. Keep the shared popover's heavier bevel and
+   drop shadows out of notifications without changing menus or dialogs. */
+.aero-toast-surface {
+	border-color: var(--aero-line, var(--border));
+	border-inline-start-color: var(--toast-accent, var(--warning, var(--accent)));
+	border-radius: var(--ui-radius-surface, 12px);
+	background:
+		var(--aero-gloss-chrome, linear-gradient(transparent, transparent)),
+		var(--aero-glass-strong, var(--bg-secondary));
+	-webkit-backdrop-filter: blur(var(--aero-blur-float, 12px)) saturate(var(--aero-saturate-float, 1));
+	backdrop-filter: blur(var(--aero-blur-float, 12px)) saturate(var(--aero-saturate-float, 1));
+}
+
+/* Skeu uses an opaque machined surface, never the Aero glass material.
+   Keep the relief inside the card so the toast has no heavy drop shadow. */
+html[data-style="skeu"] .aero-toast-surface {
+	border-color: var(--sk-edge, var(--border));
+	border-inline-start-color: var(--toast-accent, var(--sk-warning, var(--warning)));
+	border-radius: var(--sk-radius, var(--ui-radius-surface));
+	color: var(--sk-text, var(--text-primary));
+	background-color: var(--sk-surface, var(--surface));
+	background-image:
+		var(--sk-panel-finish, linear-gradient(transparent, transparent)),
+		linear-gradient(var(--sk-top, var(--surface)), var(--sk-bottom, var(--surface)));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	/* box-shadow:
+		inset 0 1px 0 var(--sk-relief-highlight, transparent),
+		inset 0 -1px 0 var(--sk-relief-lowlight, transparent); */
+}
+
+html[data-appearance="flat"] .aero-toast-surface {
+	background: var(--surface-raised);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: none;
+}
+
+/* The toast library wraps custom content in a 475px, overflow-hidden box.
+   Let this approval own its responsive width instead of clipping its contents. */
+.outer_container:has(.app-approval-toast) .max_width {
+  width: auto;
+  max-width: calc(100vw - 2rem);
+  overflow: visible;
+  min-width: 0;
+}
+.app-approval-toast { border: 1px solid var(--border, #8b91994d); overflow-wrap: anywhere; min-width: 0; }
+.app-approval-toast pre { max-width: 100%; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; border: 1px solid var(--border, #8b91994d); }
+
+.app-approval-actions { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+.app-approval-actions > button { min-width: 0; }
+.app-approval-deny { appearance: none; border: 0; background: none; box-shadow: none; padding: 6px 8px; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; flex-shrink: 0; }
+.app-approval-deny:hover { color: var(--text-primary); text-decoration: underline; }
+.app-approval-deny:disabled { opacity: .5; cursor: default; }
+.app-approval-deny:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Approval cards use an even neutral outline in every theme, never the
+   severity stripe used by ordinary notifications. Match Skeu specificity. */
+.app-approval-toast.aero-toast-surface,
+html[data-style="skeu"] .app-approval-toast.aero-toast-surface {
+  border: 1px solid var(--border, #8b91994d);
+  border-inline-start: 1px solid var(--border, #8b91994d);
+}

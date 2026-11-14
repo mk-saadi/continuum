@@ -345,12 +345,13 @@ function RunHeader({
 							<span className="truncate">Agent: {agentName}</span>
 						)}
 						{showTechnical && (
-							<span
-								className="min-w-0 truncate font-mono"
-								title={technical}
-							>
-								{technical}
-							</span>
+							<Tooltip content={technical}>
+								<span
+									className="min-w-0 truncate font-mono"
+								>
+									{technical}
+								</span>
+							</Tooltip>
 						)}
 					</p>
 				) : null}
@@ -398,7 +399,7 @@ function RunSection({
 			ref={measureRef}
 			aria-label="Workspace run"
 			data-message-id={message.id}
-			className="flex min-w-0 flex-col gap-2"
+			className="workspace-run flex min-w-0 flex-col gap-2 select-text"
 		>
 			<RunHeader
 				message={message}
@@ -552,7 +553,7 @@ function StageSection({ stage, messageId, pendingQuestions, isStreaming }) {
 				)}
 			</button>
 			{!collapsed && (
-				<div className="flex min-w-0 flex-col">
+				<div className={`flex min-w-0 flex-col gap-[5px] ${stage.events.length > 1 ? "ml-[10px]" : ""}`}>
 					{stage.events.map((step) => {
 						if (!step || typeof step !== "object") return null;
 						if (step.toolName === "ask_user") {

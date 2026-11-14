@@ -1,3 +1,4 @@
+import Tooltip from "../Tooltip.jsx";
 import React, { useState, useEffect } from "react";
 import { FiCode, FiFile, FiFileText, FiFilm, FiImage } from "react-icons/fi";
 import { AttachmentControls } from "./AttachmentControls.jsx";
@@ -52,9 +53,9 @@ function AttachmentCard({ attachment }) {
 
 	return (
 		<div className="w-44 shrink-0">
-        <button
+        <Tooltip content={`${name}\n${attachment?.file_path ?? ""}\n${media ? "Click to view" : "Click to open"}`}>
+          <button
 			type="button"
-			title={`${name}\n${attachment?.file_path ?? ""}\n${media ? "Click to view" : "Click to open"}`}
 			aria-label={`${media ? "View" : "Open"} attachment ${name}`}
 			onClick={open}
 			className="w-36 shrink-0 cursor-pointer overflow-hidden ui-radius-control border border-[var(--attachment-border)] bg-[var(--surface-raised)] text-left transition-colors hover:border-[var(--edit-border)]"
@@ -107,6 +108,7 @@ function AttachmentCard({ attachment }) {
 				{kind === "image" ? "Image" : kind === "video" ? "Video" : kind === "pdf" ? "PDF" : "File"}
 			</span>
 		</button>
+        </Tooltip>
         <AttachmentControls attachment={attachment} />
         {problem && <p role="status" className="text-[11px] text-[var(--error)]">{problem}</p>}
         </div>

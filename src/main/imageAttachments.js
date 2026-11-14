@@ -1,5 +1,8 @@
 'use strict';
 
+const { createHash } = require('node:crypto');
+const inspections = new Map();
+const MAX_INSPECTIONS = 128;
 const sharp = (...args) => require('sharp')(...args);
 const FORMATS = { 'image/png': 'png', 'image/jpeg': 'jpeg', 'image/webp': 'webp' };
 const EXTENSIONS = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
@@ -17,6 +20,21 @@ function animatedPng(bytes) {
   return false;
 }
 async function inspectImage(bytes, mime) {
+  // Cache by actual bytes and claimed MIME, never by path or caller metadata.
+  // Concurrent staging/delivery shares validation; failures are never trusted.
+  const key = `${mime}:${createHash('sha256').update(bytes).digest('hex')}`;
+  if (inspections.has(key)) {
+    const pending = inspections.get(key);
+    inspections.delete(key); inspections.set(key, pending);
+    return { ...await pending };
+  }
+  const pending = decodeImage(bytes, mime);
+  inspections.set(key, pending);
+  while (inspections.size > MAX_INSPECTIONS) inspections.delete(inspections.keys().next().value);
+  try { return { ...await pending }; }
+  catch (error) { if (inspections.get(key) === pending) inspections.delete(key); throw error; }
+}
+async function decodeImage(bytes, mime) {
   if (!FORMATS[mime]) throw failure('This image format is unsupported; GIF and other animated formats are not accepted in Phase 1.');
   try {
     const metadata = await sharp(bytes, { animated: true }).metadata();

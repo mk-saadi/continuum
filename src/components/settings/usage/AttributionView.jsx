@@ -1,3 +1,4 @@
+import Tooltip from "../../Tooltip.jsx";
 import React, { useEffect, useMemo, useState } from 'react';
 import { formatUsd } from '../../../lib/costFormat.mjs';
 import {
@@ -99,7 +100,7 @@ export default function AttributionView({ filters }) {
                   const local = row.providerFamily === 'local';
                   return (
                     <tr key={row.key} className="border-b border-[var(--border)]/60">
-                      <td className="max-w-64 truncate py-2 pr-3" title={row.label}>{row.label}</td>
+                      <Tooltip content={row.label}><td className="max-w-64 truncate py-2 pr-3">{row.label}</td></Tooltip>
                       <td className="py-2 pr-3 text-right tabular-nums">{row.turns ?? 0}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{tokenValue(row.totalTokens, row.totalTokensCoverage, { local })}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{costValue(row.estimatedSpend, row.costCoverage, { local })}</td>
@@ -152,10 +153,10 @@ export default function AttributionView({ filters }) {
                     <tr key={`${row.kind}:${row.occurred_at}:${index}`} className="border-b border-[var(--border)]/60">
                       <td className="whitespace-nowrap py-2 pr-3 tabular-nums">{row.occurred_at ? `${row.occurred_at.slice(0, 16).replace('T', ' ')}Z` : '—'}</td>
                       <td className="py-2 pr-3">{row.kind === 'subagent' ? 'Subagent' : 'Turn'}</td>
-                      <td className="max-w-40 truncate py-2 pr-3" title={row.chatLabel}>{row.chatLabel}</td>
-                      <td className="max-w-40 truncate py-2 pr-3" title={row.workspaceLabel}>{row.workspaceLabel}</td>
+                      <Tooltip content={row.chatLabel}><td className="max-w-40 truncate py-2 pr-3">{row.chatLabel}</td></Tooltip>
+                      <Tooltip content={row.workspaceLabel}><td className="max-w-40 truncate py-2 pr-3">{row.workspaceLabel}</td></Tooltip>
                       <td className="py-2 pr-3">{row.providerLabel}</td>
-                      <td className="max-w-40 truncate py-2 pr-3" title={row.modelLabel}>{row.modelLabel}</td>
+                      <Tooltip content={row.modelLabel}><td className="max-w-40 truncate py-2 pr-3">{row.modelLabel}</td></Tooltip>
                       <td className="py-2 pr-3 text-right tabular-nums">{typeof row.total_tokens === 'number' ? row.total_tokens.toLocaleString() : '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{recordCost(row)}</td>
                       <td className="py-2">{sourceLabel(row.cost_source)}</td>

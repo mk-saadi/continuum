@@ -1,3 +1,4 @@
+import Tooltip from "./Tooltip.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TextField, TextAreaField } from "./FormControls";
@@ -99,12 +100,13 @@ export default function ProjectModal({ onClose, onCreate }) {
 					/>
 					<div className="project-field">
 						<span>Root folder (optional)</span>
-						<span
-							className="aero-inset sk-well break-all px-3 py-2 font-mono text-xs text-[var(--text-muted)]"
-							title={fields.root_path || ""}
-						>
-							{fields.root_path || "No folder selected"}
-						</span>
+						<Tooltip content={fields.root_path || ""}>
+							<span
+								className="aero-inset sk-well break-all px-3 py-2 font-mono text-xs text-[var(--text-muted)]"
+							>
+								{fields.root_path || "No folder selected"}
+							</span>
+						</Tooltip>
 						<button
 							type="button"
 							className="aero-control sk-button aero-fill sk-fill px-3 py-2 text-xs font-medium cursor-pointer"
