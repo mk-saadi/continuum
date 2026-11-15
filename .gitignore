@@ -56,3 +56,10 @@ index-*.js
 
 # Local design workspace
 /design/
+
+# Python bytecode caches
+__pycache__/
+*.pyc
+
+# Transient UI test artifacts
+.chat-message-test-*.css

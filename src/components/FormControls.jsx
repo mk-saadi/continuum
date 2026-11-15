@@ -310,7 +310,7 @@ export const SelectField = forwardRef(function SelectField(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="aero-popover sk-menu fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
+							className="select-field-menu aero-popover sk-menu fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -576,7 +576,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="aero-popover sk-menu fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
+							className="select-field-menu aero-popover sk-menu fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {

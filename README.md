@@ -21,13 +21,13 @@ The spotlight searches commands and opens searchable submenus for conversations,
 
 ## 🖼️ A Desktop Experience, Your Way
 
-Continuum brings personality back to desktop AI with an expressive, customizable interface inspired by classic Aero Glass design.
+Continuum brings personality back to desktop AI with an expressive, customizable interface with softly sculpted, theme-aware surfaces.
 
-### ✨ Flat vs. Aero Glass
+### ✨ Neumorphism, Flat, and Skeu
 
-Switch between lightweight flat surfaces and glossy, layered Aero Glass effects.
+Choose soft raised and recessed Neumorphism, lightweight Flat surfaces, or textured Skeu controls. Saved Aero preferences automatically migrate to Neumorphism.
 
-![Continuum — Flat vs Aero Glass](docs/images/aero-flat.png)
+![Continuum — Neumorphic Settings](docs/images/neumorphism.png)
 
 ### 🎨 Make It Yours
 
@@ -35,7 +35,7 @@ Explore a collection of light and dark themes, each with its own colors, surface
 
 ![Continuum — Six Theme Showcase](docs/images/theme-showcase-update.png)
 
-Customize your experience with theme palettes, background images, and optional glass effects.
+Customize your experience with theme palettes, background images, and Neumorphism, Flat, or Skeu materials.
 
 ---
 

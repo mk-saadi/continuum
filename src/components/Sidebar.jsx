@@ -41,7 +41,7 @@ export default function Sidebar({
 		return (
 			<aside
 				aria-label="Chat navigation"
-				className="flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
+				className="app-navigation flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
 			>
 				<div className="min-h-0 flex-1">
 					<ChatHistory
@@ -112,7 +112,7 @@ export default function Sidebar({
 	return (
 		<aside
 			aria-label="Workspace navigation"
-			className="flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
+			className="app-navigation flex h-full w-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
 		>
 			<div className="flex shrink-0 gap-1 border-b border-[var(--border)] p-2" aria-label="Workspace sidebar views">
                 {[['chats', 'Chats', FiMessageSquare], ['files', 'Files', FiFolder]].map(([id, label, Icon]) =>

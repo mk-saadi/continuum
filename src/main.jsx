@@ -14,6 +14,7 @@ import { ToastProvider } from "react-toast-master";
 import "react-toast-master/dist/style.css";
 import "./styles/skeu-kit.css";
 import "./styles/skeu.css";
+import "./styles/neumorphism.css";
 
 initializeAppearance();
 try { applyTheme(document.documentElement, localStorage.getItem("theme") || "dark"); }

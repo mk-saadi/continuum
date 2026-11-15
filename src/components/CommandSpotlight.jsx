@@ -126,7 +126,7 @@ export default function CommandSpotlight({ projects = [], models = [], engines =
     ...(step === 'workspace' ? [{ id: 'all', label: 'All workspaces', description: 'Open workspace overview', run: () => navigate({ view: 'projects' }) }] : []),
     ...projects.map(project => ({ id: project.id, label: project.name, description: project.root_path, run: () => navigate({ view: 'project', projectId: project.id }) })),
   ];
-  else if (step === 'style') rows = APPEARANCES.map(id => ({ id, label: { aero: 'Aero Glass', flat: 'Flat', skeu: 'Skeu' }[id], run: finish(() => setAppearance(id)) }));
+  else if (step === 'style') rows = APPEARANCES.map(id => ({ id, label: { neumorphism: 'Neumorphism', flat: 'Flat', skeu: 'Skeu' }[id], run: finish(() => setAppearance(id)) }));
   else if (step === 'themes') rows = themeGroups.flatMap(group => group.themes).map(item => ({ ...item, run: finish(() => theme.setTheme(item.id)) }));
   else if (step === 'load') rows = models.map(model => ({ id: model.id, label: model.name || model.id, description: engines.some(engine => engine.modelPath === model.id && engine.isLoaded) ? 'Already loaded · review settings' : 'Review load settings', run: () => { close(); setConfiguring(model); } }));
   else if (step === 'unload') rows = engines.filter(engine => engine.isLoaded).map(engine => ({ id: engine.modelPath, label: engine.modelName || engine.modelPath, run: async () => { await window.api.unloadEngine(engine.modelPath); setNotice('Model unloaded.'); } }));

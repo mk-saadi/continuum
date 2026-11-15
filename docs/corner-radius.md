@@ -2,13 +2,13 @@
 
 `src/styles/radius.css` owns the shared radius tokens and Tailwind utilities.
 
-| Token / utility | Aero (default) | Flat | Skeu |
+| Token / utility | Neumorphism (default) | Flat | Skeu |
 | --- | --- | --- | --- |
-| `ui-radius-small` | 4px | 2px | 2px |
-| `ui-radius-control` | 9px | 4px | 3px |
-| `ui-radius-surface` | 14px | 6px | 6px |
+| `ui-radius-small` | 8px | 2px | 2px |
+| `ui-radius-control` | 16px | 4px | 3px |
+| `ui-radius-surface` | 20px | 6px | 6px |
 | `ui-radius-round` | 9999px | 9999px | 9999px |
-| `ui-radius-pill` | Round alias | Round alias | Control alias |
+| `ui-radius-pill` | Control alias | Round alias | Control alias |
 
 Use these semantic utilities in components instead of Tailwind's built-in
 radius classes or numeric inline styles. Component CSS uses the corresponding
@@ -28,3 +28,5 @@ its geometry matches before the application stylesheet loads; keep those
 values synchronized when changing the defaults.
 
 This supersedes the older Aero-specific radius tokens in the Aero design guide.
+
+Neumorphic modal shells use 24px corners; fields and model rows use 12px.

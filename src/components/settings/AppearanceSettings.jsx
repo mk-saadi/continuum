@@ -5,7 +5,7 @@ import { SettingsCard } from "./SettingsSection";
 
 const styles = [
 	{ value: "flat", label: "Flat", hint: "Simple surfaces" },
-	{ value: "aero", label: "Aero Glass", hint: "Reflective glass" },
+	{ value: "neumorphism", label: "Neumorphism", hint: "Soft sculpted surfaces" },
 	{ value: "skeu", label: "Skeu", hint: "Satin & texture" },
 ];
 

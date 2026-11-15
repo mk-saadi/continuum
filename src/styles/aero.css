@@ -113,11 +113,11 @@ html[data-bg-image="true"] .aero-stage {
 		var(--aero-glow);
 	color: var(--on-accent);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	.aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):hover {
 	background: var(--aero-gloss-accent-hover), var(--aero-accent-fill-hover);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	.aero-control:is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]):active {
 	transform: translateY(1px);
 	background: var(--aero-gloss-pressed), var(--aero-accent-fill-hover);
@@ -410,7 +410,7 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"])
 
 /* Chrome gets the reflection; a modal supplies one shared blur behind all
    of its header/navigation/footer fills. No extra compositing for its children. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is(.aero-header, .aero-tabbar, .aero-footer, .aero-navigation, .aero-titlebar) {
 	background: var(--aero-gloss-chrome), var(--aero-chrome-fill);
 	border-color: var(--aero-line);
@@ -419,12 +419,12 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"])
 		inset 0 -1px 0 var(--aero-shade);
 	text-shadow: none;
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is(.aero-header, .aero-tabbar, .aero-titlebar) {
 	-webkit-backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
 	backdrop-filter: blur(var(--aero-blur-chrome)) saturate(var(--aero-saturate));
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	.aero-dialog
 	:is(.aero-header, .aero-tabbar) {
 	-webkit-backdrop-filter: none;
@@ -432,7 +432,7 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"])
 }
 /* Section titles and checkbox containers are content, not chrome/buttons.
    Keep the old classes too so Aero-off retains its existing treatment. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-section-header, .aero-choice) {
+html[data-appearance="aero"] :is(.aero-section-header, .aero-choice) {
 	background: var(--aero-gloss-fill), var(--aero-fill-fill);
 	border-color: var(--aero-line);
 	box-shadow: inset 0 1px 0 var(--aero-line-soft);
@@ -440,24 +440,24 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-secti
 	backdrop-filter: none;
 	transform: none;
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:checked) {
+html[data-appearance="aero"] .aero-choice:has(input:checked) {
 	border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	.aero-choice:hover:not(:has(input:disabled)) {
 	border-color: var(--edit-border);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) .aero-choice:has(input:focus-visible) {
+html[data-appearance="aero"] .aero-choice:has(input:focus-visible) {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
 /* Recessed editors stay stable through hover; focus is localized at the rim. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) :is(.aero-well, .aero-chat-composer) {
+html[data-appearance="aero"] :is(.aero-well, .aero-chat-composer) {
 	border-color: var(--control-border);
 	background: var(--aero-gloss-well), var(--aero-well-fill);
 	box-shadow: var(--aero-bevel-well);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is(.aero-well, .aero-chat-composer):focus-within {
 	border-color: var(--accent);
 	box-shadow:
@@ -466,11 +466,11 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"])
 		var(--aero-glow);
 }
 /* Override the legacy global modal outline suppression only in Aero mode. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) dialog :focus-visible {
+html[data-appearance="aero"] dialog :focus-visible {
 	outline: 2px solid var(--accent) !important;
 	outline-offset: -2px;
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) dialog input:focus-visible + .aero-checkbox {
+html[data-appearance="aero"] dialog input:focus-visible + .aero-checkbox {
 	outline: 2px solid var(--accent) !important;
 	outline-offset: 2px;
 }
@@ -988,27 +988,27 @@ html[data-bg-image="true"]::before {
 
 /* Chrome participates in the same performance and accessibility fallbacks. */
 @media (prefers-reduced-transparency: reduce) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	html[data-appearance="aero"]
 		:is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
 		background: var(--surface);
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;
 	}
 }
-html[data-bg-animated="true"]:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-bg-animated="true"][data-appearance="aero"]
 	:is(.aero-header, .aero-titlebar, .aero-tabbar) {
 	background-color: var(--surface);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	html[data-appearance="aero"]
 		:is(.aero-header, .aero-titlebar, .aero-tabbar, .aero-footer, .aero-navigation) {
 		background: var(--surface);
 	}
 }
 @media (forced-colors: active) {
-	html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+	html[data-appearance="aero"]
 		:is(
 			.aero-header,
 			.aero-titlebar,
@@ -1035,10 +1035,10 @@ html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .aero-chat-com
 	border-width: 1px;
 	border-color: color-mix(in srgb, var(--border) 50%, transparent);
 }
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
 	.aero-chat-composer,
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
 	.aero-chat-composer:focus-within {
 	border-color: color-mix(in srgb, var(--control-border) 50%, transparent);
@@ -1053,7 +1053,7 @@ html[data-style="skeu"]
 
 /* Classic Aero buttons. Keep the material local to controls so cards, chrome,
    and the Flat/Skeu appearances retain their own treatments. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"]) {
+html[data-appearance="aero"] {
 	:is(.aero-control, .aero-primary, .aero-orb):not(.aero-section-header, .aero-choice) {
 		--classic-fill: var(--aero-glass-raised);
 		/* Already-positioned controls (model row actions, scroll-to-bottom,
@@ -1182,7 +1182,7 @@ html:not([data-appearance="flat"]):not([data-appearance="skeu"]) {
 
 /* Appearance choices stay quiet until selected, including during hover/press.
    Preserve geometry, swatches, radio indicators, and keyboard focus outlines. */
-html:not([data-appearance="flat"]):not([data-appearance="skeu"])
+html[data-appearance="aero"]
 	:is(.aero-theme-choice:not([aria-checked="true"]), .aero-style-choice:not([data-selected="true"])) {
 	background: transparent !important;
 	border: 1px solid var(--control-border) !important;

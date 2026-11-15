@@ -7,8 +7,9 @@
 			// Apply the saved material before styles/React paint to avoid a glass flash.
 			try {
 				const savedStyle = localStorage.getItem("appearance");
-				document.documentElement.dataset.appearance = ["aero", "flat", "skeu"].includes(savedStyle) ? savedStyle : "aero";
-			} catch { document.documentElement.dataset.appearance = "aero"; }
+				document.documentElement.dataset.appearance = ["neumorphism", "flat", "skeu"].includes(savedStyle) ? savedStyle : "neumorphism";
+			if (savedStyle === "aero") localStorage.setItem("appearance", "neumorphism");
+			} catch { document.documentElement.dataset.appearance = "neumorphism"; }
 				document.documentElement.dataset.style = document.documentElement.dataset.appearance;
 		</script>
 		<meta

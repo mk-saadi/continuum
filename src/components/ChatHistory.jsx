@@ -399,7 +399,7 @@ export default function ChatHistory({
 	return (
 		<aside
 			aria-label="Chat history"
-			className={`flex h-full min-h-0 shrink-0 flex-col bg-[var(--bg-secondary)] text-[var(--text-primary)] ${embedded ? "w-full" : "w-[272px] max-[650px]:w-[220px]"}`}
+			className={`chat-history flex h-full min-h-0 shrink-0 flex-col bg-[var(--bg-secondary)] text-[var(--text-primary)] ${embedded ? "w-full" : "w-[272px] max-[650px]:w-[220px]"}`}
 		>
 			<div className="shrink-0 space-y-3 px-3 pt-4 pb-2">
 				{mode === "workspace" ? (

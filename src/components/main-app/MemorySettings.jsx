@@ -440,7 +440,7 @@ function MemorySettings({
 																			{option.label}
 																		</span>
 																		<span
-																			className={`mt-0.5 block text-[11px] leading-relaxed ${selected ? "text-[var(--on-accent)]" : "text-[var(--text-muted)]"}`}
+																			className={`theme-choice-description mt-0.5 block text-[11px] leading-relaxed ${selected ? "text-[var(--on-accent)]" : "text-[var(--text-muted)]"}`}
 																		>
 																			{option.description}
 																		</span>

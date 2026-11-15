@@ -25,7 +25,7 @@ import {
 const secondaryButton =
 	"aero-control sk-button aero-fill sk-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
 const ghostButton = "aero-orb sk-icon-button aero-fill sk-fill size-7 shrink-0 cursor-pointer";
-const modelCard = "aero-fill sk-fill relative";
+const modelCard = "model-selector-row aero-fill sk-fill relative";
 const rowGrid = "grid grid-cols-[minmax(240px,1fr)_95px_125px_60px_80px_80px_65px] items-center gap-3";
 const capabilityIcons = [
 	["image", "Image input", LuEye],
@@ -1193,7 +1193,7 @@ export default function ModelSelectorModal({
 						</p>
 					)}
 				</div>
-				<footer className="aero-fill sk-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+				<footer className="aero-footer aero-fill sk-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					<span>{metadataStatus && <span className="block">{metadataStatus}</span>}</span>
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
