@@ -1371,7 +1371,7 @@ function registerIpcHandlers({
 		"workspace:compaction-activity-list": ({ sessionId }) => require('./workspaceCompactionActivity').list(sessionId),
         "session:get-all": () => getAllSessions(),
         "session:spotlight-search": ({ query, cursor } = {}) => require('./messageSearch').searchMessages(
-            require('./db').db, query, { cursor, limit: 5, deadline: Date.now() + 50 }),
+            require('./db').db, query, { cursor, limit: 5, includeVariants: true, deadline: Date.now() + 50 }),
 		"session:create-folder": ({ folderName }) => createFolder(folderName),
 		"session:load": ({ sessionId }) => loadSession(sessionId),
 		"session:load-display": async ({ sessionId }) => {

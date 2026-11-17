@@ -13,7 +13,7 @@ const destinations = [
 ];
 
 export default function DirectorySettings() {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	const [config, setConfig] = useState(null);
 	const [busy, setBusy] = useState(false);
 	const [migrating, setMigrating] = useState(false);
@@ -73,7 +73,7 @@ export default function DirectorySettings() {
 					title={title}
 				>
 					<p
-						className={`${aero ? "aero-inset sk-well" : "ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)]"} break-all px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]`}
+						className={`${material ? "material-inset sk-well" : "ui-radius-control border border-[var(--border)] bg-[var(--bg-secondary)]"} break-all px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]`}
 					>
 						{config?.[key] || "Loading…"}
 					</p>

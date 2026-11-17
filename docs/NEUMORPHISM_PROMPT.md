@@ -354,4 +354,4 @@ DARK MODE:                          LIGHT MODE:
 
 ---
 
-*This prompt is derived from the production neumorphism implementation in `aero-skeu-exp` which supports 4 design languages (skeuomorphic, aero glass, flat, neumorphism) with full light/dark theming.*
+*This prompt is derived from the production neumorphism implementation in `material-skeu-exp` which supports 4 design languages (skeuomorphic, material glass, flat, neumorphism) with full light/dark theming.*

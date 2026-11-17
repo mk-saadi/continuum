@@ -26,7 +26,7 @@ app.whenReady().then(async () => {
       const tick=()=>new Promise(r=>setTimeout(r,80)); await tick();
       const check=(v,m)=>{if(!v)throw Error(m)};
       const radio=document.createElement('input'); radio.type='radio'; radio.className='appearance-radio'; document.body.append(radio);
-      for(const appearance of ['flat','aero']) {
+      for(const appearance of ['flat','material']) {
         document.documentElement.dataset.appearance=appearance;
         check(getComputedStyle(radio).appearance==='none','Radio must use themed indicator: '+appearance);
         check(getComputedStyle(radio).backgroundColor==='rgba(0, 0, 0, 0)','Unchecked radio must not be white');
@@ -35,12 +35,12 @@ app.whenReady().then(async () => {
       }
       radio.remove(); delete document.documentElement.dataset.appearance;
       const host=document.createElement('div'); host.dataset.chatMode='casual';
-      host.innerHTML='<div class="aero-chat-composer sk-composer focus-within:ring-2! focus-within:ring-[var(--accent)]/50!" style="padding:12px;width:400px"><textarea></textarea></div>';
+      host.innerHTML='<div class="material-chat-composer sk-composer focus-within:ring-2! focus-within:ring-[var(--accent)]/50!" style="padding:12px;width:400px"><textarea></textarea></div>';
       document.body.append(host);
       const composer=host.firstElementChild;
       for(const mode of ['casual','workspace']) {
       host.dataset.chatMode=mode;
-      for(const appearance of ['aero','flat','skeu']) {
+      for(const appearance of ['material','flat','skeu']) {
         document.documentElement.dataset.appearance=appearance;
         document.documentElement.dataset.style=appearance;
         composer.querySelector('textarea').blur();

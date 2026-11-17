@@ -505,7 +505,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 				type="button"
 				onClick={() => setSelectedPath(entry.path)}
 				aria-pressed={selectedPath === entry.path}
-				className="aero-list-item sk-list-row flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left ui-radius-control"
+				className="material-list-item sk-list-row flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left ui-radius-control"
 				aria-current={selectedPath === entry.path ? "true" : undefined}
 			>
 				<span
@@ -576,10 +576,10 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 			onClick={(event) => {
 				if (event.target === dialogRef.current && !busy) onClose();
 			}}
-			className={embedded ? "embedded-diff h-full min-h-0 overflow-hidden text-[var(--text-primary)]" : "aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"}
+			className={embedded ? "embedded-diff h-full min-h-0 overflow-hidden text-[var(--text-primary)]" : "material-dialog sk-window sk-dialog fixed inset-0 m-auto h-[92dvh] max-h-[92dvh] w-[calc(100%-24px)] max-w-[1480px] overflow-hidden p-0"}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header style={embedded ? { display: "none" } : undefined} className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center gap-2 px-4 py-3">
+				<header style={embedded ? { display: "none" } : undefined} className="material-header sk-window-header sk-texture-grain flex shrink-0 items-center gap-2 px-4 py-3">
 					<FiEye
 						aria-hidden="true"
 						className="shrink-0 text-[var(--accent)]"
@@ -595,7 +595,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 					</h2>
 					<button
 						type="button"
-						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						disabled={busy}
 						onClick={() => {
@@ -646,7 +646,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										List truncated for display.
 									</p>
 								)}
-								<ul className="aero-flat sk-list min-h-0 flex-1 space-y-1.5 overflow-auto p-1">
+								<ul className="material-flat sk-list min-h-0 flex-1 space-y-1.5 overflow-auto p-1">
 									{files.map(renderRow)}
 								</ul>
 							</section>
@@ -681,7 +681,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													onClick={() => setView("split")}
 													aria-pressed={effectiveView === "split"}
 													disabled={!splitAvailable}
-													className="aero-control sk-button aero-fill sk-fill px-2 py-0.5 text-[11px] cursor-pointer"
+													className="material-control sk-button material-fill sk-fill px-2 py-0.5 text-[11px] cursor-pointer"
 												>
 													Side-by-side
 												</button>
@@ -689,7 +689,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 													type="button"
 													onClick={() => setView("unified")}
 													aria-pressed={effectiveView === "unified"}
-													className="aero-control sk-button aero-fill sk-fill px-2 py-0.5 text-[11px] cursor-pointer"
+													className="material-control sk-button material-fill sk-fill px-2 py-0.5 text-[11px] cursor-pointer"
 												>
 													Unified
 												</button>
@@ -801,7 +801,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											) : null}
 											{preview && (
 												<div
-													className="aero-inset sk-well space-y-1 p-2.5 text-[11px]"
+													className="material-inset sk-well space-y-1 p-2.5 text-[11px]"
 													aria-label="Revert preview"
 												>
 													<p className="font-medium">
@@ -906,7 +906,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 								)}
 								<div
 									style={embedded && (!recoveryExpanded || diff?.clean) ? { display: "none" } : undefined}
-                                    className="aero-footer sk-window-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 ui-radius-control"
+                                    className="material-footer sk-window-footer flex shrink-0 flex-wrap items-center gap-2 py-1.5 px-3 ui-radius-control"
 									role="group"
 									aria-label="Revert controls"
 								>
@@ -929,7 +929,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										type="button"
 										onClick={() => loadFiles(false)}
 										disabled={busy}
-										className="aero-control sk-button aero-fill sk-fill shrink-0 px-3 py-2 text-[11px] cursor-pointer"
+										className="material-control sk-button material-fill sk-fill shrink-0 px-3 py-2 text-[11px] cursor-pointer"
 									>
 										Refresh
 									</button>
@@ -937,7 +937,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 										type="button"
 										onClick={runPreview}
 										disabled={busy || running || revertBlocked}
-										className="aero-control sk-button aero-fill sk-fill shrink-0 px-3 py-2 text-[11px] font-medium cursor-pointer"
+										className="material-control sk-button material-fill sk-fill shrink-0 px-3 py-2 text-[11px] font-medium cursor-pointer"
 									>
 										Preview revert
 									</button>
@@ -946,7 +946,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 											type="button"
 											onClick={() => setConfirming(true)}
 											disabled={revertBlocked || invalidSelection}
-											className="aero-primary sk-button sk-primary aero-fill sk-fill shrink-0 px-3 py-2 text-[11px] font-semibold cursor-pointer"
+											className="material-primary sk-button sk-primary material-fill sk-fill shrink-0 px-3 py-2 text-[11px] font-semibold cursor-pointer"
 										>
 											Revert this file…
 										</button>
@@ -956,7 +956,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 												type="button"
 												onClick={() => setConfirming(false)}
 												disabled={busy}
-												className="aero-control sk-button aero-fill sk-fill px-3 py-1.5 text-[11px] font-medium cursor-pointer"
+												className="material-control sk-button material-fill sk-fill px-3 py-1.5 text-[11px] font-medium cursor-pointer"
 											>
 												Cancel
 											</button>
@@ -964,7 +964,7 @@ export default function DiffReviewModal({ sessionId, projectName, running = fals
 												type="button"
 												onClick={runRevert}
 												disabled={confirmBlocked}
-												className="aero-primary sk-button sk-primary aero-fill sk-fill px-3 py-1.5 text-[11px] font-semibold cursor-pointer"
+												className="material-primary sk-button sk-primary material-fill sk-fill px-3 py-1.5 text-[11px] font-semibold cursor-pointer"
 											>
 												{busy ? "Reverting…" : "Confirm revert"}
 											</button>

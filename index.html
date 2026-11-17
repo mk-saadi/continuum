@@ -8,7 +8,7 @@
 			try {
 				const savedStyle = localStorage.getItem("appearance");
 				document.documentElement.dataset.appearance = ["neumorphism", "flat", "skeu"].includes(savedStyle) ? savedStyle : "neumorphism";
-			if (savedStyle === "aero") localStorage.setItem("appearance", "neumorphism");
+			if (savedStyle !== null && !["neumorphism", "flat", "skeu"].includes(savedStyle)) localStorage.setItem("appearance", "neumorphism");
 			} catch { document.documentElement.dataset.appearance = "neumorphism"; }
 				document.documentElement.dataset.style = document.documentElement.dataset.appearance;
 		</script>

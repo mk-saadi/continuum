@@ -1,0 +1,9 @@
+/* Shared by hover tooltips and the transcript Copy / Ask question menu.
+   Theme tokens keep the same opaque, outlined surface in every appearance. */
+.floating-text-surface {
+	border: 1px solid var(--border);
+	border-radius: var(--ui-radius-surface);
+	background: var(--surface-raised);
+	color: var(--text-primary);
+	box-shadow: 0 8px 30px var(--window-shadow);
+}

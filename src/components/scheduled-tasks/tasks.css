@@ -1,4 +1,4 @@
-/* Dedicated Tasks page. Shapes follow the Projects page (aero-stage + card
+/* Dedicated Tasks page. Shapes follow the Projects page (material-stage + card
    grid) and every colour comes from the shared theme variables, so dark,
    light, flat and skeuomorphic appearances all inherit correctly. */
 .tasks-page {
@@ -48,8 +48,8 @@
 	flex-shrink: 0;
 	place-items: center;
 	border-radius: var(--ui-radius-surface);
-	border: 1px solid var(--aero-line);
-	border-bottom-color: var(--aero-line-bottom);
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
 	background:
 		linear-gradient(
 			180deg,
@@ -152,10 +152,7 @@
 	border-color: color-mix(in srgb, var(--error) 45%, var(--border));
 	color: var(--error);
 }
-.tasks-banner--notice {
-	border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-	color: var(--text-secondary);
-}
+
 
 .tasks-overview {
 	display: grid;

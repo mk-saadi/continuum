@@ -363,6 +363,18 @@ textarea.project-input {
 	padding: 8px 12px;
 }
 
+/* The workspace panel already frames the composer. Keep its nested well
+   clear of borders, inset edges, and focus rings in every appearance. */
+html .project-composer.material-well.sk-well,
+html .project-composer.material-well.sk-well:is(:hover, :focus, :focus-within) {
+	border-color: transparent;
+	box-shadow: none;
+	outline: none;
+}
+html[data-appearance="neumorphism"] .project-composer textarea:focus-visible {
+	outline: none;
+}
+
 .project-heading-icon {
 	display: grid;
 	width: 36px;
@@ -373,7 +385,7 @@ textarea.project-input {
 }
 
 
-/* Projects-only shapes; reusable material lives in styles/aero.css. */
+/* Projects-only shapes; reusable material lives in styles/shared-ui.css. */
 .projects-page .projects-heading h1 {
 	text-shadow: none;
 }
@@ -390,8 +402,8 @@ textarea.project-input {
 
 /* Glossy badge behind the page folder icon. */
 .projects-page .project-heading-icon {
-	border: 1px solid var(--aero-line);
-	border-bottom-color: var(--aero-line-bottom);
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
 	background:
 		linear-gradient(
 			180deg,
@@ -406,8 +418,8 @@ textarea.project-input {
 		0 4px 10px -3px color-mix(in srgb, #000000 48%, transparent),
 		0 0 20px -4px color-mix(in srgb, var(--accent) 50%, transparent);
 	color: var(--accent);
-	-webkit-backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
-	backdrop-filter: blur(var(--aero-blur-control)) saturate(var(--aero-saturate-control));
+	-webkit-backdrop-filter: blur(var(--material-blur-control)) saturate(var(--material-saturate-control));
+	backdrop-filter: blur(var(--material-blur-control)) saturate(var(--material-saturate-control));
 }
 
 /* The custom badge participates in the same material fallbacks as utilities. */

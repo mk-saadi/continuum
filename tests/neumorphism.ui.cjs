@@ -27,7 +27,7 @@ const { pathToFileURL } = require('node:url');
   async function load(name, query = "") {
     let source = await fs.readFile(`tests/fixtures/${name}.jsx`, 'utf8');
     if (name === 'projects') source = source.replace(/<Sidebar[\s\S]*?\/>/, '');
-    const wrapped = `import { ToastProvider } from 'react-toast-master';\n` + source.replace(/\.render\(([\s\S]*?)\);/, '.render(<ToastProvider>$1</ToastProvider>);');
+    const wrapped = source.includes("import { ToastProvider }") ? source : `import { ToastProvider } from 'react-toast-master';\n` + source.replace(/\.render\(([\s\S]*?)\);/, '.render(<ToastProvider>$1</ToastProvider>);');
     await esbuild.build({ stdin: { contents: wrapped, loader: 'jsx', resolveDir: path.resolve('tests/fixtures') }, bundle: true, jsx: 'automatic',
       inject: [path.resolve('tests/fixtures/materialScope.mjs')], outfile: path.join(directory, name + '.js'), define: { 'process.env.NODE_ENV': '"test"' } });
     await fs.writeFile(path.join(directory, name + '.html'), `<html data-theme="dark"><head><meta http-equiv="Content-Security-Policy" content="${csp}">${css.map(name => `<link rel="stylesheet" href="${pathToFileURL(path.join(assets, name)).href}">`).join('')}</head><body style="margin:0;background:var(--neu-material, var(--bg-secondary));color:var(--text-primary)"><div id="root"></div><script src="${name}.js"></script></body></html>`);
@@ -42,21 +42,21 @@ const { pathToFileURL } = require('node:url');
     await page.waitForSelector('dialog[open]');
     for (const theme of themes) {
       await scope(theme.id);
-      const shell = await material('.aero-dialog');
+      const shell = await material('.material-dialog');
       assert.equal(shell.blur, 'none'); assert.equal(shell.image, 'none');
       assert.equal(shell.radius, '24px'); assert.notEqual(shell.shadow, 'none');
       assert(!shell.shadow.includes('NaN'));
-      const borders = await page.locator('.aero-dialog, .aero-panel, .aero-control, .aero-well').evaluateAll(nodes => nodes.filter(e => {
+      const borders = await page.locator('.material-dialog, .material-panel, .material-control, .material-well').evaluateAll(nodes => nodes.filter(e => {
         const s = getComputedStyle(e);
         return s.borderTopStyle !== 'none' && parseFloat(s.borderTopWidth) > 0 && s.borderTopColor !== 'rgba(0, 0, 0, 0)';
       }).map(e=>e.className));
       assert.deepEqual(borders, [], `${theme.id}: decorative borders`);
-      const dividers = await page.locator('.aero-dialog .aero-header, .aero-dialog .aero-navigation').evaluateAll(nodes => nodes.every(e => {
+      const dividers = await page.locator('.material-dialog .material-header, .material-dialog .material-navigation').evaluateAll(nodes => nodes.every(e => {
         const s = getComputedStyle(e);
         return ['Bottom', 'Right'].some(edge => parseFloat(s[`border${edge}Width`]) > 0 && s[`border${edge}Color`] !== 'rgba(0, 0, 0, 0)');
       }));
       assert(dividers, `${theme.id}: structural dividers remain visible`);
-      const selectedShadow = await page.locator('.aero-style-choice[data-selected="true"]').evaluate(e=>getComputedStyle(e).boxShadow);
+      const selectedShadow = await page.locator('.material-style-choice[data-selected="true"]').evaluate(e=>getComputedStyle(e).boxShadow);
       assert(selectedShadow.includes('1px 1px 3px'), 'small selected controls use shallow relief');
       const contrast = await page.evaluate(() => {
         const root = getComputedStyle(document.documentElement);
@@ -76,7 +76,7 @@ const { pathToFileURL } = require('node:url');
       assert(contrast.primary >= 4.5, `${theme.id}: primary contrast ${contrast.primary}`);
       audit.push({theme:theme.id,...contrast});
     }
-    for (const fixture of ['memorySettings', 'aeroModelSettings', 'neumorphicModels', 'projects', 'neumorphicTasks', 'aeroChrome', 'rightSidebarSliders', 'attachmentComposer', 'chatHistory']) {
+    for (const fixture of ['memorySettings', 'materialModelSettings', 'neumorphicModels', 'projects', 'neumorphicTasks', 'materialChrome', 'rightSidebarSliders', 'attachmentComposer', 'chatHistory']) {
       console.log('Review:', fixture); await load(fixture); await page.waitForTimeout(600);
       for (const theme of ['gruvbox-dark','gruvbox','dark','light','lilac']) {
         await scope(theme); await page.waitForTimeout(150);
@@ -106,7 +106,7 @@ const { pathToFileURL } = require('node:url');
       }
       if (fixture === 'projects') {
         await page.waitForSelector('.project-card');
-        const primary = page.locator('.aero-primary').first();
+        const primary = page.locator('.material-primary').first();
         const idle = await primary.evaluate(e=>getComputedStyle(e).backgroundColor);
         await primary.hover(); await page.waitForTimeout(180);
         assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),idle, 'primary hover keeps shared material');
@@ -156,17 +156,17 @@ const { pathToFileURL } = require('node:url');
     assert.deepEqual(await scroll.boundingBox(),bounds);
     await page.screenshot({path:path.join(output,'chat-scroll-control.png')});
     await page.mouse.move(640,100); await page.mouse.up();
-    await load('aeroModelSettings'); await page.waitForSelector('fieldset'); await scope('dark');
+    await load('materialModelSettings'); await page.waitForSelector('fieldset'); await scope('dark');
     for (const width of [700, 400]) {
       await page.setViewportSize({width,height:740});
-      const footer = await page.locator('footer.aero-footer').boundingBox();
+      const footer = await page.locator('footer.material-footer').boundingBox();
       assert(footer.y >= 0 && footer.y + footer.height <= 741);
       await page.screenshot({path:path.join(output, `responsive-${width}.png`)});
     }
     await page.emulateMedia({forcedColors:'active'});
-    assert.equal((await material('.aero-dialog')).shadow, 'none');
+    assert.equal((await material('.material-dialog')).shadow, 'none');
     await page.emulateMedia({forcedColors:'none', reducedMotion:'reduce'});
-    assert.equal(await page.locator('.aero-primary').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
+    assert.equal(await page.locator('.material-primary').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
     assert.deepEqual(errors, []);
     await fs.writeFile(path.join(output,'theme-audit.json'),JSON.stringify(audit,null,2));
     console.log(`Neumorphism: ${themes.length} themes, component screenshots, positioned actions, responsive footer, forced colors and reduced motion passed. ${output}`);

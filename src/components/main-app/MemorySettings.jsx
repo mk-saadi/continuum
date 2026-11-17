@@ -282,7 +282,7 @@ function MemorySettings({
 		<dialog
 			ref={dialog}
 			aria-labelledby="memory-settings-title"
-			className="aero-dialog sk-window sk-dialog m-auto overflow-hidden p-0"
+			className="material-dialog sk-window sk-dialog m-auto overflow-hidden p-0"
 			style={{
 				width: "min(920px, calc(100vw - 32px))",
 				maxWidth: "none",
@@ -295,7 +295,7 @@ function MemorySettings({
 			}}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
+				<header className="material-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
 					<div>
 						<h2
 							id="memory-settings-title"
@@ -307,7 +307,7 @@ function MemorySettings({
 					</div>
 					<button
 						type="button"
-						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						onClick={onClose}
 						autoFocus
@@ -321,7 +321,7 @@ function MemorySettings({
 						role="tablist"
 						aria-label="Settings sections"
 						aria-orientation="vertical"
-						className="aero-navigation sk-sidebar flex shrink-0 gap-1.5 overflow-x-auto px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:px-3 sm:py-5"
+						className="material-navigation sk-sidebar flex shrink-0 gap-1.5 overflow-x-auto px-3 py-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:px-3 sm:py-5"
 					>
 						{tabs.map(({ id, label, group, icon: Icon }, index) => (
 							<React.Fragment key={id}>
@@ -344,7 +344,7 @@ function MemorySettings({
 									tabIndex={tab === id ? 0 : -1}
 									onKeyDown={(event) => onTabKey(event, index)}
 									onClick={() => selectTab(id)}
-									className={`sk-nav-item ${tab === id ? "aero-control sk-button aero-fill sk-fill" : "cursor-pointer ui-radius-surface border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
+									className={`sk-nav-item ${tab === id ? "material-control sk-button material-fill sk-fill" : "cursor-pointer ui-radius-surface border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"} flex shrink-0 items-center gap-3 px-3 py-2 text-left text-xs font-medium sm:w-full`}
 								>
 									<span
 										aria-hidden="true"
@@ -362,7 +362,7 @@ function MemorySettings({
 					</nav>
 
 					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
-						<div className="aero-header aero-section-header sk-section-header shrink-0 px-5 py-4 sm:px-6">
+						<div className="material-header material-section-header sk-section-header shrink-0 px-5 py-4 sm:px-6">
 							<h3 className="text-sm font-semibold">{activeTab.label}</h3>
 							<p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
 								{activeTab.description}
@@ -410,7 +410,7 @@ function MemorySettings({
 																	}}
 																	disabled={!onChangeTheme}
 																	onClick={() => onChangeTheme?.(option.id)}
-																	className="aero-control sk-button aero-fill sk-fill aero-theme-choice sk-choice flex items-center gap-3 p-3 text-left cursor-pointer"
+																	className="material-control sk-button material-fill sk-fill material-theme-choice sk-choice flex items-center gap-3 p-3 text-left cursor-pointer"
 																>
 																	<span
 																		aria-hidden="true"

@@ -102,3 +102,20 @@ test('invalid timezones and malformed schedules fail validation', () => {
   assert.throws(() => schedule.normalizeSchedule({ type: 'weekdays', weekdays: [], atTime: '09:00' }, { timezone: TZ_UTC }), /weekday/);
   assert.throws(() => schedule.normalizeSchedule({ type: 'once', at: -1 }, { timezone: TZ_UTC }), /timestamp/);
 });
+
+test('latest-only recovery respects DST, sparse recurrence and the exact next slot', () => {
+  const spec = { type: 'daily', atTime: '09:00', startAt: day(2020, 1, 1) };
+  for (const [now, expected] of [
+    [day(2026, 3, 8, 13, 30), day(2026, 3, 8, 13)],
+    [day(2026, 11, 1, 14, 30), day(2026, 11, 1, 14)],
+    [day(2026, 3, 8, 13), day(2026, 3, 8, 13)],
+  ]) {
+    const result = schedule.evaluateMissedOccurrences({ schedule: spec, timezone: TZ_NY,
+      nextRunAt: day(2020, 1, 2), now, policy: 'until_next' });
+    assert.deepEqual(result.occurrences, [expected]);
+    assert.equal(result.actions[0].action, 'run');
+  }
+  const sparse = { type: 'every_n_days', intervalDays: 3650, atTime: '09:00', startAt: day(2020, 1, 1) };
+  assert.equal(schedule.computeLatestOccurrence(sparse, TZ_UTC, day(2026, 1, 1)), day(2020, 1, 1, 9));
+  assert.equal(schedule.computeLatestOccurrence({ ...spec, endAt: day(2021, 1, 1, 9) }, TZ_UTC, day(2026, 1, 1)), day(2021, 1, 1, 9));
+});

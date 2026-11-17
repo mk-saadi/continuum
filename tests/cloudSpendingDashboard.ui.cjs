@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
       await wait();
       check(modelsPanel.textContent.includes('Rate snapshots recorded for this model'), 'the model detail loads');
       check(modelsPanel.textContent.includes('anthropic catalog'), 'recorded catalog snapshots are shown');
-      check([...modelsPanel.querySelectorAll('.aero-panel .aero-panel')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'nested timeline has no second blur');
+      check([...modelsPanel.querySelectorAll('.material-panel .material-panel')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'nested timeline has no second blur');
       check([...modelsPanel.querySelectorAll('table')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'model data tables remain unblurred');
       check(modelsPanel.textContent.includes('Effective date unavailable'), 'the UI does not invent an effective date');
       check(modelsPanel.textContent.includes('Mixed evidence, never fully verified'), 'combined spend keeps its mixed-evidence label');

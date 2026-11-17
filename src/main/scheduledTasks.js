@@ -35,7 +35,7 @@ const NON_TERMINAL_RUN_STATUSES = Object.freeze([
   'deferred', 'queued', 'waiting_for_model', 'waiting_for_lease', 'running',
 ]);
 const RUN_STATUSES = Object.freeze([...NON_TERMINAL_RUN_STATUSES, ...TERMINAL_RUN_STATUSES]);
-const TRIGGERS = Object.freeze(['schedule', 'manual']);
+const TRIGGERS = Object.freeze(['schedule', 'manual', 'dependency']);
 const PERMISSION_MODES = Object.freeze(require('../lib/permissionModes.json').modes);
 const DEFAULT_TIMEZONE = (() => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
@@ -116,15 +116,15 @@ function normalizeScheduleSpec(value, timezone, now) {
 
 function normalizeMissedPolicy(value) {
   if (value === undefined || value === null) {
-    return { policy: 'grace', graceHours: DEFAULT_GRACE_HOURS, maxOverdueDays: DEFAULT_MAX_OVERDUE_DAYS };
+    return { policy: 'until_next', graceHours: DEFAULT_GRACE_HOURS, maxOverdueDays: DEFAULT_MAX_OVERDUE_DAYS };
   }
   if (typeof value === 'string') value = { policy: value };
   assertPlainObject(value, 'missedPolicy');
   let policy = value.policy;
-  if (policy === undefined || policy === null) policy = 'grace';
+  if (policy === undefined || policy === null) policy = 'until_next';
   if (policy === 'run_on_next' || policy === 'run-on-next' || policy === 'runOnNext') policy = 'catch_up';
-  if (!['grace', 'skip', 'catch_up'].includes(policy))
-    throw new TypeError('Missed-run policy must be grace, skip, or catch_up.');
+  if (!['grace', 'skip', 'catch_up', 'until_next'].includes(policy))
+    throw new TypeError('Missed-run policy must be until_next, grace, skip, or catch_up.');
   const graceHours = value.graceHours ?? value.grace_hours;
   const maxOverdueDays = value.maxOverdueDays ?? value.max_overdue_days;
   return {
@@ -205,16 +205,20 @@ function boundedReason(value) {
 
 function taskFromRow(row) {
   if (!row) return null;
+  const schedule = parseJson(row.schedule_json, null);
+  const predecessor = schedule?.type === 'after_task'
+    ? db.prepare('SELECT name FROM scheduled_tasks WHERE id = ?').get(schedule.taskId) : null;
   return {
     id: row.id,
     name: row.name,
     prompt: row.prompt,
     projectId: row.project_id ?? null,
-    schedule: parseJson(row.schedule_json, null),
+    schedule,
+    ...(schedule?.type === 'after_task' ? { predecessorName: predecessor?.name ?? null, predecessorMissing: !predecessor } : {}),
     timezone: row.timezone,
     model: parseJson(row.model_json, null),
     fallback: parseJson(row.fallback_json, []),
-    missedPolicy: parseJson(row.missed_policy_json, { policy: 'grace', graceHours: DEFAULT_GRACE_HOURS, maxOverdueDays: DEFAULT_MAX_OVERDUE_DAYS }),
+    missedPolicy: parseJson(row.missed_policy_json, { policy: 'until_next', graceHours: DEFAULT_GRACE_HOURS, maxOverdueDays: DEFAULT_MAX_OVERDUE_DAYS }),
     permissionMode: row.permission_mode,
     budget: parseJson(row.budget_json, null),
     enabled: Boolean(row.enabled),
@@ -234,6 +238,9 @@ function runFromRow(row) {
     sessionId: row.session_id ?? null,
     scheduledFor: row.scheduled_for,
     trigger: row.trigger || 'schedule',
+    sourceRunId: row.source_run_id ?? null,
+    context: parseJson(row.context_json, null),
+    retryCount: row.retry_count ?? 0,
     status: row.status,
     claimedAt: row.claimed_at ?? null,
     startedAt: row.started_at ?? null,
@@ -297,6 +304,19 @@ function listRunRecords({ taskId = null, limit = 50, offset = 0, status = null }
   return { runs: rows.map(runFromRow), total, limit: boundedLimit, offset: boundedOffset };
 }
 
+function validateDependency(schedule, taskId = null) {
+  if (schedule.type !== 'after_task') return;
+  const visited = new Set(taskId ? [taskId] : []);
+  let current = schedule.taskId;
+  while (current) {
+    if (visited.has(current)) throw new TypeError('Task dependencies cannot contain a cycle.');
+    visited.add(current);
+    const parent = getTaskRecord(current);
+    if (!parent) throw new TypeError('The predecessor task does not exist.');
+    current = parent.schedule?.type === 'after_task' ? parent.schedule.taskId : null;
+  }
+}
+
 function nextOccurrenceFor(schedule, timezone, now) {
   if (schedule?.type === 'once') return Number.isSafeInteger(schedule.at) ? schedule.at : null;
   return scheduleCalc.computeNextOccurrence(schedule, timezone, now);
@@ -308,6 +328,7 @@ function createTaskRecord(input, { now = Date.now() } = {}) {
     if (!TASK_FIELDS.includes(key)) throw new TypeError(`Unknown scheduled-task field: ${key}.`);
   const timezone = normalizeTimezone(input.timezone);
   const schedule = normalizeScheduleSpec(input.schedule ?? input.recurrence, timezone, now);
+  validateDependency(schedule);
   const model = normalizeModelRef(input.model ?? input.modelRef, { field: 'model' });
   const fallback = normalizeFallback(input.fallback);
   const missedPolicy = normalizeMissedPolicy(input.missedPolicy ?? input.catchup);
@@ -346,6 +367,7 @@ function updateTaskRecord(id, patch, { now = Date.now() } = {}) {
       : Object.hasOwn(patch, 'recurrence') ? patch.recurrence : existing.schedule,
     timezone, now,
   );
+  if (scheduleChanged) validateDependency(schedule, id);
   const model = Object.hasOwn(patch, 'model') || Object.hasOwn(patch, 'modelRef')
     ? normalizeModelRef(patch.model ?? patch.modelRef, { field: 'model' })
     : existing.model;
@@ -369,7 +391,7 @@ function updateTaskRecord(id, patch, { now = Date.now() } = {}) {
   const cancelledRunIds = [];
   if ((scheduleChanged || !enabled) && existingRow) {
     const rows = db.prepare(`SELECT id FROM scheduled_task_runs
-      WHERE task_id = ? AND trigger = 'schedule' AND status IN ('deferred', 'queued')`).all(id);
+      WHERE task_id = ? AND trigger != 'manual' AND status IN ('deferred', 'queued')`).all(id);
     const cancel = db.prepare(`UPDATE scheduled_task_runs SET status = 'cancelled',
       finished_at = ?, failure_reason = ?, updated_at = ? WHERE id = ? AND status IN ('deferred', 'queued')`);
     for (const row of rows) {
@@ -400,7 +422,7 @@ function setTaskEnabledRecord(id, enabled, { now = Date.now() } = {}) {
   const cancelledRunIds = [];
   if (!enabled) {
     const rows = db.prepare(`SELECT id FROM scheduled_task_runs
-      WHERE task_id = ? AND trigger = 'schedule' AND status IN ('deferred', 'queued')`).all(id);
+      WHERE task_id = ? AND trigger != 'manual' AND status IN ('deferred', 'queued')`).all(id);
     const cancel = db.prepare(`UPDATE scheduled_task_runs SET status = 'cancelled',
       finished_at = ?, failure_reason = ?, updated_at = ? WHERE id = ? AND status IN ('deferred', 'queued')`);
     for (const run of rows) {
@@ -432,6 +454,7 @@ function insertRunRecord({
   taskId, scheduledFor, trigger = 'schedule', status = 'queued', sessionId = null,
   failureReason = null, model = null, fallbackUsed = false, usage = null,
   deferredUntil = null, startedAt = null, finishedAt = null, claimedAt = null,
+  sourceRunId = null, context = null,
   now = Date.now(),
 } = {}) {
   taskId = requireId(taskId, 'taskId');
@@ -441,11 +464,11 @@ function insertRunRecord({
   const id = randomUUID();
   const result = db.prepare(`INSERT OR IGNORE INTO scheduled_task_runs
     (id, task_id, session_id, scheduled_for, trigger, status, claimed_at, started_at, finished_at,
-     failure_reason, model_json, fallback_used, usage_json, deferred_until, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+     failure_reason, model_json, fallback_used, usage_json, deferred_until, created_at, updated_at, source_run_id, context_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id, taskId, sessionId, scheduledFor, trigger, status, claimedAt, startedAt, finishedAt,
     boundedReason(failureReason), model ? JSON.stringify(model) : null, fallbackUsed ? 1 : 0,
-    usage ? JSON.stringify(usage) : null, deferredUntil, now, now,
+    usage ? JSON.stringify(usage) : null, deferredUntil, now, now, sourceRunId, context ? JSON.stringify(context) : null,
   );
   return result.changes ? getRunRecord(id) : null;
 }
@@ -483,7 +506,7 @@ function isTerminal(status) {
 // Scheduler
 // ---------------------------------------------------------------------------
 
-const DEFAULT_UNLOAD_IDLE_FOR_TASK = false; // opt-in only
+const DEFAULT_UNLOAD_IDLE_FOR_TASK = true; // wait for active work, then use the configured task model
 const DEFAULT_SWAP_WAIT_MS = 10 * 60_000; // reuse modelLeaseWaitMs default
 
 function createScheduler({
@@ -585,18 +608,39 @@ function createScheduler({
 
   function finalizeRun(run, task, {
     status, reason = null, usage = null, model = null, fallbackUsed = false,
-    sessionId = null, startedAt = null,
+    sessionId = null, startedAt = null, output = null,
   }) {
     if (!RUN_STATUSES.includes(status)) throw new TypeError('Invalid final run status.');
     const at = now();
-    const result = db.prepare(`UPDATE scheduled_task_runs SET status = ?, finished_at = ?,
-      failure_reason = ?, usage_json = ?, model_json = ?, fallback_used = ?, session_id = COALESCE(?, session_id),
-      started_at = COALESCE(?, started_at), updated_at = ?
-      WHERE id = ? AND status IN (${NON_TERMINAL_RUN_STATUSES.map(() => '?').join(',')})`).run(
-      status, at, boundedReason(reason), usage ? JSON.stringify(usage) : null,
-      model ? JSON.stringify(model) : null, fallbackUsed ? 1 : 0, sessionId, startedAt, at,
-      run.id, ...NON_TERMINAL_RUN_STATUSES,
-    );
+    const children = [];
+    const result = db.transaction(() => {
+      const result = db.prepare(`UPDATE scheduled_task_runs SET status = ?, finished_at = ?,
+        failure_reason = ?, usage_json = ?, model_json = ?, fallback_used = ?, session_id = COALESCE(?, session_id),
+        started_at = COALESCE(?, started_at), updated_at = ?
+        WHERE id = ? AND status IN (${NON_TERMINAL_RUN_STATUSES.map(() => '?').join(',')})`).run(
+        status, at, boundedReason(reason), usage ? JSON.stringify(usage) : null,
+        model ? JSON.stringify(model) : null, fallbackUsed ? 1 : 0, sessionId, startedAt, at,
+        run.id, ...NON_TERMINAL_RUN_STATUSES,
+      );
+      if (result.changes && ['completed', 'failed'].includes(status)) {
+        const source = getRunRecord(run.id);
+        for (const child of listTaskRecords({ includeDisabled: false })) {
+          if (child.schedule?.type !== 'after_task' || child.schedule.taskId !== run.taskId) continue;
+          const context = child.schedule.includeResult ? {
+            taskName: task?.name ?? 'Previous task', runId: run.id, sessionId: source.sessionId,
+            status, failureReason: boundedReason(reason),
+            result: String(output ?? (source.sessionId ? db.prepare(
+              "SELECT content FROM messages WHERE session_id = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1"
+            ).get(source.sessionId)?.content : '') ?? '').slice(0, 24000),
+          } : null;
+          const queued = insertRunRecord({ taskId: child.id, scheduledFor: uniqueManualSlot(child.id, at),
+            trigger: 'dependency', sourceRunId: run.id, context, now: at });
+          if (queued) children.push(queued);
+        }
+      }
+      return result;
+    }).immediate();
+    for (const child of children) { emitRunUpdated(child); emit('run-created', { run: child }); }
     if (!result.changes) {
       // A cancellation or shutdown already persisted a terminal state. Never
       // overwrite it with a later catch-path result.
@@ -640,15 +684,25 @@ function createScheduler({
 
   function recoverInterruptedRuns(at) {
     const rows = db.prepare(`SELECT * FROM scheduled_task_runs
-      WHERE status IN ('running', 'waiting_for_model', 'waiting_for_lease')`).all();
+      WHERE status IN ('running', 'waiting_for_model', 'waiting_for_lease', 'interrupted')
+        OR (status = 'skipped' AND started_at IS NULL AND session_id IS NULL)`).all();
     for (const row of rows) {
       if (activeRuns.has(row.id)) continue;
-      markRunTerminal(row.id, 'interrupted', 'The application closed before the run finished.', at);
       const task = getTaskRecord(row.task_id);
-      if (task) updateTaskLastStatus(task.id, 'interrupted', at);
-      const run = getRunRecord(row.id);
-      emitRunUpdated(run);
-      notifyOutcome(task, run, 'interrupted', 'The application closed before the run finished.');
+      const next = task && task.schedule.type !== 'after_task'
+        ? scheduleCalc.computeNextOccurrence(task.schedule, task.timezone, row.scheduled_for) : null;
+      const eligible = task?.enabled && task.missedPolicy.policy === 'until_next' &&
+        (next == null || at < next);
+      if (eligible) {
+        db.prepare(`UPDATE scheduled_task_runs SET status = 'queued', claimed_at = NULL,
+          started_at = NULL, finished_at = NULL, session_id = NULL, failure_reason = NULL,
+          retry_count = retry_count + 1, updated_at = ? WHERE id = ?`).run(at, row.id);
+        updateTaskLastStatus(task.id, 'queued', at);
+      } else if (row.status !== 'skipped') {
+        markRunTerminal(row.id, 'interrupted', 'The application closed before the run finished.', at);
+        if (task) updateTaskLastStatus(task.id, 'interrupted', at);
+      }
+      emitRunUpdated(getRunRecord(row.id));
     }
   }
 
@@ -796,7 +850,7 @@ function createScheduler({
         emitRunUpdated(getRunRecord(row.id));
         continue;
       }
-      if (row.trigger === 'schedule' && !task.enabled) {
+      if (row.trigger !== 'manual' && !task.enabled) {
         markRunTerminal(row.id, 'cancelled', 'task-paused', at);
         emitRunUpdated(getRunRecord(row.id));
         continue;
@@ -823,13 +877,25 @@ function createScheduler({
         emitRunUpdated(getRunRecord(row.id));
         continue;
       }
-      if (row.trigger === 'schedule' && !task.enabled) {
+      if (row.trigger !== 'manual' && !task.enabled) {
         markRunTerminal(row.id, 'cancelled', 'task-paused', at);
         emitRunUpdated(getRunRecord(row.id));
         continue;
       }
+      if (row.trigger === 'dependency' && task.predecessorMissing) {
+        markRunTerminal(row.id, 'cancelled', 'The predecessor task was deleted.', at);
+        emitRunUpdated(getRunRecord(row.id));
+        continue;
+      }
       const policy = task.missedPolicy;
-      if (at - row.scheduled_for > policy.maxOverdueDays * 24 * 60 * 60 * 1000) {
+      const next = row.trigger === 'schedule' && policy.policy === 'until_next'
+        ? scheduleCalc.computeNextOccurrence(task.schedule, task.timezone, row.scheduled_for) : null;
+      if (next != null && at >= next) {
+        markRunTerminal(row.id, 'expired', 'Superseded by the next scheduled occurrence.', at);
+        emitRunUpdated(getRunRecord(row.id));
+        continue;
+      }
+      if (row.trigger !== 'dependency' && policy.policy !== 'until_next' && at - row.scheduled_for > policy.maxOverdueDays * 24 * 60 * 60 * 1000) {
         markRunTerminal(row.id, 'expired', `The scheduled time was more than ${policy.maxOverdueDays} day(s) overdue.`, at);
         updateTaskLastStatus(task.id, 'expired', at);
         const expired = getRunRecord(row.id);
@@ -940,7 +1006,7 @@ function createScheduler({
 
   /**
    * Attempt to swap the currently loaded model for the task model.
-   * Returns { ok: true, swappedOut: { modelPath, config, wasLoaded } }
+   * Returns { ok: true } after unloading one different model
    * or { ok: false, reason }.
    */
   async function trySwapForTaskModel(taskModelRef, signal) {
@@ -954,7 +1020,7 @@ function createScheduler({
     let currentModelPath = null;
     let currentEntry = null;
     for (const entry of getEngines()) {
-      if (entry && entry.childProcess) {
+      if (entry && entry.childProcess && entry.modelPath !== taskModelPath) {
         currentModelPath = entry.modelPath;
         currentEntry = entry;
         break;
@@ -969,19 +1035,6 @@ function createScheduler({
     // If same model already loaded, no swap needed
     if (currentModelPath === taskModelPath) {
       return { ok: false, reason: 'same-model-loaded' };
-    }
-
-    // Get current model's saved config for restoration
-    let currentConfig = {};
-    let currentWasLoaded = true;
-    try {
-      const savedLoad = loadConfigFor()(currentModelPath) ?? {};
-      currentConfig = savedLoad.remembered ? { ...savedLoad.config } : {};
-      if (savedLoad.projectorPath !== undefined) {
-        currentConfig.mmprojPath = savedLoad.projectorPath;
-      }
-    } catch (error) {
-      logger.warn?.('[scheduled-tasks] could not read saved config for current model:', error?.message ?? error);
     }
 
     // Check VRAM: if task model fits alongside, no swap needed
@@ -1007,9 +1060,9 @@ function createScheduler({
 
     // Check if current model has active turn lease
     if (currentEntry?.lifecycle?.hasActiveTurnLease) {
-      // Wait for lease release (bounded by swapWaitMs)
+      // An active turn may take arbitrarily long; cancellation still interrupts the wait.
       const leaseResult = await currentEntry.lifecycle.waitForTurnLeaseRelease({
-        timeoutMs: swapWaitMs,
+        timeoutMs: Infinity,
         signal,
       });
       if (!leaseResult.released) {
@@ -1038,22 +1091,32 @@ function createScheduler({
       return { ok: false, reason: 'unload-deferred' };
     }
 
-    // Wait for process to actually exit
-    await new Promise((resolve) => {
+    // Do not load the replacement until the old process actually exits.
+    const stopped = await new Promise(resolve => {
+      let attempts = 0;
       const check = () => {
-        const entry = getEngineConfig(currentModelPath);
-        if (!entry) return resolve();
+        if (signal?.aborted || shuttingDown || isAppShuttingDown()) return resolve(false);
+        if (!getEngineConfig(currentModelPath)) return resolve(true);
+        if (++attempts > Math.ceil(modelReadyWaitMs / 100)) return resolve(false);
         setTimeoutImpl(check, 100);
       };
       check();
     });
+    if (!stopped) return { ok: false, reason: signal?.aborted ? 'cancelled' : 'unload-failed',
+      detail: 'Waiting for the previous model to finish unloading.' };
 
-    return { ok: true, swappedOut: { modelPath: currentModelPath, config: currentConfig, wasLoaded: currentWasLoaded } };
+    return { ok: true };
   }
 
   async function prepareModelForTask(task, { signal, onStatus }) {
     const candidates = [task.model, ...(Array.isArray(task.fallback) ? task.fallback : [])];
     let last = { reason: 'model_unavailable', detail: 'No model is configured.' };
+    onStatus?.('waiting_for_lease', 'Waiting for active work to finish before preparing the scheduled task.');
+    const idle = await waitForTurnLeases({ engines: getEngines, timeoutMs: Infinity, signal,
+      isCancelled: () => shuttingDown || isAppShuttingDown() });
+    if (!idle?.ok) return { ok: false, reason: idle?.reason === 'cancelled' ? 'cancelled' : 'waiting_for_lease_timeout',
+      detail: 'Waiting for active work to finish.' };
+
     for (let index = 0; index < candidates.length; index++) {
       if (shuttingDown || isAppShuttingDown()) return { ok: false, reason: 'cancelled' };
       if (signal?.aborted) return { ok: false, reason: 'cancelled' };
@@ -1077,6 +1140,8 @@ function createScheduler({
         if (!readiness.ok) {
           last = { reason: readiness.reason ?? 'model_unavailable', detail: readiness.detail };
           if (last.reason === 'cancelled') return { ok: false, ...last };
+          if (getEngineConfig(ref.modelPath)?.contextStatus === 'warmup-failed' && typeof stopEngine === 'function')
+            await stopEngine(ref.modelPath, 'scheduled-task-load-retry', 'model-loader', false);
           continue;
         }
         const ready = modelReady(ref);
@@ -1088,7 +1153,7 @@ function createScheduler({
       onStatus?.('waiting_for_lease', fallbackUsed ? 'fallback-model-switch' : 'model-switch');
       const lease = await waitForTurnLeases({
         engines: getEngines,
-        timeoutMs: modelLeaseWaitMs,
+        timeoutMs: Infinity,
         signal,
         isCancelled: () => shuttingDown || isAppShuttingDown(),
       });
@@ -1103,22 +1168,14 @@ function createScheduler({
         continue;
       }
 
-      let swapResult = null;
-      // Attempt model swap if configured and models differ
       if (unloadIdleForScheduledTask !== false && ref.kind === 'local') {
-        swapResult = await trySwapForTaskModel(ref, signal);
-        if (swapResult.ok) {
-          // Swap successful - track for restoration
-          onStatus?.('waiting_for_model', fallbackUsed ? 'fallback-load' : 'load');
-        } else if (swapResult.reason === 'vram_conflict') {
-          // Could not swap due to VRAM conflict - skip this model
-          last = { reason: 'vram_conflict', detail: 'The model does not fit in available GPU memory and swap was not possible.' };
-          break;
-        } else if (swapResult.reason === 'cancelled') {
-          return { ok: false, reason: 'cancelled' };
+        while (true) {
+          const swapResult = await trySwapForTaskModel(ref, signal);
+          if (swapResult.ok) continue;
+          if (['no-model-loaded', 'same-model-loaded', 'vram-sufficient'].includes(swapResult.reason)) break;
+          return { ok: false, reason: swapResult.reason,
+            detail: swapResult.detail ?? 'Waiting to safely unload the previous model.' };
         }
-        // For other reasons (vram-sufficient, same-model-loaded, no-model-loaded, etc.),
-        // continue with normal load behavior
       }
 
       if (typeof launchModel !== 'function') {
@@ -1162,7 +1219,7 @@ function createScheduler({
             break;
           }
           const ready = modelReady(ref);
-          if (ready) return { ...ready, fallbackUsed, swappedOut: swapResult?.swappedOut ?? null };
+          if (ready) return { ...ready, fallbackUsed };
           last = { reason: 'model_unavailable', detail: 'The model did not become available after loading.' };
           break;
         }
@@ -1217,7 +1274,7 @@ function createScheduler({
       finalizeRun(run, null, { status: 'cancelled', reason: 'task-deleted' });
       return;
     }
-    if (run.trigger === 'schedule' && !task.enabled) {
+    if (run.trigger !== 'manual' && !task.enabled) {
       finalizeRun(run, task, { status: 'cancelled', reason: 'task-paused' });
       return;
     }
@@ -1237,37 +1294,50 @@ function createScheduler({
 
     const budget = task.budget ?? {};
     const timeoutMs = budget.maxWallClockMs ?? maxWallClockMs;
-    const timeout = setTimeoutImpl(() => {
-      active.timedOut = true;
-      controller.abort(abortReason('scheduled-task-timeout'));
-    }, timeoutMs);
+    let timeout = null;
     let lease = null;
     let model = null;
     let fallbackUsed = false;
-    let swappedOutModel = null;
     try {
       updateRunProgress(run, 'waiting_for_model');
-      const prepared = await prepareModelForTask(task, {
-        signal: controller.signal,
-        onStatus: (status, reason) => {
-          if (shuttingDown || controller.signal.aborted) return;
-          updateRunProgress(run, status, reason);
-        },
-      });
+      let prepared;
+      try {
+        prepared = await prepareModelForTask(task, {
+          signal: controller.signal,
+          onStatus: (status, reason) => {
+            if (shuttingDown || controller.signal.aborted) return;
+            updateRunProgress(run, status, reason);
+          },
+        });
+      } catch (error) {
+        prepared = { ok: false, reason: 'model_unavailable', detail: error?.message ?? 'Model preparation failed.' };
+      }
       if (!prepared.ok) {
-        const status = prepared.reason === 'vram_conflict' || prepared.reason === 'model_unavailable'
-          ? 'skipped'
-          : prepared.reason === 'cancelled' ? 'cancelled' : 'blocked';
-        const result = finalizeRun(run, task, { status, reason: prepared.detail ?? prepared.reason });
-        notifyOutcome(task, result, status, result?.failureReason);
+        if (controller.signal.aborted || shuttingDown || isAppShuttingDown()) {
+          finalizeRun(run, task, { status: shuttingDown || isAppShuttingDown() ? 'interrupted' : 'cancelled',
+            reason: prepared.detail ?? prepared.reason });
+        } else {
+          // Model preparation is pending work, not a completed occurrence.
+          db.prepare(`UPDATE scheduled_task_runs SET status = 'deferred', deferred_until = ?,
+            failure_reason = ?, claimed_at = NULL, retry_count = retry_count + 1, updated_at = ?
+            WHERE id = ? AND status IN ('waiting_for_model', 'waiting_for_lease')`).run(
+            now() + Math.max(tickMs, deferMs), boundedReason(`Model preparation will retry: ${prepared.detail ?? prepared.reason}`), now(), run.id);
+          emitRunUpdated(getRunRecord(run.id));
+          updateTaskLastStatus(task.id, 'deferred', now());
+        }
         return;
       }
+      const nextSlot = run.trigger === 'schedule' && task.missedPolicy.policy === 'until_next'
+        ? scheduleCalc.computeNextOccurrence(task.schedule, task.timezone, run.scheduledFor) : null;
+      if (nextSlot != null && now() >= nextSlot) {
+        finalizeRun(run, task, { status: 'expired', reason: 'Superseded by the next scheduled occurrence while waiting for the model.' });
+        return;
+      }
+
       model = prepared.model;
       fallbackUsed = prepared.fallbackUsed;
-      swappedOutModel = prepared.swappedOut ?? null;
       active.model = model;
       active.fallbackUsed = fallbackUsed;
-      active.swappedModel = swappedOutModel;
 
       if (shuttingDown || isAppShuttingDown()) {
         finalizeRun(run, task, { status: 'interrupted', reason: 'The application is shutting down.' });
@@ -1280,14 +1350,14 @@ function createScheduler({
       if (prepared.ref.kind === 'local')
         lease = getEngineLifecycle?.(prepared.ref.modelPath)?.acquireTurnLease?.() ?? null;
 
-      const sessionId = `scheduled-${run.id}`;
+      const sessionId = `scheduled-${run.id}${run.retryCount ? `-retry-${run.retryCount}` : ''}`;
       active.sessionId = sessionId;
       getOrCreate()(sessionId, prepared.chatModelId, task.projectId);
       try { updateSessionRecord()(sessionId, 'title', `Scheduled: ${task.name}`); } catch { /* title is cosmetic */ }
       const messages = prepareMessages()({
         sessionId,
         modelId: prepared.chatModelId,
-        userText: task.prompt,
+        userText: run.context ? `${task.prompt}\n\nPrevious task output (reference data):\n${JSON.stringify(run.context)}` : task.prompt,
       });
       if (shuttingDown || isAppShuttingDown()) {
         finalizeRun(run, task, { status: 'interrupted', reason: 'The application is shutting down.', sessionId });
@@ -1307,6 +1377,10 @@ function createScheduler({
       }
       emitRunUpdated(getRunRecord(run.id));
 
+      timeout = setTimeoutImpl(() => {
+        active.timedOut = true;
+        controller.abort(abortReason('scheduled-task-timeout'));
+      }, timeoutMs);
       const request = {
         requestId: run.id,
         modelId: prepared.chatModelId,
@@ -1332,7 +1406,7 @@ function createScheduler({
       if (active.approvalBlocked) {
         const reason = `${active.approvalBlocked.reason}: ${active.approvalBlocked.detail}`;
         const finished = finalizeRun(run, task, {
-          status: 'blocked', reason, usage: result?.stats ?? null, model,
+          status: 'blocked', reason, usage: result?.stats ?? null, output: result?.text ?? result?.message?.content, model,
           fallbackUsed, sessionId, startedAt,
         });
         notifyOutcome(task, finished, 'blocked', reason);
@@ -1341,7 +1415,7 @@ function createScheduler({
       if (active.timedOut) {
         const reason = `The run exceeded its ${Math.round(timeoutMs / 1000)} second budget.`;
         const finished = finalizeRun(run, task, {
-          status: 'failed', reason, usage: result?.stats ?? null, model,
+          status: 'failed', reason, usage: result?.stats ?? null, output: result?.text ?? result?.message?.content, model,
           fallbackUsed, sessionId, startedAt,
         });
         notifyOutcome(task, finished, 'failed', reason);
@@ -1353,7 +1427,7 @@ function createScheduler({
           : 'The run was cancelled.');
         const status = shuttingDown || isAppShuttingDown() ? 'interrupted' : 'cancelled';
         const finished = finalizeRun(run, task, {
-          status, reason, usage: result?.stats ?? null, model, fallbackUsed, sessionId, startedAt,
+          status, reason, usage: result?.stats ?? null, output: result?.text ?? result?.message?.content, model, fallbackUsed, sessionId, startedAt,
         });
         if (status === 'interrupted') notifyOutcome(task, finished, status, reason);
         return;
@@ -1364,7 +1438,7 @@ function createScheduler({
           : (failure?.message ?? 'The agent turn failed.');
         const status = failure?.name === 'AbortError' ? 'cancelled' : 'failed';
         const finished = finalizeRun(run, task, {
-          status, reason, usage: result?.stats ?? null, model, fallbackUsed, sessionId, startedAt,
+          status, reason, usage: result?.stats ?? null, output: result?.text ?? result?.message?.content, model, fallbackUsed, sessionId, startedAt,
         });
         notifyOutcome(task, finished, status, reason);
         return;
@@ -1373,7 +1447,7 @@ function createScheduler({
       const status = interrupted ? 'interrupted' : 'completed';
       const reason = interrupted ? 'The agent turn was interrupted before it completed.' : null;
       const finished = finalizeRun(run, task, {
-        status, reason, usage: result?.stats ?? null, model, fallbackUsed, sessionId, startedAt,
+        status, reason, usage: result?.stats ?? null, output: result?.text ?? result?.message?.content, model, fallbackUsed, sessionId, startedAt,
       });
       notifyOutcome(task, finished, status, reason);
     } catch (error) {
@@ -1388,32 +1462,8 @@ function createScheduler({
       clearTimeoutImpl(timeout);
       try { lease?.release?.(); } catch { /* idempotent */ }
       
-      // Restore swapped model if needed
-      if (active.swappedModel && active.swappedModel.wasLoaded) {
-        const { modelPath: prevModelPath, config: prevConfig } = active.swappedModel;
-        // Check if the previous model is still unloaded (not reloaded by something else)
-        const prevEntry = getEngineConfig(prevModelPath);
-        if (!prevEntry) {
-          try {
-            // Reload the previous model with its saved config
-            const launchOptions = {
-              ...prevConfig,
-              ...(prevConfig.mmprojPath !== undefined ? { mmprojPath: prevConfig.mmprojPath } : {}),
-              // Don't rewrite saved settings
-              rememberSettings: undefined,
-            };
-            if (typeof launchModel === 'function') {
-              const reloadResult = await launchModel(prevModelPath, launchOptions);
-              if (!reloadResult?.success) {
-                logger.warn?.(`[scheduled-tasks] failed to restore previous model ${prevModelPath}:`, reloadResult?.error);
-              }
-            }
-          } catch (restoreError) {
-            logger.warn?.(`[scheduled-tasks] error restoring previous model ${prevModelPath}:`, restoreError?.message ?? restoreError);
-          }
-        }
-        // If previous model was already reloaded by something else, don't interfere
-      }
+      // Leave the task model loaded; loading the previous model alongside it
+      // would recreate the memory conflict this handoff just resolved.
       activeRuns.delete(run.id);
       const taskRuns = activeByTask.get(task.id);
       if (taskRuns) {
@@ -1451,6 +1501,8 @@ function createScheduler({
         result = await require('./dataAccess').withDataAccess(() => {
           if (startup) {
             recoverInterruptedRuns(at);
+            db.prepare("UPDATE scheduled_task_runs SET deferred_until = ? WHERE status = 'deferred' AND failure_reason LIKE 'Model preparation will retry:%'").run(at);
+            promoteDeferred(at);
             applyStartupCap(at);
           }
           const processed = processDueTasks({ at, startup });
@@ -1569,6 +1621,7 @@ function createScheduler({
   }
 
   function pauseTask(id) {
+    cancelTaskRuns(id, { reason: 'task-paused', includeRunning: false, onlyAutomatic: true });
     const { task, cancelledRunIds } = setTaskEnabledRecord(id, false, { now: now() });
     for (const runId of cancelledRunIds) emitRunUpdated(getRunRecord(runId));
     emitTaskUpdated(task);
@@ -1608,7 +1661,7 @@ function createScheduler({
     const cancelled = [];
     for (const row of rows) {
       if (!includeRunning && row.status === 'running') continue;
-      if (onlyAutomatic && row.trigger !== 'schedule') continue;
+      if (onlyAutomatic && row.trigger === 'manual') continue;
       cancelled.push(cancelRunById(row.id, reason, at));
     }
     return cancelled;
@@ -1621,6 +1674,12 @@ function createScheduler({
     cancelTaskRuns(id, { reason: 'task-deleted', includeRunning: true });
     deleteTaskRecord(id);
     emit('task-deleted', { taskId: id, task });
+    for (const dependent of listTaskRecords()) {
+      if (dependent.schedule?.type === 'after_task' && dependent.schedule.taskId === id) {
+        cancelTaskRuns(dependent.id, { reason: 'predecessor-deleted', includeRunning: false, onlyAutomatic: true });
+        emitTaskUpdated(dependent);
+      }
+    }
     return { deleted: true, id };
   }
 

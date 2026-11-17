@@ -15,7 +15,7 @@ html[data-style="skeu"][data-theme-mode="light"] {
 	--sk-success: var(--success);
 	--sk-warning: var(--warning);
 	--sk-shadow-color: var(--shadow);
-	/* Transfer relief from aero-skeu-exp, never its olive/gold palette. */
+	/* Transfer relief from material-skeu-exp, never its olive/gold palette. */
 	--sk-foot: color-mix(in srgb, var(--surface) 55%, black);
 	--sk-contact: rgb(0 0 0 / .32);
 	--sk-relief-highlight: rgb(255 255 255 / .25);
@@ -33,9 +33,9 @@ html[data-style="skeu"][data-theme-mode="light"] {
 	--sk-control-radius: var(--ui-radius-control);
 	--sk-accent-top: color-mix(in srgb, var(--sk-accent), white var(--ui-accent-highlight));
 	--sk-accent-bottom: color-mix(in srgb, var(--sk-accent), black 12%);
-	--aero-status-error: var(--error);
-	/* Quiet fill overrides prevent inherited Aero tint or wallpaper blur. */
-	--aero-panel-fill: var(--surface);
+	--material-status-error: var(--error);
+	/* Quiet fill overrides prevent inherited Material tint or wallpaper blur. */
+	--material-panel-fill: var(--surface);
 }
 /* Light surfaces use the same physical construction, softer contact shade. */
 html[data-style="skeu"][data-theme-mode="light"] {

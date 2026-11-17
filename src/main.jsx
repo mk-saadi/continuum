@@ -5,7 +5,7 @@ import ReactDOM from "react-dom/client";
 const desktopMascot = new URLSearchParams(window.location.search).get('desktopMascot') === '1';
 const Root = React.lazy(() => desktopMascot ? import('./components/mascot/DesktopMascot.jsx') : import('./App.jsx'));
 import "./index.css";
-import "./styles/aero.css";
+import "./styles/shared-ui.css";
 import "./styles/appearance.css";
 import "./components/memoryPalace.css";
 import "@fontsource-variable/inter";

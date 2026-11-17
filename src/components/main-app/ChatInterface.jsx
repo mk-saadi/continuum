@@ -549,7 +549,8 @@ export function ChatInterface({
 	);
 	// Restore the transcript for a tab rehydrated from persisted state. Only
 	// committed chats exist in the database; a never-sent tab has no row yet,
-	// so its empty history is correct and must not raise an error.
+	// so its empty history is correct and must not raise an error. A new search
+	// target also reloads an existing tab after selecting a branch/reply variant.
 	useEffect(() => {
 		const sessionId = palace.sessionId;
 		if (!sessionId || !tabSaved || !palace.api) return;
@@ -578,7 +579,7 @@ export function ChatInterface({
 		return () => {
 			current = false;
 		};
-	}, [palace.sessionId, tabSaved, palace.api]);
+	}, [palace.sessionId, tabSaved, palace.api, navigationTarget?.nonce]);
 	const [groups, setGroups] = useState([]);
 	// Permission context for the visible chat: an existing session takes its
 	// project from its own row (the tab may have been re-bound meanwhile), a
@@ -2248,7 +2249,7 @@ export function ChatInterface({
 												<div
 													className={`min-w-0 max-w-full break-words whitespace-pre-wrap select-text text-[var(--text-primary)] ${
 														msg.role === "user"
-															? "aero-chat-user ui-radius-surface ui-radius-tail px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
+															? "material-chat-user ui-radius-surface ui-radius-tail px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"
 															: "w-full text-sm leading-[1.7] [overflow-wrap:anywhere]"
 													}`}
 												>
@@ -2298,6 +2299,13 @@ export function ChatInterface({
 												{msg.role !== "assistant" && (
 													<MessageContextStatus message={msg} />
 												)}
+												{/** Steering instructions and resolved interactions from this run. **/}
+												{msg.role === "assistant" && !msg.streaming && (
+													<AdditionalPrompts
+														prompts={additionalPromptsFor(msg)}
+														interactions={turnInteractionsFor(msg)}
+													/>
+												)}
 												{/** Actions toolbar **/}
 												{["user", "assistant"].includes(msg.role) && (
 													<MessageActions
@@ -2318,13 +2326,7 @@ export function ChatInterface({
 														onError={setHistoryError}
 													/>
 												)}
-												{/** Steering instructions and resolved interactions from this run. **/}
-												{msg.role === "assistant" && !msg.streaming && (
-													<AdditionalPrompts
-														prompts={additionalPromptsFor(msg)}
-														interactions={turnInteractionsFor(msg)}
-													/>
-												)}
+
 											</>
 										)}
 									</div>
@@ -2344,7 +2346,7 @@ export function ChatInterface({
 								type="button"
 								aria-label="Scroll to bottom"
 								onClick={jumpToLatest}
-								className="aero-orb sk-icon-button aero-fill sk-fill pointer-events-auto absolute bottom-3 right-3 flex size-9 cursor-pointer items-center justify-center text-[var(--text-secondary)] shadow-lg hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+								className="material-orb sk-icon-button material-fill sk-fill pointer-events-auto absolute bottom-3 right-3 flex size-9 cursor-pointer items-center justify-center text-[var(--text-secondary)] shadow-lg hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 							>
 								<FiArrowDown aria-hidden="true" className="size-4" />
 							</button>
@@ -2515,7 +2517,7 @@ export function ChatInterface({
 						if (!busyRef.current) addAttachments(Array.from(event.dataTransfer.files));
 					}}
 					data-dragging={dragActive}
-					className={`aero-chat-composer sk-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px] focus-within:ring-2! focus-within:ring-[var(--accent)]/50!`}
+					className={`material-chat-composer sk-composer mx-auto relative mb-3 flex w-[calc(100%-2rem)] flex-col gap-2 px-3.5 py-2.5 max-[450px]:w-[calc(100%-1.5rem)] max-[450px]:px-2.5 max-[450px]:py-[7px] max-w-[980px]`}
 				>
 					{dragActive && (
 						<div

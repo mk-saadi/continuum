@@ -45,7 +45,7 @@ const { pathToFileURL } = require('node:url');
  await page.locator('details').nth(1).locator('input[type=range]').first().waitFor();
  assert.equal(await page.locator('details').nth(1).locator('.knob-field').count(),0);
  assert.equal(await page.locator('details').nth(1).locator('input[type=range]').count(),4);
- for (const theme of ['dark','light']) for (const appearance of ['flat','aero','skeu']) {
+ for (const theme of ['dark','light']) for (const appearance of ['flat','material','skeu']) {
   await page.evaluate(t=>window.knobTheme(t),theme);
   await page.evaluate(a=>document.documentElement.dataset.appearance=a,appearance);
   await page.screenshot({path:path.join(directory,theme+'-'+appearance+'.png')});

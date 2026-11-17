@@ -1,6 +1,7 @@
 
           import React, { useState } from 'react';
           import { createRoot } from 'react-dom/client';
+          import { ToastProvider } from 'react-toast-master';
           import TasksView from '../../src/components/scheduled-tasks/TasksView.jsx';
           import Sidebar from '../../src/components/Sidebar.jsx';
 
@@ -120,5 +121,5 @@
               </div>
             </>;
           }
-          createRoot(document.getElementById('root')).render(<Harness />);
+          createRoot(document.getElementById('root')).render(<ToastProvider><Harness /></ToastProvider>);
         

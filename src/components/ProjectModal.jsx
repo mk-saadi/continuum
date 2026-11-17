@@ -46,7 +46,7 @@ export default function ProjectModal({ onClose, onCreate }) {
 	return createPortal(
 		<dialog
 			ref={ref}
-			className="aero-dialog sk-window sk-dialog m-auto w-[min(540px,calc(100vw-32px))] max-h-[calc(100dvh-48px)] overflow-auto p-7"
+			className="material-dialog sk-window sk-dialog m-auto w-[min(540px,calc(100vw-32px))] max-h-[calc(100dvh-48px)] overflow-auto p-7"
 			aria-labelledby="new-project-title"
 			onCancel={(event) => {
 				event.preventDefault();
@@ -57,7 +57,7 @@ export default function ProjectModal({ onClose, onCreate }) {
 				onSubmit={submit}
 				className="grid gap-[18px]"
 			>
-				<div className="aero-header sk-window-header sk-texture-grain -mx-7 -mt-7 px-7 py-5">
+				<div className="material-header sk-window-header sk-texture-grain -mx-7 -mt-7 px-7 py-5">
 					<h2
 						id="new-project-title"
 						className="text-xl font-semibold"
@@ -102,14 +102,14 @@ export default function ProjectModal({ onClose, onCreate }) {
 						<span>Root folder (optional)</span>
 						<Tooltip content={fields.root_path || ""}>
 							<span
-								className="aero-inset sk-well break-all px-3 py-2 font-mono text-xs text-[var(--text-muted)]"
+								className="material-inset sk-well break-all px-3 py-2 font-mono text-xs text-[var(--text-muted)]"
 							>
 								{fields.root_path || "No folder selected"}
 							</span>
 						</Tooltip>
 						<button
 							type="button"
-							className="aero-control sk-button aero-fill sk-fill px-3 py-2 text-xs font-medium cursor-pointer"
+							className="material-control sk-button material-fill sk-fill px-3 py-2 text-xs font-medium cursor-pointer"
 							onClick={pickFolder}
 						>
 							Choose Folder
@@ -124,17 +124,17 @@ export default function ProjectModal({ onClose, onCreate }) {
 						{error}
 					</p>
 				)}
-				<div className="aero-footer sk-window-footer -mx-7 -mb-7 flex justify-end gap-2 px-7 py-4">
+				<div className="material-footer sk-window-footer -mx-7 -mb-7 flex justify-end gap-2 px-7 py-4">
 					<button
 						type="button"
-						className="aero-control sk-button aero-fill sk-fill px-3 py-2 text-xs font-medium"
+						className="material-control sk-button material-fill sk-fill px-3 py-2 text-xs font-medium"
 						disabled={busy}
 						onClick={onClose}
 					>
 						Cancel
 					</button>
 					<button
-						className="aero-primary sk-button sk-primary aero-fill sk-fill px-3 py-2 text-xs font-semibold"
+						className="material-primary sk-button sk-primary material-fill sk-fill px-3 py-2 text-xs font-semibold"
 						disabled={busy || !fields.name.trim()}
 					>
 						{busy ? "Saving…" : "Create Project"}

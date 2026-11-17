@@ -27,10 +27,10 @@ app.whenReady().then(async () => {
       await tick();
       check(document.querySelectorAll('nav[aria-label="Settings sections"] [role=tab]').length === 11, 'Expected eleven tabs including Mascot');
       const settingsDialog = document.querySelector('dialog[open]');
-      check(settingsDialog.classList.contains('aero-dialog'), 'Settings frame uses Aero dialog material');
-      check(settingsDialog.querySelector('header').classList.contains('aero-header'), 'Settings top header uses Aero chrome');
-      check(settingsDialog.querySelector('nav').classList.contains('aero-navigation'), 'Settings navigation uses Aero chrome');
-      check([...settingsDialog.querySelectorAll('[class*="aero-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'Settings dialog supplies the only backdrop blur');
+      check(settingsDialog.classList.contains('material-dialog'), 'Settings frame uses Material dialog material');
+      check(settingsDialog.querySelector('header').classList.contains('material-header'), 'Settings top header uses Material chrome');
+      check(settingsDialog.querySelector('nav').classList.contains('material-navigation'), 'Settings navigation uses Material chrome');
+      check([...settingsDialog.querySelectorAll('[class*="material-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'Settings dialog supplies the only backdrop blur');
       check(!panel('appearance').hidden && panel('integrations').hidden, 'Appearance initially visible');
       check(!panel('appearance').querySelector('#global-llm-name'), 'Appearance has no branding model list');
       check(!panel('mascot').querySelector('input'), 'Mascot panel mounts lazily');
@@ -42,9 +42,9 @@ app.whenReady().then(async () => {
       const nameStyle = getComputedStyle(nameInput);
       const nameFrameStyle = getComputedStyle(nameInput.parentElement);
       check(nameStyle.borderTopWidth === '0px', 'TextField inner input has no second border');
-      check(nameStyle.backgroundColor === 'rgba(0, 0, 0, 0)', 'TextField inner input leaves Aero well visible');
-      check(nameStyle.borderTopLeftRadius === nameFrameStyle.borderTopLeftRadius, 'TextField corners follow Aero well');
-      check(nameFrameStyle.backgroundImage !== 'none', 'TextField retains Aero well shading inside Settings');
+      check(nameStyle.backgroundColor === 'rgba(0, 0, 0, 0)', 'TextField inner input leaves Material well visible');
+      check(nameStyle.borderTopLeftRadius === nameFrameStyle.borderTopLeftRadius, 'TextField corners follow Material well');
+      check(nameFrameStyle.backgroundImage !== 'none', 'TextField retains Material well shading inside Settings');
       check(panel('branding').querySelectorAll('[data-model-profile]').length === 1, 'One unified model entry');
       const modelEntry = panel('branding').querySelector('[data-model-profile]');
       check(modelEntry.querySelector('input[type=file]') && modelEntry.querySelector('input[type=text]'), 'Identity controls share model entry');

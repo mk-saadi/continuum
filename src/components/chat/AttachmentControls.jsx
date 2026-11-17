@@ -92,7 +92,7 @@ export function AttachmentStorageStatus() {
   const active=storage?.activeOperations ?? 0;
   const needsAttention=pending>0 || failures>0 || unused>0 || active>0;
 
-  return <div className="aero-panel sk-panel p-3" aria-label="Attachment storage">
+  return <div className="material-panel sk-panel p-3" aria-label="Attachment storage">
     <div className="flex items-center justify-between gap-2">
       <h3 className="text-xs font-semibold">Attachment storage</h3>
       <button type="button" className="text-[11px] underline text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-60" onClick={refresh} disabled={busy}>{busy?'Checking…':'Refresh'}</button>

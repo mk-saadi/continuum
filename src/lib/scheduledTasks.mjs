@@ -7,7 +7,7 @@
 import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from './permissionModes.mjs';
 
 export const FALLBACK_MISSED_POLICY = Object.freeze({
-	policy: 'grace',
+	policy: 'until_next',
 	graceHours: 24,
 	maxOverdueDays: 7,
 });
@@ -55,12 +55,14 @@ export const RUN_STATUS_TONES = Object.freeze({
 });
 
 export const MISSED_POLICY_LABELS = Object.freeze({
+	until_next: 'Run the latest missed or interrupted task when the app opens',
 	grace: 'Run once if still within the grace period',
 	skip: 'Skip missed runs',
 	catch_up: 'Catch up on every missed run',
 });
 
 export const MISSED_POLICY_SHORT = Object.freeze({
+	until_next: 'Latest run only',
 	grace: 'Grace period',
 	skip: 'Skip',
 	catch_up: 'Catch up',
@@ -366,6 +368,7 @@ export function describeSchedule(task) {
 	if (!schedule) return 'No schedule';
 	if (schedule.type === 'once')
 		return `Once on ${formatDateTime(schedule.at, { timezone: task.timezone })}`;
+	if (schedule.type === 'after_task') return task.predecessorMissing ? 'Predecessor task was deleted' : `After ${task.predecessorName || 'another task'} finishes (success or failure)`;
 	const time = schedule.atTime ?? '';
 	if (schedule.type === 'daily') return `Every day at ${time}`;
 	if (schedule.type === 'every_n_days')
@@ -384,6 +387,7 @@ export function describeSchedule(task) {
 export function describeRepeatShort(task) {
 	const schedule = task?.schedule;
 	if (!schedule) return '—';
+	if (schedule.type === 'after_task') return 'After another task';
 	if (schedule.type === 'once') return 'Once';
 	if (schedule.type === 'daily') return `Daily ${schedule.atTime ?? ''}`.trim();
 	if (schedule.type === 'every_n_days')
@@ -397,6 +401,7 @@ export function describeMissedPolicy(policy) {
 	const value = policy ?? FALLBACK_MISSED_POLICY;
 	const hours = value.graceHours ?? FALLBACK_MISSED_POLICY.graceHours;
 	const days = value.maxOverdueDays ?? FALLBACK_MISSED_POLICY.maxOverdueDays;
+	if (value.policy === 'until_next') return 'Run when the app opens, before the next scheduled occurrence. One-time tasks remain eligible.';
 	const base = MISSED_POLICY_LABELS[value.policy] ?? MISSED_POLICY_LABELS.grace;
 	if (value.policy === 'skip') return `${base} (older than ${days} day${days === 1 ? '' : 's'} expires)`;
 	if (value.policy === 'grace') return `${base} (${hours}h window, ${days}-day limit)`;
@@ -475,6 +480,8 @@ export function taskState(task, activeRun = null) {
 		};
 	}
 	if (!task?.enabled) return { key: 'paused', label: 'Paused', tone: 'muted' };
+	if (task.predecessorMissing) return { key: 'attention', label: 'Predecessor missing', tone: 'attention' };
+	if (task.schedule?.type === 'after_task') return { key: 'waiting', label: 'Waiting for predecessor', tone: 'waiting' };
 	if (task.nextRunAt == null) return { key: 'finished', label: 'Finished', tone: 'muted' };
 	if (task.lastStatus === 'failed') return { key: 'error', label: 'Last run failed', tone: 'error' };
 	if (task.lastStatus === 'blocked')
@@ -484,6 +491,8 @@ export function taskState(task, activeRun = null) {
 
 export function nextRunSummary(task, now = Date.now()) {
 	if (!task?.enabled) return { text: 'Paused', detail: '', overdue: false };
+	if (task.predecessorMissing) return { text: 'Predecessor missing', detail: 'Choose another task', overdue: false };
+	if (task.schedule?.type === 'after_task') return { text: 'After predecessor finishes', detail: 'On success or failure', overdue: false };
 	if (task.nextRunAt == null) return { text: 'No further runs', detail: '', overdue: false };
 	const overdue = task.nextRunAt < now;
 	return {
@@ -503,6 +512,7 @@ export function runExplanation(run, models = []) {
 	const reason = run.failureReason ? ` ${run.failureReason}` : '';
 	switch (run.status) {
 		case 'deferred':
+			if (run.failureReason?.startsWith('Model preparation will retry:')) return run.failureReason;
 			return `Scheduled during a busy startup. It will start shortly${reason}`;
 		case 'queued':
 			return 'Waiting for the previous run to finish.';
@@ -519,7 +529,7 @@ export function runExplanation(run, models = []) {
 		case 'failed':
 			return `The run failed.${reason}`;
 		case 'interrupted':
-			return `The run was interrupted and was not replayed.${reason}`;
+			return `The run was interrupted before it finished.${reason}`;
 		case 'expired':
 			return `The scheduled time was too far in the past to run safely.${reason}`;
 		case 'missed':
@@ -560,7 +570,7 @@ export function filterTasks(tasks, runs, { query = '', filter = 'all' } = {}) {
 		} else if (filter === 'paused') {
 			if (task.enabled) return false;
 		} else if (filter === 'attention') {
-			if (task.lastStatus !== 'blocked' && task.lastStatus !== 'failed' && task.enabled) return false;
+			if (task.lastStatus !== 'blocked' && task.lastStatus !== 'failed' && !task.predecessorMissing && task.enabled) return false;
 			if (!task.enabled) return false;
 		}
 		if (!needle) return true;
@@ -586,10 +596,12 @@ export function draftFromTask(task, { now = Date.now() } = {}) {
 		projectId: task?.projectId ?? '',
 		timezone,
 		scheduleType: schedule?.type ?? 'daily',
+		predecessorId: schedule?.taskId ?? '',
+		includeResult: schedule?.includeResult === true,
 		onceDate: once ? dateInTimezone(schedule.at, timezone) : dateInTimezone(now, timezone),
 		onceTime: once ? timeInTimezone(schedule.at, timezone) : '09:00',
-		startDate: schedule && schedule.type !== 'once' ? dateInTimezone(schedule.startAt, timezone) : '',
-		atTime: schedule && schedule.type !== 'once' ? schedule.atTime : '09:00',
+		startDate: schedule?.startAt != null ? dateInTimezone(schedule.startAt, timezone) : '',
+		atTime: schedule?.atTime ?? '09:00',
 		intervalDays: String(schedule?.intervalDays ?? 1),
 		weekdays: schedule?.weekdays?.length ? [...schedule.weekdays] : [1, 2, 3, 4, 5],
 		modelId: modelRefToId(task?.model),
@@ -616,6 +628,10 @@ function integerField(value, { min, max }) {
 }
 
 function buildSchedule(draft, timezone, errors) {
+	if (draft.scheduleType === 'after_task') {
+		if (!String(draft.predecessorId ?? '').trim()) { errors.predecessorId = 'Choose a predecessor task.'; return null; }
+		return { type: 'after_task', taskId: draft.predecessorId, includeResult: Boolean(draft.includeResult) };
+	}
 	if (draft.scheduleType === 'once') {
 		if (!isValidDate(draft.onceDate)) errors.onceDate = 'Choose a valid date.';
 		if (!TIME_PATTERN.test(String(draft.onceTime ?? ''))) errors.onceTime = 'Choose a valid time.';
@@ -709,6 +725,8 @@ export function buildTaskPayload(draft, { existing = null, now = Date.now() } = 
 	const scheduleTouched =
 		Boolean(draft.scheduleTouched) ||
 		draft.scheduleType !== previous.scheduleType ||
+		draft.predecessorId !== previous.predecessorId ||
+		Boolean(draft.includeResult) !== Boolean(previous.includeResult) ||
 		draft.onceDate !== previous.onceDate ||
 		draft.onceTime !== previous.onceTime ||
 		draft.startDate !== previous.startDate ||

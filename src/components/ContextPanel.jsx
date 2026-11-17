@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompressionEvents } from '../context/CompressionEventsContext.jsx';
 
-const cardClass = 'aero-panel sk-panel p-3';
+const cardClass = 'material-panel sk-panel p-3';
 const headingClass = 'text-xs font-semibold mb-2!';
 const bodyClass = 'text-[11px] leading-relaxed text-[var(--text-muted)]';
 const number = value => Number.isFinite(value) ? value.toLocaleString() : '—';
@@ -60,7 +60,7 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className={headingClass}>Compaction summary</h3>
         <button type="button" onClick={() => void refresh()} disabled={loading}
-          className="aero-control sk-button aero-fill sk-fill px-2.5 py-1 text-[11px]">Refresh</button>
+          className="material-control sk-button material-fill sk-fill px-2.5 py-1 text-[11px]">Refresh</button>
       </div>
       {status && <p role="status" className={bodyClass}>{({ compacting: 'Compacting…', completed: 'Completed', deferred: 'Deferred', failed: 'Failed' })[status] ?? status}</p>}
       {error && <p role="alert" className={`${bodyClass} text-[var(--error)]`}>{error}</p>}

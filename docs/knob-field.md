@@ -19,4 +19,4 @@ Import `KnobField` from `src/components/FormControls.jsx`. It uses a native rang
 
 Drag upward or rightward to increase; drag downward or leftward to decrease. A 160px drag covers the range regardless of dial size. Pointer capture keeps adjustment active outside the dial. Arrow keys, Home and End use native range behavior. `onChange` previews each change; optional `onCommit` runs once after an edited pointer or keyboard interaction, or on blur.
 
-The dial follows the active palette. Flat uses a simple surface, Aero uses a beveled surface, and Skeu adds machining and deeper relief. Avatar & Branding uses four knobs in a responsive grid; Max tokens remains a number field.
+The dial follows the active palette. Flat uses a simple surface, Material uses a beveled surface, and Skeu adds machining and deeper relief. Avatar & Branding uses four knobs in a responsive grid; Max tokens remains a number field.

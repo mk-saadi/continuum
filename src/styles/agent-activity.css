@@ -1,0 +1,35 @@
+/* Shared activity treatment across Flat, Skeu and Neumorphism. */
+.agent-processing-text {
+  display: inline-block;
+  color: var(--text-secondary);
+}
+
+@supports (background-clip: text) {
+  .agent-processing-text {
+    background-image: linear-gradient(105deg,
+      var(--text-secondary) 34%, var(--accent) 40%,
+      var(--accent) 60%, var(--text-secondary) 66%);
+    background-size: 300% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: agent-processing-shimmer 1.8s linear infinite;
+  }
+}
+
+@keyframes agent-processing-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-processing-text {
+    animation: none;
+    background: none;
+    color: var(--text-secondary);
+  }
+}
+
+@media (forced-colors: active) {
+  .agent-processing-text { background: none; color: CanvasText; animation: none; }
+}

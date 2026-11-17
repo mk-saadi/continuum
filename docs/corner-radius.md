@@ -27,6 +27,6 @@ The inline boot splash in `index.html` mirrors the surface/round defaults so
 its geometry matches before the application stylesheet loads; keep those
 values synchronized when changing the defaults.
 
-This supersedes the older Aero-specific radius tokens in the Aero design guide.
+This supersedes the older Material-specific radius tokens in the Material design guide.
 
 Neumorphic modal shells use 24px corners; fields and model rows use 12px.

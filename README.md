@@ -25,7 +25,7 @@ Continuum brings personality back to desktop AI with an expressive, customizable
 
 ### ✨ Neumorphism, Flat, and Skeu
 
-Choose soft raised and recessed Neumorphism, lightweight Flat surfaces, or textured Skeu controls. Saved Aero preferences automatically migrate to Neumorphism.
+Choose soft raised and recessed Neumorphism, lightweight Flat surfaces, or textured Skeu controls. Saved Material preferences automatically migrate to Neumorphism.
 
 ![Continuum — Neumorphic Settings](docs/images/neumorphism.png)
 

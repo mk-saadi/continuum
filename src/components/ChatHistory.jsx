@@ -22,11 +22,12 @@ import {
 import { getRecentSessions } from "../lib/sidebarHistory.mjs";
 import { LuX } from "react-icons/lu";
 import Tooltip from "./Tooltip";
+import { TextField } from "./FormControls";
 
 const UNASSIGNED = "Uncategorized";
 const DRAG_TYPE = "application/x-chat-session";
 const buttonStyle =
-	"aero-list-item sk-list-row flex items-center gap-2 ui-radius-control px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
+	"material-list-item sk-list-row flex items-center gap-2 ui-radius-control px-3 py-1 cursor-pointer text-sm disabled:cursor-default disabled:opacity-40";
 const tokenFormatter = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmit }) {
@@ -50,7 +51,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 		<dialog
 			ref={dialog}
 			aria-labelledby="chat-action-title"
-			className="aero-dialog sk-window sk-dialog m-auto w-[min(420px,calc(100vw-32px))] p-5"
+			className="material-dialog sk-window sk-dialog m-auto w-[min(420px,calc(100vw-32px))] p-5"
 			onCancel={(event) => {
 				event.preventDefault();
 				if (!busy) onClose();
@@ -72,7 +73,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 					</h2>
 					<button
 						type="button"
-						className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
+						className="material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 items-center justify-center cursor-pointer"
 						aria-label="Close settings"
 						disabled={busy}
 						onClick={onClose}
@@ -158,7 +159,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						disabled={busy || disabled}
 						onChange={(event) => setValue(event.target.value)}
 						placeholder={action.kind === "New Folder" ? "Folder name" : "Chat name"}
-						className="aero-well sk-well aero-fill sk-fill w-full px-3 py-2 text-sm"
+						className="material-well sk-well material-fill sk-fill w-full px-3 py-2 text-sm"
 					/>
 				)}
 
@@ -172,7 +173,7 @@ function ActionDialog({ action, folders, busy, disabled, error, onClose, onSubmi
 						Cancel
 					</button>
 					<button
-						className={`${action.kind === "Delete" ? "aero-control sk-button aero-control--danger" : "aero-primary sk-button sk-primary"} aero-fill sk-fill px-3 py-1.5 text-sm cursor-pointer`}
+						className={`${action.kind === "Delete" ? "material-control sk-button material-control--danger" : "material-primary sk-button sk-primary"} material-fill sk-fill px-3 py-1.5 text-sm cursor-pointer`}
 						disabled={busy || disabled || (action.kind !== "Delete" && !value.trim())}
 					>
 						{busy
@@ -214,7 +215,7 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				openMenu(event, session, event.currentTarget.querySelector("[aria-haspopup]"))
 			}
 			aria-current={activeId === session.id ? "true" : undefined}
-			className="aero-list-item sk-list-row group relative flex items-center ui-radius-control py-1"
+			className="material-list-item sk-list-row group relative flex items-center ui-radius-control py-1"
 		>
 			<Tooltip content={session.title || "Untitled chat"}>
 				<button
@@ -237,7 +238,7 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 				</span>
 			</Tooltip>
 			<button
-				className="aero-list-item sk-list-row absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
+				className="material-list-item sk-list-row absolute right-0 inset-y-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ui-radius-control px-1.5 text-[var(--text-muted)] cursor-pointer disabled:opacity-40"
 				aria-label={`Actions for ${session.title || "Untitled chat"}`}
 				aria-haspopup="menu"
 				aria-expanded={menu?.session.id === session.id}
@@ -404,7 +405,7 @@ export default function ChatHistory({
 			<div className="shrink-0 space-y-3 px-3 pt-4 pb-2">
 				{mode === "workspace" ? (
 					<div
-						className="aero-panel sk-panel p-3"
+						className="material-panel sk-panel p-3"
 						aria-label="Workspace conversations"
 					>
 						<div className="mb-2 flex min-w-0 items-center gap-2">
@@ -428,7 +429,7 @@ export default function ChatHistory({
 									: "Select and start a model before creating a workspace chat"
 							}>
 							<button
-								className="aero-primary sk-button sk-primary aero-fill sk-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
+								className="material-primary sk-button sk-primary material-fill sk-fill mt-2! flex w-full items-center justify-center gap-2 px-2 py-1.5 text-sm"
 								disabled={locked || !canCreateWorkspaceChat}
 								aria-label={
 									canCreateWorkspaceChat
@@ -450,7 +451,7 @@ export default function ChatHistory({
 				) : (
 					<div className="flex items-center gap-1">
 						<button
-							className="aero-primary sk-button sk-primary flex w-full flex-1 items-center justify-center py-1.5 text-sm"
+							className="material-primary sk-button sk-primary flex w-full flex-1 items-center justify-center py-1.5 text-sm"
 							disabled={locked}
 							onClick={onNew}
 						>
@@ -464,7 +465,7 @@ export default function ChatHistory({
 				{mode !== "workspace" && onTasks && (
 					<nav aria-label="Application">
 						<button
-							className="aero-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
+							className="material-list-item sk-list-row project-nav-link w-full cursor-pointer ui-radius-control"
 							onClick={onTasks}
 							aria-current={tasksActive ? "page" : undefined}
 						>
@@ -474,27 +475,37 @@ export default function ChatHistory({
 					</nav>
 				)}
 				<div className="flex items-center gap-2">
-					<label className="aero-well sk-well flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[var(--text-muted)]">
-						<FiSearch className="shrink-0 text-[var(--accent)]" />
-						<input
-							type="search"
-							aria-label={
-								mode === "workspace"
-									? "Search workspace chats and folders"
-									: "Search chats and folders"
-							}
-							placeholder="Search chats…"
-							value={search}
-							onChange={(event) => {
-								setSearch(event.target.value);
-								closeMenu();
-							}}
-							className="min-w-0 w-full bg-transparent text-sm text-[var(--text-primary)] outline-none"
-						/>
-					</label>
+					<TextField
+						className="min-w-0 flex-1"
+						frameClassName="material-well sk-well flex min-w-0 items-center gap-2 px-3 text-[var(--text-muted)]"
+						leadingIcon={<FiSearch className="text-[var(--accent)]" />}
+						inputClassName="px-0! py-2! [&::-webkit-search-cancel-button]:appearance-none"
+						trailingAdornment={search ? (
+							<button
+								type="button"
+								aria-label="Clear chat search"
+								className="chat-search-clear grid size-5 shrink-0 cursor-pointer place-items-center text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+								onClick={(event) => {
+									setSearch("");
+									closeMenu();
+									event.currentTarget.parentElement.querySelector("input")?.focus();
+								}}
+							>
+								<LuX className="size-4" aria-hidden="true" />
+							</button>
+						) : null}
+						type="search"
+						aria-label={mode === "workspace" ? "Search workspace chats and folders" : "Search chats and folders"}
+						placeholder="Search chats…"
+						value={search}
+						onChange={(event) => {
+							setSearch(event.target.value);
+							closeMenu();
+						}}
+					/>
 					<Tooltip content="New Folder">
 						<button
-							className="aero-control sk-button grid size-9 shrink-0 place-items-center cursor-pointer"
+							className="material-control sk-button grid size-9 shrink-0 place-items-center cursor-pointer"
 							disabled={locked}
 							onClick={() => {
 								setAction({ kind: "New Folder" });
@@ -514,7 +525,7 @@ export default function ChatHistory({
 				{showRecents && !query && recentSessions.length > 0 && (
 					<section
 						aria-label="Recent chats"
-						className="aero-panel sk-panel mt-3 p-2"
+						className="material-panel sk-panel mt-3 p-2"
 					>
 						<div className="mb-1 flex items-center gap-2 px-1">
 							<FiClock
@@ -524,7 +535,7 @@ export default function ChatHistory({
 							/>
 							<h3 className="text-xs font-semibold">Recent</h3>
 						</div>
-						<div className="aero-flat sk-list mt-1 space-y-0.5 p-1">
+						<div className="material-flat sk-list mt-1 space-y-0.5 p-1">
 							{recentSessions.map((session) => (
 								<SessionRow
 									{...{
@@ -549,7 +560,7 @@ export default function ChatHistory({
 						<section
 							key={group.folder_name}
 							aria-label={group.folder_name === UNASSIGNED ? "Chats" : group.folder_name}
-							className={`aero-panel sk-panel mt-3 p-2 ${dropTarget === group.folder_name ? "ring-1 ring-[var(--accent)]" : ""}`}
+							className={`material-panel sk-panel mt-3 p-2 ${dropTarget === group.folder_name ? "ring-1 ring-[var(--accent)]" : ""}`}
 							onDragOver={(event) => {
 								if (!locked && [...event.dataTransfer.types].includes(DRAG_TYPE)) {
 									event.preventDefault();
@@ -602,7 +613,7 @@ export default function ChatHistory({
 								<span>{group.sessions.length}</span>
 							</button>
 							{expanded && (
-								<div className="aero-flat sk-list mt-1 space-y-0.5 p-1">
+								<div className="material-flat sk-list mt-1 space-y-0.5 p-1">
 									{!group.sessions.length && (
 										<p className="px-8 py-2 text-xs text-[var(--text-muted)]">
 											{query
@@ -647,7 +658,7 @@ export default function ChatHistory({
 						role="menu"
 						aria-label="Chat actions"
 						style={{ left: menu.left, top: menu.top }}
-						className="aero-popover sk-menu absolute z-50 w-[184px] p-1 text-[var(--text-primary)]"
+						className="material-popover sk-menu absolute z-50 w-[184px] p-1 text-[var(--text-primary)]"
 						onKeyDown={(event) => {
 							if (event.key === "Escape") {
 								event.preventDefault();

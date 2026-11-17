@@ -447,6 +447,13 @@ function RunSection({
 						hideSteps
 						showTurnOutcomes={false}
 					/>
+					{/** Steering instructions and resolved interactions from this run. **/}
+					{!message.streaming && (
+						<AdditionalPrompts
+							prompts={steeringPrompts}
+							interactions={steeringInteractions}
+						/>
+					)}
 					{(onDelete || onBranch || onRegenerate) && (
 						<MessageActions
 							onSelectReplyVariant={onSelectReplyVariant}
@@ -460,13 +467,7 @@ function RunSection({
 							onError={onError ?? (() => {})}
 						/>
 					)}
-					{/** Steering instructions and resolved interactions from this run. **/}
-					{!message.streaming && (
-						<AdditionalPrompts
-							prompts={steeringPrompts}
-							interactions={steeringInteractions}
-						/>
-					)}
+
 				</div>
 			) : (
 				stages.length === 0 && (

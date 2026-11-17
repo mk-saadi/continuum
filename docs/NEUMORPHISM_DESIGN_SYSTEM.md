@@ -1,6 +1,6 @@
 # Neumorphism Design System - Complete Reference
 
-This document captures the **exact neumorphism implementation** from the `aero-skeu-exp` project. Use this as a reference for implementing consistent neumorphism in other projects.
+This document captures the **exact neumorphism implementation** from the `material-skeu-exp` project. Use this as a reference for implementing consistent neumorphism in other projects.
 
 ---
 
@@ -595,4 +595,4 @@ body { background: var(--neu-surface); min-height: 100vh; }
 
 ---
 
-*This design system extracted from `aero-skeu-exp` project - a reference implementation of neumorphism with skeuomorphic, aero glass, flat, and neumorphic variants coexisting.*
+*This design system extracted from `material-skeu-exp` project - a reference implementation of neumorphism with skeuomorphic, material glass, flat, and neumorphic variants coexisting.*

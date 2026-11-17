@@ -1,13 +1,13 @@
 export const APPEARANCE_STORAGE_KEY = "appearance";
 export const APPEARANCES = ["neumorphism", "flat", "skeu"];
-// Legacy Aero and unknown/missing values use the new default. Flat/Skeu remain unchanged.
-const normalizeAppearance = value => value === "aero" ? "neumorphism" : APPEARANCES.includes(value) ? value : "neumorphism";
+// Unknown or retired appearance values use the default.
+const normalizeAppearance = value => APPEARANCES.includes(value) ? value : "neumorphism";
 const CHANGED_EVENT = "appearance-changed";
 function readSavedAppearance() {
 	try {
         const saved = localStorage.getItem(APPEARANCE_STORAGE_KEY);
         const normalized = normalizeAppearance(saved);
-        if (saved === "aero") {
+        if (saved !== null && saved !== normalized) {
             try { localStorage.setItem(APPEARANCE_STORAGE_KEY, normalized); } catch { /* Read-only storage still migrates in memory. */ }
         }
         return normalized;

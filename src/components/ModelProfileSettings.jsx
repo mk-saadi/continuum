@@ -16,7 +16,7 @@ const controls = [
   ['maxTokens', 'Max tokens', -1, undefined, 1],
 ];
 export default function ModelProfileSettings({ modelPath, section = 'all', heading, nested = false, samplingControl = 'slider' }) {
-  const aero = useContext(SettingsMaterialContext);
+  const material = useContext(SettingsMaterialContext);
   const [open, setOpen] = useState(false);
   const [effective, setEffective] = useState(null);
   const [patch, setPatch] = useState({});
@@ -43,7 +43,7 @@ export default function ModelProfileSettings({ modelPath, section = 'all', headi
   const label = section === 'all' ? 'Memory, prompt & sampling' : section === 'memory'
     ? (modelPath ? 'Model memory overrides' : 'Global memory defaults')
     : (modelPath ? 'Model default prompt & sampling' : 'Global default prompt & sampling');
-  return <details className={`${aero ? `aero-panel sk-panel ${nested ? "aero-fill sk-fill" : ""} p-3` : settingsCard} group`} onToggle={event => setOpen(event.currentTarget.open)}>
+  return <details className={`${material ? `material-panel sk-panel ${nested ? "material-fill sk-fill" : ""} p-3` : settingsCard} group`} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
       <span className="flex min-w-0 items-center gap-2">
         <LuSlidersHorizontal size={16} aria-hidden="true" className="shrink-0 text-[var(--accent)]" />

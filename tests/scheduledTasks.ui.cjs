@@ -24,6 +24,7 @@ app.whenReady().then(async () => {
 				contents: `
           import React, { useState } from 'react';
           import { createRoot } from 'react-dom/client';
+          import { ToastProvider } from 'react-toast-master';
           import TasksView from './src/components/scheduled-tasks/TasksView.jsx';
           import Sidebar from './src/components/Sidebar.jsx';
 
@@ -75,7 +76,7 @@ app.whenReady().then(async () => {
             },
             create: async payload => {
               calls.create.push(clone(payload));
-              const task = { ...clone(payload), id: 'new-task', createdAt: Date.now(), updatedAt: Date.now(), nextRunAt: NEXT, lastStatus: null };
+              const task = { ...clone(payload), id: 'new-task-' + calls.create.length, createdAt: Date.now(), updatedAt: Date.now(), nextRunAt: NEXT, lastStatus: null };
               tasks.push(task); emit({ type: 'task-created', task }); return clone(task);
             },
             update: async (id, patch) => {
@@ -143,7 +144,7 @@ app.whenReady().then(async () => {
               </div>
             </>;
           }
-          createRoot(document.getElementById('root')).render(<Harness />);
+          createRoot(document.getElementById('root')).render(<ToastProvider><Harness /></ToastProvider>);
         `,
 				loader: 'jsx',
 				resolveDir: process.cwd(),
@@ -157,14 +158,14 @@ app.whenReady().then(async () => {
 		// index.css sets for the light and dark themes.
 		await fs.writeFile(
 			path.join(directory, 'index.html'),
-			`<html data-theme="dark" data-appearance="aero"><head>
+			`<html data-theme="dark" data-appearance="material"><head>
         <link rel="stylesheet" href="fixture.css">
         <style>
           :root { --surface:#1b1d22; --surface-raised:#23262c; --surface-hover:#2a2e36; --bg-secondary:#15171b;
             --text-primary:#f2f3f5; --text-secondary:#c8ccd3; --text-muted:#9aa1ac; --border:#343842;
             --accent:#5aa9ff; --accent-hover:#78b8ff; --on-accent:#04101f; --input:#14161a;
             --active-chat:#26303c; --error:#ff6b6b; --warning:#e0a64a; --success:#5cc98a;
-            --window-shadow:rgba(0,0,0,.45); --aero-line:rgba(255,255,255,.16); --aero-line-bottom:rgba(0,0,0,.35); }
+            --window-shadow:rgba(0,0,0,.45); --material-line:rgba(255,255,255,.16); --material-line-bottom:rgba(0,0,0,.35); }
           html, body, #root { height: 100%; margin: 0; }
           body { background: var(--bg-secondary); color: var(--text-primary); font-family: system-ui, sans-serif; }
         </style>
@@ -187,8 +188,8 @@ app.whenReady().then(async () => {
         Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
         element.dispatchEvent(new Event('input', { bubbles: true }));
       };
-      const selectValue = value => {
-        const select = [...document.querySelectorAll('select')].find(node => [...node.options].some(option => option.value === value));
+      const selectValue = (value, root = document) => {
+        const select = [...root.querySelectorAll('select')].find(node => [...node.options].some(option => option.value === value));
         check(!!select, 'select for ' + value);
         Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(select, value);
         select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -314,6 +315,25 @@ app.whenReady().then(async () => {
       await wait(80);
       check(!!rowOf('Nightly digest'), 'created task appears from persisted state');
 
+      // ---- Dependency trigger hides clock fields and preserves result choice ----
+      button('Create task').click(); await wait();
+      setValue(field('Task name'), 'Follow-up');
+      setValue(field('Instructions'), 'Review the previous task.');
+      selectValue('after_task'); await wait();
+      check(!field('Timezone') && !field('Time of day') && !field('Date'), 'dependency has no clock fields');
+      selectValue('a', dialog()); await wait();
+      const include = dialog().querySelector('input[type="checkbox"]');
+      include.click(); await wait();
+      selectValue('/models/alpha.gguf'); await wait();
+      button('Create task', dialog()).click();
+      for (let i = 0; i < 40 && window.calls.create.length < 2; i++) await wait();
+      const dependent = window.calls.create[1];
+      check(!!dependent, 'dependency save reaches IPC: ' + dialog()?.textContent);
+      check(dependent.schedule.type === 'after_task' && dependent.schedule.taskId === 'a', 'dependency predecessor is saved');
+      check(dependent.schedule.includeResult === true, 'previous result option is saved');
+      check(dependent.missedPolicy.policy === 'until_next', 'latest-only recovery is the default');
+      await wait(80);
+
       // ---- Edit sends a minimal patch -------------------------------------
       await taskAction('Alpha', 'Edit'); await wait();
       check(!!dialog(), 'edit dialog opens');
@@ -339,8 +359,9 @@ app.whenReady().then(async () => {
       await taskAction('Alpha edited', 'Run now');
       for (let i = 0; i < 40 && !window.calls.runNow.length; i++) await wait();
       check(window.calls.runNow.includes('a'), 'run now reaches IPC');
-      await wait(120);
-      check(text().includes('was queued'), 'queued run is acknowledged');
+      for (let i = 0; i < 40 && !document.querySelector('.app-toast[data-severity="success"]')?.textContent.includes('was queued'); i++) await wait(50);
+      check(document.querySelector('.app-toast[data-severity="success"]')?.textContent.includes('was queued'), 'queued run is acknowledged with the custom toast');
+      check(!document.querySelector('.tasks-banner--notice'), 'action message does not occupy page space');
       await taskAction('Alpha edited', 'Cancel run');
       for (let i = 0; i < 40 && !window.calls.cancel.length; i++) await wait();
       check(window.calls.cancel.includes('run-now-a'), 'cancel targets the active run');
@@ -405,9 +426,9 @@ app.whenReady().then(async () => {
           if (Math.abs(headingButtons[0].getBoundingClientRect().height - headingButtons[1].getBoundingClientRect().height) > 1) throw new Error('heading button heights differ');
           const icon = document.querySelector('.tasks-heading-icon');
           document.documentElement.dataset.appearance = 'flat';
-          if (getComputedStyle(icon).backgroundImage !== 'none' || getComputedStyle(icon).boxShadow !== 'none') throw new Error('flat icon retains aero effects');
-          document.documentElement.dataset.appearance = 'aero';
-          if (getComputedStyle(icon).backgroundImage === 'none') throw new Error('aero icon lost its style');
+          if (getComputedStyle(icon).backgroundImage !== 'none' || getComputedStyle(icon).boxShadow !== 'none') throw new Error('flat icon retains material effects');
+          document.documentElement.dataset.appearance = 'material';
+          if (getComputedStyle(icon).backgroundImage === 'none') throw new Error('material icon lost its style');
           const panel = document.querySelector('.tasks-results').getBoundingClientRect();
           const page = document.querySelector('.tasks-page').getBoundingClientRect();
           const padding = parseFloat(getComputedStyle(document.querySelector('.tasks-page')).paddingBottom);

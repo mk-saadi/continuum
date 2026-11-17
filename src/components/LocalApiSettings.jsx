@@ -11,7 +11,7 @@ import {
 } from "./settings/SettingsSection";
 
 export default function LocalApiSettings() {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	const [settings, setSettings] = useState(null);
 	const [draft, setDraft] = useState("8080");
 	const [activePort, setActivePort] = useState(null);
@@ -105,7 +105,7 @@ export default function LocalApiSettings() {
 					{busy ? "Saving…" : "Save port"}
 				</SettingsButton>
 			</form>
-			<div className={`${aero ? "aero-inset sk-well" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} mt-3 space-y-2 p-3`}>
+			<div className={`${material ? "material-inset sk-well" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} mt-3 space-y-2 p-3`}>
 				<SettingsStatus active={Boolean(activePort)}>
 					{activePort ? "Current engine endpoint" : "Configured endpoint (engine stopped)"}
 				</SettingsStatus>

@@ -1,0 +1,36 @@
+/* Fields keep their normal material when opened or focused. The shared
+   well and button focus rules otherwise stack rings around the same field. */
+html :is(.select-field-frame, .text-field-frame).material-well:focus-within,
+html .select-field-frame .select-field-trigger:is(:focus, :focus-visible) {
+	outline: none !important;
+}
+html .select-field-frame .select-field-trigger:is(:focus, :focus-visible) {
+	box-shadow: none;
+}
+html[data-appearance="flat"] :is(.select-field-frame, .text-field-frame).material-well:focus-within {
+	border-color: var(--control-border);
+	box-shadow: none;
+}
+html[data-appearance="neumorphism"] :is(.select-field-frame, .text-field-frame).material-well:focus-within {
+	border-color: var(--neu-border);
+	box-shadow: var(--neu-inset);
+}
+html[data-style="skeu"] :is(.select-field-frame, .text-field-frame).material-well:focus-within {
+	border-color: var(--sk-edge);
+	box-shadow: var(--sk-inset);
+}
+
+/* Agent answers retain their input material without an extra focus outline. */
+html .agent-question-panel .project-input:is(:focus, :focus-visible) {
+	outline: none !important;
+}
+
+html .text-field-frame:focus-within,
+html .text-field-frame :is(input, textarea):is(:focus, :focus-visible) {
+	outline: none !important;
+}
+
+html .text-field-frame .chat-search-clear:is(:focus, :focus-visible) {
+	outline: none !important;
+	box-shadow: none;
+}

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	FiAlertTriangle,
 	FiCalendar,
-	FiCheckCircle,
 	FiClock,
 	FiEdit2,
 	FiPause,
@@ -27,6 +26,7 @@ import {
 	summarize,
 	taskState,
 } from "../../lib/scheduledTasks.mjs";
+import { useAppToast } from "../../hooks/useAppToast.jsx";
 import "./tasks.css";
 
 const PAGE_SIZE = 10;
@@ -51,7 +51,7 @@ function useNow() {
 function OverviewCard({ icon, title, value, tone }) {
 	return (
 		<article
-			className="aero-panel sk-panel sk-card sk-texture-satin tasks-card"
+			className="material-panel sk-panel sk-card sk-texture-satin tasks-card"
 			data-tone={tone}
 		>
 			<header>
@@ -79,7 +79,7 @@ function DeleteDialog({ task, runs, busy, error, onCancel, onConfirm }) {
 	return (
 		<dialog
 			ref={ref}
-			className="aero-dialog sk-window sk-dialog m-auto w-[min(460px,calc(100vw-32px))] p-0"
+			className="material-dialog sk-window sk-dialog m-auto w-[min(460px,calc(100vw-32px))] p-0"
 			aria-labelledby="delete-task-title"
 			onCancel={(event) => {
 				event.preventDefault();
@@ -87,7 +87,7 @@ function DeleteDialog({ task, runs, busy, error, onCancel, onConfirm }) {
 			}}
 		>
 			<div className="tasks-delete">
-				<header className="aero-header sk-window-header sk-texture-grain tasks-editor-header">
+				<header className="material-header sk-window-header sk-texture-grain tasks-editor-header">
 					<h2
 						id="delete-task-title"
 						className="text-lg font-semibold"
@@ -117,7 +117,7 @@ function DeleteDialog({ task, runs, busy, error, onCancel, onConfirm }) {
 				<footer className="tasks-editor-footer">
 					<button
 						type="button"
-						className="aero-control sk-button tasks-button"
+						className="material-control sk-button tasks-button"
 						onClick={onCancel}
 						disabled={busy}
 						autoFocus
@@ -126,7 +126,7 @@ function DeleteDialog({ task, runs, busy, error, onCancel, onConfirm }) {
 					</button>
 					<button
 						type="button"
-						className="aero-primary sk-button sk-primary tasks-button tasks-button--danger"
+						className="material-primary sk-button sk-primary tasks-button tasks-button--danger"
 						onClick={onConfirm}
 						disabled={busy}
 					>
@@ -143,8 +143,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const [data, setData] = useState({ tasks: [], runs: [] });
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [actionError, setActionError] = useState("");
-	const [notice, setNotice] = useState("");
+	const notify = useAppToast();
 	const [selectedId, setSelectedId] = useState(null);
 	const [resultStatus, setResultStatus] = useState("completed");
 	const [mobileView, setMobileView] = useState("tasks");
@@ -274,21 +273,19 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const act = useCallback(
 		async (key, run, message) => {
 			setBusy(key);
-			setActionError("");
-			setNotice("");
 			try {
 				const result = await run();
-				if (message) setNotice(message);
+				if (message) notify(message, "success");
 				await refreshAll();
 				return result;
 			} catch (err) {
-				setActionError(err?.message || "The action failed.");
+				notify(err?.message || "The action failed.", "error");
 				return null;
 			} finally {
 				setBusy(null);
 			}
 		},
-		[refreshAll],
+		[refreshAll, notify],
 	);
 
 	const summary = useMemo(() => summarize(data.tasks, data.runs, now), [data, now]);
@@ -303,8 +300,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 		if (task) await api.update(task.id, payload);
 		else await api.create(payload);
 		setEditor(null);
-		setNotice(task ? "Task updated." : "Task created.");
-		setActionError("");
+		notify(task ? "Task updated." : "Task created.", "success");
 		await refreshAll();
 	};
 
@@ -316,8 +312,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 			await api.delete(confirmDelete.id);
 			setConfirmDelete(null);
 			if (selectedRef.current === confirmDelete.id) setSelectedId(null);
-			setNotice("Task deleted. Its run history is preserved.");
-			setActionError("");
+			notify("Task deleted. Its run history is preserved.", "success");
 			await refreshAll();
 		} catch (err) {
 			setDeleteError(err?.message || "The task could not be deleted.");
@@ -330,14 +325,14 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 
 	return (
 		<main
-			className="aero-stage sk-app tasks-page"
+			className="material-stage sk-app tasks-page"
 			aria-label="Scheduled tasks"
 		>
 			<div className="tasks-content">
 				<header className="tasks-heading">
 					<div className="flex min-w-0 items-center gap-3">
 						<span
-							className="aero-orb sk-icon-button tasks-heading-icon"
+							className="material-orb sk-icon-button tasks-heading-icon"
 							aria-hidden="true"
 						>
 							<FiCalendar size={18} />
@@ -352,7 +347,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 					<div className="tasks-heading-actions">
 						<button
 							type="button"
-							className="aero-control sk-button tasks-button"
+							className="material-control sk-button tasks-button"
 							onClick={() => setRefreshKey((key) => key + 1)}
 							disabled={loading}
 						>
@@ -360,7 +355,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 						</button>
 						<button
 							type="button"
-							className="aero-primary sk-button sk-primary tasks-button tasks-button--primary"
+							className="material-primary sk-button sk-primary tasks-button tasks-button--primary"
 							onClick={() => setEditor({ task: null })}
 							disabled={!api}
 						>
@@ -386,34 +381,11 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 						<FiAlertTriangle aria-hidden="true" /> {error}
 						<button
 							type="button"
-							className="aero-control sk-button tasks-button"
+							className="material-control sk-button tasks-button"
 							onClick={() => setRefreshKey((key) => key + 1)}
 						>
 							Retry
 						</button>
-					</p>
-				)}
-				{actionError && (
-					<p
-						role="alert"
-						className="tasks-banner tasks-banner--error"
-					>
-						<FiAlertTriangle aria-hidden="true" /> {actionError}
-						<button
-							type="button"
-							className="aero-control sk-button tasks-button"
-							onClick={() => setActionError("")}
-						>
-							Dismiss
-						</button>
-					</p>
-				)}
-				{notice && (
-					<p
-						className="tasks-banner tasks-banner--notice"
-						role="status"
-					>
-						<FiCheckCircle aria-hidden="true" /> {notice}
 					</p>
 				)}
 
@@ -424,8 +396,8 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 				</section>
 
 				<div className="tasks-mobile-tabs" role="group" aria-label="Tasks page view">
-					<button className="aero-control sk-button tasks-filter" aria-pressed={mobileView === "tasks"} onClick={() => setMobileView("tasks")}>Scheduled tasks</button>
-					<button className="aero-control sk-button tasks-filter" aria-pressed={mobileView === "results"} onClick={() => setMobileView("results")}>Results</button>
+					<button className="material-control sk-button tasks-filter" aria-pressed={mobileView === "tasks"} onClick={() => setMobileView("tasks")}>Scheduled tasks</button>
+					<button className="material-control sk-button tasks-filter" aria-pressed={mobileView === "results"} onClick={() => setMobileView("results")}>Results</button>
 				</div>
 				<div className="tasks-layout tasks-layout--results" data-mobile-view={mobileView}>
 					<section
@@ -435,7 +407,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 						<h2 className="tasks-panel-title">Scheduled tasks</h2>
 						<div className="tasks-toolbar">
 							<TextField
-								frameClassName="aero-well sk-well flex min-h-8 flex-1 items-center text-[var(--text-primary)]"
+								frameClassName="material-well sk-well flex min-h-8 flex-1 items-center text-[var(--text-primary)]"
 								type="search"
 								aria-label="Search tasks"
 								placeholder="Search tasks…"
@@ -451,7 +423,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 									<button
 										key={option.value}
 										type="button"
-										className="aero-control sk-button tasks-filter"
+										className="material-control sk-button tasks-filter"
 										aria-pressed={filter === option.value}
 										onClick={() => setFilter(option.value)}
 									>
@@ -469,7 +441,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 								Loading scheduled tasks…
 							</p>
 						) : error ? null : empty ? (
-							<div className="aero-empty sk-empty tasks-empty">
+							<div className="material-empty sk-empty tasks-empty">
 								<FiCalendar
 									className="mx-auto mb-3 size-8"
 									aria-hidden="true"
@@ -481,7 +453,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 								</p>
 								<button
 									type="button"
-									className="aero-primary sk-button sk-primary tasks-button tasks-button--primary"
+									className="material-primary sk-button sk-primary tasks-button tasks-button--primary"
 									onClick={() => setEditor({ task: null })}
 								>
 									<FiPlus aria-hidden="true" /> Create your first task
@@ -587,6 +559,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 				<TaskEditor
 					key={editor.task?.id ?? "new"}
 					task={editor.task}
+					tasks={data.tasks}
 					models={models}
 					projects={projects}
 					onClose={() => setEditor(null)}

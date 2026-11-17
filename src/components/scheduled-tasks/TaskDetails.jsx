@@ -78,7 +78,7 @@ export default function TaskDetails({
 
 	return (
 		<aside
-			className="aero-panel sk-panel tasks-detail"
+			className="material-panel sk-panel tasks-detail"
 			aria-label={`Details for ${task.name}`}
 		>
 			<header className="tasks-detail-header">
@@ -98,7 +98,7 @@ export default function TaskDetails({
 				</div>
 				<button
 					type="button"
-					className="aero-control sk-button grid size-8 shrink-0 place-items-center"
+					className="material-control sk-button grid size-8 shrink-0 place-items-center"
 					onClick={onClose}
 					aria-label="Close details"
 				>
@@ -109,7 +109,7 @@ export default function TaskDetails({
 			<div className="tasks-detail-actions">
 				<button
 					type="button"
-					className="aero-primary sk-button sk-primary tasks-button tasks-button--primary"
+					className="material-primary sk-button sk-primary tasks-button tasks-button--primary"
 					onClick={onRunNow}
 					disabled={busy === "run"}
 				>
@@ -118,7 +118,7 @@ export default function TaskDetails({
 				{activeRun && (
 					<button
 						type="button"
-						className="aero-control sk-button tasks-button"
+						className="material-control sk-button tasks-button"
 						onClick={onCancelRun}
 						disabled={busy === "cancel"}
 					>
@@ -127,7 +127,7 @@ export default function TaskDetails({
 				)}
 				<button
 					type="button"
-					className="aero-control sk-button tasks-button"
+					className="material-control sk-button tasks-button"
 					onClick={onTogglePause}
 					disabled={busy === "pause"}
 				>
@@ -136,14 +136,14 @@ export default function TaskDetails({
 				</button>
 				<button
 					type="button"
-					className="aero-control sk-button tasks-button"
+					className="material-control sk-button tasks-button"
 					onClick={onEdit}
 				>
 					<FiEdit2 aria-hidden="true" /> Edit
 				</button>
 				<button
 					type="button"
-					className="aero-control sk-button tasks-button tasks-button--danger"
+					className="material-control sk-button tasks-button tasks-button--danger"
 					onClick={onDelete}
 				>
 					<FiTrash2 aria-hidden="true" /> Delete
@@ -173,10 +173,15 @@ export default function TaskDetails({
 				<h3 className="tasks-section-title">Configuration</h3>
 				<dl className="tasks-config">
 					<ConfigRow label="Schedule">{describeSchedule(task)}</ConfigRow>
-					<ConfigRow label="Timezone">{task.timezone}</ConfigRow>
+					{task.schedule?.type === "after_task" ? (
+						<>
+							<ConfigRow label="Predecessor">{task.predecessorName ?? "Predecessor missing"}</ConfigRow>
+							<ConfigRow label="Previous result">{task.schedule.includeResult ? "Included as reference data" : "Not included"}</ConfigRow>
+						</>
+					) : <ConfigRow label="Timezone">{task.timezone}</ConfigRow>}
 					<ConfigRow label="Model">{modelLabel(models, task.model)}</ConfigRow>
 					<ConfigRow label="Fallback">
-						{fallback ? modelLabel(models, fallback) : "None — a run is skipped if the model is unavailable"}
+						{fallback ? modelLabel(models, fallback) : "None — waits and retries if the model is unavailable"}
 					</ConfigRow>
 					<ConfigRow label="Permissions">{task.permissionMode}</ConfigRow>
 					<ConfigRow label="Missed runs">{describeMissedPolicy(task.missedPolicy)}</ConfigRow>
@@ -243,7 +248,7 @@ export default function TaskDetails({
 												{formatDateTime(run.scheduledFor, { timezone: task.timezone })}
 											</span>
 											<span className="tasks-muted tasks-block">
-												{run.trigger === "manual" ? "Manual run" : "Scheduled run"}
+												{run.trigger === "manual" ? "Manual run" : run.trigger === "dependency" ? "After task completion" : "Scheduled run"}
 											</span>
 										</td>
 										<td>
@@ -272,7 +277,7 @@ export default function TaskDetails({
 											{run.sessionId && onOpenRun && run.finishedAt && (
 												<button
 													type="button"
-													className="aero-control sk-button tasks-button"
+													className="material-control sk-button tasks-button"
 													disabled={chatBusy}
 													onClick={() => onOpenRun(run.sessionId)}
 												>
@@ -289,7 +294,7 @@ export default function TaskDetails({
 				{rows.length < total && (
 					<button
 						type="button"
-						className="aero-control sk-button tasks-button tasks-load-more"
+						className="material-control sk-button tasks-button tasks-load-more"
 						onClick={onLoadMore}
 						disabled={history?.loading}
 					>

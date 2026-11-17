@@ -333,7 +333,7 @@ function AppContent() {
 		[updateTab, activeTabId],
 	);
 	return (
-		<div className="sk-app sk-app-window flex flex-col h-full w-full overflow-hidden ui-radius-surface bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
+		<div className="sk-app sk-app-window flex flex-col h-full w-full overflow-hidden bg-[var(--surface)] shadow-[0_8px_32px_var(--window-shadow)]">
 			<ChatSidebarProvider sessionId={activeTab?.sessionId}>
 				<CommandSpotlight projects={projects} models={models} engines={engines} onLoadedModel={onLoadedModel} />
 			</ChatSidebarProvider>

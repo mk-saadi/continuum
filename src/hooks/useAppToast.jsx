@@ -27,7 +27,7 @@ export function useAppToast() {
 					timeout: severity === "error" ? 15000 : 9000,
 					custom: (
 						<section
-							className="app-toast aero-toast-surface"
+							className="app-toast material-toast-surface"
 							data-severity={severity}
 							role={severity === "error" || severity === "warning" ? "alert" : "status"}
 						>

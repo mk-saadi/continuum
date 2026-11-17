@@ -1,6 +1,6 @@
 # Neumorphic appearance
 
-Neumorphism replaces Aero Glass as the default material. Flat and Skeu remain
+Neumorphism replaces Material Glass as the default material. Flat and Skeu remain
 registered with their existing palettes, styles and geometry. The command
 spotlight and Appearance settings both expose the new name.
 
@@ -26,13 +26,13 @@ was not included, so pixel-for-pixel equivalence cannot be established.
 ## Compatibility and migration
 
 The canonical stored value is `neumorphism`. The early HTML boot script and
-appearance store normalize legacy `aero`, including storage events from other
+appearance store normalize legacy `material`, including storage events from other
 windows, and rewrite it to the canonical value. Both `data-appearance` and
 `data-style` stay synchronized. Read-only storage still changes the material in
 memory. Existing `flat` and `skeu` values remain unchanged.
 
-The `.aero-*` component hooks and old material stylesheet remain because Flat
-and Skeu also consume them. Aero-only selectors now explicitly require `aero`,
+The `.material-*` component hooks and old material stylesheet remain because Flat
+and Skeu also consume them. Material-only selectors now explicitly require `material`,
 which normal application startup and setters no longer produce. Neumorphism
 neutralizes all reflection and blur tokens and supplies its own scoped material
 rules. Material rules do not change position, stacking, overflow or hit areas.
@@ -52,7 +52,7 @@ resolution, primary text contrast (at least 4.5:1), borderless surfaces and shal
 selected controls for 22 palettes, captures representative Gruvbox Light/Dark, default
 Light/Dark and Lilac screens, and checks positioned model actions, responsive
 modal footers, forced colors and reduced motion. It also captures Flat and Skeu
-for comparison. Historical Aero screenshot suites describe the retired material;
+for comparison. Historical Material screenshot suites describe the retired material;
 this suite is the current appearance acceptance entry point.
 
 The full unit suite in this environment reported 244 passing and 89 failing test

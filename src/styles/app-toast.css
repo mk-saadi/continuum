@@ -98,22 +98,22 @@
 	}
 }
 
-/* Toast-only Aero surface. Keep the shared popover's heavier bevel and
+/* Toast-only Material surface. Keep the shared popover's heavier bevel and
    drop shadows out of notifications without changing menus or dialogs. */
-.aero-toast-surface {
-	border-color: var(--aero-line, var(--border));
+.material-toast-surface {
+	border-color: var(--material-line, var(--border));
 	border-inline-start-color: var(--toast-accent, var(--warning, var(--accent)));
 	border-radius: var(--ui-radius-surface, 12px);
 	background:
-		var(--aero-gloss-chrome, linear-gradient(transparent, transparent)),
-		var(--aero-glass-strong, var(--bg-secondary));
-	-webkit-backdrop-filter: blur(var(--aero-blur-float, 12px)) saturate(var(--aero-saturate-float, 1));
-	backdrop-filter: blur(var(--aero-blur-float, 12px)) saturate(var(--aero-saturate-float, 1));
+		var(--material-gloss-chrome, linear-gradient(transparent, transparent)),
+		var(--material-surface-strong, var(--bg-secondary));
+	-webkit-backdrop-filter: blur(var(--material-blur-float, 12px)) saturate(var(--material-saturate-float, 1));
+	backdrop-filter: blur(var(--material-blur-float, 12px)) saturate(var(--material-saturate-float, 1));
 }
 
-/* Skeu uses an opaque machined surface, never the Aero glass material.
+/* Skeu uses an opaque machined surface, never the Material glass material.
    Keep the relief inside the card so the toast has no heavy drop shadow. */
-html[data-style="skeu"] .aero-toast-surface {
+html[data-style="skeu"] .material-toast-surface {
 	border-color: var(--sk-edge, var(--border));
 	border-inline-start-color: var(--toast-accent, var(--sk-warning, var(--warning)));
 	border-radius: var(--sk-radius, var(--ui-radius-surface));
@@ -129,7 +129,14 @@ html[data-style="skeu"] .aero-toast-surface {
 		inset 0 -1px 0 var(--sk-relief-lowlight, transparent); */
 }
 
-html[data-appearance="flat"] .aero-toast-surface {
+/* Neumorphism's shared Material rules clear outlines; notifications need a
+   visible edge so they remain distinct from the page beneath them. */
+html[data-appearance="neumorphism"] .app-toast.material-toast-surface {
+	border: 1px solid var(--border);
+	border-inline-start: 3px solid var(--toast-accent);
+}
+
+html[data-appearance="flat"] .material-toast-surface {
 	background: var(--surface-raised);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
@@ -156,8 +163,8 @@ html[data-appearance="flat"] .aero-toast-surface {
 
 /* Approval cards use an even neutral outline in every theme, never the
    severity stripe used by ordinary notifications. Match Skeu specificity. */
-.app-approval-toast.aero-toast-surface,
-html[data-style="skeu"] .app-approval-toast.aero-toast-surface {
+.app-approval-toast.material-toast-surface,
+html[data-style="skeu"] .app-approval-toast.material-toast-surface {
   border: 1px solid var(--border, #8b91994d);
   border-inline-start: 1px solid var(--border, #8b91994d);
 }

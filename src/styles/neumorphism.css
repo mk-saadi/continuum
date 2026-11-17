@@ -1,4 +1,4 @@
-/* aero-* names are shared component hooks, retained for Flat/Skeu compatibility.
+/* material-* names are shared component hooks, retained for Flat/Skeu compatibility.
    This material never sets position, overflow, stacking, or hit-area geometry. */
 html[data-appearance="neumorphism"] {
   --neu-material: color-mix(in srgb, var(--surface) 94%, var(--text-primary));
@@ -20,19 +20,19 @@ html[data-appearance="neumorphism"] {
   --neu-card-radius: 20px;
   --neu-modal-radius: 24px;
   --neu-timing: 150ms ease;
-  --aero-glass: var(--neu-material);
-  --aero-glass-raised: var(--neu-material);
-  --aero-glass-strong: var(--neu-material);
-  --aero-glass-subtle: var(--neu-material);
-  --aero-panel-fill: var(--neu-material);
-  --aero-fill-fill: var(--neu-material);
-  --aero-well-fill: var(--neu-material);
-  --aero-line: var(--neu-border);
-  --aero-line-soft: var(--neu-separator);
-  --aero-status-error: var(--error-strong);
+  --material-surface: var(--neu-material);
+  --material-surface-raised: var(--neu-material);
+  --material-surface-strong: var(--neu-material);
+  --material-surface-subtle: var(--neu-material);
+  --material-panel-fill: var(--neu-material);
+  --material-fill-fill: var(--neu-material);
+  --material-well-fill: var(--neu-material);
+  --material-line: var(--neu-border);
+  --material-line-soft: var(--neu-separator);
+  --material-status-error: var(--error-strong);
 }
 html[data-appearance="neumorphism"] {
-  :is([class*="aero-"], .project-heading-icon, .project-path) {
+  :is([class*="material-"], .project-heading-icon, .project-path) {
     border-color: transparent;
     background-image: none !important;
     backdrop-filter: none !important;
@@ -42,141 +42,157 @@ html[data-appearance="neumorphism"] {
     transform: none;
     transition: color var(--neu-timing), border-color var(--neu-timing), background-color var(--neu-timing);
   }
-  :is(.aero-stage, .aero-flat, .aero-fill, .aero-header, .aero-footer, .aero-navigation, .aero-titlebar, .aero-tabbar, .aero-empty, .aero-section-header, .aero-chat-user, .aero-chat-detail, .aero-chat-tool, .aero-metric) {
+  :is(.material-stage, .material-flat, .material-fill, .material-header, .material-footer, .material-navigation, .material-titlebar, .material-tabbar, .material-empty, .material-section-header, .material-chat-user, .material-chat-detail, .material-chat-tool, .material-metric) {
     background-color: var(--neu-material);
     border-color: var(--neu-border);
     box-shadow: none;
   }
-  :is(.aero-panel, .project-card) {
+  :is(.material-panel, .project-card) {
     background-color: var(--neu-material);
     border-color: var(--neu-border);
     border-radius: var(--neu-card-radius);
     box-shadow: var(--neu-panel);
   }
-  .aero-panel .aero-panel { box-shadow: none; }
+  .material-panel .material-panel { box-shadow: none; }
   /* Only structural chrome gets a dividing line, never a perimeter on cards. */
-  :is(.aero-header, .aero-footer, .aero-titlebar, .aero-tabbar) {
+  :is(.material-header, .material-footer, .material-titlebar, .material-tabbar) {
     border-color: var(--neu-separator);
   }
-  .aero-dialog > div > .aero-header {
+  .material-dialog > div > .material-header {
     box-shadow: 0 4px 9px -5px var(--neu-dark);
   }
-  .aero-navigation { border-bottom: 1px solid var(--neu-separator); }
+  .material-navigation { border-bottom: 1px solid var(--neu-separator); }
   @media (min-width: 640px) {
-    .aero-navigation {
+    .material-navigation {
       border-bottom: 0;
       border-right: 1px solid var(--neu-separator);
     }
   }
 
-  :is(.aero-control, .aero-primary, .aero-orb, .aero-choice, .aero-theme-choice, .aero-style-choice, .aero-chrome-button, .project-heading-icon, .knob-field__body) {
+  :is(.material-control, .material-primary, .material-orb, .material-choice, .material-theme-choice, .material-style-choice, .material-chrome-button, .project-heading-icon, .knob-field__body) {
     background: var(--neu-material);
     border-color: var(--neu-border);
     box-shadow: var(--neu-raised);
     border-radius: var(--neu-control-radius);
   }
-  :is(.aero-orb, .knob-field__body) { border-radius: 50%; }
-  .aero-primary { background-color: var(--neu-material); color: var(--accent); border-color: transparent; }
-  :is(.aero-control, .aero-primary, .sk-primary, .aero-orb, .aero-choice, .aero-theme-choice, .aero-style-choice, .aero-chrome-button):hover:not(:disabled, [aria-disabled="true"], .aero-control--danger) {
+  :is(.material-orb, .knob-field__body) { border-radius: 50%; }
+  .material-primary { background-color: var(--neu-material); color: var(--accent); border-color: transparent; }
+  :is(.material-control, .material-primary, .sk-primary, .material-orb, .material-choice, .material-theme-choice, .material-style-choice, .material-chrome-button):hover:not(:disabled, [aria-disabled="true"], .material-control--danger) {
     color: var(--accent);
     background-color: var(--neu-material);
   }
-  :is(.aero-control, .aero-primary, .aero-orb, .aero-choice, .aero-theme-choice, .aero-style-choice, .aero-chrome-button):is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"]) { box-shadow: var(--neu-pressed); }
-  :is(.aero-control, .aero-orb, .aero-tab, .aero-list-item, .aero-theme-choice, .aero-style-choice):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [data-selected="true"], [data-active="true"], [aria-current="true"]),
-  .aero-choice:has(input:checked) {
+  :is(.material-control, .material-primary, .material-orb, .material-choice, .material-theme-choice, .material-style-choice, .material-chrome-button):is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"]) { box-shadow: var(--neu-pressed); }
+  :is(.material-control, .material-orb, .material-tab, .material-list-item, .material-theme-choice, .material-style-choice):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [data-selected="true"], [data-active="true"], [aria-current="true"]),
+  .material-choice:has(input:checked) {
     background-color: var(--neu-material);
     color: var(--accent);
     border-color: transparent;
     box-shadow: var(--neu-pressed);
   }
-  :is(.aero-well, .aero-inset, .aero-chat-composer, .project-path, .aero-track) {
+  :is(.material-well, .material-inset, .project-path, .material-track) {
     background-color: var(--neu-material);
     border-color: var(--neu-border);
     border-radius: 12px;
     box-shadow: var(--neu-inset);
   }
-  .aero-well :is(input, textarea, select) { color: var(--text-primary); }
+  /* Match the raised workspace panel around the main message composer. */
+  [data-chat-mode] .material-chat-composer,
+  [data-chat-mode] .material-chat-composer:focus-within {
+    background: var(--neu-material);
+    border: 0;
+    border-radius: var(--neu-card-radius);
+    box-shadow: var(--neu-panel);
+    outline: none;
+  }
+  [data-chat-mode] .material-chat-composer textarea:focus-visible {
+    outline: none;
+  }
+  .material-well :is(input, textarea, select) { color: var(--text-primary); }
   :is(input, textarea)::placeholder { color: var(--text-muted); }
-  :is(.aero-dialog, .aero-popover, .aero-tooltip) {
+  :is(.material-dialog, .material-popover, .material-tooltip) {
     background-color: var(--neu-material);
     border: 1px solid var(--neu-border);
     box-shadow: var(--neu-modal);
     color: var(--text-primary);
     border-radius: var(--neu-card-radius);
   }
-  .aero-dialog { border-radius: var(--neu-modal-radius); }
-  .aero-tab { background-color: var(--neu-material); box-shadow: none; }
-  .aero-navigation .aero-control:not([aria-selected="true"], [data-active="true"], [aria-pressed="true"]) { box-shadow: none; background-color: var(--neu-material); }
-  .aero-list-item { background-color: var(--neu-material); border-color: var(--neu-border); box-shadow: none; }
-  [data-model-source] .aero-list-item {
+  .material-dialog { border-radius: var(--neu-modal-radius); }
+  .material-tab { background-color: var(--neu-material); box-shadow: none; }
+  .material-navigation .material-control:not([aria-selected="true"], [data-active="true"], [aria-pressed="true"]) { box-shadow: none; background-color: var(--neu-material); }
+  .material-list-item { background-color: var(--neu-material); border-color: var(--neu-border); box-shadow: none; }
+  [data-model-source] .material-list-item {
     border-radius: 12px;
     box-shadow: 2px 2px 5px var(--neu-dark), -2px -2px 5px var(--neu-light);
   }
-  [data-model-source] .aero-fill:has(> .aero-list-item) { margin-block: 10px; }
-  [data-model-source] .aero-list-item:is([aria-selected="true"], [aria-current="true"]) { box-shadow: var(--neu-inset); border-color: transparent; }
-  :is(.aero-badge, .aero-chat-user, .aero-chat-detail, .aero-chat-tool, .aero-empty) { box-shadow: none; }
-  :is(.aero-control, .aero-primary, .aero-orb, .aero-list-item, .aero-tab, .aero-theme-choice, .aero-style-choice):is(:disabled, [aria-disabled="true"]) {
+  [data-model-source] .material-fill:has(> .material-list-item) { margin-block: 10px; }
+  [data-model-source] .material-list-item:is([aria-selected="true"], [aria-current="true"]) { box-shadow: var(--neu-inset); border-color: transparent; }
+  :is(.material-badge, .material-chat-user, .material-chat-detail, .material-chat-tool, .material-empty) { box-shadow: none; }
+  :is(.material-control, .material-primary, .material-orb, .material-list-item, .material-tab, .material-theme-choice, .material-style-choice):is(:disabled, [aria-disabled="true"]) {
     opacity: .45;
     box-shadow: none;
     border-color: var(--neu-border);
     cursor: not-allowed;
   }
-  :focus-visible, .aero-well:focus-within, .aero-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
-  .aero-well:is([aria-invalid="true"], :has([aria-invalid="true"])) { border-color: var(--error); }
+  :focus-visible, .material-well:focus-within, .material-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
+  .material-well:is([aria-invalid="true"], :has([aria-invalid="true"])) { border-color: var(--error); }
   .projects-heading h1 { text-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-appearance="neumorphism"] [class*="aero-"] { transition: none; }
+  html[data-appearance="neumorphism"] [class*="material-"] { transition: none; }
 }
 /* Dark palettes need a visible soft highlight without a luminous rim. */
 html[data-appearance="neumorphism"][data-theme-mode="dark"] {
   --neu-light: color-mix(in srgb, var(--neu-material) 90%, white);
   --neu-dark: color-mix(in srgb, var(--neu-material) 75%, black);
 }
+/* Warm paper palettes need a tinted highlight rather than a white rim. */
+html[data-appearance="neumorphism"]:is([data-theme="solarized"], [data-theme="gruvbox"]) {
+  --neu-light: color-mix(in srgb, var(--neu-material) 75%, white);
+}
 html[data-appearance="neumorphism"] .theme-choice-description { color: var(--text-secondary); }
-html[data-appearance="neumorphism"] [data-model-source] .aero-list-item { border-width: 1px; border-style: solid; }
+html[data-appearance="neumorphism"] [data-model-source] .material-list-item { border-width: 1px; border-style: solid; }
 html[data-appearance="neumorphism"] .project-card { transform: none; }
 /* Compatibility tokens also protect less common consumers of shared materials. */
 html[data-appearance="neumorphism"] {
-  --aero-gloss-panel: none;
-  --aero-gloss-chrome: none;
-  --aero-gloss-fill: none;
-  --aero-gloss-control: none;
-  --aero-gloss-control-hover: none;
-  --aero-gloss-accent: none;
-  --aero-gloss-accent-hover: none;
-  --aero-gloss-well: none;
-  --aero-gloss-pressed: none;
-  --aero-gloss-orb: none;
-  --aero-gloss-orb-selected: none;
-  --aero-glow: 0 0 transparent;
-  --aero-bevel-control: var(--neu-raised);
-  --aero-bevel-panel: var(--neu-panel);
-  --aero-bevel-panel-hover: var(--neu-panel);
-  --aero-bevel-orb: var(--neu-raised);
-  --aero-bevel-well: var(--neu-inset);
-  --aero-bevel-pressed: var(--neu-pressed);
-  --aero-shadow-float: var(--neu-modal);
-  --aero-line-strong: var(--neu-border);
-  --aero-line-bottom: var(--neu-border);
-  --aero-line-bottom-strong: transparent;
-  --aero-chrome-fill: var(--neu-material);
-  --aero-accent-fill: var(--accent);
-  --aero-accent-fill-hover: var(--accent-hover);
-  --aero-blur-panel: 0px;
-  --aero-blur-chrome: 0px;
-  --aero-blur-control: 0px;
-  --aero-blur-well: 0px;
-  --aero-blur-float: 0px;
-  --aero-blur-orb: 0px;
+  --material-gloss-panel: none;
+  --material-gloss-chrome: none;
+  --material-gloss-fill: none;
+  --material-gloss-control: none;
+  --material-gloss-control-hover: none;
+  --material-gloss-accent: none;
+  --material-gloss-accent-hover: none;
+  --material-gloss-well: none;
+  --material-gloss-pressed: none;
+  --material-gloss-orb: none;
+  --material-gloss-orb-selected: none;
+  --material-glow: 0 0 transparent;
+  --material-bevel-control: var(--neu-raised);
+  --material-bevel-panel: var(--neu-panel);
+  --material-bevel-panel-hover: var(--neu-panel);
+  --material-bevel-orb: var(--neu-raised);
+  --material-bevel-well: var(--neu-inset);
+  --material-bevel-pressed: var(--neu-pressed);
+  --material-shadow-float: var(--neu-modal);
+  --material-line-strong: var(--neu-border);
+  --material-line-bottom: var(--neu-border);
+  --material-line-bottom-strong: transparent;
+  --material-chrome-fill: var(--neu-material);
+  --material-accent-fill: var(--accent);
+  --material-accent-fill-hover: var(--accent-hover);
+  --material-blur-panel: 0px;
+  --material-blur-chrome: 0px;
+  --material-blur-control: 0px;
+  --material-blur-well: 0px;
+  --material-blur-float: 0px;
+  --material-blur-orb: 0px;
 }
 html[data-appearance="neumorphism"] { color: var(--text-primary); }
 html[data-appearance="neumorphism"] :is(.sk-app-window, .app-navigation, .chat-history, .sidebar-frame, .projects-page, .tasks-page) { background: var(--neu-material); }
 html[data-appearance="neumorphism"] body { background-color: var(--neu-material); }
-html[data-appearance="neumorphism"] :is(.aero-badge, .aero-checkbox) { border-color: transparent; }
-html[data-appearance="neumorphism"] .aero-checkbox { box-shadow: var(--neu-pressed); }
-html[data-appearance="neumorphism"] .aero-section-header { box-shadow: none; }
-html[data-appearance="neumorphism"] :is(.aero-control, .aero-primary, .aero-orb):disabled { background-color: var(--neu-material); }
+html[data-appearance="neumorphism"] :is(.material-badge, .material-checkbox) { border-color: transparent; }
+html[data-appearance="neumorphism"] .material-checkbox { box-shadow: var(--neu-pressed); }
+html[data-appearance="neumorphism"] .material-section-header { box-shadow: none; }
+html[data-appearance="neumorphism"] :is(.material-control, .material-primary, .material-orb):disabled { background-color: var(--neu-material); }
 html.desktop-mascot-document[data-appearance="neumorphism"] body { background: transparent; }
 /* Solarized's restrained foreground needs its original deep teal surface. */
 html[data-appearance="neumorphism"][data-theme="solarized-dark"] {
@@ -203,7 +219,7 @@ html[data-appearance="neumorphism"] .select-field-menu {
 
 @media (forced-colors: active) {
   html[data-appearance="neumorphism"] { --border: CanvasText; --subtle-border: CanvasText; --control-border: ButtonText; }
-  html[data-appearance="neumorphism"] :is([class*="aero-"], .knob-field__body, .project-heading-icon, .project-path, .sk-primary, .tasks-chip) {
+  html[data-appearance="neumorphism"] :is([class*="material-"], .knob-field__body, .project-heading-icon, .project-path, .sk-primary, .tasks-chip) {
     background: Canvas !important; color: CanvasText; border-color: ButtonText; box-shadow: none !important;
   }
   html[data-appearance="neumorphism"] :is([aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) { border-color: Highlight; color: Highlight; }
@@ -211,5 +227,70 @@ html[data-appearance="neumorphism"] .select-field-menu {
 
 /* Keep the full appearance name readable in narrow Settings dialogs. */
 @media (max-width: 520px) {
-  html[data-appearance="neumorphism"] fieldset > div:has(> .aero-style-choice) { grid-template-columns: 1fr; }
+  html[data-appearance="neumorphism"] fieldset > div:has(> .material-style-choice) { grid-template-columns: 1fr; }
+}
+
+/* Agent questions use the same raised material and inset fields as the composer. */
+/* Reserve shadow space outside the card without narrowing it relative to
+   the 980px composer. Both share the same visible edges on small screens. */
+html[data-appearance="neumorphism"] .pending-interactions {
+  width: calc(100% - 2rem + 20px);
+  max-width: 1000px;
+  padding: 10px;
+}
+@media (max-width: 450px) {
+  html[data-appearance="neumorphism"] .pending-interactions {
+    width: calc(100% - 1.5rem + 20px);
+  }
+}
+html[data-appearance="neumorphism"] .agent-question-panel {
+  background: var(--neu-material);
+  color: var(--text-primary);
+  border-color: transparent;
+  border-radius: var(--neu-card-radius);
+  box-shadow: var(--neu-panel);
+}
+html[data-appearance="neumorphism"] .agent-question-panel .project-button {
+  background: var(--neu-material);
+  color: var(--text-primary);
+  border-color: transparent;
+  border-radius: var(--neu-control-radius);
+  box-shadow: var(--neu-raised);
+}
+html[data-appearance="neumorphism"] .agent-question-panel .project-button.primary {
+  color: var(--accent);
+}
+html[data-appearance="neumorphism"] .agent-question-panel .project-button:active:not(:disabled) {
+  box-shadow: var(--neu-pressed);
+}
+html[data-appearance="neumorphism"] .agent-question-panel .project-button:disabled {
+  box-shadow: none;
+}
+html[data-appearance="neumorphism"] .agent-question-panel .project-input {
+  background: var(--neu-material);
+  color: var(--text-primary);
+  border-color: transparent;
+  border-radius: var(--neu-control-radius);
+  box-shadow: var(--neu-inset);
+}
+
+/* Casual user bubbles retain a tinted, raised surface above the transcript. */
+html[data-appearance="neumorphism"] [data-chat-mode="casual"] .material-chat-user {
+  background: color-mix(in srgb, var(--neu-material) 88%, var(--user-bubble));
+  box-shadow: var(--neu-panel);
+}
+
+/* Resolved mid-run prompts remain distinct from the transcript surface. */
+html[data-appearance="neumorphism"] .additional-prompts.material-chat-detail {
+  background: var(--neu-material);
+  border-color: transparent;
+  border-radius: var(--neu-card-radius);
+  box-shadow: var(--neu-panel);
+  margin-bottom: 12px;
+}
+
+/* Expanded tool calls need separation from the transcript; collapsed rows
+   continue to blend into the page. Keep output surfaces independent. */
+html[data-appearance="neumorphism"] .material-chat-tool[data-expanded="true"] {
+  background: color-mix(in srgb, var(--neu-material) 90%, var(--text-primary));
 }

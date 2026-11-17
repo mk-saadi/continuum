@@ -163,13 +163,20 @@ function normalizeSchedule(input, { timezone, now = Date.now() } = {}) {
   assertTimezone(timezone);
 
   const type = input.type ?? input.kind;
+  if (type === 'after_task') {
+    if (typeof input.taskId !== 'string' || !input.taskId.trim() || input.taskId.length > 100 || input.taskId.includes('\0'))
+      throw new TypeError('Select a predecessor task.');
+    if (input.includeResult != null && typeof input.includeResult !== 'boolean')
+      throw new TypeError('includeResult must be a boolean.');
+    return { type, taskId: input.taskId.trim(), includeResult: input.includeResult === true };
+  }
   if (type === 'once') {
     const at = input.at ?? input.atMs ?? input.timestamp;
     if (!Number.isSafeInteger(at) || at <= 0) throw new TypeError('One-time schedules require a valid UTC timestamp.');
     return { type: 'once', at };
   }
   if (!['daily', 'every_n_days', 'weekdays'].includes(type))
-    throw new TypeError('Schedule type must be once, daily, every_n_days, or weekdays.');
+    throw new TypeError('Schedule type must be once, daily, every_n_days, weekdays, or after_task.');
 
   const atTime = normalizeTimeOfDay(input.atTime ?? input.timeOfDay);
   const startAt = startInstant(input.startAt ?? input.startDate, timezone, atTime, now);
@@ -198,6 +205,7 @@ function normalizeSchedule(input, { timezone, now = Date.now() } = {}) {
  */
 function computeNextOccurrence(schedule, timezone, afterMs) {
   const normalized = normalizeSchedule(schedule, { timezone, now: 0 });
+  if (normalized.type === 'after_task') return null;
   if (normalized.type === 'once') return normalized.at > afterMs ? normalized.at : null;
 
   assertTimezone(timezone);
@@ -231,6 +239,30 @@ function computeNextOccurrence(schedule, timezone, afterMs) {
   return null;
 }
 
+/** Latest occurrence at or before an instant, without enumerating a backlog. */
+function computeLatestOccurrence(schedule, timezone, at) {
+  const normalized = normalizeSchedule(schedule, { timezone, now: 0 });
+  if (normalized.type === 'after_task') return null;
+  if (normalized.type === 'once') return normalized.at <= at ? normalized.at : null;
+  const end = Math.min(at, normalized.endAt ?? at);
+  const wall = wallClockAt(end, timezone);
+  const dateUtc = Date.UTC(wall.year, wall.month - 1, wall.day);
+  const start = wallClockAt(normalized.startAt, timezone);
+  const startDateUtc = Date.UTC(start.year, start.month - 1, start.day);
+  const time = parseTimeOfDay(normalized.atTime);
+  for (let offset = 0; offset <= 3660; offset++) {
+    const dayUtc = dateUtc - offset * DAY_MS;
+    if (dayUtc < startDateUtc) return null;
+    const date = new Date(dayUtc);
+    if (normalized.type === 'weekdays' && !normalized.weekdays.includes(date.getUTCDay())) continue;
+    if (normalized.type === 'every_n_days' && Math.round((dayUtc - startDateUtc) / DAY_MS) % normalized.intervalDays !== 0) continue;
+    const candidate = wallTimeToInstant({ year: date.getUTCFullYear(), month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(), ...time }, timezone);
+    if (candidate <= end) return candidate;
+  }
+  return null;
+}
+
 /**
  * Enumerate occurrences from nextRunAt through now and classify each one under
  * the task's missed-execution policy. Pure and deterministic.
@@ -250,11 +282,20 @@ function evaluateMissedOccurrences({
 } = {}) {
   if (!Number.isSafeInteger(nextRunAt) || nextRunAt <= 0) throw new TypeError('A valid next run timestamp is required.');
   if (!Number.isSafeInteger(now) || now <= 0) throw new TypeError('A valid current timestamp is required.');
-  if (!['grace', 'skip', 'catch_up'].includes(policy)) throw new TypeError('Invalid missed-execution policy.');
+  if (!['grace', 'skip', 'catch_up', 'until_next'].includes(policy)) throw new TypeError('Invalid missed-execution policy.');
   if (!Number.isFinite(graceMs) || graceMs < 0) throw new TypeError('Invalid grace period.');
   if (!Number.isFinite(maxOverdueMs) || maxOverdueMs < 0) throw new TypeError('Invalid maximum overdue age.');
 
   const normalized = normalizeSchedule(schedule, { timezone, now: 0 });
+  // Latest-only recovery ignores age limits: eligibility ends at the next
+  // occurrence, including across DST and long absences.
+  if (policy === 'until_next') {
+    const latest = computeLatestOccurrence(normalized, timezone, now);
+    const actions = latest != null && latest >= nextRunAt
+      ? [{ scheduledFor: latest, action: 'run', reason: null }] : [];
+    return { actions, occurrences: actions.map(item => item.scheduledFor),
+      nextRunAt: computeNextOccurrence(normalized, timezone, now) };
+  }
   const occurrences = [];
   let cursor = nextRunAt - 1;
   while (occurrences.length < MAX_OCCURRENCES) {
@@ -331,6 +372,7 @@ module.exports = {
   normalizeTimeOfDay,
   normalizeSchedule,
   computeNextOccurrence,
+  computeLatestOccurrence,
   evaluateMissedOccurrences,
   isOverdue,
 };

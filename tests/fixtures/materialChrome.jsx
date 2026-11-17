@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')).render(
       <Titlebar />
       <TabBar />
       <Header modelName="Local model" engineRunning palace={{ totalTokens: 1200, limit: 8192 }} />
-      <main className="aero-panel m-4 p-4"><h1>Continuum workspace</h1><p>Quiet content beneath reflective chrome.</p></main>
+      <main className="material-panel m-4 p-4"><h1>Continuum workspace</h1><p>Quiet content beneath reflective chrome.</p></main>
     </div>
   </TabProvider>,
 );

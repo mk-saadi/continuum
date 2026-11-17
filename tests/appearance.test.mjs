@@ -24,7 +24,7 @@ test('appearance persists, restores, syncs windows, and survives unavailable sto
     const restarted = await import('../src/lib/appearance.mjs?restart');
     restarted.initializeAppearance();
     assert.equal(root.dataset.appearance, 'flat');
-    saved.set('appearance', 'aero');
+    saved.set('appearance', 'material');
     const storage = new Event('storage');
     Object.defineProperty(storage, 'key', { value: 'appearance' });
     window.dispatchEvent(storage);
@@ -71,12 +71,12 @@ test('boot script migrates legacy values before paint and preserves other styles
   const { runInNewContext } = await import('node:vm');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-  for (const [saved, expected] of [['aero', 'neumorphism'], ['neumorphism', 'neumorphism'], ['flat', 'flat'], ['skeu', 'skeu'], [null, 'neumorphism']]) {
+  for (const [saved, expected] of [['material', 'neumorphism'], ['neumorphism', 'neumorphism'], ['flat', 'flat'], ['skeu', 'skeu'], [null, 'neumorphism']]) {
     const root = { dataset: {} };
     let persisted = saved;
     runInNewContext(script, { URLSearchParams, location: { search: '' }, document: { documentElement: root }, localStorage: { getItem: () => saved, setItem: (_, value) => { persisted = value; } } });
     assert.equal(root.dataset.appearance, expected);
     assert.equal(root.dataset.style, expected);
-    if (saved === 'aero') assert.equal(persisted, expected);
+    if (saved === 'material') assert.equal(persisted, expected);
   }
 });

@@ -12,8 +12,8 @@ app.whenReady().then(async () => {
   const browser = new BrowserWindow({show:false,width:1000,height:800,webPreferences:{sandbox:true}});
   try {
     await esbuild.build({entryPoints:['tests/fixtures/commandSpotlight.jsx'],bundle:true,outfile:path.join(dir,'fixture.js'),define:{'process.env.NODE_ENV':'"test"'}});
-    const css=(await fs.readdir('dist/assets')).find(file=>file.endsWith('.css'));
-    await fs.writeFile(path.join(dir,'index.html'),`<link rel="stylesheet" href="${pathToFileURL(path.resolve('dist/assets',css)).href}"><div id="root"></div><script src="fixture.js"></script>`);
+    const css=(await fs.readdir('dist/assets')).filter(file=>/^(index|App)-.*\.css$/.test(file));
+    await fs.writeFile(path.join(dir,'index.html'),`<head>${css.map(file => `<link rel="stylesheet" href="${pathToFileURL(path.resolve('dist/assets',file)).href}">`).join('')}</head><div id="root"></div><script src="fixture.js"></script>`);
     await browser.loadFile(path.join(dir,'index.html'));
     await browser.webContents.executeJavaScript(`(async()=>{
       const tick=(ms=50)=>new Promise(r=>setTimeout(r,ms));
@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
       await open();await command('search chats');await until(()=>document.querySelector('[role="option"]')?.textContent.includes('Saved conversation'),'chat list');key('Enter');await tick();check(window.state.tab.sessionId==='saved','open saved chat');
       await open();await command('search chat messages');type('slow');await tick(250);type('newest');await tick(700);check(document.querySelector('[role="option"]').textContent.includes('newest'),'discard stale async results');
       document.querySelector('button.underline').click();await tick();check(window.calls.some(call=>call[0]==='search'&&call[2]===42),'message cursor pagination');
-      key('Enter');await tick();check(window.state.tab.navigationTarget?.messageId===42,'navigate to message identity');
+      key('Enter');await tick();check(window.state.tab.navigationTarget?.messageId===42,'navigate to message identity');check(window.calls.some(call=>call[0]==='search'&&call[2]===100),'automatically continue empty scan');check(window.calls.some(call=>call[0]==='branch'&&call[2]===42),'open matching historical branch');check(window.calls.some(call=>call[0]==='variant'&&call[3]===1),'open matching saved variant');
       await open();await command('unload model');key('Enter');await tick();check(window.calls.some(call=>call[0]==='unload'&&call[1]==='running'),'unload model');key('Escape');await tick();key('Escape');await tick();
       await open();await command('scheduled tasks');check(window.state.tab.view==='tasks','tasks navigation');
       await open();await command('load model');type('Local model');await tick();key('Enter');await until(()=>document.querySelector('dialog[open]'),'model settings dialog');
@@ -50,16 +50,20 @@ app.whenReady().then(async () => {
       document.querySelector('dialog form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await until(()=>window.calls.some(call=>call[0]==='load'&&call[1]==='local-model'),'launch chosen model');
       await until(()=>!document.querySelector('dialog[open]'),'close loaded model dialog');
     })()`);
+    if (process.env.SPOTLIGHT_BEHAVIOR_ONLY === '1') {
+      console.log('Spotlight shortcuts, automatic history scans, stale-query cancellation, pagination, branch/variant selection and message navigation passed.');
+      return;
+    }
     browser.show();
     await browser.webContents.executeJavaScript(`document.querySelector('#origin').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'P',ctrlKey:true,shiftKey:true,bubbles:true}));`);
     await new Promise(resolve=>setTimeout(resolve,400));
     const visible = await browser.webContents.executeJavaScript(`!!document.querySelector('[role="dialog"]')`);
     if (!visible) throw new Error('Spotlight not visible for visual inspection');
-    for (const mode of ['flat','aero','skeu']) {
+    for (const mode of ['flat','neumorphism','skeu']) {
       const material = await browser.webContents.executeJavaScript(`window.setSpotlightAppearance(${JSON.stringify(mode)});new Promise(resolve=>setTimeout(()=>{const panel=document.querySelector('[aria-label="Command spotlight"]');const styles=getComputedStyle(panel);const row=getComputedStyle(panel.querySelector('[aria-selected="true"]'));const inactive=getComputedStyle(panel.querySelector('[aria-selected="false"]'));resolve({inactiveImage:inactive.backgroundImage,inactiveShadow:inactive.boxShadow,inactiveFill:inactive.backgroundColor,image:styles.backgroundImage,blur:styles.backdropFilter,shadow:styles.boxShadow,rowImage:row.backgroundImage})},100))`);
       if (material.inactiveImage!=='none'||material.inactiveShadow!=='none'||material.inactiveFill!=='rgba(0, 0, 0, 0)') throw new Error('Inactive rows must be plain: '+JSON.stringify(material));
       if (mode==='flat' && (material.image!=='none'||material.blur!=='none'||material.shadow!=='none')) throw new Error('Flat spotlight must remove glass, gradients and elevation: '+JSON.stringify(material));
-      if (mode==='aero' && (material.image==='none'||material.blur==='none'||material.shadow==='none')) throw new Error('Aero spotlight must use glass material: '+JSON.stringify(material));
+      if (mode==='neumorphism' && (material.image!=='none'||material.blur!=='none'||material.shadow==='none')) throw new Error('Neumorphism spotlight must use solid raised material: '+JSON.stringify(material));
       if (mode==='skeu' && (material.image==='none'||material.blur!=='none'||material.rowImage==='none')) throw new Error('Skeu spotlight must use opaque textured surfaces and buttons: '+JSON.stringify(material));
       await fs.writeFile('/tmp/continuum-spotlight-'+mode+'.png',(await browser.capturePage()).toPNG());
     }

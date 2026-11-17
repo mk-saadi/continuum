@@ -2,10 +2,11 @@ import Tooltip from "./Tooltip.jsx";
 import React, { forwardRef, useId, useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import "../styles/knob.css";
+import "../styles/form-controls.css";
 import { fixedPortalPosition } from "../lib/portalCoordinates.mjs";
 import { LuCheck, LuChevronDown, LuSearch, LuStar, LuX } from "react-icons/lu";
 
-const fieldFrame = "aero-well sk-well flex min-h-8 items-center text-[var(--text-primary)]";
+const fieldFrame = "material-well sk-well flex min-h-8 items-center text-[var(--text-primary)]";
 
 function FieldShell({ id, label, hint, required, children, className = "" }) {
 	return (
@@ -100,7 +101,7 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 }
 
 export const TextField = forwardRef(function TextField(
-	{ label, hint, id: suppliedId, className, inputClassName = "", frameClassName, required, ...inputProps },
+	{ label, hint, id: suppliedId, className, inputClassName = "", frameClassName, leadingIcon, trailingAdornment, required, ...inputProps },
 	ref,
 ) {
 	const generatedId = useId();
@@ -113,7 +114,8 @@ export const TextField = forwardRef(function TextField(
 			required={required}
 			className={className}
 		>
-			<div className={frameClassName || fieldFrame}>
+			<div className={`text-field-frame ${frameClassName || fieldFrame}`}>
+				{leadingIcon && <span className="shrink-0" aria-hidden="true">{leadingIcon}</span>}
 				<input
 					{...inputProps}
 					id={id}
@@ -122,6 +124,7 @@ export const TextField = forwardRef(function TextField(
 					aria-describedby={hint ? `${id}-hint` : undefined}
 					className={`min-w-0 w-full bg-transparent px-3 py-1.5 text-sm outline-none ui-radius-inherit placeholder:text-[var(--text-muted)] ${inputClassName} appearance-none! tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 				/>
+				{trailingAdornment}
 			</div>
 		</FieldShell>
 	);
@@ -225,7 +228,7 @@ export const SelectField = forwardRef(function SelectField(
 			required={required}
 			className={className}
 		>
-			<div className={`${fieldFrame} relative`}>
+			<div className={`${fieldFrame} select-field-frame relative`}>
 				<select
 					{...selectProps}
 					ref={ref}
@@ -267,7 +270,7 @@ export const SelectField = forwardRef(function SelectField(
 						aria-expanded={isOpen}
 						aria-describedby={hint ? `${id}-hint` : undefined}
 						onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
-						className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+						className="select-field-trigger flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
 					>
 						<div className="flex items-center gap-1.5 truncate pr-2">
 							{icon && (
@@ -310,7 +313,7 @@ export const SelectField = forwardRef(function SelectField(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="select-field-menu aero-popover sk-menu fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
+							className="select-field-menu material-popover sk-menu fixed z-[9999] overflow-y-auto p-1 text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -346,7 +349,7 @@ export const SelectField = forwardRef(function SelectField(
                                     disabled={opt.disabled}
                                     aria-disabled={opt.disabled || undefined}
 									aria-selected={String(opt.value) === String(value)}
-									className={`aero-list-item sk-list-row ui-radius-control flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
+									className={`material-list-item sk-list-row ui-radius-control flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${
 										String(opt.value) === String(value) ? "font-medium" : ""
 									}`}
 									onClick={() => {
@@ -497,7 +500,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 			required={required}
 			className={className}
 		>
-			<div className={`${fieldFrame} relative`}>
+			<div className={`${fieldFrame} select-field-frame relative`}>
 				<select
 					{...selectProps}
 					ref={ref}
@@ -534,7 +537,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 					aria-expanded={isOpen}
 					aria-describedby={hint ? `${id}-hint` : undefined}
 					onClick={() => (isOpen ? setIsOpen(false) : setIsOpen(true))}
-					className="flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+					className="select-field-trigger flex min-w-0 cursor-pointer w-full appearance-none items-center justify-between bg-transparent px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none disabled:cursor-not-allowed"
 				>
 					<div className="flex items-center gap-1.5 truncate pr-2">
 						{icon && (
@@ -576,7 +579,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 								maxHeight: menuCoords.maxHeight,
 								margin: 0,
 							}}
-							className="select-field-menu aero-popover sk-menu fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
+							className="select-field-menu material-popover sk-menu fixed z-[9999] flex flex-col overflow-hidden text-[var(--text-primary)]"
 							onMouseDown={(e) => e.stopPropagation()}
 							onKeyDown={(event) => {
 								if (event.key === "Escape") {
@@ -596,7 +599,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 							}}
 						>
 							<div className="shrink-0 border-b border-[var(--border)] p-1.5">
-								<div className="aero-well sk-well aero-fill sk-fill flex items-center gap-2 px-2">
+								<div className="material-well sk-well material-fill sk-fill flex items-center gap-2 px-2">
 									<LuSearch
 										size={13}
 										className="shrink-0 text-[var(--text-muted)]"
@@ -652,7 +655,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect(
 													pick(item.value);
 												}
 											}}
-											className={`aero-list-item sk-list-row ui-radius-control group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
+											className={`material-list-item sk-list-row ui-radius-control group flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 my-0.5 text-left text-xs ${selected ? "font-medium" : ""}`}
 										>
 											<div className="flex min-w-0 items-center gap-2 pr-1">
 												{item.icon && (
@@ -737,7 +740,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 		<div className={`min-w-0 ${className}`}>
 			<label
 				htmlFor={id}
-				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] ui-radius-surface aero-control sk-button aero-fill sk-fill aero-choice sk-check-row ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+				className={`group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 border border-[var(--border)] ui-radius-surface material-control sk-button material-fill sk-fill material-choice sk-check-row ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
 			>
 				<input
 					{...inputProps}
@@ -750,7 +753,7 @@ export const CheckboxField = forwardRef(function CheckboxField(
 				/>
 				<span
 					aria-hidden="true"
-					className="aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center"
+					className="material-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center"
 				>
 					<LuCheck
 						size={12}
@@ -787,7 +790,7 @@ export const TextAreaField = forwardRef(function TextAreaField(
 			required={required}
 			className={className}
 		>
-			<div className="aero-well sk-well flex text-[var(--text-primary)]">
+			<div className="text-field-frame material-well sk-well flex text-[var(--text-primary)]">
 				<textarea
 					{...inputProps}
 					id={id}
@@ -850,17 +853,17 @@ export const SliderField = forwardRef(function SliderField(
 				{/* Visual track */}
 				<div
 					aria-hidden="true"
-					className="aero-track sk-track pointer-events-none absolute inset-x-0 h-1.5"
+					className="material-track sk-track pointer-events-none absolute inset-x-0 h-1.5"
 				>
 					<div
-						className="aero-track__fill sk-track-fill h-full"
+						className="material-track__fill sk-track-fill h-full"
 						style={{ width: `${percentage}%` }}
 					/>
 				</div>
 
 				<div
 					aria-hidden="true"
-					className={`aero-orb sk-icon-button aero-fill sk-fill pointer-events-none absolute -translate-x-1/2 ${isActive ? "size-5" : "size-3"}`}
+					className={`material-orb sk-icon-button material-fill sk-fill pointer-events-none absolute -translate-x-1/2 ${isActive ? "size-5" : "size-3"}`}
 					style={{ left: `calc(${percentage}% + ${8 - percentage * 0.16}px)` }}
 				/>
 
@@ -1021,7 +1024,7 @@ export const PillToggle = forwardRef(function PillToggle(
 				disabled={disabled}
 				aria-label={title}
 				onClick={() => onToggle?.(!active)}
-				className={`aero-control sk-button flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
+				className={`material-control sk-button flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs ${className}`}
 			>
 				{icon && <span className="text-[var(--text-muted)]">{icon}</span>}
 				<span>{active ? activeLabel || label : label}</span>

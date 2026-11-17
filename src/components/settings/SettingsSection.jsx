@@ -43,13 +43,13 @@ export function SettingsCard({
 	className = "",
 	...rest
 }) {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	const headingId = useId();
 	const hasHeader = Boolean(title || description || action);
 	return (
 		<Element
 			aria-labelledby={title ? headingId : undefined}
-			className={`${aero ? "aero-panel sk-panel p-3" : settingsCard} ${className}`}
+			className={`${material ? "material-panel sk-panel p-3" : settingsCard} ${className}`}
 			{...rest}
 		>
 			{hasHeader && (
@@ -90,13 +90,13 @@ export function SettingsCard({
 }
 
 export function SettingsButton({ variant = "secondary", className = "", type = "button", tooltip, ...props }) {
-	const aero = useContext(SettingsMaterialContext);
-	const material = variant === "primary" ? "aero-primary sk-button sk-primary" : variant === "ghost" ? "aero-list-item sk-list-row" : "aero-control sk-button";
+	const material = useContext(SettingsMaterialContext);
+	const materialClasses = variant === "primary" ? "material-primary sk-button sk-primary" : variant === "ghost" ? "material-list-item sk-list-row" : "material-control sk-button";
 	return (
 		<Tooltip content={tooltip}>
 			<button
 				type={type}
-				className={`${buttonBase} ${aero ? `${material} aero-fill sk-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
+				className={`${buttonBase} ${material ? `${materialClasses} material-fill sk-fill px-2.5 py-1.5 font-medium` : buttonVariants[variant] || buttonVariants.secondary} ${className}`}
 				{...props}
 			/>
 		</Tooltip>
@@ -104,13 +104,13 @@ export function SettingsButton({ variant = "secondary", className = "", type = "
 }
 
 export function SettingsIconButton({ label, icon: Icon, size = 16, className = "", tooltip, ...props }) {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	return (
 		<Tooltip content={tooltip}>
 			<button
 				type="button"
 				aria-label={label}
-				className={`${aero ? "aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
+				className={`${material ? "material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 items-center justify-center" : "flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"} ${className}`}
 				{...props}
 			>
 				{Icon ? <Icon size={size} aria-hidden="true" /> : null}
@@ -147,10 +147,10 @@ export function SettingsMessage({ tone = "error", children, className = "" }) {
 }
 
 export function SettingsEmpty({ children, className = "" }) {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	return (
 		<p
-			className={`${aero ? "aero-empty sk-empty aero-fill sk-fill" : "ui-radius-control border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
+			className={`${material ? "material-empty sk-empty material-fill sk-fill" : "ui-radius-control border border-dashed border-[var(--border)]"} px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)] ${className}`}
 		>
 			{children}
 		</p>
@@ -167,7 +167,7 @@ export function SettingsCheckRow({
 	className = "",
 	...inputProps
 }) {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	const generatedId = useId();
 	const id = suppliedId || generatedId;
 	return (
@@ -186,7 +186,7 @@ export function SettingsCheckRow({
 			/>
 			<span
 				aria-hidden="true"
-				className={aero ? "aero-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center ui-radius-small border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
+				className={material ? "material-checkbox sk-checkbox-face mt-0.5 grid size-4 shrink-0 place-items-center" : "mt-0.5 grid size-4 shrink-0 place-items-center ui-radius-small border border-[var(--control-border)] bg-[var(--input)] text-transparent transition-colors peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:text-[var(--on-accent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"}
 			>
 				<LuCheck
 					size={12}

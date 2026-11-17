@@ -50,7 +50,7 @@ export default function PricingHistoryView({ filters }) {
 
   const rows = state.rows ?? [];
   return (
-    <section className="aero-panel sk-panel p-3" aria-labelledby="usage-pricing-title">
+    <section className="material-panel sk-panel p-3" aria-labelledby="usage-pricing-title">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 id="usage-pricing-title" className="text-xs font-semibold">Pricing history</h3>
@@ -63,12 +63,12 @@ export default function PricingHistoryView({ filters }) {
       <SettingsMessage>{error}</SettingsMessage>
       {loading && !rows.length ? <p role="status" className="mt-3 text-[11px] text-[var(--text-muted)]">Loading pricing history…</p> : null}
       {!loading && !rows.length && !error ? (
-        <p className="mt-3 aero-empty sk-empty aero-fill sk-fill p-6 text-center text-[11px] text-[var(--text-muted)]">
+        <p className="mt-3 material-empty sk-empty material-fill sk-fill p-6 text-center text-[11px] text-[var(--text-muted)]">
           No pricing evidence has been recorded for this selection. That is unknown, not a zero rate.
         </p>
       ) : null}
       {rows.length ? (
-        <div className="aero-flat sk-list mt-3 overflow-x-auto p-2">
+        <div className="material-flat sk-list mt-3 overflow-x-auto p-2">
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">

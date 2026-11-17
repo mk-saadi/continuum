@@ -5,6 +5,7 @@ import { PiWarning } from "react-icons/pi";
 import { LuX } from "react-icons/lu";
 import { getTabTypeIcon } from "../lib/tabIcons.mjs";
 import Tooltip from "./Tooltip.jsx";
+import "../styles/agent-activity.css";
 import { getTabTitle } from "../lib/tabTitle.mjs";
 
 export default function TabBar({ projects = [] }) {
@@ -76,7 +77,7 @@ export default function TabBar({ projects = [] }) {
 		<nav
 			ref={tabBar}
 			aria-label="Chat tabs"
-			className="aero-tabbar sk-toolbar sk-texture-brushed flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
+			className="material-tabbar sk-toolbar sk-texture-brushed flex h-8 shrink-0 items-end gap-1 overflow-x-auto px-2"
 			onDragOver={(event) => {
 				if (dragIdRef.current == null) return;
 				event.preventDefault();
@@ -128,7 +129,7 @@ export default function TabBar({ projects = [] }) {
 							/* setData is required by some browsers; failures still drag. */
 						}
 					}}
-					className="aero-tab sk-tab group flex max-w-48 min-w-32 cursor-grab items-center gap-2 px-2 py-1 text-xs select-none active:cursor-grabbing"
+					className="material-tab sk-tab group flex max-w-48 min-w-32 cursor-grab items-center gap-2 px-2 py-1 text-xs select-none active:cursor-grabbing"
 					onAuxClick={(event) => {
 						if (event.button === 1) {
 							event.preventDefault();
@@ -137,7 +138,7 @@ export default function TabBar({ projects = [] }) {
 					}}
 				>
 					<Tooltip
-						content={tab.status === "awaiting_approval" ? `${title} · Needs attention` : tab.status === "waiting_commands" ? `${title} · Waiting for command; resumes automatically` : title}
+						content={tab.status === "awaiting_approval" ? `${title} · Needs attention` : tab.status === "waiting_commands" ? `${title} · Waiting for command; resumes automatically` : tab.status === "generating" ? `${title} · Working` : title}
 						placement="bottom"
 					>
 						<button
@@ -147,7 +148,7 @@ export default function TabBar({ projects = [] }) {
 								else tabButtons.current.delete(tab.id);
 							}}
 							aria-current={tab.id === activeTabId ? "page" : undefined}
-							className="aero-tab-label flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+							className="material-tab-label flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
 						>
 							{(() => {
 								if (tab.status === "awaiting_approval") {
@@ -160,22 +161,21 @@ export default function TabBar({ projects = [] }) {
 								}
 								const tabType = getTabTypeIcon(tab);
 								const { Icon, label } = tabType;
-								const isGenerating = tab.status === "generating";
 								return (
 									<Icon
-										className={`size-3 shrink-0 ${isGenerating ? "animate-pulse [filter:drop-shadow(0_0_4px_var(--accent))]" : ""}`}
-										aria-label={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : label}
+										className="size-3 shrink-0"
+										aria-label={tab.status === 'waiting_commands' ? 'Waiting for command; resumes automatically' : tab.status === 'generating' ? `${label} · Working` : label}
 									/>
 								);
 							})()}
-							<span className="truncate">{title}</span>
+							<span className={`truncate ${tab.status === "generating" ? "agent-processing-text" : ""}`}>{title}</span>
 						</button>
 					</Tooltip>
 					<button
 						type="button"
 						onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}
 						aria-label={`Close ${title}`}
-						className="aero-tab-close shrink-0 p-1 cursor-pointer"
+						className="material-tab-close shrink-0 p-1 cursor-pointer"
 					>
 						<LuX />
 					</button>
@@ -194,7 +194,7 @@ export default function TabBar({ projects = [] }) {
 					type="button"
 					onClick={() => openTab(activeTab?.modelId || "")}
 					aria-label="New chat tab"
-					className="aero-orb sk-icon-button aero-fill sk-fill mb-0.5 size-7 shrink-0 cursor-pointer"
+					className="material-orb sk-icon-button material-fill sk-fill mb-0.5 size-7 shrink-0 cursor-pointer"
 				>
 					✦
 				</button>

@@ -1,4 +1,4 @@
-import React, { forwardRef, memo, useImperativeHandle, useLayoutEffect, useRef } from "react";
+import React, { forwardRef, memo, useCallback, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { GrAttachment } from "react-icons/gr";
 import { IoSend } from "react-icons/io5";
 import { FaStop, FaShieldAlt, FaPencilAlt, FaQuestionCircle } from "react-icons/fa";
@@ -61,16 +61,47 @@ const ChatInputBar = memo(
 			[clearSubmitted, updateDraft],
 		);
 
-		useLayoutEffect(() => {
+		const resizeTextarea = useCallback(() => {
 			const element = textarea.current;
-			if (!element) return;
+			if (!element || !element.getClientRects().length) return;
 			element.style.height = "auto";
-			element.style.height = `${element.scrollHeight}px`;
+			const borderHeight = element.offsetHeight - element.clientHeight;
+			element.style.height = `${element.scrollHeight + borderHeight}px`;
 			// Empty/single-line content must never show a scrollbar (subpixel
 			// rounding alone can trip overflow-y: auto). Only scroll once the
 			// max-height cap actually clips content.
 			element.style.overflowY = element.scrollHeight > element.clientHeight + 1 ? "auto" : "hidden";
-		}, [draftText]);
+		}, []);
+
+		useLayoutEffect(resizeTextarea, [draftText, resizeTextarea]);
+		useLayoutEffect(() => {
+			const element = textarea.current;
+			let frame;
+			let width = -1;
+			const scheduleResize = () => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(resizeTextarea);
+			};
+			// Restored tabs may mount while hidden. Re-measure once visible,
+			// and whenever wrapping changes; ignore our own height updates.
+			const observer = new ResizeObserver(([entry]) => {
+				if (entry.contentRect.width === width) return;
+				width = entry.contentRect.width;
+				if (width > 0) scheduleResize();
+			});
+			observer.observe(element);
+			window.addEventListener("resize", scheduleResize);
+			document.fonts?.addEventListener("loadingdone", scheduleResize);
+			let active = true;
+			document.fonts?.ready.then(() => { if (active) scheduleResize(); });
+			return () => {
+				active = false;
+				observer.disconnect();
+				cancelAnimationFrame(frame);
+				window.removeEventListener("resize", scheduleResize);
+				document.fonts?.removeEventListener("loadingdone", scheduleResize);
+			};
+		}, [resizeTextarea]);
 
 		const ready = canSubmit && !streaming && !loading && (draftText.trim() || hasAttachments || hasQuote);
 		// Steering is a separate action from Stop: it needs text and an active
@@ -140,7 +171,7 @@ const ChatInputBar = memo(
 								aria-label="Attach files"
 								disabled={streaming || loading || attachDisabled}
 								onClick={onAttach}
-								className="aero-orb sk-icon-button aero-fill sk-fill size-8 shrink-0 cursor-pointer"
+								className="material-orb sk-icon-button material-fill sk-fill size-8 shrink-0 cursor-pointer"
 							>
 								<GrAttachment className="size-3.5" />
 							</button>
@@ -181,7 +212,7 @@ const ChatInputBar = memo(
 										aria-label="Steer running agent"
 										onClick={submit}
 										disabled={!canSteer}
-										className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
+										className="material-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 									>
 										<IoSend className="size-3" />
 									</button>
@@ -191,7 +222,7 @@ const ChatInputBar = memo(
 										type="button"
 										aria-label="Stop"
 										onClick={onStop}
-										className="aero-control sk-button aero-fill sk-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
+										className="material-control sk-button material-fill sk-fill flex size-8 shrink-0 cursor-pointer items-center justify-center"
 									>
 										<FaStop className="size-3" />
 									</button>
@@ -204,7 +235,7 @@ const ChatInputBar = memo(
 									aria-label="Send"
 									onClick={submit}
 									disabled={!ready}
-									className="aero-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
+									className="material-primary sk-button sk-primary flex size-8 shrink-0 cursor-pointer items-center justify-center"
 								>
 									<IoSend className="size-3" />
 								</button>

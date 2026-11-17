@@ -1,5 +1,6 @@
 import { useToastMessage } from "../../hooks/useAppToast.jsx";
 import React, { useState } from 'react';
+import '../../styles/form-controls.css';
 
 // Composer-adjacent pending interactions. Rendered immediately above the
 // composer (independent of conversation scroll), never as interactive cards
@@ -34,7 +35,7 @@ export default function PendingInteractions({
   return (
     <section
       aria-label="Pending interactions"
-      className="mx-auto w-[calc(100%-2rem)] max-w-[980px] min-h-0 max-h-[40vh] shrink-0 space-y-2 overflow-y-auto pb-2 max-[450px]:w-[calc(100%-1.5rem)]"
+      className="pending-interactions mx-auto w-[calc(100%-2rem)] max-w-[980px] min-h-0 max-h-[40vh] shrink-0 space-y-2 overflow-y-auto pb-2 max-[450px]:w-[calc(100%-1.5rem)]"
     >
       {questionEntries.map((request) => (
         <QuestionPanel key={request.stepId ?? request.questionId} request={request} onAnswer={onAnswerQuestion} />
@@ -64,7 +65,7 @@ function QuestionPanel({ request, onAnswer }) {
     }
   }
   return (
-    <div aria-label="Agent question" className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
+    <div aria-label="Agent question" className="agent-question-panel ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Agent needs your input</p>
       <p className="font-medium">{request.question}</p>
       {options.length > 0 && (
@@ -131,7 +132,7 @@ function SkillApprovalPanel({ step, projectId, onDecision }) {
     onDecision?.(step.id, 'declined');
   }
   return (
-    <div role="group" aria-label="Skill proposal approval" className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
+    <div role="group" aria-label="Skill proposal approval" className="agent-question-panel ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-3 text-sm">
       <p>
         The AI agent suggests saving this workflow as a new Skill: <strong>{proposal.name}</strong>
       </p>

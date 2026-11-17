@@ -1,13 +1,13 @@
 # Skeu integration
 
 Skeu is a third UI design style in Settings → Appearance → UI design style.
-Aero Glass and Flat retain their existing preference values and material recipes.
+Material Glass and Flat retain their existing preference values and material recipes.
 Theme selection remains independent; every existing palette is preserved.
 
 ## Reference-material revision
 
 The current target is the physical material construction in
-`/home/mk_saadi/projects/test-projects/aero-skeu/aero-skeu-exp`, specifically
+`/home/mk_saadi/projects/test-projects/material-skeu/material-skeu-exp`, specifically
 `src/components/Settings.css` and `src/components/Projects.css`. The earlier
 Continuum version was too flat. The revision transfers hard 3px control feet,
 2px lower bevels, compact contact shadows, 3px/6px recessed wells, stepped card
@@ -38,15 +38,15 @@ Current captures: `/tmp/continuum-skeu-relief-review/`.
   live in `src/index.css`. There is no second palette registry.
 - `src/styles/skeu-kit.css` adapts the supplied `docs/skeu.css`: demo dimensions,
   padding, and type styles were removed so existing component layouts win.
-  Explicit scoped hooks have enough specificity to replace the unlayered Aero
+  Explicit scoped hooks have enough specificity to replace the unlayered Material
   recipes. `src/styles/skeu.css` owns the palette adapter and material bridges.
 - Shared geometry in `src/styles/radius.css`: Skeu uses 2px details, 3px controls,
   and 6px housings. Pills use the control radius in Skeu, while actual circles
   (icon buttons, status dots, radio indicators, and switch thumbs) stay circular.
-  Aero and Flat keep their existing sizes and pill shapes. No Tailwind radius
+  Material and Flat keep their existing sizes and pill shapes. No Tailwind radius
   classes were introduced into component className props.
 - Readable accent shading was factored into shared `--ui-accent-*` inputs so
-  Skeu does not depend on enabling Aero. Accent gradient endpoints retain the
+  Skeu does not depend on enabling Material. Accent gradient endpoints retain the
   existing on-accent foreground and achieve at least 4.5:1 in all 22 palettes.
 
 ## Materials and textures
@@ -56,7 +56,7 @@ quiet reading/list surfaces, glossy selected actions, inset pressed states,
 localized hover rims, and visible keyboard focus use the shared hooks.
 Checkbox rows keep helper text readable when the checkbox is disabled.
 MCP switches are native checkbox switches in Skeu; existing controls are kept
-for Aero/Flat. Theme choices use a radio group with roving keyboard focus.
+for Material/Flat. Theme choices use a radio group with roving keyboard focus.
 The style selector uses native radio buttons and native keyboard behavior.
 
 Textures are static, neutral finishes scoped exclusively to Skeu:
@@ -80,7 +80,7 @@ print. `data-texture="off"` on `html` or a housing disables texture without
 changing its material. No additional preference was added.
 
 The actual Electron renderer successfully decoded the embedded grain using the
-app's unchanged CSP (`img-src` already permits `data:`). Switching to Aero
+app's unchanged CSP (`img-src` already permits `data:`). Switching to Material
 removed the overlay. Native transparency/window configuration was not changed.
 Skeu surfaces have no backdrop filters; the existing modal backdrop is separate.
 
@@ -92,13 +92,13 @@ Commands:
 npm run build
 node --test tests/appearance.test.mjs tests/themes.test.mjs tests/settingsPanels.test.mjs
 CHROME_PATH=/usr/bin/google-chrome SKEU_REVIEW_DIR=/tmp/continuum-skeu-review node tests/skeuMaterials.ui.cjs
-CHROME_PATH=/usr/bin/google-chrome AERO_REVIEW_DIR=/tmp/continuum-aero-review-final node tests/aeroMaterials.ui.cjs
+CHROME_PATH=/usr/bin/google-chrome MATERIAL_REVIEW_DIR=/tmp/continuum-material-review-final node tests/materialMaterials.ui.cjs
 ```
 
 The browser suites render actual components with deterministic mock IPC and
 never start inference. `CHROME_PATH` is optional when the corresponding
 Playwright browser is installed. Captures and JSON contrast results are saved
-to the requested review directories. Before/after captures compare Aero and
+to the requested review directories. Before/after captures compare Material and
 Skeu using the same components/data.
 
 Checked:
@@ -118,16 +118,16 @@ Checked:
 - A populated 60-project grid: static card finishes, no backdrop filters,
   search/empty recovery, hover without movement, scrolling and clipping.
 - A separate before/after computed-style comparison across all 22 palettes:
-  Aero and Flat shared fills, gradients, borders, radii, text, shadows, and
+  Material and Flat shared fills, gradients, borders, radii, text, shadows, and
   filters match their pre-Skeu values (transitions disabled for comparison).
 - The actual sandboxed Electron renderer loaded the grain under the original
   CSP, then removed it when leaving Skeu.
-- Production build, focused unit suites, Aero material regressions, the existing
+- Production build, focused unit suites, Material material regressions, the existing
   Projects Electron UI harness, and `git diff --check`.
 - Across the 22-theme audit, the minimum primary-text endpoint contrast was
   4.56:1, accent-label endpoint contrast 4.65:1, and focus/input contrast 3.21:1.
 
-Existing baseline failures remain as documented in `aero-material-refinement.md`:
+Existing baseline failures remain as documented in `material-material-refinement.md`:
 `tests/memorySettings.ui.cjs` has a hidden-window keyboard-focus assertion;
 `tests/projects.test.cjs` expects obsolete system-prompt text. Both reproduced
 before the style changes. Their unrelated behavior was not rewritten here.
@@ -156,7 +156,7 @@ Foundation, settings behavior, and styling:
 - `src/lib/radioChoices.mjs`
 - `src/index.css`
 - `src/styles/radius.css`
-- `src/styles/aero.css`
+- `src/styles/shared-ui.css`
 - `src/styles/skeu-kit.css`
 - `src/styles/skeu.css`
 - `src/components/settings/AppearanceSettings.jsx`
@@ -221,6 +221,6 @@ Validation sources:
 - `tests/fixtures/materialScope.mjs`
 - `tests/fixtures/memorySettings.jsx`
 - `tests/fixtures/projects.jsx`
-- `tests/fixtures/aeroModelSettings.jsx`
+- `tests/fixtures/materialModelSettings.jsx`
 
-The existing Aero review fixtures/suite are reused for regression validation.
+The existing Material review fixtures/suite are reused for regression validation.

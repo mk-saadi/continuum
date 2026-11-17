@@ -1,4 +1,4 @@
-# Aero material refinement
+# Material material refinement
 
 The shared implementation now distinguishes reflective window chrome from
 quiet content and glossy controls. Layout, density, theme palettes, appearance
@@ -10,7 +10,7 @@ persistence, shared radius tokens, and Electron configuration are unchanged.
   illuminated edges, shallow content gradient, accent shading, localized glow,
   and separate light/dark lighting values. Solarized Dark shares the shaded
   accent material used by light palettes because its accent labels are white.
-- `src/styles/aero.css`: reflective dialog/popover shells and chrome bands;
+- `src/styles/shared-ui.css`: reflective dialog/popover shells and chrome bands;
   unfiltered content cards and nested fills; stable recessed inputs/composers;
   calm checkbox containers and section headers; explicit selected hover and
   pressed states; keyboard focus within dialogs; environmental fallbacks.
@@ -18,7 +18,7 @@ persistence, shared radius tokens, and Electron configuration are unchanged.
   Dark lighting selectors deliberately use `:where` so Flat overrides win.
 - `FormControls.jsx`, `MemorySettings.jsx`, and `Titlebar.jsx`: identify checkbox
   containers, content section headings, and window title chrome by role.
-- `IntegrationsTab.jsx`: the Aero error status uses the theme's error ink rather
+- `IntegrationsTab.jsx`: the Material error status uses the theme's error ink rather
   than the darker error ink. Flat keeps its existing status color.
 - `projects.css`: removes the broad heading text shadow. Cards share the quiet
   panel recipe, with a subtle hover rim/shadow and no lifting animation.
@@ -42,7 +42,7 @@ After building, run:
 ```sh
 npm run build
 node --test tests/appearance.test.mjs tests/settingsPanels.test.mjs
-CHROME_PATH=/usr/bin/google-chrome AERO_REVIEW_DIR=/tmp/continuum-aero-review node tests/aeroMaterials.ui.cjs
+CHROME_PATH=/usr/bin/google-chrome MATERIAL_REVIEW_DIR=/tmp/continuum-material-review node tests/materialMaterials.ui.cjs
 ```
 
 `CHROME_PATH` is optional when Playwright's matching browser is installed.
@@ -52,12 +52,12 @@ it never starts inference or changes real user settings.
 Passed:
 
 - Production build and the existing appearance/settings-panel unit suites.
-- All 22 themes × Aero/Flat: resolved shell/panel tokens, primary reading
+- All 22 themes × Material/Flat: resolved shell/panel tokens, primary reading
   contrast, no content blur, and no extra filters inside the Settings dialog.
-- Aero accent label contrast at the brightest end of the reflection: at least
+- Material accent label contrast at the brightest end of the reflection: at least
   4.5:1 in every palette, using the existing on-accent ink.
 - Screenshots inspected for Gruvbox Dark, Default Dark, Default Light, and Lilac
-  Light, with Aero on/off: title/tab/toolbar chrome, Settings, MCP Integrations,
+  Light, with Material on/off: title/tab/toolbar chrome, Settings, MCP Integrations,
   Projects grid, project workspace, and model load dialog.
 - Hover, pressed, selected, disabled rendering, keyboard focus/navigation,
   MCP switches and expansion, composer focus, and model footer visibility at

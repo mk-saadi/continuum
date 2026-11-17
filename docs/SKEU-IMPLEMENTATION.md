@@ -2,7 +2,7 @@
 
 ## Objective and visual reference
 
-Use `/home/mk_saadi/projects/test-projects/aero-skeu/aero-skeu-exp` as the physical-material reference. Its `src/components/Settings.css` Skeu block and the original Skeu rules in `src/components/Projects.css` define the target: substantial molded controls, hard lower contact edges, deep recessed wells, stacked card edges, and visible fine surface finishes. The previous Continuum pass was too flat and restricted textures too much.
+Use `/home/mk_saadi/projects/test-projects/material-skeu/material-skeu-exp` as the physical-material reference. Its `src/components/Settings.css` Skeu block and the original Skeu rules in `src/components/Projects.css` define the target: substantial molded controls, hard lower contact edges, deep recessed wells, stacked card edges, and visible fine surface finishes. The previous Continuum pass was too flat and restricted textures too much.
 
 **Preserve Continuum's theme colors exactly.** Do not copy the reference's olive surfaces, gold accent, cream ink, hardcoded palette overrides, or font/layout system. All 22 palettes, their token definitions, accent identity, and foregrounds remain owned by Continuum. Transfer only neutral lighting, relief geometry, and texture construction, using existing semantic palette inputs.
 
@@ -29,9 +29,9 @@ Keep Continuum's layout, density, routing, content, and behavior. The reference'
 
 ## Implementation order
 
-1. Find the theme registry, theme mode metadata, Aero toggle, CSS import order, shared components, portal containers, and Electron draggable regions.
+1. Find the theme registry, theme mode metadata, Material toggle, CSS import order, shared components, portal containers, and Electron draggable regions.
 2. Identify current gradients, hardcoded palette values, broad selectors, inline styles, and duplicate component effects. Remove or scope conflicting effects when integrating rather than stacking shadows on top of them.
-3. Use the existing style selection mechanism. If Aero must remain available, expose Skeu as a distinct style option using existing preference persistence. Do not silently rename Aero or change saved preferences. Keep theme selection independent of material style.
+3. Use the existing style selection mechanism. If Material must remain available, expose Skeu as a distinct style option using existing preference persistence. Do not silently rename Material or change saved preferences. Keep theme selection independent of material style.
 4. Import `/docs/skeu.css` after base/component styles, then add component-specific layout adjustments only where needed. Low-specificity component selectors allow integration overrides; inspect the actual cascade before adding specificity.
 5. Establish Settings and its controls first. Then migrate the shared primitives, Projects, project workspace, MCP, and model settings.
 6. Validate both modes and representative themes visually; verify the remaining theme token mappings.

@@ -146,8 +146,8 @@ app.whenReady().then(async () => {
       checkStableLayout('initial');
       if (window.checkLayout) {
         const modal = document.querySelector('dialog');
-        check(modal.classList.contains('aero-dialog'), 'diff review uses shared Aero frame');
-        check([...modal.querySelectorAll('[class*="aero-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'diff review has no nested blur');
+        check(modal.classList.contains('material-dialog'), 'diff review uses shared Material frame');
+        check([...modal.querySelectorAll('[class*="material-"]')].every(element => getComputedStyle(element).backdropFilter === 'none'), 'diff review has no nested blur');
         check(getComputedStyle(document.querySelector('[aria-label="Side-by-side diff"]')).backdropFilter === 'none', 'diff code stays unblurred');
       }
       const overwrite = document.querySelector('[aria-label="Revert controls"] input[type="checkbox"]');

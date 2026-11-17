@@ -213,7 +213,7 @@ test('a new task payload uses backend field names and safe defaults', () => {
 	assert.equal(payload.projectId, null);
 	assert.equal(payload.budget, null);
 	assert.deepEqual(payload.model, { kind: 'local', modelPath: localModel.id });
-	assert.deepEqual(payload.missedPolicy, { policy: 'grace', graceHours: 24, maxOverdueDays: 7 });
+	assert.deepEqual(payload.missedPolicy, { policy: 'until_next', graceHours: 24, maxOverdueDays: 7 });
 });
 
 test('validation rejects missing or malformed fields instead of guessing', () => {
@@ -429,4 +429,17 @@ test('renderer wall-clock math matches the scheduler for DST and offset edge cas
 		);
 	}
 	assert.throws(() => wallTimeToInstant({ year: 2026, month: 1, day: 1 }, 'Not/AZone'), /Invalid IANA timezone/);
+});
+
+test('dependency drafts round-trip, require a predecessor and stay waiting without a time', () => {
+  const task = makeTask({ schedule: { type: 'after_task', taskId: 'parent', includeResult: true }, nextRunAt: null });
+  const draft = draftFromTask(task, { now: NOW });
+  assert.equal(draft.predecessorId, 'parent');
+  assert.equal(draft.includeResult, true);
+  assert.equal(buildTaskPayload(draft, { existing: task, now: NOW }).unchanged, true);
+  const result = buildTaskPayload({ ...draft, includeResult: false }, { existing: task, now: NOW });
+  assert.deepEqual(result.payload.schedule, { type: 'after_task', taskId: 'parent', includeResult: false });
+  assert.equal(buildTaskPayload({ ...draft, predecessorId: '' }, { now: NOW }).ok, false);
+  assert.equal(taskState(task).label, 'Waiting for predecessor');
+  assert.equal(nextRunSummary(task, NOW).text, 'After predecessor finishes');
 });

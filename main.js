@@ -235,7 +235,6 @@ function createWindow() {
 		minHeight: 400,
 		frame: false,
 		transparent: true,
-		alwaysOnTop: true,
 		resizable: true,
 		skipTaskbar: false,
 		webPreferences: {
@@ -1047,6 +1046,7 @@ if (hasSingleInstanceLock)
 	// handler exists. A scheduled run therefore reuses the exact same agent
 	// pipeline as an interactive turn.
 	scheduledTaskScheduler = require("./src/main/scheduledTasks").createScheduler({
+		unloadIdleForScheduledTask: true,
 		launchModel,
 		getEngineConfig,
 		getEngines: () => engines.values(),

@@ -73,7 +73,7 @@ function ApprovalCard({ approval, onResolved }) {
 			role="alertdialog"
 			aria-busy={busy}
 			aria-labelledby="tool-approval-title"
-			className="app-approval-toast aero-toast-surface ui-radius-surface"
+			className="app-approval-toast material-toast-surface ui-radius-surface"
 		>
 			<p id="tool-approval-title">Allow {approval.casualTerminal ? "terminal tool" : approval.name}?</p>
 			<pre className="my-3 max-h-52 overflow-auto whitespace-pre-wrap break-all ui-radius-control bg-[var(--input)] p-3 text-xs text-[var(--text-secondary)]">
@@ -87,10 +87,10 @@ function ApprovalCard({ approval, onResolved }) {
 			{approval.rememberable && <p className="my-2 text-xs">{approval.rememberLabel}</p>}
             {error && <p role="alert" className="my-2 text-xs text-[var(--error)]">{error}</p>}
             <div className="app-approval-actions">
-                {!approval.casualTerminal && <button type="button" disabled={busy} onClick={() => respond("allow")} className="aero-control sk-button aero-fill sk-fill ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">Allow once</button>}
+                {!approval.casualTerminal && <button type="button" disabled={busy} onClick={() => respond("allow")} className="material-control sk-button material-fill sk-fill ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">Allow once</button>}
                 {approval.rememberable && <>
-                    <button type="button" disabled={busy} onClick={() => respond("chat")} className="aero-control sk-button ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">Allow for this chat</button>
-                    <button type="button" disabled={busy} onClick={() => respond("project")} className="aero-control sk-button ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">{approval.casualTerminal ? "Always allow" : "Always allow in this project"}</button>
+                    <button type="button" disabled={busy} onClick={() => respond("chat")} className="material-control sk-button ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">Allow for this chat</button>
+                    <button type="button" disabled={busy} onClick={() => respond("project")} className="material-control sk-button ui-radius-control px-3 py-1.5 text-xs disabled:opacity-50">{approval.casualTerminal ? "Always allow" : "Always allow in this project"}</button>
                 </>}
                 <button type="button" disabled={busy} onClick={() => respond("deny")} className="app-approval-deny">Deny</button>
             </div>

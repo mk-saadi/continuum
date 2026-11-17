@@ -53,7 +53,7 @@ function ChildControls({ childSessionId, transcript }) {
 		}
 	};
 	const buttonClass =
-		"aero-control sk-button aero-fill sk-fill inline-flex min-h-9 cursor-pointer items-center justify-center px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
+		"material-control sk-button material-fill sk-fill inline-flex min-h-9 cursor-pointer items-center justify-center px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
 	return (
 		<section aria-label="Sub-agent controls" className="flex flex-wrap items-center gap-2 text-[11px]">
 			{canInterrupt && (
@@ -156,10 +156,10 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 			onClick={(event) => {
 				if (event.target === dialogRef.current) onClose();
 			}}
-			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto max-h-[88dvh] w-[calc(100%-24px)] max-w-[1040px] overflow-hidden p-0 text-[var(--text-primary)]"
+			className="material-dialog sk-window sk-dialog fixed inset-0 m-auto max-h-[88dvh] w-[calc(100%-24px)] max-w-[1040px] overflow-hidden p-0 text-[var(--text-primary)]"
 		>
 			<div className="flex max-h-[88dvh] flex-col">
-				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 flex-wrap items-center gap-3 px-5 py-4">
+				<header className="material-header sk-window-header sk-texture-grain flex shrink-0 flex-wrap items-center gap-3 px-5 py-4">
 					<RiRobot2Line
 						aria-hidden="true"
 						className="size-5 shrink-0 text-[var(--accent)]"
@@ -177,7 +177,7 @@ export default function SubagentTranscriptModal({ childSessionId, task, onClose 
 						type="button"
 						aria-label="Close sub-agent activity"
 						onClick={onClose}
-						className="aero-orb sk-icon-button aero-fill sk-fill flex size-9 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="material-orb sk-icon-button material-fill sk-fill flex size-9 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 					>
 						<FiX aria-hidden="true" />
 					</button>

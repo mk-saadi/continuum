@@ -105,7 +105,7 @@ export default function BackgroundCommandCard({ sessionId }) {
   const counts = records.reduce((all, r) => { all[outcome(r).key]++; return all; }, { running: 0, completed: 0, failed: 0, stopped: 0 });
   const visible = records.filter(r => filter === 'all' || outcome(r).key === filter)
     .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || Date.parse(b.started_at) - Date.parse(a.started_at));
-  return <section className="aero-panel sk-panel background-commands" aria-label="Background commands">
+  return <section className="material-panel sk-panel background-commands" aria-label="Background commands">
     <header className="bc-header"><FiTerminal aria-hidden="true" /><h3>Background commands</h3><span className={`bc-count ${counts.running ? 'bc-count-active' : ''}`}>{counts.running} running</span></header>
     <div className="bc-filters" role="group" aria-label="Filter commands">
       {[['all', 'All', records.length], ['running', 'Running', counts.running], ['completed', 'Done', counts.completed], ['failed', 'Failed', counts.failed], ['stopped', 'Stopped', counts.stopped]].map(([key, label, count]) =>

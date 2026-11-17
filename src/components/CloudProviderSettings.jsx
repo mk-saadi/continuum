@@ -179,7 +179,7 @@ export default function CloudProviderSettings() {
 				<div
 					role="tablist"
 					aria-label="Cloud provider categories"
-					className="aero-inset sk-well flex w-fit gap-1 p-1"
+					className="material-inset sk-well flex w-fit gap-1 p-1"
 				>
 					{[
 						["text", "Text Models (LLMs)"],
@@ -195,7 +195,7 @@ export default function CloudProviderSettings() {
 								setMessage("");
 								setError("");
 							}}
-							className="aero-control sk-button aero-fill sk-fill px-3 py-1.5 text-xs font-semibold cursor-pointer"
+							className="material-control sk-button material-fill sk-fill px-3 py-1.5 text-xs font-semibold cursor-pointer"
 						>
 							{label}
 						</button>

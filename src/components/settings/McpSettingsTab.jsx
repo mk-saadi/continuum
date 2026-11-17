@@ -15,7 +15,7 @@ const descriptions = {
 };
 
 export default function McpSettingsTab(props) {
-	const aero = useContext(SettingsMaterialContext);
+	const material = useContext(SettingsMaterialContext);
 	const [mode, setMode] = useState(null);
 	const [searchProvider, setSearchProvider] = useState(null);
 	const [searchLoaded, setSearchLoaded] = useState(false);
@@ -78,7 +78,7 @@ export default function McpSettingsTab(props) {
 				descriptionLive
 			>
 				<div
-					className={`${aero ? "aero-inset sk-well sk-segments" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} grid grid-cols-1 gap-1 p-1 sm:grid-cols-2`}
+					className={`${material ? "material-inset sk-well sk-segments" : "ui-radius-surface border border-[var(--border)] bg-[var(--bg-secondary)]"} grid grid-cols-1 gap-1 p-1 sm:grid-cols-2`}
 					role="group"
 					aria-label="MCP tool management mode"
 				>
@@ -90,8 +90,8 @@ export default function McpSettingsTab(props) {
 							disabled={mode === null || saving}
 							onClick={() => selectMode(value)}
 							className={
-								aero
-									? "aero-control sk-button sk-segment aero-fill sk-fill inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer"
+								material
+									? "material-control sk-button sk-segment material-fill sk-fill inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer"
 									: `inline-flex cursor-pointer items-center justify-center gap-2 ui-radius-control px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${mode === value ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`
 							}
 						>

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FiCheck, FiCopy, FiMessageCircle } from "react-icons/fi";
 import { clampMenuPosition, extractScopedSelectionText } from "../../lib/textSelection.mjs";
 
+import "../../styles/floating-text-surface.css";
+
 const MENU_WIDTH = 216;
 const MENU_HEIGHT = 38;
 const MENU_GAP = 10;
@@ -121,7 +123,7 @@ export default function TextSelectionMenu({ scopeRef, onAskQuestion }) {
 			aria-label="Text selection actions"
 			// Keep the transcript selection intact while the menu is clicked.
 			onMouseDown={(event) => event.preventDefault()}
-			className="fixed z-[70] flex items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[0_8px_30px_var(--window-shadow)]"
+			className="floating-text-surface fixed z-[70] flex items-center gap-1 p-1"
 			style={{ left: menu.left, top: menu.top }}
 		>
 			<button

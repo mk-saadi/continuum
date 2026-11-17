@@ -41,7 +41,7 @@ const { pathToFileURL } = require('node:url');
   }
   async function shot(name) { await page.screenshot({ path: path.join(output, name + '.png') }); }
   async function captures(screen) {
-    for (const theme of reviewThemes) for (const style of ['aero', 'skeu']) {
+    for (const theme of reviewThemes) for (const style of ['neumorphism', 'skeu']) {
       await scope(theme, style); await shot(`${screen}-${theme}-${style}`);
     }
   }
@@ -79,7 +79,7 @@ const { pathToFileURL } = require('node:url');
     }
     await captures('settings');
     // No texture can survive switching away, even though opt-in hooks remain.
-    for (const style of ['aero','flat']) {
+    for (const style of ['neumorphism','flat']) {
       await scope('gruvbox-dark', style);
       assert.equal((await material('.sk-window-header')).texture, 'none');
     }
@@ -118,7 +118,7 @@ const { pathToFileURL } = require('node:url');
     await page.locator('textarea[aria-label="Message"]').focus();
     assert.equal(await page.locator('.project-composer').evaluate(e=>getComputedStyle(e,'::before').backgroundImage), 'none');
     await shot('composer-focus');
-    await load('aeroModelSettings'); await page.waitForSelector('fieldset');
+    await load('materialModelSettings'); await page.waitForSelector('fieldset');
     await captures('model');
     await scope('gruvbox-dark');
     const select = page.locator('button[aria-haspopup="listbox"]').first();
@@ -158,11 +158,11 @@ const { pathToFileURL } = require('node:url');
       await shot(`model-viewport-${width}`);
     }
     await page.setViewportSize({width:1280,height:900});
-    await load('aeroModelSettings', '?loading=1');
+    await load('materialModelSettings', '?loading=1');
     await scope('ember-dark');
     await page.getByRole('status').filter({hasText:'Loading saved settings'}).waitFor();
     await shot('model-loading');
-    await load('aeroModelSettings', '?error=1'); await scope('ember-dark');
+    await load('materialModelSettings', '?error=1'); await scope('ember-dark');
     await page.getByText('Model metadata is unavailable.').waitFor();
     await shot('model-error');
     await load('projects', '?materialStress=1'); await page.waitForSelector('.project-card');
@@ -177,21 +177,21 @@ const { pathToFileURL } = require('node:url');
     await page.locator('.projects-page').evaluate(e=>e.scrollTop=e.scrollHeight);
     assert(await page.locator('.projects-page').evaluate(e=>e.scrollTop>0));
     await shot('projects-populated');
-    await load('aeroChrome'); await page.waitForSelector('.aero-titlebar');
+    await load('materialChrome'); await page.waitForSelector('.material-titlebar');
     await captures('chrome');
     await scope('gruvbox-dark');
-    assert.equal(await page.locator('.aero-titlebar').evaluate(e=>getComputedStyle(e).getPropertyValue('-webkit-app-region')), 'drag');
+    assert.equal(await page.locator('.material-titlebar').evaluate(e=>getComputedStyle(e).getPropertyValue('-webkit-app-region')), 'drag');
     // Textures never nest or cover fields; explicit opt-out and environment modes.
     assert.equal(await page.locator('.sk-texture-grain .sk-texture-grain, .sk-texture-brushed .sk-texture-grain').count(), 0);
     await page.evaluate(()=>document.documentElement.dataset.texture='off');
-    assert.equal((await material('.aero-titlebar')).textureDisplay, 'none');
+    assert.equal((await material('.material-titlebar')).textureDisplay, 'none');
     await shot('texture-off');
     await page.evaluate(()=>delete document.documentElement.dataset.texture);
     await page.emulateMedia({forcedColors:'active'});
-    assert.equal((await material('.aero-titlebar')).textureDisplay, 'none');
-    assert.equal((await material('.aero-titlebar')).image, 'none');
+    assert.equal((await material('.material-titlebar')).textureDisplay, 'none');
+    assert.equal((await material('.material-titlebar')).image, 'none');
     await page.emulateMedia({forcedColors:'none',media:'print'});
-    assert.equal((await material('.aero-titlebar')).textureDisplay, 'none');
+    assert.equal((await material('.material-titlebar')).textureDisplay, 'none');
     await page.emulateMedia({media:'screen',reducedMotion:'reduce'});
     assert.equal(await page.locator('.sk-icon-button').first().evaluate(e=>getComputedStyle(e).transitionDuration), '0s');
     await page.emulateMedia({reducedMotion:'no-preference'});

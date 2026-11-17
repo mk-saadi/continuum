@@ -131,12 +131,12 @@ export default function ProjectWorkspace({
 	const visibleChats = filteredChats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 	return (
 		<main
-			className="aero-stage sk-app projects-page project-workspace"
+			className="material-stage sk-app projects-page project-workspace"
 			aria-label="Project workspace"
 		>
 			<div className="projects-content">
 				<button
-					className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium workspace-back"
+					className="material-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium workspace-back"
 					onClick={onBack}
 				>
 					<FiArrowLeft /> All Projects
@@ -149,7 +149,7 @@ export default function ProjectWorkspace({
 						{error}{" "}
 						{!project && (
 							<button
-								className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+								className="material-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 								onClick={() => setVersion((value) => value + 1)}
 							>
 								Retry
@@ -178,7 +178,7 @@ export default function ProjectWorkspace({
 								</div>
 								<Tooltip content={project.is_pinned ? "Unpin project" : "Pin project"}>
 									<button
-										className="aero-orb sk-icon-button aero-fill sk-fill workspace-pin cursor-pointer text-[11px] font-medium"
+										className="material-orb sk-icon-button material-fill sk-fill workspace-pin cursor-pointer text-[11px] font-medium"
 										aria-pressed={!!project.is_pinned}
 										aria-label={project.is_pinned ? "Unpin project" : "Pin project"}
 										disabled={busy}
@@ -199,13 +199,13 @@ export default function ProjectWorkspace({
 							</header>
 							<div className="project-hub">
 								<div className="project-stack">
-									<section className="aero-panel sk-panel project-panel">
+									<section className="material-panel sk-panel project-panel">
 										<h2>
 											<LuMessageSquare aria-hidden="true" />
 											Start a new chat
 										</h2>
 										<div
-											className="aero-well sk-well aero-fill sk-fill project-composer"
+											className="material-well sk-well material-fill sk-fill project-composer"
 											onDragOver={(event) => event.preventDefault()}
 											onDrop={(event) => {
 												event.preventDefault();
@@ -249,20 +249,20 @@ export default function ProjectWorkspace({
 											/>
 										</div>
 										{!canStartChat && (
-											<div className="workspace-model-action"><span className="projects-muted">Load a model to start chatting.</span><button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy || chatDisabled} onClick={openModelSelector}>Load model</button></div>
+											<div className="workspace-model-action"><span className="projects-muted">Load a model to start chatting.</span><button className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy || chatDisabled} onClick={openModelSelector}>Load model</button></div>
 										)}
 									</section>
-									<section className="aero-panel sk-panel project-panel">
+									<section className="material-panel sk-panel project-panel">
 										<div className="workspace-chat-heading"><h2>
 											<LuMessageSquare aria-hidden="true" />
 											Recent chats{" "}
 											<span className="projects-muted">({chats.length})</span>
 										</h2><TextField className="workspace-chat-search" type="search" aria-label="Search chats" placeholder="Search chats…" value={search} onChange={event => { setSearch(event.target.value); setChatPage(1); }} /></div>
-										<div className="aero-flat sk-list px-2 pt-2">
+										<div className="material-flat sk-list px-2 pt-2">
 											{filteredChats.length ? (
 												visibleChats.map((chat) => (
 													<button
-														className="aero-list-item sk-list-row project-chat disabled:opacity-40"
+														className="material-list-item sk-list-row project-chat disabled:opacity-40"
 														disabled={chatDisabled || busy}
 														key={chat.id}
 														onClick={() => onLoadChat(chat.id)}
@@ -293,7 +293,7 @@ export default function ProjectWorkspace({
 														{filteredChats.length} chats
 													</span>
 													<button
-														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={currentPage === 1}
 														onClick={() => setChatPage(currentPage - 1)}
 													>
@@ -303,7 +303,7 @@ export default function ProjectWorkspace({
 														Page {currentPage} of {pageCount}
 													</span>
 													<button
-														className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+														className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 														disabled={currentPage === pageCount}
 														onClick={() => setChatPage(currentPage + 1)}
 													>
@@ -319,7 +319,7 @@ export default function ProjectWorkspace({
 									aria-label="Project controls"
 								>
 									<details
-										className="aero-panel sk-panel project-panel group"
+										className="material-panel sk-panel project-panel group"
 										open={editing}
 										onToggle={event => setEditing(event.currentTarget.open)}
 									>
@@ -355,7 +355,7 @@ export default function ProjectWorkspace({
 											/>
 											<div className="project-actions">
 												<button
-													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+													className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													disabled={
 														busy ||
 														(instructions === (project.custom_instructions || "") && goal === (project.description || "") && name === project.name)
@@ -366,21 +366,21 @@ export default function ProjectWorkspace({
 											</div>
 										</form>
 									</details>
-									<section className="aero-panel sk-panel project-panel workspace-files" onDragOver={event => { event.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={event => { event.preventDefault(); setDragging(false); if (!busy) upload(Array.from(event.dataTransfer.files)); }}>
+									<section className="material-panel sk-panel project-panel workspace-files" onDragOver={event => { event.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={event => { event.preventDefault(); setDragging(false); if (!busy) upload(Array.from(event.dataTransfer.files)); }}>
 										<div className="workspace-chat-heading"><h2>
 											<LuFiles aria-hidden="true" />
 											Context files{" "}
 											<span className="projects-muted">({project.files.length})</span>
-										</h2><div className="flex gap-2"><button className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy} onClick={() => input.current.click()}>+ Add</button><button className="workspace-context-toggle" aria-label="Toggle file drop zone" aria-expanded={filesExpanded} onClick={() => setFilesExpanded(!filesExpanded)}><LuChevronRight /></button></div></div>
+										</h2><div className="flex gap-2"><button className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium cursor-pointer" disabled={busy} onClick={() => input.current.click()}>+ Add</button><button className="workspace-context-toggle" aria-label="Toggle file drop zone" aria-expanded={filesExpanded} onClick={() => setFilesExpanded(!filesExpanded)}><LuChevronRight /></button></div></div>
 										<div
-											className="aero-empty sk-empty aero-fill sk-fill project-drop"
+											className="material-empty sk-empty material-fill sk-fill project-drop"
 											data-dragging={dragging}
 											hidden={!filesExpanded && !dragging}
 										>
 											<FiUpload className="mx-auto mb-2" />
 											<p className="projects-muted">Drop reference files here</p>
 											<button
-												className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-3"
+												className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-3"
 												disabled={busy}
 												onClick={() => input.current.click()}
 											>
@@ -412,7 +412,7 @@ export default function ProjectWorkspace({
 												<FiFileText />
 												<Tooltip content={file.file_path}><span>{file.file_name}</span></Tooltip>
 												<button
-													className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+													className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 													aria-label={`Remove ${file.file_name}`}
 													disabled={busy}
 													onClick={() =>
@@ -439,7 +439,7 @@ export default function ProjectWorkspace({
 											onUpdated(updated);
 										}}
 									/>
-									<details className="aero-panel sk-panel project-panel workspace-settings"><summary><FiFolder /><span className="workspace-settings-label">Project settings<Tooltip content={project.root_path || ""}><span className="workspace-folder-summary">{project.root_path || "No folder connected"}</span></Tooltip></span><LuChevronRight /></summary><div className="workspace-settings-content">
+									<details className="material-panel sk-panel project-panel workspace-settings"><summary><FiFolder /><span className="workspace-settings-label">Project settings<Tooltip content={project.root_path || ""}><span className="workspace-folder-summary">{project.root_path || "No folder connected"}</span></Tooltip></span><LuChevronRight /></summary><div className="workspace-settings-content">
 										<h2 className="flex items-center gap-2">
 											<FiFolder /> Root Directory
 										</h2>
@@ -455,7 +455,7 @@ export default function ProjectWorkspace({
 											workspace context.
 										</p>
 										<button
-											className="aero-control sk-button aero-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-4"
+											className="material-control sk-button material-fill sk-fill inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium mt-4"
 											disabled={busy}
 											onClick={changeFolder}
 										>

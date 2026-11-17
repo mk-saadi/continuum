@@ -770,7 +770,7 @@ function AskUserCard({ step, request, onAnswer }) {
 	return (
 		<section
 			aria-label="Agent question"
-			className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+			className="agent-question-panel ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
 		>
 			<p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
 				Agent needs your input
@@ -862,7 +862,7 @@ function SkillProposalCard({ step, projectId }) {
 	}
 	return (
 		<div
-			className="ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
+			className="agent-question-panel ui-radius-surface border border-[var(--accent)] bg-[var(--surface)] p-4 text-sm"
 			role="group"
 			aria-label="Skill proposal"
 		>

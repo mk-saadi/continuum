@@ -37,7 +37,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 	}
 	return (
 		<main
-			className="aero-stage sk-app projects-page"
+			className="material-stage sk-app projects-page"
 			aria-label="Projects dashboard"
 		>
 			<div className="projects-content">
@@ -57,7 +57,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 						</div>
 					</div>
 					<button
-						className="aero-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
+						className="material-primary sk-button sk-primary inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-xs leading-normal font-semibold"
 						onClick={onCreate}
 					>
 						<FiPlus /> Create New Project
@@ -66,7 +66,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 				<div className="projects-toolbar">
 					<TextField
 						className="flex-1"
-						frameClassName="aero-well sk-well flex min-h-8 items-center text-[var(--text-primary)]"
+						frameClassName="material-well sk-well flex min-h-8 items-center text-[var(--text-primary)]"
 						type="search"
 						aria-label="Search projects"
 						placeholder="Search projects by name, goal, or folder…"
@@ -74,7 +74,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 						onChange={(event) => setQuery(event.target.value)}
 					/>
 					<button
-						className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+						className="material-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 						aria-pressed={pinnedOnly}
 						onClick={() => setPinnedOnly(!pinnedOnly)}
 					>
@@ -89,7 +89,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 						{error || actionError}{" "}
 						{error && (
 							<button
-								className="aero-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
+								className="material-control sk-button inline-flex items-center justify-center gap-1.5 min-h-7 px-2.5 py-1.5 cursor-pointer text-[11px] font-medium"
 								onClick={onRetry}
 							>
 								Retry
@@ -100,7 +100,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 				{loading ? (
 					<p role="status">Loading projects…</p>
 				) : !filtered.length ? (
-					<div className="aero-empty sk-empty project-empty">
+					<div className="material-empty sk-empty project-empty">
 						<FiFolder className="mx-auto mb-4 size-8" />
 						<p>
 							{projects.length
@@ -117,7 +117,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 					<div className="projects-grid">
 						{filtered.map((project) => (
 							<article
-								className="aero-panel sk-panel sk-card sk-texture-satin aero-panel--interactive project-card"
+								className="material-panel sk-panel sk-card sk-texture-satin material-panel--interactive project-card"
 								key={project.id}
 							>
 								<button
@@ -143,7 +143,7 @@ export default function ProjectsView({ projects, loading, error, onRetry, onCrea
 									</div>
 								</button>
 								<button
-									className="aero-orb sk-icon-button aero-fill sk-fill project-pin cursor-pointer text-[11px] font-medium"
+									className="material-orb sk-icon-button material-fill sk-fill project-pin cursor-pointer text-[11px] font-medium"
 									aria-label={`${project.is_pinned ? "Unpin" : "Pin"} ${project.name}`}
 									aria-pressed={!!project.is_pinned}
 									disabled={pinning !== null}

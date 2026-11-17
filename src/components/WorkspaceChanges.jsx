@@ -51,7 +51,7 @@ const FileChanges = React.memo(function FileChanges({ file, diff, onOpenFile, wr
       <span className="text-[var(--success)]">+{file.added ?? '—'}</span>
       <span className="text-[var(--error)]">−{file.deleted ?? '—'}</span>
       {!['deleted'].includes(file.status) && <button type="button" onClick={() => onOpenFile(file.path)}
-        className="aero-control sk-button aero-fill sk-fill ui-radius-control cursor-pointer px-2 py-1">Open file</button>}
+        className="material-control sk-button material-fill sk-fill ui-radius-control cursor-pointer px-2 py-1">Open file</button>}
     </div>
     {open && !visible && <div aria-hidden="true" style={{ height:height.current }} />}
     {open && visible && <div ref={body} className="min-h-24 overflow-x-auto bg-[var(--code-bg)] text-[var(--code-text)]">

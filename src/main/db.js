@@ -494,6 +494,9 @@ const SCHEMA = `
     fallback_used INTEGER NOT NULL DEFAULT 0 CHECK (fallback_used IN (0, 1)),
     usage_json TEXT,
     deferred_until INTEGER,
+    source_run_id TEXT,
+    context_json TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     UNIQUE(task_id, scheduled_for)
@@ -597,8 +600,28 @@ function initDatabase(directory = require("./configStore").getConfig().appDataDi
         started_at: 'INTEGER', finished_at: 'INTEGER', failure_reason: 'TEXT', model_json: 'TEXT',
         fallback_used: 'INTEGER NOT NULL DEFAULT 0', usage_json: 'TEXT', deferred_until: 'INTEGER',
         created_at: 'INTEGER', updated_at: 'INTEGER', session_id: 'TEXT',
+        source_run_id: 'TEXT', context_json: 'TEXT', retry_count: 'INTEGER NOT NULL DEFAULT 0',
       })) {
         if (!scheduledRunColumns.has(name)) connection.exec(`ALTER TABLE scheduled_task_runs ADD COLUMN ${name} ${type}`);
+      }
+      connection.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_runs_source ON scheduled_task_runs(task_id, source_run_id) WHERE source_run_id IS NOT NULL');
+      // Adopt latest-only recovery for existing automatic catch-up tasks. Keep
+      // an explicit skip preference. This migration runs once per database.
+      connection.exec('CREATE TABLE IF NOT EXISTS scheduler_migrations (id TEXT PRIMARY KEY)');
+      if (!connection.prepare('SELECT 1 FROM scheduler_migrations WHERE id = ?').get('latest-recovery-v1')) {
+        connection.transaction(() => {
+          const rows = connection.prepare('SELECT id, missed_policy_json FROM scheduled_tasks').all();
+          for (const row of rows) {
+            try {
+              const policy = JSON.parse(row.missed_policy_json);
+              if (policy.policy !== 'skip') {
+                policy.policy = 'until_next';
+                connection.prepare('UPDATE scheduled_tasks SET missed_policy_json = ? WHERE id = ?').run(JSON.stringify(policy), row.id);
+              }
+            } catch { /* preserve malformed legacy values for validation */ }
+          }
+          connection.prepare('INSERT INTO scheduler_migrations(id) VALUES (?)').run('latest-recovery-v1');
+        })();
       }
       connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next ON scheduled_tasks(enabled, next_run_at)');
       connection.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_runs_task ON scheduled_task_runs(task_id, scheduled_for DESC)');

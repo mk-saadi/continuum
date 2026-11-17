@@ -1,3 +1,4 @@
+import '../../styles/agent-activity.css';
 import React, { useSyncExternalStore } from 'react';
 import { activeReplyVariant } from '../../lib/messageIdentity.mjs';
 
@@ -18,7 +19,7 @@ export default function PromptProcessingGate({ message, buffer, children }) {
     !!(reply.tool_calls ?? reply.toolCalls)?.length ||
     reply.executionSteps?.some(step => ['text', 'thought', 'tool_call'].includes(step.type));
   if (message.streaming && !hasOutput) {
-    return <p role="status" aria-live="polite" className="py-1 text-sm text-[var(--text-muted)]">Prompt processing…</p>;
+    return <p role="status" aria-live="polite" className="py-1 text-sm text-[var(--text-muted)]"><span className="agent-processing-text">Processing prompt…</span></p>;
   }
   return children;
 }

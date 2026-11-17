@@ -4,15 +4,17 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const esbuild = require('esbuild');
 app.disableHardwareAcceleration();
+app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
   const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'chat-input-ui-'));
-  const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+  const window = new BrowserWindow({ show: true, webPreferences: { sandbox: true } });
   try {
     await esbuild.build({ stdin: { contents: `
       import React, { useState, useRef } from 'react';
       import { createRoot } from 'react-dom/client';
       import ChatInput from './src/components/ChatInput';
       import ChatMessage from './src/components/ChatMessage';
+      localStorage.clear();
       window.parentRenders = 0; window.messageReads = 0; window.submissions = []; window.queued = [];
       const message = { id: 'reply', role: 'assistant', get content() { window.messageReads++; return '**Existing reply**'; } };
       const root = createRoot(document.getElementById('root'));
@@ -95,6 +97,16 @@ app.whenReady().then(async () => {
       type('Immediate'); await wait();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       await wait(); check(window.submissions[1] === 'Immediate', 'Enter submits while idle');
+      localStorage.setItem('chat_draft_restored', Array(30).fill('Restored draft line').join(String.fromCharCode(10)));
+      input.parentElement.style.display = 'none';
+      window.switchChat('restored'); await wait();
+      input.style.cssText = 'min-height:38px;max-height:200px;box-sizing:border-box;line-height:20px;padding:9px;width:500px';
+      input.parentElement.style.display = ''; await wait(150);
+      check(input.clientHeight >= 198, 'Restored multiline draft grows to its height limit after becoming visible: ' + JSON.stringify({height:input.clientHeight,scroll:input.scrollHeight,value:input.value,style:input.style.cssText}));
+      check(input.style.overflowY === 'auto', 'Long restored draft scrolls at its height limit');
+      type('Short'); await wait();
+      check(input.clientHeight < 60 && input.style.overflowY === 'hidden', 'Short draft shrinks without a scrollbar');
+      window.switchChat('a'); await wait();
       type('Leaving'); await wait(); window.hideInput(); await wait();
       const count = writes.length;
       await wait(1100);

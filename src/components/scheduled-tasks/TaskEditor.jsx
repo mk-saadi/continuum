@@ -14,13 +14,14 @@ import {
 import "./tasks.css";
 
 const SCHEDULE_TYPES = [
+	{ value: "after_task", label: "After another task finishes" },
 	{ value: "once", label: "One time" },
 	{ value: "daily", label: "Every day" },
 	{ value: "every_n_days", label: "Every N days" },
 	{ value: "weekdays", label: "Selected weekdays" },
 ];
 
-const MISSED_OPTIONS = ["grace", "skip", "catch_up"].map((value) => ({
+const MISSED_OPTIONS = ["until_next", "grace", "skip", "catch_up"].map((value) => ({
 	value,
 	label: MISSED_POLICY_LABELS[value],
 }));
@@ -40,7 +41,7 @@ function modelOptions(models, currentId, placeholder) {
 	return [{ value: "", label: placeholder }, ...options];
 }
 
-export default function TaskEditor({ task = null, models = [], projects = [], onClose, onSave }) {
+export default function TaskEditor({ task = null, tasks = [], models = [], projects = [], onClose, onSave }) {
 	const dialogRef = useRef(null);
 	const timezoneId = useId();
 	const zones = useMemo(timezoneOptions, []);
@@ -125,11 +126,18 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 		}
 	}
 
+	const predecessorOptions = [
+		{ value: "", label: "Choose a task" },
+		...tasks.filter((item) => item.id !== task?.id).map((item) => ({ value: item.id, label: item.name })),
+	];
+	if (draft.predecessorId && !predecessorOptions.some(item => item.value === draft.predecessorId))
+		predecessorOptions.push({ value: draft.predecessorId, label: "Predecessor deleted — choose another task" });
+	const isDependency = draft.scheduleType === "after_task";
 	const isOnce = draft.scheduleType === "once";
 	return createPortal(
 		<dialog
 			ref={dialogRef}
-			className="aero-dialog sk-window sk-dialog m-auto w-[min(720px,calc(100vw-32px))] max-h-[calc(100dvh-48px)] overflow-auto p-0"
+			className="material-dialog sk-window sk-dialog m-auto w-[min(720px,calc(100vw-32px))] max-h-[calc(100dvh-48px)] overflow-auto p-0"
 			aria-labelledby="task-editor-title"
 			onCancel={(event) => {
 				event.preventDefault();
@@ -140,7 +148,7 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 				className="tasks-editor"
 				onSubmit={submit}
 			>
-				<header className="aero-header sk-window-header sk-texture-grain tasks-editor-header">
+				<header className="material-header sk-window-header sk-texture-grain tasks-editor-header">
 					<div>
 						<h2
 							id="task-editor-title"
@@ -154,7 +162,7 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 					</div>
 					<button
 						type="button"
-						className="aero-control sk-button grid size-8 shrink-0 place-items-center"
+						className="material-control sk-button grid size-8 shrink-0 place-items-center"
 						onClick={onClose}
 						aria-label="Close editor"
 						disabled={busy}
@@ -200,21 +208,23 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 						<h3 className="tasks-section-title">When should it run?</h3>
 						<div className="tasks-grid-2">
 							<SelectField
-								label="Repeat"
+								label="Trigger"
 								items={SCHEDULE_TYPES}
 								value={draft.scheduleType}
 								hint={withError('scheduleType', undefined)}
 								onChange={(event) => updateSchedule({ scheduleType: event.target.value })}
 							/>
-							<TextField
-								label="Timezone"
-								id={timezoneId}
-								list="scheduled-task-timezones"
-								value={draft.timezone}
-								required
-								hint={withError('timezone', "Times are stored in UTC and shown in this timezone.")}
-								onChange={(event) => updateSchedule({ timezone: event.target.value })}
-							/>
+							{!isDependency && (
+								<TextField
+									label="Timezone"
+									id={timezoneId}
+									list="scheduled-task-timezones"
+									value={draft.timezone}
+									required
+									hint={withError('timezone', "Times are stored in UTC and shown in this timezone.")}
+									onChange={(event) => updateSchedule({ timezone: event.target.value })}
+								/>
+							)}
 						</div>
 						<datalist id="scheduled-task-timezones">
 							{zones.map((zone) => (
@@ -224,7 +234,23 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 								/>
 							))}
 						</datalist>
-						{isOnce ? (
+						{isDependency ? (
+							<>
+								<SelectField
+									label="Predecessor task"
+									items={predecessorOptions}
+									value={draft.predecessorId}
+									hint={withError('predecessorId', "Runs once after each success or failure, including manual runs. Cancelled, interrupted, or skipped runs do not trigger it.")}
+									onChange={(event) => updateSchedule({ predecessorId: event.target.value })}
+								/>
+								<CheckboxField
+									label="Include the previous task’s result and failure details"
+									checked={draft.includeResult}
+									hint="The new task runs in its own chat. The previous result is included as reference data."
+									onChange={(event) => updateSchedule({ includeResult: event.target.checked })}
+								/>
+							</>
+						) : isOnce ? (
 							<div className="tasks-grid-2">
 								<TextField
 									label="Date"
@@ -286,7 +312,7 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 													<button
 														key={label}
 														type="button"
-														className="aero-control sk-button tasks-weekday"
+														className="material-control sk-button tasks-weekday"
 														aria-pressed={active}
 														aria-label={label}
 														onClick={() =>
@@ -351,31 +377,33 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 								onChange={(event) => update({ projectId: event.target.value })}
 							/>
 							<SelectField
-								label="If a run is missed"
+								label="If a run is missed or interrupted"
 								items={MISSED_OPTIONS}
 								value={draft.missedPolicy}
-								hint="Applies when Continuum was closed or asleep at the scheduled time. It never catches up while the app is closed."
+								hint="Latest run only retries when the app opens, until the next scheduled occurrence. Retrying starts a fresh chat and may repeat earlier actions."
 								onChange={(event) => update({ missedPolicy: event.target.value })}
 							/>
-							<div className="tasks-grid-2">
-								<NumberField
-									label="Grace period (hours)"
-									min={0}
-									max={8760}
-									value={draft.graceHours}
-									disabled={draft.missedPolicy !== "grace"}
-									hint={withError('graceHours', undefined)}
-									onChange={(event) => update({ graceHours: event.target.value })}
-								/>
-								<NumberField
-									label="Maximum overdue (days)"
-									min={1}
-									max={365}
-									value={draft.maxOverdueDays}
-									hint={withError('maxOverdueDays', "Older runs expire instead of running very late.")}
-									onChange={(event) => update({ maxOverdueDays: event.target.value })}
-								/>
-							</div>
+							{draft.missedPolicy !== "until_next" && (
+								<div className="tasks-grid-2">
+									<NumberField
+										label="Grace period (hours)"
+										min={0}
+										max={8760}
+										value={draft.graceHours}
+										disabled={draft.missedPolicy !== "grace"}
+										hint={withError('graceHours', undefined)}
+										onChange={(event) => update({ graceHours: event.target.value })}
+									/>
+									<NumberField
+										label="Maximum overdue (days)"
+										min={1}
+										max={365}
+										value={draft.maxOverdueDays}
+										hint={withError('maxOverdueDays', "Older runs expire instead of running very late.")}
+										onChange={(event) => update({ maxOverdueDays: event.target.value })}
+									/>
+								</div>
+							)}
 							<NumberField
 								label="Maximum run time (minutes)"
 								min={1}
@@ -415,7 +443,7 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 				<footer className="tasks-editor-footer">
 					<button
 						type="button"
-						className="aero-control sk-button tasks-button"
+						className="material-control sk-button tasks-button"
 						onClick={onClose}
 						disabled={busy}
 					>
@@ -423,7 +451,7 @@ export default function TaskEditor({ task = null, models = [], projects = [], on
 					</button>
 					<button
 						type="submit"
-						className="aero-primary sk-button sk-primary tasks-button tasks-button--primary"
+						className="material-primary sk-button sk-primary tasks-button tasks-button--primary"
 						disabled={busy}
 					>
 						{busy ? "Saving…" : task ? "Save changes" : "Create task"}

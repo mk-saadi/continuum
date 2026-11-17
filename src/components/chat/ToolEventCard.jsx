@@ -402,7 +402,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 			data-expanded={expanded}
 			className={
 				timeline
-					? `aero-chat-tool min-w-0 overflow-hidden ui-radius-control text-[13px] ${containerTone}`
+					? `material-chat-tool min-w-0 overflow-hidden ui-radius-control text-[13px] ${containerTone}`
 					: compact
 						? `min-w-0 overflow-hidden ui-radius-control border border-transparent text-xs ${expanded ? "bg-[var(--surface)]" : "bg-transparent"}`
 						: `min-w-0 overflow-hidden ui-radius-control border bg-[var(--surface)] text-xs ${TONE_STYLES[classification.tone] ?? TONE_STYLES.muted}`
@@ -491,7 +491,7 @@ export default function ToolEventCard({ step, compact = false, defaultExpanded =
 					<button
 						type="button"
 						onClick={() => setTranscriptOpen(true)}
-						className="aero-control sk-button aero-fill sk-fill cursor-pointer ui-radius-control px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+						className="material-control sk-button material-fill sk-fill cursor-pointer ui-radius-control px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
 					>
 						Show sub-agent activity
 					</button>

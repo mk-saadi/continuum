@@ -113,7 +113,7 @@ app.whenReady().then(async () => {
       const directRow = [...quickCloud.querySelectorAll('li')].find(row => row.textContent.includes('deepseek-chat'));
       directRow.querySelector('button').click(); await tick();
       check(window.selectedProvider.provider === 'deepseek' && window.selectedProvider.model === 'deepseek/deepseek-chat', 'One-click cloud choice uses exact provider and model');
-      check(!document.querySelector('[data-model-source="cloud"] .aero-inset'), 'One-click cloud choice needs no provider expansion');
+      check(!document.querySelector('[data-model-source="cloud"] .material-inset'), 'One-click cloud choice needs no provider expansion');
       window.pickerClosed = false; window.launchResult = {success:false,error:'Engine could not start'};
       document.querySelector('[aria-label="Load Qwen 3.6 35B A3B"]').click(); await tick(); await tick();
       check(!window.pickerClosed && document.querySelector('[role="alert"]').textContent.includes('Engine could not start'), 'Quick load failures keep picker open');

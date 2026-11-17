@@ -8,9 +8,9 @@
 .bc-filters button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; padding: 4px 6px; border-radius: var(--ui-radius-control, 4px); font-size: 10px; color: var(--text-muted); background: transparent; }
 .bc-filters button span { opacity: .75; font-variant-numeric: tabular-nums; }
 .bc-filters button:hover { background: var(--surface-hover); color: var(--text); }
-.bc-filters button[aria-pressed="true"] { color: var(--text); border-color: var(--border); background: var(--aero-gloss-control), var(--surface-raised); box-shadow: inset 0 1px 0 #ffffff12, 0 1px 2px #0003; }
+.bc-filters button[aria-pressed="true"] { color: var(--text); border-color: var(--border); background: var(--material-gloss-control), var(--surface-raised); box-shadow: inset 0 1px 0 #ffffff12, 0 1px 2px #0003; }
 .bc-list { display: grid; gap: 8px; }
-.bc-command { --bc-color: var(--text-muted); border: 1px solid var(--border); border-left: 3px solid var(--bc-color); border-radius: var(--ui-radius-control, 4px); background: var(--aero-gloss-panel), var(--surface); box-shadow: inset 0 1px 0 #ffffff0d, 0 1px 2px #0002; overflow: hidden; min-width: 0; }
+.bc-command { --bc-color: var(--text-muted); border: 1px solid var(--border); border-left: 3px solid var(--bc-color); border-radius: var(--ui-radius-control, 4px); background: var(--material-gloss-panel), var(--surface); box-shadow: inset 0 1px 0 #ffffff0d, 0 1px 2px #0002; overflow: hidden; min-width: 0; }
 .bc-running { --bc-color: var(--accent); }
 .bc-completed { --bc-color: #66b994; }
 .bc-failed { --bc-color: var(--error, #e88b86); }
@@ -33,7 +33,7 @@
 .bc-metadata dt { color: var(--text-muted); }
 .bc-metadata dd { margin: 0; text-align: right; }
 .bc-command-id { color: var(--text-muted); font: 9px/1.5 monospace; overflow-wrap: anywhere; margin: 8px 0; }
-.bc-stop { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: var(--ui-radius-control, 4px); background: var(--aero-gloss-control), var(--surface-raised); }
+.bc-stop { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: var(--ui-radius-control, 4px); background: var(--material-gloss-control), var(--surface-raised); }
 .bc-stop:hover { color: var(--error); border-color: var(--error); }
 .bc-stop:disabled { opacity: .6; cursor: wait; }
 .bc-output-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--text-muted); margin: 10px 0 6px; }

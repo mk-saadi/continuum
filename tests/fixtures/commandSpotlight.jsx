@@ -10,11 +10,14 @@ window.api = { getModelLoadConfig: async () => ({config:{contextLength:8192,gpuO
 window.mcpAPI = { setServerEnabled: async (name, enabled) => { window.calls.push(['mcp', name, enabled]); if (window.failMcp) throw new Error('Connection failed'); } };
 window.memoryPalace = {
   getAllSessions: async () => [{ folder_name: 'Chats', sessions: [{ id: 'saved', title: 'Saved conversation', model_id: 'test', project_id: null }] }],
-  loadSession: async id => ({ id, title: 'Saved conversation', model_id: 'test', project_id: null }),
+  loadSession: async id => ({ id, title: 'Saved conversation', model_id: 'test', project_id: null, messages: [] }),
+  selectMessageBranch: async (sessionId, messageId) => window.calls.push(['branch', sessionId, messageId]),
+  setActiveVariant: async (sessionId, messageId, index) => window.calls.push(['variant', sessionId, messageId, index]),
   searchMessages: async ({query,cursor}) => {
     window.calls.push(['search', query, cursor]);
     if(query === 'slow') await new Promise(resolve=>setTimeout(resolve,500));
-    return {matches:[{id:42,session_id:'saved',session_title:query,excerpt:'[MATCH]found[/MATCH] message'}],cursor:cursor ? null : 42};
+    if (!cursor) return {matches:[],cursor:100,timedOut:true};
+    return {matches: (cursor === 100 ? [42,43,44,45,46] : [41]).map(id => ({id,session_id:'saved',session_title:query,excerpt:'[MATCH]found[/MATCH] message',saved_variant_index:1})),cursor:cursor === 100 ? 42 : null};
   },
 };
 function Probe() {

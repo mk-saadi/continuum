@@ -142,7 +142,7 @@ const ChatTuning = ({ sessionId, modelId, onChanged, disabled = false }) => {
 					</p>
 					<button
 						type="button"
-						className="aero-control sk-button aero-fill sk-fill w-full cursor-pointer px-3 py-2 text-xs font-medium"
+						className="material-control sk-button material-fill sk-fill w-full cursor-pointer px-3 py-2 text-xs font-medium"
 						disabled={disabled || !Object.keys(state.overrides).length || status === "Saving…"}
 						onClick={() => save(null)}
 					>

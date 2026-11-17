@@ -19,7 +19,7 @@ export default function AppearanceSettings() {
 				<div className="grid grid-cols-3 gap-2">
 					{styles.map(({ value, label, hint }) => (
 						<label key={value} data-selected={appearance === value}
-							className="aero-control aero-style-choice sk-button flex cursor-pointer items-start gap-2 px-2.5 py-2 text-xs">
+							className="material-control material-style-choice sk-button flex cursor-pointer items-start gap-2 px-2.5 py-2 text-xs">
 							<input type="radio" name={name} value={value} checked={appearance === value}
 								onChange={() => setAppearance(value)} className="appearance-radio sk-radio mt-0.5 shrink-0 accent-[var(--accent)]" />
 							<span><span className="block font-semibold">{label}</span>

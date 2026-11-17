@@ -88,7 +88,7 @@ export default function MemoryTab({ palace }) {
 				) : memories.length === 0 ? (
 					<SettingsEmpty>No memories yet. Add a preference below.</SettingsEmpty>
 				) : (
-					<ul className="aero-flat sk-list divide-y divide-[var(--border)] p-3">
+					<ul className="material-flat sk-list divide-y divide-[var(--border)] p-3">
 						{memories.map((memory) => (
 							<li
 								key={memory.id}
@@ -111,7 +111,7 @@ export default function MemoryTab({ palace }) {
 								<Tooltip content="Delete memory">
 									<button
 										type="button"
-										className="aero-orb sk-icon-button aero-fill sk-fill aero-control--danger flex size-7 shrink-0 items-center justify-center"
+										className="material-orb sk-icon-button material-fill sk-fill material-control--danger flex size-7 shrink-0 items-center justify-center"
 										disabled={busy}
 										aria-label={`Delete memory: ${memory.content}`}
 										onClick={() => mutate(() => palace.api.deleteMemory(memory.id))}

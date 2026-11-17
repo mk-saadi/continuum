@@ -28,7 +28,7 @@ export default function TaskResults({ tasks, selectedId, onSelectTask, status, o
 		groups.get(day).push(run);
 	}
 	return (
-		<aside className="aero-panel sk-panel tasks-results" aria-label="Results">
+		<aside className="material-panel sk-panel tasks-results" aria-label="Results">
 			<header className="tasks-results-header">
 				<div className="tasks-section-header">
 					<h2 className="tasks-panel-title">Results</h2>
@@ -49,7 +49,7 @@ export default function TaskResults({ tasks, selectedId, onSelectTask, status, o
 				{selectedId && <button className="tasks-link" onClick={() => onSelectTask(null)}>Show all tasks</button>}
 			</header>
 			<div ref={scrollRef} className="tasks-results-scroll" aria-busy={history.loading}>
-				{history.error && <div className="tasks-results-message" role="alert"><p className="tasks-form-error">{history.error}</p><button className="aero-control sk-button tasks-button" onClick={onRetry}>Retry results</button></div>}
+				{history.error && <div className="tasks-results-message" role="alert"><p className="tasks-form-error">{history.error}</p><button className="material-control sk-button tasks-button" onClick={onRetry}>Retry results</button></div>}
 				{!history.runs.length && !history.error && <p className="tasks-placeholder" role="status">{history.loading ? "Loading results…" : "No runs match these filters."}</p>}
 				{[...groups].map(([day, runs]) => <section className="tasks-result-group" key={day} aria-label={day}>
 					<h3>{day}</h3>
@@ -69,9 +69,9 @@ export default function TaskResults({ tasks, selectedId, onSelectTask, status, o
 			</div>
 			<nav className="project-pagination tasks-results-pagination" aria-label="Results pagination">
 				<span className="tasks-muted" role="status">{history.total ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, history.total)} of {history.total} runs</span>
-				<button type="button" className="aero-control sk-button aero-fill sk-fill tasks-button" disabled={history.loading || page === 1} onClick={() => onPageChange(page - 1)}>Previous</button>
+				<button type="button" className="material-control sk-button material-fill sk-fill tasks-button" disabled={history.loading || page === 1} onClick={() => onPageChange(page - 1)}>Previous</button>
 				<span className="tasks-muted">Page {page} of {pageCount}</span>
-				<button type="button" className="aero-control sk-button aero-fill sk-fill tasks-button" disabled={history.loading || page >= pageCount} onClick={() => onPageChange(page + 1)}>Next</button>
+				<button type="button" className="material-control sk-button material-fill sk-fill tasks-button" disabled={history.loading || page >= pageCount} onClick={() => onPageChange(page + 1)}>Next</button>
 			</nav>
 		</aside>
 	);

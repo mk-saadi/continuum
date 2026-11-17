@@ -23,9 +23,9 @@ import {
 } from "react-icons/lu";
 
 const secondaryButton =
-	"aero-control sk-button aero-fill sk-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
-const ghostButton = "aero-orb sk-icon-button aero-fill sk-fill size-7 shrink-0 cursor-pointer";
-const modelCard = "model-selector-row aero-fill sk-fill relative";
+	"material-control sk-button material-fill sk-fill inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium";
+const ghostButton = "material-orb sk-icon-button material-fill sk-fill size-7 shrink-0 cursor-pointer";
+const modelCard = "model-selector-row material-fill sk-fill relative";
 const rowGrid = "grid grid-cols-[minmax(240px,1fr)_95px_125px_60px_80px_80px_65px] items-center gap-3";
 const capabilityIcons = [
 	["image", "Image input", LuEye],
@@ -449,12 +449,12 @@ export default function ModelSelectorModal({
 				event.preventDefault();
 				if (!busy) onClose();
 			}}
-			className="aero-dialog sk-window sk-dialog fixed inset-0 m-auto h-[85dvh] max-h-[85dvh] w-[calc(100%-24px)] max-w-[1000px] overflow-hidden p-0"
+			className="material-dialog sk-window sk-dialog fixed inset-0 m-auto h-[85dvh] max-h-[85dvh] w-[calc(100%-24px)] max-w-[1000px] overflow-hidden p-0"
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="aero-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
+				<header className="material-header sk-window-header sk-texture-grain flex shrink-0 items-center justify-between gap-3 px-4 py-4">
 					<div className="flex min-w-0 items-center gap-3">
-						<span className="aero-fill sk-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
+						<span className="material-fill sk-fill grid size-9 shrink-0 place-items-center text-[var(--accent)]">
 							<LuCpu
 								size={18}
 								aria-hidden="true"
@@ -568,13 +568,13 @@ export default function ModelSelectorModal({
 											<LuCloud aria-hidden="true" />
 										)}
 										{group.title}
-										<span className="aero-badge sk-badge px-2 py-0.5 text-[10px]">
+										<span className="material-badge sk-badge px-2 py-0.5 text-[10px]">
 											{group.entries.length}
 										</span>
 									</h3>
 									{/* <div
 							aria-hidden="true"
-							className={`${rowGrid} aero-flat sk-list sticky top-0 z-10 pl-3 pr-12 py-2 text-[11px] font-semibold text-[var(--text-muted)] mb-3`}
+							className={`${rowGrid} material-flat sk-list sticky top-0 z-10 pl-3 pr-12 py-2 text-[11px] font-semibold text-[var(--text-muted)] mb-3`}
 						>
 							<span>Model</span>
 							<span>Source</span>
@@ -625,7 +625,7 @@ export default function ModelSelectorModal({
 																	onClose();
 																} else if (!loading) quickLoad(model);
 															}}
-															className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-20 py-1.5 text-left disabled:opacity-40`}
+															className={`${rowGrid} material-list-item sk-list-row group w-full cursor-pointer pl-3 pr-20 py-1.5 text-left disabled:opacity-40`}
 														>
 															<Tooltip
 																content={
@@ -768,7 +768,7 @@ export default function ModelSelectorModal({
 															aria-current={active ? "true" : undefined}
 															disabled={busy}
 															onClick={() => chooseModel(row, entry.modelId)}
-															className={`${rowGrid} aero-list-item sk-list-row w-full cursor-pointer pl-3 pr-12 py-1.5 text-left`}
+															className={`${rowGrid} material-list-item sk-list-row w-full cursor-pointer pl-3 pr-12 py-1.5 text-left`}
 														>
 															<span className="min-w-0">
 																<span className="block truncate text-xs font-semibold">
@@ -898,7 +898,7 @@ export default function ModelSelectorModal({
 														aria-label={`${isActive ? "Change" : "Choose"} a model for ${row.name}`}
 														aria-current={isActive ? "true" : undefined}
 														onClick={() => toggleProvider(row)}
-														className={`${rowGrid} aero-list-item sk-list-row group w-full cursor-pointer pl-3 pr-12 py-1.5 text-left disabled:opacity-40`}
+														className={`${rowGrid} material-list-item sk-list-row group w-full cursor-pointer pl-3 pr-12 py-1.5 text-left disabled:opacity-40`}
 													>
 														<Tooltip content={row.baseUrl}>
 															<span className="min-w-0">
@@ -1001,7 +1001,7 @@ export default function ModelSelectorModal({
 														</span>
 													</button>
 													{expanded && (
-														<div className="aero-inset sk-well m-3 p-3">
+														<div className="material-inset sk-well m-3 p-3">
 															<div className="flex max-w-xl items-end gap-2">
 																<SearchableSelect
 																	className="min-w-0 flex-1"
@@ -1057,7 +1057,7 @@ export default function ModelSelectorModal({
 																		(modelId) => (
 																			<span
 																				key={modelId}
-																				className={`aero-badge sk-badge max-w-full py-0.5 pr-1 pl-2 text-[11px] ${isActive && modelId === activeModelId ? "aero-badge--accent" : ""}`}
+																				className={`material-badge sk-badge max-w-full py-0.5 pr-1 pl-2 text-[11px] ${isActive && modelId === activeModelId ? "material-badge--accent" : ""}`}
 																			>
 																				<button
 																					type="button"
@@ -1185,7 +1185,7 @@ export default function ModelSelectorModal({
 					{!entries.length && (
 						<p
 							role="status"
-							className="aero-empty sk-empty aero-fill sk-fill px-4 py-10 text-center text-xs leading-relaxed text-[var(--text-muted)]"
+							className="material-empty sk-empty material-fill sk-fill px-4 py-10 text-center text-xs leading-relaxed text-[var(--text-muted)]"
 						>
 							{query
 								? "No models match your search."
@@ -1193,7 +1193,7 @@ export default function ModelSelectorModal({
 						</p>
 					)}
 				</div>
-				<footer className="aero-footer aero-fill sk-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+				<footer className="material-footer material-fill sk-fill flex shrink-0 flex-col gap-2 px-4 py-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
 					<span>{metadataStatus && <span className="block">{metadataStatus}</span>}</span>
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
@@ -1208,7 +1208,7 @@ export default function ModelSelectorModal({
 							<Tooltip content={"Click to unload model"}>
 								<div
 									key={engine.modelPath}
-									className="aero-badge sk-badge flex min-w-0 items-center gap-1 py-0.5 pr-1 pl-2 cursor-pointer"
+									className="material-badge sk-badge flex min-w-0 items-center gap-1 py-0.5 pr-1 pl-2 cursor-pointer"
 									type="button"
 									tabIndex={0}
 									onClick={async () => {

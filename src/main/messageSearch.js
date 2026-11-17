@@ -46,6 +46,7 @@ function searchMessages(connection, query, options = {}) {
   if (options.until) { filters.push('m.created_at <= @until'); params.until = options.until; }
   const statement = connection.prepare(`SELECT m.id, m.session_id, m.role, m.content, m.created_at,
       m.parent_id, m.variant_index, m.archived, m.is_summarized, m.status,
+      ${options.includeVariants ? 'm.variants, m.active_variant_index,' : ''}
       s.project_id, s.title AS session_title
     FROM messages m JOIN sessions s ON s.id = m.session_id
     WHERE ${filters.join(' AND ')}
@@ -60,10 +61,19 @@ function searchMessages(connection, query, options = {}) {
       rowsSeen++;
       lastId = row.id;
       searched++;
-      const lower = row.content.toLowerCase();
-      if (terms.every(term => lower.includes(term))) {
+      let content = row.content;
+      let savedVariantIndex;
+      const includesTerms = text => typeof text === 'string' && terms.every(term => text.toLowerCase().includes(term));
+      let found = includesTerms(content);
+      if (!found && options.includeVariants) {
+        const variants = require('./messageVariants').parseVariants(row);
+        const index = variants.findIndex(variant => includesTerms(variant.content));
+        if (index >= 0) { found = true; content = variants[index].content; savedVariantIndex = index; }
+      }
+      if (found) {
         matches.push({ id: row.id, session_id: row.session_id, role: row.role,
-          excerpt: excerpt(row.content, terms), created_at: row.created_at,
+          excerpt: excerpt(content, terms), created_at: row.created_at,
+          ...(savedVariantIndex === undefined ? {} : { saved_variant_index: savedVariantIndex }),
           project_id: row.project_id, session_title: row.session_title,
           parent_id: row.parent_id, variant_index: row.variant_index,
           archived: row.archived, is_summarized: row.is_summarized, status: row.status });

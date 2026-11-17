@@ -1,0 +1,938 @@
+/* ==========================================================================
+   Shared component surfaces and interaction states
+   ========================================================================== */
+
+/* L0 — flat content surface. Use inside glass panels for transcript, code,
+   tables, terminal output, and any long-form text. No blur, no gloss. */
+.material-flat {
+	border: 1px solid var(--subtle-border);
+	background: var(--surface);
+	border-radius: var(--ui-radius-surface);
+}
+
+/* L3 — nested fill. A bevel without a second blur. */
+.material-fill {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-control);
+	background: var(--material-gloss-fill), var(--material-fill-fill);
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		inset 0 -1px 0 var(--material-shade);
+}
+
+/* Page stage. Every page that uses glass needs a lit backdrop behind it. */
+.material-stage {
+	position: relative;
+	isolation: isolate;
+	background-color: var(--bg-secondary);
+	background-image:
+		linear-gradient(180deg, color-mix(in srgb, #ffffff 5%, transparent), transparent 22%),
+		radial-gradient(
+			52rem 30rem at 14% -14%,
+			color-mix(in srgb, var(--accent) 22%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			38rem 26rem at 94% 2%,
+			color-mix(in srgb, var(--accent) 11%, transparent),
+			transparent 72%
+		),
+		radial-gradient(
+			34rem 22rem at 58% 118%,
+			color-mix(in srgb, var(--accent) 9%, transparent),
+			transparent 70%
+		);
+}
+html[data-bg-image="true"] .material-stage {
+	background-color: transparent;
+	background-image: none;
+}
+
+/* L3 — quiet content panel. Glass is reserved for the enclosing chrome. */
+.material-panel {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-panel-gloss, var(--material-gloss-panel)), var(--material-panel-fill, var(--material-surface));
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: var(--material-bevel-panel);
+}
+
+/* Interactive panel (clickable card). Do not use on static cards. */
+.material-panel--interactive {
+	transition:
+		transform var(--material-dur-panel) var(--material-ease),
+		box-shadow var(--material-dur-panel) var(--material-ease),
+		border-color var(--material-dur-panel) var(--material-ease);
+}
+.material-panel--interactive:hover {
+	border-color: color-mix(in srgb, var(--accent) 48%, var(--material-line));
+	transform: none;
+	box-shadow:
+		var(--material-bevel-panel-hover),
+		0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* L2 — raised control (secondary button, tab, chip). */
+.material-control {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-control);
+	background: var(--material-gloss-control), var(--material-surface-raised);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: var(--material-bevel-control);
+	transition:
+		transform var(--material-dur-control) var(--material-ease),
+		box-shadow var(--material-dur-control) var(--material-ease),
+		border-color var(--material-dur-control) var(--material-ease),
+		background-color var(--material-dur-control) var(--material-ease);
+}
+.material-control:hover {
+	border-color: color-mix(in srgb, #ffffff 28%, transparent);
+	background: var(--material-gloss-control-hover), color-mix(in srgb, var(--surface-hover) 72%, transparent);
+}
+.material-control:active,
+.material-control[data-pressed="true"] {
+	transform: translateY(1px);
+	background: var(--material-gloss-pressed), color-mix(in srgb, var(--surface-hover) 60%, transparent);
+	box-shadow: var(--material-bevel-pressed);
+}
+.material-control[aria-pressed="true"],
+.material-control[aria-selected="true"],
+.material-control[data-selected="true"] {
+	border-color: color-mix(in srgb, #ffffff 30%, transparent);
+	border-bottom-color: var(--material-line-bottom-strong);
+	background: var(--material-gloss-accent), var(--material-accent-fill);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 32%, transparent),
+		0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		var(--material-glow);
+	color: var(--on-accent);
+}
+
+/* L5 — primary CTA. */
+.material-primary {
+	border: 1px solid color-mix(in srgb, #ffffff 40%, transparent);
+	border-bottom-color: var(--material-line-bottom-strong);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-gloss-accent), var(--material-accent-fill);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 35%, transparent),
+		0 1px 3px color-mix(in srgb, #000000 30%, transparent),
+		0 6px 14px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+	color: var(--on-accent);
+	transition:
+		transform var(--material-dur-control) var(--material-ease),
+		box-shadow var(--material-dur-control) var(--material-ease),
+		background-color var(--material-dur-control) var(--material-ease);
+}
+.material-primary:hover {
+	background: var(--material-gloss-accent-hover), var(--material-accent-fill-hover);
+}
+.material-primary:active {
+	transform: translateY(1px);
+	background: var(--material-gloss-pressed), var(--material-accent-fill-hover);
+	box-shadow:
+		inset 0 3px 6px color-mix(in srgb, #000000 52%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #ffffff 10%, transparent);
+}
+
+/* L1 — sunken well (input, search, path chip, track). */
+.material-well {
+	border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-gloss-well), var(--material-well-fill);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: var(--material-bevel-well);
+}
+.material-well:hover {
+	border-color: color-mix(in srgb, #ffffff 24%, transparent);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, #000000 10%, transparent) 0%, transparent 32%),
+		color-mix(in srgb, var(--input) 70%, transparent);
+}
+.material-well:focus,
+.material-well:focus-within {
+	border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+	box-shadow:
+		inset 0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+		var(--material-glow);
+}
+.material-well[aria-invalid="true"],
+.material-well:has([aria-invalid="true"]) {
+	border-color: color-mix(in srgb, var(--error) 80%, transparent);
+	box-shadow:
+		inset 0 2px 5px color-mix(in srgb, #000000 40%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--error) 55%, transparent),
+		0 0 18px -4px color-mix(in srgb, var(--error) 70%, transparent);
+}
+
+/* Raised orb (icon toggle, pin, knob). */
+.material-orb {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-round);
+	background: var(--material-gloss-orb), color-mix(in srgb, var(--surface-raised) 45%, transparent);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: var(--material-bevel-orb);
+	color: var(--text-secondary);
+	transition:
+		color var(--material-dur-control) var(--material-ease),
+		border-color var(--material-dur-control) var(--material-ease),
+		box-shadow var(--material-dur-control) var(--material-ease),
+		transform var(--material-dur-control) var(--material-ease);
+}
+.material-orb:hover {
+	color: var(--text-primary);
+	border-color: color-mix(in srgb, #ffffff 34%, transparent);
+}
+.material-orb[aria-pressed="true"]:active {
+	transform: translateY(1px);
+	box-shadow: var(--material-bevel-pressed);
+}
+.material-orb[aria-pressed="true"] {
+	color: var(--on-accent);
+	border-color: color-mix(in srgb, #ffffff 46%, transparent);
+	border-bottom-color: var(--material-line-bottom-strong);
+	background: var(--material-gloss-orb-selected), var(--material-accent-fill);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 65%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 30%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 28%, transparent),
+		0 0 16px -3px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+/* Raised pill (badge, status, chip that is not a button). */
+.material-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-round);
+	background: var(--material-gloss-control), var(--material-surface-raised);
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		0 1px 2px var(--material-shade);
+	color: var(--text-secondary);
+}
+.material-badge--accent {
+	border-color: color-mix(in srgb, #ffffff 30%, transparent);
+	border-bottom-color: var(--material-line-bottom-strong);
+	background: var(--material-gloss-accent), var(--material-accent-fill);
+	color: var(--on-accent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, #000000 32%, transparent),
+		0 1px 3px color-mix(in srgb, #000000 35%, transparent);
+}
+
+/* L4 — dialog. Apply to the <dialog> itself. */
+.material-dialog {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-gloss-chrome), var(--material-surface-strong);
+	-webkit-backdrop-filter: blur(var(--material-blur-float)) saturate(var(--material-saturate-float));
+	backdrop-filter: blur(var(--material-blur-float)) saturate(var(--material-saturate-float));
+	box-shadow: var(--material-shadow-float);
+	color: var(--text-primary);
+}
+.material-dialog::backdrop {
+	background: color-mix(in srgb, #000000 var(--material-backdrop-dim), transparent);
+}
+
+/* L4 — popover, menu, dropdown, toast. */
+.material-popover {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-gloss-chrome), var(--material-surface-strong);
+	-webkit-backdrop-filter: blur(var(--material-blur-float)) saturate(var(--material-saturate-float));
+	backdrop-filter: blur(var(--material-blur-float)) saturate(var(--material-saturate-float));
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
+		0 1px 4px color-mix(in srgb, #000000 30%, transparent),
+		0 14px 32px -14px color-mix(in srgb, #000000 48%, transparent);
+}
+
+/* L4 — tooltip. No gloss: it is text and must stay crisp. */
+.material-tooltip {
+	border: 1px solid var(--material-line);
+	border-bottom-color: var(--material-line-bottom);
+	border-radius: var(--ui-radius-control);
+	background: var(--material-surface-strong);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow:
+		inset 0 1px 0 var(--material-line-soft),
+		0 6px 16px -6px var(--material-shade-strong);
+}
+
+/* Selected tab. Uses the app's existing aria-current/data-active marker. */
+.material-tab {
+	border: 1px solid transparent;
+	border-bottom: 0;
+	border-radius: var(--ui-radius-control) var(--ui-radius-control) 0 0;
+	background: transparent;
+	box-shadow: none;
+	transition:
+		background-color var(--material-dur-control) var(--material-ease),
+		box-shadow var(--material-dur-control) var(--material-ease),
+		color var(--material-dur-control) var(--material-ease);
+}
+.material-tab:hover {
+	background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+}
+.material-tab[data-active="true"],
+.material-tab[aria-selected="true"],
+.material-tab[aria-current="page"] {
+	border-color: var(--material-line);
+	background: var(--material-gloss-control), var(--material-surface-raised);
+	box-shadow:
+		var(--material-bevel-control),
+		inset 0 -2px 0 var(--accent);
+	color: var(--text-primary);
+}
+
+/* Well + accent fill for progress and sliders. */
+.material-track {
+	border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+	border-radius: var(--ui-radius-round);
+	background: var(--material-gloss-well), var(--material-well-fill);
+	box-shadow: var(--material-bevel-well);
+	overflow: hidden;
+}
+.material-track__fill {
+	background: var(--material-gloss-accent), var(--material-accent-fill);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent);
+}
+
+/* Empty state. Dashed glass, not a solid card. */
+.material-empty {
+	border: 1px dashed color-mix(in srgb, var(--material-line) 55%, var(--border));
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-surface-subtle);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, #ffffff 26%, transparent),
+		0 10px 24px -14px color-mix(in srgb, #000000 55%, transparent);
+}
+
+/* Shared focus + disabled contract. */
+.material-control:focus-visible,
+.material-primary:focus-visible,
+.material-orb:focus-visible,
+.material-tab:focus-visible,
+.material-badge:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.material-control:disabled,
+.material-control[aria-disabled="true"],
+.material-primary:disabled,
+.material-primary[aria-disabled="true"] {
+	cursor: not-allowed;
+	opacity: 0.45;
+	transform: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+/* Keep bottom rims in shadow even when hover changes the other edges. */
+.material-control:hover,
+.material-orb:hover,
+.material-panel--interactive:hover {
+	border-bottom-color: var(--material-line-bottom);
+}
+.material-primary:hover,
+.material-control[aria-pressed="true"],
+.material-control[aria-selected="true"],
+.material-control[data-selected="true"],
+.material-orb[aria-pressed="true"] {
+	border-bottom-color: var(--material-line-bottom-strong);
+}
+/* Nested material retains its shape and bevel without another blur layer. */
+.material-fill {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+.material-orb:active {
+	transform: translateY(1px);
+	box-shadow: var(--material-bevel-pressed);
+}
+.material-orb:disabled,
+.material-orb[aria-disabled="true"],
+.material-tab:disabled,
+.material-tab[aria-disabled="true"],
+.material-well:disabled,
+.material-well:has(> input:disabled, > textarea:disabled, > select:disabled) {
+	cursor: not-allowed;
+	opacity: 0.45;
+	transform: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+.material-control:disabled,
+.material-control[aria-disabled="true"],
+.material-primary:disabled,
+.material-primary[aria-disabled="true"],
+.material-orb:disabled,
+.material-orb[aria-disabled="true"],
+.material-tab:disabled,
+.material-tab[aria-disabled="true"] {
+	pointer-events: none;
+}
+
+/* Chrome gets the reflection; a modal supplies one shared blur behind all
+   of its header/navigation/footer fills. No extra compositing for its children. */
+/* Recessed editors stay stable through hover; focus is localized at the rim. */
+/* Disabled controls never acquire a hover/pressed material. */
+:is(.material-control, .material-primary, .material-orb):is(:disabled, [aria-disabled="true"]):is(:hover, :active) {
+	background: var(--material-gloss-control), var(--material-surface-raised);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+	transform: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.material-panel {
+		background: var(--surface);
+	}
+	.material-control {
+		background: var(--surface-raised);
+	}
+	.material-well {
+		background: var(--input);
+	}
+	.material-dialog,
+	.material-popover,
+	.material-tooltip {
+		background: var(--surface-raised);
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.material-panel,
+	.material-control,
+	.material-well,
+	.material-orb,
+	.material-badge,
+	.material-dialog,
+	.material-popover,
+	.material-tooltip,
+	.material-fill,
+	.material-empty {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+	.material-panel {
+		background: var(--surface);
+	}
+	.material-control {
+		background: var(--surface-raised);
+	}
+	.material-well {
+		background: var(--input);
+	}
+	.material-dialog,
+	.material-popover {
+		background: var(--surface-raised);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.material-panel,
+	.material-panel--interactive,
+	.material-control,
+	.material-primary,
+	.material-orb {
+		transition: none;
+	}
+	.material-panel--interactive:hover {
+		transform: none;
+	}
+}
+/* Wallpaper animations must not force per-frame backdrop filtering. */
+html[data-bg-animated="true"]
+	:is(
+		.material-panel,
+		.material-control,
+		.material-well,
+		.material-orb,
+		.material-empty,
+		.material-dialog,
+		.material-popover,
+		.material-tooltip
+	) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	:is(.material-panel--interactive, .material-control, .material-primary, .material-orb):is(
+		:hover,
+		:active,
+		[data-pressed="true"]
+	) {
+		transform: none;
+	}
+}
+@media (forced-colors: active) {
+	:is(
+		.material-panel,
+		.material-fill,
+		.material-control,
+		.material-primary,
+		.material-well,
+		.material-orb,
+		.material-badge,
+		.material-dialog,
+		.material-popover,
+		.material-tooltip,
+		.material-empty,
+		.material-track,
+		.material-tab
+	) {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	:is(.material-fill, .material-orb, .material-badge, .material-empty) {
+		background: var(--surface-raised);
+	}
+	.material-track {
+		background: var(--input);
+	}
+}
+@media (prefers-reduced-transparency: reduce) {
+	:is(.material-fill, .material-orb, .material-badge, .material-empty, .material-tooltip) {
+		background: var(--surface-raised);
+	}
+	.material-track {
+		background: var(--input);
+	}
+}
+
+/* A nested utility keeps its own bevel/shape but never stacks backdrop blur.
+   Portaled menus remain outside the ancestor and retain their L4 material. */
+:is(.material-panel, .material-dialog, .material-popover, .material-well)
+	:is(.material-panel, .material-control, .material-well, .material-orb, .material-empty) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+/* Native checkbox input stays semantic; its adjacent span paints the well. */
+.material-checkbox {
+	border: 1px solid var(--material-line);
+	border-radius: var(--ui-radius-small);
+	background: var(--material-gloss-well), var(--material-well-fill);
+	box-shadow: var(--material-bevel-well);
+	color: transparent;
+}
+input:checked + .material-checkbox {
+	border-color: var(--material-line-bottom-strong);
+	background: var(--material-gloss-accent), var(--material-accent-fill);
+	color: var(--on-accent);
+}
+input:focus-visible + .material-checkbox {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+input:disabled + .material-checkbox {
+	opacity: 0.45;
+}
+@media (forced-colors: active) {
+	.material-checkbox {
+		background: Canvas;
+		border-color: ButtonBorder;
+		box-shadow: none;
+	}
+	input:checked + .material-checkbox {
+		background: Highlight;
+		color: HighlightText;
+	}
+}
+
+/* Lightweight row feedback: no blur or lift on dense lists and menus. */
+.material-list-item {
+	/* border-radius: var(--ui-radius-control); */
+	background: transparent;
+	transition: background-color var(--material-dur-control) var(--material-ease);
+}
+.material-list-item[aria-selected="true"] {
+	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.material-list-item:hover,
+.material-list-item:focus-visible {
+	background: var(--material-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		inset 0 -1px 0 var(--material-shade);
+	color: var(--text-primary);
+}
+.material-list-item:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.material-list-item:active {
+	background: var(--material-gloss-pressed), color-mix(in srgb, var(--accent) 28%, var(--surface));
+	box-shadow: var(--material-bevel-pressed);
+}
+.material-list-item:disabled {
+	pointer-events: none;
+	cursor: not-allowed;
+}
+/* Read-only copy sits in an opaque, sunken well with a restrained bevel. */
+.material-inset {
+	border: 1px solid var(--material-line);
+	border-radius: var(--ui-radius-surface);
+	background: var(--material-gloss-well), var(--surface);
+	box-shadow: var(--material-bevel-well);
+}
+@media (prefers-reduced-motion: reduce) {
+	.material-list-item {
+		transition: none;
+	}
+}
+@media (forced-colors: active) {
+	.material-list-item:is(:hover, :focus-visible, [aria-selected="true"]) {
+		background: Highlight;
+		color: HighlightText;
+		box-shadow: none;
+	}
+	.material-inset {
+		border-color: ButtonBorder;
+		background: Canvas;
+		box-shadow: none;
+	}
+}
+
+/* Select triggers need a clearer hover/open rim than text-entry wells. */
+.material-well:has(> button[aria-haspopup="listbox"]):hover,
+.material-well:has(> button[aria-haspopup="listbox"][aria-expanded="true"]) {
+	border-color: color-mix(in srgb, var(--accent) 65%, var(--material-line));
+	background: var(--material-gloss-well), color-mix(in srgb, var(--accent) 12%, var(--input));
+	box-shadow:
+		var(--material-bevel-well),
+		0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/* Flat window chrome supports raised tabs without a large blurred surface. */
+.material-tabbar {
+	scrollbar-width: none;
+	border-bottom: 1px solid var(--material-line-bottom);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 65%),
+		var(--surface-raised);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+.material-tabbar::-webkit-scrollbar {
+	display: none;
+}
+.material-tab-close {
+	border: 0;
+	background: none;
+	box-shadow: none;
+	color: inherit;
+}
+.material-tab {
+	color: var(--text-secondary);
+}
+.material-tab:hover {
+	border-color: var(--material-line-soft);
+	background: var(--material-gloss-panel), color-mix(in srgb, var(--surface-hover) 72%, transparent);
+	color: var(--text-primary);
+}
+.material-tab[data-active="true"]:hover {
+	border-color: var(--material-line-strong);
+	background: var(--material-gloss-control-hover), var(--material-surface-raised);
+}
+.material-tab:has(.material-tab-label:active) {
+	background: var(--material-gloss-pressed), var(--surface-hover);
+	box-shadow: var(--material-bevel-pressed);
+}
+.material-tab[data-active="true"]:has(.material-tab-label:active) {
+	box-shadow:
+		var(--material-bevel-pressed),
+		inset 0 -2px 0 var(--accent);
+}
+.material-tab:has(:focus-visible) {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.material-tab-label:focus-visible {
+	outline: none;
+}
+.material-tab[data-dragging="true"] {
+	opacity: 0.4;
+}
+/* Ghost chrome buttons stay light until hovered; no nested glass. */
+.material-chrome-button {
+	border-radius: var(--ui-radius-control);
+	background: transparent;
+	color: var(--text-muted);
+}
+.material-chrome-button:hover {
+	background: var(--material-gloss-control), color-mix(in srgb, var(--error) 20%, var(--surface));
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		inset 0 -1px 0 var(--material-shade);
+	color: var(--text-primary);
+}
+.material-chrome-button:active {
+	background: var(--material-gloss-pressed), var(--surface-hover);
+}
+.material-chrome-button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.material-tab {
+		transition: none;
+	}
+}
+@media (forced-colors: active) {
+	.material-tabbar {
+		background: Canvas;
+		border-color: ButtonBorder;
+		box-shadow: none;
+	}
+	.material-tab[data-active="true"] {
+		border-color: Highlight;
+		background: Canvas;
+		color: CanvasText;
+	}
+	.material-tab:hover,
+	.material-chrome-button:hover {
+		background: Highlight;
+		color: HighlightText;
+		box-shadow: none;
+	}
+}
+
+/* Header is window chrome: top-lit, opaque, and never backdrop-blurred. */
+.material-header {
+	border-bottom: 1px solid var(--material-line-bottom);
+	background: var(--material-gloss-panel), var(--surface);
+	box-shadow:
+		inset 0 1px 0 var(--material-line-soft),
+		inset 0 -1px 0 var(--material-shade);
+	color: var(--text-primary);
+}
+@media (forced-colors: active) {
+	.material-header {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+	}
+}
+
+/* Sidebar is the unblurred frame; only its individual cards use glass. */
+.sidebar-frame {
+	border-left: 1px solid var(--border);
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+}
+.sidebar-frame .material-tab:focus-visible {
+	outline-offset: -2px;
+}
+/* Status badges keep their semantic tone above the shared material color. */
+.material-badge[data-tone="good"] {
+	color: var(--accent);
+}
+.material-badge[data-tone="bad"] {
+	color: var(--error);
+}
+.material-badge[data-tone="warn"] {
+	color: var(--warning);
+}
+/* Current model/provider rows remain identifiable between hover states. */
+.material-list-item[aria-current="true"] {
+	background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.material-list-item[aria-current="true"]:hover {
+	background: var(--material-gloss-panel), color-mix(in srgb, var(--accent) 22%, var(--surface));
+	box-shadow:
+		inset 0 1px 0 var(--material-line-strong),
+		inset 0 -1px 0 var(--material-shade);
+}
+/* Menus/tooltips must stay in a native dialog's top-layer subtree. The
+   dialog already supplies blur, so these portal surfaces only need their fill. */
+.material-dialog :is(.material-popover, .material-tooltip) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+/* Flat chrome band with the same top border geometry as existing footers. */
+.material-footer {
+	border-top: 1px solid var(--material-line);
+	background: var(--material-gloss-panel), var(--surface);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+@media (forced-colors: active) {
+	.material-footer {
+		border-color: ButtonBorder;
+		background: Canvas;
+		box-shadow: none;
+	}
+}
+
+/* Warning metrics keep their semantic boundary above the shared panel rim. */
+.material-panel[data-tone="warn"] {
+	border-color: var(--warning);
+}
+
+/* Modal navigation is chrome: lighting without another backdrop filter. */
+.material-navigation {
+	background: var(--material-gloss-panel), var(--surface);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+
+/* Reading-first chat materials: opaque fills, shallow edges, no blur. */
+.material-chat-user {
+	border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--user-bubble));
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent 28%),
+		var(--user-bubble);
+	box-shadow:
+		inset 0 1px 0 var(--material-line-soft),
+		0 1px 2px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+.material-chat-composer {
+	border: none;
+	border-radius: var(--ui-radius-surface);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 24%),
+		var(--surface-raised);
+	box-shadow: none;
+}
+.material-chat-composer:focus-within {
+	border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.material-chat-composer[data-dragging="true"] {
+	border-color: var(--accent);
+}
+[data-chat-mode="workspace"] .material-chat-composer {
+	background: var(--surface-raised);
+	box-shadow:
+		inset 0 1px 0 var(--material-line-soft),
+		0 1px 3px color-mix(in srgb, var(--shadow) 24%, transparent);
+}
+.material-chat-detail {
+	border: 1px solid var(--subtle-border);
+	background: var(--surface);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+.workspace-run .material-chat-tool > button {
+	-webkit-user-select: text;
+	user-select: text;
+}
+.material-chat-tool[data-expanded="true"] {
+	/* The transcript can share --surface, so lift expanded calls toward the
+	   theme's text color for visible separation in both light and dark palettes. */
+	background: color-mix(in srgb, var(--surface) 88%, var(--text-primary));
+}
+/* Solarized's muted foreground needs a darker fill to retain readability. */
+html[data-theme="solarized-dark"] .material-chat-tool[data-expanded="true"] {
+	background: color-mix(in srgb, var(--surface) 65%, black);
+}
+
+/* Explicit geometry keeps the prompt separator visible above message actions. */
+.workspace-prompt-divider {
+	align-self: stretch;
+	flex: 0 0 auto;
+	height: 0;
+	margin-top: 12px;
+	border-top: 1px solid;
+	border-color: color-mix(in srgb, var(--accent), transparent 30%);
+}
+
+/* Quiet content surfaces: reserve the strongest lighting for active chrome. */
+.material-metric {
+	border-color: var(--subtle-border);
+	background: var(--surface);
+	background-image: none;
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+.material-metric[data-tone="warn"] {
+	border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+}
+.material-theme-choice:not([aria-checked="true"]) {
+	border-color: var(--border);
+	background: var(--surface);
+	box-shadow: inset 0 1px 0 var(--material-line-soft);
+}
+.material-theme-choice:not([aria-checked="true"]):hover {
+	border-color: var(--accent);
+	background: var(--surface-hover);
+}
+/* A theme scrim sits above the wallpaper, outside the UI opacity group.
+   This protects reading contrast without filtering animated image frames. */
+html[data-bg-image="true"]::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: color-mix(in srgb, var(--bg-primary, var(--surface)) 32%, transparent);
+}
+@media (forced-colors: active) {
+	.material-metric,
+	.material-theme-choice:not([aria-checked="true"]),
+	.material-theme-choice:not([aria-checked="true"]):hover {
+		border-color: ButtonBorder;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+	}
+	html[data-bg-image="true"]::before {
+		background: Canvas;
+	}
+}
+
+/* Chrome participates in the same performance and accessibility fallbacks. */
+
+/* Keep chat composer geometry and border color stable during focus. */
+html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .material-chat-composer,
+html :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .material-chat-composer:focus-within {
+	border-width: 1px;
+	border-color: color-mix(in srgb, var(--border) 50%, transparent);
+}
+html[data-style="skeu"] :is([data-chat-mode="casual"], [data-chat-mode="workspace"]) .sk-composer,
+html[data-style="skeu"]
+	:is([data-chat-mode="casual"], [data-chat-mode="workspace"])
+	.sk-composer:is(:hover, :focus-within) {
+	border: 1px solid color-mix(in srgb, var(--text-primary) 25%, var(--surface));
+	box-shadow: none;
+	outline: none;
+}
+
+/* Flat composers need an explicit solid edge; the base surface has no border. */
+html[data-appearance="flat"] [data-chat-mode] .material-chat-composer,
+html[data-appearance="flat"] [data-chat-mode] .material-chat-composer:focus-within {
+	border: 1px solid var(--border);
+}
+
+/* Appearance choices stay quiet until selected, including during hover/press.
+   Preserve geometry, swatches, radio indicators, and keyboard focus outlines. */

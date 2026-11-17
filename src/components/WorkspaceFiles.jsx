@@ -241,7 +241,7 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 				<span className="min-w-0 flex-1 truncate">{projectName || "Workspace"}</span>
                 {hasRepository && <Tooltip content="Review all uncommitted changes">
                   <button type="button" onClick={() => onSelect(WORKSPACE_CHANGES)}
-                  className="aero-control sk-button aero-fill sk-fill ui-radius-control px-2 py-1 cursor-pointer"
+                  className="material-control sk-button material-fill sk-fill ui-radius-control px-2 py-1 cursor-pointer"
                   aria-label="Review all uncommitted changes">Changes</button>
                 </Tooltip>}
 				<Tooltip content="Refresh files">
@@ -249,7 +249,7 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 						type="button"
 						aria-label="Refresh files"
 						onClick={() => setRefresh((value) => value + 1)}
-						className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+						className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
 					>
 						<FiRefreshCw />
 					</button>
@@ -350,7 +350,7 @@ function UnsupportedFile({ projectId, path }) {
  const [error, setError] = useState('');
  return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-[var(--text-muted)]">
   <p>File format not supported</p>
-  <button type="button" className="aero-control sk-button aero-fill sk-fill ui-radius-control px-4 py-2 cursor-pointer"
+  <button type="button" className="material-control sk-button material-fill sk-fill ui-radius-control px-4 py-2 cursor-pointer"
    onClick={() => window.api.revealWorkspaceFile(projectId, path).catch(error => setError(error.message))}>Show in file manager</button>
   {error && <p role="alert">{error}</p>}
  </div>;
@@ -470,7 +470,7 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 								type="button"
 								aria-pressed={showDiff === active}
 								onClick={() => setShowDiff(active)}
-								className="aero-control sk-button aero-fill sk-fill flex h-7 cursor-pointer items-center justify-center ui-radius-control px-2.5 text-[11px]"
+								className="material-control sk-button material-fill sk-fill flex h-7 cursor-pointer items-center justify-center ui-radius-control px-2.5 text-[11px]"
 							>
 								{label}
 							</button>
@@ -484,7 +484,7 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 						aria-label="Toggle line wrap"
 						aria-pressed={wrap}
 						onClick={() => setWrap((value) => !value)}
-						className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+						className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
 					>
 						<FiCornerDownLeft />
 					</button>
@@ -493,7 +493,7 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 					type="button"
 					aria-label="Refresh preview"
 					onClick={() => setRefresh((value) => value + 1)}
-					className="aero-control sk-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+					className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
 				>
 					<FiRefreshCw />
 				</button>
@@ -501,7 +501,7 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 					type="button"
 					aria-label="Close file preview"
 					onClick={onClose}
-					className="aero-orb sk-icon-button aero-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center"
+					className="material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center"
 				>
 					<FiX />
 				</button>
