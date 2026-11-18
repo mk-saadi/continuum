@@ -16,7 +16,7 @@ app.whenReady().then(async () => {
     await esbuild.build({ entryPoints: [path.join(__dirname, 'fixtures/spendingDashboard.jsx')], bundle: true,
       outfile: path.join(directory, 'fixture.js'), define: { 'process.env.NODE_ENV': '"test"' } });
     const assets = path.join(__dirname, '../dist/assets');
-    const css = (await fs.readdir(assets)).find(file => file.endsWith('.css'));
+    const css = (await fs.readdir(assets)).find(file => file.startsWith('index-') && file.endsWith('.css'));
     await fs.copyFile(path.join(assets, css), path.join(directory, 'fixture.css'));
     await fs.writeFile(path.join(directory, 'index.html'), '<link rel="stylesheet" href="fixture.css"><div id="root"></div><script src="fixture.js"></script>');
     await window.loadFile(path.join(directory, 'index.html'));
@@ -28,7 +28,7 @@ app.whenReady().then(async () => {
       const button = (scope, label) => [...scope.querySelectorAll('button')].find(element => element.textContent.trim() === label);
       const fire = (element, type = 'change') => element.dispatchEvent(new Event(type, { bubbles: true }));
       const selectByLabel = prefix => {
-        const label = [...document.querySelectorAll('label')].find(element => element.textContent.trim().startsWith(prefix));
+        const label = [...document.querySelectorAll('label')].find(element => element.getClientRects().length && element.textContent.trim().startsWith(prefix));
         if (!label) throw new Error('Missing select labelled ' + prefix);
         return document.getElementById(label.htmlFor);
       };
@@ -44,8 +44,21 @@ app.whenReady().then(async () => {
       };
 
       await wait();
-      check(body().includes('Cloud spending & usage'), 'the dashboard heading is shown');
-      check(body().includes('Read-only aggregation') && body().includes('UTC'), 'the read-only UTC contract is stated');
+      check(document.querySelectorAll('[role=tab]').length === 3, 'dashboard has three tabs');
+      check(document.getElementById('usage-costs-panel-overview').textContent.includes('13,850'), 'overview includes cloud and local tokens');
+      check(document.querySelector('[aria-labelledby=usage-filters-title]').hidden, 'overview hides duplicate spending controls');
+      const tabTop = tab('Cloud spending').getBoundingClientRect().top;
+      tab('Cloud spending').click(); await wait();
+      check(tab('Cloud spending').getBoundingClientRect().top === tabTop, 'tabs do not move when switching');
+      check(!selectByLabel('Provider').disabled, 'spending controls are enabled');
+      document.documentElement.setAttribute('data-appearance', 'neumorphism');
+      await wait(30);
+      check(getComputedStyle(document.querySelector('[role=tablist]')).borderBottomWidth === '0px', 'neumorphism tabs have no bottom line');
+      const metrics = document.querySelector('.usage-spending-metrics');
+      check(getComputedStyle(metrics).gap === '24px', 'neumorphism metric shadows have breathing room');
+      check(getComputedStyle(metrics).gridTemplateColumns.split(' ').length === 2, 'neumorphism metrics use two readable columns');
+      document.documentElement.removeAttribute('data-appearance');
+      check(body().includes('UTC'), 'the read-only UTC contract is stated');
       check(metric('Total priced spend').includes('$0.0183'), 'total priced spend is shown');
       check(metric('Rate-based estimate').includes('$0.0121'), 'rate-based estimate is separate');
       check(metric('Provider-reported').includes('$0.0062'), 'provider-reported spend is separate');
@@ -56,7 +69,7 @@ app.whenReady().then(async () => {
       check(body().includes('daily buckets') && body().includes('weeks start Monday') === false, 'the UTC daily bucket label is explicit');
 
       // Theme compatibility: cards consume the app theme variables.
-      const card = document.querySelector('#usage-costs-panel-overview section');
+      const card = document.querySelector('#usage-costs-panel-spending .material-metric');
       document.documentElement.setAttribute('data-theme', 'light');
       await wait(30);
       const light = getComputedStyle(card).backgroundColor;
@@ -66,6 +79,7 @@ app.whenReady().then(async () => {
       check(light && dark && light !== dark, 'dashboard surfaces follow the active theme variables');
       check(light !== 'rgba(0, 0, 0, 0)' && dark !== 'rgba(0, 0, 0, 0)', 'dashboard surfaces are painted, not transparent');
 
+      tab('Records & pricing').click(); await wait();
       // Local-only selection: cost is "not applicable", never $0.00.
       await choose('Provider', 'Local models');
       await wait();
@@ -76,10 +90,18 @@ app.whenReady().then(async () => {
       button(document, 'Reset filters').click();
       await wait();
 
+      tab('Cloud spending').click(); await wait();
+      selectByLabel('Model').click(); await wait(30);
+      check(![...document.querySelectorAll('[role=option]')].some(option => option.textContent.includes('llama-3')), 'cloud model menu excludes local models');
+      const menu = document.querySelector('[role=listbox]');
+      check(menu.getBoundingClientRect().width >= 480, 'model menu opens wider');
+      document.querySelector('[role=option]').click(); await wait();
+      check(window.queries.some(query => query.method === 'getSpendingDashboard' && query.options.cloudOnly === true), 'cloud scope reaches backend');
+
       // Model table, tiny cost formatting, and detail view.
-      tab('Cloud models').click();
+      tab('Cloud spending').click();
       await wait();
-      const modelsPanel = document.getElementById('usage-costs-panel-models');
+      const modelsPanel = document.getElementById('usage-costs-panel-spending');
       check(modelsPanel.textContent.includes('Spending by cloud model'), 'the model table is shown');
       check(modelsPanel.textContent.includes('< $0.0001'), 'a tiny non-zero model cost never renders as $0.00');
       check(!modelsPanel.textContent.includes('llama-3'), 'local models are excluded from cloud spending');
@@ -95,23 +117,23 @@ app.whenReady().then(async () => {
         && query.options.modelId === 'claude-sonnet-5' && query.options.providerId === 'anthropic-p'), 'provider identity is passed to model detail');
 
       // Provider breakdown filters the model view.
-      tab('Providers').click();
+      tab('Cloud spending').click();
       await wait();
-      const providersPanel = document.getElementById('usage-costs-panel-providers');
+      const providersPanel = document.getElementById('usage-costs-panel-spending');
       check(providersPanel.textContent.includes('Spending by provider'), 'the provider breakdown is shown');
       check(providersPanel.textContent.includes('Direct Anthropic') && providersPanel.textContent.includes('OpenRouter'), 'provider routes stay distinct');
-      check(providersPanel.textContent.includes('—'), 'local provider usage is not applicable');
+      check(!providersPanel.textContent.includes('Local models'), 'local providers are excluded from cloud spending');
       button(providersPanel, 'Claude').click();
       await wait();
       check(selectByLabel('Provider').textContent.includes('Claude'), 'selecting a provider applies the shared filter');
-      check(tab('Cloud models').getAttribute('aria-selected') === 'true', 'selecting a provider opens the filtered model view');
+      check(tab('Cloud spending').getAttribute('aria-selected') === 'true', 'selecting a provider opens the filtered model view');
       button(document, 'Reset filters').click();
       await wait();
 
       // Attribution and paginated records.
-      tab('Conversations').click();
+      tab('Records & pricing').click();
       await wait();
-      const conversations = document.getElementById('usage-costs-panel-conversations');
+      const conversations = document.getElementById('usage-costs-panel-records');
       check(conversations.textContent.includes('Where usage originated'), 'attribution is shown');
       check(conversations.textContent.includes('Chat one') && conversations.textContent.includes('$0.0151'), 'conversation totals are attributed');
       await choose('Group by', 'Main agent / subagent');
@@ -126,9 +148,9 @@ app.whenReady().then(async () => {
       check(window.queries.some(query => query.method === 'getSpendingRecords' && query.options.limit === 25), 'records request a bounded page');
 
       // Pricing history, expanded evidence, and no invented effective date.
-      tab('Pricing history').click();
+      tab('Records & pricing').click();
       await wait();
-      const pricing = document.getElementById('usage-costs-panel-pricing');
+      const pricing = document.getElementById('usage-costs-panel-records');
       check(pricing.textContent.includes('Pricing history'), 'pricing history is shown');
       check(pricing.textContent.includes('Read-only evidence'), 'pricing history is labelled read-only');
       check(pricing.textContent.includes('anthropic catalog'), 'the recorded source is shown');

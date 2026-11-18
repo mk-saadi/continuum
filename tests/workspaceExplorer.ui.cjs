@@ -193,7 +193,7 @@ if (!process.versions.electron) {
       await window.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Git diff').click()`);
       await new Promise(resolve => setTimeout(resolve, 350));
       await fs.writeFile('/tmp/workspace-explorer-preview.png', (await window.webContents.capturePage()).toPNG());
-      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.getAttribute('aria-label') === 'Review all uncommitted changes').click()`);
       await new Promise(resolve => setTimeout(resolve, 450));
       assert.equal(await window.webContents.executeJavaScript(`(async () => {
         const view = document.querySelector('[aria-label="Workspace changes"]');
@@ -216,7 +216,7 @@ if (!process.versions.electron) {
       })()`), true);
       await new Promise(resolve => setTimeout(resolve, 150));
       assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="File preview"]').textContent.includes('src/app.js') && !document.querySelector('[aria-label="Workspace changes"]')`), true);
-      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+      await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.getAttribute('aria-label') === 'Review all uncommitted changes').click()`);
       await new Promise(resolve => setTimeout(resolve, 450));
       assert.ok(await window.webContents.executeJavaScript(`!!document.querySelector('[aria-label="Workspace changes"]')`), 'Explorer opens all changes directly');
 
@@ -224,7 +224,7 @@ if (!process.versions.electron) {
       await new Promise(resolve => setTimeout(resolve, 100));
       assert.equal(await window.webContents.executeJavaScript(`!document.querySelector('[aria-label="File preview"]') && document.querySelector('[aria-label="Message"]').value === 'Keep my draft'`), true);
       for (let cycle=0;cycle<5;cycle++) {
-        await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.textContent.trim() === 'Changes').click()`);
+        await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="File explorer"] button')].find(button => button.getAttribute('aria-label') === 'Review all uncommitted changes').click()`);
         await new Promise(resolve => setTimeout(resolve, 450));
         assert.ok(await window.webContents.executeJavaScript(`!!document.querySelector('[data-change-line="added"] .token')`), 'Syntax highlighting survives repeated open/close');
         await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Close file preview"]').click()`);

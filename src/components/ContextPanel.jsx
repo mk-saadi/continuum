@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { buildContextTooltip } from '../lib/contextDisplay.mjs';
 import { useCompressionEvents } from '../context/CompressionEventsContext.jsx';
 
 const cardClass = 'material-panel sk-panel p-3';
@@ -43,6 +44,16 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
   const input = live?.promptTokens ?? current?.tokens ?? runTelemetry?.lastPromptTokens ?? usage?.telemetry?.lastPromptTokens;
   const estimated = live ? live.isEstimate : current ? current.method !== 'server-template-tokenizer' : null;
   const contextLabel = live ? 'Current context:' : current ? 'Prepared context:' : 'Last request context:';
+  const details = buildContextTooltip({
+    total: input ?? null,
+    limit: contract?.usableInputTokens ?? null,
+    method: live?.method ?? current?.method,
+    confidence: live ? (live.isEstimate ? 'estimated' : 'measured') : current?.confidence,
+    live,
+    persisted: runTelemetry ?? usage?.telemetry,
+    budgetContract: contract,
+    prepared: current?.tokens,
+  }).split('\n');
   if (!api) return <div className={cardClass}><p className={bodyClass}>Context inspection is available in the desktop app.</p></div>;
   return <div className="space-y-3">
     <div className={cardClass}>
@@ -54,6 +65,12 @@ export default function ContextPanel({ sessionId, modelId = null, active = false
         {current?.imageCount > 0 && <p>Image allowance: {number(current.imageAllowanceTokens)} estimated tokens</p>}
         <p>Compaction starts at 90% of usable input, with 5% extra headroom for estimates.</p>
         <p>Cached input still occupies context. Cumulative usage is separate from context occupancy.</p>
+      </div>
+    </div>
+    <div className={cardClass}>
+      <h3 className={headingClass}>Context details</h3>
+      <div className={`${bodyClass} space-y-2`}>
+        {details.map((line, index) => <p key={index}>{line}</p>)}
       </div>
     </div>
     <div className={cardClass}>

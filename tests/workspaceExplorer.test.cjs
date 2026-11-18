@@ -25,7 +25,7 @@ test('workspace browsing bounds reads and rejects paths outside the project', as
       module: service, Buffer, process, URL,
       require: name => name === 'electron' ? { shell: { showItemInFolder: target => { revealed = target; } } } : name === './projectManager' ? { getProject: id => {
         assert.equal(id, 'project'); return { root_path: root };
-      } } : name === './workspaceGit' ? require('../src/main/workspaceGit') : name === './toolPermissions' ? require('../src/main/toolPermissions') : require(name),
+      } } : name === './tools/fileMutationQueue' ? require('../src/main/tools/fileMutationQueue') : name === './workspaceGit' ? require('../src/main/workspaceGit') : name === './toolPermissions' ? require('../src/main/toolPermissions') : require(name),
     });
     const { listDirectory, readFile, gitStatus, repositoryInfo } = service.exports;
     assert.equal((await readFile('project', 'image.png')).kind, 'image');
@@ -56,6 +56,30 @@ test('workspace browsing bounds reads and rejects paths outside the project', as
     await assert.rejects(readFile('project', 'escape'), /escapes/);
     await assert.rejects(listDirectory('project', '..'), /escapes/);
     await assert.rejects(readFile('project', 'src'), /regular file/);
+    await fs.writeFile(path.join(root, 'src', 'SearchTarget.jsx'), 'source');
+    await fs.mkdir(path.join(root, 'node_modules'));
+    await fs.writeFile(path.join(root, 'node_modules', 'SearchTarget.jsx'), 'dependency');
+    await fs.symlink(path.join(directory), path.join(root, 'linked-directory'));
+    const search = service.exports.searchFiles;
+    const found = await search('project', 'SEARCHtarget');
+    assert.equal(found.items.length, 1);
+    assert.equal(found.items[0].path, 'src/SearchTarget.jsx');
+    assert.equal((await search('project', 'src/search')).items.length, 1);
+    assert.equal((await search('project', 'outside.txt')).items.length, 0);
+    assert.equal((await search('project', '  ')).items.length, 0);
+    assert.equal((await search('project', 'missing-file')).items.length, 0);
+    await assert.rejects(search('project', 'x'.repeat(257)), /256/);
+    const { writeFile } = service.exports;
+    await writeFile('project', 'hello.txt', 'Edited', 'Hello workspace');
+    assert.equal(await fs.readFile(path.join(root, 'hello.txt'), 'utf8'), 'Edited');
+    await assert.rejects(writeFile('project', 'hello.txt', 'lost update', 'Hello workspace'), /changed on disk/);
+    await writeFile('project', 'hello.txt', '', 'Edited');
+    assert.equal(await fs.readFile(path.join(root, 'hello.txt'), 'utf8'), '');
+    await writeFile('project', 'hello.txt', 'Hello workspace', '');
+    await assert.rejects(writeFile('project', 'escape', 'overwrite', 'outside'), /escapes/);
+    await assert.rejects(writeFile('project', '../outside.txt', 'overwrite', 'outside'), /escapes/);
+    await assert.rejects(writeFile('project', 'large.txt', 'partial', ''), /complete text/);
+    await assert.rejects(writeFile('project', 'binary.dat', 'text', ''), /UTF-8/);
     const git = args => require('node:child_process').execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     // Remove the fake metadata marker before initializing a real test repo.
     await fs.rm(path.join(root, '.git'), { recursive: true });

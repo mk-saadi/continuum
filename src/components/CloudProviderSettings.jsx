@@ -45,6 +45,7 @@ export default function CloudProviderSettings() {
 	const [tab, setTab] = useState("text");
 	const [modelLists, setModelLists] = useState({});
 	const modelRequests = useRef({});
+	const savedNames = useRef({});
 	const [busy, setBusy] = useState(true);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
@@ -55,6 +56,7 @@ export default function CloudProviderSettings() {
 			.then(([rows, savedDefaults]) => {
 				if (!active) return;
 				setProviders(rows);
+				savedNames.current = Object.fromEntries(rows.map((row) => [row.id, row.name]));
 				setDefaults(savedDefaults);
 			})
 			.catch((err) => {
@@ -125,6 +127,7 @@ export default function CloudProviderSettings() {
 				? await window.api.deleteCloudProvider({ id: row.id, category: row.category })
 				: await window.api.saveCloudProvider(row);
 			setProviders(saved);
+			savedNames.current = Object.fromEntries(saved.map((row) => [row.id, row.name]));
 			setDefaults(await window.api.getCloudProviderDefaults());
 			if (remove) clearModels(row.id);
 			setMessage(`${row.name || "Provider"} ${remove ? "deleted" : "saved"}.`);
@@ -205,8 +208,7 @@ export default function CloudProviderSettings() {
 				{tab === "text" ? (
 					<>
 						<SettingsHint>
-							API keys are stored locally in this app’s settings database. Leave a saved key
-							blank to keep it.
+							API keys are stored locally in this app’s settings database.
 						</SettingsHint>
 						<div className="mt-3">
 							<SettingsButton
@@ -279,7 +281,39 @@ export default function CloudProviderSettings() {
 				)}
 			</SettingsCard>
 
-			{visibleProviders.map((row) => (
+			{visibleProviders.map((row) => row.configured ? (
+				<SettingsCard key={row.id}>
+					<div className="flex items-end gap-2">
+						<TextField
+							className="min-w-0 flex-1"
+							label="Name"
+							required
+							value={row.name}
+							disabled={busy}
+							onChange={(event) => update(row.id, "name", event.target.value)}
+							onBlur={(event) => {
+								if (event.relatedTarget?.dataset.deleteProvider) return;
+								const name = row.name.trim();
+								if (!name) {
+									update(row.id, "name", savedNames.current[row.id]);
+									return;
+								}
+								if (name !== savedNames.current[row.id]) persist({ ...row, name });
+							}}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") event.currentTarget.blur();
+							}}
+						/>
+						<SettingsButton
+							data-delete-provider="true"
+							disabled={busy}
+							onClick={() => persist(row, true)}
+						>
+							Delete
+						</SettingsButton>
+					</div>
+				</SettingsCard>
+			) : (
 				<SettingsCard
 					as="form"
 					key={row.id}

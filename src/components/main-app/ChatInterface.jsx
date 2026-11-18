@@ -735,7 +735,7 @@ export function ChatInterface({
 
     const historyNavigation = useRef(0);
     useEffect(() => { if (!tabActive) historyNavigation.current++; return () => { historyNavigation.current++; }; }, [tabActive]);
-	const loadChat = async (id) => {
+	const loadChat = async (id, options = {}) => {
         if (onNavigateChat) {
           const request = ++historyNavigation.current;
           if (id === palace.sessionId) { onChat(); return; }
@@ -745,7 +745,7 @@ export function ChatInterface({
             if (!session) { await refreshHistory().catch(() => {}); throw new Error('This chat no longer exists.'); }
             const targetProject = projects.find(project => project.id === session.project_id) ?? null;
             const mode = resolveChatPermissionMode({ sessionId: id, currentSessionId: palace.sessionId, tabMode: tabPermissionMode, sessionMode: permissionBySession[id], project: targetProject });
-            onNavigateChat(session, mode);
+            onNavigateChat(session, mode, { newTab: !!options.newTab });
           } catch (error) { if (request === historyNavigation.current) setHistoryError(error.message); }
           return;
         }
@@ -1037,6 +1037,7 @@ export function ChatInterface({
 	// non-Latin keyboard layouts still trigger on the physical F key.
 	useEffect(() => {
 		const onFindKey = (event) => {
+            if (event.target.closest?.('[aria-label="File preview"]')) return;
 			if (event.key === "Escape" && findOpen) {
 				closeFindRef.current?.();
 				return;
@@ -2048,7 +2049,7 @@ export function ChatInterface({
                     </div>}</>,
                 },
 			})}
-            <WorkspaceSplit visible={view === "chat"} preview={isWorkspaceChat && selectedWorkspaceFile ? <WorkspaceFilePreview onSelectFile={setSelectedWorkspaceFile} sessionId={palace.sessionId} running={streaming || loading || agentLoading} projectId={chatProjectId} path={selectedWorkspaceFile} onClose={closeWorkspaceFile} /> : null}>
+            <WorkspaceSplit visible={view === "chat"} preview={isWorkspaceChat && selectedWorkspaceFile ? <WorkspaceFilePreview onAddToChat={askAboutSelection} onSelectFile={setSelectedWorkspaceFile} sessionId={palace.sessionId} running={streaming || loading || agentLoading} projectId={chatProjectId} path={selectedWorkspaceFile} onClose={closeWorkspaceFile} /> : null}>
 			<div
 				style={view === "chat" ? undefined : { display: "none" }}
 				className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none"

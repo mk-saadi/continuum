@@ -294,3 +294,26 @@ html[data-appearance="neumorphism"] .additional-prompts.material-chat-detail {
 html[data-appearance="neumorphism"] .material-chat-tool[data-expanded="true"] {
   background: color-mix(in srgb, var(--neu-material) 90%, var(--text-primary));
 }
+
+/* Usage cards need room for their raised shadows inside the settings pane. */
+html[data-appearance="neumorphism"] .usage-costs-dashboard [role="tablist"] {
+  border-bottom: 0;
+  gap: 8px;
+}
+html[data-appearance="neumorphism"] .usage-costs-dashboard [role="tab"] {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+html[data-appearance="neumorphism"] .usage-spending-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  padding: 8px;
+}
+html[data-appearance="neumorphism"] .usage-spending-metrics > .material-metric {
+  padding: 16px;
+}
+@media (max-width: 640px) {
+  html[data-appearance="neumorphism"] .usage-spending-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

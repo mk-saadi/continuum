@@ -14,6 +14,7 @@ app.whenReady().then(async () => {
     await require('esbuild').build({stdin:{resolveDir:process.cwd(),loader:'jsx',contents:`
       import React,{useEffect,useState} from 'react';
       import {createRoot} from 'react-dom/client';
+      import {ToastProvider} from 'react-toast-master';
       import {TabProvider,useTabs} from './src/context/TabContext.jsx';
       import Sidebar from './src/components/Sidebar.jsx';
       import TabBar from './src/components/TabBar.jsx';
@@ -28,26 +29,33 @@ app.whenReady().then(async () => {
       function Fixture(){
         const tabs=useTabs();window.tabsApi=tabs;
         const [workspace,setWorkspace]=useState(false);window.setWorkspace=setWorkspace;
-        return <><TabBar /><Sidebar isWorkspace={workspace} chatProjectId={workspace?'p':null} projects={[{id:'p',name:'Project'}]} groups={[{folder_name:'Chats',sessions}]} disabled activeId={tabs.activeTab.sessionId} onLoad={id=>tabs.openSessionTab(sessions.find(session=>session.id===id))} onNew={()=>{}} />{tabs.tabs.map(tab=><Pane key={tab.id} tab={tab} active={tab.id===tabs.activeTabId}/>)}</>;
+        return <><TabBar /><Sidebar isWorkspace={workspace} chatProjectId={workspace?'p':null} projects={[{id:'p',name:'Project'}]} groups={[{folder_name:'Chats',sessions}]} disabled activeId={tabs.activeTab.sessionId} onLoad={(id,options={})=>tabs.openSessionTab(sessions.find(session=>session.id===id), undefined, {newTab:!!options.newTab})} onNew={()=>{}} />{tabs.tabs.map(tab=><Pane key={tab.id} tab={tab} active={tab.id===tabs.activeTabId}/>)}</>;
       }
-      createRoot(document.getElementById('root')).render(<TabProvider><Fixture/></TabProvider>);
+      createRoot(document.getElementById('root')).render(<ToastProvider><TabProvider><Fixture/></TabProvider></ToastProvider>);
     `},bundle:true,outfile:path.join(directory,'app.js'),loader:{'.css':'empty'}});
     await fs.writeFile(path.join(directory,'index.html'),'<div id="root"></div><script src="app.js"></script>');
     await window.loadFile(path.join(directory,'index.html'));
     await window.webContents.executeJavaScript(`(async()=>{
       const tick=()=>new Promise(resolve=>setTimeout(resolve,80));
       const check=(value,message)=>{if(!value)throw new Error(message);};
-      await tick();
+      for(let i=0;i<50 && !document.querySelector('[data-session-id="casual"] > button');i++) await tick();
       const original=window.tabsApi.activeTab;
       window.tabsApi.updateTab(original.id,{status:'generating'});await tick();
       const before=window.ticks[original.sessionId];
       const casual=document.querySelector('[data-session-id="casual"] > button');
       check(casual && !casual.disabled,'casual chat selectable during generation');casual.click();await tick();
       check(window.tabsApi.activeTab.sessionId==='casual','casual chat opens independently');
+      check(window.tabsApi.tabs.length===2,'busy original is retained in background');
+      const idleTabId=window.tabsApi.activeTabId;
       window.setWorkspace(true);await tick();
       const workspace=document.querySelector('[data-session-id="workspace"] > button');
       check(workspace && !workspace.disabled,'workspace chat selectable during generation');workspace.click();await tick();
       check(window.tabsApi.activeTab.sessionId==='workspace','workspace chat opens independently');
+      check(window.tabsApi.tabs.length===2 && !window.tabsApi.tabs.some(tab=>tab.id===idleTabId),'idle conversation is replaced without adding a tab');
+      window.setWorkspace(false);await tick();
+      const middleChat=document.querySelector('[data-session-id="casual"] > button');
+      middleChat.dispatchEvent(new MouseEvent('auxclick',{button:1,bubbles:true,cancelable:true}));await tick();
+      check(window.tabsApi.tabs.length===3 && window.tabsApi.activeTab.sessionId==='casual','middle click opens another chat in a new tab');
       check(window.ticks[original.sessionId]>before,'original pane continues background activity');
       check(window.tabsApi.tabs.find(tab=>tab.id===original.id).status==='generating','original run status preserved');
       check(!window.cancelled.length && !window.unmounted.includes(original.sessionId),'navigation neither cancels nor unmounts original run');

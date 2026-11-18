@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { syntaxTheme } from '../lib/syntaxTheme.mjs';
 import { observeChangeSection } from '../lib/observeChangeSections.mjs';
-import { loadWorkspaceDiffs } from '../lib/loadWorkspaceDiffs.mjs';
+import { createVisibleDiffReader } from '../lib/visibleDiffReader.mjs';
 
 const languages = { js:'javascript', jsx:'jsx', mjs:'javascript', cjs:'javascript', ts:'typescript', tsx:'tsx', py:'python', json:'json', css:'css', scss:'scss', html:'markup', svg:'markup', xml:'markup', md:'markdown', sh:'bash', yml:'yaml', yaml:'yaml', rs:'rust', go:'go', c:'c', cpp:'cpp', java:'java', rb:'ruby', sql:'sql' };
 
@@ -28,16 +28,37 @@ const HighlightedDiff = React.memo(function HighlightedDiff({ diff, path, wrap }
 
 export const WORKSPACE_CHANGES = '\0workspace-changes';
 
-const FileChanges = React.memo(function FileChanges({ file, diff, onOpenFile, wrap }) {
+const FileChanges = React.memo(function FileChanges({ file, readDiff, onOpenFile, wrap }) {
   const container = useRef(null);
   const body = useRef(null);
-  const height = useRef(96);
+  // Start with a realistic placeholder, rather than stacking many 96px
+  // sections inside the observer margin and mounting all their highlighters.
+  const height = useRef(Math.max(96, ((file.added || 0) + (file.deleted || 0) + 10) * 18 + 16));
+  const [diff, setDiff] = useState(null);
+  const [requested, setRequested] = useState(false);
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(true);
   useEffect(() => observeChangeSection(container.current, inView => {
     if (!inView && body.current) height.current = body.current.getBoundingClientRect().height || height.current;
     setVisible(inView);
   }), []);
+  useEffect(() => { if (visible && open) setRequested(true); }, [visible, open]);
+  useEffect(() => {
+    if (!requested) return;
+    let cancelled = false;
+    readDiff(file.path).then(result => { if (!cancelled && result) setDiff(result); });
+    return () => { cancelled = true; };
+  }, [requested, readDiff, file.path]);
+  // Cache the actual height after loading, not only after IntersectionObserver
+  // has reported departure (which can otherwise make scroll geometry oscillate).
+  useEffect(() => {
+    if (!visible || !open || !diff || !body.current) return;
+    const node = body.current;
+    const measure = () => { height.current = node.getBoundingClientRect().height || height.current; };
+    const observer = new ResizeObserver(measure);
+    observer.observe(node); measure();
+    return () => observer.disconnect();
+  }, [visible, open, diff]);
   return <section ref={container} className="border-b border-[var(--border)]" aria-label={file.path}>
     <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
       <Tooltip content={file.path}>
@@ -54,7 +75,7 @@ const FileChanges = React.memo(function FileChanges({ file, diff, onOpenFile, wr
         className="material-control sk-button material-fill sk-fill ui-radius-control cursor-pointer px-2 py-1">Open file</button>}
     </div>
     {open && !visible && <div aria-hidden="true" style={{ height:height.current }} />}
-    {open && visible && <div ref={body} className="min-h-24 overflow-x-auto bg-[var(--code-bg)] text-[var(--code-text)]">
+    {open && visible && <div ref={body} style={!diff ? { minHeight: height.current } : undefined} className="min-h-24 overflow-x-auto bg-[var(--code-bg)] text-[var(--code-text)]">
       {!diff ? <p role="status" className="p-4 text-xs text-[var(--text-muted)]">Loading diff…</p>
         : diff.error || diff.binary || diff.unavailable || !diff.text
           ? <p role={diff.error ? 'alert' : 'status'} className="p-4 text-xs text-[var(--text-muted)]">
@@ -69,47 +90,35 @@ const FileChanges = React.memo(function FileChanges({ file, diff, onOpenFile, wr
 
 const WorkspaceChanges = React.memo(function WorkspaceChanges({ sessionId, refresh, onOpenFile, wrap }) {
   const [state, setState] = useState({ loading: true });
-  const [diffs, setDiffs] = useState({});
+  const [reader, setReader] = useState(null);
   useEffect(() => {
     let cancelled = false;
     setState({ loading: true });
-    setDiffs({});
-    let timer;
-    let resume;
-    const yieldTask = () => new Promise(resolve => {
-      resume = resolve;
-      timer = setTimeout(() => { resume = null; resolve(); }, 40);
-    });
+    const queue = createVisibleDiffReader(path => window.api.getRecoveryFileDiff(sessionId, path));
+    setReader({ read: queue.read });
     (async () => {
       try {
         const result = await window.api.getRecoveryChangedFiles(sessionId, { includeCounts: true });
         if (cancelled) return;
         setState(result);
-        await loadWorkspaceDiffs(result.files || [], {
-          read: path => window.api.getRecoveryFileDiff(sessionId, path),
-          publish: (path, diff) => setDiffs(previous => ({ ...previous, [path]:diff })),
-          cancelled: () => cancelled,
-          yieldTask,
-        });
       } catch (error) { if (!cancelled) setState({ error:error.message }); }
     })();
-    return () => { cancelled = true; clearTimeout(timer); resume?.(); };
+    return () => { cancelled = true; queue.close(); };
   }, [sessionId, refresh]);
   const totals = useMemo(() => (state.files || []).reduce((sum, file) => ({
     added:sum.added + (file.added || 0), deleted:sum.deleted + (file.deleted || 0),
   }), {added:0, deleted:0}), [state.files]);
-  const loadedCount = Object.keys(diffs).length;
-  if (state.loading || state.error) return <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-[var(--text-muted)]" role={state.error ? 'alert' : 'status'}>{state.error || 'Loading changed files…'}</div>;
+  if (state.loading || state.error || !reader) return <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-[var(--text-muted)]" role={state.error ? 'alert' : 'status'}>{state.error || 'Loading changed files…'}</div>;
   const files = state.files || [];
   return <div className="flex min-h-0 flex-1 flex-col" aria-label="Workspace changes">
     <div className="flex shrink-0 gap-3 border-b border-[var(--border)] px-3 py-3 text-xs">
-      <span role="status">{loadedCount < files.length ? `Loading diffs ${loadedCount}/${files.length} · ` : ""}{state.branch || 'Working tree'} · {files.length} changed files</span>
+      <span role="status">{state.branch || 'Working tree'} · {files.length} changed files</span>
       <span className="text-[var(--success)]">+{totals.added}</span>
       <span className="text-[var(--error)]">−{totals.deleted}</span>
     </div>
     <div className="min-h-0 flex-1 overflow-auto">
       {!files.length && <p className="p-6 text-center text-sm text-[var(--text-muted)]">No uncommitted changes.</p>}
-      {files.map(file => <FileChanges key={file.path} diff={diffs[file.path]} {...{ file, onOpenFile, wrap }} />)}
+      {files.map(file => <FileChanges key={`${sessionId}:${refresh}:${file.path}`} readDiff={reader.read} {...{ file, onOpenFile, wrap }} />)}
       {state.truncated && <p role="status" className="p-3 text-xs text-[var(--text-muted)]">Showing the first {files.length} changed files.</p>}
     </div>
   </div>;

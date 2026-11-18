@@ -258,9 +258,17 @@ function createWindow() {
 	mainWindow.on("enter-full-screen", sendFullscreenState);
 	mainWindow.on("leave-full-screen", sendFullscreenState);
 	mainWindow.webContents.on("before-input-event", (event, input) => {
-		if (input.type !== "keyDown" || input.key !== "F11") return;
-		event.preventDefault();
-		if (!input.isAutoRepeat) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+		if (input.type !== "keyDown") return;
+		if ((input.control || input.meta) && !input.alt && ["=", "+"].includes(input.key)) {
+			event.preventDefault();
+			const contents = mainWindow.webContents;
+			contents.setZoomLevel(Math.min(9, contents.getZoomLevel() + 0.5));
+			return;
+		}
+		if (input.key === "F11") {
+			event.preventDefault();
+			if (!input.isAutoRepeat) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+		}
 	});
 
 	mainWindow.webContents.on("did-finish-load", () => {

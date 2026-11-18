@@ -43,7 +43,7 @@ function FieldShell({ id, label, hint, required, children, className = "" }) {
 // Shared dropdown placement for the custom selects: keeps the menu inside the
 // viewport and any containing <dialog>, flipping above the trigger when there
 // is no room below. Returns coordinates for the fixed-position menu.
-function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
+function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen, menuMinWidth = 220 }) {
 	const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0, width: 0 });
 	useLayoutEffect(() => {
 		if (!isOpen) return;
@@ -63,7 +63,7 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 				setIsOpen(false);
 				return;
 			}
-			const width = Math.min(Math.max(rect.width, 220), rightEdge - leftEdge);
+			const width = Math.min(Math.max(rect.width, menuMinWidth), rightEdge - leftEdge);
 			const below = Math.max(0, bottomEdge - rect.bottom - 6);
 			const above = Math.max(0, rect.top - topEdge - 6);
 			const desiredHeight = Math.min(menu.scrollHeight + 2, 288);
@@ -96,7 +96,7 @@ function useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen }) {
 			document.removeEventListener("scroll", placeMenu, true);
 			observer.disconnect();
 		};
-	}, [isOpen, openTop]);
+	}, [isOpen, openTop, menuMinWidth]);
 	return menuCoords;
 }
 
@@ -163,6 +163,7 @@ export const SelectField = forwardRef(function SelectField(
 		placeholder = "Select...",
 		disabled,
 		openTop = false,
+		menuMinWidth = 220,
 		icon,
 		items = [], // Array of { value, label, description, icon }
 		dropdownFooter, // ReactNode OR Function({ close }) => ReactNode
@@ -179,7 +180,7 @@ export const SelectField = forwardRef(function SelectField(
 
 	const triggerRef = useRef(null);
 	const menuRef = useRef(null);
-	const menuCoords = useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen });
+	const menuCoords = useMenuCoords({ isOpen, openTop, triggerRef, menuRef, setIsOpen, menuMinWidth });
 
 	const options =
 		items.length > 0

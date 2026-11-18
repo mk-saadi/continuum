@@ -3,7 +3,7 @@ import { FaBars, FaCog, FaEject, FaSlidersH } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
 import { LuFolder, LuHouse } from "react-icons/lu";
 
-import { buildContextLabel, buildContextTooltip } from "../../lib/contextDisplay.mjs";
+import { compactTokenCount } from "../../lib/contextDisplay.mjs";
 import { useLeftSidebar, useModalActions, useRightSidebar } from "../../context/UIStateContext.jsx";
 import Tooltip from "../Tooltip";
 
@@ -45,26 +45,12 @@ export default function Header({
 		: palace.totalTokens === null
 			? null
 			: palace.totalTokens + (palace.pluginTokens || 0);
-	const { label: contextLabel } = buildContextLabel({ total, limit: palace.limit, error: palace.error, isCloud });
-
-  const label = palace.contextMode ? `${contextLabel} · ${palace.contextMode}` : contextLabel;
-	const live = palace.liveTelemetry ?? null;
-	const persisted = palace.turnTelemetry ?? null;
-
-	const tooltip = buildContextTooltip({
-		total,
-		limit: palace.limit,
-		error: palace.error,
-		isCloud,
-		method: hasContext ? palace.contextMethod : undefined,
-		confidence: hasContext ? palace.contextConfidence : undefined,
-		live,
-		persisted,
-        budgetContract: palace.budgetContract,
-        prepared: palace.preparedContextTokens,
-	});
-
 	const percent = total !== null && palace.limit ? Math.min(100, (total / palace.limit) * 100) : 0;
+	const tooltip = palace.error ? "Context usage unavailable"
+		: palace.limit && total !== null
+			? `${Math.round(percent)}% context used · ${compactTokenCount(total)} / ${compactTokenCount(palace.limit)} tokens${palace.contextMode ? ` · ${palace.contextMode}` : ""}`
+			: "Context usage unavailable";
+
 	const button =
 		"material-orb sk-icon-button material-fill sk-fill size-7 cursor-pointer shrink-0";
 
@@ -205,22 +191,25 @@ export default function Header({
 			<div className="flex-1" />
 
 			<Tooltip content={tooltip}>
-				<div className="w-44 shrink-0 text-[10px] text-[var(--text-secondary)] max-[700px]:w-28">
-					<span className="block truncate">{label}</span>
-					<div
-						role="progressbar"
-						aria-label="Context usage"
-						aria-valuemin={0}
-						aria-valuemax={100}
-						aria-valuenow={palace.limit && total !== null ? Math.round(percent) : undefined}
-						aria-valuetext={tooltip}
-						className="material-track sk-track mt-1 h-1"
-					>
-						<div
-							className="material-track__fill sk-track-fill h-full transition-[width] motion-reduce:transition-none"
-							style={{ width: `${percent}%` }}
+				<div
+					tabIndex={0}
+					role="progressbar"
+					aria-label="Context usage"
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-valuenow={palace.limit && total !== null && !palace.error ? Math.round(percent) : undefined}
+					aria-valuetext={tooltip}
+					className="relative size-7 shrink-0 rounded-full text-[var(--text-secondary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+				>
+					<svg viewBox="0 0 28 28" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">
+						<circle cx="14" cy="14" r="12" fill="none" stroke="var(--border)" strokeWidth="2" />
+						<circle
+							cx="14" cy="14" r="12" fill="none"
+							stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"
+							pathLength="100" strokeDasharray="100"
+							strokeDashoffset={100 - (palace.error ? 0 : percent)}
 						/>
-					</div>
+					</svg>
 				</div>
 			</Tooltip>
 			<button

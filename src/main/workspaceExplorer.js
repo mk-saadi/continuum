@@ -22,6 +22,41 @@ async function listDirectory(projectId, relativePath = '.') {
   return { items: items.slice(0, 2000), truncated: items.length > 2000 };
 }
 
+// Bounded filename/path search. Never follow directory symlinks or enter
+// repository metadata, dependencies, or generated build trees.
+async function searchFiles(projectId, query) {
+  if (typeof query !== 'string' || query.length > 256) throw new Error('Enter a file name up to 256 characters.');
+  const needle = query.trim().toLowerCase();
+  if (!needle) return { items: [], truncated: false };
+  await targetFor(projectId);
+  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.cache', '__pycache__']);
+  const pending = ['.'];
+  const items = [];
+  let scanned = 0;
+  let visited = 0;
+  let truncated = false;
+  search: while (pending.length) {
+    if (++visited > 2000) { truncated = true; break; }
+    const directory = pending.shift();
+    let handle;
+    try { handle = await fs.opendir(await targetFor(projectId, directory)); }
+    catch (error) { if (directory === '.') throw error; continue; }
+    for await (const entry of handle) {
+      if (++scanned > 20000) { truncated = true; break search; }
+      if (entry.isSymbolicLink()) continue;
+      const relative = path.posix.join(directory === '.' ? '' : directory, entry.name);
+      if (entry.isDirectory()) {
+        if (!ignored.has(entry.name)) pending.push(relative);
+      } else if (entry.isFile() && relative.toLowerCase().includes(needle)) {
+        items.push({ name: entry.name, path: relative });
+        if (items.length >= 100) { truncated = true; break search; }
+      }
+    }
+  }
+  items.sort((a, b) => a.path.localeCompare(b.path));
+  return { items, truncated };
+}
+
 async function readFile(projectId, relativePath) {
   const target = await targetFor(projectId, relativePath);
   // Opening nonblocking avoids hanging on named pipes and other special files.
@@ -41,6 +76,30 @@ async function readFile(projectId, relativePath) {
     if (bytes.includes(0)) return { binary: true, size: stat.size };
     return { content: bytes.toString('utf8'), size: stat.size, truncated: stat.size > PREVIEW_LIMIT };
   } finally { await handle.close(); }
+}
+// User-initiated edits only; reject partial/binary previews and stale contents.
+async function writeFile(projectId, relativePath, content, expectedContent) {
+  if (typeof content !== 'string' || typeof expectedContent !== 'string' || Buffer.byteLength(content) > PREVIEW_LIMIT)
+    throw new Error('Editing is limited to text files up to 512 KB.');
+  const target = await targetFor(projectId, relativePath);
+  return require('./tools/fileMutationQueue').withFileMutationQueue(target, async () => {
+  const handle = await fs.open(target, require('node:fs').constants.O_RDWR | require('node:fs').constants.O_NONBLOCK);
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > PREVIEW_LIMIT) throw new Error('Only complete text files up to 512 KB can be edited.');
+    const bytes = await handle.readFile();
+    if (bytes.includes(0) || !Buffer.from(bytes.toString('utf8')).equals(bytes)) throw new Error('This file is not editable UTF-8 text.');
+    if (bytes.toString('utf8') !== expectedContent) throw new Error('The file changed on disk. Copy your edits, then refresh before saving.');
+    const output = Buffer.from(content);
+    let offset = 0;
+    while (offset < output.length) {
+      const { bytesWritten } = await handle.write(output, offset, output.length - offset, offset);
+      offset += bytesWritten;
+    }
+    await handle.truncate(output.length);
+    return { saved: true };
+  } finally { await handle.close(); }
+  });
 }
 // UI reads only: never fetch, authenticate, or follow a parent repository.
 async function readGitStatus(projectId) {
@@ -103,4 +162,4 @@ async function revealFile(projectId, relativePath) {
   if (!(await fs.stat(target)).isFile()) throw new Error('Select a regular file.');
   require('electron').shell.showItemInFolder(target);
 }
-module.exports = { resolvePreviewFile, revealFile, listDirectory, readFile, gitStatus, repositoryInfo };
+module.exports = { searchFiles, writeFile, resolvePreviewFile, revealFile, listDirectory, readFile, gitStatus, repositoryInfo };

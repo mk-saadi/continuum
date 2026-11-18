@@ -222,6 +222,15 @@ function SessionRow({ session, locked, activeId, closeMenu, openMenu, menu, onLo
 					className="min-w-0 flex-1 truncate ui-radius-control py-0 pl-3 pr-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50 cursor-pointer"
 					aria-current={activeId === session.id ? "page" : undefined}
 					aria-label={session.title || "Untitled chat"}
+					onMouseDown={(event) => {
+						if (event.button === 1) event.preventDefault();
+					}}
+					onAuxClick={(event) => {
+						if (event.button !== 1) return;
+						event.preventDefault();
+						closeMenu();
+						onLoad(session.id, { newTab: true });
+					}}
 					onClick={() => {
 						closeMenu();
 						onLoad(session.id);

@@ -14,6 +14,7 @@ export default function ChatFindBar({
 	onPrev,
 	onNext,
 	onClose,
+	label = "Find in chat",
 }) {
 	const inputRef = useRef(null);
 	useEffect(() => {
@@ -26,14 +27,14 @@ export default function ChatFindBar({
 	return (
 		<div
 			role="search"
-			aria-label="Find in chat"
+			aria-label={label}
 			className="absolute top-2 right-4 z-[60] flex items-center gap-1 ui-radius-surface border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 shadow-[0_8px_30px_var(--window-shadow)]"
 		>
 			<input
 				ref={inputRef}
 				type="text"
-				aria-label="Find in chat"
-				placeholder="Find in chat"
+				aria-label={label}
+				placeholder={label}
 				value={query}
 				onChange={(event) => onQueryChange?.(event.target.value)}
 				onKeyDown={(event) => {

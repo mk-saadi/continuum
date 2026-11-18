@@ -18,6 +18,25 @@ export function cycleActiveTabState(state, direction) {
   return { ...state, activeTabId: tabs[nextIndex].id };
 }
 
+// Keep busy panes mounted: they own live stream and approval subscriptions.
+export function navigateSessionTabState(state, candidate, { newTab = false } = {}) {
+  const existing = state.tabs.find(tab => tab.sessionId === candidate.sessionId);
+  if (existing) return {
+    ...state,
+    activeTabId: existing.id,
+    tabs: existing.view === 'chat' ? state.tabs
+      : state.tabs.map(tab => tab.id === existing.id ? { ...tab, view: 'chat' } : tab),
+  };
+  const active = state.tabs.find(tab => tab.id === state.activeTabId);
+  const canReplace = !newTab && active?.view === 'chat'
+    && ['idle', 'error'].includes(active.status);
+  if (canReplace) return {
+    tabs: state.tabs.map(tab => tab.id === active.id ? candidate : tab),
+    activeTabId: candidate.id,
+  };
+  return { tabs: [...state.tabs, candidate], activeTabId: candidate.id };
+}
+
 export function closeTabState(state, id, createDefaultTab) {
   const index = state.tabs.findIndex(tab => tab.id === id);
   if (index < 0) return state;

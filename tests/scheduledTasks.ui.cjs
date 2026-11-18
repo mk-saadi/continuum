@@ -221,23 +221,30 @@ app.whenReady().then(async () => {
       check(alphaRow.textContent.includes('Daily 09:00'), 'recurrence shown');
       check(alphaRow.textContent.includes('Local/alpha.gguf'), 'selected model shown');
       check(alphaRow.textContent.includes('Scheduled'), 'scheduled status shown');
-      check(document.querySelector('.tasks-results').textContent.includes('Completed'), 'completed results shown by default');
+      check(document.querySelector('.tasks-results select[aria-label="Result status"]').value === 'all', 'all runs selected by default');
       check(rowOf('Beta').textContent.includes('Last run failed'), 'failed task differs from blocked');
       check(rowOf('Gamma').textContent.includes('Paused'), 'paused task shown');
-      check(text().includes('Tasks run inside Continuum while the app is open'), 'closed-app behaviour is stated');
+      const runtimeInfo = document.querySelector('button[aria-label="How scheduled tasks run"]');
+      check(!!runtimeInfo && !document.querySelector('.tasks-runtime-note'), 'runtime notice stays in the compact header');
+      runtimeInfo.focus();
+      await new Promise(resolve => setTimeout(resolve, 450));
+      check(text().includes('Tasks run inside Continuum while the app is open'), 'runtime explanation is accessible on focus');
+      runtimeInfo.blur();
       check(text().includes('1') && text().includes('Upcoming'), 'overview renders');
 
       // ---- Results open directly, with independent task/status filters -------
       const results = document.querySelector('.tasks-results');
       check(!!results && !document.querySelector('.tasks-detail'), 'results present without opening task details');
-      check(results.querySelectorAll('button.tasks-result-row').length === 1, 'completed filter excludes other statuses');
-      results.querySelector('button.tasks-result-row').click();
-      check(window.openedRun === 'scheduled-r1', 'one click opens completed run chat');
+      check(results.querySelectorAll('.tasks-result-row').length === window.initialRuns.length, 'all run statuses shown by default');
       const selectResult = (index, value) => {
         const select = results.querySelectorAll('select')[index];
         Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(select, value);
         select.dispatchEvent(new Event('change', { bubbles: true }));
       };
+      selectResult(1, 'completed'); await wait();
+      check(results.querySelectorAll('button.tasks-result-row').length === 1, 'completed filter excludes other statuses');
+      results.querySelector('button.tasks-result-row').click();
+      check(window.openedRun === 'scheduled-r1', 'one click opens completed run chat');
       [...alphaRow.querySelectorAll('button')].find(b => b.textContent.trim() === 'Alpha').click(); await wait();
       check(results.querySelector('select').value === 'a', 'task name filters results');
       check(!document.querySelector('.tasks-detail'), 'task click never opens configuration panel');

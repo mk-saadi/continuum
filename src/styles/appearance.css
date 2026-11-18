@@ -65,7 +65,11 @@ html[data-appearance="flat"] :is(.material-well, .material-track, .material-chec
 	border-color: var(--control-border);
 	background-color: var(--input);
 }
-html[data-appearance="flat"] :is(.material-control, .material-orb):hover { background-color: var(--surface-hover); }
+/* Flat controls use one continuous outline, including the hovered bottom edge. */
+html[data-appearance="flat"] :is(.material-control, .material-orb):hover {
+	border-color: color-mix(in srgb, #ffffff 28%, transparent);
+	background-color: var(--surface-hover);
+}
 html[data-appearance="flat"] :is(.material-control, .material-orb):is([aria-pressed="true"], [aria-selected="true"], [data-selected="true"]) {
 	border-color: var(--accent);
 	background-color: var(--accent);

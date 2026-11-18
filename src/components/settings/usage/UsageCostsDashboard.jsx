@@ -26,11 +26,8 @@ const GROUPS = [
 
 const TABS = [
 	{ id: "overview", label: "Overview" },
-	{ id: "tokens", label: "Token usage" },
-	{ id: "models", label: "Cloud models" },
-	{ id: "providers", label: "Providers" },
-	{ id: "conversations", label: "Conversations" },
-	{ id: "pricing", label: "Pricing history" },
+	{ id: "spending", label: "Cloud spending" },
+	{ id: "records", label: "Records & pricing" },
 ];
 
 function MetricCard({ label, value, hint, warning = false, local = false }) {
@@ -185,13 +182,13 @@ function TokenAnalytics({ summary, local }) {
 	);
 }
 
-function Overview({ dashboard, onSelectModel }) {
+function SpendingOverview({ dashboard, onSelectModel }) {
 	const summary = dashboard.summary;
 	const localOnly = summary.billableTurns === 0 && summary.turns > 0;
 	const topModels = dashboard.models.filter((row) => row.providerFamily !== "local").slice(0, 5);
 	return (
 		<div className="space-y-3">
-			<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="usage-spending-metrics grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
 				<MetricCard
 					label="Total priced spend"
 					value={costValue(summary.combinedSpend, summary.costCoverage, { local: localOnly })}
@@ -217,7 +214,7 @@ function Overview({ dashboard, onSelectModel }) {
 				<MetricCard
 					label="Billable turns"
 					value={(summary.billableTurns ?? 0).toLocaleString()}
-					hint={`${summary.localTurns ?? 0} local turn${summary.localTurns === 1 ? "" : "s"} · ${summary.turns ?? 0} total`}
+					hint={`${summary.billableTurns ?? 0} cloud turns`}
 				/>
 				<MetricCard
 					label="Net cache savings"
@@ -296,10 +293,7 @@ export default function UsageCostsDashboard() {
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
 	const [tab, setTab] = useState("overview");
-	const [tokensVisited, setTokensVisited] = useState(false);
-	useEffect(() => {
-		if (tab === "tokens") setTokensVisited(true);
-	}, [tab]);
+
 	const [dashboard, setDashboard] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -307,7 +301,7 @@ export default function UsageCostsDashboard() {
 	const [refreshToken, setRefreshToken] = useState(0);
 
 	const filters = useMemo(() => {
-		const value = { range, groupBy };
+		const value = { range, groupBy, cloudOnly: tab === "spending" };
 		if (providerId) value.providerId = providerId;
 		if (modelId) value.modelId = modelId;
 		if (projectId) value.projectId = projectId;
@@ -316,7 +310,7 @@ export default function UsageCostsDashboard() {
 			if (to) value.to = to;
 		}
 		return value;
-	}, [range, groupBy, providerId, modelId, projectId, from, to]);
+	}, [range, groupBy, providerId, modelId, projectId, from, to, tab]);
 	const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
 
 	useEffect(() => {
@@ -351,6 +345,16 @@ export default function UsageCostsDashboard() {
 	}, [filterKey]);
 
 	const options = dashboard?.filterOptions ?? { providers: [], models: [], projects: [] };
+	useEffect(() => {
+		if (tab !== "spending") return;
+		if (providerId === "local") {
+			setProviderId("");
+			setModelId("");
+		} else if (modelId && options.models.some(option => option.modelId === modelId && option.providerId === "local")
+			&& !options.models.some(option => option.modelId === modelId && option.providerId !== "local")) {
+			setModelId("");
+		}
+	}, [tab, providerId, modelId, options.models]);
 	const changeRange = (value) => {
 		setRange(value);
 		setGroupBy(RANGES.find((item) => item.id === value)?.group ?? "day");
@@ -366,20 +370,57 @@ export default function UsageCostsDashboard() {
 	};
 	const selectProvider = (value) => {
 		setProviderId(value);
-		setTab("models");
+		setTab("spending");
 	};
 	const openModel = (row) => {
 		setSelectedModel(row);
-		setTab("models");
+		setTab("spending");
 	};
 	const hasFilters = Boolean(providerId || modelId || projectId || range !== "30d");
 
 	return (
-		<div className="space-y-3">
+		<div className="usage-costs-dashboard space-y-3">
+			<div
+				role="tablist"
+				aria-label="Usage and cost sections"
+				className="flex flex-wrap gap-1 border-b border-[var(--border)]"
+			>
+				{TABS.map((item) => (
+					<button
+						key={item.id}
+						type="button"
+						role="tab"
+						id={`usage-costs-tab-${item.id}`}
+						aria-controls={`usage-costs-panel-${item.id}`}
+						aria-selected={tab === item.id}
+						tabIndex={tab === item.id ? 0 : -1}
+						onClick={() => {
+							if (item.id === "spending" && providerId === "local") { setProviderId(""); setModelId(""); }
+							setTab(item.id);
+						}}
+						onKeyDown={(event) => {
+							const index = TABS.findIndex((entry) => entry.id === tab);
+							if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+							event.preventDefault();
+							const next =
+								event.key === "ArrowRight"
+									? (index + 1) % TABS.length
+									: (index + TABS.length - 1) % TABS.length;
+							setTab(TABS[next].id);
+							document.getElementById(`usage-costs-tab-${TABS[next].id}`)?.focus();
+						}}
+						className="material-tab sk-tab -mb-px px-3 py-2 text-xs font-medium cursor-pointer"
+					>
+						{item.label}
+					</button>
+				))}
+			</div>
+
 			<section
 				className="material-panel sk-panel p-3"
 				aria-labelledby="usage-filters-title"
-				hidden={tab === "tokens"}
+				hidden={tab === "overview"}
+
 			>
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div>
@@ -387,11 +428,10 @@ export default function UsageCostsDashboard() {
 							id="usage-filters-title"
 							className="text-xs font-semibold"
 						>
-							Cloud spending &amp; usage
+							Usage &amp; costs
 						</h3>
 						<p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-							Read-only aggregation of recorded cost evidence. All timestamps and buckets are
-							UTC.
+							Filter cloud spending and detailed records. All timestamps are UTC.
 						</p>
 					</div>
 					<div className="flex items-center gap-2">
@@ -411,7 +451,7 @@ export default function UsageCostsDashboard() {
 						</SettingsButton>
 					</div>
 				</div>
-				<div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+				<fieldset className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 					<SelectField
 						label="Date range"
 						value={range}
@@ -446,7 +486,7 @@ export default function UsageCostsDashboard() {
 						onChange={(event) => setProviderId(event.target.value)}
 					>
 						<option value="">All providers</option>
-						{options.providers.map((option) => (
+						{options.providers.filter(option => tab !== "spending" || option.providerId !== "local").map((option) => (
 							<option
 								key={option.providerId}
 								value={option.providerId}
@@ -457,11 +497,12 @@ export default function UsageCostsDashboard() {
 					</SelectField>
 					<SelectField
 						label="Model"
+						menuMinWidth={480}
 						value={modelId}
 						onChange={(event) => setModelId(event.target.value)}
 					>
 						<option value="">All models</option>
-						{options.models.map((option) => (
+						{options.models.filter(option => tab !== "spending" || option.providerId !== "local").map((option) => (
 							<option
 								key={`${option.providerId}:${option.modelId}`}
 								value={option.modelId}
@@ -501,80 +542,36 @@ export default function UsageCostsDashboard() {
 							/>
 						</div>
 					) : null}
-				</div>
+				</fieldset>
 				<SettingsMessage>{error}</SettingsMessage>
 			</section>
 
-			<div
-				role="tablist"
-				aria-label="Spending dashboard sections"
-				className="flex flex-wrap gap-1 border-b border-[var(--border)]"
-			>
-				{TABS.map((item) => (
-					<button
-						key={item.id}
-						type="button"
-						role="tab"
-						id={`usage-costs-tab-${item.id}`}
-						aria-controls={`usage-costs-panel-${item.id}`}
-						aria-selected={tab === item.id}
-						tabIndex={tab === item.id ? 0 : -1}
-						onClick={() => setTab(item.id)}
-						onKeyDown={(event) => {
-							const index = TABS.findIndex((entry) => entry.id === tab);
-							if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-							event.preventDefault();
-							const next =
-								event.key === "ArrowRight"
-									? (index + 1) % TABS.length
-									: (index + TABS.length - 1) % TABS.length;
-							setTab(TABS[next].id);
-							document.getElementById(`usage-costs-tab-${TABS[next].id}`)?.focus();
-						}}
-						className="material-tab sk-tab -mb-px px-3 py-2 text-xs font-medium cursor-pointer"
-					>
-						{item.label}
-					</button>
-				))}
-			</div>
-
 			<section
-				id="usage-costs-panel-tokens"
+				id="usage-costs-panel-overview"
 				role="tabpanel"
-				aria-labelledby="usage-costs-tab-tokens"
-				hidden={tab !== "tokens"}
+				aria-labelledby="usage-costs-tab-overview"
+				hidden={tab !== "overview"}
 				tabIndex={0}
 			>
-				{tokensVisited ? (
+
 					<TokenHistory
 						section="usage"
 						includeCosts={false}
 					/>
-				) : null}
 			</section>
 
 			{dashboard ? (
 				<>
 					<section
-						id="usage-costs-panel-overview"
+						id="usage-costs-panel-spending"
 						role="tabpanel"
-						aria-labelledby="usage-costs-tab-overview"
-						hidden={tab !== "overview"}
-						tabIndex={0}
-					>
-						<Overview
-							dashboard={dashboard}
-							onSelectModel={openModel}
-						/>
-					</section>
-					<section
-						id="usage-costs-panel-models"
-						role="tabpanel"
-						aria-labelledby="usage-costs-tab-models"
-						hidden={tab !== "models"}
+						aria-labelledby="usage-costs-tab-spending"
+						hidden={tab !== "spending"}
 						tabIndex={0}
 						className="space-y-3"
 					>
+						<SpendingOverview dashboard={dashboard} onSelectModel={openModel} />
+						<ProviderBreakdownTable providers={dashboard.providers.filter(row => row.providerId !== "local")} onSelectProvider={selectProvider} />
 						<ModelSpendingTable
 							models={dashboard.models.filter((row) => row.providerFamily !== "local")}
 							selectedKey={selectedModel?.key ?? null}
@@ -594,37 +591,16 @@ export default function UsageCostsDashboard() {
 						)}
 					</section>
 					<section
-						id="usage-costs-panel-providers"
+						id="usage-costs-panel-records"
 						role="tabpanel"
-						aria-labelledby="usage-costs-tab-providers"
-						hidden={tab !== "providers"}
+						aria-labelledby="usage-costs-tab-records"
+						hidden={tab !== "records"}
 						tabIndex={0}
 					>
-						<ProviderBreakdownTable
-							providers={dashboard.providers}
-							onSelectProvider={selectProvider}
-						/>
-					</section>
-					<section
-						id="usage-costs-panel-conversations"
-						role="tabpanel"
-						aria-labelledby="usage-costs-tab-conversations"
-						hidden={tab !== "conversations"}
-						tabIndex={0}
-					>
-						{tab === "conversations" ? <AttributionView filters={filters} /> : null}
-					</section>
-					<section
-						id="usage-costs-panel-pricing"
-						role="tabpanel"
-						aria-labelledby="usage-costs-tab-pricing"
-						hidden={tab !== "pricing"}
-						tabIndex={0}
-					>
-						{tab === "pricing" ? <PricingHistoryView filters={filters} /> : null}
+						{tab === "records" ? <><AttributionView filters={filters} /><PricingHistoryView filters={filters} /></> : null}
 					</section>
 				</>
-			) : loading && tab !== "tokens" ? (
+			) : loading && tab !== "overview" ? (
 				<p
 					role="status"
 					className="material-empty sk-empty material-fill sk-fill p-6 text-center text-[11px] text-[var(--text-muted)]"

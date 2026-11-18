@@ -4,6 +4,7 @@ import {
 	FiCalendar,
 	FiClock,
 	FiEdit2,
+	FiInfo,
 	FiPause,
 	FiPlay,
 	FiPlus,
@@ -13,6 +14,7 @@ import {
 } from "react-icons/fi";
 import { TextField, SelectField } from "../FormControls";
 import { StatusChip } from "./TaskDetails.jsx";
+import Tooltip from "../Tooltip.jsx";
 import TaskEditor from "./TaskEditor.jsx";
 import TaskResults from "./TaskResults.jsx";
 import {
@@ -145,7 +147,7 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 	const [error, setError] = useState("");
 	const notify = useAppToast();
 	const [selectedId, setSelectedId] = useState(null);
-	const [resultStatus, setResultStatus] = useState("completed");
+	const [resultStatus, setResultStatus] = useState("all");
 	const [mobileView, setMobileView] = useState("tasks");
 	const [history, setHistory] = useState({ runs: [], total: 0, offset: 0, loading: false, error: "" });
 	const [editor, setEditor] = useState(null);
@@ -338,7 +340,21 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 							<FiCalendar size={18} />
 						</span>
 						<div>
-							<h1>Tasks</h1>
+							<div className="flex items-center gap-2">
+								<h1>Tasks</h1>
+								<Tooltip
+									placement="bottom"
+									content="Tasks run inside Continuum while the app is open. If the app is closed or the computer is asleep at the scheduled time, the run happens after Continuum wakes or starts again — following each task’s missed-run policy."
+								>
+									<button
+										type="button"
+										aria-label="How scheduled tasks run"
+										className="tasks-runtime-info"
+									>
+										<FiInfo size={14} aria-hidden="true" />
+									</button>
+								</Tooltip>
+							</div>
 							<p className="tasks-muted">
 								Scheduled, unattended runs of your assistant.
 							</p>
@@ -364,14 +380,6 @@ export default function TasksView({ models = [], projects = [], onOpenRun, chatB
 					</div>
 				</header>
 
-				<p className="tasks-runtime-note">
-					<FiClock aria-hidden="true" />
-					<span>
-						Tasks run inside Continuum while the app is open. If the app is closed or the
-						computer is asleep at the scheduled time, the run happens after Continuum wakes
-						or starts again — following each task’s missed-run policy.
-					</span>
-				</p>
 
 				{error && (
 					<p

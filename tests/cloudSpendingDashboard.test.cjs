@@ -362,6 +362,15 @@ try {
   assert.ok(bulkDashboard.models.length < 1509, 'models are aggregated, not one object per usage row');
   assert.ok(bulkDashboard.timeline.length <= 3);
 
+  const cloudOnly = dashboard.getDashboard({ range: 'all', cloudOnly: true }, now);
+  assert.equal(cloudOnly.summary.localTurns, 0, 'cloud scope excludes local executions');
+  assert.equal(cloudOnly.summary.turns, cloudOnly.summary.billableTurns);
+  assert.ok(cloudOnly.models.every(row => row.providerId !== 'local'));
+  assert.ok(cloudOnly.providers.every(row => row.providerId !== 'local'));
+  assert.ok(cloudOnly.filterOptions.models.every(row => row.providerId !== 'local'));
+  assert.ok(cloudOnly.filterOptions.providers.every(row => row.providerId !== 'local'));
+  assert.ok(cloudOnly.timeline.every(row => row.localTurns === 0));
+
   // 21. The renderer bridge and main-process handlers are registered together.
   const preload = fs.readFileSync(path.join(__dirname, '../src/preload.js'), 'utf8');
   const handlers = fs.readFileSync(path.join(__dirname, '../src/main/ipcHandlers.js'), 'utf8');

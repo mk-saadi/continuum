@@ -30,7 +30,7 @@ function TokenTooltip({ active, payload }) {
   const ratio = hitRatio(row);
   const cost = periodCost(row);
   return (
-    <div role="tooltip" className="ui-radius-control border border-[var(--border)] bg-[var(--surface)] p-2 text-xs shadow-lg">
+    <div role="tooltip" className="material-inset sk-well max-w-64 p-2.5 text-xs text-[var(--text-primary)]">
       <p>{row.label}</p>
       <p>Gross input: {number(row.promptTokens)}</p>
       <p>Cached input: {known(row.cacheReadTokens, row.cacheReadCoverage)}</p>
@@ -48,7 +48,7 @@ function TokenTooltip({ active, payload }) {
 export default function TokenChart({ data = [], groupBy = 'month' }) {
   const maximum = Math.max(1, ...data.map(row => row.promptTokens + row.completionTokens));
   if (!data.some(row => row.turns || row.promptTokens || row.completionTokens)) {
-    return <p className="ui-radius-surface border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[11px] text-[var(--text-muted)]">No token usage recorded for this period.</p>;
+    return <p className="material-panel sk-panel p-8 text-center text-[11px] text-[var(--text-muted)]">No token usage recorded for this period.</p>;
   }
   const chartData = data.map(row => {
     // Split only when this bucket's cache read is fully measured; a
@@ -65,22 +65,26 @@ export default function TokenChart({ data = [], groupBy = 'month' }) {
   });
   return <figure
     aria-label="Token consumption history"
-    className="space-y-3 ui-radius-surface border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_2px_4px_var(--window-shadow)]"
+    className="material-panel sk-panel p-3"
   >
-    <h3 className="text-xs font-semibold text-[var(--text-primary)]">Token usage over time</h3>
-    <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-secondary)]">
-      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-blue-500" />Input tokens (gross)</span>
-      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-indigo-400" />Cached input</span>
-      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-emerald-500" />Cache write</span>
-      <span><span className="mr-1 inline-block size-3 ui-radius-small bg-amber-500" />Completion tokens</span>
-      <span>Scale: {number(maximum)} tokens · UTC{groupBy === 'week' ? ' · Weeks start Monday' : ''}</span>
+    <figcaption className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h3 className="text-xs font-semibold">Token usage over time</h3>
+        <p className="mt-1 text-[11px] text-[var(--text-muted)]">Tokens · UTC · {groupBy === 'week' ? 'weeks start Monday' : 'monthly buckets'}</p>
+      </div>
+      <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
+        <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#5b9bff]" />Input tokens (gross)</span>
+        <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#818cf8]" />Cached input</span>
+        <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#34b27b]" />Cache write</span>
+        <span><span className="mr-1 inline-block size-2.5 ui-radius-small bg-[#f59e0b]" />Completion tokens</span>
+      </div>
     </figcaption>
-    <div className="h-56 w-full">
+    <div className="material-flat sk-list h-56 w-full p-2" role="img" aria-label={`Token usage chart. Scale: ${number(maximum)} tokens.`}>
       <ResponsiveContainer width="100%" height="100%">
         {/* throttleDelay: a numeric value makes Recharts use setTimeout instead of its
             default requestAnimationFrame throttling, which never fires in hidden
             (headless) windows. 16ms keeps the same per-frame cadence in normal use. */}
-        <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="24%" throttleDelay={16}>
+        <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="18%" throttleDelay={16}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="period"
@@ -99,10 +103,10 @@ export default function TokenChart({ data = [], groupBy = 'month' }) {
             tickLine={false}
           />
           <Tooltip content={<TokenTooltip />} cursor={{ fill: 'var(--surface-hover)' }} />
-          <Bar dataKey="cachedInput" name="Cached input" stackId="tokens" fill="#818cf8" isAnimationActive={false} />
-          <Bar dataKey="uncachedInput" name="Input tokens (gross)" stackId="tokens" fill="#3b82f6" isAnimationActive={false} />
-          <Bar dataKey="cacheWrite" name="Cache write" stackId="tokens" fill="#10b981" isAnimationActive={false} />
-          <Bar dataKey="completionTokens" name="Completion tokens" stackId="tokens" fill="#f59e0b" isAnimationActive={false} />
+          <Bar dataKey="cachedInput" name="Cached input" stackId="tokens" fill="#818cf8" isAnimationActive={false} radius={[2, 2, 0, 0]} />
+          <Bar dataKey="uncachedInput" name="Input tokens (gross)" stackId="tokens" fill="#5b9bff" isAnimationActive={false} radius={[2, 2, 0, 0]} />
+          <Bar dataKey="cacheWrite" name="Cache write" stackId="tokens" fill="#34b27b" isAnimationActive={false} radius={[2, 2, 0, 0]} />
+          <Bar dataKey="completionTokens" name="Completion tokens" stackId="tokens" fill="#f59e0b" isAnimationActive={false} radius={[2, 2, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

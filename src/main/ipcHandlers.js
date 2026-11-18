@@ -473,12 +473,16 @@ function registerIpcHandlers({
 			require("./workspaceExplorer").repositoryInfo(projectId),
 		"workspace:git-status": ({ projectId } = {}) =>
 			require("./workspaceExplorer").gitStatus(projectId),
+		"workspace:search-files": ({ projectId, query } = {}) =>
+			require("./workspaceExplorer").searchFiles(projectId, query),
 		"workspace:list-directory": ({ projectId, relativePath } = {}) =>
 			require("./workspaceExplorer").listDirectory(projectId, relativePath),
 		"workspace:resolve-preview-file": ({ projectId, href } = {}) =>
 			require("./workspaceExplorer").resolvePreviewFile(projectId, href),
 		"workspace:reveal-file": ({ projectId, relativePath } = {}) =>
 			require("./workspaceExplorer").revealFile(projectId, relativePath),
+		"workspace:write-file": ({ projectId, relativePath, content, expectedContent } = {}) =>
+			require("./workspaceExplorer").writeFile(projectId, relativePath, content, expectedContent),
 		"workspace:read-file": ({ projectId, relativePath } = {}) =>
 			require("./workspaceExplorer").readFile(projectId, relativePath),
 		"recovery:changed-files": ({ sessionId, includeCounts } = {}) =>

@@ -75,8 +75,8 @@ export const themeGroups = [
 				id: "matcha-dark",
 				mode: "dark",
 				label: "Matcha Notebook Dark",
-				description: "Deep forest · moss green · mint",
-				swatches: ["#14231f", "#32523e", "#8bdcb4"],
+				description: "Near black · soft silver · terminal emerald",
+				swatches: ["#0c0c0f", "#c3c3cc", "#00c896"],
 			},
 			{
 				id: "midnight-light",

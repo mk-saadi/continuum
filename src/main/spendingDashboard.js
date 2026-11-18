@@ -98,7 +98,7 @@ function normalizeFilters(input = {}, now = new Date()) {
     start.setUTCDate(start.getUTCDate() - (days - 1));
     from = start.toISOString();
   }
-  return { range, groupBy, providerId, modelId, projectId, chatId, from, to };
+  return { range, groupBy, providerId, modelId, projectId, chatId, from, to, ...(input.cloudOnly === true ? { cloudOnly: true } : {}) };
 }
 
 function validatePaging(input = {}) {
@@ -189,6 +189,11 @@ function buildUsageCte(filters) {
   const parentValues = [];
   const childWhere = ['r.completed_at IS NOT NULL'];
   const childValues = [];
+
+  if (filters.cloudOnly) {
+    parentWhere.push(`${parentProvider} <> 'local'`);
+    childWhere.push(`${childProvider} <> 'local'`);
+  }
 
   if (filters.from) {
     parentWhere.push('t.timestamp >= ?');

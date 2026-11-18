@@ -4,7 +4,7 @@ Continuum is a local-first desktop AI assistant combining local GGUF models, clo
 
 ## Overview
 
-**Casual Chat** is for conversation, attachments, rich responses, and persistent history. **Agentic Workspace** adds a project directory, a built-in file explorer with inline Git diffs, native development tools, task plans, and permission-controlled execution. Model capabilities and your configuration determine which workflows are available.
+**Casual Chat** is for conversation, attachments, rich responses, and persistent history. **Agentic Workspace** adds a project directory, a built-in file explorer and editor with inline Git diffs, native development tools, task plans, and permission-controlled execution. Model capabilities and your configuration determine which workflows are available.
 
 Conversations, memories, settings, and usage records are stored locally in SQLite. Local inference runs on your machine; cloud requests send their contents to the selected provider. External tools, web access, and model-asset downloads can also use the network.
 
@@ -59,12 +59,15 @@ In a Workspace, agents can inspect directories, read and create files, edit sour
 
 Attachments include images, audio, video, PDFs, and documents, subject to format and model support. Responses render Markdown tables, highlighted code, cards, progress flows, interactive charts, color swatches, and inline media. Attaching a format does not imply every model can interpret it. See [attachment handling](docs/file-attachments.md) and [chat history](docs/chat-history.md).
 
-### Workspace File Explorer & Inline Git Diffs
+### Workspace File Explorer, Editor & Inline Git Diffs
 
-Inspect files and review changes alongside the conversation without opening a separate editor. Switch between **Chats** and **Files** in the left sidebar, expand project folders, and select a file to open a read-only preview beside chat. Both the sidebar and preview have draggable resize handles.
+Inspect files and review changes alongside the conversation without opening a separate editor. Switch between **Chats** and **Files** in the left sidebar, expand project folders, and select a file to preview or edit beside chat. Both the sidebar and preview have draggable resize handles.
 
-- **File previews:** syntax highlighting, line numbers, selectable text, and refresh controls. Large files use plain text to keep previews responsive; previews are bounded to the first 512 KB.
-- **Inline Git review:** switch between **File** and **Git diff** in the preview toolbar. Review unified or side-by-side diffs, browse changed files, and see addition/deletion counts. Side-by-side panes synchronize horizontal and vertical scrolling. Git controls appear only for supported Git repositories; modified filenames also receive a colored **M** badge when the workspace has a GitHub remote configured.
+- **File preview and editing:** syntax highlighting, line numbers, line wrapping, and selectable text in both Preview and Edit modes. Edit complete UTF-8 text files up to 512 KB, use the Undo/Redo buttons, and save with **Ctrl+S** (**Cmd+S** on macOS). Switching modes preserves your scroll position. Unsaved drafts survive file switches while the viewer stays open; saving rejects files that changed on disk since they were loaded. Partial previews and binary/media files cannot be edited.
+- **Find in file:** open the find popover with the search button or **Ctrl+F / Cmd+F** inside the file view. It works in both modes, highlights up to 500 matches, and supports next/previous navigation.
+- **Add to chat:** select file text and release the mouse to reveal **Add to chat**. The excerpt appears as quoted context in the chat draft with its file path and line range; unsaved edits are labeled. Review it and send when ready.
+- **Search workspace files:** click the search icon beside Refresh in the sidebar to reveal the normally hidden search field. Search filenames or paths across closed folders, then click a result to open it. Searches wait 500 ms after typing stops, exclude dependency/build folders and directory symlinks, and return bounded results.
+- **Inline Git review:** use the Git branch icon in the sidebar to review all uncommitted changes, or switch between **File** and **Git diff** in the preview toolbar. Review unified or side-by-side diffs, browse changed files, and see addition/deletion counts. The combined changes view loads diffs near the viewport with bounded concurrency. Side-by-side panes synchronize horizontal and vertical scrolling. Git controls appear only for supported Git repositories; modified filenames also receive a colored **M** badge when the workspace has a GitHub remote configured.
 - **File recovery:** expand **Recovery** in the diff view to inspect checkpoint coverage, preview a revert, and confirm restoration of a covered file. Availability depends on a covering recovery checkpoint; a Git diff alone does not provide recovery coverage.
 
 ![Workspace file explorer with a syntax-highlighted preview beside chat](docs/images/workspace-explorer.png)

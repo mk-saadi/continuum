@@ -354,7 +354,7 @@ function makeComponents(isStreaming, sessionId = null) {
 			return (
 				<code
 					{...props}
-					className={`${className || ""} ui-radius-control bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[var(--text-primary)]`}
+					className={`${className || ""} ui-radius-control bg-[var(--inline-code-bg)] px-1 py-0.5 font-mono text-xs text-[color:var(--inline-code-text,var(--text-primary))]`}
 				>
 					{withColorSwatches(children)}
 				</code>

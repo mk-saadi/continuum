@@ -1,0 +1,55 @@
+.file-code-surface {
+ position: relative;
+ flex: 1;
+ min-height: 0;
+ min-width: 0;
+ width: 100%;
+ overflow: auto;
+ background: var(--code-bg);
+ color: var(--code-text);
+ font-family: var(--font-mono);
+ font-size: 12px;
+ line-height: 18px;
+ tab-size: 4;
+ user-select: text;
+}
+.file-code-surface.is-editing { overflow: hidden; }
+.file-code-paint { min-height: 100%; }
+.is-editing > .file-code-paint { position: absolute; top: 0; left: 0; pointer-events: none; }
+.file-code-input {
+ position: absolute;
+ inset: 0;
+ width: 100%;
+ height: 100%;
+ margin: 0;
+ border: 0;
+ border-radius: 0;
+ padding: 16px 16px 16px 64px;
+ resize: none;
+ outline: none;
+ background: transparent;
+ color: transparent;
+ -webkit-text-fill-color: transparent;
+ caret-color: var(--code-text);
+ font: inherit;
+ letter-spacing: normal;
+ tab-size: 4;
+ overflow: auto;
+ white-space: pre;
+}
+.is-wrapped > .file-code-input { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Match Preview's native selection. Opaque fill covers the syntax layer,
+   and selected glyphs must override the input's transparent text fill. */
+.file-code-input::selection {
+ background-color: var(--accent);
+ color: var(--on-accent);
+ -webkit-text-fill-color: var(--on-accent);
+ text-shadow: none;
+}
+@media (forced-colors: active) {
+ .file-code-input::selection {
+  background-color: Highlight;
+  color: HighlightText;
+  -webkit-text-fill-color: HighlightText;
+ }
+}

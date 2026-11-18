@@ -1,15 +1,16 @@
+import WorkspaceFileEditor from "./WorkspaceFileEditor.jsx";
 import Tooltip from "./Tooltip.jsx";
 import WorkspaceChanges, { WORKSPACE_CHANGES } from "./WorkspaceChanges.jsx";
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { PrismAsync as SyntaxHighlighter } from "react-syntax-highlighter";
 import DiffReviewModal from "./chat/DiffReviewModal.jsx";
-import { syntaxTheme } from "../lib/syntaxTheme.mjs";
 import {
 	FiChevronDown,
 	FiChevronRight,
 	FiFile,
 	FiFolder,
 	FiRefreshCw,
+	FiSearch,
+	FiGitBranch,
 	FiX,
 	FiCornerDownLeft,
 } from "react-icons/fi";
@@ -175,6 +176,104 @@ function Directory({ projectId, path = ".", depth = 0, selectedPath, onSelect, r
 	);
 }
 
+function FileSearch({ projectId, selectedPath, onSelect, refresh, onClose, active, onQueryActive }) {
+	const [query, setQuery] = useState("");
+	const [result, setResult] = useState(null);
+	const needle = query.trim();
+	const requestKey = JSON.stringify([projectId, needle, refresh]);
+	const state = result?.key === requestKey ? result : { loading: true };
+	useEffect(() => {
+		if (!needle || !active) return;
+		let cancelled = false;
+		const timer = setTimeout(async () => {
+			try {
+				const data = await window.api.searchWorkspaceFiles(projectId, needle);
+				if (!cancelled) setResult({ key: requestKey, ...data });
+			} catch (error) {
+				if (!cancelled) setResult({ key: requestKey, error: error.message });
+			}
+		}, 500);
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [projectId, needle, refresh, active]);
+	return (
+		<>
+			<div className="border-b border-[var(--border)] px-3 py-2">
+				<input
+					autoFocus
+					type="search"
+					aria-label="Search workspace files"
+					placeholder="Search files by name or path…"
+					maxLength={256}
+					value={query}
+					onChange={(event) => {
+						setQuery(event.target.value);
+						onQueryActive(!!event.target.value.trim());
+					}}
+					onKeyDown={(event) => {
+						if (event.key === "Escape") {
+							event.preventDefault();
+							onClose();
+						}
+					}}
+					className="w-full ui-radius-control border border-[var(--control-border)] bg-[var(--input)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+				/>
+			</div>
+			{needle && (
+				<div
+					className="min-h-0 flex-1 overflow-auto py-1"
+					aria-label="File search results"
+				>
+					{state.loading || state.error ? (
+						<p
+							role={state.error ? "alert" : "status"}
+							className="px-3 py-2 text-xs text-[var(--text-muted)]"
+						>
+							{state.error || "Searching files…"}
+						</p>
+					) : (
+						<>
+							{state.items.map((item) => (
+								<button
+									key={item.path}
+									type="button"
+									aria-label={item.path}
+									aria-current={selectedPath === item.path ? "true" : undefined}
+									onClick={() => onSelect(item.path)}
+									className={`flex w-full items-start gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--surface-hover)] ${selectedPath === item.path ? "bg-[var(--surface-hover)] text-[var(--accent)]" : ""}`}
+								>
+									<FiFile className="mt-0.5 shrink-0" />
+									<span className="min-w-0">
+										<span className="block truncate">{item.name}</span>
+										<span className="block break-all text-[10px] text-[var(--text-muted)]">
+											{item.path}
+										</span>
+									</span>
+								</button>
+							))}
+							<p
+								role="status"
+								className="px-3 py-2 text-xs text-[var(--text-muted)]"
+							>
+								{state.truncated
+									? "Search limit reached. Refine your search."
+									: state.items.length
+										? `${state.items.length} files found`
+										: "No matching files."}
+							</p>
+							<p className="px-3 pb-2 text-[10px] text-[var(--text-muted)]">
+								Dependencies and build folders are excluded.
+							</p>
+						</>
+					)}
+				</div>
+			)}
+		</>
+	);
+}
+
 export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 	projectId,
 	projectName,
@@ -183,14 +282,25 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 	active = true,
 }) {
 	const [refresh, setRefresh] = useState(0);
+	const [searchOpen, setSearchOpen] = useState(false);
+	const [searching, setSearching] = useState(false);
+	const searchToggle = useRef(null);
 	const [modified, setModified] = useState(new Set());
-    const [hasRepository, setHasRepository] = useState(false);
-    useEffect(() => {
-      let cancelled = false;
-      setHasRepository(false);
-      window.api.getWorkspaceRepository(projectId).then(result => { if (!cancelled) setHasRepository(result.available); }, () => {});
-      return () => { cancelled = true; };
-    }, [projectId, refresh]);
+	const [hasRepository, setHasRepository] = useState(false);
+	useEffect(() => setSearching(false), [projectId]);
+	useEffect(() => {
+		let cancelled = false;
+		setHasRepository(false);
+		window.api.getWorkspaceRepository(projectId).then(
+			(result) => {
+				if (!cancelled) setHasRepository(result.available);
+			},
+			() => {},
+		);
+		return () => {
+			cancelled = true;
+		};
+	}, [projectId, refresh]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -236,14 +346,21 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 			className="flex h-full min-h-0 flex-col"
 			aria-label="File explorer"
 		>
-			<div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-3 text-xs font-medium">
+			<div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2 text-xs font-medium">
 				<FiFolder className="shrink-0" />
 				<span className="min-w-0 flex-1 truncate">{projectName || "Workspace"}</span>
-                {hasRepository && <Tooltip content="Review all uncommitted changes">
-                  <button type="button" onClick={() => onSelect(WORKSPACE_CHANGES)}
-                  className="material-control sk-button material-fill sk-fill ui-radius-control px-2 py-1 cursor-pointer"
-                  aria-label="Review all uncommitted changes">Changes</button>
-                </Tooltip>}
+				{hasRepository && (
+					<Tooltip content="Review all uncommitted changes">
+						<button
+							type="button"
+							onClick={() => onSelect(WORKSPACE_CHANGES)}
+							className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+							aria-label="Review all uncommitted changes"
+						>
+							<FiGitBranch aria-hidden="true" />
+						</button>
+					</Tooltip>
+				)}
 				<Tooltip content="Refresh files">
 					<button
 						type="button"
@@ -254,8 +371,44 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 						<FiRefreshCw />
 					</button>
 				</Tooltip>
+				<Tooltip content="Search files">
+					<button
+						ref={searchToggle}
+						type="button"
+						aria-label="Toggle file search"
+						aria-expanded={searchOpen}
+						aria-pressed={searchOpen}
+						onClick={() => {
+							setSearchOpen((value) => !value);
+							setSearching(false);
+						}}
+						className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
+					>
+						<FiSearch />
+					</button>
+				</Tooltip>
 			</div>
-			<div className="min-h-0 flex-1 overflow-auto py-1">
+			{searchOpen && (
+				<FileSearch
+					key={projectId}
+					projectId={projectId}
+					selectedPath={selectedPath}
+					onSelect={onSelect}
+					refresh={refresh}
+					active={active}
+					onQueryActive={setSearching}
+					onClose={() => {
+						setSearchOpen(false);
+						setSearching(false);
+						searchToggle.current?.focus();
+					}}
+				/>
+			)}
+
+			<div
+				className="min-h-0 flex-1 overflow-auto py-1"
+				style={searchOpen && searching ? { display: "none" } : undefined}
+			>
 				<Directory
 					key={projectId}
 					{...{ projectId, selectedPath, onSelect, refresh, modified }}
@@ -265,105 +418,54 @@ export const WorkspaceFiles = React.memo(function WorkspaceFiles({
 	);
 });
 
-const HighlightedFile = React.memo(function HighlightedFile({ content, language, wrap }) {
-	const large = content.length > 64 * 1024 || content.split("\n").length > 2000;
-
-	if (large)
-		return (
-			<>
-				<p
-					role="status"
-					className="px-4 py-2 text-xs text-[var(--code-muted)]"
-				>
-					Large file: showing plain text to keep the preview responsive.
-				</p>
-				<pre
-					className="m-0 w-max min-w-full p-4 text-xs leading-[1.6]"
-					style={{
-						userSelect: "text",
-						width: wrap ? "100%" : "max-content",
-						whiteSpace: wrap ? "pre-wrap" : "pre",
-						overflowWrap: wrap ? "anywhere" : "normal",
-					}}
-				>
-					<code>{content}</code>
-				</pre>
-			</>
-		);
-
-	return (
-		<>
-			{content ? (
-				<SyntaxHighlighter
-					language={language}
-					style={syntaxTheme}
-					showLineNumbers
-					wrapLongLines={wrap}
-					lineProps={
-						wrap
-							? {
-									"data-source-line": "",
-									style: {
-										display: "block",
-										position: "relative",
-										paddingLeft: "4em",
-										whiteSpace: "pre-wrap",
-										overflowWrap: "anywhere",
-									},
-								}
-							: undefined
-					}
-					customStyle={{
-						margin: 0,
-						padding: "16px",
-						background: "transparent",
-						minHeight: "100%",
-						minWidth: "100%",
-						width: wrap ? "100%" : "max-content",
-						overflowWrap: wrap ? "anywhere" : "normal",
-						fontSize: "12px",
-						lineHeight: 1.5,
-						fontFamily: "var(--font-mono)",
-						userSelect: "text",
-						WebkitUserSelect: "text",
-					}}
-					codeTagProps={{
-						style: { fontFamily: "inherit", userSelect: "text", WebkitUserSelect: "text" },
-					}}
-					lineNumberStyle={{
-						color: "var(--code-muted)",
-						paddingRight: "16px",
-						userSelect: "none",
-						...(wrap ? { position: "absolute", left: 0, top: 0, width: "4em" } : {}),
-					}}
-				>
-					{content}
-				</SyntaxHighlighter>
-			) : (
-				<p className="p-4 text-xs text-[var(--code-muted)]">Empty file</p>
-			)}
-		</>
-	);
-});
-
 function UnsupportedFile({ projectId, path }) {
- const [error, setError] = useState('');
- return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-[var(--text-muted)]">
-  <p>File format not supported</p>
-  <button type="button" className="material-control sk-button material-fill sk-fill ui-radius-control px-4 py-2 cursor-pointer"
-   onClick={() => window.api.revealWorkspaceFile(projectId, path).catch(error => setError(error.message))}>Show in file manager</button>
-  {error && <p role="alert">{error}</p>}
- </div>;
+	const [error, setError] = useState("");
+	return (
+		<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-[var(--text-muted)]">
+			<p>File format not supported</p>
+			<button
+				type="button"
+				className="material-control sk-button material-fill sk-fill ui-radius-control px-4 py-2 cursor-pointer"
+				onClick={() =>
+					window.api.revealWorkspaceFile(projectId, path).catch((error) => setError(error.message))
+				}
+			>
+				Show in file manager
+			</button>
+			{error && <p role="alert">{error}</p>}
+		</div>
+	);
 }
 
 function MediaPreview({ state, projectId, path }) {
- const [failed, setFailed] = useState(false);
- if (failed) return <UnsupportedFile projectId={projectId} path={path} />;
- return <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-4">
-  {state.kind === 'image'
-   ? <img src={state.src} alt={path} onError={() => setFailed(true)} className="max-h-full max-w-full object-contain" />
-   : <video src={state.src} controls preload="metadata" onError={() => setFailed(true)} className="max-h-full max-w-full" />}
- </div>;
+	const [failed, setFailed] = useState(false);
+	if (failed)
+		return (
+			<UnsupportedFile
+				projectId={projectId}
+				path={path}
+			/>
+		);
+	return (
+		<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-4">
+			{state.kind === "image" ? (
+				<img
+					src={state.src}
+					alt={path}
+					onError={() => setFailed(true)}
+					className="max-h-full max-w-full object-contain"
+				/>
+			) : (
+				<video
+					src={state.src}
+					controls
+					preload="metadata"
+					onError={() => setFailed(true)}
+					className="max-h-full max-w-full"
+				/>
+			)}
+		</div>
+	);
 }
 
 export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
@@ -372,12 +474,18 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 	running = false,
 	path,
 	onClose,
-    onSelectFile,
+	onSelectFile,
+	onAddToChat,
 }) {
-	const [state, setState] = useState({ loading: true });
+	const drafts = useRef({});
 	const [refresh, setRefresh] = useState(0);
+	const requestKey = JSON.stringify([projectId, path, refresh]);
+	const [loadedFile, setLoadedFile] = useState(null);
+	// Props change before effects run. Never mount an editor for the new path
+	// with the previous file's content, which would cache a draft under that path.
+	const state = loadedFile?.key === requestKey ? loadedFile.result : { loading: true };
 	const [showDiff, setShowDiff] = useState(false);
-    const allChanges = path === WORKSPACE_CHANGES;
+	const allChanges = path === WORKSPACE_CHANGES;
 	const [wrap, setWrap] = useState(false);
 	const [repository, setRepository] = useState(null);
 
@@ -411,15 +519,19 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 
 	useEffect(() => {
 		let cancelled = false;
-		setState({ loading: true });
+		setLoadedFile({ key: requestKey, result: { loading: true } });
 		Promise.resolve()
-			.then(() => path === WORKSPACE_CHANGES ? { loading: true } : window.api.readWorkspaceFile(projectId, path))
+			.then(() =>
+				path === WORKSPACE_CHANGES
+					? { loading: true }
+					: window.api.readWorkspaceFile(projectId, path),
+			)
 			.then(
 				(result) => {
-					if (!cancelled) setState(result);
+					if (!cancelled) setLoadedFile({ key: requestKey, result });
 				},
 				(error) => {
-					if (!cancelled) setState({ error: error.message });
+					if (!cancelled) setLoadedFile({ key: requestKey, result: { error: error.message } });
 				},
 			);
 		return () => {
@@ -447,12 +559,10 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 			aria-label="File preview"
 			className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--surface)] text-[var(--text-primary)]"
 		>
-			<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 py-3 text-xs">
+			<header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 py-2.5 text-xs">
 				<FiFile className="shrink-0" />
 				<Tooltip content={path === WORKSPACE_CHANGES ? "Uncommitted changes" : path}>
-					<span
-						className="min-w-0 flex-1 truncate"
-					>
+					<span className="min-w-0 flex-1 truncate">
 						{allChanges ? "Uncommitted changes" : path}
 					</span>
 				</Tooltip>
@@ -463,7 +573,8 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 						className="flex shrink-0 items-center gap-1"
 					>
 						{[
-							["File", false], ["Git diff", true],
+							["File", false],
+							["Git diff", true],
 						].map(([label, active]) => (
 							<button
 								key={label}
@@ -480,7 +591,11 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 				<Tooltip content={wrap ? "Disable line wrap" : "Enable line wrap"}>
 					<button
 						type="button"
-						disabled={!allChanges && !showDiff && (state.kind || state.binary || state.loading || !!state.error)}
+						disabled={
+							!allChanges &&
+							!showDiff &&
+							(state.kind || state.binary || state.loading || !!state.error)
+						}
 						aria-label="Toggle line wrap"
 						aria-pressed={wrap}
 						onClick={() => setWrap((value) => !value)}
@@ -492,7 +607,16 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 				<button
 					type="button"
 					aria-label="Refresh preview"
-					onClick={() => setRefresh((value) => value + 1)}
+					onClick={() => {
+						const key = JSON.stringify([projectId, path]);
+						if (
+							drafts.current[key]?.dirty &&
+							!window.confirm("Discard unsaved edits and reload this file?")
+						)
+							return;
+						delete drafts.current[key];
+						setRefresh((value) => value + 1);
+					}}
 					className="material-control sk-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center ui-radius-control"
 				>
 					<FiRefreshCw />
@@ -500,21 +624,43 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 				<button
 					type="button"
 					aria-label="Close file preview"
-					onClick={onClose}
+					onClick={() => {
+						if (
+							Object.values(drafts.current).some((draft) => draft.dirty) &&
+							!window.confirm("Discard unsaved file edits?")
+						)
+							return;
+						onClose();
+					}}
 					className="material-orb sk-icon-button material-fill sk-fill flex size-7 shrink-0 cursor-pointer items-center justify-center"
 				>
 					<FiX />
 				</button>
 			</header>
 			{allChanges && gitAvailable ? (
-                <WorkspaceChanges key={`${sessionId}:${refresh}`} sessionId={sessionId} refresh={refresh} wrap={wrap} onOpenFile={onSelectFile || (() => {})} />
-            ) : showDiff && gitAvailable ? (
+				<WorkspaceChanges
+					key={`${sessionId}:${refresh}`}
+					sessionId={sessionId}
+					refresh={refresh}
+					wrap={wrap}
+					onOpenFile={onSelectFile || (() => {})}
+				/>
+			) : showDiff && gitAvailable ? (
 				<div className="min-h-0 flex-1">{diffPreview}</div>
 			) : state.kind ? (
-                <MediaPreview key={`${projectId}:${path}:${refresh}`} state={state} projectId={projectId} path={path} />
-            ) : state.binary ? (
-                <UnsupportedFile key={`${projectId}:${path}`} projectId={projectId} path={path} />
-            ) : state.loading || state.error ? (
+				<MediaPreview
+					key={`${projectId}:${path}:${refresh}`}
+					state={state}
+					projectId={projectId}
+					path={path}
+				/>
+			) : state.binary ? (
+				<UnsupportedFile
+					key={`${projectId}:${path}`}
+					projectId={projectId}
+					path={path}
+				/>
+			) : state.loading || state.error ? (
 				<p
 					role={state.error ? "alert" : "status"}
 					className="p-4 text-sm text-[var(--text-muted)]"
@@ -532,16 +678,17 @@ export const WorkspaceFilePreview = React.memo(function WorkspaceFilePreview({
 							Showing the first 512 KB.
 						</p>
 					)}
-					<div
-						className="min-h-0 flex-1 overflow-auto bg-[var(--code-bg)] text-[var(--code-text)]"
-						style={{ userSelect: "text", WebkitUserSelect: "text", WebkitAppRegion: "no-drag" }}
-					>
-						<HighlightedFile
-							wrap={wrap}
-							content={state.content || ""}
-							language={fileLanguage(path)}
-						/>
-					</div>
+					<WorkspaceFileEditor
+						key={`${projectId}:${path}:${refresh}`}
+						projectId={projectId}
+						path={path}
+						content={state.content || ""}
+						truncated={state.truncated}
+						wrap={wrap}
+						drafts={drafts}
+						language={fileLanguage(path)}
+						onAddToChat={onAddToChat}
+					/>
 				</>
 			)}
 		</section>

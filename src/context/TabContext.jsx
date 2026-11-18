@@ -6,6 +6,7 @@ import {
   cycleActiveTabState,
   dropOrphanTabs,
   moveTabState,
+  navigateSessionTabState,
   parseTabState,
   serializeTabState,
   updateTabState,
@@ -89,15 +90,10 @@ export function TabProvider({ children }) {
     commit(current => ({ tabs: [...current.tabs, tab], activeTabId: tab.id }));
     return tab.id;
   }, [commit]);
-  const openSessionTab = useCallback((session, permissionMode) => {
+  const openSessionTab = useCallback((session, permissionMode, options = { newTab: true }) => {
     const candidate = { ...newTab(session.model_id || '', session.project_id ?? null), sessionId: session.id,
       title: session.title || 'Untitled chat', saved: true, ...(permissionMode ? { permissionMode } : {}) };
-    commit(current => {
-      const existing = current.tabs.find(tab => tab.sessionId === session.id);
-      if (existing) return { ...current, activeTabId: existing.id,
-        tabs: existing.view === 'chat' ? current.tabs : current.tabs.map(tab => tab.id === existing.id ? { ...tab, view: 'chat' } : tab) };
-      return { tabs: [...current.tabs, candidate], activeTabId: candidate.id };
-    });
+    commit(current => navigateSessionTabState(current, candidate, options));
   }, [commit]);
   const closeTab = useCallback(id => {
     const sessionId = stateRef.current.tabs.find(tab => tab.id === id)?.sessionId;

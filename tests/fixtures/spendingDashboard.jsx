@@ -181,6 +181,10 @@ window.queries = [];
 window.inferenceCalls = 0;
 const record = (method, options) => { window.queries.push({ method, options }); };
 window.api = {
+  listProjects: async () => [],
+  getTokenHistory: async () => ({ retentionMonths: 12, models: [{ modelId: 'llama-3' }, { modelId: 'gpt-5' }], data: [
+    { period: '2026-06', promptTokens: 13000, completionTokens: 850, turns: 6 }
+  ] }),
   getSpendingDashboard: async options => {
     record('getSpendingDashboard', options);
     if (options.providerId === 'error-p') throw new Error('Dashboard unavailable for this selection.');
