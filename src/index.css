@@ -140,31 +140,31 @@ pre {
 
 /* Mochi Dark: Deep Plum & Soft Rose */
 [data-theme="mochi-dark"] {
-	--bg-primary: #211b23;
-	--bg-secondary: #2b222d;
-	--bg-tertiary: #382a3a;
-	--bg-input: #29212c;
+	--bg-primary: #191416;
+	--bg-secondary: #241c20;
+	--bg-tertiary: #302329;
+	--bg-input: #21191d;
 
-	--text-primary: #f4eaf0;
-	--text-secondary: #c8b7c7;
-	--text-muted: #99899c;
+	--text-primary: #f5e9ed;
+	--text-secondary: #d5bec7;
+	--text-muted: #aa909b;
 
-	--accent: #e982a3;
-	--accent-hover: #f19ab6;
-	--accent-bright: #f5adc3;
-	--on-accent: #321a25;
+	--accent: #f29bb5;
+	--accent-hover: #f7b0c5;
+	--accent-bright: #ffc5d7;
+	--on-accent: #351d26;
 
-	--border: #493544;
-	--subtle-border: #382b39;
-	--control-border: #624657;
+	--border: #493139;
+	--subtle-border: #34252b;
+	--control-border: #674650;
 
-	--surface: #2b222d;
-	--surface-raised: #332734;
-	--surface-hover: #3d2b3a;
-	--input: #29212c;
+	--surface: #241c20;
+	--surface-raised: #302329;
+	--surface-hover: #3b2931;
+	--input: #21191d;
 
 	--shadow: rgba(9, 4, 12, 0.28);
-	--window-shadow: #09040c55;
+	--window-shadow: #0c070955;
 
 	--error: #f0788a;
 	--success: #9bcba9;
@@ -173,31 +173,31 @@ pre {
 	--error-strong: #ff9ba8;
 	--danger-hover: #d95c73;
 
-	--edit-border: #775064;
-	--edit-bg: #e982a317;
-	--attachment-border: #795064;
-	--tool-border: #a18bc477;
+	--edit-border: #805363;
+	--edit-bg: #f29bb517;
+	--attachment-border: #805363;
+	--tool-border: #f29bb577;
 
-	--active-chat: #472b3c;
-	--user-bubble: #442938;
-	--link: #f0a0ba;
+	--active-chat: #432b35;
+	--user-bubble: #3c2630;
+	--link: #f6b3ca;
 
-	--terminal: #241d27;
-	--terminal-text: #f0e5ed;
-	--scrollbar-track: #2b222d;
-	--scrollbar-thumb: #594253;
+	--terminal: #161113;
+	--terminal-text: #f5e9ed;
+	--scrollbar-track: #241c20;
+	--scrollbar-thumb: #62434f;
 
-	--inline-code-bg: #3b2a39;
-	--table-header-bg: #382936;
-	--code-bg: #261f29;
-	--code-border: #493544;
-	--code-button-hover: #453041;
+	--inline-code-bg: #38262f;
+	--table-header-bg: #302329;
+	--code-bg: #1d161a;
+	--code-border: #493139;
+	--code-button-hover: #432d36;
 
-	--code-text: #f0e7ef;
-	--code-muted: #99899c;
-	--code-comment: #a093a0;
+	--code-text: #f5e9ed;
+	--code-muted: #aa909b;
+	--code-comment: #b29aa4;
 	--code-key: #e5a17f;
-	--code-keyword: #c2a5f0;
+	--code-keyword: #e8b0c7;
 	--code-string: #9bcba9;
 	--code-literal: #f09bc6;
 	--code-function: #9dbdeb;

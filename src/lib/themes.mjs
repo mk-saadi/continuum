@@ -103,8 +103,8 @@ export const themeGroups = [
 				id: "mochi-dark",
 				mode: "dark",
 				label: "Mochi Dark",
-				description: "Deep plum · muted mauve · rose",
-				swatches: ["#211B23", "#2B222D", "#E982A3"],
+				description: "Warm cocoa · creamy pink · strawberry rose",
+				swatches: ["#191416", "#302329", "#F29BB5"],
 			},
 			{
 				id: "onyx",
